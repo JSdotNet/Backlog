@@ -223,6 +223,17 @@ reads goals, the stand-up blocks and impediments. The one change it may make is
 to an impediment's state, check-again date and note, through the device outbox.
 Copying the stand-up and attaching work to a goal are desktop only.
 
+The phone reads the stand-up with the desktop's own rule code: the counting and
+stand-up rules live in `Progress.Abstractions` (`GoalItems`, `StandUpReading`),
+and both heads call them. What only a desktop can find out — each pull
+request's state, checks and approvals, the pace, the working week and the
+iteration choice — a desktop writes as one `stand-up-context` document, so the
+phone never asks GitHub. A phone edit is a command, not the impediment: one
+`impediment-edit` document per change, carrying the value the phone saw. A
+desktop applies it through the impediment features only while the field still
+holds that value, so a change made on a desktop since stands, and then retires
+the edit with a tombstone.
+
 ### 9. Goals and impediments ride the task feed
 
 ```meta
@@ -233,6 +244,9 @@ kinds `goal` and `impediment` in the `tasks` container. They are reconciled
 last-write-wins per document on its `updated_at`. That is local ADR 0018's
 arrangement, as the series had, and the two kinds take the place of
 `sprint-series` ([Syncing goals and impediments](../../domain/progress/features.md#syncing-goals-and-impediments)).
+Two more kinds serve the phone (§8): the one `stand-up-context` document under
+a constant id, newest reading wins, and an `impediment-edit` document per edit.
+A desktop never takes either as a task.
 
 ### 10. The view is Goals, behind the `goals` flag
 

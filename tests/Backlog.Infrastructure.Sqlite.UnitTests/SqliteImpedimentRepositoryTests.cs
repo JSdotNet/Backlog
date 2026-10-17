@@ -59,6 +59,23 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
         Assert.Equal(expected.CreatedAt, actual.CreatedAt);
     }
 
+    /// <summary>The phone reads the document this store writes with
+    /// <c>ProgressDocuments.ReadImpediment</c> (local ADR 0035 §8), and what it reads is the
+    /// impediment the desktop holds, history and all.</summary>
+    [Fact]
+    public async Task The_stored_document_reads_on_the_phone_as_the_impediment_the_desktop_holds()
+    {
+        var impediment = Escalated(createdAt: new DateTimeOffset(2026, 10, 14, 8, 0, 0, TimeSpan.Zero));
+        await _repository.SaveAsync(impediment, Cancellation);
+
+        var stored = Assert.Single(await _repository.ReadAllAsync(Cancellation));
+        var read = Modules.Progress.Abstractions.ProgressDocuments.ReadImpediment(stored.Content, impediment.Id);
+
+        Assert.NotNull(read);
+        Assert.Equivalent(Modules.Progress.Services.ImpedimentMapper.ToDto(impediment), read.Impediment, strict: true);
+        Assert.Equal(impediment.CreatedAt, read.CreatedAt);
+    }
+
     [Fact]
     public async Task A_first_run_has_no_impediment()
     {

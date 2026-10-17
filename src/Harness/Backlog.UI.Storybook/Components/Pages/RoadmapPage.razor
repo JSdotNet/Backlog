@@ -371,6 +371,24 @@ Every action is a real button named for its plan, and the shelf is a region name
         <p class="sb-state" data-testid="shelf-last-planned">Last planned: @(_lastPlanned ?? "(none)")</p>
     </Story>
 
+    <Story Name="Plans waiting for a place, each with its goal"
+           Description="A host that sets goals cascades a `GoalControlSlot`, and each row of the shelf draws it beside Plan it, for that row's plan: a goal is the other thing a waiting plan is given, and it needs no place on the timeline first. Without a slot the rows are the ones above. Press a row's goal and the picker opens on that plan; attach it and the row reads the goal."
+           Code="@ShelfGoalCode">
+        <CascadingValue Value="ShelfGoals.Slot">
+            <RoadmapPlanShelf Plans="@ShelfPlans"
+                              HeadingId="shelf-goal-story-title"
+                              TestId="shelf-goals" />
+        </CascadingValue>
+        <GoalPicker Open="ShelfGoals.Picking"
+                    OpenChanged="value => ShelfGoals.Picking = value"
+                    Subject="ShelfGoals.Subject"
+                    Goals="@GoalFixtures.Open"
+                    CurrentGoal="ShelfGoals.Current"
+                    OnAttach="ShelfGoals.Attach"
+                    OnCreate="ShelfGoals.Create"
+                    TestId="shelf-goal-picker" />
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -414,6 +432,25 @@ Every action is a real button named for its plan, and the shelf is a region name
         _shelf = ShelfPlans;
         _lastPlanned = null;
     }
+
+    // --- Shelf rows with their goals -----------------------------------------
+
+    private GoalStoryHost? _shelfGoals;
+
+    /// <summary>The goal slot the page cascades, as a host would, over the sample goals.</summary>
+    private GoalStoryHost ShelfGoals => _shelfGoals ??= new(this, new Dictionary<GoalSubject, GoalOption>
+    {
+        [GoalSubject.ForPlan("release-q4")] = GoalFixtures.Launch
+    });
+
+    private const string ShelfGoalCode = """
+        @* The host cascades its goal control once; every shelf row draws it for its plan. *@
+        <CascadingValue Value="@goalSlot">
+            <RoadmapPlanShelf Plans="@plans" OnPlan="Plan" />
+        </CascadingValue>
+
+        goalSlot = new GoalControlSlot(subject => @<GoalAttach Subject="@subject" />);
+        """;
     private string? _lastChange;
 
     private void Select(string id) => _selectedId = id;

@@ -44,6 +44,26 @@
         </div>
     </Story>
 
+    <Story Name="Each pull request with its goal"
+           Description="A host that sets goals cascades a `GoalControlSlot`, and `WorkLinks` draws it beside each pull request whose key reads as `owner/name#number`, for that pull request, before its `Unlink`: the goal a pull request counts toward is set where the pull request is read. A key of another shape draws no control rather than a wrong one, and without a slot the cards are the ones above. Press a card's goal and the picker opens on that pull request."
+           Code="@GoalLinksCode">
+        <CascadingValue Value="WorkGoals.Slot">
+            <WorkLinks Sessions="@([IntegrationFixtures.QuietSession])"
+                       PullRequests="@([IntegrationFixtures.DraftPullRequest, IntegrationFixtures.ApprovedPullRequest])"
+                       OnOpenPullRequest="OpenPullRequest"
+                       OnUnlinkPullRequest="UnlinkPullRequest"
+                       TestId="work-links-goals" />
+        </CascadingValue>
+        <GoalPicker Open="WorkGoals.Picking"
+                    OpenChanged="value => WorkGoals.Picking = value"
+                    Subject="WorkGoals.Subject"
+                    Goals="@GoalFixtures.Open"
+                    CurrentGoal="WorkGoals.Current"
+                    OnAttach="WorkGoals.Attach"
+                    OnCreate="WorkGoals.Create"
+                    TestId="work-goal-picker" />
+    </Story>
+
     <Story Name="A section of a task's side panel"
            Description="`WorkLinksPanel` is the same columns stacked, under a `Sessions and pull requests` heading with `Open in In progress` beside it, `Unlink` beside each card, and `Link a session or pull request…` under them. With one feature off the heading and the link action name only the kind left — `Pull requests`, `Link a pull request…` — and the other column is not drawn. Each control is drawn only while the host listens for it. The button opens the host's `WorkLinkPicker`, shown here with the tasks a loose session could be linked to."
            Code="@PanelCode">
@@ -165,6 +185,24 @@
                                  IntegrationReviewState.ChangesRequested, IntegrationCheckState.Failing,
                                  "1 check failing", Additions: 156, Deletions: 22))"
                              OnOpen="OpenPullRequest" />
+        """;
+
+    // --- Pull requests with their goals --------------------------------------
+
+    private GoalStoryHost? _workGoals;
+
+    /// <summary>The goal slot the page cascades, as a host would, over the sample goals.</summary>
+    private GoalStoryHost WorkGoals => _workGoals ??= new(this, new Dictionary<GoalSubject, GoalOption>
+    {
+        [GoalSubject.ForPullRequest("JSdotNet/Backlog", 1019)] = GoalFixtures.Launch
+    });
+
+    private const string GoalLinksCode = """
+        @* The host cascades its goal control once; each pull request card draws it. *@
+        <CascadingValue Value="@goalSlot">
+            <WorkLinks Sessions="@task.Sessions" PullRequests="@task.PullRequests"
+                       OnUnlinkPullRequest="UnlinkAsync" />
+        </CascadingValue>
         """;
 
     private const string LinksCode = """

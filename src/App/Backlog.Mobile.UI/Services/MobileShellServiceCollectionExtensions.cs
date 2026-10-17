@@ -1,6 +1,7 @@
 using Backlog.Mobile.UI.AppUpdate;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Outbox;
+using Backlog.Mobile.UI.Progress;
 using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Mobile.UI.Tasks;
 using Backlog.UI.Components.AppUpdate;
@@ -90,6 +91,14 @@ public static class MobileShellServiceCollectionExtensions
         services.AddSingleton<INoteViewStore>(_ => new SqliteNoteViewStore(databasePath));
         services.AddSingleton<NoteViewProjection>();
         services.AddSingleton<IOutboxKind, NoteOutboxKind>();
+
+        // Goals, impediments and the stand-up (local ADR 0035 §8): their own view and
+        // cursor over the task feed, the stand-up read from it with the desktop's rules, and
+        // the impediment edits the phone queues for a desktop to apply.
+        services.AddSingleton<IProgressViewStore>(_ => new SqliteProgressViewStore(databasePath));
+        services.AddSingleton<ProgressViewProjection>();
+        services.AddSingleton<PhoneStandUp>();
+        services.AddSingleton<IOutboxKind, ImpedimentEditOutboxKind>();
 
         return services;
     }

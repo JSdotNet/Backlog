@@ -154,6 +154,18 @@ public static class ProgressModuleRegistration
             sp.GetRequiredService<ImpedimentSaved>(),
             sp.GetRequiredService<ProgressGate>()));
 
+        // What the phone reads the stand-up with and writes impediments through (local
+        // ADR 0035 §8): the stand-up context document, and the impediment edits it queues.
+        services.TryAddSingleton<IStandUpContextSource>(sp => new StandUpContextSource(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            sp.GetRequiredService<IGoalRepository>(),
+            sp.GetRequiredService<IIterationSettings>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetService<IAppFeatureSettings>(),
+            sp.GetService<IWorkingHoursSettings>()));
+        services.TryAddSingleton<IImpedimentEditIntake>(sp => new ImpedimentEditIntake(
+            sp.GetRequiredService<IServiceScopeFactory>()));
+
         return services;
     }
 }

@@ -69,6 +69,37 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>The goal control the host cascades sits in the picked pull request's
+    /// head line, for that pull request: the rows are whole toggles, and a button cannot
+    /// sit inside one. With no slot cascaded the head line is what it was.</summary>
+    [Fact]
+    public void The_detail_head_line_draws_the_goal_for_the_picked_pull_request()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, updated: Noon.AddHours(-2)))
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2, updated: Noon.AddHours(-1)));
+        using var context = Context(client);
+        var drawn = new List<Backlog.UI.Components.Goals.GoalSubject>();
+        var slot = new Backlog.UI.Components.Goals.GoalControlSlot(subject => builder =>
+        {
+            drawn.Add(subject);
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "data-testid", "goal-slot");
+            builder.CloseElement();
+        });
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters.AddCascadingValue(slot));
+
+        pane.WaitForAssertion(() => Assert.NotNull(Detail(pane).QuerySelector(".pull-request-detail__line [data-testid='goal-slot']")));
+        Assert.Equal([Backlog.UI.Components.Goals.GoalSubject.ForPullRequest("JSdotNet/Archify", 2)], drawn.Distinct());
+        Assert.Empty(pane.FindAll("[data-testid='pull-request-row'] [data-testid='goal-slot']"));
+
+        using var bare = Context(new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1)));
+        var unslotted = bare.Render<PullRequestsPane>();
+        unslotted.WaitForAssertion(() => Detail(unslotted));
+        Assert.Empty(unslotted.FindAll("[data-testid='goal-slot']"));
+    }
+
     /// <summary>Mine on every open, because the list a person opens this for is their
     /// own; Everyone's widens it, and the badge names both numbers while it does
     /// not.</summary>

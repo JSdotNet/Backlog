@@ -154,7 +154,10 @@ public sealed class TaskReplicaMerge(
     ISprintSeriesReplication? sprints = null,
     IMyDayPreferencesReplication? myDay = null,
     IGoalReplication? goals = null,
-    IImpedimentReplication? impediments = null)
+    IImpedimentReplication? impediments = null,
+    IImpedimentEditIntake? impedimentEdits = null,
+    ImpedimentEditRetirements? retirements = null,
+    TimeProvider? time = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -198,6 +201,17 @@ public sealed class TaskReplicaMerge(
 
     /// <summary>Where an impediment goes, or null on a head without Progress.</summary>
     private readonly IImpedimentReplication? _impediments = impediments;
+
+    /// <summary>Where an impediment edit the phone asked for is applied, or null on a head
+    /// without Progress, which leaves the edit on the replica for one that has it.</summary>
+    private readonly IImpedimentEditIntake? _impedimentEdits = impedimentEdits;
+
+    /// <summary>Where the tombstone of an edit Progress answered waits for the push, or null
+    /// on a head that sends none — the edit then stays on the replica, and the next desktop
+    /// refuses it as stale.</summary>
+    private readonly ImpedimentEditRetirements? _retirements = retirements;
+
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <summary>The signal the host's repository raises on every write, held
     /// here only to be silenced. A document arriving from the replica is not a
@@ -654,6 +668,15 @@ public sealed class TaskReplicaMerge(
             return await ApplyImpedimentAsync(record, moved, cancellationToken).ConfigureAwait(false);
         }
 
+        // Written for the phone, which reads it; a desktop takes nothing from it, and it is
+        // never a task (local ADR 0035 §8).
+        if (StandUpContextReplicaDocuments.Is(record.Change)) return ApplyOutcome.Held;
+
+        if (ImpedimentEditReplicaDocuments.Is(record.Change))
+        {
+            return await ApplyImpedimentEditAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
         var local = await _tasks
             .GetIncludingDeletedAsync(record.Change.Id, cancellationToken)
             .ConfigureAwait(false);
@@ -967,6 +990,91 @@ public sealed class TaskReplicaMerge(
             default:
                 return ApplyOutcome.Held;
         }
+    }
+
+    /// <summary>
+    /// Offers again every impediment edit a pull deferred because this desktop did not hold
+    /// its impediment yet — the session calls it once a pull has finished, when the
+    /// impediment may have arrived. One still unknown is deferred again, for the life of the
+    /// process; one Progress answers is retired as any other.
+    /// </summary>
+    public async Task<int> RetryDeferredEditsAsync(CancellationToken cancellationToken = default)
+    {
+        if (_retirements?.TakeDeferred() is not { Count: > 0 } deferred) return 0;
+
+        var applied = 0;
+        var moved = new List<SyncActivityEntry>();
+
+        try
+        {
+            foreach (var change in deferred)
+            {
+                var record = new TaskChangeRecord(change, Guid.Empty, 0);
+                if (await ApplyImpedimentEditAsync(record, moved, cancellationToken).ConfigureAwait(false) == ApplyOutcome.Written) applied++;
+            }
+        }
+        finally
+        {
+            _activity?.RecordRange(moved);
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// Hands an impediment edit the phone asked for to Progress, which applies it through its
+    /// impediment features, and queues the edit's tombstone once Progress has answered it —
+    /// applied, already so, stale or refused alike, since none of those answers changes on a
+    /// second asking (local ADR 0035 §8). A retired edit, or one on a head without Progress, is
+    /// left alone: another desktop may still apply it.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyImpedimentEditAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        if (record.Change.DeletedAt is not null || _impedimentEdits is null) return ApplyOutcome.Held;
+
+        if (ImpedimentEditReplicaDocuments.ToEdit(record.Change) is not { } edit)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this build cannot read the edit. "
+                + "It is left on the replica.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _impedimentEdits.ApplyAsync(edit, cancellationToken).ConfigureAwait(false);
+
+        // An impediment this desktop has not got yet may arrive later in the same pull: the
+        // edit is kept and offered again once the pull is done (RetryDeferredEditsAsync).
+        if (outcome == ImpedimentEditOutcome.Unknown)
+        {
+            _log.LogInformation(
+                "Deferring impediment edit {DocumentId}: this desktop holds no impediment {ImpedimentId} yet.",
+                record.Change.Id,
+                edit.ImpedimentId);
+
+            _retirements?.Defer(record.Change);
+            return ApplyOutcome.Held;
+        }
+
+        _retirements?.Add(ImpedimentEditReplicaDocuments.Retire(record.Change, _time.GetUtcNow()));
+
+        if (outcome != ImpedimentEditOutcome.Applied)
+        {
+            _log.LogInformation(
+                "Impediment edit {DocumentId} from the phone was not applied ({Outcome}).",
+                record.Change.Id,
+                outcome);
+
+            return ApplyOutcome.Held;
+        }
+
+        Moved(moved, SyncDirection.Received, SyncItemKind.Impediment, edit.ImpedimentId.ToString("D"), record.Change.Task.Title, "edited on the phone");
+        return ApplyOutcome.Written;
     }
 
     /// <summary>

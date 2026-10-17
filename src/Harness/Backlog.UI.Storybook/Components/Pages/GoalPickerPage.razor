@@ -1,0 +1,152 @@
+@page "/goals"
+
+<PageTitle>Goals — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Goals"
+           Summary="GoalControl and GoalPicker: the Goal line a task, a plan or a pull request carries, and the dialog behind it that attaches the work to one open goal — or to a new one — and says before it happens when attaching moves the work out of the goal that holds it. A host cascades a GoalControlSlot to draw the control wherever work is shown; every value here is handed in and every act a callback."
+           Guidelines="@Rules">
+
+    <Story Name="Goal control"
+           Description="A small Goal label and one quiet button. It reads the goal's title while the work counts toward one, and Attach to goal while it counts toward none. Both are the same act — choose the goal — so both are the same button, and pressing either asks the host to open the picker."
+           Code="@ControlCode">
+        <div class="sb-row" data-testid="goal-control-states">
+            <GoalControl GoalTitle="@GoalFixtures.Launch.Title" OnOpen="() => _said = GoalFixtures.Launch.Title" TestId="goal-control-attached" />
+            <GoalControl OnOpen="@(() => _said = "Attach to goal")" TestId="goal-control-none" />
+        </div>
+        <p class="sb-state" data-testid="goal-control-said">Pressed: @(_said ?? "(nothing yet)")</p>
+    </Story>
+
+    <Story Name="Empty"
+           Description="With no open goal the picker says so and still offers New goal…, so the first goal can be set from the work that needs it."
+           Code="@EmptyCode">
+        <AppButton Variant="ButtonVariant.Secondary" TestId="goal-picker-open-empty" OnClick="() => _empty = true">Attach to goal…</AppButton>
+        <GoalPicker Open="_empty"
+                    OpenChanged="value => _empty = value"
+                    Subject="@TaskSubject"
+                    Goals="@([])"
+                    OnCreate="Created"
+                    TestId="goal-picker-empty-story" />
+    </Story>
+
+    <Story Name="Searching"
+           Description="Each goal reads its title and how far it has come — done of total, and the day it is due. The search narrows the open goals by title, whatever the case, and says so when it matches none. Each opening starts unfiltered; this one opens on a search already typed."
+           Code="@SearchCode">
+        <AppButton Variant="ButtonVariant.Secondary" TestId="goal-picker-open-search" OnClick="() => _searching = true">Attach to goal…</AppButton>
+        <GoalPicker Open="_searching"
+                    OpenChanged="value => _searching = value"
+                    Subject="@TaskSubject"
+                    Goals="@GoalFixtures.Open"
+                    InitialSearch="beta"
+                    OnAttach="Attached"
+                    OnCreate="Created"
+                    TestId="goal-picker-search-story" />
+        <p class="sb-state" data-testid="goal-picker-said">Last: @(_attached ?? "(nothing yet)")</p>
+    </Story>
+
+    <Story Name="Item already attached"
+           Description="The goal that holds the work is marked Attached, and Attach stays off while it is the one chosen. Choose another and the picker says before anything happens that attaching moves the work out of the goal that holds it — a piece of work counts toward one goal, never two."
+           Code="@MoveCode">
+        <AppButton Variant="ButtonVariant.Secondary" TestId="goal-picker-open-move" OnClick="() => _moving = true">Change goal…</AppButton>
+        <GoalPicker Open="_moving"
+                    OpenChanged="value => _moving = value"
+                    Subject="@PlanSubject"
+                    Goals="@GoalFixtures.Open"
+                    CurrentGoal="@GoalFixtures.Launch"
+                    InitialSelection="@GoalFixtures.Beta.Id"
+                    OnAttach="Attached"
+                    OnCreate="Created"
+                    TestId="goal-picker-move-story" />
+    </Story>
+
+    <Story Name="New goal…"
+           Description="New goal… swaps the list for a title and a due date; Attach waits until both are filled, and hands them back for the host to set the goal and attach the work to it. A refusal stays in the dialog in the module's words — here, a title the module already has."
+           Code="@NewCode">
+        <AppButton Variant="ButtonVariant.Secondary" TestId="goal-picker-open-new" OnClick="() => _creating = true">Attach to goal…</AppButton>
+        <GoalPicker Open="_creating"
+                    OpenChanged="value => _creating = value"
+                    Subject="@PullRequestSubject"
+                    Goals="@GoalFixtures.Open"
+                    Error="@_refusal"
+                    OnAttach="Attached"
+                    OnCreate="CreateOrRefuse"
+                    TestId="goal-picker-new-story" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#focus-and-selection", "How a choice is made and shown before it is confirmed."),
+        new("interaction-guidelines.md#empty-states", "What the picker says when there is no goal, or the search finds none."),
+        new("interaction-guidelines.md#error-states", "Where a refused attach says so: in the dialog, in the module's words."),
+        new("interaction-guidelines.md#busy-actions", "What Attach shows while the attach is written.")
+    ];
+
+    private static readonly GoalSubject TaskSubject = GoalSubject.ForTask(Guid.Parse("5f3c2a1b-9d8e-4f70-a6b5-c4d3e2f1a0b9"));
+
+    private static readonly GoalSubject PlanSubject = GoalSubject.ForPlan("release-q4");
+
+    private static readonly GoalSubject PullRequestSubject = GoalSubject.ForPullRequest("JSdotNet/Backlog", 655);
+
+    private string? _said;
+    private bool _empty;
+    private bool _searching;
+    private bool _moving;
+    private bool _creating;
+    private string? _attached;
+    private string? _refusal;
+
+    private void Attached(Guid id)
+    {
+        _attached = GoalFixtures.Open.FirstOrDefault(goal => goal.Id == id)?.Title;
+        _searching = _moving = _creating = false;
+    }
+
+    private void Created(GoalDraft draft)
+    {
+        _attached = $"New goal {draft.Title}, due {draft.DueDate:d MMM}";
+        _empty = _searching = _moving = false;
+    }
+
+    private void CreateOrRefuse(GoalDraft draft)
+    {
+        if (GoalFixtures.Open.Any(goal => string.Equals(goal.Title, draft.Title, StringComparison.OrdinalIgnoreCase)))
+        {
+            _refusal = $"There is a goal called {draft.Title} already.";
+            return;
+        }
+
+        _refusal = null;
+        _creating = false;
+        Created(draft);
+    }
+
+    private const string ControlCode = """
+        <GoalControl GoalTitle="@goal?.Title" Busy="@writing" OnOpen="() => picking = true" />
+        """;
+
+    private const string EmptyCode = """
+        <GoalPicker Open="@picking" OpenChanged="v => picking = v" Subject="@GoalSubject.ForTask(task.Id)"
+                    Goals="@([])" OnCreate="CreateAndAttachAsync" />
+        """;
+
+    private const string SearchCode = """
+        <GoalPicker Open="@picking" OpenChanged="v => picking = v" Subject="@subject"
+                    Goals="@openGoals" CurrentGoal="@current" Busy="@writing" Error="@error"
+                    OnAttach="AttachAsync" OnCreate="CreateAndAttachAsync" />
+
+        new GoalOption(goal.Id, goal.Title, Done: 3, Total: 8, goal.DueDate)   // "3/8 · due 14 Nov"
+        """;
+
+    private const string MoveCode = """
+        @* The current goal is marked Attached; choosing another says it will move. *@
+        <GoalPicker Open="@picking" OpenChanged="v => picking = v" Subject="@GoalSubject.ForPlan(tag)"
+                    Goals="@openGoals" CurrentGoal="@current" OnAttach="MoveAsync" />
+        """;
+
+    private const string NewCode = """
+        <GoalPicker ... Error="@error" OnCreate="CreateAndAttachAsync" />
+
+        private async Task CreateAndAttachAsync(GoalDraft draft) { /* set it, then attach to it */ }
+        """;
+}

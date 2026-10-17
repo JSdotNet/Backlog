@@ -1,6 +1,7 @@
 @using Backlog.Modules.Sessions.Abstractions
 @using Backlog.UI.Components.Integrations
 @using Backlog.UI.Components.Progress
+@using Backlog.UI.Components.Goals
 @using Backlog.SharedKernel
 @inject IServiceProvider Services
 @inject IJSRuntime JS
@@ -375,6 +376,11 @@
     /// shell's decision.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
+
+    /// <summary>The goal control the host cascades, drawn in the selected pull request's
+    /// head line. With none cascaded the head line is what it was.</summary>
+    [CascadingParameter]
+    public GoalControlSlot? GoalSlot { get; set; }
 
     /// <summary>The repositories the shell has scoped, by alias, in the order taken;
     /// empty for all of them. Read on every render, as the session list reads it.</summary>
@@ -1583,6 +1589,12 @@
                                              StateTestId="pull-request-state" />
                         }
                         @PinToggle(row.RepositoryFullName, row.Number)
+                        @* Here and not on the row: a row is one whole toggle, and a button
+                           cannot sit inside another. *@
+                        @if (GoalSlot is not null)
+                        {
+                            @GoalSlot.Render(GoalSubject.ForPullRequest(row.RepositoryFullName, row.Number))
+                        }
                     </span>
                 </div>
                 <h3 class="pull-request-detail__title">@row.Title</h3>

@@ -717,6 +717,12 @@ The system SHALL let the phone change an impediment's state, check-again date an
 - **When** the person moves it to Being handled and sets check again to Tuesday 20 October
 - **Then** both changes wait in the device outbox and reach the desktop once the phone is back online
 
+#### Scenario: A desktop change made since stands
+
+- **Given** the phone last synced "Bank sample files missing" with no note
+- **When** the person writes a note on the desktop, then a different note on the phone, and both sync
+- **Then** both devices show the desktop's note
+
 #### Scenario: No goal editing on the phone
 
 - **Given** the goal "Customers get paid faster" is open on the phone
