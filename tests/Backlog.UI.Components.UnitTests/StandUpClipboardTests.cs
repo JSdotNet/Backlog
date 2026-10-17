@@ -105,6 +105,26 @@ public sealed class StandUpClipboardTests
         Assert.True(lines.IndexOf("No goal") > lines.IndexOf("- Invoice PDF export"));
     }
 
+    /// <summary>An impediment moved on with nobody named copies without "Not reported yet":
+    /// only a New one reads that.</summary>
+    [Fact]
+    public void A_later_impediment_with_nobody_named_copies_without_not_reported_yet()
+    {
+        var standUp = Week with
+        {
+            Impediments =
+            [
+                new StandUpImpediment("i3", "Sandbox keys expired", StandUpImpedimentState.BeingHandled, [], null, 0, null, null),
+                new StandUpImpediment("i2", "Credit note numbering unclear", StandUpImpedimentState.New, [], null, 1, null, null)
+            ]
+        };
+
+        var lines = Lines(StandUpClipboard.Text(Board(standUp, Paid)));
+
+        Assert.Contains("- Sandbox keys expired · Being handled · 0 days", lines);
+        Assert.Contains("- Credit note numbering unclear · New · Not reported yet · 1 day", lines);
+    }
+
     [Fact]
     public void An_empty_stand_up_still_has_its_four_headings_and_no_resolved_line()
     {
