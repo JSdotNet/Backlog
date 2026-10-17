@@ -61,18 +61,18 @@ internal sealed class FakeTaskSource : ISprintTaskSource
     }
 }
 
-internal sealed class FakePullRequests : ISprintPullRequestReader
+internal sealed class FakePullRequests : IGoalPullRequestReader
 {
-    public List<LinkedPullRequestDto> Known { get; } = [];
+    public List<GoalPullRequestDto> Known { get; } = [];
 
-    public Task<IReadOnlyList<LinkedPullRequestDto>> ReadAsync(
+    public Task<IReadOnlyList<GoalPullRequestDto>> ReadAsync(
         IReadOnlyList<PullRequestRefDto> pullRequests,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<LinkedPullRequestDto>>(
+        Task.FromResult<IReadOnlyList<GoalPullRequestDto>>(
         [
             .. pullRequests.Select(pull =>
                 Known.FirstOrDefault(known => known.Repository == pull.Repository && known.Number == pull.Number)
-                ?? LinkedPullRequestDto.Unread(pull))
+                ?? GoalPullRequestDto.Unread(pull))
         ]);
 }
 

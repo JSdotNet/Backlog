@@ -3,10 +3,12 @@ using System.Globalization;
 namespace Backlog.Infrastructure.GitHub;
 
 /// <summary>
-/// The one cache of linked pull requests read by number, which every reader of them
-/// shares through <see cref="GitHubIntegration.ReadLinkedPullRequestsAsync"/> — the shell's
-/// In progress reader and Progress's sprint reader ask about the same links, so in one
-/// refresh a pull request is asked about once.
+/// A cache of linked pull requests read by number, which every reader of one read shares:
+/// the slim read through <see cref="GitHubIntegration.ReadLinkedPullRequestsAsync"/>, which
+/// the shell's In progress reader asks through, and the status read through
+/// <see cref="GitHubIntegration.ReadLinkedPullRequestStatusesAsync"/>, which Progress asks
+/// through — each its own instance, so in one refresh a pull request is asked about once
+/// per read.
 /// <para>
 /// On these terms, whoever asks:
 /// </para>

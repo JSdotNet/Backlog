@@ -22,7 +22,7 @@ public sealed class CloseSprintCommandHandler(
     ProgressGate gate,
     SeriesSaved saved,
     ISprintTaskSource tasks,
-    ISprintPullRequestReader pullRequests,
+    IGoalPullRequestReader pullRequests,
     TimeProvider time)
     : ICommandHandler<CloseSprintCommand, Result<SprintSeriesDto>>
 {

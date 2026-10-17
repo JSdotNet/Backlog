@@ -14,13 +14,13 @@ public sealed record ReadSprintProgressQuery(Guid SeriesId, int? Number = null);
 
 /// <summary>
 /// Reads the sprint's members from Tasks through <see cref="ISprintTaskSource"/> and
-/// their pull requests through <see cref="ISprintPullRequestReader"/>, then hands both to
+/// their pull requests through <see cref="IGoalPullRequestReader"/>, then hands both to
 /// <see cref="SprintProgress"/>. Nothing is stored.
 /// </summary>
 public sealed class ReadSprintProgressQueryHandler(
     ISprintSeriesRepository repository,
     ISprintTaskSource tasks,
-    ISprintPullRequestReader pullRequests,
+    IGoalPullRequestReader pullRequests,
     TimeProvider time)
     : IQueryHandler<ReadSprintProgressQuery, Result<SprintProgressDto>>
 {
@@ -43,7 +43,7 @@ public sealed class ReadSprintProgressQueryHandler(
         SprintSeries series,
         Sprint sprint,
         ISprintTaskSource tasks,
-        ISprintPullRequestReader pullRequests,
+        IGoalPullRequestReader pullRequests,
         DateOnly today,
         CancellationToken cancellationToken)
     {
@@ -56,10 +56,16 @@ public sealed class ReadSprintProgressQueryHandler(
         var linked = members.SelectMany(task => task.PullRequests).Distinct().ToList();
         var pulls = linked.Count == 0
             ? []
-            : await pullRequests.ReadAsync(linked, cancellationToken).ConfigureAwait(false);
+            : (await pullRequests.ReadAsync(linked, cancellationToken).ConfigureAwait(false)).Select(Linked).ToList();
 
         return SprintProgress.Read(series, sprint, members, pulls, today);
     }
+
+    /// <summary>The goals reader's answer as the sprint reads it: the state, the merge
+    /// day, the author and the opened day. The sprint has no use for the checks or the
+    /// approvals, and goes with them once goals replace it (local ADR 0035).</summary>
+    internal static LinkedPullRequestDto Linked(GoalPullRequestDto pull) =>
+        new(pull.Repository, pull.Number, pull.State, pull.MergedOn, pull.Author, pull.OpenedOn);
 
     internal static DateOnly Today(TimeProvider time) => DateOnly.FromDateTime(time.GetLocalNow().DateTime);
 }

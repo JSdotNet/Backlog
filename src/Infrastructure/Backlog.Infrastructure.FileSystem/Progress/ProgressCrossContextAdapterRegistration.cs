@@ -11,15 +11,16 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// sides: the tasks a sprint names, read through Tasks' published
 /// <see cref="ITaskItems"/> (<see cref="ISprintTaskSource"/>), and the repositories a
 /// series may be given, read from Tasks' <see cref="IRepositoryDirectory"/>
-/// (<see cref="ISprintRepositories"/>), and the state, merge day and author of the pull
-/// requests member tasks link, read from GitHub (<see cref="ISprintPullRequestReader"/>).
+/// (<see cref="ISprintRepositories"/>), and the state, merge day, checks, approvals and
+/// author of the pull requests goals count and tasks link, read from GitHub
+/// (<see cref="IGoalPullRequestReader"/>).
 /// <para>
 /// Scoped, because <see cref="ITaskItems"/> is: a singleton over a scoped port is a
 /// captive dependency a validating provider refuses. Call after <c>AddTasksModule</c>
 /// and <c>AddProgressModule</c>. The pull request reader replaces the module's own
 /// answer, which reads every pull request as Unknown; it is a singleton that keeps
-/// nothing itself — what it has read is kept by <see cref="GitHubIntegration"/>, in the
-/// cache the In progress view reads through too — and it resolves it per call, so a
+/// nothing itself — what it has read is kept by <see cref="GitHubIntegration"/>, in its
+/// status cache — and it resolves it per call, so a
 /// host without GitHub gets Unknown answers rather than a failed provider.
 /// </para>
 /// </summary>
@@ -35,8 +36,8 @@ public static class ProgressCrossContextAdapterRegistration
                 () => sp.GetService<IRepositoryDirectory>()));
         services.AddScoped<ISprintRepositories>(sp =>
             new SprintRepositories(() => sp.GetService<IRepositoryDirectory>()));
-        services.Replace(ServiceDescriptor.Singleton<ISprintPullRequestReader>(sp =>
-            new GitHubSprintPullRequests(() => sp.GetService<GitHubIntegration>())));
+        services.Replace(ServiceDescriptor.Singleton<IGoalPullRequestReader>(sp =>
+            new GitHubGoalPullRequests(() => sp.GetService<GitHubIntegration>())));
 
         return services;
     }

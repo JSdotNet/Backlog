@@ -218,7 +218,10 @@ Progress carries two marks:
 - **checks**: an icon and `passed/total`, such as `14/14`, with a running variant
   (`9/14`, still running) and a failing one (`2/14`, failing);
 - **approvals**: an icon and `approvals/required`, such as `1/2`, where required is
-  the number of approvals the base branch's protection rule asks for.
+  the number of approvals the base branch's rules ask for: its protection rule or a
+  ruleset's pull request rule, whichever asks for more. A base branch no rule asks an
+  approval of has no required total, and neither does one whose rules GitHub will not
+  show.
 
 The words "checks" and "approvals" are screen-reader labels only, so the row stays
 short. A merged pull request reads "merged" instead of both marks.
