@@ -270,6 +270,32 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
         await command.ExecuteNonQueryAsync(Cancellation);
     }
 
+    /// <summary>The phone reads the document this store writes with
+    /// <c>ProgressDocuments.ReadGoal</c>, in the published surface (local ADR 0035 §8): what
+    /// it reads is the goal the desktop holds, and a deleted goal reads as deleted.</summary>
+    [Fact]
+    public async Task The_stored_document_reads_on_the_phone_as_the_goal_the_desktop_holds()
+    {
+        var goal = Goal(createdAt: new DateTimeOffset(2026, 10, 17, 9, 0, 0, TimeSpan.Zero));
+        await _repository.SaveAsync(goal, Cancellation);
+
+        var stored = Assert.Single(await _repository.ReadAllAsync(Cancellation));
+        var read = Modules.Progress.Abstractions.ProgressDocuments.ReadGoal(stored.Content, goal.Id);
+
+        Assert.NotNull(read);
+        Assert.False(read.Deleted);
+        Assert.Equal(goal.CreatedAt, read.CreatedAt);
+        Assert.Equal(Modules.Progress.Services.GoalMapper.ToDto(goal).Title, read.Goal.Title);
+        Assert.Equal(
+            Modules.Progress.Services.GoalMapper.ToDto(goal).Attachments,
+            read.Goal.Attachments);
+
+        await _repository.DeleteAsync(goal.Id, Cancellation);
+
+        var tombstone = Assert.Single(await _repository.ReadAllAsync(Cancellation));
+        Assert.True(Modules.Progress.Abstractions.ProgressDocuments.ReadGoal(tombstone.Content, goal.Id)!.Deleted);
+    }
+
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();

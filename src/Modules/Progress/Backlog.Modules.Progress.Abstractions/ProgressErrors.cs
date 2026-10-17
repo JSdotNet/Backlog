@@ -128,6 +128,11 @@ public static class ProgressErrors
     public static Error ImpedimentNotFound(Guid impedimentId) =>
         Error.NotFound("progress.impediment_not_found", $"There is no impediment {impedimentId}.");
 
+    /// <summary>An edit the phone asked for that the impediment did not take: it already says
+    /// so, or the field no longer says what the phone saw.</summary>
+    public static Error ImpedimentEditNotApplied(Guid impedimentId) =>
+        Error.Conflict("progress.impediment_edit_not_applied", $"Impediment {impedimentId} did not take the edit from the phone.");
+
     public static Error ImpedimentWithoutTitle() =>
         Error.Validation("progress.impediment_without_title", "An impediment needs a title.");
 

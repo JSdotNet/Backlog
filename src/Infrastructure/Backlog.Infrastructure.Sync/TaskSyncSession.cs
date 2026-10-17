@@ -68,6 +68,8 @@ public sealed class TaskSyncSession
     private readonly IMyDayPreferencesReplication? _myDay;
     private readonly IGoalReplication? _goals;
     private readonly IImpedimentReplication? _impediments;
+    private readonly IStandUpContextSource? _standUpContext;
+    private readonly ImpedimentEditRetirements? _retirements;
 
     /// <param name="credentials">Whose device this is. Read before every push
     /// and pull to check the progress in <paramref name="state"/> belongs to the
@@ -94,6 +96,10 @@ public sealed class TaskSyncSession
     /// or null on a head without Progress. Optional for the same reason.</param>
     /// <param name="impediments">Where every impediment is read from for the push (local
     /// ADR 0035), or null on a head without Progress. Optional for the same reason.</param>
+    /// <param name="standUpContext">Where the stand-up context the phone reads is read from
+    /// for the push (local ADR 0035 §8), or null on a head without Progress.</param>
+    /// <param name="retirements">The tombstones of the impediment edits the merge dealt
+    /// with, sent by the push, or null on a head that applies none.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
@@ -109,7 +115,9 @@ public sealed class TaskSyncSession
         ISprintSeriesReplication? sprints = null,
         IMyDayPreferencesReplication? myDay = null,
         IGoalReplication? goals = null,
-        IImpedimentReplication? impediments = null)
+        IImpedimentReplication? impediments = null,
+        IStandUpContextSource? standUpContext = null,
+        ImpedimentEditRetirements? retirements = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -133,6 +141,8 @@ public sealed class TaskSyncSession
         _myDay = myDay;
         _goals = goals;
         _impediments = impediments;
+        _standUpContext = standUpContext;
+        _retirements = retirements;
     }
 
     /// <summary>
@@ -375,6 +385,19 @@ public sealed class TaskSyncSession
             refused += documents.Value.Refused;
         }
 
+        if (_standUpContext is not null)
+        {
+            var documents = await PushStandUpContextAsync(_standUpContext, cancellationToken).ConfigureAwait(false);
+            if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
+
+            pushed += documents.Value.Pushed;
+            refused += documents.Value.Refused;
+        }
+
+        var retired = await PushRetirementsAsync(cancellationToken).ConfigureAwait(false);
+        if (retired.IsFailure) return Result.Failure<TaskSyncSummary>(retired.Error);
+        pushed += retired.Value;
+
         return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()) { Refused = refused });
     }
 
@@ -549,6 +572,41 @@ public sealed class TaskSyncSession
             change => ImpedimentReplicaDocuments.MarkOf(change.Id)).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Sends the stand-up context the phone reads (local ADR 0035 §8) as one whole document
+    /// when its stamp is later than the one this device last had accepted — on the terms
+    /// <see cref="PushMyDayPreferencesAsync"/> gives, the kind token as the mark. The source
+    /// stamps it afresh only when what it says changed, so an unchanged reading is not sent.
+    /// </summary>
+    private Task<Result<(int Pushed, int Refused)>> PushStandUpContextAsync(
+        IStandUpContextSource standUpContext,
+        CancellationToken cancellationToken) =>
+        PushWholeDocumentsAsync(
+            new[] { StandUpContextReplicaDocuments.ContextType },
+            async _ => await standUpContext.ReadAsync(cancellationToken).ConfigureAwait(false) is { } copy
+                ? StandUpContextReplicaDocuments.ToChange(copy)
+                : null,
+            SyncItemKind.Goal,
+            cancellationToken);
+
+    /// <summary>
+    /// Sends the tombstone of every impediment edit the merge has dealt with since the last
+    /// push, so the replica holds each edit as retired and no device applies it again
+    /// (local ADR 0035 §8), and forgets the ones it took.
+    /// </summary>
+    private async Task<Result<int>> PushRetirementsAsync(CancellationToken cancellationToken)
+    {
+        if (_retirements?.Waiting() is not { Count: > 0 } waiting) return Result.Success(0);
+
+        var response = await _client.PushAsync(waiting, cancellationToken).ConfigureAwait(false);
+        if (response.IsFailure) return Result.Failure<int>(response.Error);
+
+        // Taken or refused alike: a refusal means the replica holds a later copy, which is
+        // a tombstone another desktop sent for the same edit.
+        _retirements.Sent(waiting);
+        return Result.Success(response.Value.Accepted);
+    }
+
     /// <summary>The note a sent task's log line carries: what was already known
     /// about it, and — when the replica took the batch only in part — how much
     /// of the batch it did not take, since the response cannot say which.</summary>
@@ -679,8 +737,28 @@ public sealed class TaskSyncSession
         var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
         if (pull.IsFailure) return pull;
 
+        // An edit the pull met before its impediment is offered again now the pull is done.
+        await _merge.RetryDeferredEditsAsync(cancellationToken).ConfigureAwait(false);
+
+        // An edit from the phone this pull applied goes back at once: the impediment it
+        // changed, and the edit's tombstone, so the phone reads the change on its next pull.
+        var answered = 0;
+        if (_retirements?.Waiting() is { Count: > 0 })
+        {
+            if (_impediments is not null)
+            {
+                var documents = await PushImpedimentsAsync(_impediments, cancellationToken).ConfigureAwait(false);
+                if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
+                answered += documents.Value.Pushed;
+            }
+
+            var retired = await PushRetirementsAsync(cancellationToken).ConfigureAwait(false);
+            if (retired.IsFailure) return Result.Failure<TaskSyncSummary>(retired.Error);
+            answered += retired.Value;
+        }
+
         return Result.Success(new TaskSyncSummary(
-            push.Value.Pushed,
+            push.Value.Pushed + answered,
             pull.Value.Pulled,
             pull.Value.Applied,
             pull.Value.Skipped,
