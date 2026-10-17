@@ -4021,10 +4021,8 @@ h1, h2, h3 {
     flex: 1 1 auto;
 }
 
-/* The In progress view, in the same column. Unlike the roadmap it scrolls as a
-   whole: its cards are a list, read top to bottom, with nothing to keep pinned.
-   The Goals view, which takes its place while the goals flag is on, scrolls the same. */
-.in-progress-view,
+/* The Goals view, in the same column. Unlike the roadmap it scrolls as a whole:
+   its goals are a list, read top to bottom, with nothing to keep pinned. */
 .goals-view {
     display: flex;
     flex-direction: column;
@@ -4033,7 +4031,6 @@ h1, h2, h3 {
     overflow-y: auto;
 }
 
-.in-progress-view__body,
 .goals-view__body {
     display: flex;
     flex-direction: column;

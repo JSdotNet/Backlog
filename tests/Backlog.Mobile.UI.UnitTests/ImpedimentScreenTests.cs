@@ -284,13 +284,13 @@ public sealed class ImpedimentScreenTests
     }
 
     [Fact]
-    public void With_goals_off_the_page_shows_no_impediment()
+    public void Before_a_desktop_sends_the_stand_up_the_page_shows_no_impediment()
     {
         using var host = ShellHost.Paired(clock: Clock(), tasks: StandupFixture.Service(withContext: false));
 
         var app = host.Open(Route(StandupFixture.EscalatedId));
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='impediment-off']")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='impediment-none']")));
         Assert.Empty(app.FindAll("[data-testid='impediment-steps']"));
     }
 

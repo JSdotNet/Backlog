@@ -191,10 +191,16 @@ public static class BacklogMcpTools
         typeof(SurfaceTools),
         DeliverySurfaceOperations.All);
 
-    /// <summary>The impediment tools beside <c>set_blocked</c>, behind <c>goals</c>: Progress's
-    /// own context and key, so their own group (local ADR 0035 §5).</summary>
+    /// <summary>
+    /// The impediment tools beside <c>set_blocked</c>: Progress's own, so their own group
+    /// (local ADR 0035 §5). Behind <c>backlog</c>, the always-on Tasks key, since Progress
+    /// has no switch of its own: goals, impediments and the stand-up are always on (§10).
+    /// An impediment holds tasks back, and a session raises one beside the
+    /// <see cref="Tracker"/> call that marks a task blocked, so the key that gates that call
+    /// gates this one.
+    /// </summary>
     public static McpToolGroup Impediments { get; } = new(
-        Backlog.Modules.Progress.Abstractions.ProgressFeatures.Goals,
+        TasksFeatures.Tasks,
         typeof(ImpedimentTools),
         [ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState]);
 

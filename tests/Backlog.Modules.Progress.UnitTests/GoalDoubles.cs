@@ -75,27 +75,6 @@ internal sealed class InMemoryGoalReplicaStore : IGoalReplicaStore
     }
 }
 
-/// <summary>The feature switches with the goals key on or off; every other key is off.</summary>
-internal sealed class FakeGoalFeatures(bool goalsOn) : IAppFeatureSettings
-{
-    public bool GoalsOn { get; set; } = goalsOn;
-
-    public event Action? Changed;
-
-    public AppFeatureSettings Current { get; } = new();
-
-    public string SettingsPath => "features.json";
-
-    public bool IsEnabled(string key) => key == ProgressFeatures.Goals && GoalsOn;
-
-    public string? SetEnabled(string key, bool enabled)
-    {
-        GoalsOn = enabled;
-        Changed?.Invoke();
-        return null;
-    }
-}
-
 /// <summary>The goals the scenarios use: the requirements' "Customers get paid faster",
 /// due on 31 October 2026.</summary>
 internal static class MakeGoal

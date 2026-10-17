@@ -18,11 +18,10 @@ Answer "what have my agents been doing here" as one list: every session the
 environment has a record of, most recently active first, whichever agent ran it.
 
 The list opens from **Sessions** in the header's work in progress group. It sits
-between [In progress](#in-progress-by-task) and **Pull requests**, the open pull
-requests the sessions shipped. Each of the two lists takes the whole screen while it
-is open. Escape, its close button or a second press of its option returns to the view
-that was showing before. In progress, first in the group, is a
-view instead: it sits with the two lists because it summarises them.
+between [Goals](../progress/features.md#the-goals-view) and **Pull requests**, the
+open pull requests the sessions shipped. Each of the two lists takes the whole screen
+while it is open. Escape, its close button or a second press of its option returns to
+the view that was showing before. Goals, first in the group, is a view instead.
 
 One list rather than one per agent, because the question is about the work and not
 about the vendor. A person who has both agents installed does not think in two
@@ -1525,78 +1524,37 @@ from the session's own `Session State`.
 type: feature
 status: deprecated
 related: [.devbook/domain/progress/features.md#the-goals-view, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.In_progress_is_a_main_view_that_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_sessions_and_pull_requests_off_there_is_no_in_progress_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_card_draws_what_its_entry_links_and_the_rest_is_not_linked_to_a_task, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_no_repository_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_feature_that_is_off_draws_no_column_in_the_view_or_the_side_panel, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_feature_that_is_off_draws_no_column_and_no_count]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_goals]
 ```
 
-The In progress view is renamed **Goals** and becomes
-[the Goals view](../progress/features.md#the-goals-view), which Progress owns. Local
-[ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md) decides it.
-Its board by task is dropped: the view no longer lists every task in progress with
-its sessions and pull requests, and no longer puts the quiet sessions and the pull
-requests with failing checks first under **Needs you**. There is no switch beside the
-title any more, because the Goals view has one side.
+The In progress view is gone. It became
+[the Goals view](../progress/features.md#the-goals-view), which Progress owns, and
+local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)
+decides it. Its board by task went with the `goals` flag that kept it for a person who
+had goals off: no view lists every task in progress with its sessions and pull
+requests, puts the quiet sessions and the failing pull requests first under **Needs
+you**, or lists the work no task links under **Not linked to a task**. Its two
+toggles, "Needs you first" and "Include finished today", went with it, and the shell
+no longer keeps them. A shell remembered on In progress reopens on Goals.
 
-What this view answered moves elsewhere. Goal progress, the stand-up and the work no
+What the view answered lives elsewhere. Goal progress, the stand-up and the work no
 goal holds are the Goals view's. A session that has gone quiet is the session list's,
-and a pull request that needs attention is the pull requests list's. The sub-features
-below that live in a task's side panel stay: linking, unlinking and the reads of a
-linked pull request.
-
-Until the plan `+goals-standup` retires it, the code still draws the board as this
-chapter's tests describe.
-
-### Needs you first
-
-```meta
-type: sub-feature
-status: deprecated
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Needs_you_comes_first_then_moving_each_in_the_hosts_order, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_failing_check_or_requested_changes_on_an_open_pull_request_needs_you, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_quiet_session_needs_you, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_linked_session_that_has_gone_quiet_needs_you_and_says_quiet_30_min, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_in_progress_toggles_are_remembered_and_a_fresh_shell_reopens_on_them]
-```
-
-This goes with the board ([In progress, by task](#in-progress-by-task)).
-
-A task is under **Needs you** when its linked session has gone quiet, which is
-`Stalled`, shown as "Quiet 30 min". It is also there when its open pull request has a
-failing check or requested changes. The rest are under **Moving**. Switched off, the
-tasks are one list in the task list's order. "Include finished today" adds the tasks
-done today in a section of their own. Both choices are remembered on this device, so In
-progress reopens as the reader left it. Until the reader changes them, "Needs you first"
-is on and "Include finished today" is off.
-
-### Link what no task claims
-
-```meta
-type: sub-feature
-status: deprecated
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Link_to_a_task_records_a_loose_session_on_the_chosen_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Link_to_a_task_records_a_loose_pull_request_on_the_chosen_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Linking_what_the_entry_already_holds_writes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Linking_moves_the_focus_to_the_card_the_item_now_sits_under, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Each_task_card_is_a_focus_target_a_host_can_name]
-```
-
-This goes with the board ([In progress, by task](#in-progress-by-task)). The Goals view
-lists the work no goal holds under
-[No goal](../progress/features.md#the-goals-view) instead.
-
-Live sessions and the reader's own open pull requests that no task links are listed
-last, under **Not linked to a task**, each with "Link to a task…". Linking records the
-session or the pull request on the chosen entry. It uses the same write the
-`link_session` and `link_change` tools make, so a link made by hand and one an agent
-made are one kind of record. A link the entry already holds is not written twice.
-Once the link lands, the card that opened the picker is gone. So the focus moves to the
-card of the task the item now sits under, or to the view's title when that task is not
-in the view, rather than dropping to the page.
+and a pull request that needs attention is the pull requests list's. What stays is a
+task's side panel: linking, unlinking and the reads of a linked pull request.
 
 ### Unlink what was linked
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Unlink_on_a_card_takes_the_session_off_and_it_is_not_linked_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Unlink_in_the_side_panel_takes_a_pull_request_off_its_entry, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Unlink_beside_a_card_hands_the_host_the_task_and_the_item, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.Unlink_in_the_side_panel_takes_a_pull_request_off_its_entry, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories]
 ```
 
-Every linked session and pull request on a task's card, and in its side panel, has an
-"Unlink" beside it. Unlinking takes the link off the entry through the entries module's
-own unlink, the counterpart of the write linking makes, under the repository it was
-recorded with. The entry's repositories stay. A session still live, or a pull request of
-the reader's still open, goes back under **Not linked to a task**, one link away from the
-right task. The focus stays on the task's card.
+Every linked session and pull request in a task's side panel has an "Unlink" beside
+it. Unlinking takes the link off the entry through the entries module's own unlink,
+the counterpart of the write linking makes, under the repository it was recorded with.
+The entry's repositories stay. A session still live, or a pull request of the reader's
+still open, is offered again by "Link a session or pull request…". The focus moves to
+the section's heading, since the card that held it is gone.
 
 ### What a linked pull request is read for
 
@@ -1614,7 +1572,7 @@ records, in batches of fifty, and never for checks or branches.
 A merged pull request is read once and kept while the app runs. A closed or open one is
 read again with the next read of the open list, at most once a minute, because GitHub
 can reopen a closed one. A number GitHub cannot find is not asked about again. The side
-panel reads none of them.
+panel reads none of them on its own.
 
 The cards draw what they drew before. A link carries the state, the author and the merge
 date for a reader that counts what merged and whose it was; no card shows them yet.
@@ -1623,28 +1581,36 @@ date for a reader that counts what merged and whose it was; no card shows them y
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_side_panel_section_links_a_session_or_pull_request_to_its_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_pull_request_typed_by_number_is_linked_whatever_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_merged_pull_request_linked_by_its_link_is_kept_by_the_reader, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_pull_request_in_a_repository_not_registered_is_refused_under_the_field, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_number_GitHub_does_not_know_is_refused_and_nothing_is_recorded, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_bare_number_on_a_task_with_no_registered_repository_asks_for_the_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_bare_number_on_a_task_with_two_repositories_asks_for_the_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_listed_pull_request_that_merged_before_it_was_chosen_is_still_linked, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.An_in_progress_title_opens_the_entry_in_the_tasks_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.A_merged_or_closed_pull_request_opened_from_a_task_is_listed_and_scrolled_to]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.The_side_panel_section_links_a_session_or_pull_request_to_its_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.Linking_what_the_entry_already_holds_writes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.A_feature_that_is_off_draws_no_column_in_the_side_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_tasks_side_panel_carries_its_sessions_and_pull_requests, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_pull_request_typed_by_number_is_linked_whatever_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_merged_pull_request_linked_by_its_link_is_kept_by_the_reader, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_pull_request_in_a_repository_not_registered_is_refused_under_the_field, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_number_GitHub_does_not_know_is_refused_and_nothing_is_recorded, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_bare_number_on_a_task_with_no_registered_repository_asks_for_the_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_bare_number_on_a_task_with_two_repositories_asks_for_the_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_listed_pull_request_that_merged_before_it_was_chosen_is_still_linked, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.A_merged_or_closed_pull_request_opened_from_a_task_is_listed_and_scrolled_to]
 ```
 
-A task's side panel carries the same cards under "Sessions and pull requests", with
-"Link a session or pull request…" and "Open in In progress". With one of the two
-features off, the heading and the link action name only the kind left.
+A task's side panel carries the sessions and pull requests linked to it as cards,
+under "Sessions and pull requests", with "Link a session or pull request…". The
+section shows while the session list or the pull requests list is on. With one of the
+two off, the heading and the link action name only the kind left. It is the only place
+on the desktop that draws a task's linked work by task.
 
-Under the list of what no task claims, the link action takes a pull request by its
-number or its link, whatever its state: open, draft, merged or closed. Work that merged
-before its task was linked is linked this way, and the task is then
-[done](../progress/domain.md#done) by it in the goal that counts it. A bare number is the task's own repository's, and a task with two has to be given the link;
-a link or `owner/name#123` names one, and it must be registered in Settings. The pull
-request is read by number before anything is recorded, so one GitHub does not know is
-refused under the field and nothing is written. A merged one is kept from that read for
-as long as the app runs. A pull request the list offered as open that merged before it
-was chosen is linked too, not refused as no longer open.
+The link action offers the live sessions and the reader's own open pull requests that
+no task links yet. Linking records the session or the pull request on the entry with
+the same write the `link_session` and `link_change` tools make, so a link made by hand
+and one an agent made are one kind of record. A link the entry already holds is not
+written twice.
 
-A task's title on
-the view opens it in the Tasks view. A session or a pull request opens the session list
-or the pull requests list on that item. A pull request that has merged or closed is not
-on the pull requests list's open read. So it is read by number and drawn in the open list
-beside the pins, saying Merged or Closed, and the list scrolls its row into view.
+The link action also takes a pull request by its number or its link, whatever its
+state: open, draft, merged or closed. Work that merged before its task was linked is
+linked this way, and the task is then [done](../progress/domain.md#done) by it in the
+goal that counts it. A bare number is the task's own repository's, and a task with two
+has to be given the link; a link or `owner/name#123` names one, and it must be
+registered in Settings. The pull request is read by number before anything is
+recorded, so one GitHub does not know is refused under the field and nothing is
+written. A merged one is kept from that read for as long as the app runs. A pull
+request the list offered as open that merged before it was chosen is linked too, not
+refused as no longer open.
+
+A session or a pull request opens the session list or the pull requests list on that
+item. A pull request that has merged or closed is not on the pull requests list's open
+read. So it is read by number and drawn in the open list beside the pins, saying
+Merged or Closed, and the list scrolls its row into view.
 
 ## Turn the area off
 

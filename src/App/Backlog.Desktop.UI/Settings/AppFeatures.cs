@@ -4,7 +4,6 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions;
-using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.SharedKernel;
@@ -77,12 +76,6 @@ public static class AppFeatures
         new(TasksFeatures.Tasks, "Tasks", "Create, edit, filter, reorder, and store tasks.", AlwaysEnabled: true),
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
         new(RoadmapFeatures.Roadmap, "Roadmap view", "Offer the Roadmap view in the Home shell's view switch, beside Tasks: plans on a graduated axis under their own Planning heading."),
-        new(
-            ProgressFeatures.Goals,
-            "Goals",
-            "Work towards goals: give each a due date, attach the plans, tasks and pull requests that reach it, and read its progress and the stand-up.",
-            EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
         // The devbook keys carried the context's former name; the former keys
         // keep a features.json written before the rename reading as it did.
         // Devbook also absorbed the separate Devbook sections switch, so a

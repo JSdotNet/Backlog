@@ -20,7 +20,6 @@ public sealed class StandUpContextSource(
     IGoalRepository goals,
     IIterationSettings iteration,
     TimeProvider clock,
-    IAppFeatureSettings? features = null,
     IWorkingHoursSettings? workingHours = null)
     : IStandUpContextSource
 {
@@ -30,8 +29,6 @@ public sealed class StandUpContextSource(
 
     public async Task<StandUpContextCopyDto?> ReadAsync(CancellationToken cancellationToken = default)
     {
-        if (!(features?.IsEnabled(ProgressFeatures.Goals) ?? false)) return null;
-
         IReadOnlyList<GoalDto> all = [.. (await goals.ListAsync(cancellationToken).ConfigureAwait(false)).Select(goal => goal.ToDto())];
         if (all.Count == 0) return null;
 

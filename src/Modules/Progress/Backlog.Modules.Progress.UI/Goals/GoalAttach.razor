@@ -16,7 +16,7 @@
     before the move, and the attach asks for it. A refusal stays in the picker in the
     module's words.
 
-    With the goals switch off, or no goal port composed, nothing is drawn. A goal
+    With no goal port composed, nothing is drawn. A goal
     stored anywhere else — another screen, another device through the sync — raises
     IGoals.Changed and the control reads again.
 *@
@@ -43,7 +43,6 @@
     [Parameter, EditorRequired]
     public GoalSubject Subject { get; set; } = default!;
 
-    private IAppFeatureSettings? _features;
     private IGoals? _port;
     private GoalSubject? _readFor;
     private bool _shown;
@@ -65,8 +64,6 @@
 
     protected override void OnInitialized()
     {
-        _features = Services.GetService(typeof(IAppFeatureSettings)) as IAppFeatureSettings;
-        if (_features is not null) _features.Changed += OnChanged;
         _port = Services.GetService(typeof(IGoals)) as IGoals;
         if (_port is not null) _port.Changed += OnChanged;
     }
@@ -98,7 +95,7 @@
         GoalDto? current = null;
         IReadOnlyList<GoalOption> goals = [];
 
-        if ((_features?.IsEnabled(ProgressFeatures.Goals) ?? false) && _port is { } port)
+        if (_port is { } port)
         {
             var item = GoalSubjects.ToItem(Subject);
             var held = await port.FindGoalOfAsync(item);
@@ -179,7 +176,6 @@
 
     public void Dispose()
     {
-        if (_features is not null) _features.Changed -= OnChanged;
         if (_port is not null) _port.Changed -= OnChanged;
     }
 }

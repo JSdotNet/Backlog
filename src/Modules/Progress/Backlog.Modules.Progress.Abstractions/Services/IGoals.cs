@@ -8,8 +8,7 @@ namespace Backlog.Modules.Progress.Abstractions.Services;
 /// set, edit and delete a goal, attach and detach its work, and read the goals with their
 /// counts (<c>.devbook/domain/progress/features.md#setting-a-goal</c>,
 /// <c>#attaching-work-to-a-goal</c>). A plain delegation to the module's use-case
-/// handlers. Every call fails with <see cref="ProgressErrors.GoalsOff"/> while the
-/// <see cref="ProgressFeatures.Goals"/> switch is off; nothing recorded is lost by that.
+/// handlers, always on (local ADR 0035 §10).
 /// <para>
 /// No call changes a task, a plan or a pull request. A goal names its work by identity
 /// and reads its state on every reading (local ADR 0035 §6).

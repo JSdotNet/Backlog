@@ -162,7 +162,6 @@ public sealed class GoalSyncBetweenDevicesTests : IDisposable
 
             var services = new ServiceCollection();
             services.AddSingleton<TimeProvider>(new FakeTimeProvider(Morning));
-            services.AddSingleton<IAppFeatureSettings, GoalsOn>();
             services.AddSingleton<IProgressTaskSource, NoTasks>();
             services.AddSqlite(_ => root);
             services.AddProgressModule();
@@ -217,19 +216,6 @@ public sealed class GoalSyncBetweenDevicesTests : IDisposable
             _provider.Dispose();
             _http.Dispose();
         }
-    }
-
-    private sealed class GoalsOn : IAppFeatureSettings
-    {
-        public event Action? Changed { add { } remove { } }
-
-        public AppFeatureSettings Current { get; } = new();
-
-        public string SettingsPath => "features.json";
-
-        public bool IsEnabled(string key) => key == ProgressFeatures.Goals;
-
-        public string? SetEnabled(string key, bool enabled) => null;
     }
 
     private sealed class NoTasks : IProgressTaskSource

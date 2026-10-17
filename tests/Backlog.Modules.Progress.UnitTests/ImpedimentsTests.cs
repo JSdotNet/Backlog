@@ -10,7 +10,7 @@ namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
 /// The published <see cref="IImpediments"/> port as a host composes it through
-/// <c>AddProgressModule()</c>: the goals switch, and each feature of
+/// <c>AddProgressModule()</c>: each feature of
 /// <c>.devbook/domain/progress/features.md#tracking-an-impediment</c> end to end over an
 /// in-memory repository — raise, move, check again, note, hold back and release, and the
 /// list of open ones with those resolved in a window.
@@ -18,7 +18,6 @@ namespace Backlog.Modules.Progress.UnitTests;
 public sealed class ImpedimentsTests : IDisposable
 {
     private readonly InMemoryImpedimentRepository _repository = new();
-    private readonly FakeGoalFeatures _features = new(goalsOn: true);
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 10, 14, 9, 0, 0, TimeSpan.Zero));
     private readonly ServiceProvider _provider;
     private readonly IServiceScope _scope;
@@ -30,7 +29,6 @@ public sealed class ImpedimentsTests : IDisposable
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(_time);
         services.AddSingleton<IImpedimentRepository>(_repository);
-        services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
 
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
@@ -45,23 +43,6 @@ public sealed class ImpedimentsTests : IDisposable
 
     private async Task<ImpedimentDto> RaiseAsync(string title = "Bank sample files missing", params Guid[] holds) =>
         (await Impediments.RaiseAsync(new RaiseImpedimentRequest(title, holds), Cancellation)).Value;
-
-    [Fact]
-    public async Task With_goals_off_every_call_answers_off_and_nothing_is_written()
-    {
-        _features.GoalsOn = false;
-        var id = Guid.NewGuid();
-
-        Assert.Equal("progress.goals_off", (await Impediments.RaiseAsync(new RaiseImpedimentRequest("x"), Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Impediments.ListAsync(cancellationToken: Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Impediments.GetAsync(id, Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Impediments.MoveAsync(id, ImpedimentState.Reported, cancellationToken: Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Impediments.SetCheckAgainAsync(id, null, Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Impediments.EditNoteAsync(id, null, Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Impediments.HoldBackAsync(id, Guid.NewGuid(), Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Impediments.ReleaseAsync(id, Guid.NewGuid(), Cancellation)).Error.Code);
-        Assert.Equal(0, _repository.Saves);
-    }
 
     [Fact]
     public async Task Raising_stores_a_New_impediment_dated_today_with_its_tasks_and_note()

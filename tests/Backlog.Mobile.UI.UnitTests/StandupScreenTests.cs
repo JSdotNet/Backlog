@@ -55,14 +55,14 @@ public sealed class StandupScreenTests
     }
 
     [Fact]
-    public void With_goals_off_the_page_says_so_and_shows_no_stand_up()
+    public void Before_a_desktop_sends_the_stand_up_the_page_says_so_and_shows_none()
     {
         using var host = ShellHost.Paired(clock: Clock(), tasks: StandupFixture.Service(withContext: false));
 
         var app = host.Open("standup");
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='standup-off']")));
-        Assert.Equal("Stand-up is off", app.Find("[data-testid='standup-off'] .empty-state__title").TextContent.Trim());
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='standup-none']")));
+        Assert.Equal("No stand-up yet", app.Find("[data-testid='standup-none'] .empty-state__title").TextContent.Trim());
         Assert.Empty(app.FindAll("[data-testid='standup']"));
         Assert.Empty(app.FindAll("[data-testid='standup-goal']"));
     }

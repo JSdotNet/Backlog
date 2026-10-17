@@ -10,7 +10,7 @@ namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>
 /// The published <see cref="IGoals"/> port as a host composes it through
-/// <c>AddProgressModule()</c>: the goals switch, and each feature end to end over an
+/// <c>AddProgressModule()</c>: each feature end to end over an
 /// in-memory repository — setting, editing and deleting a goal
 /// (<c>.devbook/domain/progress/features.md#setting-a-goal</c>), attaching and detaching
 /// work (<c>#attaching-work-to-a-goal</c>), and the list with its counts.
@@ -20,7 +20,6 @@ public sealed class GoalsTests : IDisposable
     private readonly InMemoryGoalRepository _repository = new();
     private readonly FakeTaskSource _tasks = new();
     private readonly FakePullRequests _pulls = new();
-    private readonly FakeGoalFeatures _features = new(goalsOn: true);
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 10, 17, 9, 0, 0, TimeSpan.Zero));
     private readonly ServiceProvider _provider;
     private readonly IServiceScope _scope;
@@ -32,7 +31,6 @@ public sealed class GoalsTests : IDisposable
         services.AddSingleton<IGoalRepository>(_repository);
         services.AddSingleton<IProgressTaskSource>(_tasks);
         services.AddSingleton<IGoalPullRequestReader>(_pulls);
-        services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
 
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
@@ -47,35 +45,6 @@ public sealed class GoalsTests : IDisposable
 
     private async Task<GoalDto> CreateAsync(string title = "Customers get paid faster") =>
         (await Goals.CreateAsync(Paid with { Title = title }, Cancellation)).Value;
-
-    [Fact]
-    public async Task With_goals_off_every_call_answers_off_and_nothing_is_written()
-    {
-        _features.GoalsOn = false;
-        var item = GoalItemDto.ForTask(Guid.NewGuid());
-
-        Assert.Equal("progress.goals_off", (await Goals.CreateAsync(Paid, Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Goals.ListAsync(cancellationToken: Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Goals.GetAsync(Guid.NewGuid(), Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Goals.EditAsync(Guid.NewGuid(), Paid, Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Goals.DeleteAsync(Guid.NewGuid(), Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Goals.AttachAsync(Guid.NewGuid(), item, cancellationToken: Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Goals.DetachAsync(Guid.NewGuid(), item, Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await Goals.FindGoalOfAsync(item, Cancellation)).Error.Code);
-        Assert.Equal(0, _repository.Saves);
-    }
-
-    [Fact]
-    public async Task Goals_recorded_while_on_come_back_when_the_switch_is_turned_on_again()
-    {
-        var goal = await CreateAsync();
-
-        _features.GoalsOn = false;
-        Assert.True((await Goals.GetAsync(goal.Id, Cancellation)).IsFailure);
-
-        _features.GoalsOn = true;
-        Assert.Equal(goal.Title, (await Goals.GetAsync(goal.Id, Cancellation)).Value.Title);
-    }
 
     // --- Setting a goal ----------------------------------------------------------
 

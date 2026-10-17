@@ -24,7 +24,6 @@ public sealed class PhoneProgressTests : IDisposable
     private readonly InMemoryImpedimentRepository _impediments = new();
     private readonly FakeTaskSource _tasks = new();
     private readonly FakePullRequests _pulls = new();
-    private readonly FakeGoalFeatures _features = new(goalsOn: true);
     private readonly FakeTimeProvider _time = new(Morning);
     private readonly ServiceProvider _provider;
 
@@ -38,7 +37,6 @@ public sealed class PhoneProgressTests : IDisposable
         services.AddSingleton<IImpedimentRepository>(_impediments);
         services.AddSingleton<IProgressTaskSource>(_tasks);
         services.AddSingleton<IGoalPullRequestReader>(_pulls);
-        services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
 
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
@@ -101,13 +99,8 @@ public sealed class PhoneProgressTests : IDisposable
     }
 
     [Fact]
-    public async Task There_is_no_context_to_send_with_no_goal_or_with_the_goals_switch_off()
+    public async Task There_is_no_context_to_send_with_no_goal()
     {
-        Assert.Null(await Context.ReadAsync(Cancellation));
-
-        await _goals.SaveAsync(MakeGoal.Named(), Cancellation);
-        _features.GoalsOn = false;
-
         Assert.Null(await Context.ReadAsync(Cancellation));
     }
 
@@ -195,17 +188,6 @@ public sealed class PhoneProgressTests : IDisposable
 
         Assert.Equal(ImpedimentEditOutcome.Refused, await Edits.ApplyAsync(Edit(impediment.Id, ImpedimentEditKind.State, state: ImpedimentState.Reported), Cancellation));
         Assert.Equal(ImpedimentEditOutcome.Unknown, await Edits.ApplyAsync(Edit(Guid.NewGuid(), ImpedimentEditKind.Note, note: "x"), Cancellation));
-    }
-
-    [Fact]
-    public async Task Edits_are_applied_with_the_goals_switch_off_so_nothing_asked_for_is_lost()
-    {
-        var impediment = await RaisedAsync();
-        _features.GoalsOn = false;
-        _time.Advance(TimeSpan.FromHours(1));
-
-        Assert.Equal(ImpedimentEditOutcome.Applied, await Edits.ApplyAsync(Edit(impediment.Id, ImpedimentEditKind.Note, note: "Kept"), Cancellation));
-        Assert.Equal("Kept", (await _impediments.GetAsync(impediment.Id, Cancellation))!.Note);
     }
 
     private async Task<Impediment> RaisedAsync()

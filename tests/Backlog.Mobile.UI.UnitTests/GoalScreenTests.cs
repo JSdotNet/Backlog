@@ -119,13 +119,13 @@ public sealed class GoalScreenTests
     }
 
     [Fact]
-    public void With_goals_off_the_page_shows_no_goal()
+    public void Before_a_desktop_sends_the_stand_up_the_page_shows_no_goal()
     {
         using var host = ShellHost.Paired(clock: Clock(), tasks: StandupFixture.Service(withContext: false));
 
         var app = host.Open(Route(StandupFixture.PaidId));
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='goal-off']")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='goal-none']")));
         Assert.Empty(app.FindAll("[data-testid='goal-title']"));
     }
 }

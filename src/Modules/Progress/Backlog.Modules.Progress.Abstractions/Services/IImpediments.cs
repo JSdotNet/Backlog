@@ -7,9 +7,7 @@ namespace Backlog.Modules.Progress.Abstractions.Services;
 /// Everything a host may do with impediments, in one port the screens and the MCP tools
 /// share (<c>.devbook/domain/progress/features.md#tracking-an-impediment</c>): raise one,
 /// move it along its states, set the day to check again, edit its note, link and unlink
-/// the tasks it holds back, and list the open ones with those resolved in a window. Every
-/// call fails with <see cref="ProgressErrors.GoalsOff"/> while the
-/// <see cref="ProgressFeatures.Goals"/> switch is off; nothing recorded is lost by that.
+/// the tasks it holds back, and list the open ones with those resolved in a window.
 /// <para>
 /// No call changes a task. An impediment names the tasks it holds back by id (local ADR
 /// 0035 §6), and a move records the day off the host's clock, in local time.
@@ -87,7 +85,7 @@ public interface IBlockedTaskPolicy
     /// answering those raised. A task needs one when no impediment holds it back that is
     /// open, or that was raised on or after the day the task was marked blocked — so an
     /// impediment resolved while its task is still blocked is not raised again, and
-    /// clearing the mark resolves nothing. Raises nothing while the goals switch is off.
+    /// clearing the mark resolves nothing.
     /// </summary>
     Task<IReadOnlyList<ImpedimentDto>> ReactAsync(CancellationToken cancellationToken = default);
 }

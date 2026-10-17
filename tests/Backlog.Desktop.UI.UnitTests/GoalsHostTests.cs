@@ -106,11 +106,11 @@ public sealed class GoalsHostTests : IDisposable
     [Fact]
     public void A_stand_up_the_module_refuses_to_read_says_why_and_offers_another_try()
     {
-        _standUp.Failure = Error.Validation("progress.goals_off", "Goals are switched off.");
+        _standUp.Failure = Error.Validation("progress.plan_tag_required", "The stand-up could not be read.");
 
         var host = Render();
 
-        host.WaitForAssertion(() => Assert.Contains("Goals are switched off.", host.Find("[data-testid='goals-host-error']").TextContent));
+        host.WaitForAssertion(() => Assert.Contains("The stand-up could not be read.", host.Find("[data-testid='goals-host-error']").TextContent));
 
         _standUp.Failure = null;
         host.Find("[data-testid='goals-host-error'] button").Click();

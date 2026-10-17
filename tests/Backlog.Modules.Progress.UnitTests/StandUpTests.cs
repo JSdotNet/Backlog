@@ -24,7 +24,6 @@ public sealed class StandUpTests : IDisposable
     private readonly InMemoryImpedimentRepository _impediments = new();
     private readonly FakeTaskSource _tasks = new();
     private readonly FakePullRequests _pulls = new();
-    private readonly FakeGoalFeatures _features = new(goalsOn: true);
     private readonly FakePace _pace = new();
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 10, 19, 9, 0, 0, TimeSpan.Zero));
     private readonly ServiceProvider _provider;
@@ -38,7 +37,6 @@ public sealed class StandUpTests : IDisposable
         services.AddSingleton<IImpedimentRepository>(_impediments);
         services.AddSingleton<IProgressTaskSource>(_tasks);
         services.AddSingleton<IGoalPullRequestReader>(_pulls);
-        services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddSingleton<IStandUpPace>(_pace);
         services.AddProgressModule();
 
@@ -79,15 +77,6 @@ public sealed class StandUpTests : IDisposable
 
     private static IReadOnlyList<string> Titles(IReadOnlyList<StandUpGroupDto> groups, string? goal) =>
         [.. groups.Single(group => group.GoalTitle == goal).Items.Select(item => item.Title)];
-
-    [Fact]
-    public async Task With_goals_off_the_stand_up_answers_off()
-    {
-        _features.GoalsOn = false;
-
-        Assert.Equal("progress.goals_off", (await StandUp.ReadAsync(Monday19, IterationLength.Week, Cancellation)).Error.Code);
-        Assert.Equal("progress.goals_off", (await StandUp.ReadAsync(Cancellation)).Error.Code);
-    }
 
     /// <summary>The windows come from the day and length asked; the overload without them
     /// reads the host's today and the person's own length.</summary>

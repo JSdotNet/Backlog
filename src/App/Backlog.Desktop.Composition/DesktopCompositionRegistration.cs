@@ -139,9 +139,8 @@ public static class DesktopCompositionRegistration
         // planning port it holds exists.
         services.AddRoadmapAiContentSource();
 
-        // Progress (local ADR 0035): goals, impediments and the stand-up. Its ports ask
-        // the goals switch at every call and its screens draw under it, so composing it
-        // offers nothing while the switch is off.
+        // Progress (local ADR 0035): goals, impediments and the stand-up, always on
+        // (§10).
         services.AddProgressModule();
 
         // Capture: the module brings the run, and the head decides where the

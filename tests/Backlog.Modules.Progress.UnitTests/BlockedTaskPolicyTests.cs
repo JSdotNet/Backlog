@@ -20,7 +20,6 @@ public sealed class BlockedTaskPolicyTests : IDisposable
 
     private readonly InMemoryImpedimentRepository _repository = new();
     private readonly FakeBlockedTasks _tasks = new();
-    private readonly FakeGoalFeatures _features = new(goalsOn: true);
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 10, 17, 9, 0, 0, TimeSpan.Zero));
     private readonly ServiceProvider _provider;
     private readonly IServiceScope _scope;
@@ -33,7 +32,6 @@ public sealed class BlockedTaskPolicyTests : IDisposable
         services.AddSingleton<TimeProvider>(_time);
         services.AddSingleton<IImpedimentRepository>(_repository);
         services.AddSingleton<IBlockedTaskSource>(_tasks);
-        services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
 
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
@@ -136,16 +134,6 @@ public sealed class BlockedTaskPolicyTests : IDisposable
         var still = (await Impediments.GetAsync(bank.Id, Cancellation)).Value;
         Assert.Equal(ImpedimentState.BeingHandled, still.State);
         Assert.Equal([BankImport], still.HoldsBack);
-    }
-
-    [Fact]
-    public async Task With_goals_off_nothing_is_raised()
-    {
-        _features.GoalsOn = false;
-        Block(Today);
-
-        Assert.Empty(await Policy.ReactAsync(Cancellation));
-        Assert.Empty(_repository.All);
     }
 
     [Fact]

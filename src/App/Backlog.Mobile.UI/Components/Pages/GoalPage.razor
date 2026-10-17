@@ -32,13 +32,13 @@
     <span class="standup-back__title">Goal</span>
 </nav>
 
-@if (!Progress.GoalsOn)
+@if (!Progress.HoldsStandUp)
 {
     @if (_looked)
     {
-        <EmptyState Title="Stand-up is off"
-                    Description="Goals are off on the desktop, or it has not synced them yet."
-                    TestId="goal-off" />
+        <EmptyState Title="No stand-up yet"
+                    Description="A desktop sends the stand-up once it has a goal and has synced."
+                    TestId="goal-none" />
     }
 }
 else if (Goal is { } view)

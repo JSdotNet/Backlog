@@ -9,23 +9,16 @@ namespace Backlog.Modules.Progress.Services;
 
 /// <summary>
 /// The published <see cref="IStandUp"/> port over <see cref="ReadStandUpQueryHandler"/>,
-/// behind the <see cref="ProgressFeatures.Goals"/> switch exactly as <see cref="Goals"/> is:
-/// while it is off every call answers <see cref="ProgressErrors.GoalsOff"/> and nothing is
-/// read. "Today" is the host's clock in local time.
+/// always on as <see cref="Goals"/> is. "Today" is the host's clock in local time.
 /// </summary>
 public sealed class StandUp(
     ReadStandUpQueryHandler read,
     IIterationSettings iteration,
-    TimeProvider clock,
-    IAppFeatureSettings? features = null)
+    TimeProvider clock)
     : IStandUp
 {
-    private bool IsOn => features?.IsEnabled(ProgressFeatures.Goals) ?? false;
-
     public async Task<Result<StandUpDto>> ReadAsync(DateOnly today, IterationLength length, CancellationToken cancellationToken = default) =>
-        IsOn
-            ? Result.Success(await read.Handle(new ReadStandUpQuery(today, length), cancellationToken).ConfigureAwait(false))
-            : Result.Failure<StandUpDto>(ProgressErrors.GoalsOff());
+        Result.Success(await read.Handle(new ReadStandUpQuery(today, length), cancellationToken).ConfigureAwait(false));
 
     public Task<Result<StandUpDto>> ReadAsync(CancellationToken cancellationToken = default) =>
         ReadAsync(DateOnly.FromDateTime(clock.GetLocalNow().DateTime), iteration.Length, cancellationToken);

@@ -18,7 +18,6 @@ public sealed class GoalReplicationTests : IDisposable
 
     private readonly InMemoryGoalReplicaStore _store = new();
     private readonly InMemoryGoalRepository _repository = new();
-    private readonly FakeGoalFeatures _features = new(goalsOn: false);
     private readonly ServiceProvider _provider;
 
     public GoalReplicationTests()
@@ -27,7 +26,6 @@ public sealed class GoalReplicationTests : IDisposable
         services.AddSingleton<IGoalReplicaStore>(_store);
         services.AddSingleton<IGoalRepository>(_repository);
         services.AddSingleton<IProgressTaskSource>(new FakeTaskSource());
-        services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
         _provider = services.BuildServiceProvider();
     }
@@ -68,22 +66,11 @@ public sealed class GoalReplicationTests : IDisposable
         Assert.Equal(held, Assert.Single(_store.Rows));
     }
 
-    /// <summary>Goals travel whether the switch is on or off: the replication port is not
-    /// behind it, and this fixture has goals off.</summary>
-    [Fact]
-    public async Task Goals_travel_while_the_switch_is_off()
-    {
-        Assert.False(_features.GoalsOn);
-
-        Assert.Equal(GoalReplicaOutcome.Taken, await Replication.ApplyAsync(Copy(Guid.NewGuid(), "G", Morning), Cancellation));
-    }
-
     /// <summary>A copy taken from the replica is not a change to tell the replica about,
     /// but a screen still hears it; a person's save is told to both.</summary>
     [Fact]
     public async Task Only_a_persons_change_reaches_the_sync_loop_and_every_change_reaches_the_screens()
     {
-        _features.GoalsOn = true;
         var toSync = 0;
         var toScreens = 0;
         Replication.Changed += () => toSync++;

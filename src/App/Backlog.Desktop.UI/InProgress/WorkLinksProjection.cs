@@ -6,21 +6,19 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Integrations;
-using Backlog.UI.Components.Tasks;
 
 namespace Backlog.Desktop.UI.InProgress;
 
 /// <summary>
-/// What the In progress view and a task's side panel are asked to draw, worked out
-/// from the task list, the session record and GitHub's open pull requests.
+/// What a task's "Sessions and pull requests" section is asked to draw, worked out from
+/// the task list, the session record and GitHub's open pull requests.
 /// <para>
-/// Apart from any rendering so the rules have one home: which entries are in the
-/// view, which session and pull request belong to which, what is left over as not
-/// linked to a task, and every sentence the cards carry. The library's
-/// <see cref="InProgressSections"/> then decides the sections.
+/// Apart from any rendering so the rules have one home: which session and pull request
+/// belong to which entry, what is left over as not linked to a task, and every sentence
+/// the cards carry.
 /// </para>
 /// </summary>
-public sealed class InProgressProjection
+public sealed class WorkLinksProjection
 {
     private readonly IReadOnlyList<EntryRow> _rows;
     private readonly IReadOnlyList<AgentSession> _sessions;
@@ -29,7 +27,6 @@ public sealed class InProgressProjection
     private readonly Func<string?, int?> _colour;
     private readonly Func<string, LinkedSessionState?> _linkedState;
     private readonly DateTimeOffset _now;
-    private readonly DateOnly _today;
     private readonly bool _sessionsRead;
     private readonly Dictionary<string, AgentSession> _sessionsById;
     private readonly Dictionary<string, GitHubOpenPullRequest> _pullsByKey;
@@ -52,7 +49,7 @@ public sealed class InProgressProjection
     /// <param name="linkedPulls">The linked pull requests the open read did not list,
     /// read by number (<see cref="WorkInProgressReader.LinkedPullRequests"/>). They add
     /// the state, author and merge date to a work link and change nothing it draws.</param>
-    public InProgressProjection(
+    public WorkLinksProjection(
         IReadOnlyList<EntryRow> rows,
         IReadOnlyList<AgentSession> sessions,
         IReadOnlyList<GitHubOpenPullRequest> pulls,
@@ -71,7 +68,6 @@ public sealed class InProgressProjection
         _colour = colour;
         _linkedState = linkedState;
         _now = now;
-        _today = DateOnly.FromDateTime(now.DateTime);
 
         _sessionsById = new(StringComparer.OrdinalIgnoreCase);
         foreach (var session in sessions) _sessionsById.TryAdd(session.Id, session);
@@ -89,39 +85,6 @@ public sealed class InProgressProjection
     /// <summary>A pull request's key here and on the pull requests list: <c>owner/name#number</c>.</summary>
     public static string Key(string repositoryFullName, int number) =>
         $"{repositoryFullName}#{number.ToString(CultureInfo.InvariantCulture)}";
-
-    /// <summary>
-    /// The entries the view shows: of <paramref name="scopedRows"/> — the task list's
-    /// rows under the header's repository scope, in its order — every saved one in
-    /// progress, and every one finished today, marked <see cref="InProgressTask.Finished"/>.
-    /// </summary>
-    public IReadOnlyList<InProgressTask> Tasks(IEnumerable<EntryRow> scopedRows) =>
-        [.. scopedRows
-            .Where(row => row.IsPersisted && (IsInProgress(row) || IsFinishedToday(row)))
-            .Select(Task)];
-
-    /// <summary>One entry as a card: its facts, and the sessions and pull requests it links.</summary>
-    public InProgressTask Task(EntryRow row)
-    {
-        var repository = row.PreviewRepoIds.FirstOrDefault();
-        var finished = !IsInProgress(row) && IsFinishedToday(row);
-
-        return new InProgressTask(
-            row.Id!.Value.ToString(),
-            string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle,
-            SessionsOf(row),
-            PullRequestsOf(row),
-            Status: finished ? "Done" : "In progress",
-            Plan: PlanOf(row),
-            Repository: repository is null ? null : _alias(repository) ?? repository,
-            Colour: repository is null ? null : _colour(repository),
-            SubItems: row.SubItemCount == 0 ? null : $"{row.CompletedSubItemCount} of {row.SubItemCount} sub-items",
-            Started: row.PreviewStartedOn is { } started ? $"Started {Day(started)}" : null,
-            Due: !finished && row.PreviewDueOn is { } due ? $"Due {Day(due)}" : null,
-            Overdue: !finished && row.PreviewDueOn is { } dueOn && dueOn < _today,
-            Effort: row.PreviewEffort is { } points ? (points == 1 ? "1 pt" : $"{points} pts") : null,
-            Finished: finished);
-    }
 
     /// <summary>The sessions an entry links, in the order they were linked. A session
     /// the record no longer lists is still drawn, with what the task list last read
@@ -164,9 +127,9 @@ public sealed class InProgressProjection
     /// registered, and never a pull request, which is always read from one.
     /// </para>
     /// </summary>
-    public IReadOnlyList<InProgressLoose> Loose(IReadOnlyCollection<string> scope)
+    public IReadOnlyList<LooseWork> Loose(IReadOnlyCollection<string> scope)
     {
-        var loose = new List<InProgressLoose>();
+        var loose = new List<LooseWork>();
 
         foreach (var session in _sessions)
         {
@@ -175,7 +138,7 @@ public sealed class InProgressProjection
             var repository = RepositoryOf(session);
             if (!InScope(repository, scope)) continue;
 
-            loose.Add(new InProgressLoose(
+            loose.Add(new LooseWork(
                 Session: Session(session, withRepository: true),
                 Repository: repository is null ? null : _alias(repository) ?? repository,
                 Colour: repository is null ? null : _colour(repository)));
@@ -186,7 +149,7 @@ public sealed class InProgressProjection
             if (!pull.IsOpen || !pull.ViewerDidAuthor || _linkedPulls.Contains(Key(pull.RepositoryFullName, pull.Number))) continue;
             if (!InScope(pull.RepositoryFullName, scope, brainTakesUnplaced: false)) continue;
 
-            loose.Add(new InProgressLoose(
+            loose.Add(new LooseWork(
                 PullRequest: PullRequest(pull),
                 Repository: _alias(pull.RepositoryFullName) ?? pull.RepositoryFullName,
                 Colour: _colour(pull.RepositoryFullName)));
@@ -222,21 +185,6 @@ public sealed class InProgressProjection
 
         return scope.Contains(alias, StringComparer.Ordinal);
     }
-
-    private static bool IsInProgress(EntryRow row) => row.PreviewStatus is EntryStatus.InProgress;
-
-    private bool IsFinishedToday(EntryRow row) =>
-        row.PreviewStatus is EntryStatus.Done && row.PreviewCompletedOn == _today;
-
-    private static string? PlanOf(EntryRow row) =>
-        row.PreviewTags.FirstOrDefault(tag => tag.StartsWith('+'))
-        ?? (string.IsNullOrWhiteSpace(row.ImportPlanId) ? null : "+" + row.ImportPlanId.TrimStart('+'));
-
-    private string Day(DateOnly day) =>
-        day == _today ? "today"
-        : day == _today.AddDays(-1) ? "yesterday"
-        : day == _today.AddDays(1) ? "tomorrow"
-        : day.ToString("MMM d", CultureInfo.InvariantCulture);
 
     private WorkSession Session(AgentSession session, bool withRepository)
     {
