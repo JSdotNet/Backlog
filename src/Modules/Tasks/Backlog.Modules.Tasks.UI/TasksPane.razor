@@ -1336,6 +1336,25 @@
     public RenderFragment<EntryRow>? LinkedWork { get; set; }
 
     /// <summary>
+    /// The goal control the host cascades (<see cref="GoalControlSlot"/>), drawn in the
+    /// panel for a stored entry. The host's for the reason <see cref="LinkedWork"/> is:
+    /// a goal is Progress's, and this pane may not reach it. With none cascaded the
+    /// panel draws no goal line.
+    /// </summary>
+    [CascadingParameter]
+    public GoalControlSlot? GoalSlot { get; set; }
+
+    /// <summary>The panel's goal line for a row: only for one that is stored, since a
+    /// goal holds a task by its id and a row not yet saved has none to hold, and only
+    /// while the host offers goals, so the panel draws no empty line. The pane re-renders
+    /// on every feature change (<c>HandleFeaturesChanged</c>), which is what brings the
+    /// line back when goals are turned on.</summary>
+    private RenderFragment? GoalFor(EntryRow row) =>
+        GoalSlot is { IsOffered: true } slot && row.IsPersisted && row.Id is { } id
+            ? slot.Render(GoalSubject.ForTask(id))
+            : null;
+
+    /// <summary>
     /// The owner's Brain notes that name an entry in their <c>tasks</c> field (local
     /// ADR 0026 §3), asked by the entry's stored id in its lower-case GUID spelling.
     /// The host's to answer for the reason <see cref="LinkedWork"/> is: the notes are
@@ -3148,6 +3167,7 @@
                        CopyDisabledReason="@(row.IsPreviewBlocked ? BlockedCopyReason : null)"
                        Source="@State.LinkedSources.ToTaskSource(row.SourceRef)"
                        CssClass="entry-detail__panel"
+                       Goal="@GoalFor(row)"
                        TestId="entry-panel">
                 <StatusContent>
                     @* On the heading line, where the list row also shows it. The

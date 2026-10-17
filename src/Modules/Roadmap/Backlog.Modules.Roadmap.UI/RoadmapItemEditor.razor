@@ -13,6 +13,7 @@
     dispatches the use case, the module decides, and the dialog is told whether to
     close or to show why not — the same arrangement as a drag on the chart.
 *@
+@using global::Backlog.UI.Components.Goals
 @implements IDisposable
 
 <Modal Open="@Open"
@@ -77,6 +78,16 @@
                        Placeholder="@RoadmapTagSlug.From(_title)"
                        HelpText="How other parts of the product refer to this item. Kebab-case; derived from the title unless you change it."
                        TestId="roadmap-item-tag-input" />
+
+            @* The goal the stored plan counts toward, beside the tag it is attached by. Only
+               for a stored tag: a goal holds a plan by its tag, and a tag still being typed
+               names no plan yet. *@
+            @if (OfferedGoalSlot is { } goalSlot && !string.IsNullOrWhiteSpace(Item?.Tag))
+            {
+                <div class="roadmap-editor__goal" data-testid="roadmap-editor-goal">
+                    @goalSlot.Render(GoalSubject.ForPlan(Item.Tag))
+                </div>
+            }
 
             @* Free-typed chapter references — a path, or a path and a heading slug.
                Stored as written and never resolved, so a reference to something not yet
@@ -306,6 +317,25 @@
     [Parameter]
     public RoadmapItemDto? Item { get; set; }
 
+    /// <summary>The goal control a host cascades, drawn for a stored item's plan. With
+    /// none cascaded, the dialog is what it was.</summary>
+    [CascadingParameter]
+    public GoalControlSlot? GoalSlot { get; set; }
+
+    private GoalSlotWatch? _goalWatch;
+
+    /// <summary>The slot to draw, or null while there is none or the host offers no
+    /// goals — then not even the wrapper is drawn.</summary>
+    private GoalControlSlot? OfferedGoalSlot => GoalSlot is { IsOffered: true } slot ? slot : null;
+
+    /// <summary>Follows the cascaded slot, so the goal control comes and goes as the host's
+    /// goals switch turns, whether or not the screen around this re-renders on it.</summary>
+    private void FollowGoalSlot()
+    {
+        _goalWatch ??= new GoalSlotWatch(() => _ = InvokeAsync(StateHasChanged));
+        _goalWatch.Follow(GoalSlot);
+    }
+
     /// <summary>Where on the chart new work was asked for, when it was — read only
     /// while <see cref="Item"/> is null. Null opens on the plain defaults.</summary>
     [Parameter]
@@ -472,10 +502,16 @@
     // multi-select is a create-only chip editor over whatever the person writes.
     private static IReadOnlyList<SelectorOption> KnowledgeOptions => [];
 
-    public void Dispose() => GC.SuppressFinalize(this);
+    public void Dispose()
+    {
+        _goalWatch?.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     protected override void OnParametersSet()
     {
+        FollowGoalSlot();
+
         // Reloaded when the dialog opens on a different item, and not on every
         // parameter set: re-reading the item mid-edit would throw away what somebody
         // is part-way through typing every time the band reloaded behind the dialog.

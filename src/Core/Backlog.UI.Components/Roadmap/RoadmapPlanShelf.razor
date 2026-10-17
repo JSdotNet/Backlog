@@ -20,6 +20,8 @@
     the shelf would disappear with the last card, taking the news with it.
 *@
 
+@implements IDisposable
+
 @if (Plans.Count > 0)
 {
     <section class="@ClassValue" aria-labelledby="@HeadingId" data-testid="@TestId">
@@ -45,6 +47,14 @@
                 <li class="roadmap-shelf__row" data-testid="@RowTestId(plan)" @key="plan.Tag">
                     <div class="roadmap-shelf__row-head">
                         <TagChip Text="@("+" + plan.Tag)" CssClass="roadmap-shelf__tag" />
+                        @if (OfferedGoalSlot is { } goalSlot)
+                        {
+                            @* Beside "Plan it": a goal is the other thing a waiting plan
+                               is given, and it needs no place on the timeline first. *@
+                            <span class="roadmap-shelf__goal" data-testid="@GoalTestId(plan)">
+                                @goalSlot.Render(GoalSubject.ForPlan(plan.Tag))
+                            </span>
+                        }
                         <AppButton Variant="ButtonVariant.Secondary"
                                    Size="ButtonSize.Small"
                                    Busy="@string.Equals(Busy, plan.Tag, StringComparison.OrdinalIgnoreCase)"
@@ -121,11 +131,36 @@
     [Parameter]
     public string TestId { get; set; } = "roadmap-shelf";
 
+    /// <summary>The goal control a host cascades. Each row draws it for its plan; with
+    /// none cascaded, the rows are what they were.</summary>
+    [CascadingParameter]
+    public GoalControlSlot? GoalSlot { get; set; }
+
+    private GoalSlotWatch? _goalWatch;
+
+    /// <summary>The slot to draw, or null while there is none or the host offers no
+    /// goals — then not even the wrapper is drawn.</summary>
+    private GoalControlSlot? OfferedGoalSlot => GoalSlot is { IsOffered: true } slot ? slot : null;
+
+    /// <summary>Follows the cascaded slot, so the goal control comes and goes as the host's
+    /// goals switch turns, whether or not the screen around this re-renders on it.</summary>
+    private void FollowGoalSlot()
+    {
+        _goalWatch ??= new GoalSlotWatch(() => _ = InvokeAsync(StateHasChanged));
+        _goalWatch.Follow(GoalSlot);
+    }
+
+    protected override void OnParametersSet() => FollowGoalSlot();
+
+    public void Dispose() => _goalWatch?.Dispose();
+
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "roadmap-shelf" : $"roadmap-shelf {CssClass}";
 
     private string RowTestId(RoadmapShelfPlan plan) => $"{TestId}-row-{plan.Tag}";
 
     private string ActionTestId(RoadmapShelfPlan plan) => $"{TestId}-plan-{plan.Tag}";
+
+    private string GoalTestId(RoadmapShelfPlan plan) => $"{TestId}-goal-{plan.Tag}";
 
     private string PartTestId(RoadmapShelfPlan plan, string repository) => $"{TestId}-part-{plan.Tag}-{repository}";
 
