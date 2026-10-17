@@ -49,7 +49,7 @@
 
     /// <summary>Save was pressed, with the draft trimmed.</summary>
     [Parameter]
-    public EventCallback<GoalDraft> OnSave { get; set; }
+    public EventCallback<NewGoalDraft> OnSave { get; set; }
 
     [Parameter]
     public bool Busy { get; set; }
@@ -82,6 +82,6 @@
         DateOnly? due = DateOnly.TryParseExact(_due?.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out var day) ? day : null;
 
-        return OnSave.InvokeAsync(new GoalDraft(_title?.Trim() ?? string.Empty, outcome, due));
+        return OnSave.InvokeAsync(new NewGoalDraft(_title?.Trim() ?? string.Empty, outcome, due));
     }
 }

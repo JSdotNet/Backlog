@@ -527,17 +527,17 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [Fact]
     public void The_new_goal_dialog_hands_back_the_draft_trimmed()
     {
-        GoalDraft? draft = null;
+        NewGoalDraft? draft = null;
         var dialog = _context.Render<GoalCreateDialog>(p => p
             .Add(c => c.Open, true)
-            .Add(c => c.OnSave, (GoalDraft d) => draft = d));
+            .Add(c => c.OnSave, (NewGoalDraft d) => draft = d));
 
         dialog.Find("[data-testid='goal-create-dialog-title'] input").Input("  Customers get paid faster ");
         dialog.Find("[data-testid='goal-create-dialog-outcome'] input").Input("   ");
         dialog.Find("[data-testid='goal-create-dialog-due'] input").Input("2026-10-30");
         dialog.Find("[data-testid='goal-create-dialog-save']").Click();
 
-        dialog.WaitForAssertion(() => Assert.Equal(new GoalDraft("Customers get paid faster", null, Oct(30)), draft));
+        dialog.WaitForAssertion(() => Assert.Equal(new NewGoalDraft("Customers get paid faster", null, Oct(30)), draft));
     }
 
     [Fact]

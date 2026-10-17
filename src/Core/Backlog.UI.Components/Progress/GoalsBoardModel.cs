@@ -193,4 +193,4 @@ public sealed record ImpedimentMoveRequest(string ImpedimentId, StandUpImpedimen
 /// <summary>A new goal as the New goal dialog hands it back, trimmed.</summary>
 /// <param name="Outcome">The one-line outcome; null when left blank.</param>
 /// <param name="DueDate">The due date; null when left blank, which the module refuses.</param>
-public sealed record GoalDraft(string Title, string? Outcome, DateOnly? DueDate);
+public sealed record NewGoalDraft(string Title, string? Outcome, DateOnly? DueDate);

@@ -201,7 +201,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         _ => "A Resolved impediment: the settled fill, and a picker with no move to offer."
     };
 
-    private void SaveDraft(GoalDraft draft)
+    private void SaveDraft(NewGoalDraft draft)
     {
         if (draft.Title.Length == 0) { _dialogError = "A goal needs a title."; return; }
         if (draft.DueDate is null) { _dialogError = "A goal needs a due date."; return; }
