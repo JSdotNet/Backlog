@@ -1,80 +1,95 @@
-# Progress
+# Model
 
 ```meta
 type: model
 status: draft
-related: [.devbook/domain/progress/domain.md#sprint-series]
+related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#iteration]
 ```
 
 > Structural view of the domain model for this bounded context: aggregates,
 > entities, value objects, and their relationships. Keep this in sync with
-> `domain.md` (which describes responsibilities/invariants in prose) — this file
-> focuses on structure and relationships. Lifecycle and process flows live in
-> `flow.md`.
+> `domain.md` (which describes responsibilities in prose) — this file focuses on
+> structure and relationships.
 
 ## Model diagram
 
 ```mermaid
 classDiagram
-    class SprintSeries {
-        +SeriesId Id
-        +string Name
-        +SeriesRepositories Repositories
-        +SprintLength Length
-        +DayOfWeek StartWeekday
-        +NamePattern NamePattern
-        +BriefVisibility Briefs
-        +GoalRule[] GoalRules
-        +GoalThreshold Threshold
-        +Sprint[] Sprints
-        +StartSprint(goal)
-        +CloseSprint(outcomes, nextGoal)
+    class Goal {
+        +GoalId Id
+        +string Title
+        +string Outcome
+        +DateOnly DueDate
+        +GoalAttachment[] Attachments
     }
 
-    class Sprint {
-        +int Number
-        +SprintWindow Window
-        +string Goal
-        +bool IsOpen
-        +PlanLink[] PlanLinks
-        +SprintItem[] Items
+    class GoalAttachment {
+        +AttachmentKind Kind
+        +PlanTag Plan
+        +TaskId Task
+        +PullRequestRef PullRequest
+        +DateOnly AttachedOn
     }
 
-    class SprintItem {
-        +TaskId TaskId
-        +bool AddedDirectly
-        +DateOnly AddedOn
-        +bool IsGoal
+    class Impediment {
+        +ImpedimentId Id
+        +string Title
+        +ImpedimentState State
+        +string ReportedTo
+        +string HandledBy
+        +DateOnly CheckAgain
         +string Note
-        +bool OpenQuestion
-        +bool KeptAtClose
-        +CloseOutcome Outcome
+        +StateChange[] History
+        +HoldsBack[] HoldsBack
     }
 
-    class PlanLink {
-        +PlanTag Tag
-        +DateOnly LinkedOn
+    class StateChange {
+        +ImpedimentState State
+        +DateOnly On
+        +string With
     }
 
-    class GoalRule {
-        +GoalRuleKind Kind
-        +PlanTag[] Plans
-        +string[] Tags
+    class HoldsBack {
+        +TaskId Task
     }
 
-    SprintSeries "1" *-- "1..*" Sprint
-    Sprint "1" *-- "0..*" PlanLink
-    Sprint "1" *-- "0..*" SprintItem
-    SprintSeries "1" *-- "0..*" GoalRule
+    class Iteration {
+        +IterationLength Length
+        +DateOnly FirstDay
+        +DateOnly LastDay
+    }
+
+    class Task {
+        <<Tasks>>
+    }
+    class RoadmapTag {
+        <<Roadmap Planning>>
+    }
+    class PullRequest {
+        <<GitHub>>
+    }
+
+    Goal "1" *-- "0..*" GoalAttachment
+    Impediment "1" *-- "1..*" StateChange
+    Impediment "1" *-- "0..*" HoldsBack
+    GoalAttachment ..> RoadmapTag : plan by tag
+    GoalAttachment ..> Task : task by id
+    GoalAttachment ..> PullRequest : repository and number
+    HoldsBack ..> Task : task by id
 ```
 
 ## Relationship notes
 
-- A Sprint Series owns its sprints; a sprint never moves to another series.
-- A Sprint Item names a [Task](../tasks/domain.md#task) by id and a Plan Link
-  names a plan by its [Roadmap Tag](../roadmap/domain.md#roadmap-tag). Neither
-  holds a copy of what it names.
-- The [Series Assignment](domain.md#series-assignment) service reads every
-  series to hold a repository to one of them.
-- The [Sprint Progress](domain.md#sprint-progress) service reads a sprint with
-  its members' current task state and stores nothing.
+- A Goal owns its attachments, and an Impediment owns its history and its holds-back
+  links. Neither aggregate refers to the other: an impediment reaches a goal only
+  through a task the goal counts.
+- Every arrow out of Progress is a reference by identity. A plan is named by its
+  [Roadmap Tag](../roadmap/domain.md#roadmap-tag), a task by its id and a pull request
+  by its repository and number. None of them is copied.
+- [Goal Progress](domain.md#goal-progress) and [Goal Forecast](domain.md#goal-forecast)
+  are not stored. The [Stand-up Reading](domain.md#stand-up-reading) service computes
+  them over an [Iteration](domain.md#iteration), which is a window and holds no
+  identity of its own.
+- [Goal Assignment](domain.md#goal-assignment) reads every goal to hold an item to one
+  of them, and the [Blocked Task Policy](domain.md#blocked-task-policy) creates an
+  Impediment from a task's blocked mark.

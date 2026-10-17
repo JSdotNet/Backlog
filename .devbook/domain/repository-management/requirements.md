@@ -71,10 +71,10 @@ The system SHALL suggest Archive on a repository's row when GitHub reports the r
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.An_archived_repository_is_not_read_and_names_no_failure, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_link_into_an_archived_repository_is_read_again_once_it_is_unarchived, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.The_reader_skips_an_archived_repository_and_keeps_what_it_already_knew]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.An_archived_repository_is_not_read_and_names_no_failure, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_link_into_an_archived_repository_is_read_again_once_it_is_unarchived]
 ```
 
-The system SHALL read nothing from GitHub for an archived repository in the Pull requests pane, the In progress view, the dashboard's activity and the sprint views, and report no failure for it there.
+The system SHALL read nothing from GitHub for an archived repository in the Pull requests pane, the Goals view, and the dashboard's activity, and report no failure for it there.
 
 #### Scenario: The Pull requests pane refreshes
 
@@ -82,16 +82,10 @@ The system SHALL read nothing from GitHub for an archived repository in the Pull
 - **When** the person refreshes the Pull requests pane
 - **Then** no line reads "Couldn't read innovadis-dev/Budgetbeheer", and the pull requests of the active repositories are listed
 
-#### Scenario: The In progress view refreshes
+#### Scenario: The Goals view refreshes
 
-- **Given** `budgetbeheer` is archived and GitHub cannot find it
-- **When** the In progress view refreshes
-- **Then** it reports no failure for `budgetbeheer`
-
-#### Scenario: A sprint series holds the repository
-
-- **Given** `budgetbeheer` is archived and belongs to a sprint series
-- **When** the sprint view opens
+- **Given** `budgetbeheer` is archived, GitHub cannot find it, and a goal holds one of its pull requests
+- **When** the Goals view refreshes
 - **Then** it reads no pull requests of `budgetbeheer` and reports no failure for it
 
 ### Requirement: Pickers and the scope hide an archived repository
