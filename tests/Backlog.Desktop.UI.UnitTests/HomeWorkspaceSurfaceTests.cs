@@ -11,6 +11,7 @@ using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.PullRequests;
@@ -2825,6 +2826,39 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() =>
             Assert.Equal("Answers from the Goals content.", component.Find(".ai-panel__body").TextContent.Trim()));
+    }
+
+    /// <summary>With the desktop's own Goals source composed over the stand-up port, Ask AI
+    /// is offered on the Goals view and a question carries the stand-up as its content.</summary>
+    [Fact]
+    public void Ask_ai_is_offered_on_the_goals_view_and_sends_the_stand_up()
+    {
+        using var harness = CreateHarness(
+            features => features.SetEnabled(AppFeatures.AiAssistant, true),
+            configureServices: services =>
+            {
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
+                services.AddGoalsAiContentSource();
+            });
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='goals-view-option']")));
+        component.Find("[data-testid='goals-view-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("Answers from the Goals content.", component.Find(".ai-panel__body").TextContent.Trim()));
+
+        component.Find("[data-testid='ai-question-input']").Input("What is at risk?");
+        component.Find("[data-testid='ai-ask-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var request = Assert.Single(harness.FoundryChat.Requests);
+            Assert.StartsWith("Goals (stand-up: ", request.Content, StringComparison.Ordinal);
+            Assert.Contains("Goal: Customers get paid faster", request.Content, StringComparison.Ordinal);
+            Assert.Contains("Impediment: Bank sample files missing, escalated", request.Content, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>The test ids of a header group's options, in order.</summary>

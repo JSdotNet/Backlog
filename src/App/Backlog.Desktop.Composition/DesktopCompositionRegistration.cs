@@ -27,6 +27,7 @@ using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Progress.Extensions;
+using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
@@ -142,6 +143,9 @@ public static class DesktopCompositionRegistration
         // Progress (local ADR 0035): goals, impediments and the stand-up, always on
         // (§10).
         services.AddProgressModule();
+        // The stand-up behind the shell's Ask AI port on the Goals view, after the
+        // module so the scoped stand-up port it holds exists.
+        services.AddGoalsAiContentSource();
 
         // Capture: the module brings the run, and the head decides where the
         // monitored sources and what past runs said are kept. The source adapters

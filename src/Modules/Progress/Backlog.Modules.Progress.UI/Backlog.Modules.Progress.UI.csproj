@@ -27,4 +27,9 @@
     <ProjectReference Include="..\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- GoalsAiContentSource is internal; its tests sit beside the other areas' sources. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
 </Project>
