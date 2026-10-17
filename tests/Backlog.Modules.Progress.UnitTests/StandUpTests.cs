@@ -296,6 +296,24 @@ public sealed class StandUpTests : IDisposable
         Assert.Equal(1, standUp.ResolvedInLast);
     }
 
+    /// <summary>An impediment's note reaches the stand-up as it is stored, so the desktop row
+    /// can show and edit it; one without a note carries none.</summary>
+    [Fact]
+    public async Task An_impediment_line_carries_its_note()
+    {
+        var bank = MakeImpediment.Raised("Bank sample files missing", Oct(14));
+        bank.EditNote("Ask for the CAMT.053 samples too");
+        var credit = MakeImpediment.Raised("Credit note numbering unclear", Oct(15));
+        await _impediments.SaveAsync(bank, Cancellation);
+        await _impediments.SaveAsync(credit, Cancellation);
+
+        var standUp = await ReadAsync(Oct(16), IterationLength.Day);
+
+        Assert.Equal(
+            [("Bank sample files missing", (string?)"Ask for the CAMT.053 samples too"), ("Credit note numbering unclear", null)],
+            standUp.Impediments.Select(line => (line.Title, line.Note)));
+    }
+
     /// <summary>Scenario "Two items a week, six open", read through the stand-up's Goals block:
     /// it lands 6 November, after its due date of 31 October.</summary>
     [Fact]

@@ -73,6 +73,7 @@ public sealed record StandUpItemDto(
 /// <param name="DaysOpen">Its age: the worked days from the day it was raised through today, both included.</param>
 /// <param name="GoalId">The first goal, in goal order, that counts a task it holds back; null for none.</param>
 /// <param name="GoalTitle">That goal's title, or null.</param>
+/// <param name="Note">The impediment's note as stored, or null with none.</param>
 public sealed record StandUpImpedimentDto(
     Guid Id,
     string Title,
@@ -81,4 +82,5 @@ public sealed record StandUpImpedimentDto(
     int DaysOpen,
     DateOnly? CheckAgain,
     Guid? GoalId,
-    string? GoalTitle);
+    string? GoalTitle,
+    string? Note = null);

@@ -14,6 +14,17 @@
     and then the stored one, and that change in the rendered value is what makes
     Blazor write the stored value back onto the element. Re-keying the select would
     write it too, by replacing the element, and drop the focus to the page.
+
+    Under the meta line the row shows the impediment's note — the one the phone's
+    impediment page writes too — wrapped as written. With a host listening, an
+    "Add note" or "Edit note" button opens the note in place as a text box: leaving the
+    box or Ctrl+Enter hands the text back trimmed, a blank one as none, and Escape
+    abandons it. There is no Save button (interaction-guidelines.md#auto-save-no-save-buttons),
+    the Escape stops at the box (#task-rows, "Escape belongs to the innermost draft"),
+    and an unchanged note is not handed back. Closed by a key, the focus goes back to the
+    button; left by Tab or a click, it stays where the person took it. The box has no
+    visible label, so a click on one cannot blur it shut. Without a host the note is
+    text alone, never an inert control.
 *@
 @inject IJSRuntime Js
 <div class="@ClassValue" data-testid="@TestId" data-state="@Slug(Impediment.State)">
@@ -37,11 +48,52 @@
             <span class="impediment-row__goal">@Impediment.GoalTitle</span>
         }
     </span>
+    @if (_editing)
+    {
+        <div class="impediment-row__note-editor" @onkeydown="NoteKeyAsync" @onkeydown:stopPropagation="true" @onfocusout="CommitAsync">
+            <TextArea Id="@_noteId"
+                      AriaLabel="@($"Note on {Impediment.Title}")"
+                      Placeholder="Note"
+                      Value="@_draft"
+                      ValueChanged="value => _draft = value"
+                      Rows="2"
+                      TestId="@Part("note-editor")" />
+        </div>
+    }
+    else if (ShownNote is not null || CanEdit)
+    {
+        <div class="impediment-row__note-line">
+            @if (ShownNote is { } note)
+            {
+                <p class="impediment-row__note" data-testid="@Part("note")">@note</p>
+            }
+            @if (CanEdit)
+            {
+                <AppButton Variant="ButtonVariant.Ghost"
+                           Size="ButtonSize.Small"
+                           Disabled="Disabled"
+                           Busy="_saving"
+                           BusyLabel="Saving the note"
+                           CssClass="impediment-row__note-edit"
+                           OnClick="OpenNote"
+                           TestId="@Part("note-edit")"
+                           id="@_noteButtonId"
+                           aria-label="@($"{(ShownNote is null ? "Add note to" : "Edit note on")} {Impediment.Title}")">@(ShownNote is null ? "Add note" : "Edit note")</AppButton>
+            }
+        </div>
+    }
 </div>
 
 @code {
     private readonly string _pickerId = "impediment-state-" + Guid.NewGuid().ToString("N");
+    private readonly string _noteId = "impediment-note-" + Guid.NewGuid().ToString("N");
+    private readonly string _noteButtonId = "impediment-note-edit-" + Guid.NewGuid().ToString("N");
     private StandUpImpedimentState? _picked;
+    private bool _editing;
+    private bool _saving;
+    private string _draft = string.Empty;
+    private string? _sent;
+    private string? _focus;
 
     [Parameter, EditorRequired]
     public StandUpImpediment Impediment { get; set; } = default!;
@@ -49,6 +101,11 @@
     /// <summary>A state was picked; the host saves the move and reads the view again.</summary>
     [Parameter]
     public EventCallback<StandUpImpedimentState> OnMove { get; set; }
+
+    /// <summary>The note was written; the host saves it and reads the view again. Null
+    /// clears it. Without a listener the note is shown and cannot be edited.</summary>
+    [Parameter]
+    public EventCallback<string?> OnEditNote { get; set; }
 
     /// <summary>While a move is being saved.</summary>
     [Parameter]
@@ -67,6 +124,11 @@
 
     /// <summary>The picked state while its move is being saved, the stored one otherwise.</summary>
     private StandUpImpedimentState Shown => _picked ?? Impediment.State;
+
+    private bool CanEdit => OnEditNote.HasDelegate;
+
+    /// <summary>The note handed back while it is being saved, the stored one otherwise.</summary>
+    private string? ShownNote => _saving ? _sent : Clean(Impediment.Note);
 
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "impediment-row" : $"impediment-row {CssClass}";
 
@@ -107,4 +169,67 @@
             _picked = null;
         }
     }
+
+    private void OpenNote()
+    {
+        _draft = Impediment.Note ?? string.Empty;
+        _editing = true;
+        _focus = _noteId;
+    }
+
+    private async Task NoteKeyAsync(KeyboardEventArgs key)
+    {
+        if (key.Key == "Escape")
+        {
+            Close(refocus: true);
+        }
+        else if (key.Key == "Enter" && key.CtrlKey)
+        {
+            await CommitAsync(refocus: true);
+        }
+    }
+
+    /// <summary>Hands the draft back unless it says what the note says, and closes the box.
+    /// The box closing may raise its own focusout; once closed that one finds nothing. Left
+    /// by focusout, the focus is wherever the person took it; closed by a key, it goes back
+    /// to the button.</summary>
+    private Task CommitAsync() => CommitAsync(refocus: false);
+
+    private async Task CommitAsync(bool refocus)
+    {
+        if (!_editing) return;
+
+        var note = Clean(_draft);
+        Close(refocus);
+        if (string.Equals(note, Clean(Impediment.Note), StringComparison.Ordinal)) return;
+
+        _sent = note;
+        _saving = true;
+        try
+        {
+            await OnEditNote.InvokeAsync(note);
+        }
+        finally
+        {
+            _saving = false;
+            _sent = null;
+        }
+    }
+
+    private void Close(bool refocus)
+    {
+        _editing = false;
+        _draft = string.Empty;
+        if (refocus) _focus = _noteButtonId;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focus is not { } id) return;
+
+        _focus = null;
+        await global::Backlog.UI.Components.Tasks.QuickEditField.FocusAsync(Js, id, select: false);
+    }
+
+    private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 }

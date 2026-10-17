@@ -108,7 +108,8 @@ public static class GoalsMapper
                 impediment.With,
                 impediment.DaysOpen,
                 impediment.CheckAgain,
-                impediment.GoalTitle))],
+                impediment.GoalTitle,
+                impediment.Note))],
             standUp.ResolvedInLast);
 
         return new GoalsBoardModel(

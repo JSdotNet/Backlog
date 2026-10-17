@@ -351,6 +351,44 @@ public sealed class GoalsHostTests : IDisposable
         Assert.Equal(1, _pulls.Asked.Count - 1);
     }
 
+    /// <summary>The note the phone wrote shows on the desktop's row, and a note written
+    /// there is saved through IImpediments.EditNoteAsync and the view read again.</summary>
+    [Fact]
+    public void An_impediments_note_shows_on_its_row_and_an_edit_is_saved_through_the_module()
+    {
+        _standUp.Reading = _standUp.Reading with
+        {
+            Impediments = [_standUp.Reading.Impediments[0] with { Note = "QA12 phone note" }]
+        };
+        var host = Render();
+        var row = $"goals-board-stand-up-impediment-{BankId}";
+        host.WaitForAssertion(() => Assert.Equal("QA12 phone note", host.Find($"[data-testid='{row}-note']").TextContent));
+        var before = _standUp.Reads;
+
+        host.Find($"[data-testid='{row}-note-edit']").Click();
+        host.Find($"[data-testid='{row}-note-editor'] textarea").Input("  Samples promised for Tuesday  ");
+        host.Find(".impediment-row__note-editor").FocusOut();
+
+        host.WaitForAssertion(() => Assert.Equal([(BankId, (string?)"Samples promised for Tuesday")], _impediments.Notes));
+        host.WaitForAssertion(() => Assert.Equal(before + 1, _standUp.Reads));
+    }
+
+    [Fact]
+    public void A_refused_note_shows_above_the_board()
+    {
+        _impediments.Failure = ProgressErrors.ImpedimentNotFound(BankId);
+        var host = Render();
+        var row = $"goals-board-stand-up-impediment-{BankId}";
+        host.WaitForAssertion(() => host.Find($"[data-testid='{row}-note-edit']"));
+
+        host.Find($"[data-testid='{row}-note-edit']").Click();
+        host.Find($"[data-testid='{row}-note-editor'] textarea").Input("Call the bank");
+        host.Find(".impediment-row__note-editor").FocusOut();
+
+        host.WaitForAssertion(() => Assert.Contains(ProgressErrors.ImpedimentNotFound(BankId).Message, host.Markup, StringComparison.Ordinal));
+        Assert.Empty(host.FindAll($"[data-testid='{row}-note']"));
+    }
+
     // ---- Doubles at the Progress module's boundary ------------------------------------
 
     internal sealed class FakeStandUp : IStandUp
@@ -492,7 +530,17 @@ public sealed class GoalsHostTests : IDisposable
 
         public Task<Result<ImpedimentDto>> SetCheckAgainAsync(Guid impedimentId, DateOnly? checkAgain, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public Task<Result<ImpedimentDto>> EditNoteAsync(Guid impedimentId, string? note, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public List<(Guid, string?)> Notes { get; } = [];
+
+        public Task<Result<ImpedimentDto>> EditNoteAsync(Guid impedimentId, string? note, CancellationToken cancellationToken = default)
+        {
+            Notes.Add((impedimentId, note));
+            return Task.FromResult(Failure is { } error
+                ? Result.Failure<ImpedimentDto>(error)
+                : Result.Success(new ImpedimentDto(
+                    impedimentId, "Bank sample files missing", ImpedimentState.Escalated, "Account manager", null, null, note,
+                    [new ImpedimentStateChangeDto(ImpedimentState.Escalated, Oct(15), "Account manager")], [])));
+        }
 
         public Task<Result<ImpedimentDto>> HoldBackAsync(Guid impedimentId, Guid taskId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 

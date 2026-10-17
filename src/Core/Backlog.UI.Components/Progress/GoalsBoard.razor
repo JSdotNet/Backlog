@@ -105,6 +105,7 @@
                       Iteration="Model.Iteration"
                       Busy="Busy"
                       OnMoveImpediment="request => OnMoveImpediment.InvokeAsync(request)"
+                      OnEditImpedimentNote="@(OnEditImpedimentNote.HasDelegate ? EventCallback.Factory.Create<ImpedimentNoteRequest>(this, request => OnEditImpedimentNote.InvokeAsync(request)) : default)"
                       CssClass="goals-board__stand-up"
                       TestId="@Part("stand-up")" />
     </div>
@@ -164,6 +165,10 @@
     /// <summary>An impediment's state was picked.</summary>
     [Parameter]
     public EventCallback<ImpedimentMoveRequest> OnMoveImpediment { get; set; }
+
+    /// <summary>An impediment's note was written; without a listener the notes are text.</summary>
+    [Parameter]
+    public EventCallback<ImpedimentNoteRequest> OnEditImpedimentNote { get; set; }
 
     /// <summary>A refusal to show above the board, in the module's words.</summary>
     [Parameter]

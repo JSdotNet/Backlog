@@ -1,0 +1,19 @@
+@using Backlog.UI.Components.Progress
+@* An impediment row under a host that closes on Escape, the only arrangement that can
+   see where the key stops. The live shape is the shell's workspace surface around the
+   Goals view: the Escape that abandons a note's draft is the box's, and must not also
+   be the surface's. *@
+
+<div class="escape-host" data-testid="host" @onkeydown="OnHostKeyDown">
+    <ImpedimentRow Impediment="Impediment" OnEditNote="_ => { }" TestId="imp" />
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public StandUpImpediment Impediment { get; set; } = default!;
+
+    /// <summary>Every key that reached the host, in order.</summary>
+    public List<string> HostKeys { get; } = [];
+
+    private void OnHostKeyDown(KeyboardEventArgs e) => HostKeys.Add(e.Key);
+}
