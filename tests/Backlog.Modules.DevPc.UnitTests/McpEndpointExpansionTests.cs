@@ -1,6 +1,6 @@
 using Backlog.Modules.DevPc.Abstractions;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.DevPc.UnitTests;
 
 /// <summary>
 /// The catalog spells an HTTP entry the way a person pastes it out of a

@@ -40,6 +40,7 @@
          person sees as "installed", so they are worth testing directly rather
          than only through whichever host happens to call them. -->
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+    <InternalsVisibleTo Include="Backlog.Modules.DevPc.UnitTests" />
 
     <!-- And the tools adapter, for McpPlaceholders alone.
 

@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.DevPc.UnitTests;
 
 /// <summary>
 /// The text the Copilot CLI, the dotnet CLI and the GitHub API actually print,

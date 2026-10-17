@@ -2,9 +2,9 @@ using Backlog.Modules.DevPc.UI;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
-using static Backlog.Desktop.UI.UnitTests.ToolsPaneTests;
+using static Backlog.Modules.DevPc.UnitTests.ToolsPaneTests;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.DevPc.UnitTests;
 
 /// <summary>
 /// The pane brought to the agreed design canvas (plan +system-tools-redesign): the

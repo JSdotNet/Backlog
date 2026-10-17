@@ -3,7 +3,7 @@ using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.SharedKernel.Ai;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.DevPc.UnitTests;
 
 /// <summary>
 /// Dev PC Management's Ask AI content: the tool catalog, one line per tool,
@@ -99,7 +99,7 @@ public class ToolsAiContentSourceTests
             """);
 
         var tools = DevToolService.CatalogOnly(
-            TasksTestHost.TaskStoreFor(new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"))));
+            new WorkspaceTaskStore(new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"))));
 
         var content = await new ToolsAiContentSource(tools)
             .ComposeAsync(new AiContentRequest("nothing shared", 6000), TestContext.Current.CancellationToken);

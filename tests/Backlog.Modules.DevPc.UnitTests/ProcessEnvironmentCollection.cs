@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.DevPc.UnitTests;
 
 /// <summary>
 /// Tests that set a process-wide environment variable, and must therefore not

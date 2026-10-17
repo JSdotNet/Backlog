@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="bunit" />
+    <!-- FakeTimeProvider: the pane's run log stamps each run and the design
+         tests pin the clock it reads. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Dev PC Management publishes the tool port, the DTOs behind it and the
+         .tools catalog format under its abstractions' namespace, which almost
+         every file here speaks. -->
+    <Using Include="Backlog.Modules.DevPc.Abstractions" />
+    <!-- And its adapter's namespace: DevToolService in its catalog-only
+         configuration, the Claude desktop config and the command lines the
+         application tests check. -->
+    <Using Include="Backlog.Infrastructure.DevPc" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.UI\Backlog.Modules.DevPc.UI.csproj" />
+    <!-- The tools adapter, for the pane and Ask AI tests that read a real catalog
+         through it and the application tests over its command lines; the
+         adapter's own tests are Backlog.Infrastructure.DevPc.UnitTests. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.DevPc\Backlog.Infrastructure.DevPc.csproj" />
+    <!-- The workspace settings and task stores the catalog-only configuration
+         resolves the per-PC config from, and the store the tools view
+         preferences persist the open tab in. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+  </ItemGroup>
+
+  <!-- The pane-header shape the tools pane shares with the shell panes in
+       Backlog.Desktop.UI.UnitTests, and bUnit's default wait for this process,
+       set before any test runs; the file says why. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
+    <Compile Include="..\Shared\BunitWaitTimeout.cs" Link="Shared\BunitWaitTimeout.cs" />
+  </ItemGroup>
+
+</Project>

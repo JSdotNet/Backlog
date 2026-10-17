@@ -45,6 +45,7 @@
     <!-- The record shape the Ask AI source writes a tool in is a contract with
          the assistant, so it is worth asserting without a DOM. -->
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+    <InternalsVisibleTo Include="Backlog.Modules.DevPc.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>
