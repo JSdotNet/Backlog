@@ -1,3 +1,5 @@
+using Backlog.UI.Components.Goals;
+
 namespace Backlog.UI.Components.Progress;
 
 /// <summary>The iteration lengths the Goals view's switch offers
@@ -33,15 +35,15 @@ public enum GoalTaskStatus
 
 /// <summary>A plan attached to a goal, with its own count.</summary>
 /// <param name="Title">The plan's name as the host shows it.</param>
-/// <param name="Key">The host's key for the plan, handed back on detach; null draws the row
-/// with no detach.</param>
-public sealed record GoalPlanModel(string Title, int Done, int Total, string? Key = null);
+/// <param name="Subject">The plan as the host names it, handed back on detach; null draws the
+/// row with no detach.</param>
+public sealed record GoalPlanModel(string Title, int Done, int Total, GoalSubject? Subject = null);
 
 /// <summary>A task attached to a goal.</summary>
 /// <param name="Id">The host's id for the task.</param>
-/// <param name="Key">The host's key for the task, handed back on detach; null draws the row
-/// with no detach.</param>
-public sealed record GoalTaskModel(string Id, string Title, GoalTaskStatus Status, string? Key = null);
+/// <param name="Subject">The task as the host names it, handed back on detach; null draws the
+/// row with no detach.</param>
+public sealed record GoalTaskModel(string Id, string Title, GoalTaskStatus Status, GoalSubject? Subject = null);
 
 /// <summary>
 /// One goal as the Goals view draws it
@@ -57,8 +59,8 @@ public sealed record GoalTaskModel(string Id, string Title, GoalTaskStatus Statu
 /// <param name="Tasks">The tasks attached to it.</param>
 /// <param name="PullRequests">Its attached pull requests and those its tasks link.</param>
 /// <param name="Outcome">The goal's one-line outcome; null with none.</param>
-/// <param name="PullRequestKeys">The host's key for each of <paramref name="PullRequests"/>,
-/// in its order, handed back on detach: null for one the goal holds only through a task,
+/// <param name="PullRequestSubjects">Each of <paramref name="PullRequests"/> as the host names
+/// it, in its order, handed back on detach: null for one the goal holds only through a task,
 /// which detaching the goal's own pull request would not remove.</param>
 public sealed record GoalCardModel(
     string Id,
@@ -71,31 +73,29 @@ public sealed record GoalCardModel(
     IReadOnlyList<GoalTaskModel> Tasks,
     IReadOnlyList<PullRequestStatusModel> PullRequests,
     string? Outcome = null,
-    IReadOnlyList<string?>? PullRequestKeys = null)
+    IReadOnlyList<GoalSubject?>? PullRequestSubjects = null)
 {
-    /// <summary>The key of the pull request at <paramref name="index"/> in
+    /// <summary>The subject of the pull request at <paramref name="index"/> in
     /// <see cref="PullRequests"/>; null when it has none.</summary>
-    public string? PullRequestKey(int index) =>
-        PullRequestKeys is { } keys && index >= 0 && index < keys.Count ? keys[index] : null;
-}
-
-/// <summary>What kind of work an item is, for its kind label: Plan, Task or PR.</summary>
-public enum GoalsItemKind
-{
-    Plan,
-    Task,
-    PullRequest
+    public GoalSubject? PullRequestSubject(int index) =>
+        PullRequestSubjects is { } subjects && index >= 0 && index < subjects.Count ? subjects[index] : null;
 }
 
 /// <summary>
 /// A piece of work the view can attach to a goal: a match in the attach search, or a
 /// row under No goal.
 /// </summary>
-/// <param name="Key">The host's key for the item; handed back on attach, never shown.</param>
-/// <param name="Kind">Plan, task or pull request.</param>
+/// <param name="Subject">The work as the host names it; handed back on attach. Its kind is the
+/// item's kind label, and a pull request's number is drawn before its title.</param>
 /// <param name="Title">What the row reads.</param>
-/// <param name="Number">A pull request's number, drawn before its title.</param>
-public sealed record GoalsItem(string Key, GoalsItemKind Kind, string Title, int? Number = null);
+public sealed record GoalsItem(GoalSubject Subject, string Title)
+{
+    /// <summary>Plan, task or pull request.</summary>
+    public GoalSubjectKind Kind => Subject.Kind;
+
+    /// <summary>A pull request's number; null for anything else.</summary>
+    public int? Number => Subject.Kind == GoalSubjectKind.PullRequest ? Subject.Number : null;
+}
 
 /// <summary>An item in the stand-up's Finished or Planned list.</summary>
 /// <param name="Title">The item's title.</param>
@@ -203,11 +203,11 @@ public sealed record GoalsBoardModel(
     StandUpModel StandUp,
     IReadOnlyList<GoalsItem> Candidates);
 
-/// <summary>Attach the item <paramref name="ItemKey"/> to the goal <paramref name="GoalId"/>.</summary>
-public sealed record GoalAttachRequest(string GoalId, string ItemKey);
+/// <summary>Attach <paramref name="Subject"/> to the goal <paramref name="GoalId"/>.</summary>
+public sealed record GoalAttachRequest(string GoalId, GoalSubject Subject);
 
-/// <summary>Detach the item <paramref name="ItemKey"/> from the goal <paramref name="GoalId"/>.</summary>
-public sealed record GoalDetachRequest(string GoalId, string ItemKey);
+/// <summary>Detach <paramref name="Subject"/> from the goal <paramref name="GoalId"/>.</summary>
+public sealed record GoalDetachRequest(string GoalId, GoalSubject Subject);
 
 /// <summary>A goal's title, outcome and due date as its open card hands them back, trimmed:
 /// the three replace what the goal says (<c>.devbook/domain/progress/features.md#setting-a-goal</c>).</summary>

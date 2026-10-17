@@ -57,6 +57,18 @@ public sealed record GoalSubject(
         return ForPullRequest(repository, number);
     }
 
+    /// <summary>
+    /// The subject as one line of text — <c>plan:&lt;tag&gt;</c> with the sigil dropped,
+    /// <c>task:&lt;id&gt;</c> or <c>pr:&lt;owner/name&gt;#&lt;number&gt;</c> — for a test id or
+    /// a <c>@key</c>, never read back: the record itself is what a host is handed.
+    /// </summary>
+    public string Key => Kind switch
+    {
+        GoalSubjectKind.Plan => "plan:" + (PlanTag ?? string.Empty).Trim().TrimStart('+').Trim(),
+        GoalSubjectKind.Task => "task:" + TaskId,
+        _ => $"pr:{Repository}#{Number?.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+    };
+
     /// <summary>How the picker names the subject in a sentence: "task", "plan +tag",
     /// "pull request #12".</summary>
     public string Noun => Kind switch

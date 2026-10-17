@@ -1,11 +1,12 @@
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.UI.Components.Goals;
 using Backlog.UI.Components.Progress;
 
 namespace Backlog.Modules.Progress.UI.Goals;
 
 /// <summary>What the goals hold between them: task ids, and pull requests by
-/// <see cref="GoalsKeys.PullRequestIdentity(string,int)"/>.</summary>
+/// <see cref="GoalSubjects.PullRequestIdentity(string,int)"/>.</summary>
 public sealed record GoalsHeld(IReadOnlySet<Guid> Tasks, IReadOnlySet<string> PullRequests)
 {
     /// <summary>Whether a goal holds the task <paramref name="taskId"/>.</summary>
@@ -14,7 +15,7 @@ public sealed record GoalsHeld(IReadOnlySet<Guid> Tasks, IReadOnlySet<string> Pu
     /// <summary>Whether a goal holds the pull request <paramref name="number"/> in
     /// <paramref name="repository"/>.</summary>
     public bool HoldsPullRequest(string repository, int number) =>
-        PullRequests.Contains(GoalsKeys.PullRequestIdentity(repository, number));
+        PullRequests.Contains(GoalSubjects.PullRequestIdentity(repository, number));
 }
 
 /// <summary>
@@ -49,21 +50,21 @@ public static class GoalsHolding
                     plans.Add(item.PlanTag);
                     break;
                 case GoalAttachmentKind.PullRequest when item.Repository is { } repository && item.Number is { } number:
-                    heldPulls.Add(GoalsKeys.PullRequestIdentity(repository, number));
+                    heldPulls.Add(GoalSubjects.PullRequestIdentity(repository, number));
                     break;
             }
         }
 
         foreach (var task in tasks)
         {
-            if (task.PlanTags.Any(tag => plans.Any(plan => GoalsKeys.SamePlan(plan, tag)))) heldTasks.Add(task.Id);
+            if (task.PlanTags.Any(tag => plans.Any(plan => GoalSubjects.SamePlan(plan, tag)))) heldTasks.Add(task.Id);
         }
 
         foreach (var task in tasks.Where(task => heldTasks.Contains(task.Id)))
         {
             foreach (var pull in task.PullRequests)
             {
-                if (GoalsKeys.PullRequestIdentity(pull) is { } identity) heldPulls.Add(identity);
+                if (GoalSubjects.PullRequestIdentity(pull) is { } identity) heldPulls.Add(identity);
             }
         }
 
@@ -82,11 +83,11 @@ public static class GoalsHolding
             .Where(task => task.InScope
                            && task.Status is GoalTaskStatus.Doing or GoalTaskStatus.Blocked
                            && !held.HoldsTask(task.Id))
-            .Select(task => new GoalsItem(GoalsKeys.ForTask(task.Id), GoalsItemKind.Task, task.Title));
+            .Select(task => new GoalsItem(GoalSubject.ForTask(task.Id), task.Title));
 
         var pulls = candidates.PullRequests
             .Where(pull => pull.InScope && !held.HoldsPullRequest(pull.Repository, pull.Number))
-            .Select(pull => new GoalsItem(GoalsKeys.ForPullRequest(pull.Repository, pull.Number), GoalsItemKind.PullRequest, pull.Title, pull.Number));
+            .Select(pull => new GoalsItem(GoalSubject.ForPullRequest(pull.Repository, pull.Number), pull.Title));
 
         return [.. tasks, .. pulls];
     }

@@ -267,17 +267,52 @@ public sealed class GoalsHostTests : IDisposable
 
         host.Find($"[data-testid='goals-board-attach-task:{Vat}']").Click();
 
+        // The shared GoalPicker asks: it names the goal that holds the task, and the goal it
+        // was meant for is the one chosen.
         host.WaitForAssertion(() =>
-            Assert.Contains("Already in Devbook search ships. Move it to Customers get paid faster?", host.Find("[data-testid='goals-move-confirm']").TextContent));
+        {
+            Assert.Contains("Attaching moves this task from “Devbook search ships”.", host.Find("[data-testid='goal-picker-move-note']").TextContent);
+            var chosen = host.Find("[data-testid='goal-picker-option'][aria-pressed='true']");
+            Assert.Equal(PaidId.ToString(), chosen.GetAttribute("data-goal-id"));
+        });
+        Assert.Single(_goals.Attached);
 
-        host.Find("[data-testid='goals-move-confirm-yes']").Click();
+        host.Find("[data-testid='goal-picker-attach']").Click();
 
         host.WaitForAssertion(() =>
         {
             Assert.Equal(
                 [(PaidId, GoalItemDto.ForTask(Vat), false), (PaidId, GoalItemDto.ForTask(Vat), true)],
                 _goals.Attached);
-            Assert.Empty(host.FindAll("[data-testid='goals-move-confirm']"));
+            Assert.Empty(host.FindAll("[data-testid='goal-picker']"));
+        });
+    }
+
+    [Fact]
+    public void With_no_goal_open_attach_opens_the_goal_picker_over_the_open_goals()
+    {
+        var host = Render();
+        host.WaitForAssertion(() => host.Find($"[data-testid='goals-board-goal-{PaidId}-toggle']"));
+
+        // Fold the open goal: No goal's Attach… now asks which goal.
+        host.Find($"[data-testid='goals-board-goal-{PaidId}-toggle']").Click();
+        host.WaitForAssertion(() => Assert.Equal("Attach to a goal", host.Find($"[data-testid='goals-board-attach-task:{Vat}']").GetAttribute("title")));
+
+        host.Find($"[data-testid='goals-board-attach-task:{Vat}']").Click();
+
+        host.WaitForAssertion(() =>
+            Assert.Equal(
+                ["Devbook search ships", "Customers get paid faster"],
+                host.FindAll("[data-testid='goal-picker-option'] .goal-picker__title").Select(title => title.TextContent)));
+        Assert.Empty(host.FindAll("[data-testid='goal-picker-move-note']"));
+
+        host.FindAll("[data-testid='goal-picker-option']")[0].Click();
+        host.Find("[data-testid='goal-picker-attach']").Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal((SearchId, GoalItemDto.ForTask(Vat), false), Assert.Single(_goals.Attached));
+            Assert.Empty(host.FindAll("[data-testid='goal-picker']"));
         });
     }
 
@@ -654,7 +689,9 @@ public sealed class GoalsHostTests : IDisposable
 
         public Task<Result<GoalDto>> GetAsync(Guid goalId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public Task<Result<GoalDto?>> FindGoalOfAsync(GoalItemDto item, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        /// <summary>The goal titled <see cref="HeldBy"/>, the one a refused attach names.</summary>
+        public Task<Result<GoalDto?>> FindGoalOfAsync(GoalItemDto item, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result.Success<GoalDto?>(Summaries.FirstOrDefault(summary => summary.Goal.Title == HeldBy)?.Goal));
 
         public List<(Guid, SetGoalRequest)> Edited { get; } = [];
 

@@ -1,6 +1,7 @@
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.UI.Goals;
+using Backlog.UI.Components.Goals;
 using Backlog.UI.Components.Progress;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -121,7 +122,7 @@ public sealed class GoalsMapperTests
     {
         var plan = Assert.Single(Map().Goals[0].Plans);
 
-        Assert.Equal(new GoalPlanModel("bank-integration", 1, 2, "plan:bank-integration"), plan);
+        Assert.Equal(new GoalPlanModel("bank-integration", 1, 2, GoalSubject.ForPlan("bank-integration")), plan);
     }
 
     [Fact]
@@ -129,23 +130,21 @@ public sealed class GoalsMapperTests
     {
         Assert.Equal(
             [
-                new GoalTaskModel(Invoice.ToString(), "Invoice PDF export", GoalTaskStatus.Done, $"task:{Invoice}"),
-                new GoalTaskModel(Recurring.ToString(), "Recurring invoices", GoalTaskStatus.Doing, $"task:{Recurring}")
+                new GoalTaskModel(Invoice.ToString(), "Invoice PDF export", GoalTaskStatus.Done, GoalSubject.ForTask(Invoice)),
+                new GoalTaskModel(Recurring.ToString(), "Recurring invoices", GoalTaskStatus.Doing, GoalSubject.ForTask(Recurring))
             ],
             Map().Goals[0].Tasks);
     }
 
-    /// <summary>A goal's own pull request detaches; one only a task brings has no key, since
-    /// detaching it would leave it on the goal through the task.</summary>
+    /// <summary>A goal's own pull request detaches; one only a task brings has no subject,
+    /// since detaching it would leave it on the goal through the task.</summary>
     [Fact]
-    public void Only_a_goals_own_pull_request_carries_a_key_to_detach_it_by()
+    public void Only_a_goals_own_pull_request_carries_a_subject_to_detach_it_by()
     {
         var paid = Map().Goals[0];
 
-        Assert.Equal(["pr:JSdotNet/Backlog#1352", null], paid.PullRequestKeys);
-        Assert.Equal(GoalsKeys.ForPullRequest("JSdotNet/Backlog", 1352), paid.PullRequestKey(0));
-        Assert.True(GoalsKeys.TryRead(paid.PullRequestKey(0), out var item));
-        Assert.Equal(GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1352), item);
+        Assert.Equal([GoalSubject.ForPullRequest("JSdotNet/Backlog", 1352), null], paid.PullRequestSubjects);
+        Assert.Equal(GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1352), GoalSubjects.ToItem(paid.PullRequestSubject(0)!));
     }
 
     [Fact]
@@ -222,13 +221,13 @@ public sealed class GoalsMapperTests
         var candidates = Map().Candidates;
 
         Assert.Equal(
-            ["plan:bank-integration", "plan:devbook-search"],
-            candidates.Where(item => item.Kind == GoalsItemKind.Plan).Select(item => item.Key));
+            [GoalSubject.ForPlan("bank-integration"), GoalSubject.ForPlan("devbook-search")],
+            candidates.Where(item => item.Kind == GoalSubjectKind.Plan).Select(item => item.Subject));
         Assert.Equal(
             ["Recurring invoices", "Payment matching rules", "VAT rate per line item"],
-            candidates.Where(item => item.Kind == GoalsItemKind.Task).Select(item => item.Title));
-        var pull = Assert.Single(candidates, item => item.Kind == GoalsItemKind.PullRequest);
-        Assert.Equal(("pr:JSdotNet/Backlog#1341", 1341), (pull.Key, pull.Number));
+            candidates.Where(item => item.Kind == GoalSubjectKind.Task).Select(item => item.Title));
+        var pull = Assert.Single(candidates, item => item.Kind == GoalSubjectKind.PullRequest);
+        Assert.Equal((GoalSubject.ForPullRequest("JSdotNet/Backlog", 1341), 1341), (pull.Subject, pull.Number));
     }
 
     [Fact]

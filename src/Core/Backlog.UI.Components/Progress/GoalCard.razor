@@ -8,11 +8,11 @@
 
     The search matches the host's candidates — plans, tasks and pull requests — by
     title, or a pull request by its number, and lists each match under its kind label.
-    Picking one hands its key back through OnAttach and puts the focus back in the
-    search box; the host attaches it, asks first
-    when another goal holds it, and reads the view again. It is a list of matches over
-    the view's own candidates, not a goal picker: the picker that names a goal is
-    another component's.
+    Picking one hands its GoalSubject back through OnAttach and puts the focus back in the
+    search box; the host attaches it — through the GoalPicker, which
+    names the other goal and asks first, when another goal holds it — and reads the view
+    again. It is a list of matches over the view's own candidates; choosing the goal is
+    GoalPicker's.
 
     With a host listening on OnEdit, the open goal leads with its title, outcome and due
     date as fields, edited in place (.devbook/design/interaction-guidelines.md
@@ -97,7 +97,7 @@
                         <span class="goal-card__plan">
                             <span class="goal-card__plan-title">@plan.Title</span>
                             <span class="goal-card__plan-count">@plan.Done/@plan.Total</span>
-                            @Detach(plan.Key, $"plan {plan.Title}")
+                            @Detach(plan.Subject, $"plan {plan.Title}")
                         </span>
                     }
                     @if (Goal.Plans.Count == 0)
@@ -114,7 +114,7 @@
                             <StatusDot Tone="@Tone(task.Status)" />
                             <span class="goal-card__task-title">@task.Title</span>
                             <span class="sr-only">, @StatusWords(task.Status)</span>
-                            @Detach(task.Key, $"task {task.Title}")
+                            @Detach(task.Subject, $"task {task.Title}")
                         </span>
                     }
                     @if (Goal.Tasks.Count == 0)
@@ -125,21 +125,21 @@
 
                 <div class="goal-card__column" data-testid="@Part("pull-requests")">
                     <span class="goal-card__column-title">Pull requests</span>
-                    @foreach (var (pull, key) in Pulls.Where(p => !p.Pull.IsMerged))
+                    @foreach (var (pull, subject) in Pulls.Where(p => !p.Pull.IsMerged))
                     {
                         <span class="goal-card__pull">
                             <PullRequestStatus Model="pull" TestId="@Part($"pull-request-{pull.Number}")" />
-                            @Detach(key, $"pull request #{pull.Number}")
+                            @Detach(subject, $"pull request #{pull.Number}")
                         </span>
                     }
                     @if (Merged.Count > 0)
                     {
                         <span class="goal-card__merged" data-testid="@Part("merged")">
-                            @foreach (var (pull, key) in Merged)
+                            @foreach (var (pull, subject) in Merged)
                             {
                                 <span class="goal-card__merged-pull">
                                     <Badge Kind="gh" Slug="merged" Href="@pull.Url" Title="@pull.Title">#@pull.Number</Badge>
-                                    @Detach(key, $"pull request #{pull.Number}")
+                                    @Detach(subject, $"pull request #{pull.Number}")
                                 </span>
                             }
                             <span>merged</span>
@@ -170,7 +170,7 @@
                                 <AppButton Variant="ButtonVariant.None"
                                            BaseClass="goal-card__match"
                                            OnClick="() => PickAsync(match)"
-                                           TestId="@Part($"match-{match.Key}")">
+                                           TestId="@Part($"match-{match.Subject.Key}")">
                                     <span class="goal-card__match-kind">@KindLabel(match.Kind)</span>
                                     <span class="goal-card__match-title">
                                         @if (match.Number is { } number)
@@ -222,10 +222,10 @@
     [Parameter]
     public EventCallback OnDelete { get; set; }
 
-    /// <summary>A row's Detach was pressed: the item's key. Without a listener no row has
+    /// <summary>A row's Detach was pressed: the item it is for. Without a listener no row has
     /// one.</summary>
     [Parameter]
-    public EventCallback<string> OnDetach { get; set; }
+    public EventCallback<GoalSubject> OnDetach { get; set; }
 
     /// <summary>Why the last edit was refused, in the module's words, under the fields.</summary>
     [Parameter]
@@ -240,9 +240,9 @@
     [Parameter]
     public IReadOnlyList<GoalsItem> Candidates { get; set; } = [];
 
-    /// <summary>A match was picked: its key.</summary>
+    /// <summary>A match was picked: the work it names.</summary>
     [Parameter]
-    public EventCallback<string> OnAttach { get; set; }
+    public EventCallback<GoalSubject> OnAttach { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }
@@ -267,24 +267,24 @@
 
     private bool CanEdit => OnEdit.HasDelegate;
 
-    /// <summary>Each pull request with its key, in the goal's order.</summary>
-    private List<(PullRequestStatusModel Pull, string? Key)> Pulls =>
-        [.. Goal.PullRequests.Select((pull, index) => (pull, Goal.PullRequestKey(index)))];
+    /// <summary>Each pull request with its subject, in the goal's order.</summary>
+    private List<(PullRequestStatusModel Pull, GoalSubject? Subject)> Pulls =>
+        [.. Goal.PullRequests.Select((pull, index) => (pull, Goal.PullRequestSubject(index)))];
 
-    private List<(PullRequestStatusModel Pull, string? Key)> Merged => [.. Pulls.Where(p => p.Pull.IsMerged)];
+    private List<(PullRequestStatusModel Pull, GoalSubject? Subject)> Merged => [.. Pulls.Where(p => p.Pull.IsMerged)];
 
-    /// <summary>A row's Detach, named for <paramref name="what"/>; nothing without a key or a
-    /// listener.</summary>
-    private RenderFragment Detach(string? key, string what) => __builder =>
+    /// <summary>A row's Detach, named for <paramref name="what"/>; nothing without a subject
+    /// or a listener.</summary>
+    private RenderFragment Detach(GoalSubject? subject, string what) => __builder =>
     {
-        if (key is null || !OnDetach.HasDelegate) return;
+        if (subject is null || !OnDetach.HasDelegate) return;
 
         <IconButton AriaLabel="@($"Detach {what} from {Goal.Title}")"
                     Title="@($"Detach from {Goal.Title}")"
                     Disabled="Busy"
                     CssClass="goal-card__detach"
-                    OnClick="() => DetachAsync(key)"
-                    TestId="@Part($"detach-{key}")">
+                    OnClick="() => DetachAsync(subject)"
+                    TestId="@Part($"detach-{subject.Key}")">
             <XIcon Size="14" />
         </IconButton>
     };
@@ -469,20 +469,20 @@
         StateHasChanged();
     }
 
-    private async Task DetachAsync(string key)
+    private async Task DetachAsync(GoalSubject subject)
     {
-        await OnDetach.InvokeAsync(key);
+        await OnDetach.InvokeAsync(subject);
         await Task.Yield();
 
         // The row goes with the reading: the focus waits in the attach search. A refused
         // detach leaves the row, and the focus on its Detach.
-        _focusSearch = !Holds(key);
+        _focusSearch = !Holds(subject);
     }
 
-    private bool Holds(string key) =>
-        Goal.Plans.Any(plan => plan.Key == key)
-        || Goal.Tasks.Any(task => task.Key == key)
-        || Enumerable.Range(0, Goal.PullRequests.Count).Any(index => Goal.PullRequestKey(index) == key);
+    private bool Holds(GoalSubject subject) =>
+        Goal.Plans.Any(plan => plan.Subject == subject)
+        || Goal.Tasks.Any(task => task.Subject == subject)
+        || Enumerable.Range(0, Goal.PullRequests.Count).Any(index => Goal.PullRequestSubject(index) == subject);
 
     private IReadOnlyList<GoalsItem> Matches => Match(Candidates, _query);
 
@@ -504,10 +504,10 @@
     }
 
     /// <summary>The kind label a match or a No goal row reads under.</summary>
-    public static string KindLabel(GoalsItemKind kind) => kind switch
+    public static string KindLabel(GoalSubjectKind kind) => kind switch
     {
-        GoalsItemKind.Plan => "Plan",
-        GoalsItemKind.Task => "Task",
+        GoalSubjectKind.Plan => "Plan",
+        GoalSubjectKind.Task => "Task",
         _ => "PR"
     };
 
@@ -517,7 +517,7 @@
         // the focus goes back to the search box once the list is gone.
         _query = string.Empty;
         _focusSearch = true;
-        await OnAttach.InvokeAsync(match.Key);
+        await OnAttach.InvokeAsync(match.Subject);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

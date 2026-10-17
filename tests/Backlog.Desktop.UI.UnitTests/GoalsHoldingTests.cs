@@ -1,6 +1,7 @@
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.UI.Goals;
+using Backlog.UI.Components.Goals;
 using Backlog.UI.Components.Progress;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -53,7 +54,7 @@ public sealed class GoalsHoldingTests
     {
         var noGoal = GoalsHolding.NoGoal([Goal(GoalItemDto.ForTask(Invoice))], Candidates);
 
-        Assert.Contains(noGoal, item => item.Kind == GoalsItemKind.Task && item.Title == "VAT rate per line item");
+        Assert.Contains(noGoal, item => item.Kind == GoalSubjectKind.Task && item.Title == "VAT rate per line item");
     }
 
     [Fact]
@@ -82,18 +83,17 @@ public sealed class GoalsHoldingTests
     }
 
     [Fact]
-    public void Tasks_come_before_pull_requests_and_each_carries_a_key_the_view_hands_back()
+    public void Tasks_come_before_pull_requests_and_each_carries_the_subject_the_view_hands_back()
     {
         var noGoal = GoalsHolding.NoGoal([], Candidates);
 
         Assert.Equal(
-            [GoalsItemKind.Task, GoalsItemKind.Task, GoalsItemKind.Task, GoalsItemKind.PullRequest, GoalsItemKind.PullRequest, GoalsItemKind.PullRequest, GoalsItemKind.PullRequest],
+            [GoalSubjectKind.Task, GoalSubjectKind.Task, GoalSubjectKind.Task, GoalSubjectKind.PullRequest, GoalSubjectKind.PullRequest, GoalSubjectKind.PullRequest, GoalSubjectKind.PullRequest],
             noGoal.Select(item => item.Kind));
 
-        var pull = noGoal.First(item => item.Kind == GoalsItemKind.PullRequest);
+        var pull = noGoal.First(item => item.Kind == GoalSubjectKind.PullRequest);
         Assert.Equal(1341, pull.Number);
-        Assert.True(GoalsKeys.TryRead(pull.Key, out var read));
-        Assert.Equal(GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1341), read);
+        Assert.Equal(GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1341), GoalSubjects.ToItem(pull.Subject));
     }
 
     [Fact]
@@ -104,22 +104,19 @@ public sealed class GoalsHoldingTests
         Assert.Single(GoalsHolding.NoGoal([], candidates));
     }
 
-    [Theory]
-    [InlineData("plan:bank-integration")]
-    [InlineData("task:00000000-0000-0000-0000-000000000002")]
-    [InlineData("pr:JSdotNet/Backlog#1357")]
-    public void A_key_reads_back_as_the_item_it_was_made_from(string key)
-    {
-        Assert.True(GoalsKeys.TryRead(key, out var item));
-        Assert.Equal(key, GoalsKeys.For(item));
-    }
+    public static TheoryData<GoalItemDto> Items =>
+    [
+        GoalItemDto.ForPlan("bank-integration"),
+        GoalItemDto.ForTask(new Guid("00000000-0000-0000-0000-000000000002")),
+        GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1357)
+    ];
 
     [Theory]
-    [InlineData("")]
-    [InlineData("task:not-a-guid")]
-    [InlineData("pr:JSdotNet/Backlog")]
-    [InlineData("pr:JSdotNet/Backlog#x")]
-    [InlineData("plan:")]
-    [InlineData("sprint:42")]
-    public void A_key_that_names_nothing_reads_as_nothing(string key) => Assert.False(GoalsKeys.TryRead(key, out _));
+    [MemberData(nameof(Items))]
+    public void A_subject_reads_back_as_the_item_it_was_made_from(GoalItemDto item) =>
+        Assert.Equal(item, GoalSubjects.ToItem(GoalSubjects.FromItem(item)));
+
+    [Fact]
+    public void A_plan_subject_drops_the_sigil() =>
+        Assert.Equal(GoalSubject.ForPlan("bank-integration"), GoalSubjects.FromItem(GoalItemDto.ForPlan("+bank-integration")));
 }

@@ -91,10 +91,12 @@ Say which work reaches a goal. Three kinds of item attach:
 An open goal offers "Attach a plan, task or pull request": typing lists the matching
 plans, tasks and pull requests, each named by its kind, and a pull request is found by
 its number too. **Attach…** on a No goal row attaches the item to the open goal, or
-asks which goal when none is open. An item belongs to at most one goal. An item
-another goal holds is not attached silently: the view names that goal and asks
-whether to move the item, and moves it on yes. Detaching an item changes nothing on
-it. Attaching is a desktop action.
+asks which goal when none is open. Both questions are the same **Attach to goal**
+picker every other goal control opens. An item belongs to at most one goal. An item
+another goal holds is not attached silently: the picker opens on the goal it was meant
+for, names the goal that holds it and says attaching moves it from there, and
+**Attach** moves it. Detaching an item changes nothing on it. Attaching is a desktop
+action.
 
 [Goal Progress](domain.md#goal-progress) says how the attached work is counted.
 Attaching changes nothing on the task, the plan or the pull request.

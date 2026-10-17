@@ -1,3 +1,4 @@
+using Backlog.UI.Components.Goals;
 using Backlog.UI.Components.Progress;
 
 namespace Backlog.UI.Components.UnitTests;
@@ -17,6 +18,11 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     public void Dispose() => _context.Dispose();
 
     private static DateOnly Oct(int day) => new(2026, 10, day);
+
+    private static readonly GoalSubject Vat = GoalSubject.ForTask(new Guid("5b0e6c11-0000-4000-8000-000000000001"));
+    private static readonly GoalSubject Terms = GoalSubject.ForTask(new Guid("5b0e6c11-0000-4000-8000-000000000002"));
+    private static readonly GoalSubject Widget = GoalSubject.ForTask(new Guid("5b0e6c11-0000-4000-8000-000000000003"));
+    private static readonly GoalSubject Webhook = GoalSubject.ForPullRequest("JSdotNet/Backlog", 1357);
 
     private static readonly GoalCardModel Paid = new(
         "paid", "Customers get paid faster", Oct(30), new DateOnly(2026, 11, 6), true,
@@ -63,13 +69,13 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         new GoalsWindow(Oct(12), Oct(16)),
         new GoalsWindow(Oct(19), Oct(23)),
         [Paid, Search],
-        [new GoalsItem("task:vat", GoalsItemKind.Task, "VAT rate per line item"), new GoalsItem("pr:1357", GoalsItemKind.PullRequest, "Payment status webhook", 1357)],
+        [new GoalsItem(Vat, "VAT rate per line item"), new GoalsItem(Webhook, "Payment status webhook")],
         StandUp,
         [
-            new GoalsItem("plan:pay", GoalsItemKind.Plan, "Payment provider switch"),
-            new GoalsItem("task:terms", GoalsItemKind.Task, "Payment terms on quotes"),
-            new GoalsItem("pr:1357", GoalsItemKind.PullRequest, "Payment status webhook", 1357),
-            new GoalsItem("task:widget", GoalsItemKind.Task, "Quick-capture widget")
+            new GoalsItem(GoalSubject.ForPlan("pay"), "Payment provider switch"),
+            new GoalsItem(Terms, "Payment terms on quotes"),
+            new GoalsItem(Webhook, "Payment status webhook"),
+            new GoalsItem(Widget, "Quick-capture widget")
         ]);
 
     private IRenderedComponent<GoalsBoard> RenderBoard(
@@ -214,12 +220,12 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [Fact]
     public void The_attach_search_lists_matches_under_their_kind_and_hands_back_the_pick()
     {
-        string? attached = null;
+        GoalSubject? attached = null;
         var card = _context.Render<GoalCard>(p => p
             .Add(c => c.Goal, Paid)
             .Add(c => c.Expanded, true)
             .Add(c => c.Candidates, Board.Candidates)
-            .Add(c => c.OnAttach, (string key) => attached = key)
+            .Add(c => c.OnAttach, (GoalSubject subject) => attached = subject)
             .Add(c => c.TestId, "goal"));
 
         var input = card.Find("[data-testid='goal-attach'] input");
@@ -235,11 +241,11 @@ public sealed class GoalsBoardComponentsTests : IDisposable
             Assert.Equal("#1357 Payment status webhook", Normalise(matches[2].QuerySelector(".goal-card__match-title")!.TextContent));
         });
 
-        card.Find("[data-testid='goal-match-task:terms']").Click();
+        card.Find($"[data-testid='goal-match-{Terms.Key}']").Click();
 
         card.WaitForAssertion(() =>
         {
-            Assert.Equal("task:terms", attached);
+            Assert.Equal(Terms, attached);
             Assert.Empty(card.FindAll("[data-testid='goal-matches']"));
             // The picked button went with the list, so the focus goes back to the search
             // box, the one element the card holds a reference to.
@@ -250,7 +256,7 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     [Fact]
     public void A_pull_request_is_matched_by_its_number()
     {
-        Assert.Equal(["pr:1357"], GoalCard.Match(Board.Candidates, "#135").Select(m => m.Key));
+        Assert.Equal([Webhook], GoalCard.Match(Board.Candidates, "#135").Select(m => m.Subject));
         Assert.Empty(GoalCard.Match(Board.Candidates, "  "));
     }
 
@@ -269,38 +275,35 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         Assert.Equal("#1357 Payment status webhook", Normalise(pull.TextContent));
         Assert.StartsWith("#1357 ", pull.TextContent.TrimStart(), StringComparison.Ordinal);
 
-        var attach = board.Find("[data-testid='goals-board-attach-task:vat']");
+        var attach = board.Find($"[data-testid='goals-board-attach-{Vat.Key}']");
         Assert.Equal("Attach…", attach.TextContent.Trim());
         Assert.Equal("Attach to Customers get paid faster", attach.GetAttribute("title"));
 
         attach.Click();
 
-        board.WaitForAssertion(() => Assert.Equal(new GoalAttachRequest("paid", "task:vat"), request));
+        board.WaitForAssertion(() => Assert.Equal(new GoalAttachRequest("paid", Vat), request));
     }
 
     [Fact]
-    public void With_no_goal_open_attach_asks_which_goal_from_a_menu()
+    public void With_no_goal_open_attach_hands_the_work_to_the_goal_picker()
     {
         GoalAttachRequest? request = null;
+        GoalSubject? picking = null;
         var board = RenderBoard(more: p => p
             .Add(c => c.SelectedGoalId, (string?)null)
-            .Add(c => c.OnAttach, (GoalAttachRequest r) => request = r));
+            .Add(c => c.OnAttach, (GoalAttachRequest r) => request = r)
+            .Add(c => c.OnPickGoal, (GoalSubject subject) => picking = subject));
 
         // Fold the open goal.
         board.Find("[data-testid='goals-board-goal-paid-toggle']").Click();
-        board.WaitForAssertion(() => Assert.Equal("Attach to a goal", board.Find("[data-testid='goals-board-attach-pr:1357']").GetAttribute("title")));
+        board.WaitForAssertion(() => Assert.Equal("Attach to a goal", board.Find($"[data-testid='goals-board-attach-{Webhook.Key}']").GetAttribute("title")));
 
-        board.Find("[data-testid='goals-board-attach-pr:1357']").Click();
+        board.Find($"[data-testid='goals-board-attach-{Webhook.Key}']").Click();
 
-        board.WaitForAssertion(() =>
-        {
-            var items = board.FindAll("[data-testid='goals-board-attach-menu'] [role='menuitem']");
-            Assert.Equal(["Customers get paid faster", "Devbook search ships"], items.Select(i => i.TextContent.Trim()));
-        });
-
-        board.FindAll("[data-testid='goals-board-attach-menu'] [role='menuitem']")[1].Click();
-
-        board.WaitForAssertion(() => Assert.Equal(new GoalAttachRequest("search", "pr:1357"), request));
+        // The host opens the shared GoalPicker; the board keeps no menu of its own.
+        board.WaitForAssertion(() => Assert.Equal(Webhook, picking));
+        Assert.Null(request);
+        Assert.Empty(board.FindAll("[role='menu']"));
     }
 
     [Fact]

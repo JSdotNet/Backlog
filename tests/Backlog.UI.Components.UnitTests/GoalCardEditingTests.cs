@@ -1,3 +1,4 @@
+using Backlog.UI.Components.Goals;
 using Backlog.UI.Components.Progress;
 using Backlog.UI.Components.UnitTests.Harnesses;
 
@@ -20,13 +21,19 @@ public sealed class GoalCardEditingTests : IDisposable
 
     private static DateOnly Oct(int day) => new(2026, 10, day);
 
+    private static readonly GoalSubject Bank = GoalSubject.ForPlan("bank-integration");
+    private static readonly GoalSubject T1 = GoalSubject.ForTask(new Guid("3c9e7d20-0000-4000-8000-000000000001"));
+    private static readonly GoalSubject T3 = GoalSubject.ForTask(new Guid("3c9e7d20-0000-4000-8000-000000000003"));
+    private static readonly GoalSubject Pr1341 = GoalSubject.ForPullRequest("JSdotNet/Backlog", 1341);
+    private static readonly GoalSubject Pr1352 = GoalSubject.ForPullRequest("JSdotNet/Backlog", 1352);
+
     private static readonly GoalCardModel Paid = new(
         "paid", "Customers get paid faster", Oct(30), null, true,
         new GoalCounts(2, 4, 1, 0, 1, 0),
-        [new GoalPlanModel("Bank integration", 5, 9, "plan:bank-integration")],
+        [new GoalPlanModel("Bank integration", 5, 9, Bank)],
         [
-            new GoalTaskModel("t1", "Invoice PDF export", GoalTaskStatus.Done, "task:t1"),
-            new GoalTaskModel("t3", "Recurring invoices", GoalTaskStatus.Doing, "task:t3")
+            new GoalTaskModel("t1", "Invoice PDF export", GoalTaskStatus.Done, T1),
+            new GoalTaskModel("t3", "Recurring invoices", GoalTaskStatus.Doing, T3)
         ],
         [
             new PullRequestStatusModel(1341, "open"),
@@ -34,7 +41,7 @@ public sealed class GoalCardEditingTests : IDisposable
             new PullRequestStatusModel(1352, "merged")
         ],
         "Invoices are paid within 14 days",
-        ["pr:1341", null, "pr:1352"]);
+        [Pr1341, null, Pr1352]);
 
     private static readonly GoalCardModel Search = new(
         "search", "Devbook search ships", Oct(23), null, false, new GoalCounts(0, 0, 0, 0, 0, 0), [], [], []);
@@ -370,8 +377,8 @@ public sealed class GoalCardEditingTests : IDisposable
 
         // #1358 comes only through a task: detaching the goal's own pull request would not
         // remove it, so it has no Detach.
-        Assert.Empty(board.FindAll("[data-testid^='goals-board-goal-paid-detach-pr:1358']"));
-        Assert.NotNull(board.Find("[data-testid='goals-board-goal-paid-merged'] [data-testid='goals-board-goal-paid-detach-pr:1352']"));
+        Assert.Empty(board.FindAll("[data-testid^='goals-board-goal-paid-detach-pr:JSdotNet/Backlog#1358']"));
+        Assert.NotNull(board.Find($"[data-testid='goals-board-goal-paid-merged'] [data-testid='goals-board-goal-paid-detach-{Pr1352.Key}']"));
     }
 
     [Fact]
@@ -380,12 +387,12 @@ public sealed class GoalCardEditingTests : IDisposable
         var calls = new Calls();
         var board = RenderBoard(calls);
 
-        board.Find("[data-testid='goals-board-goal-paid-detach-task:t3']").Click();
+        board.Find($"[data-testid='goals-board-goal-paid-detach-{T3.Key}']").Click();
         board.Find("[data-testid='goals-board-goal-paid-detach-plan:bank-integration']").Click();
-        board.Find("[data-testid='goals-board-goal-paid-detach-pr:1352']").Click();
+        board.Find($"[data-testid='goals-board-goal-paid-detach-{Pr1352.Key}']").Click();
 
         Assert.Equal(
-            [new GoalDetachRequest("paid", "task:t3"), new GoalDetachRequest("paid", "plan:bank-integration"), new GoalDetachRequest("paid", "pr:1352")],
+            [new GoalDetachRequest("paid", T3), new GoalDetachRequest("paid", Bank), new GoalDetachRequest("paid", Pr1352)],
             calls.Detaches);
         Assert.Empty(board.FindAll("[role='dialog']"));
     }
@@ -406,11 +413,11 @@ public sealed class GoalCardEditingTests : IDisposable
     }
 
     [Fact]
-    public void A_pull_request_key_past_the_list_is_none()
+    public void A_pull_request_subject_past_the_list_is_none()
     {
-        Assert.Equal("pr:1341", Paid.PullRequestKey(0));
-        Assert.Null(Paid.PullRequestKey(1));
-        Assert.Null(Paid.PullRequestKey(3));
-        Assert.Null(Search.PullRequestKey(0));
+        Assert.Equal(Pr1341, Paid.PullRequestSubject(0));
+        Assert.Null(Paid.PullRequestSubject(1));
+        Assert.Null(Paid.PullRequestSubject(3));
+        Assert.Null(Search.PullRequestSubject(0));
     }
 }
