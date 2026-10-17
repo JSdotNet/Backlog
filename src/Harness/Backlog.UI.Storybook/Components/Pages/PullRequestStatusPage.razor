@@ -1,0 +1,98 @@
+@page "/pull-request-status"
+
+<PageTitle>Pull request status — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Pull request status"
+           Summary="PullRequestStatus: one pull request's status line — its #n pill, then its checks as passed/total and its approvals as received/required, each a glyph and a count. Every pull request row in Progress draws it, and the Pull requests pane's row draws its marks."
+           Guidelines="@Rules">
+
+    <Story Name="Checks running"
+           Description="Nine of fourteen checks passed and five still run, and one approval of the two the base branch asks for: the running and short marks, 9/14 and 1/2. A screen reader hears 9 of 14 checks running and 1 of 2 approvals."
+           Code="@RunningCode">
+        <PullRequestStatus Model="@Running" TestId="pull-request-status-running" />
+    </Story>
+
+    <Story Name="Checks failing"
+           Description="Two checks passed, one failed and eleven still run: the failing mark, 2/14."
+           Code="@FailingCode">
+        <PullRequestStatus Model="@Failing" TestId="pull-request-status-failing" />
+    </Story>
+
+    <Story Name="Approved"
+           Description="Every check passed and two approvals of two: the passed and met marks, 14/14 and 2/2."
+           Code="@ApprovedCode">
+        <PullRequestStatus Model="@Approved" TestId="pull-request-status-approved" />
+    </Story>
+
+    <Story Name="Merged"
+           Description="A merged pull request: its pill and merged, with no marks."
+           Code="@MergedCode">
+        <PullRequestStatus Model="@Merged" TestId="pull-request-status-merged" />
+    </Story>
+
+    <Story Name="No checks, no required approvals"
+           Description="A draft with no checks and a base branch with no required approvals: no checks mark, and the approvals mark with the received count alone. A screen reader hears 0 approvals, none required."
+           Code="@BareCode">
+        <PullRequestStatus Model="@Bare" TestId="pull-request-status-bare" />
+    </Story>
+
+    <Story Name="Marks only"
+           Description="A host whose row already names the pull request — the Pull requests pane — passes ShowNumber false and draws the two marks alone."
+           Code="@MarksCode">
+        <PullRequestStatus Model="@Running" ShowNumber="false" TestId="pull-request-status-marks" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#pull-request-status-marks", "Which glyph and ink each variant of the checks and approvals marks takes, and why the words stay hidden."),
+        new("color-scheme.md#badge-and-chip-tones", "The gh badge family the #n pill wears."),
+        new("accessibility.md#iconography-accessibility", "Why the glyph is hidden and the count and the words carry the meaning."),
+        new("typography-and-layout.md#iconography", "The Lucide glyphs the marks draw, and the size they are drawn at.")
+    ];
+
+    private static readonly PullRequestStatusModel Running =
+        new(1358, "open", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(1, 2), "Payment status webhook");
+
+    private static readonly PullRequestStatusModel Failing =
+        new(1344, "open", new PullRequestChecks(2, 1, 11), new PullRequestApprovals(0, 1), "Android build runner");
+
+    private static readonly PullRequestStatusModel Approved =
+        new(1341, "open", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(2, 2), "Invoice PDF export");
+
+    private static readonly PullRequestStatusModel Merged =
+        new(1352, "merged", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(2, 2), "Reminder emails");
+
+    private static readonly PullRequestStatusModel Bare =
+        new(1360, "draft", null, new PullRequestApprovals(0, null), "Credit notes");
+
+    private const string RunningCode = """
+        <PullRequestStatus Model="@(new PullRequestStatusModel(1358, "open",
+            new PullRequestChecks(Passed: 9, Failed: 0, Pending: 5),
+            new PullRequestApprovals(Received: 1, Required: 2)))" />
+        """;
+
+    private const string FailingCode = """
+        <PullRequestStatus Model="@(new PullRequestStatusModel(1344, "open",
+            new PullRequestChecks(2, 1, 11), new PullRequestApprovals(0, 1)))" />
+        """;
+
+    private const string ApprovedCode = """
+        <PullRequestStatus Model="@(new PullRequestStatusModel(1341, "open",
+            new PullRequestChecks(14, 0, 0), new PullRequestApprovals(2, 2)))" />
+        """;
+
+    private const string MergedCode = """
+        <PullRequestStatus Model="@(new PullRequestStatusModel(1352, "merged"))" />
+        """;
+
+    private const string BareCode = """
+        <PullRequestStatus Model="@(new PullRequestStatusModel(1360, "draft",
+            Checks: null, new PullRequestApprovals(0, Required: null)))" />
+        """;
+
+    private const string MarksCode = """
+        <PullRequestStatus Model="@pull" ShowNumber="false" />
+        """;
+}

@@ -1,0 +1,110 @@
+@*
+    One open impediment in the stand-up (.devbook/domain/progress/features.md#the-stand-up):
+    its title, a state picker wearing the state's badge, and one line naming who it is
+    with, its age in working days or the day to check it again, and the goal it holds
+    back in color-error-text — "Account manager · 3 days · Customers get paid faster".
+
+    The picker is a BadgeSelect of the impediment family, toned per
+    .devbook/design/color-scheme.md#impediment-state-tones, and offers the stored state
+    and the moves the host says it may make — forward only, and any open state to
+    Resolved — so a refused move is rare. When one is refused anyway the host keeps the
+    stored state and says why, and the picker shows the stored state again rather than
+    the one the person picked. It does so on the same select, never a new one, so a
+    keyboard user's focus stays where it was: the row renders the picked value once
+    and then the stored one, and that change in the rendered value is what makes
+    Blazor write the stored value back onto the element. Re-keying the select would
+    write it too, by replacing the element, and drop the focus to the page.
+*@
+@inject IJSRuntime Js
+<div class="@ClassValue" data-testid="@TestId" data-state="@Slug(Impediment.State)">
+    <div class="impediment-row__head">
+        <span class="impediment-row__title">@Impediment.Title</span>
+        <BadgeSelect Id="@_pickerId"
+                     CurrentValue="@Shown.ToString()"
+                     Options="Options"
+                     Label="State"
+                     BadgeKind="impediment"
+                     Slug="@Slug(Shown)"
+                     Disabled="@(Disabled || Impediment.Moves.Count == 0)"
+                     OnChanged="MoveAsync"
+                     TestId="@Part("state")" />
+    </div>
+    <span class="impediment-row__meta" data-testid="@Part("meta")">
+        @GoalsText.ImpedimentMeta(Impediment)
+        @if (!string.IsNullOrWhiteSpace(Impediment.GoalTitle))
+        {
+            <span aria-hidden="true"> · </span>
+            <span class="impediment-row__goal">@Impediment.GoalTitle</span>
+        }
+    </span>
+</div>
+
+@code {
+    private readonly string _pickerId = "impediment-state-" + Guid.NewGuid().ToString("N");
+    private StandUpImpedimentState? _picked;
+
+    [Parameter, EditorRequired]
+    public StandUpImpediment Impediment { get; set; } = default!;
+
+    /// <summary>A state was picked; the host saves the move and reads the view again.</summary>
+    [Parameter]
+    public EventCallback<StandUpImpedimentState> OnMove { get; set; }
+
+    /// <summary>While a move is being saved.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Lands on the row; the picker and the meta line take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Puts the focus on the row's state picker, by its id, through the library's
+    /// focus helper — so BadgeSelect's markup stays what every other caller renders.</summary>
+    public Task FocusAsync() => global::Backlog.UI.Components.Tasks.QuickEditField.FocusAsync(Js, _pickerId, select: false);
+
+    /// <summary>The picked state while its move is being saved, the stored one otherwise.</summary>
+    private StandUpImpedimentState Shown => _picked ?? Impediment.State;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "impediment-row" : $"impediment-row {CssClass}";
+
+    private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    /// <summary>The stored state, then its moves, in the state order.</summary>
+    private IReadOnlyList<SelectorOption> Options =>
+    [
+        .. new[] { Impediment.State }
+            .Concat(Impediment.Moves.Where(state => state != Impediment.State))
+            .Order()
+            .Select(state => new SelectorOption(state.ToString(), GoalsText.State(state)))
+    ];
+
+    /// <summary>The badge slug a state wears: <c>new</c>, <c>being-handled</c>.</summary>
+    public static string Slug(StandUpImpedimentState state) => state switch
+    {
+        StandUpImpedimentState.BeingHandled => "being-handled",
+        _ => state.ToString().ToLowerInvariant()
+    };
+
+    private async Task MoveAsync(string value)
+    {
+        if (!Enum.TryParse<StandUpImpedimentState>(value, out var state) || state == Impediment.State) return;
+
+        // Render the pick first, so the render after the move differs from it wherever the
+        // host kept the stored state, and the stored value is written back onto the select.
+        _picked = state;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await OnMove.InvokeAsync(state);
+        }
+        finally
+        {
+            _picked = null;
+        }
+    }
+}

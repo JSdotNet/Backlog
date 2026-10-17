@@ -1,0 +1,249 @@
+@*
+    One goal in the Goals view (.devbook/domain/progress/features.md#the-goals-view).
+    Folded, it is one row: the title, the stacked bar, "5/6 · due 23 Oct" and its
+    forecast badge. Opened, the bar runs under the title and the goal lists what is
+    attached to it in three columns — Plan with each plan's done/total, Tasks with a
+    status dot each, Pull requests with a status line each, the merged ones gathered
+    on one line as pills and "merged" — and below them the attach search.
+
+    The search matches the host's candidates — plans, tasks and pull requests — by
+    title, or a pull request by its number, and lists each match under its kind label.
+    Picking one hands its key back through OnAttach and puts the focus back in the
+    search box; the host attaches it, asks first
+    when another goal holds it, and reads the view again. It is a list of matches over
+    the view's own candidates, not a goal picker: the picker that names a goal is
+    another component's.
+
+    The forecast badge is the forecast family of .devbook/design/color-scheme.md
+    #goal-forecast-badges: At risk takes the fault fill with its own ink as edge, On
+    track the settled fill inside the strong edge.
+*@
+<section class="@ClassValue" aria-labelledby="@TitleId" data-testid="@TestId" data-expanded="@(Expanded ? "true" : "false")">
+    <div class="goal-card__head">
+        <h3 class="goal-card__title" id="@TitleId">
+            <AppButton Variant="ButtonVariant.None"
+                       BaseClass="goal-card__toggle"
+                       OnClick="() => OnToggle.InvokeAsync()"
+                       aria-expanded="@(Expanded ? "true" : "false")"
+                       aria-controls="@(Expanded ? BodyId : null)"
+                       TestId="@Part("toggle")">@Goal.Title</AppButton>
+        </h3>
+        @if (!Expanded)
+        {
+            <GoalProgressBar Counts="Goal.Counts" CssClass="goal-card__bar" TestId="@Part("bar")" />
+        }
+        <span class="goal-card__meta" data-testid="@Part("meta")">@GoalsText.GoalLine(Goal)</span>
+        <Badge Kind="forecast" Slug="@(Goal.AtRisk ? "at-risk" : "on-track")" TestId="@Part("forecast")">@GoalsText.Forecast(Goal.AtRisk)</Badge>
+    </div>
+
+    @if (Expanded)
+    {
+        <GoalProgressBar Counts="Goal.Counts" Large="true" TestId="@Part("bar")" />
+
+        <div class="goal-card__body" id="@BodyId">
+            <div class="goal-card__columns">
+                <div class="goal-card__column" data-testid="@Part("plans")">
+                    <span class="goal-card__column-title">Plan</span>
+                    @foreach (var plan in Goal.Plans)
+                    {
+                        <span class="goal-card__plan">
+                            <span class="goal-card__plan-title">@plan.Title</span>
+                            <span class="goal-card__plan-count">@plan.Done/@plan.Total</span>
+                        </span>
+                    }
+                    @if (Goal.Plans.Count == 0)
+                    {
+                        <span class="goal-card__none">None</span>
+                    }
+                </div>
+
+                <div class="goal-card__column" data-testid="@Part("tasks")">
+                    <span class="goal-card__column-title">Tasks</span>
+                    @foreach (var task in Goal.Tasks)
+                    {
+                        <span class="goal-card__task" data-status="@task.Status.ToString().ToLowerInvariant()">
+                            <StatusDot Tone="@Tone(task.Status)" />
+                            <span>@task.Title</span>
+                            <span class="sr-only">, @StatusWords(task.Status)</span>
+                        </span>
+                    }
+                    @if (Goal.Tasks.Count == 0)
+                    {
+                        <span class="goal-card__none">None</span>
+                    }
+                </div>
+
+                <div class="goal-card__column" data-testid="@Part("pull-requests")">
+                    <span class="goal-card__column-title">Pull requests</span>
+                    @foreach (var pull in Goal.PullRequests.Where(p => !p.IsMerged))
+                    {
+                        <PullRequestStatus Model="pull" TestId="@Part($"pull-request-{pull.Number}")" />
+                    }
+                    @if (Merged.Count > 0)
+                    {
+                        <span class="goal-card__merged" data-testid="@Part("merged")">
+                            @foreach (var pull in Merged)
+                            {
+                                <Badge Kind="gh" Slug="merged" Href="@pull.Url" Title="@pull.Title">#@pull.Number</Badge>
+                            }
+                            <span>merged</span>
+                        </span>
+                    }
+                    @if (Goal.PullRequests.Count == 0)
+                    {
+                        <span class="goal-card__none">None</span>
+                    }
+                </div>
+            </div>
+
+            <div class="goal-card__attach">
+                <SearchBox @ref="_search"
+                           Value="@_query"
+                           ValueChanged="value => _query = value"
+                           Placeholder="@AttachLabel"
+                           AriaLabel="@AttachLabel"
+                           DebounceMilliseconds="0"
+                           CssClass="goal-card__search"
+                           TestId="@Part("attach")" />
+                @if (Matches.Count > 0)
+                {
+                    <ul class="goal-card__matches" aria-label="Matches" data-testid="@Part("matches")">
+                        @foreach (var match in Matches)
+                        {
+                            <li class="goal-card__match-row">
+                                <AppButton Variant="ButtonVariant.None"
+                                           BaseClass="goal-card__match"
+                                           OnClick="() => PickAsync(match)"
+                                           TestId="@Part($"match-{match.Key}")">
+                                    <span class="goal-card__match-kind">@KindLabel(match.Kind)</span>
+                                    <span class="goal-card__match-title">
+                                        @if (match.Number is { } number)
+                                        {
+                                            <span class="goal-card__number">#@number</span>@(" ")
+                                        }
+                                        @match.Title
+                                    </span>
+                                </AppButton>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    /// <summary>The most matches the attach search lists at once.</summary>
+    public const int MatchLimit = 8;
+
+    /// <summary>The attach search's placeholder and accessible name.</summary>
+    public const string AttachLabel = "Attach a plan, task or pull request";
+
+    private readonly string _id = "goal-" + Guid.NewGuid().ToString("N");
+    private string _query = string.Empty;
+    private SearchBox? _search;
+    private bool _focusSearch;
+
+    [Parameter, EditorRequired]
+    public GoalCardModel Goal { get; set; } = default!;
+
+    /// <summary>Whether the goal is open, with its columns and the attach search.</summary>
+    [Parameter]
+    public bool Expanded { get; set; }
+
+    /// <summary>The title was pressed: open the goal, or fold it.</summary>
+    [Parameter]
+    public EventCallback OnToggle { get; set; }
+
+    /// <summary>What the attach search matches over.</summary>
+    [Parameter]
+    public IReadOnlyList<GoalsItem> Candidates { get; set; } = [];
+
+    /// <summary>A match was picked: its key.</summary>
+    [Parameter]
+    public EventCallback<string> OnAttach { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Lands on the section; its parts take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string TitleId => _id + "-title";
+
+    private string BodyId => _id + "-body";
+
+    private string ClassValue
+    {
+        get
+        {
+            var expanded = Expanded ? " goal-card--expanded" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"goal-card{expanded}{extra}";
+        }
+    }
+
+    private List<PullRequestStatusModel> Merged => [.. Goal.PullRequests.Where(p => p.IsMerged)];
+
+    private IReadOnlyList<GoalsItem> Matches => Match(Candidates, _query);
+
+    private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    /// <summary>The candidates whose title holds <paramref name="query"/>, or whose number
+    /// starts with it, a leading <c>#</c> ignored; none for a blank query.</summary>
+    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query)
+    {
+        var text = query?.Trim() ?? string.Empty;
+        if (text.Length == 0) return [];
+
+        var number = text.TrimStart('#');
+        return [.. candidates
+            .Where(item => item.Title.Contains(text, StringComparison.OrdinalIgnoreCase)
+                           || (number.Length > 0 && item.Number is { } n
+                               && n.ToString(System.Globalization.CultureInfo.InvariantCulture).StartsWith(number, StringComparison.Ordinal)))
+            .Take(MatchLimit)];
+    }
+
+    /// <summary>The kind label a match or a No goal row reads under.</summary>
+    public static string KindLabel(GoalsItemKind kind) => kind switch
+    {
+        GoalsItemKind.Plan => "Plan",
+        GoalsItemKind.Task => "Task",
+        _ => "PR"
+    };
+
+    private async Task PickAsync(GoalsItem match)
+    {
+        // The pick clears the query, which takes the list and the focused button with it:
+        // the focus goes back to the search box once the list is gone.
+        _query = string.Empty;
+        _focusSearch = true;
+        await OnAttach.InvokeAsync(match.Key);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusSearch || _search is null) return;
+
+        _focusSearch = false;
+        await _search.FocusAsync();
+    }
+
+    private static FlowStepTone Tone(GoalTaskStatus status) => status switch
+    {
+        GoalTaskStatus.Done => FlowStepTone.Done,
+        GoalTaskStatus.Doing => FlowStepTone.Active,
+        GoalTaskStatus.Blocked => FlowStepTone.Blocked,
+        _ => FlowStepTone.Pending
+    };
+
+    private static string StatusWords(GoalTaskStatus status) => status switch
+    {
+        GoalTaskStatus.Done => "done",
+        GoalTaskStatus.Doing => "in progress",
+        GoalTaskStatus.Blocked => "blocked",
+        _ => "not started"
+    };
+}

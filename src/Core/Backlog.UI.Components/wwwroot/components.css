@@ -22183,3 +22183,567 @@ button.sprint-pr:focus-visible {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/*
+  The pull request status line (.devbook/design/color-scheme.md#pull-request-status-marks):
+  the #n pill in the gh family, then a checks mark and an approvals mark, each a glyph and
+  a count in the mark's ink. Running and Short share the live ink; a different glyph tells
+  them apart. A received count with no required total keeps the secondary ink: it is
+  information, not a verdict. Each mark is positioned because it holds an sr-only phrase,
+  for the reason .status-editor gives.
+*/
+.pull-request-status {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-width: 0;
+    font-size: var(--font-size-sm);
+}
+
+.pull-request-status__number {
+    font-family: var(--font-family-mono);
+    border-radius: var(--border-radius-full);
+}
+
+.pull-request-status__mark {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.pull-request-status__glyph {
+    flex: none;
+}
+
+.pull-request-status__mark--passed,
+.pull-request-status__mark--met {
+    color: var(--color-success-text);
+}
+
+.pull-request-status__mark--running,
+.pull-request-status__mark--short {
+    color: var(--color-primary-light);
+}
+
+.pull-request-status__mark--failing {
+    color: var(--color-error-text);
+}
+
+.pull-request-status__mark--unrequired,
+.pull-request-status__mark--received,
+.pull-request-status__merged {
+    color: var(--color-text-secondary);
+}
+
+/*
+  Goal forecast badges (.devbook/design/color-scheme.md#goal-forecast-badges): At risk the
+  fault fill with its own ink as edge, which the tone scale allows a fault chip alone; On
+  track the settled fill inside the strong edge, so the two differ by more than hue.
+*/
+.badge--forecast {
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-full);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+}
+
+.badge--forecast-at-risk {
+    background: var(--color-error);
+    border-color: var(--color-error-text);
+    color: var(--color-error-text);
+}
+
+.badge--forecast-on-track {
+    background: var(--color-success);
+    border-color: var(--color-border-strong);
+    color: var(--color-success-text);
+}
+
+/*
+  Impediment state tones (.devbook/design/color-scheme.md#impediment-state-tones). New and
+  Reported are quiet and outlined, New with a leading dot in color-error-text - drawn as
+  a pseudo-element, so assistive technology never reads it; the badge's word says New.
+  Escalated is the fault fill, Being handled the alert fill with the primary ink, and
+  Resolved the settled fill. The family dresses Badge and the BadgeSelect state picker
+  alike, so an editable state and a read-only one are the same badge.
+*/
+.badge--impediment {
+    gap: var(--spacing-xs);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    color: var(--color-secondary);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+}
+
+.badge--impediment-new::before {
+    content: "";
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-error-text);
+}
+
+.badge--impediment-escalated {
+    background: var(--color-error);
+    border-color: var(--color-error-text);
+    color: var(--color-error-text);
+}
+
+.badge--impediment-being-handled {
+    background: var(--color-warning);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--impediment-resolved {
+    background: var(--color-success);
+    border-color: var(--color-border-strong);
+    color: var(--color-success-text);
+}
+
+/* The picker inside the badge: the control takes the badge's ink and face and draws no
+   chrome of its own. Positioned for its sr-only label, as .status-editor is. */
+.impediment-editor {
+    position: relative;
+    padding-right: 0;
+}
+
+.impediment-editor__select {
+    min-width: 0;
+    min-height: 1.5rem;
+    padding: 0 var(--spacing-sm) 0 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: inherit;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.impediment-editor__select:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.impediment-editor__select:disabled {
+    cursor: default;
+}
+
+/* GoalProgressBar: done, in progress and blocked over the raised track, which is what
+   reads as not started. */
+.goal-progress-bar {
+    display: flex;
+    gap: var(--spacing-2xs);
+    height: 0.375rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+}
+
+.goal-progress-bar--large {
+    height: 0.5rem;
+}
+
+.goal-progress-bar__done {
+    background: var(--color-success-text);
+}
+
+.goal-progress-bar__doing {
+    background: var(--color-primary);
+}
+
+.goal-progress-bar__blocked {
+    background: var(--color-error-text);
+}
+
+/*
+  The Goals view: GoalsBoard, its header, the goals column with a GoalCard per goal and
+  No goal, and the StandUpPanel aside. The board is its own container, so the aside falls
+  under the goals by the board's width rather than the viewport's: the view sits beside
+  the Devbook pane and in the storybook's frame.
+*/
+.goals-board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    container: goals-board / inline-size;
+}
+
+.goals-board__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.goals-board__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.goals-board__window {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.goals-board__spacer {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.goals-board__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+    align-items: start;
+    gap: var(--spacing-lg);
+}
+
+.goals-board__goals {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.goals-board__section-header .section-header__title,
+.stand-up-panel__header .section-header__title {
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.goals-board__no-goal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-lg);
+}
+
+.goals-board__no-goal-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.goals-board__no-goal-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.goals-board__no-goal-item {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.goals-board__number,
+.goal-card__number {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.goal-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+}
+
+.goal-card--expanded {
+    padding: var(--spacing-md);
+}
+
+.goal-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.goal-card__title {
+    flex: 1 1 12rem;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.goal-card--expanded .goal-card__title {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-medium);
+}
+
+.goal-card__toggle {
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.goal-card__toggle:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--border-radius-sm);
+}
+
+.goal-card__bar {
+    flex: 1 1 10rem;
+}
+
+.goal-card__meta {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.goal-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.goal-card__columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-md);
+}
+
+.goal-card__column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.goal-card__column-title,
+.goal-card__none,
+.goal-card__plan-count {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.goal-card__plan {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.goal-card__task {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.goal-card__task .status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+}
+
+.goal-card__merged {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.goal-card__attach {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.goal-card__matches {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: var(--spacing-xs);
+    list-style: none;
+    background: var(--color-background-raised);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+}
+
+.goal-card__match {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.goal-card__match:hover {
+    background: var(--color-background-alt);
+}
+
+.goal-card__match:focus-visible {
+    background: var(--color-background-alt);
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.goal-card__match-kind {
+    flex: 0 0 3rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.goal-card__match-title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* One column under 900 px of board: the aside under the goals, and an open goal's three
+   columns stacked. */
+@container goals-board (max-width: 900px) {
+    .goals-board__layout,
+    .goal-card__columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.stand-up-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.stand-up-panel__block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+}
+
+.stand-up-panel__block--impediments {
+    gap: var(--spacing-sm);
+}
+
+.stand-up-panel__block-head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.stand-up-panel__dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+}
+
+.stand-up-panel__dot--finished {
+    background: var(--color-success-text);
+}
+
+.stand-up-panel__dot--planned {
+    background: var(--color-primary);
+}
+
+.stand-up-panel__dot--impediments {
+    background: var(--color-error-text);
+}
+
+.stand-up-panel__block-title {
+    flex: 1 1 auto;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.stand-up-panel__points {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary-light);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.stand-up-panel__item--no-goal {
+    color: var(--color-text-secondary);
+}
+
+.stand-up-panel__resolved {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.stand-up-panel__pull {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.impediment-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-background-raised);
+}
+
+.impediment-row__head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.impediment-row__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: var(--font-weight-medium);
+}
+
+.impediment-row__meta {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.impediment-row__goal {
+    color: var(--color-error-text);
+}
+
+.goal-create-dialog .field + .field {
+    margin-top: var(--spacing-sm);
+}

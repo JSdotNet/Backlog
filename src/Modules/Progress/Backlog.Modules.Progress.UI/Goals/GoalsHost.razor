@@ -1,0 +1,368 @@
+@using global::Backlog.Modules.Progress.Abstractions.DataTransferObjects
+@using global::Backlog.Modules.Progress.Abstractions.Services
+@using global::Backlog.SharedKernel.Results
+@using global::Backlog.UI.Components.Feedback
+@using global::Backlog.UI.Components.Icons
+@using global::Backlog.UI.Components.Overlays
+@using global::Backlog.UI.Components.Progress
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The Goals view's host (.devbook/domain/progress/features.md#the-goals-view): it reads
+    the stand-up through IStandUp at the person's own iteration length, each goal's
+    attachments through IGoals.ListAsync over the last window, and the status of every
+    pull request the board shows through IGoalPullRequestReader, and hands GoalsMapper's
+    board to the library's GoalsBoard. The shell hands in its tasks, plan tags and open
+    pull requests as GoalsCandidates, because Progress UI may not reach Tasks
+    (ADR 0035 §6, local ADR 0028).
+
+    The view is read when it opens, on a change of iteration and on Refresh, and again
+    whenever IGoals, IImpediments or IIterationSettings say something changed — a write
+    the sync pulled in, or one made elsewhere on this machine. A write made here is read
+    once, by the write itself: the Changed the module raises for it while the write and
+    its read are under way is not read a second time, since that read would ask GitHub for
+    every pull request on the board again. A newer read wins over a slower older one. The
+    shell's Revision only maps the last reading again over its candidates, with no read.
+
+    Without the Progress ports the view says the module is not set up, under its own test
+    id; goals-view-empty is the board's real empty state alone.
+
+    Every write goes through the module and the view is read again once it lands:
+    - the iteration switch, through IIterationSettings.SetLength;
+    - New goal, through IGoals.CreateAsync, the refusal kept in the dialog;
+    - attach, through IGoals.AttachAsync. An item another goal holds is refused with
+      progress.item_in_other_goal, which names that goal; a ConfirmDialog asks, and
+      confirming attaches again with moveFromOtherGoal;
+    - a state picked for an impediment, through IImpediments.MoveAsync with no person,
+      so the last one stands. A refusal shows above the board and the picker goes back
+      to the stored state.
+*@
+@if (!Available)
+{
+    <EmptyState Title="Goals are not set up here"
+                Description="This build has no Goals module behind the view."
+                TestId="goals-view-unavailable">
+        <Icon><TargetIcon Size="24" /></Icon>
+    </EmptyState>
+}
+else if (_model is null)
+{
+    @if (_readError is not null)
+    {
+        <Alert Message="@_readError" ActionLabel="Try again" OnAction="ReadAsync" TestId="goals-host-error" />
+    }
+    else
+    {
+        <Spinner Label="Reading the goals" TestId="goals-host-loading" />
+    }
+}
+else
+{
+    <GoalsBoard Model="_model"
+                SelectedGoalId="@_selectedGoalId"
+                SelectedGoalIdChanged="id => _selectedGoalId = id"
+                IterationChanged="SetIterationAsync"
+                OnNewGoal="() => { _createError = null; _creating = true; }"
+                OnRefresh="RefreshAsync"
+                OnAttach="AttachAsync"
+                OnMoveImpediment="MoveAsync"
+                Error="@(_writeError ?? _readError)"
+                Busy="_writing"
+                TestId="goals-board" />
+}
+
+<GoalCreateDialog Open="_creating"
+                  OpenChanged="open => _creating = open"
+                  Busy="_writing"
+                  Error="@_createError"
+                  OnSave="CreateAsync" />
+
+<ConfirmDialog Open="@(_move is not null)"
+               OpenChanged="open => { if (!open) _move = null; }"
+               Title="Move to this goal?"
+               Message="@(_move?.Message ?? string.Empty)"
+               ConfirmText="Move"
+               OnConfirm="ConfirmMoveAsync"
+               OnCancel="() => _move = null"
+               TestId="goals-move-confirm"
+               ConfirmTestId="goals-move-confirm-yes"
+               CancelTestId="goals-move-confirm-no" />
+
+@code {
+    /// <summary>The refusal an item another goal holds is attached with.</summary>
+    public const string ItemInOtherGoal = "progress.item_in_other_goal";
+
+    /// <summary>The shell's tasks, plan tags and open pull requests, asked for on every
+    /// mapping and never kept.</summary>
+    [Parameter]
+    public Func<GoalsCandidates>? Candidates { get; set; }
+
+    /// <summary>Raised by the shell when its candidates changed — its reader's pull
+    /// requests landed, or its task list moved: the last reading is mapped again.</summary>
+    [Parameter]
+    public int Revision { get; set; }
+
+    /// <summary>The view opened (false) or Refresh was pressed (true): the shell reads its
+    /// open pull requests as its other views do.</summary>
+    [Parameter]
+    public EventCallback<bool> OnRead { get; set; }
+
+    private IStandUp? _standUp;
+    private IGoals? _goals;
+    private IImpediments? _impediments;
+    private IIterationSettings? _settings;
+    private IGoalPullRequestReader? _pullRequests;
+
+    private StandUpDto? _reading;
+    private IReadOnlyList<GoalSummaryDto> _summaries = [];
+    private IReadOnlyList<GoalPullRequestDto> _pulls = [];
+    private GoalsBoardModel? _model;
+    private int _mappedRevision;
+    private int _generation;
+    private int _ownWrites;
+
+    private string? _selectedGoalId;
+    private string? _readError;
+    private string? _writeError;
+    private bool _writing;
+    private bool _creating;
+    private string? _createError;
+    private PendingMove? _move;
+
+    /// <summary>An attach another goal refused, waiting on the person's say.</summary>
+    private sealed record PendingMove(Guid GoalId, GoalItemDto Item, string Message);
+
+    private bool Available => _standUp is not null && _goals is not null;
+
+    private DateOnly Today =>
+        DateOnly.FromDateTime(((Services.GetService(typeof(TimeProvider)) as TimeProvider) ?? TimeProvider.System).GetLocalNow().DateTime);
+
+    protected override void OnInitialized()
+    {
+        _standUp = Services.GetService(typeof(IStandUp)) as IStandUp;
+        _goals = Services.GetService(typeof(IGoals)) as IGoals;
+        _impediments = Services.GetService(typeof(IImpediments)) as IImpediments;
+        _settings = Services.GetService(typeof(IIterationSettings)) as IIterationSettings;
+        _pullRequests = Services.GetService(typeof(IGoalPullRequestReader)) as IGoalPullRequestReader;
+
+        if (_goals is not null) _goals.Changed += OnChanged;
+        if (_impediments is not null) _impediments.Changed += OnChanged;
+        if (_settings is not null) _settings.Changed += OnChanged;
+        _mappedRevision = Revision;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Available) return;
+
+        await OnRead.InvokeAsync(false);
+        await ReadAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (Revision == _mappedRevision) return;
+
+        _mappedRevision = Revision;
+        Remap();
+    }
+
+    /// <summary>Something was saved — here or pulled in by the sync — so the view is read
+    /// again.</summary>
+    private void OnChanged() => _ = InvokeAsync(async () =>
+    {
+        // This host's own write reads once it lands; its Changed is that same news.
+        if (_ownWrites > 0) return;
+
+        await ReadAsync();
+        StateHasChanged();
+    });
+
+    /// <summary>Runs a write made here and the read after it, with the module's Changed
+    /// for that write set aside.</summary>
+    private async Task WriteAsync(Func<Task<bool>> write)
+    {
+        _ownWrites++;
+        try
+        {
+            if (await write()) await ReadAsync();
+        }
+        finally
+        {
+            _ownWrites--;
+        }
+    }
+
+    private async Task ReadAsync()
+    {
+        if (_standUp is null || _goals is null) return;
+
+        var generation = ++_generation;
+
+        var standUp = await _standUp.ReadAsync();
+        if (generation != _generation) return;
+        if (standUp.IsFailure)
+        {
+            _readError = standUp.Error.Message;
+            return;
+        }
+
+        var goals = await _goals.ListAsync(standUp.Value.Last.First, standUp.Value.Last.Last);
+        if (generation != _generation) return;
+        if (goals.IsFailure)
+        {
+            _readError = goals.Error.Message;
+            return;
+        }
+
+        var refs = GoalsMapper.PullRequestsToRead(standUp.Value, goals.Value, CandidatesNow());
+        IReadOnlyList<GoalPullRequestDto> pulls = refs.Count == 0 || _pullRequests is null ? [] : await _pullRequests.ReadAsync(refs);
+        if (generation != _generation) return;
+
+        _reading = standUp.Value;
+        _summaries = goals.Value;
+        _pulls = pulls;
+        _readError = null;
+        Remap();
+    }
+
+    private void Remap()
+    {
+        if (_reading is null) return;
+        _model = GoalsMapper.Map(_reading, _summaries, _pulls, CandidatesNow());
+    }
+
+    private GoalsCandidates CandidatesNow() => Candidates?.Invoke() ?? GoalsCandidates.Empty;
+
+    private async Task RefreshAsync()
+    {
+        _writeError = null;
+        await OnRead.InvokeAsync(true);
+        await ReadAsync();
+    }
+
+    private async Task SetIterationAsync(GoalsIteration iteration)
+    {
+        if (_settings is null) return;
+
+        _writeError = null;
+        var settings = _settings;
+        await WriteAsync(() =>
+        {
+            settings.SetLength(GoalsMapper.Length(iteration), Today);
+            return Task.FromResult(true);
+        });
+    }
+
+    private async Task CreateAsync(GoalDraft draft)
+    {
+        if (_goals is not { } goals) return;
+
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var created = await goals.CreateAsync(new SetGoalRequest(draft.Title, draft.Outcome, draft.DueDate));
+                if (created.IsFailure)
+                {
+                    _createError = created.Error.Message;
+                    return false;
+                }
+
+                _createError = null;
+                _creating = false;
+                _selectedGoalId = created.Value.Id.ToString();
+                return true;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    private async Task AttachAsync(GoalAttachRequest request)
+    {
+        if (_goals is not { } goals || !Guid.TryParse(request.GoalId, out var goalId) || !GoalsKeys.TryRead(request.ItemKey, out var item)) return;
+
+        _writeError = null;
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var attached = await goals.AttachAsync(goalId, item);
+                if (attached.IsSuccess) return true;
+
+                if (attached.Error.Code == ItemInOtherGoal)
+                {
+                    var target = _model?.Goals.FirstOrDefault(goal => goal.Id == request.GoalId)?.Title ?? "this goal";
+                    _move = new PendingMove(goalId, item, $"{attached.Error.Message}. Move it to {target}?");
+                }
+                else
+                {
+                    _writeError = attached.Error.Message;
+                }
+
+                return false;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    private async Task ConfirmMoveAsync()
+    {
+        if (_goals is not { } goals || _move is not { } move) return;
+
+        _move = null;
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var attached = await goals.AttachAsync(move.GoalId, move.Item, moveFromOtherGoal: true);
+                if (attached.IsFailure) _writeError = attached.Error.Message;
+                return true;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    private async Task MoveAsync(ImpedimentMoveRequest request)
+    {
+        if (_impediments is not { } impediments || !Guid.TryParse(request.ImpedimentId, out var id)) return;
+
+        _writeError = null;
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                // No person: the last one the impediment was with stands. A refusal is
+                // read again too, so the picker draws the stored state from a fresh reading.
+                var moved = await impediments.MoveAsync(id, GoalsMapper.State(request.State));
+                if (moved.IsFailure) _writeError = moved.Error.Message;
+                return true;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    public void Dispose()
+    {
+        if (_goals is not null) _goals.Changed -= OnChanged;
+        if (_impediments is not null) _impediments.Changed -= OnChanged;
+        if (_settings is not null) _settings.Changed -= OnChanged;
+    }
+}

@@ -1,5 +1,6 @@
 @using Backlog.Modules.Sessions.Abstractions
 @using Backlog.UI.Components.Integrations
+@using Backlog.UI.Components.Progress
 @using Backlog.SharedKernel
 @inject IServiceProvider Services
 @inject IJSRuntime JS
@@ -1463,16 +1464,6 @@
             ? $"{(pull.IsMerged ? "Merged" : "Closed")} {at.ToLocalTime():ddd d MMM yyyy HH:mm}."
             : null;
 
-    private static string ChecksTitle(GitHubCheckCounts counts) =>
-        $"{counts.Passed} of the head commit's {counts.Total} checks passed, {counts.Failed} failed, {counts.Pending} still running or waiting.";
-
-    /// <summary>The meter's three widths, as the counts themselves: each part grows by
-    /// its share, so the bar needs no arithmetic here.</summary>
-    private static string MeterStyle(GitHubCheckCounts counts) =>
-        string.Create(
-            System.Globalization.CultureInfo.InvariantCulture,
-            $"--checks-passed: {counts.Passed}; --checks-failed: {counts.Failed}; --checks-running: {counts.Pending}");
-
     /// <summary>The pull request as the Integrations family draws one, on the detail's
     /// head: an anchor to GitHub wearing its state as its colour, with the state's
     /// words in its title and an sr-only span.</summary>
@@ -1533,22 +1524,20 @@
                         <span aria-hidden="true">·</span>
                         <span class="pull-requests-row__age">@ago</span>
                     }
-                    @if (pull.IsOpen && pull.CheckCounts is { Total: > 0 } counts)
+                    @if (pull.IsOpen)
                     {
-                        @* GitHub's "8/9", drawn: passed, failed and running as three
-                           widths, with the words beside it and the exact counts in
-                           the title, so the bar is never the only carrier. *@
-                        <span class="pull-request-checks-meter"
-                              title="@ChecksTitle(counts)"
-                              style="@MeterStyle(counts)"
-                              data-testid="pull-request-checks-meter">
-                            <span class="pull-request-checks-meter__bar" aria-hidden="true">
-                                <span class="pull-request-checks-meter__passed"></span>
-                                <span class="pull-request-checks-meter__failed"></span>
-                                <span class="pull-request-checks-meter__running"></span>
-                            </span>
-                            <span class="pull-request-checks-meter__words">@($"{counts.Passed}/{counts.Total}")<span class="sr-only"> checks passed</span></span>
-                        </span>
+                        @* The shared status line's marks, the number already on the row:
+                           checks as passed/total and approvals as received/required,
+                           the words said to a screen reader only
+                           (.devbook/domain/progress/features.md#pull-request-status). *@
+                        <PullRequestStatus Model="@(new PullRequestStatusModel(
+                                               pull.Number,
+                                               pull.IsDraft ? "draft" : "open",
+                                               pull.CheckCounts is { } counts ? new PullRequestChecks(counts.Passed, counts.Failed, counts.Pending) : null,
+                                               new PullRequestApprovals(pull.Reviews.Approvals, pull.Reviews.Required, RequiredRead: pull.Reviews.Required is not null)))"
+                                           ShowNumber="false"
+                                           CssClass="pull-requests-row__marks"
+                                           TestId="pull-request-status" />
                     }
                 }
             </span>
