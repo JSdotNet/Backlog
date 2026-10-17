@@ -32,7 +32,7 @@ public sealed class GoalsTests : IDisposable
         services.AddSingleton<ISprintSeriesRepository>(new InMemorySprintSeriesRepository());
         services.AddSingleton<IGoalRepository>(_repository);
         services.AddSingleton<ISprintTaskSource>(_tasks);
-        services.AddSingleton<ISprintPullRequestReader>(_pulls);
+        services.AddSingleton<IGoalPullRequestReader>(_pulls);
         services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
 
@@ -243,7 +243,7 @@ public sealed class GoalsTests : IDisposable
             repository: i % 2 == 0 ? "backlog" : "docs",
             completedOn: i < 5 ? new DateOnly(2026, 10, 13) : null)));
         var mapping = _tasks.Tasks[8];
-        _pulls.Known.Add(new LinkedPullRequestDto("JSdotNet/Backlog", "1352", LinkedPullRequestState.Merged, new DateOnly(2026, 10, 14), "jobs"));
+        _pulls.Known.Add(new GoalPullRequestDto("JSdotNet/Backlog", "1352", LinkedPullRequestState.Merged, new DateOnly(2026, 10, 14), Checks: null, Approvals: null, Author: "jobs"));
 
         await Goals.AttachAsync(paid.Id, GoalItemDto.ForPlan("+bank-integration"), cancellationToken: Cancellation);
         await Goals.AttachAsync(search.Id, GoalItemDto.ForTask(mapping.Id), cancellationToken: Cancellation);

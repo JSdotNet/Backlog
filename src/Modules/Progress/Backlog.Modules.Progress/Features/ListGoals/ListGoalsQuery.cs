@@ -2,6 +2,7 @@ using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
 using Backlog.Modules.Progress.Features.AttachWork;
+using Backlog.Modules.Progress.Features.ReadSprintProgress;
 using Backlog.Modules.Progress.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -24,7 +25,7 @@ public sealed record FindGoalOfQuery(GoalItemDto Item);
 /// for every goal at once, so a list of ten goals asks each owner once; nothing read is
 /// kept.
 /// </summary>
-public sealed class ListGoalsQueryHandler(IGoalRepository repository, ISprintTaskSource tasks, ISprintPullRequestReader pullRequests)
+public sealed class ListGoalsQueryHandler(IGoalRepository repository, ISprintTaskSource tasks, IGoalPullRequestReader pullRequests)
     : IQueryHandler<ListGoalsQuery, IReadOnlyList<GoalSummaryDto>>,
       IQueryHandler<GetGoalQuery, Result<GoalDto>>,
       IQueryHandler<FindGoalOfQuery, Result<GoalDto?>>
@@ -47,7 +48,7 @@ public sealed class ListGoalsQueryHandler(IGoalRepository repository, ISprintTas
 
         IReadOnlyList<LinkedPullRequestDto> answers = asked.Count == 0
             ? []
-            : await pullRequests.ReadAsync(asked, cancellationToken).ConfigureAwait(false);
+            : [.. (await pullRequests.ReadAsync(asked, cancellationToken).ConfigureAwait(false)).Select(ReadSprintProgressQueryHandler.Linked)];
 
         DayWindow? window = query is { WindowStart: { } first, WindowEnd: { } last } ? new DayWindow(first, last) : null;
 
