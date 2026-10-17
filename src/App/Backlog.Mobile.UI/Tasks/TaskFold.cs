@@ -56,6 +56,16 @@ public static class TaskFold
     /// <see cref="GoalType"/> gives; persisted on every replica, so never to be renamed.</summary>
     public const string ImpedimentType = "impediment";
 
+    /// <summary>The kind token of the stand-up context — what a desktop writes for the phone
+    /// to read the stand-up by: pull request statuses, the pace and the working week (local
+    /// ADR 0035 §8). Never a task row; <see cref="Progress.ProgressFold"/> keeps it. A literal
+    /// duplicated for the reason <see cref="CaptureType"/> is; persisted, so never renamed.</summary>
+    public const string StandUpContextType = "stand-up-context";
+
+    /// <summary>The kind token of an impediment edit the phone queues for a desktop to apply
+    /// (local ADR 0035 §8). Never a task row; persisted, so never renamed.</summary>
+    public const string ImpedimentEditType = "impediment-edit";
+
     /// <summary>The kind token of the My Day preferences — Clear My Day overnight, set
     /// on a desktop (.devbook/arc42/adr/0032). Never a row: the projection keeps the
     /// document whole beside the rows, as <see cref="MyDayPreferencesDocument"/>. A
@@ -77,6 +87,8 @@ public static class TaskFold
         MyDayPreferencesType,
         GoalType,
         ImpedimentType,
+        StandUpContextType,
+        ImpedimentEditType,
     };
 
     /// <summary>Folds <paramref name="records"/> into <paramref name="rows"/>, and

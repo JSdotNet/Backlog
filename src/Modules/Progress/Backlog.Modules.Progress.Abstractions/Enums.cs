@@ -156,3 +156,19 @@ public enum GoalStanding
     /// an open impediment holds back one of its items.</summary>
     AtRisk
 }
+
+/// <summary>Which of an impediment's three fields an <see cref="ImpedimentEditDto"/> changes —
+/// the only changes the phone may make (local ADR 0035 §8). Stored by name, so the names are
+/// persisted values and never renamed.</summary>
+public enum ImpedimentEditKind
+{
+    /// <summary>Moves it to <see cref="ImpedimentEditDto.State"/>, with
+    /// <see cref="ImpedimentEditDto.With"/> as who it is with.</summary>
+    State,
+
+    /// <summary>Sets <see cref="ImpedimentEditDto.CheckAgain"/>, or clears it with null.</summary>
+    CheckAgain,
+
+    /// <summary>Replaces <see cref="ImpedimentEditDto.Note"/>, or clears it with null.</summary>
+    Note
+}
