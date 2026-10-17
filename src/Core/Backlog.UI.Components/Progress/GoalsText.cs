@@ -70,14 +70,15 @@ public static class GoalsText
         capacity is { } pace ? $"{planned} points planned, you usually finish {pace} {Period(length)}" : null;
 
     /// <summary>"Account manager · 3 days", or "· check Tue" when a check-again day is
-    /// set; "Not reported yet" when nobody is named.</summary>
+    /// set. With nobody named, a New one reads "Not reported yet · 1 day" and a later state
+    /// reads its age alone, as the phone does.</summary>
     public static string ImpedimentMeta(StandUpImpediment impediment)
     {
         ArgumentNullException.ThrowIfNull(impediment);
 
-        var with = string.IsNullOrWhiteSpace(impediment.With) ? "Not reported yet" : impediment.With.Trim();
         var when = impediment.CheckAgain is { } day ? CheckAgain(day) : Days(impediment.DaysOpen);
-        return with + Separator + when;
+        if (!string.IsNullOrWhiteSpace(impediment.With)) return impediment.With.Trim() + Separator + when;
+        return impediment.State == StandUpImpedimentState.New ? "Not reported yet" + Separator + when : when;
     }
 
     /// <summary>The meta line with the goal it holds back after it.</summary>

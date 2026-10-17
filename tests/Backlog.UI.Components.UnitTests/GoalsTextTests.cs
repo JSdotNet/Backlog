@@ -93,7 +93,33 @@ public sealed class GoalsTextTests
     /// <summary>Scenario "A new impediment".</summary>
     [Fact]
     public void An_impediment_with_nobody_named_reads_not_reported_yet() =>
-        Assert.StartsWith("Not reported yet", GoalsText.ImpedimentMeta(Impediment(StandUpImpedimentState.New, null, 1, null)), StringComparison.Ordinal);
+        Assert.Equal("Not reported yet · 1 day", GoalsText.ImpedimentMeta(Impediment(StandUpImpedimentState.New, null, 1, null)));
+
+    /// <summary>Only a New impediment reads "Not reported yet": a later state with nobody
+    /// named reads its age alone, as the phone does.</summary>
+    [Theory]
+    [InlineData(StandUpImpedimentState.Reported)]
+    [InlineData(StandUpImpedimentState.Escalated)]
+    [InlineData(StandUpImpedimentState.BeingHandled)]
+    public void A_later_impediment_with_nobody_named_reads_its_age_alone(StandUpImpedimentState state)
+    {
+        var impediment = Impediment(state, null, 0, checkAgain: null);
+
+        Assert.Equal("0 days", GoalsText.ImpedimentMeta(impediment));
+        Assert.Equal("0 days · Customers get paid faster", GoalsText.ImpedimentLine(impediment));
+    }
+
+    [Fact]
+    public void A_later_impediment_with_nobody_named_reads_its_check_again_day_alone() =>
+        Assert.Equal("check Tue", GoalsText.ImpedimentMeta(Impediment(StandUpImpedimentState.Reported, " ", 2, Oct(20))));
+
+    [Theory]
+    [InlineData(StandUpImpedimentState.New)]
+    [InlineData(StandUpImpedimentState.Reported)]
+    [InlineData(StandUpImpedimentState.Escalated)]
+    [InlineData(StandUpImpedimentState.BeingHandled)]
+    public void An_impediment_with_someone_named_reads_who_in_every_state(StandUpImpedimentState state) =>
+        Assert.Equal("Account manager · 3 days", GoalsText.ImpedimentMeta(Impediment(state, " Account manager ", 3, null)));
 
     [Fact]
     public void A_check_again_day_replaces_the_age()
