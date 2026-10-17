@@ -228,6 +228,17 @@ internal sealed class TasksPaneHost : IDisposable
         /// each repository is answered its own.</summary>
         public List<GitHubOpenPullRequest> OpenPullRequests { get; } = [];
 
+        /// <summary>The approvals each base branch's rules require, by branch; a branch
+        /// not named here is one whose rules could not be read.</summary>
+        public Dictionary<string, int?> RequiredApprovals { get; } = new(StringComparer.Ordinal);
+
+        public Task<IReadOnlyDictionary<string, int?>> ReadRequiredApprovalsAsync(
+            GitHubRepositoryRef repository,
+            IReadOnlyCollection<string> branches,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<string, int?>>(
+                branches.Where(RequiredApprovals.ContainsKey).ToDictionary(branch => branch, branch => RequiredApprovals[branch], StringComparer.Ordinal));
+
         public Task<IReadOnlyList<GitHubOpenPullRequest>> ListOpenPullRequestsAsync(
             GitHubRepositoryRef repository,
             CancellationToken cancellationToken = default)

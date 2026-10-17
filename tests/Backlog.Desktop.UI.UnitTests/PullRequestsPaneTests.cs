@@ -1910,6 +1910,45 @@ public sealed class PullRequestsPaneTests : IDisposable
 
     // --- Checks, labels and pins ----------------------------------------------
 
+    /// <summary>The rules of each row's base branch are read beside the list, so the
+    /// approvals mark carries a verdict: short of the required total, met at it, and the
+    /// count alone where no rule asks for one.</summary>
+    [Fact]
+    public void The_row_reads_its_base_branchs_required_approvals_into_a_verdict()
+    {
+        var client = new StubClient()
+            .Requires("main", 2)
+            .Requires("release", null)
+            .Lists(
+                "JSdotNet/Backlog",
+                Pull("JSdotNet/Backlog", 1) with { Reviews = new GitHubReviewSummary(GitHubReviewState.ReviewRequired, Approvals: 1, ChangesRequested: 0) },
+                Pull("JSdotNet/Backlog", 2) with { Reviews = new GitHubReviewSummary(GitHubReviewState.Approved, Approvals: 2, ChangesRequested: 0) },
+                Pull("JSdotNet/Backlog", 3) with
+                {
+                    BaseRefName = "release",
+                    Reviews = new GitHubReviewSummary(GitHubReviewState.None, Approvals: 1, ChangesRequested: 0)
+                });
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var shortOf = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-status-approvals']")!;
+            Assert.Equal("short", shortOf.GetAttribute("data-variant"));
+            Assert.Equal("1/2", shortOf.QuerySelector(".pull-request-status__count")!.TextContent);
+            Assert.Equal("1 of 2 approvals", shortOf.QuerySelector(".sr-only")!.TextContent);
+
+            var met = Row(pane, "JSdotNet/Backlog#2").QuerySelector("[data-testid='pull-request-status-approvals']")!;
+            Assert.Equal("met", met.GetAttribute("data-variant"));
+            Assert.Equal("2/2", met.QuerySelector(".pull-request-status__count")!.TextContent);
+
+            var unrequired = Row(pane, "JSdotNet/Backlog#3").QuerySelector("[data-testid='pull-request-status-approvals']")!;
+            Assert.Equal("unrequired", unrequired.GetAttribute("data-variant"));
+            Assert.Equal("1 approval, none required", unrequired.QuerySelector(".sr-only")!.TextContent);
+        });
+    }
+
     /// <summary>The row's status line (.devbook/domain/progress/features.md#pull-request-status):
     /// checks as passed/total in their variant and approvals as received/required, the
     /// words for a screen reader only — and the review in words in the detail.</summary>
@@ -1943,8 +1982,8 @@ public sealed class PullRequestsPaneTests : IDisposable
             Assert.Equal("failing", first.GetAttribute("data-variant"));
             Assert.Equal("7/10", first.QuerySelector(".pull-request-status__count")!.TextContent);
             Assert.Equal("7 of 10 checks failing", first.QuerySelector(".sr-only")!.TextContent);
-            // The list read never asks the base branch's rules: the count alone, and no
-            // verdict on whether it is enough.
+            // The base branch's rules were not read: the count alone, and no verdict on
+            // whether it is enough.
             var approvals = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-status-approvals']")!;
             Assert.Equal("received", approvals.GetAttribute("data-variant"));
             Assert.Equal("1", approvals.QuerySelector(".pull-request-status__count")!.TextContent);
@@ -2612,6 +2651,23 @@ public sealed class PullRequestsPaneTests : IDisposable
             _lists[fullName] = () => pulls;
             return this;
         }
+
+        private readonly Dictionary<string, int?> _required = new(StringComparer.Ordinal);
+
+        /// <summary>The approvals a base branch's rules require, as the rules read answers
+        /// them: a null value is a branch read with no rule. A branch not named is unread.</summary>
+        public StubClient Requires(string branch, int? approvals)
+        {
+            _required[branch] = approvals;
+            return this;
+        }
+
+        public Task<IReadOnlyDictionary<string, int?>> ReadRequiredApprovalsAsync(
+            GitHubRepositoryRef repository,
+            IReadOnlyCollection<string> branches,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<string, int?>>(
+                branches.Where(_required.ContainsKey).ToDictionary(branch => branch, branch => _required[branch], StringComparer.Ordinal));
 
         private readonly Dictionary<string, List<GitHubOpenPullRequest>> _byNumber = new(StringComparer.OrdinalIgnoreCase);
 

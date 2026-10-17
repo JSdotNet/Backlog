@@ -137,6 +137,24 @@ public interface IGitHubClient
         ReadLinkedPullRequestsAsync(repository, numbers, cancellationToken);
 
     /// <summary>
+    /// The approving reviews each named branch of one repository requires before a merge
+    /// (<see cref="GitHubReviewSummary.Required"/>), keyed by branch name: a value of null
+    /// is a branch whose rules were read and ask for none. A branch whose rules could not
+    /// be read — gone, or refused to the token — is left out, so a caller can tell "none
+    /// required" from "not read". What the Pull requests list asks once per base branch
+    /// rather than once per row, beside its list read, which stays as it is.
+    /// <para>
+    /// A default body that reads nothing, for the reason <see cref="ListOpenPullRequestsAsync"/>
+    /// has one: a client that cannot read the rules leaves every row without a verdict.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyDictionary<string, int?>> ReadRequiredApprovalsAsync(
+        GitHubRepositoryRef repository,
+        IReadOnlyCollection<string> branches,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<string, int?>>(new Dictionary<string, int?>());
+
+    /// <summary>
     /// The repository's pull requests merged at or after <paramref name="mergedSince"/>,
     /// with when and by whom each was merged, in the order GitHub lists them — most
     /// recently updated first, because GitHub cannot order by merge time. Paged until the
@@ -1191,7 +1209,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                         .Select(check => check.Name)
                         .Distinct(StringComparer.Ordinal)
                 ],
-                Reviews = ReadReviews(pull) with { Required = ReadRequiredApprovals(pull) }
+                Reviews = ReadReviews(pull) with { Required = ReadRequiredApprovals(pull), RequiredRead = RequiredApprovalsWereRead(pull) }
             });
         }
 
@@ -1530,6 +1548,125 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             return null;
         }
 
+        return ReadRequiredApprovalsOfRef(baseRef);
+    }
+
+    /// <summary>Whether a pull request node carries its base branch's rules — the status
+    /// read's <c>baseRef</c> answered with its <c>rules</c> — so its
+    /// <see cref="GitHubReviewSummary.Required"/> is a reading rather than a gap.</summary>
+    internal static bool RequiredApprovalsWereRead(JsonElement pull) =>
+        pull.ValueKind == JsonValueKind.Object
+        && pull.TryGetProperty("baseRef", out var baseRef) && baseRef.ValueKind == JsonValueKind.Object
+        && baseRef.TryGetProperty("rules", out var rules) && rules.ValueKind == JsonValueKind.Object;
+
+    /// <summary>
+    /// The query <see cref="ReadRequiredApprovalsAsync"/> sends: one aliased
+    /// <c>ref(qualifiedName:)</c> per branch, <c>r</c> and its place in the list, each
+    /// asking for the branch protection rule and the rules rulesets apply — the status
+    /// read's <c>baseRef</c> fields, so the two reads count a branch's approvals alike.
+    /// The branch names travel as variables, never in the text, because a branch name is
+    /// whatever its author typed.
+    /// </summary>
+    internal static string RequiredApprovalsQuery(int count)
+    {
+        var variables = string.Concat(Enumerable.Range(0, count).Select(index => $", $r{index}: String!"));
+        var fields = string.Join(
+            Environment.NewLine,
+            Enumerable.Range(0, count).Select(index => $$"""
+                    r{{index}}: ref(qualifiedName: $r{{index}}) {
+                      branchProtectionRule { requiresApprovingReviews requiredApprovingReviewCount }
+                      rules(first: 50) { nodes { type parameters { ... on PullRequestParameters { requiredApprovingReviewCount } } } }
+                    }
+                """));
+
+        return $$"""
+            query($owner: String!, $name: String!{{variables}}) {
+              repository(owner: $owner, name: $name) {
+            {{fields}}
+              }
+            }
+            """;
+    }
+
+    /// <summary>How many branches one <see cref="RequiredApprovalsQuery"/> asks for at
+    /// most. A repository's open pull requests target a handful; this bounds one that
+    /// targets many.</summary>
+    internal const int RequiredApprovalsBatchSize = 25;
+
+    /// <summary>
+    /// The approvals each branch requires, one query per <see cref="RequiredApprovalsBatchSize"/>
+    /// branches. Something extra on rows the list already has, so a refusal of any of it
+    /// — a branch deleted since, a token that may not read protection, a server without
+    /// rulesets — leaves those branches unread rather than failing anything: a branch is
+    /// in the answer only when its ref came back with its <c>rules</c> and no error named
+    /// it.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, int?>> ReadRequiredApprovalsAsync(
+        GitHubRepositoryRef repository,
+        IReadOnlyCollection<string> branches,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(branches);
+
+        var read = new Dictionary<string, int?>(StringComparer.Ordinal);
+        string[] wanted = [.. branches.Where(branch => !string.IsNullOrWhiteSpace(branch)).Distinct(StringComparer.Ordinal)];
+
+        foreach (var batch in wanted.Chunk(RequiredApprovalsBatchSize))
+        {
+            var variables = new Dictionary<string, object?>
+            {
+                ["owner"] = repository.Owner,
+                ["name"] = repository.Name
+            };
+            for (var index = 0; index < batch.Length; index++) variables[$"r{index}"] = "refs/heads/" + batch[index];
+
+            IReadOnlyList<JsonElement> refused = [];
+            JsonElement data;
+            try
+            {
+                data = await GitHubGraphQl.SendAsync(
+                    transport,
+                    repository,
+                    RequiredApprovalsQuery(batch.Length),
+                    variables,
+                    cancellationToken,
+                    tolerate: (errors, answer) =>
+                    {
+                        refused = errors;
+                        return answer.TryGetProperty("repository", out var repo) && repo.ValueKind == JsonValueKind.Object;
+                    }).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is GitHubException or HttpRequestException
+                || (ex is OperationCanceledException && !cancellationToken.IsCancellationRequested))
+            {
+                continue;
+            }
+
+            if (!data.TryGetProperty("repository", out var answered) || answered.ValueKind != JsonValueKind.Object) continue;
+
+            // An error that names no branch's alias could be about any of them.
+            var count = batch.Length;
+            if (refused.Any(error => !Enumerable.Range(0, count).Any(index => GitHubGraphQl.PathPassesThrough(error, $"r{index}")))) continue;
+
+            for (var index = 0; index < batch.Length; index++)
+            {
+                var alias = $"r{index}";
+                if (refused.Any(error => GitHubGraphQl.PathPassesThrough(error, alias))) continue;
+                if (!answered.TryGetProperty(alias, out var reference) || reference.ValueKind != JsonValueKind.Object) continue;
+                if (!reference.TryGetProperty("rules", out var rules) || rules.ValueKind != JsonValueKind.Object) continue;
+
+                read[batch[index]] = ReadRequiredApprovalsOfRef(reference);
+            }
+        }
+
+        return read;
+    }
+
+    /// <summary>The approvals one branch's rules require, as <see cref="ReadRequiredApprovals"/>
+    /// reads them off a pull request's <c>baseRef</c>.</summary>
+    private static int? ReadRequiredApprovalsOfRef(JsonElement baseRef)
+    {
         var required = 0;
 
         if (baseRef.TryGetProperty("branchProtectionRule", out var protection)

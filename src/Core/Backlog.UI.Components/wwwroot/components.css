@@ -20239,6 +20239,11 @@ select.field__input {
     font-family: var(--font-family-mono);
 }
 
+/* The pull request status line among a card's facts, at the facts' size. */
+.work-card__status {
+    font-size: inherit;
+}
+
 /* The two columns: Sessions, then Pull requests, side by side while there is room
    and under each other where there is not. Stacked puts them under each other
    always, for a host as narrow as a side panel. */

@@ -1534,13 +1534,10 @@
                     {
                         @* The shared status line's marks, the number already on the row:
                            checks as passed/total and approvals as received/required,
-                           the words said to a screen reader only
+                           the required total from the base branch's rules the adapter
+                           reads beside the list, the words said to a screen reader only
                            (.devbook/domain/progress/features.md#pull-request-status). *@
-                        <PullRequestStatus Model="@(new PullRequestStatusModel(
-                                               pull.Number,
-                                               pull.IsDraft ? "draft" : "open",
-                                               pull.CheckCounts is { } counts ? new PullRequestChecks(counts.Passed, counts.Failed, counts.Pending) : null,
-                                               new PullRequestApprovals(pull.Reviews.Approvals, pull.Reviews.Required, RequiredRead: pull.Reviews.Required is not null)))"
+                        <PullRequestStatus Model="@PullRequestStatusLines.Of(pull)"
                                            ShowNumber="false"
                                            CssClass="pull-requests-row__marks"
                                            TestId="pull-request-status" />
