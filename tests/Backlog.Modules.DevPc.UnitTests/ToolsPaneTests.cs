@@ -2,7 +2,7 @@
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.DevPc.UnitTests;
 
 /// <summary>
 /// The tools surface, against a fake port. Three states with three different

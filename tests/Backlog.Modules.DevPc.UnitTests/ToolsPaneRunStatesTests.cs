@@ -1,8 +1,8 @@
 using Backlog.Modules.DevPc.UI;
 using Bunit;
-using static Backlog.Desktop.UI.UnitTests.ToolsPaneTests;
+using static Backlog.Modules.DevPc.UnitTests.ToolsPaneTests;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.DevPc.UnitTests;
 
 /// <summary>
 /// The pane's run and empty states (plan +system-tools-redesign, step 4): the header,

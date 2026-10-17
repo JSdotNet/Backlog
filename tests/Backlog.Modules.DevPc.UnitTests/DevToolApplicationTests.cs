@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.DevPc.UnitTests;
 
 /// <summary>
 /// The half of the application providers that can be checked without a machine to

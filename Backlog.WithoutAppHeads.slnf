@@ -79,6 +79,7 @@
       "tests\\Backlog.Mobile.UI.UnitTests\\Backlog.Mobile.UI.UnitTests.csproj",
       "tests\\Backlog.Modules.Capture.UnitTests\\Backlog.Modules.Capture.UnitTests.csproj",
       "tests\\Backlog.Modules.Dashboard.UnitTests\\Backlog.Modules.Dashboard.UnitTests.csproj",
+      "tests\\Backlog.Modules.DevPc.UnitTests\\Backlog.Modules.DevPc.UnitTests.csproj",
       "tests\\Backlog.Modules.Inbox.UnitTests\\Backlog.Modules.Inbox.UnitTests.csproj",
       "tests\\Backlog.Modules.Roadmap.UnitTests\\Backlog.Modules.Roadmap.UnitTests.csproj",
       "tests\\Backlog.Modules.Progress.UnitTests\\Backlog.Modules.Progress.UnitTests.csproj",

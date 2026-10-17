@@ -2,9 +2,9 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.DevPc.UI;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
-using static Backlog.Desktop.UI.UnitTests.ToolsPaneTests;
+using static Backlog.Modules.DevPc.UnitTests.ToolsPaneTests;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.DevPc.UnitTests;
 
 /// <summary>
 /// The pane's header and kind tabs (plan +system-tools-redesign, step 2): the host

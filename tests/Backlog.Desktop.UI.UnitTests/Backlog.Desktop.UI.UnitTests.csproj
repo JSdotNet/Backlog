@@ -98,7 +98,8 @@
          tools pane, so that configuration is the only one a browser session ever
          exercises — and it answers from JSON alone, which makes it testable here
          rather than only through Playwright. Also the command lines and refresh
-         ordering the application and MCP tests check. -->
+         ordering the MCP tests check. The module's own tests, the tools pane's
+         among them, are Backlog.Modules.DevPc.UnitTests. -->
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.DevPc\Backlog.Infrastructure.DevPc.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
