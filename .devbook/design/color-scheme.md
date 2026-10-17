@@ -669,7 +669,7 @@ scale gains no tone: the states map onto the tones it already has.
 |---|---|---|
 | New | `quiet`, plus a dot | Outlined, `color-secondary` ink, and a leading dot in `color-error-text` |
 | Reported | `quiet` | Outlined, `color-secondary` ink |
-| Escalated | `fault` | `color-error` surface, `color-error-text` ink and edge |
+| Escalated | `fault` | `color-error` surface, `color-error-text` ink and edge, and a leading up arrow |
 | Being handled | `alert` | `color-warning` surface, `color-text-primary` ink, `color-border-strong` edge |
 | Resolved | `settled` | `color-success` surface, `color-success-text` ink, `color-border-strong` edge |
 
@@ -678,7 +678,8 @@ Rules:
 - The dot on **New** says nobody has been told yet. It is a non-text mark, and
   `color-error-text` clears the 3:1 such a mark owes on every surface it sits on
   (5.17:1 on `color-background-raised`, the lightest). The dot is hidden from
-  assistive technology, because the badge's word already says New.
+  assistive technology, because the badge's word already says New. The up arrow on
+  Escalated is hidden the same way.
 - Reported is outlined because nothing waits on the person: the impediment is in
   someone else's hands. Escalated, Being handled and Resolved are filled, since
   each is a state the person acts on or confirms.
@@ -689,7 +690,8 @@ Rules:
   editable state and a shown one look alike.
 
 Review surface: storybook → *Progress* → **Goals view** (the stories
-*Impediment New* through *Impediment Resolved*, and *Stand-up*).
+*Impediment New* through *Impediment Resolved*, and *Stand-up*), and the phone's
+storybook → *Stand-up*, **Badges** and **State list**.
 
 ### Goal forecast badges
 

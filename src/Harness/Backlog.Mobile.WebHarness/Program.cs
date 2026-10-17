@@ -1,5 +1,6 @@
 using Backlog.Mobile.UI.Components;
 using Backlog.Mobile.UI.Services;
+using Backlog.Mobile.WebHarness;
 using Backlog.Mobile.WebHarness.Components;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
@@ -69,6 +70,15 @@ builder.Services.AddDeviceOutbox(string.IsNullOrWhiteSpace(deviceStorePath)
 builder.Services.AddMobileShell();
 
 var app = builder.Build();
+
+// A stand-up to look at without a desktop that has goals on: goals, impediments, a
+// stand-up context and the tasks they count, written into this device's views before
+// anything reads them, and only while they hold no goal. Off unless the configuration
+// turns it on, which appsettings.Development.json does.
+if (app.Configuration.GetValue("Harness:SeedStandup", false))
+{
+    await StandupSeed.SeedAsync(app.Services, app.Services.GetRequiredService<TimeProvider>());
+}
 
 if (!app.Environment.IsDevelopment())
 {

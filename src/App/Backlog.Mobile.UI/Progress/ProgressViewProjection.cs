@@ -38,6 +38,12 @@ public sealed class ProgressViewProjection : IDisposable
     private readonly TimeProvider _clock;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
+
+    /// <summary>Serialises the edits the phone queues, apart from <see cref="_gate"/>, which a
+    /// pull holds for as long as the network takes: an edit is the outbox's to send and needs
+    /// nothing a pull is doing, so a slow pull never holds up a tap. The chains it reads and
+    /// writes are under <see cref="_rowsLock"/>, as the pull's rows are.</summary>
+    private readonly SemaphoreSlim _queueGate = new(1, 1);
     private readonly Lock _rowsLock = new();
     private readonly Dictionary<Guid, ProgressViewRow> _rows;
 
@@ -46,6 +52,13 @@ public sealed class ProgressViewProjection : IDisposable
     /// edits in a row apply in the order they were asked (<see cref="ImpedimentEditDto"/>).
     /// Seeded from the outbox, so the edits still waiting to leave outlive a restart.</summary>
     private readonly Dictionary<(Guid Impediment, ImpedimentEditKind Kind), List<ImpedimentEditDto>> _asked = [];
+
+    /// <summary>For a chain whose every edit has left the outbox, the stamp of the copy of its
+    /// impediment the phone held when the last of them left, under <see cref="_rowsLock"/>.
+    /// Leaving the outbox is reaching cloud sync, not being applied: a desktop's verdict is a
+    /// newer copy of the impediment arriving after that, and only that makes a chain the
+    /// copy does not bear out give way.</summary>
+    private readonly Dictionary<(Guid Impediment, ImpedimentEditKind Kind), DateTimeOffset> _leftAt = [];
 
     public ProgressViewProjection(IProgressViewStore store, DeviceOutbox outbox, CloudSyncClient sync, TimeProvider clock)
     {
@@ -61,11 +74,35 @@ public sealed class ProgressViewProjection : IDisposable
         {
             if (Asked(entry) is { } edit) Remember(edit);
         }
+
+        _outbox.Delivered += OnDelivered;
     }
 
     /// <summary>Raised when a goal, an impediment or the stand-up context changed. May be
     /// raised off the render thread.</summary>
     public event Action? Changed;
+
+    /// <summary>
+    /// The last edit the phone asked for this impediment's field while it can still stand —
+    /// what a page shows in place of the impediment's own value, and what the next edit of the
+    /// field says the phone saw — or null when there is none: never asked, applied, changed on
+    /// a desktop since, or left the phone and answered by a newer copy that does not bear it
+    /// out. One rule for the page and for <see cref="QueueAsync"/>.
+    /// </summary>
+    public ImpedimentEditDto? AskedFor(Guid impedimentId, ImpedimentEditKind kind)
+    {
+        if (FindImpediment(impedimentId) is not { } impediment) return null;
+
+        lock (_rowsLock) return Pending(impediment, kind);
+    }
+
+    /// <summary>Whether an edit the phone asked for this impediment's field is still in the
+    /// outbox — not yet taken by cloud sync.</summary>
+    public bool IsWaiting(Guid impedimentId, ImpedimentEditKind kind) =>
+        _outbox.Entries
+            .Where(entry => entry.Kind == ImpedimentEditOutboxKind.Token)
+            .Select(Asked)
+            .Any(edit => edit is not null && edit.ImpedimentId == impedimentId && edit.Kind == kind);
 
     /// <summary>The phone's own date, the local calendar.</summary>
     public DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
@@ -118,6 +155,15 @@ public sealed class ProgressViewProjection : IDisposable
 
         return row is { DeletedAt: null } ? ProgressDocuments.ReadContext(row.Content) : null;
     }
+
+    /// <summary>
+    /// Whether the person has goals on (<c>.devbook/domain/progress/context.md#goals-area</c>),
+    /// as far as the phone can tell. The phone keeps no feature settings of its own, and a
+    /// desktop writes the stand-up context only while its <c>goals</c> flag is on, so a
+    /// context the phone holds is the flag read from here: the Stand-up tab and its pages
+    /// show while there is one, and say Stand-up is off while there is none.
+    /// </summary>
+    public bool GoalsOn => Context() is not null;
 
     /// <summary>
     /// Pulls the task feed from the Progress cursor until the service says it is drained,
@@ -229,7 +275,12 @@ public sealed class ProgressViewProjection : IDisposable
             ProjectionRefs: []));
     }
 
-    public void Dispose() => _gate.Dispose();
+    public void Dispose()
+    {
+        _outbox.Delivered -= OnDelivered;
+        _gate.Dispose();
+        _queueGate.Dispose();
+    }
 
     /// <summary>The stand-up context's id, the literal the desktop writes it under. Persisted
     /// on every replica, so never changed.</summary>
@@ -251,7 +302,7 @@ public sealed class ProgressViewProjection : IDisposable
     {
         if (FindImpediment(impedimentId) is not { } impediment) return null;
 
-        await _gate.WaitAsync(cancellationToken);
+        await _queueGate.WaitAsync(cancellationToken);
 
         try
         {
@@ -286,7 +337,7 @@ public sealed class ProgressViewProjection : IDisposable
         }
         finally
         {
-            _gate.Release();
+            _queueGate.Release();
         }
     }
 
@@ -295,7 +346,9 @@ public sealed class ProgressViewProjection : IDisposable
     /// still holds what the first edit of the chain saw, or what one of the chain asked for —
     /// a desktop has applied part of it. Otherwise the field was changed elsewhere, the chain
     /// is forgotten, and null answers that the impediment's own value is what the phone saw.
-    /// Under <see cref="_rowsLock"/>.
+    /// A chain that has left the outbox whole is forgotten too once a newer copy of the
+    /// impediment has arrived and still does not say what it asked: the desktop refused it or
+    /// found it stale. Under <see cref="_rowsLock"/>.
     /// </summary>
     private ImpedimentEditDto? Pending(ImpedimentDto impediment, ImpedimentEditKind kind)
     {
@@ -317,11 +370,61 @@ public sealed class ProgressViewProjection : IDisposable
             _ => SameNote(impediment.Note, chain[^1].Note),
         };
 
-        if (live && !done) return chain[^1];
+        // Part of the chain applied: the impediment says what one of its edits asked.
+        var partly = kind switch
+        {
+            ImpedimentEditKind.State => chain.Any(edit => edit.State == impediment.State),
+            ImpedimentEditKind.CheckAgain => chain.Any(edit => edit.CheckAgain == impediment.CheckAgain),
+            _ => chain.Any(edit => SameNote(edit.Note, impediment.Note)),
+        };
+
+        // A newer copy that bears out none of the chain is the desktop's answer to it; one
+        // that bears out part of it is progress, and the rest waits for the copy after it.
+        var answered = false;
+        if (!chain.Any(InOutbox))
+        {
+            var stamp = StampOf(impediment.Id);
+            if (!_leftAt.TryGetValue(key, out var left)) _leftAt[key] = stamp;
+            else if (stamp > left && partly) _leftAt[key] = stamp;
+            else answered = stamp > left;
+        }
+
+        if (live && !done && !answered) return chain[^1];
 
         _asked.Remove(key);
+        _leftAt.Remove(key);
         return null;
     }
+
+    /// <summary>Notes the moment a chain left the phone whole, before any pull can bring a
+    /// desktop's answer to it.</summary>
+    private void OnDelivered(OutboxEntry entry)
+    {
+        if (entry.Kind != ImpedimentEditOutboxKind.Token || Asked(entry) is not { } delivered) return;
+
+        var key = (delivered.ImpedimentId, delivered.Kind);
+        lock (_rowsLock)
+        {
+            if (_asked.GetValueOrDefault(key) is { Count: > 0 } chain && !chain.Any(InOutbox))
+            {
+                _leftAt.TryAdd(key, StampOf(delivered.ImpedimentId));
+            }
+        }
+    }
+
+    /// <summary>Whether the outbox still holds <paramref name="edit"/>.</summary>
+    private bool InOutbox(ImpedimentEditDto edit) =>
+        _outbox.Entries
+            .Where(entry => entry.Kind == ImpedimentEditOutboxKind.Token)
+            .Select(Asked)
+            .Any(queued => queued is not null
+                && queued.ImpedimentId == edit.ImpedimentId
+                && queued.Kind == edit.Kind
+                && queued.AskedAt == edit.AskedAt);
+
+    /// <summary>The stamp of the copy of the impediment the phone holds. Under <see cref="_rowsLock"/>.</summary>
+    private DateTimeOffset StampOf(Guid impedimentId) =>
+        _rows.GetValueOrDefault(impedimentId)?.UpdatedAt ?? DateTimeOffset.MinValue;
 
     /// <summary>Adds an edit to its field's chain. Under <see cref="_rowsLock"/>, or in the constructor.</summary>
     private void Remember(ImpedimentEditDto edit)
@@ -329,6 +432,7 @@ public sealed class ProgressViewProjection : IDisposable
         var key = (edit.ImpedimentId, edit.Kind);
         if (!_asked.TryGetValue(key, out var chain)) _asked[key] = chain = [];
         chain.Add(edit);
+        _leftAt.Remove(key);
         chain.Sort((left, right) => left.AskedAt.CompareTo(right.AskedAt));
     }
 

@@ -276,14 +276,18 @@ holds back.
 
 The phone reads goals, the stand-up and impediments. The one thing it changes is an
 impediment: its state, its check-again date and its note. Those changes go through the
-device outbox, as the phone's task edits do. Setting a goal, attaching work and
-copying the stand-up are desktop actions.
+device outbox, as the phone's task edits do. The state list offers only the moves the
+impediment may make from where it stands. Until a desktop has applied a change, the
+impediment's page shows what was asked, with Waiting beside it while the change is
+still on the phone. Setting a goal, attaching work and copying the stand-up are desktop
+actions.
 
 The stand-up on the phone is the desktop's stand-up of the same work. Pull request
 checks and approvals show as a desktop last read them, so the phone never needs
 GitHub. A change made on the phone shows there once a desktop has applied it. When a
 desktop changed the same field after the phone last synced, the desktop's change
-stands and the phone's is dropped.
+stands and the phone's is dropped. So does a change a desktop did not apply: once a
+newer copy of the impediment reaches the phone without it, the phone shows that copy.
 
 ## Syncing goals and impediments
 

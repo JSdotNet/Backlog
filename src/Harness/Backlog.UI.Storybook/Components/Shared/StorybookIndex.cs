@@ -178,7 +178,16 @@ internal static class StorybookIndex
             // block, worked through a step at a time, is a subject of its own. It
             // draws only its own component; DayStep, its input, was introduced
             // with Task detail above.
-            new("focus", "Focus", "DayFocus: one timed task worked on now — a ring counting down to the end of its block, the current step, and Step done or Complete task.")
+            new("focus", "Focus", "DayFocus: one timed task worked on now — a ring counting down to the end of its block, the current step, and Step done or Complete task."),
+
+            // After Focus: the phone's fourth tab, and the last of its pages. Its own
+            // page rather than stories on Progress, because the stand-up read on a
+            // phone — a goal as a card that opens its page, a block grouped by goal,
+            // an impediment's state as the list that moves it — is a convention of
+            // its own, and the Progress chapter is the desktop's sprints. It draws its
+            // own components, the Badge Badges introduced and the RadioGroup Radio
+            // group did, both above.
+            new("standup", "Stand-up", "StandupGoalCard, GoalStackedBar, WeekSpark, StandupWorkList, StandupImpedimentCard and ImpedimentStateSteps: the phone's Stand-up tab, a goal's page and an impediment's page.")
         ]),
 
         // Ahead of Content because Content composes it: a document that saves says

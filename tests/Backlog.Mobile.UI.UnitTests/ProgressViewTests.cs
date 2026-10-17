@@ -220,6 +220,83 @@ public sealed class ProgressViewTests : IDisposable
         Assert.Equal(ImpedimentState.BeingHandled, (await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Resolved, cancellationToken: Cancellation))!.WasState);
     }
 
+    /// <summary>An edit that has left the phone stands until a newer copy of its impediment
+    /// answers it. One that does not bear it out — the desktop refused it or found it stale —
+    /// is forgotten, so the next edit says the phone saw what the impediment holds.</summary>
+    [Fact]
+    public async Task A_newer_copy_that_does_not_bear_out_a_delivered_edit_ends_its_chain()
+    {
+        _service.Append(ImpedimentDocument(Now.AddDays(-1), state: "Reported"));
+        await _progress.PullAsync(Cancellation);
+
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Escalated, cancellationToken: Cancellation);
+        await _outbox.WhenIdleAsync();
+        Assert.Empty(_outbox.Entries);
+
+        // Left the phone, and nothing about this impediment has come back: it still stands.
+        _service.Append(ContextDocument(Now.AddMinutes(1)));
+        await _progress.PullAsync(Cancellation);
+        Assert.Equal(ImpedimentState.Escalated, _progress.AskedFor(ImpedimentId, ImpedimentEditKind.State)!.State);
+
+        // A newer copy still saying Reported is the desktop's answer.
+        _service.Append(ImpedimentDocument(Now.AddMinutes(5), state: "Reported"));
+        await _progress.PullAsync(Cancellation);
+        Assert.Null(_progress.AskedFor(ImpedimentId, ImpedimentEditKind.State));
+
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        var retried = await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.BeingHandled, cancellationToken: Cancellation);
+        Assert.Equal(ImpedimentState.Reported, retried!.WasState);
+    }
+
+    /// <summary>A newer copy that bears out only the first of two delivered moves is progress,
+    /// not an answer: the second still stands until a later copy applies it.</summary>
+    [Fact]
+    public async Task A_newer_copy_that_bears_out_part_of_a_delivered_chain_keeps_the_rest()
+    {
+        _service.Append(ImpedimentDocument(Now.AddDays(-1)));
+        await _progress.PullAsync(Cancellation);
+
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Reported, cancellationToken: Cancellation);
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Escalated, cancellationToken: Cancellation);
+        await _outbox.WhenIdleAsync();
+        Assert.Empty(_outbox.Entries);
+
+        _service.Append(ImpedimentDocument(Now.AddMinutes(5), state: "Reported"));
+        await _progress.PullAsync(Cancellation);
+        Assert.Equal(ImpedimentState.Escalated, _progress.AskedFor(ImpedimentId, ImpedimentEditKind.State)!.State);
+
+        // The copy after it says Escalated: the chain is applied whole.
+        _service.Append(ImpedimentDocument(Now.AddMinutes(10), state: "Escalated"));
+        await _progress.PullAsync(Cancellation);
+        Assert.Null(_progress.AskedFor(ImpedimentId, ImpedimentEditKind.State));
+    }
+
+    /// <summary>A pull holds the projection for as long as the network takes; queuing an edit
+    /// needs nothing it is doing, so a tap is kept at once while a slow pull is in flight.</summary>
+    [Fact]
+    public async Task A_move_queues_while_a_pull_is_in_flight()
+    {
+        _service.Append(ImpedimentDocument(Now.AddDays(-1)));
+        var gated = new GatedHandler(_service);
+        using var progress = new ProgressViewProjection(
+            _store, _outbox, new CloudSyncClient(new HttpClient(gated) { BaseAddress = new Uri("https://sync.test") }), _clock);
+        await progress.PullAsync(Cancellation);
+
+        gated.Hold();
+        var pull = progress.PullAsync(Cancellation);
+        await gated.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10), Cancellation);
+
+        var moved = await progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Reported, cancellationToken: Cancellation)
+            .WaitAsync(TimeSpan.FromSeconds(10), Cancellation);
+
+        Assert.False(pull.IsCompleted);
+        Assert.Equal(ImpedimentState.Reported, moved!.State);
+        Assert.Equal(ImpedimentState.New, moved.WasState);
+
+        gated.Release();
+        await pull;
+    }
+
     [Fact]
     public async Task Edits_still_waiting_in_the_outbox_are_what_the_phone_saw_after_a_restart()
     {
@@ -292,6 +369,33 @@ public sealed class ProgressViewTests : IDisposable
     {
         var task = TestTasks.Task(title, at, type: type, id: id, contentMd: content, status: "draft");
         return task;
+    }
+
+    /// <summary>The task feed with a pull that waits until the test lets it answer.</summary>
+    private sealed class GatedHandler(ScriptedTaskService service) : HttpMessageHandler
+    {
+        private TaskCompletionSource? _open;
+
+        public TaskCompletionSource Entered { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Hold()
+        {
+            _open = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        public void Release() => _open?.TrySetResult();
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Method == HttpMethod.Get && _open is { } open)
+            {
+                Entered.TrySetResult();
+                await open.Task.WaitAsync(cancellationToken);
+            }
+
+            return await service.AnswerAsync(request, cancellationToken);
+        }
     }
 
     private sealed class Handler(ScriptedTaskService service) : HttpMessageHandler
