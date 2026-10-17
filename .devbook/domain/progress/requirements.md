@@ -247,13 +247,25 @@ type: requirement
 status: draft
 ```
 
-The system SHALL refuse to attach a plan, task or pull request that another goal holds, and SHALL name that goal.
+The system SHALL NOT attach a plan, task or pull request that another goal holds without asking: it SHALL name that goal, ask whether to move the item, and on yes move it, so the item is never in two goals.
 
 #### Scenario: A task another goal holds
 
 - **Given** the goal "Devbook search ships" holds the task "Highlight matches"
 - **When** the person attaches "Highlight matches" to "Customers get paid faster"
-- **Then** the attach is refused with "Already in Devbook search ships", and the task stays in that goal
+- **Then** the view says "Already in Devbook search ships" and asks whether to move it, and until the person answers the task stays in that goal
+
+#### Scenario: Moving a task to another goal
+
+- **Given** the view asks whether to move "Highlight matches" from "Devbook search ships"
+- **When** the person answers yes
+- **Then** "Customers get paid faster" holds "Highlight matches", and "Devbook search ships" no longer does
+
+#### Scenario: Declining the move
+
+- **Given** the view asks whether to move "Highlight matches" from "Devbook search ships"
+- **When** the person answers no
+- **Then** "Highlight matches" stays in "Devbook search ships", and "Customers get paid faster" holds nothing new
 
 #### Scenario: An entry another goal holds directly
 

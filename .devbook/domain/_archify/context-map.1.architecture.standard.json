@@ -539,7 +539,7 @@
     {
       "from": "backlog",
       "to": "progress",
-      "label": "Customer/Supplier — task by id: status, tags, plan tag, linked pull requests",
+      "label": "Customer/Supplier — task by id: status, due date, effort, blocked mark, linked pull requests",
       "fromSide": "bottom",
       "toSide": "left",
       "via": [
@@ -552,17 +552,12 @@
     {
       "from": "roadmap",
       "to": "progress",
-      "label": "Customer/Supplier — plan tag vocabulary"
+      "label": "Customer/Supplier — plan tag vocabulary, plan order, pace"
     },
     {
       "from": "repo",
       "to": "progress",
       "label": "Customer/Supplier — repo registry lookup by alias"
-    },
-    {
-      "from": "progress",
-      "to": "monitor",
-      "label": "Customer/Supplier — open sprint and goal for the briefs"
     },
     {
       "from": "sync",

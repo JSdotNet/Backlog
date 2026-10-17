@@ -225,7 +225,7 @@ when the person resolved the impediment this block raised while the task is stil
 marked. Unblocking the task leaves the impediment as it is: the person resolves it.
 
 An agent works with impediments through two MCP tools beside `set_blocked`, behind
-the same goals switch: `raise_impediment` raises one with its title, the tasks it
+the always-on Tasks key `set_blocked` answers to: `raise_impediment` raises one with its title, the tasks it
 holds back and a note, and `set_impediment_state` moves one to reported, escalated,
 being-handled or resolved, with who it is with at that step.
 
@@ -306,8 +306,9 @@ travel only while sync is on and the device is paired.
 Each document is replaced whole, never merged. When two devices have both changed one
 goal or one impediment since they last synced, the newer change wins on every device
 and the older one is lost. Two goals are two documents, so a change to one never
-displaces a change to the other. A deleted goal or impediment is deleted on every
-device, and the newer-change rule decides the deletion like any other change.
+displaces a change to the other. A deleted goal is deleted on every device, and the
+newer-change rule decides the deletion like any other change. An impediment is never
+deleted: it is resolved.
 
 One that arrives from another
 device shows at once on every screen that draws it, without the person pressing

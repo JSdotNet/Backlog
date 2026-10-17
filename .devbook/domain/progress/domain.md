@@ -131,6 +131,11 @@ to at most one goal. It is a service because no single goal can see the others. 
 treats a plan's entries the same way: an entry that another goal holds as an attached
 task counts in that goal, and not in the goal that holds its plan.
 
+An item another goal holds is refused, naming that goal, unless the attach asks to
+move it (`moveFromOtherGoal`). The move is opt-in: the view asks the person first and
+attaches again with the move on yes. Then the item leaves the other goal in the same
+change, and both goals are saved, so it is never in two.
+
 Invocation semantics: command-invoked, on every attach. Its rules are in
 [its invariants](domain.invariants.md#goal-assignment).
 

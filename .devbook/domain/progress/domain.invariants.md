@@ -22,6 +22,7 @@ related: [.devbook/domain/progress/domain.md#goal]
 ```meta
 status: draft
 type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_goal_without_a_title_is_refused
 ```
 
 A goal's title is not blank (`progress.goal_without_title`).
@@ -33,6 +34,7 @@ Enforced at: constructor, `Rename()`
 ```meta
 status: draft
 type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_goal_without_a_due_date_is_refused
 ```
 
 Every goal carries a due date (`progress.goal_without_due_date`).
@@ -45,6 +47,7 @@ Enforced at: constructor, `ChangeDueDate()`
 ```meta
 status: draft
 type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.An_outcome_of_more_than_one_line_is_refused
 ```
 
 A goal's outcome holds no line break (`progress.outcome_not_one_line`).
@@ -56,6 +59,7 @@ Enforced at: constructor, `ChangeOutcome()`
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Attaching_an_item_again_changes_nothing_and_keeps_its_first_day, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.An_attachment_is_equal_by_kind_and_identity_alone]
 ```
 
 A goal holds at most one attachment of the same kind and identity; attaching it again changes nothing.
@@ -67,6 +71,7 @@ Enforced at: `Attach()`
 ```meta
 status: draft
 type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_pull_request_without_a_repository_or_a_number_is_refused
 ```
 
 A pull request attachment carries a repository and a positive number (`progress.pull_request_without_repository`).
@@ -89,9 +94,10 @@ related: [.devbook/domain/progress/domain.md#goal-assignment]
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Attaching_an_item_another_goal_holds_is_refused_naming_that_goal, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_plan_or_a_pull_request_belongs_to_one_goal_too, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Moving_an_item_takes_it_out_of_the_other_goal, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Attaching_to_the_goal_that_holds_it_already_is_no_conflict, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_task_another_goal_holds_through_its_plan_may_be_attached_directly]
 ```
 
-Attaching a plan, task or pull request that another goal already holds is refused (`progress.item_in_other_goal`).
+Attaching a plan, task or pull request that another goal already holds is refused (`progress.item_in_other_goal`), naming that goal, unless the attach asks to move it (`moveFromOtherGoal`): then the item leaves the other goal in the same change.
 An item counted in two goals would move both when it is done.
 
 Enforced at: `Assign()`
