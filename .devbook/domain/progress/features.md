@@ -241,9 +241,10 @@ related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook
 ```
 
 See whether a pull request can merge without opening it. Every pull request row in
-Progress, and each row of the
-[Pull requests pane](../sessions/features.md#pull-request-readiness), carries its
-number and two marks:
+Progress, each row of the
+[Pull requests pane](../sessions/features.md#pull-request-readiness), and each open
+pull request card among a task's linked work in its side panel, carries its number
+and two marks:
 
 - **checks**: an icon and `passed/total`, such as `14/14`, with a running variant
   (`9/14`, still running) and a failing one (`2/14`, failing);
@@ -257,6 +258,14 @@ The words "checks" and "approvals" are screen-reader labels only, so the row sta
 short. A merged pull request reads "merged" instead of both marks. Checks that have
 not run draw no checks mark. With no required total, the approvals read as the
 number received alone.
+
+The Pull requests pane reads each base branch's rules once, beside its list, and
+keeps the answer for ten minutes, so its rows carry the required total too. A
+branch whose rules cannot be read leaves its rows' approvals as the number received,
+with no verdict either way. A task's linked pull request card draws the marks while
+the pull request is open; one the open list did not hold — merged, closed, or in a
+repository no longer configured — draws its state alone, because the read by number
+behind it asks for no checks or approvals.
 
 ## Goals on the phone
 

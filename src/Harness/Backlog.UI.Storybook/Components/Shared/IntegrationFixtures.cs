@@ -1,4 +1,5 @@
-﻿using Backlog.UI.Components.Integrations;
+﻿using Backlog.UI.Components.Progress;
+using Backlog.UI.Components.Integrations;
 using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Markdown;
 using Backlog.UI.Components.Tasks;
@@ -409,6 +410,33 @@ internal static class IntegrationFixtures
     public static readonly WorkPullRequest ApprovedPullRequest = new(
         "JSdotNet/backlog-sync#212", 212, "Retry sync pushes with backoff", IntegrationArtifactState.Open,
         IntegrationReviewState.Approved, IntegrationCheckState.Passing, Additions: 88, Deletions: 14);
+
+    /// <summary>The same three with the status line the host builds from its open read
+    /// (.devbook/domain/progress/features.md#pull-request-status): the draft still
+    /// running and one approval short of two, the changes-requested one failing with
+    /// none required, the approved one passed and met — and one whose base branch's
+    /// rules could not be read, so its approvals stand alone with no verdict.</summary>
+    public static readonly WorkPullRequest DraftPullRequestWithStatus = DraftPullRequest with
+    {
+        Status = new PullRequestStatusModel(1019, "draft", new PullRequestChecks(4, 0, 3), new PullRequestApprovals(1, 2))
+    };
+
+    public static readonly WorkPullRequest ChangesRequestedPullRequestWithStatus = ChangesRequestedPullRequest with
+    {
+        Status = new PullRequestStatusModel(1018, "open", new PullRequestChecks(13, 1, 0), new PullRequestApprovals(0, null))
+    };
+
+    public static readonly WorkPullRequest ApprovedPullRequestWithStatus = ApprovedPullRequest with
+    {
+        Status = new PullRequestStatusModel(212, "open", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(2, 2))
+    };
+
+    public static readonly WorkPullRequest UnreadRulesPullRequestWithStatus = new WorkPullRequest(
+        "JSdotNet/Backlog#1021", 1021, "Read required approvals on the pane", IntegrationArtifactState.Open,
+        IntegrationReviewState.Approved, IntegrationCheckState.Passing, Additions: 240, Deletions: 31)
+    {
+        Status = new PullRequestStatusModel(1021, "open", new PullRequestChecks(9, 0, 0), new PullRequestApprovals(1, null, RequiredRead: false))
+    };
 
     public static readonly WorkPullRequest LoosePullRequest = new(
         "JSdotNet/Backlog#1020", 1020, "Bump Aspire to the next patch", IntegrationArtifactState.Open,

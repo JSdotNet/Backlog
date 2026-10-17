@@ -28,6 +28,21 @@
         </div>
     </Story>
 
+    <Story Name="A pull request card with its status line"
+           Description="Where the host read the counts it sets `WorkPullRequest.Status`, a `PullRequestStatusModel`, and the card draws the pull request's status line among its facts: checks as `passed/total` and approvals as `received/required`, without the `#n` pill because the card leads with the number. The checks mark says what the checks words would, so those words are left out beside it; the reviewers' verdict stays. A required total is a verdict only where the base branch's rules were read — the last card's were not, so its approvals stand alone. A merged pull request draws no line: it already says `Merged`."
+           Code="@PullRequestStatusCode">
+        <div class="sb-stack" data-testid="work-pull-request-status-states">
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.DraftPullRequestWithStatus" OnOpen="OpenPullRequest" TestId="work-pull-request-status-draft" />
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.ChangesRequestedPullRequestWithStatus" OnOpen="OpenPullRequest" TestId="work-pull-request-status-changes" />
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.ApprovedPullRequestWithStatus" OnOpen="OpenPullRequest" TestId="work-pull-request-status-approved" />
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.UnreadRulesPullRequestWithStatus" OnOpen="OpenPullRequest" TestId="work-pull-request-status-unread" />
+        </div>
+        <WorkLinksPanel PullRequests="@([IntegrationFixtures.DraftPullRequestWithStatus, IntegrationFixtures.ApprovedPullRequestWithStatus])"
+                        ShowSessions="false"
+                        OnOpenPullRequest="OpenPullRequest"
+                        TestId="work-links-panel-status" />
+    </Story>
+
     <Story Name="Two columns, None yet when empty"
            Description="`WorkLinks` sets a task's sessions and pull requests side by side, each under a small heading, and wraps them under each other where the host is narrow. A column with nothing in it says `None yet`, so an empty column reads as looked at rather than forgotten. With `OnUnlinkSession` or `OnUnlinkPullRequest` set, each card gets a quiet `Unlink` beside it, a button of its own because the card is already the button that opens the item; its name says which item it takes off. `ShowSessions` or `ShowPullRequests` off leaves that column out altogether, as the host does while that feature is off."
            Code="@LinksCode">
@@ -117,6 +132,7 @@
     private static readonly DesignGuideline[] Rules =
     [
         new("color-scheme.md#integration-roles", "The tone each session and pull request state is drawn in."),
+        new("color-scheme.md#pull-request-status-marks", "The ink and glyph of each checks and approvals mark on a pull request card."),
         new("typography-and-layout.md#metadata-lines", "How a card's state, checks and size sit on one line under its title."),
         new("accessibility.md#iconography-accessibility", "Why a state is always said in words beside its colour.")
     ];
@@ -177,6 +193,18 @@
         <WorkSessionCard Session="@(new WorkSession("4a1c9e02", "Extract TaskCard",
                              IntegrationSessionState.Stalled, "Last activity 42 min ago · 9 prompts"))"
                          OnOpen="OpenSession" />
+        """;
+
+    private const string PullRequestStatusCode = """
+        <WorkPullRequestCard PullRequest="@(new WorkPullRequest("JSdotNet/Backlog#1019", 1019,
+                                 "Extract TaskCard component", IntegrationArtifactState.Draft,
+                                 Checks: IntegrationCheckState.Pending)
+                             {
+                                 Status = new PullRequestStatusModel(1019, "draft",
+                                     new PullRequestChecks(Passed: 4, Failed: 0, Pending: 3),
+                                     new PullRequestApprovals(Received: 1, Required: 2))
+                             })"
+                             OnOpen="OpenPullRequest" />
         """;
 
     private const string PullRequestCode = """

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Sessions.Abstractions;
@@ -106,6 +107,11 @@ public sealed class WorkLinksProjection
     /// merged — from the open read, or from the read by number for one the open read
     /// did not list. That is carried, not drawn: the card still draws the task list's
     /// record for a pull request no longer open.
+    /// </para>
+    /// <para>
+    /// One the open read listed carries its status line too
+    /// (<see cref="PullRequestStatusLines"/>), the Pull requests pane's marks. One it did
+    /// not list carries none: the slim read by number asks for no checks or approvals.
     /// </para>
     /// </summary>
     public IReadOnlyList<WorkPullRequest> PullRequestsOf(EntryRow row) =>
@@ -216,7 +222,8 @@ public sealed class WorkLinksProjection
         {
             ReadState = Map(pull.State),
             Author = pull.AuthorLogin,
-            MergedAt = pull.MergedAt
+            MergedAt = pull.MergedAt,
+            Status = PullRequestStatusLines.Of(pull)
         };
 
     /// <summary>A linked pull request the open read did not list: drawn from the task

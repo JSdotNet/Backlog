@@ -398,7 +398,7 @@ internal static class StorybookIndex
             new("integrations/references", "References", "Issues, pull requests and agent sessions that live outside the product: their state, their drift against local truth, and when it was last read."),
             // After the references: a work card is a session or a pull request with
             // more said about it, beside the task it worked on.
-            new("integrations/work", "Work cards", "WorkSessionCard, WorkPullRequestCard, WorkLinks, WorkLinksPanel and WorkLinkPicker: a session or a pull request as a card beside its task, the two columns that say None yet, with Unlink beside each card and no column for a feature that is off, the side panel section, and the picker behind linking one to a task."),
+            new("integrations/work", "Work cards", "WorkSessionCard, WorkPullRequestCard, WorkLinks, WorkLinksPanel and WorkLinkPicker: a session or a pull request as a card beside its task, a pull request card with its status line, the two columns that say None yet, with Unlink beside each card and no column for a feature that is off, the side panel section, and the picker behind linking one to a task."),
             new("integrations/density", "Density and overflow", "The same acts as a header toolbar, an inline row, an icon-only cluster and a set of menu items, and how the budget decides which."),
             new("integrations/ai", "AI in the document", "Rewriting a block and resolving a comment, attached to the comment model that already exists."),
 

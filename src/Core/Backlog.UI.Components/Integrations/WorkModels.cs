@@ -1,3 +1,5 @@
+using Backlog.UI.Components.Progress;
+
 namespace Backlog.UI.Components.Integrations;
 
 /// <summary>
@@ -64,6 +66,19 @@ public sealed record WorkPullRequest(
     /// <summary>When the pull request merged, where the host read it merged. Not drawn
     /// by any card yet.</summary>
     public DateTimeOffset? MergedAt { get; init; }
+
+    /// <summary>
+    /// The pull request's status line — checks as <c>passed/total</c>, approvals as
+    /// <c>received/required</c> (<c>.devbook/domain/progress/features.md#pull-request-status</c>)
+    /// — where the host read the counts; null where it read none, and the card words
+    /// <see cref="Checks"/> as it did before.
+    /// <para>
+    /// The host builds it, because the counts are its read: the library knows neither
+    /// GitHub nor the rules of a base branch. Drawn while the pull request is open or a
+    /// draft and the line has a mark; a merged one already says "Merged".
+    /// </para>
+    /// </summary>
+    public PullRequestStatusModel? Status { get; init; }
 }
 
 /// <summary>One choice a link picker offers: a task to link a session or pull

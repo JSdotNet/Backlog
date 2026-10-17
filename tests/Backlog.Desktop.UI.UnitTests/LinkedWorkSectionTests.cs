@@ -115,6 +115,39 @@ public sealed class LinkedWorkSectionTests
             Assert.Contains("JSdotNet/Backlog#700", section.FindAll("[data-testid='work-link-picker-option']").Select(option => option.GetAttribute("data-option-id"))));
     }
 
+    /// <summary>A linked pull request the open read listed carries its status line in the
+    /// side panel — checks as passed/total, approvals against what its base branch requires
+    /// — the Pull requests pane's marks (.devbook/domain/progress/features.md#pull-request-status).</summary>
+    [Fact]
+    public async Task A_linked_open_pull_request_draws_its_status_line_in_the_side_panel()
+    {
+        using var host = await TasksPaneHost.CreateAsync(Repository);
+        var row = await host.WriteEntryAsync(Entry);
+        host.Client.OpenPullRequests.Add(Pull(700, mine: true, GitHubCheckState.Pending) with
+        {
+            CheckCounts = new GitHubCheckCounts(Passed: 9, Failed: 0, Pending: 5),
+            Reviews = new GitHubReviewSummary(GitHubReviewState.ReviewRequired, Approvals: 1, ChangesRequested: 0)
+        });
+        host.Client.RequiredApprovals["main"] = 2;
+        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "700", PullRequestTarget));
+        var reader = Reader(host);
+        await reader.ReadAsync();
+
+        var section = host.Context.Render<LinkedWorkSection>(parameters => parameters
+            .Add(p => p.Row, row)
+            .Add(p => p.Reader, reader));
+
+        section.WaitForAssertion(() =>
+        {
+            var card = section.Find("[data-testid='work-links-pull-requests'] [data-pull-request='JSdotNet/Backlog#700']");
+            Assert.Equal("9/14", card.QuerySelector("[data-testid='work-pull-request-status-checks'] .pull-request-status__count")!.TextContent);
+            var approvals = card.QuerySelector("[data-testid='work-pull-request-status-approvals']")!;
+            Assert.Equal("short", approvals.GetAttribute("data-variant"));
+            Assert.Equal("1/2", approvals.QuerySelector(".pull-request-status__count")!.TextContent);
+            Assert.Null(card.QuerySelector("[data-testid='work-pull-request-checks']"));
+        });
+    }
+
     /// <summary>With only one of Sessions and Pull requests on, the other column is not
     /// drawn in the section, and its link action names only the kind left.</summary>
     [Fact]

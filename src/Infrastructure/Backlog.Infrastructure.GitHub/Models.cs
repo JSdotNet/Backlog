@@ -395,12 +395,24 @@ public sealed record GitHubReviewSummary(GitHubReviewState Decision, int Approva
     /// rule requires approving reviews at all) and every pull request rule a ruleset
     /// applies to it. Null where no rule asks for an approval, where the branch is
     /// gone, where the token could not read the rules, and for every read that does not
-    /// ask — only the status read
-    /// (<see cref="IGitHubClient.ReadLinkedPullRequestStatusesAsync"/>) does. Zero is never
+    /// ask — the status read
+    /// (<see cref="IGitHubClient.ReadLinkedPullRequestStatusesAsync"/>) asks, and the
+    /// adapter's open and pinned lists ask through
+    /// <see cref="IGitHubClient.ReadRequiredApprovalsAsync"/>. Zero is never
     /// reported: a rule requiring no approval is no rule for this count. An init
     /// property, so every construction written before it reads as no rule.
     /// </summary>
     public int? Required { get; init; }
+
+    /// <summary>
+    /// Whether the base branch's rules were read at all, so a null
+    /// <see cref="Required"/> means "no rule asks for an approval" rather than "nobody
+    /// asked". False for every read that does not ask — the slim linked read, and an
+    /// open or pinned row whose base branch's rules could not be read — and then the
+    /// status line says how many approvals there are with no verdict
+    /// (<c>.devbook/domain/progress/features.md#pull-request-status</c>).
+    /// </summary>
+    public bool RequiredRead { get; init; }
 }
 
 /// <summary>One pull request somebody pinned on this device, by <c>owner/name</c> and

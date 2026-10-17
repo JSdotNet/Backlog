@@ -312,7 +312,8 @@ public sealed partial class GitHubIntegration(
     {
         try
         {
-            return (await client.ListOpenPullRequestsAsync(repository, cancellationToken).ConfigureAwait(false), null);
+            var listed = await client.ListOpenPullRequestsAsync(repository, cancellationToken).ConfigureAwait(false);
+            return (await WithRequiredApprovalsAsync(repository, listed, cancellationToken).ConfigureAwait(false), null);
         }
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
         {
@@ -364,7 +365,8 @@ public sealed partial class GitHubIntegration(
         try
         {
             var repository = RepositoryForFullName(repositoryFullName);
-            return (await client.ListPullRequestsAsync(repository, numbers, cancellationToken).ConfigureAwait(false), null);
+            var pinned = await client.ListPullRequestsAsync(repository, numbers, cancellationToken).ConfigureAwait(false);
+            return (await WithRequiredApprovalsAsync(repository, pinned, cancellationToken).ConfigureAwait(false), null);
         }
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
         {
