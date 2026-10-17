@@ -203,9 +203,12 @@ sits on every pull request row as two icons with counts:
 
 - **Checks**, as `passed/total`, with a running and a failing variant.
 - **Approvals**, as `approvals/required`. The required count is read from the
-  base branch's protection rule, the `required_approving_review_count` that
-  GitHub's branch protection endpoints return
-  ([GitHub REST API: branch protection](https://docs.github.com/en/rest/branches/branch-protection)).
+  base branch's rules: the larger of its branch protection rule's
+  `requiredApprovingReviewCount` and the `requiredApprovingReviewCount` of every
+  pull request rule a ruleset applies to it, read through GraphQL on the base ref
+  (`branchProtectionRule` and `rules`)
+  ([GitHub GraphQL API: Ref](https://docs.github.com/en/graphql/reference/objects#ref)).
+  A base branch no rule asks an approval of has no required total.
 
 The words "checks" and "approvals" appear only as screen-reader labels.
 
@@ -276,10 +279,11 @@ Negative:
   choice of the `progress` flag is not carried to `goals`.
 - **Every reading reads its owners.** The stand-up reads each attached task, each
   plan's entries and each pull request's state, as the sprint did.
-- **Branch protection may hide the required count.** A base branch protected by a
-  ruleset rather than a protection rule, or a token that cannot read its
-  protection, leaves the required approvals unknown. How the row shows that is
-  the build's to settle (unverified against rulesets).
+- **Branch protection may hide the required count.** A ruleset's pull request
+  rule is read as well as a protection rule, so a branch protected by either gives
+  its count. A token that cannot read a branch's rules leaves the required
+  approvals unknown, the same answer as a branch no rule asks an approval of. How
+  the row shows that is the build's to settle.
 
 Neutral:
 

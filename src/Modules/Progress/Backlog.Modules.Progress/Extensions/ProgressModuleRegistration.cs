@@ -25,7 +25,7 @@ namespace Backlog.Modules.Progress.Extensions;
 /// <para>
 /// <see cref="ISprintSeriesRepository"/> and <see cref="ISprintTaskSource"/> are
 /// deliberately not registered here: which adapters answer them is the host's
-/// decision. <see cref="ISprintPullRequestReader"/> falls back to
+/// decision. <see cref="IGoalPullRequestReader"/> falls back to
 /// <see cref="UnreadPullRequests"/> when the host registered none.
 /// </para>
 /// <para>
@@ -43,7 +43,7 @@ public static class ProgressModuleRegistration
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<ProgressGate>();
         services.TryAddSingleton<SeriesSaved>();
-        services.TryAddSingleton<ISprintPullRequestReader, UnreadPullRequests>();
+        services.TryAddSingleton<IGoalPullRequestReader, UnreadPullRequests>();
 
         services.AddScoped<SeriesChanges>();
         services.AddScoped<GetSeriesQueryHandler>();

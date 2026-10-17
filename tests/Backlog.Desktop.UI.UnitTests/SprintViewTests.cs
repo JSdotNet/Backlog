@@ -1,5 +1,3 @@
-using Backlog.Infrastructure.FileSystem.Progress;
-using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.Abstractions.Services;
@@ -10,7 +8,6 @@ using Backlog.UI.Components.Progress;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -18,8 +15,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The In progress tab's sprint view (<c>.devbook/domain/progress/features.md#following-a-sprint</c>):
 /// the Now | Sprint n switch only while Progress is on and the scope holds a repository of
 /// a series switched on; the board's groups, Needs you, chips and outside line; the words
-/// and done line the module's counts are drawn with; and the pull request reader that
-/// gives the chips their state and the rows their owner.
+/// and done line the module's counts are drawn with. The pull request reader that
+/// gives the chips their state is <see cref="GoalPullRequestReaderTests"/>'.
 /// </summary>
 public sealed class SprintViewTests : IDisposable
 {
@@ -436,88 +433,6 @@ public sealed class SprintViewTests : IDisposable
         Assert.Empty(rendered.FindAll("[data-testid=sprint-daily]"));
     }
 
-    // ---- The pull request reader -------------------------------------------------------------
-
-    [Fact]
-    public async Task The_reader_answers_state_merge_day_author_and_opened_day_from_github_and_reads_a_merged_one_once()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-sprint-pulls", Guid.NewGuid().ToString("n"));
-        try
-        {
-            var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-            var (parsed, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
-            settings.SetRepositories(parsed);
-            var client = new TasksPaneHost.FakeGitHubClient();
-            client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(4, "u", "t", "JSdotNet/Backlog", GitHubItemState.Merged, "jsdotnet", new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero)));
-            client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(5, "u", "t", "JSdotNet/Backlog", GitHubItemState.Open, "octo", null, new DateTimeOffset(2026, 10, 6, 12, 0, 0, TimeSpan.Zero)));
-            // One adapter, as the host composes it: what has been read is kept there.
-            var gitHub = new GitHubIntegration(settings, client, new ConnectedProbe());
-            var reader = new GitHubSprintPullRequests(() => gitHub);
-
-            var first = await reader.ReadAsync([new("JSdotNet/Backlog", "4"), new("JSdotNet/Backlog", "5"), new("JSdotNet/Backlog", "6")], TestContext.Current.CancellationToken);
-
-            Assert.Equal([LinkedPullRequestState.Merged, LinkedPullRequestState.Open, LinkedPullRequestState.Unknown], first.Select(pull => pull.State));
-            Assert.Equal(["jsdotnet", "octo", null], first.Select(pull => pull.Author));
-            Assert.Equal(new DateOnly(2026, 10, 7), first[0].MergedOn);
-            Assert.Equal(new DateOnly(2026, 10, 6), first[1].OpenedOn);
-
-            client.ReadByNumber.Clear();
-            await reader.ReadAsync([new("JSdotNet/Backlog", "4"), new("JSdotNet/Backlog", "6")], TestContext.Current.CancellationToken);
-            Assert.Empty(client.ReadByNumber);
-        }
-        finally
-        {
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
-        }
-    }
-
-    /// <summary>An archived repository is not read from GitHub (local ADR 0029): its pull
-    /// requests are not asked about, and an answer already known is kept rather than
-    /// overwritten as unknown once it goes stale. The sprint keeps the repository; only
-    /// the read is skipped.</summary>
-    [Fact]
-    public async Task The_reader_skips_an_archived_repository_and_keeps_what_it_already_knew()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-sprint-pulls", Guid.NewGuid().ToString("n"));
-        try
-        {
-            var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-            var (parsed, _) = GitHubSettings.ParseText("JSdotNet/Backlog\nJSdotNet/Archify");
-            Assert.Null(settings.SetRepositories(parsed));
-            var client = new TasksPaneHost.FakeGitHubClient();
-            client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(5, "u", "t", "JSdotNet/Archify", GitHubItemState.Open, "octo", null));
-            var clock = new FakeTimeProvider(new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero));
-            // One adapter, as the host composes it: the shared cache that keeps what was read lives there.
-            var gitHub = new GitHubIntegration(settings, client, new ConnectedProbe(), time: clock);
-            var reader = new GitHubSprintPullRequests(() => gitHub);
-
-            Assert.Equal(LinkedPullRequestState.Open, Assert.Single(await reader.ReadAsync([new("JSdotNet/Archify", "5")], TestContext.Current.CancellationToken)).State);
-
-            Assert.Null(settings.SetRepositoryArchived("archify", archived: true));
-            clock.Advance(GitHubSprintPullRequests.FreshFor + TimeSpan.FromMinutes(1));
-            client.ReadByNumber.Clear();
-
-            var answer = await reader.ReadAsync([new("JSdotNet/Archify", "5"), new("JSdotNet/Archify", "6")], TestContext.Current.CancellationToken);
-
-            Assert.Empty(client.ReadByNumber);
-            Assert.Equal([LinkedPullRequestState.Open, LinkedPullRequestState.Unknown], answer.Select(pull => pull.State));
-        }
-        finally
-        {
-            try { Directory.Delete(root, recursive: true); } catch (IOException) { }
-        }
-    }
-
-    [Fact]
-    public async Task Without_github_every_pull_request_reads_unknown()
-    {
-        var reader = new GitHubSprintPullRequests(() => null);
-
-        var answer = await reader.ReadAsync([new("JSdotNet/Backlog", "4")], TestContext.Current.CancellationToken);
-
-        Assert.Equal(LinkedPullRequestState.Unknown, Assert.Single(answer).State);
-    }
-
     // ---- Composition -------------------------------------------------------------------------
 
     private FakeProgress Compose(bool on, params SprintSeriesDto[] series)
@@ -593,16 +508,6 @@ public sealed class SprintViewTests : IDisposable
     }
 
     public void Dispose() => _context.Dispose();
-
-    private sealed class ConnectedProbe : IGitHubConnectionProbe
-    {
-        public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(true, "Connected."));
-
-        public void Invalidate()
-        {
-        }
-    }
 
     private sealed class ProgressSwitch(bool on) : IAppFeatureSettings
     {

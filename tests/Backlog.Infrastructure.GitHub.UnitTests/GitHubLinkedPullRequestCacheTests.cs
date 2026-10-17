@@ -3,9 +3,10 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
 /// <summary>
-/// The one cache of linked pull requests read by number that the In progress reader and
-/// the sprint reader share: what it keeps, for how long, and that a read still out is
-/// waited for rather than sent twice.
+/// The cache of linked pull requests read by number — one instance before the slim read
+/// the In progress reader asks through, another before the status read Progress asks
+/// through: what it keeps, for how long, and that a read still out is waited for rather
+/// than sent twice.
 /// </summary>
 public sealed class GitHubLinkedPullRequestCacheTests
 {

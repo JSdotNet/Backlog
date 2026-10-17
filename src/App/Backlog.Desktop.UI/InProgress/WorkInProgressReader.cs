@@ -32,9 +32,10 @@ namespace Backlog.Desktop.UI.InProgress;
 /// </para>
 /// <para>
 /// That read goes through <see cref="GitHubIntegration.ReadLinkedPullRequestsAsync"/>,
-/// the cache Progress's sprint reader reads through too: an answer read since this read
-/// of the open list began — by the sprint view, say, on the same Refresh — or a read of
-/// it still out that began since, is taken rather than asked for again.
+/// the slim read's cache: an answer read since this read of the open list began, or a
+/// read of it still out that began since, is taken rather than asked for again.
+/// Progress reads each pull request's checks and approvals through a status cache of its
+/// own (<see cref="GitHubIntegration.ReadLinkedPullRequestStatusesAsync"/>).
 /// </para>
 /// </summary>
 /// <param name="linked">The pull requests the tasks link, asked at the start of every

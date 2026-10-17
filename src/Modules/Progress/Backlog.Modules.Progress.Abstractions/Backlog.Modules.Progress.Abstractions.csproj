@@ -6,7 +6,7 @@
       DataTransferObjects/  what a caller receives instead of a sprint series
       Services/             ISprintSeriesPlanning and ISprintProgress, the ports a
                             host calls, and ISprintTaskSource and
-                            ISprintPullRequestReader, the ports the module asks
+                            IGoalPullRequestReader, the ports the module asks
                             outward through — answered by infrastructure adapters
       Enums                 the vocabulary those DTOs are written in
       ProgressFeatures      the feature key the whole context is switched by
