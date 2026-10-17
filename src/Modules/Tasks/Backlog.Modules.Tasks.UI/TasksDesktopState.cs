@@ -102,6 +102,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private readonly TasksCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
 
+    /// <summary>Counts the plan's announced changes, so a read that an earlier change
+    /// started and finished last cannot put older tags back. See
+    /// <see cref="OnRoadmapPlanChanged"/>.</summary>
+    private int _roadmapTagReads;
+
     /// <summary>Where the state of a linked agent session is read from, or null in a
     /// host that composes no Sessions record. See <see cref="ReadSessionStatesAsync"/>.</summary>
     private readonly ILinkedSessionStates? _sessionStates;
@@ -240,6 +245,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _issues = new TasksIssues(gitHub);
         _copilot = copilot ?? TasksCopilotCli.Unavailable;
         _roadmapTags = roadmapTags ?? EmptyRoadmapTagSource.Instance;
+        _roadmapTags.Changed += OnRoadmapPlanChanged;
         _devbookReferences = devbookReferences ?? UnavailableDevbookReferenceResolver.Instance;
         _untilDisposed = _lifetime.Token;
         _toasts = toasts;
@@ -442,6 +448,39 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </para>
     /// </summary>
     public IReadOnlyList<string> RoadmapTags { get; private set; } = [];
+
+    /// <summary>
+    /// The plan changed — an item planned, retagged or removed in Roadmap Planning,
+    /// which writes no task and so sets off no reload of the list. The tags are read
+    /// again and the change announced, so the Goals view's attach search and the tag
+    /// picker offer planned work without a reload.
+    /// <para>
+    /// Raised on whichever thread stored the change, as
+    /// <see cref="OnMyDayPreferencesChanged"/> is; the pane's <see cref="Changed"/>
+    /// handler marshals the render onto its dispatcher. A plan that cannot be read
+    /// leaves the tags as they were.
+    /// </para>
+    /// </summary>
+    private async void OnRoadmapPlanChanged()
+    {
+        if (_untilDisposed.IsCancellationRequested) return;
+
+        var read = Interlocked.Increment(ref _roadmapTagReads);
+        IReadOnlyList<string> tags;
+        try
+        {
+            tags = await _roadmapTags.TagsInUseAsync(_untilDisposed);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        if (_untilDisposed.IsCancellationRequested || read != Volatile.Read(ref _roadmapTagReads)) return;
+
+        RoadmapTags = tags;
+        Changed?.Invoke();
+    }
 
     /// <summary>The rows the repository scope leaves in view, before status, area
     /// and My Day narrow them. What the filter chips count: a count that shrank
@@ -3294,6 +3333,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (_taskWrites is not null) _taskWrites.Changed -= OnTaskWritten;
         if (_showArchived is not null) _showArchived.Changed -= OnShowArchivedChanged;
         _myDayPreferences.Changed -= OnMyDayPreferencesChanged;
+        _roadmapTags.Changed -= OnRoadmapPlanChanged;
 
         _lifetime.Cancel();
 
