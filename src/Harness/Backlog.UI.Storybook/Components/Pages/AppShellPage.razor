@@ -52,6 +52,16 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
         </div>
     </Story>
 
+    <Story Name="Tab bar with glyphs"
+           Description="The phone's own bar, as a paired phone that holds a stand-up draws it: Today, Inbox, Stand-up and Notes, each with its glyph above its word — a sun, an inbox tray, a target and a sticky note. Every tab carries one or none does, so no tab reads as the odd one out. The glyph is decorative and hidden from assistive technology, so each tab's name is still its word, and it takes the word's ink, so the lit tab's glyph lights with it. The tab is still at least 48px tall.
+
+These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it."
+           Code="@GlyphTabBarCode">
+        <div class="sb-phone">
+            <TabBar Items="GlyphTabs" AriaLabel="Sections" TestId="tab-bar-glyphs" />
+        </div>
+    </Story>
+
     <Story Name="Not paired"
            Description="The device holds no credential, so there is nothing to sync with. The host shows this until a pairing code is redeemed."
            Code="@NotPairedCode">
@@ -91,6 +101,14 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
         new("app-shell", "Today", Match: true),
         new("app-shell/inbox", "Inbox"),
         new("app-shell/notes", "Notes")
+    ];
+
+    private static readonly IReadOnlyList<NavItem> GlyphTabs =
+    [
+        new("app-shell", "Today", Match: true, Icon: @<SunIcon Size="20" />),
+        new("app-shell/inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
+        new("app-shell/standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
+        new("app-shell/notes", "Notes", Icon: @<StickyNoteIcon Size="20" />)
     ];
 
     private static readonly string[] Surfaces = ["Dashboard", "Tools"];
@@ -149,6 +167,20 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
                 new("", "Today", Match: true),
                 new("inbox", "Inbox"),
                 new("notes", "Notes")
+            ];
+        }
+        """;
+
+    private const string GlyphTabBarCode = """
+        <TabBar Items="Tabs" AriaLabel="Sections" TestId="tab-bar" />
+
+        @code {
+            private static readonly IReadOnlyList<NavItem> Tabs =
+            [
+                new("", "Today", Match: true, Icon: @<SunIcon Size="20" />),
+                new("inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
+                new("standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
+                new("notes", "Notes", Icon: @<StickyNoteIcon Size="20" />)
             ];
         }
         """;

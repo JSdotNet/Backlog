@@ -21,7 +21,7 @@ public sealed class StandupScreenTests
         var app = host.Open("");
 
         app.WaitForAssertion(() => Assert.Equal(2, tasks.Pulls));
-        Assert.Equal(["Today", "Inbox", "Notes"], app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent));
+        Assert.Equal(["Today", "Inbox", "Notes"], app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent.Trim()));
     }
 
     [Fact]
@@ -33,8 +33,28 @@ public sealed class StandupScreenTests
 
         app.WaitForAssertion(() => Assert.Equal(
             ["Today", "Inbox", "Stand-up", "Notes"],
-            app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent)));
+            app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent.Trim())));
         Assert.Equal(["", "inbox", "standup", "notes"], app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.GetAttribute("href")));
+    }
+
+    /// <summary>
+    /// The Stand-up tab wears the target the desktop's Goals option does, and the
+    /// other tabs wear glyphs of their own, so no tab reads as the odd one out.
+    /// </summary>
+    [Fact]
+    public void Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target()
+    {
+        using var host = ShellHost.Paired(clock: Clock(), tasks: StandupFixture.Service());
+
+        var app = host.Open("");
+
+        app.WaitForAssertion(() => Assert.Equal(4, app.FindAll("[data-testid='tab-bar'] a").Count));
+        Assert.Equal(
+            ["sun-icon", "inbox-icon", "target-icon", "sticky-note-icon"],
+            app.FindAll("[data-testid='tab-bar'] a .tab-bar__icon svg").Select(glyph => glyph.GetAttribute("class")));
+        Assert.All(
+            app.FindAll("[data-testid='tab-bar'] a .tab-bar__icon svg"),
+            glyph => Assert.Equal("true", glyph.GetAttribute("aria-hidden")));
     }
 
     [Fact]
@@ -51,7 +71,7 @@ public sealed class StandupScreenTests
 
         app.WaitForAssertion(() => Assert.Equal(
             ["Today", "Inbox", "Stand-up", "Notes"],
-            app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent)));
+            app.FindAll("[data-testid='tab-bar'] a").Select(tab => tab.TextContent.Trim())));
     }
 
     [Fact]

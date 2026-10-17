@@ -573,6 +573,29 @@ neither shares the window with the view (local ADR 0022, amendments of
 | A link opens the surface | A link that opens a chapter or a Brain note in the Devbook, the task row's Brain badge included, MUST give the Devbook the screen. |
 | One width | The Devbook MUST fill the workspace's width. No edge sets its width, and the viewport counts no panes. |
 
+## Phone Tab Bar
+
+```meta
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view"]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target]
+```
+
+The phone's shell has no header navigation. Its destinations are a row of tabs
+along the bottom, where a thumb already is: **Today**, **Inbox**, **Stand-up**
+once a desktop has sent the stand-up, and **Notes**. Each is a route of its own,
+so the bar is a nav of links, not a tablist. The tabs are the phone's views, so
+they lead with a glyph as the desktop's views do (`#shell-header`).
+
+| Rule | Requirement |
+|---|---|
+| Every tab or none | Each tab MUST lead with a decorative glyph, or none may. One tab with a picture beside tabs without reads as the one that is different. The phone's tabs carry: a sun for Today (the My Day glyph), an inbox tray for Inbox, a target (Lucide `target`) for Stand-up, as the desktop's Goals option has, and a sticky note (Lucide `sticky-note`) for Notes. |
+| Glyph above the word | The glyph sits above the tab's word, at `icon-md` (20px), in the word's ink, so the lit tab's glyph lights with it. The word stays: a glyph alone is not a name. |
+| The word is the name | The glyph MUST be hidden from assistive technology per `accessibility.md#iconography-accessibility`, so each tab is announced by its word alone. |
+| The target holds | Every tab stays at least 48px tall with its glyph, past the 44px minimum in `accessibility.md#target-sizes-and-text`. |
+| Lit by more than colour | The current tab carries a bar on its top edge and a heavier word, never its glyph's colour alone. |
+
+Review surface: storybook → *App shell* → **Tab bar with glyphs**.
+
 ## Group Shape Says Cardinality
 
 ```meta

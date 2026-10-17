@@ -17668,6 +17668,8 @@ select.field__input {
 
 .tab-bar__tab {
     display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
     align-items: center;
     justify-content: center;
     min-height: 3rem;
@@ -17682,6 +17684,16 @@ select.field__input {
 .tab-bar__tab:focus-visible {
     background: var(--color-background-raised);
     color: var(--color-text-primary);
+}
+
+/*
+  A tab's glyph sits above its word, in the word's ink, so the lit tab's glyph
+  lights with it. The glyph is drawn at icon-md (20px) by the host; the slot
+  only keeps its line box from adding height under it.
+*/
+.tab-bar__icon {
+    display: inline-flex;
+    line-height: 0;
 }
 
 /* Weight and a bar, not colour alone, say which tab is current. */
