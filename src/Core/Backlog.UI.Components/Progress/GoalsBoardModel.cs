@@ -33,11 +33,15 @@ public enum GoalTaskStatus
 
 /// <summary>A plan attached to a goal, with its own count.</summary>
 /// <param name="Title">The plan's name as the host shows it.</param>
-public sealed record GoalPlanModel(string Title, int Done, int Total);
+/// <param name="Key">The host's key for the plan, handed back on detach; null draws the row
+/// with no detach.</param>
+public sealed record GoalPlanModel(string Title, int Done, int Total, string? Key = null);
 
 /// <summary>A task attached to a goal.</summary>
 /// <param name="Id">The host's id for the task.</param>
-public sealed record GoalTaskModel(string Id, string Title, GoalTaskStatus Status);
+/// <param name="Key">The host's key for the task, handed back on detach; null draws the row
+/// with no detach.</param>
+public sealed record GoalTaskModel(string Id, string Title, GoalTaskStatus Status, string? Key = null);
 
 /// <summary>
 /// One goal as the Goals view draws it
@@ -52,6 +56,10 @@ public sealed record GoalTaskModel(string Id, string Title, GoalTaskStatus Statu
 /// <param name="Plans">The plans attached to it.</param>
 /// <param name="Tasks">The tasks attached to it.</param>
 /// <param name="PullRequests">Its attached pull requests and those its tasks link.</param>
+/// <param name="Outcome">The goal's one-line outcome; null with none.</param>
+/// <param name="PullRequestKeys">The host's key for each of <paramref name="PullRequests"/>,
+/// in its order, handed back on detach: null for one the goal holds only through a task,
+/// which detaching the goal's own pull request would not remove.</param>
 public sealed record GoalCardModel(
     string Id,
     string Title,
@@ -61,7 +69,15 @@ public sealed record GoalCardModel(
     GoalCounts Counts,
     IReadOnlyList<GoalPlanModel> Plans,
     IReadOnlyList<GoalTaskModel> Tasks,
-    IReadOnlyList<PullRequestStatusModel> PullRequests);
+    IReadOnlyList<PullRequestStatusModel> PullRequests,
+    string? Outcome = null,
+    IReadOnlyList<string?>? PullRequestKeys = null)
+{
+    /// <summary>The key of the pull request at <paramref name="index"/> in
+    /// <see cref="PullRequests"/>; null when it has none.</summary>
+    public string? PullRequestKey(int index) =>
+        PullRequestKeys is { } keys && index >= 0 && index < keys.Count ? keys[index] : null;
+}
 
 /// <summary>What kind of work an item is, for its kind label: Plan, Task or PR.</summary>
 public enum GoalsItemKind
@@ -187,6 +203,16 @@ public sealed record GoalsBoardModel(
 
 /// <summary>Attach the item <paramref name="ItemKey"/> to the goal <paramref name="GoalId"/>.</summary>
 public sealed record GoalAttachRequest(string GoalId, string ItemKey);
+
+/// <summary>Detach the item <paramref name="ItemKey"/> from the goal <paramref name="GoalId"/>.</summary>
+public sealed record GoalDetachRequest(string GoalId, string ItemKey);
+
+/// <summary>A goal's title, outcome and due date as its open card hands them back, trimmed:
+/// the three replace what the goal says (<c>.devbook/domain/progress/features.md#setting-a-goal</c>).</summary>
+/// <param name="GoalId">The host's id for the goal.</param>
+/// <param name="Outcome">The one-line outcome; null when blank.</param>
+/// <param name="DueDate">The due date; null when blank or unreadable, which the module refuses.</param>
+public sealed record GoalEditRequest(string GoalId, string Title, string? Outcome, DateOnly? DueDate);
 
 /// <summary>Move the impediment <paramref name="ImpedimentId"/> to <paramref name="State"/>.</summary>
 public sealed record ImpedimentMoveRequest(string ImpedimentId, StandUpImpedimentState State);

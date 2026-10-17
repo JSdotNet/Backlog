@@ -391,6 +391,115 @@ public sealed class GoalsHostTests : IDisposable
 
     // ---- Doubles at the Progress module's boundary ------------------------------------
 
+    private static string PaidField(string part) => $"[data-testid='goals-board-goal-{PaidId}-{part}'] input";
+
+    [Fact]
+    public void A_field_of_the_open_goal_is_edited_through_the_module_with_the_other_two_as_stored_and_read_again()
+    {
+        _goals.Summaries =
+        [
+            new(new GoalDto(PaidId, "Customers get paid faster", "Paid within 14 days", Oct(30), []), new GoalProgressDto(9, 15, 3, 1, 2, 3)),
+            new(new GoalDto(SearchId, "Devbook search ships", null, Oct(23), []), new GoalProgressDto(5, 6, 0, 0, 1, 0))
+        ];
+        var host = Render();
+        host.WaitForAssertion(() => Assert.Equal("Paid within 14 days", host.Find(PaidField("outcome")).GetAttribute("value")));
+        var before = _standUp.Reads;
+
+        host.Find(PaidField("title")).Change("Customers paid sooner");
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal((PaidId, new SetGoalRequest("Customers paid sooner", "Paid within 14 days", Oct(30))), Assert.Single(_goals.Edited));
+            Assert.Equal(before + 1, _standUp.Reads);
+        });
+    }
+
+    [Fact]
+    public void A_refused_edit_shows_the_modules_words_in_the_goal_and_reads_nothing()
+    {
+        _goals.EditFailure = ProgressErrors.GoalWithoutTitle();
+        var host = Render();
+        host.WaitForAssertion(() => host.Find(PaidField("title")));
+        var before = _standUp.Reads;
+
+        host.Find(PaidField("title")).Input(" ");
+        host.Find(PaidField("title")).Change(" ");
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal((PaidId, new SetGoalRequest(string.Empty, null, Oct(30))), Assert.Single(_goals.Edited));
+            Assert.Contains("A goal needs a title.", host.Find($"[data-testid='goals-board-goal-{PaidId}-title']").TextContent);
+            Assert.Equal("Customers get paid faster", host.Find(PaidField("title")).GetAttribute("value"));
+            Assert.Empty(host.FindAll("[data-testid='goals-board-error']"));
+        });
+        Assert.Equal(before, _standUp.Reads);
+
+        // The refusal belongs to the edit it answered: opening another goal clears it.
+        host.Find($"[data-testid='goals-board-goal-{SearchId}-toggle']").Click();
+        host.Find($"[data-testid='goals-board-goal-{PaidId}-toggle']").Click();
+        host.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("A goal needs a title.", host.Find($"[data-testid='goals-board-goal-{PaidId}-title']").TextContent);
+        });
+    }
+
+    [Fact]
+    public void Delete_goal_deletes_through_the_module_once_confirmed_and_reads_again()
+    {
+        var host = Render();
+        host.WaitForAssertion(() => host.Find($"[data-testid='goals-board-goal-{PaidId}-delete']"));
+        var before = _standUp.Reads;
+
+        host.Find($"[data-testid='goals-board-goal-{PaidId}-delete']").Click();
+        host.WaitForAssertion(() => host.Find("[data-testid='goals-board-delete-confirm']"));
+        Assert.Empty(_goals.Deleted);
+
+        host.Find("[data-testid='goals-board-delete-confirm-yes']").Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal([PaidId], _goals.Deleted);
+            Assert.Equal(before + 1, _standUp.Reads);
+            Assert.Empty(host.FindAll("[data-testid='goals-board-delete-confirm']"));
+        });
+    }
+
+    [Fact]
+    public void A_refused_delete_shows_above_the_board()
+    {
+        _goals.WriteFailure = Error.Validation("progress.goal_not_found", "That goal is gone.");
+        var host = Render();
+        host.WaitForAssertion(() => host.Find($"[data-testid='goals-board-goal-{PaidId}-delete']"));
+
+        host.Find($"[data-testid='goals-board-goal-{PaidId}-delete']").Click();
+        host.Find("[data-testid='goals-board-delete-confirm-yes']").Click();
+
+        host.WaitForAssertion(() => Assert.Contains("That goal is gone.", host.Find("[data-testid='goals-board-error']").TextContent));
+    }
+
+    [Fact]
+    public void A_rows_detach_detaches_the_item_through_the_module_and_reads_again()
+    {
+        _goals.Summaries =
+        [
+            new(new GoalDto(PaidId, "Customers get paid faster", null, Oct(30),
+                [new GoalAttachmentDto(GoalItemDto.ForTask(Vat), Oct(12)), new GoalAttachmentDto(GoalItemDto.ForPlan("bank-integration"), Oct(12))]),
+                new GoalProgressDto(9, 15, 3, 1, 2, 3)),
+            new(new GoalDto(SearchId, "Devbook search ships", null, Oct(23), []), new GoalProgressDto(5, 6, 0, 0, 1, 0))
+        ];
+        var host = Render();
+        host.WaitForAssertion(() => host.Find($"[data-testid='goals-board-goal-{PaidId}-detach-task:{Vat}']"));
+        var before = _standUp.Reads;
+
+        host.Find($"[data-testid='goals-board-goal-{PaidId}-detach-task:{Vat}']").Click();
+        host.WaitForAssertion(() => Assert.Equal(before + 1, _standUp.Reads));
+        host.Find($"[data-testid='goals-board-goal-{PaidId}-detach-plan:bank-integration']").Click();
+
+        host.WaitForAssertion(() =>
+            Assert.Equal([(PaidId, GoalItemDto.ForTask(Vat)), (PaidId, GoalItemDto.ForPlan("bank-integration"))], _goals.Detached));
+        Assert.Empty(host.FindAll("[role='dialog']"));
+    }
+
     internal sealed class FakeStandUp : IStandUp
     {
         public StandUpDto Reading { get; set; } = new(
@@ -479,11 +588,37 @@ public sealed class GoalsHostTests : IDisposable
 
         public Task<Result<GoalDto?>> FindGoalOfAsync(GoalItemDto item, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public Task<Result<GoalDto>> EditAsync(Guid goalId, SetGoalRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public List<(Guid, SetGoalRequest)> Edited { get; } = [];
 
-        public Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Error? EditFailure { get; set; }
 
-        public Task<Result<GoalDto>> DetachAsync(Guid goalId, GoalItemDto item, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public List<Guid> Deleted { get; } = [];
+
+        public List<(Guid, GoalItemDto)> Detached { get; } = [];
+
+        public Error? WriteFailure { get; set; }
+
+        public Task<Result<GoalDto>> EditAsync(Guid goalId, SetGoalRequest request, CancellationToken cancellationToken = default)
+        {
+            Edited.Add((goalId, request));
+            return Task.FromResult(EditFailure is { } error
+                ? Result.Failure<GoalDto>(error)
+                : Result.Success(new GoalDto(goalId, request.Title, request.Outcome, request.DueDate ?? Oct(30), [])));
+        }
+
+        public Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default)
+        {
+            Deleted.Add(goalId);
+            return Task.FromResult(WriteFailure is { } error ? Result.Failure(error) : Result.Success());
+        }
+
+        public Task<Result<GoalDto>> DetachAsync(Guid goalId, GoalItemDto item, CancellationToken cancellationToken = default)
+        {
+            Detached.Add((goalId, item));
+            return Task.FromResult(WriteFailure is { } error
+                ? Result.Failure<GoalDto>(error)
+                : Result.Success(new GoalDto(goalId, "Customers get paid faster", null, Oct(30), [])));
+        }
     }
 
     internal sealed class FakeImpediments : IImpediments

@@ -121,7 +121,7 @@ public sealed class GoalsMapperTests
     {
         var plan = Assert.Single(Map().Goals[0].Plans);
 
-        Assert.Equal(new GoalPlanModel("bank-integration", 1, 2), plan);
+        Assert.Equal(new GoalPlanModel("bank-integration", 1, 2, "plan:bank-integration"), plan);
     }
 
     [Fact]
@@ -129,10 +129,36 @@ public sealed class GoalsMapperTests
     {
         Assert.Equal(
             [
-                new GoalTaskModel(Invoice.ToString(), "Invoice PDF export", GoalTaskStatus.Done),
-                new GoalTaskModel(Recurring.ToString(), "Recurring invoices", GoalTaskStatus.Doing)
+                new GoalTaskModel(Invoice.ToString(), "Invoice PDF export", GoalTaskStatus.Done, $"task:{Invoice}"),
+                new GoalTaskModel(Recurring.ToString(), "Recurring invoices", GoalTaskStatus.Doing, $"task:{Recurring}")
             ],
             Map().Goals[0].Tasks);
+    }
+
+    /// <summary>A goal's own pull request detaches; one only a task brings has no key, since
+    /// detaching it would leave it on the goal through the task.</summary>
+    [Fact]
+    public void Only_a_goals_own_pull_request_carries_a_key_to_detach_it_by()
+    {
+        var paid = Map().Goals[0];
+
+        Assert.Equal(["pr:JSdotNet/Backlog#1352", null], paid.PullRequestKeys);
+        Assert.Equal(GoalsKeys.ForPullRequest("JSdotNet/Backlog", 1352), paid.PullRequestKey(0));
+        Assert.True(GoalsKeys.TryRead(paid.PullRequestKey(0), out var item));
+        Assert.Equal(GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1352), item);
+    }
+
+    [Fact]
+    public void A_goal_carries_its_outcome_from_its_attachments_reading()
+    {
+        var summaries = Summaries.Select(summary => summary.Goal.Id == PaidId
+            ? summary with { Goal = summary.Goal with { Outcome = "Invoices are paid within 14 days" } }
+            : summary).ToList();
+
+        var goals = GoalsMapper.Map(StandUp, summaries, Pulls, Candidates).Goals;
+
+        Assert.Equal("Invoices are paid within 14 days", goals[0].Outcome);
+        Assert.Null(goals[1].Outcome);
     }
 
     [Fact]

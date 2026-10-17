@@ -33,6 +33,45 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         </div>
     </Story>
 
+    <Story Name="Editing a goal"
+           Description="With a host listening, the open goal leads with its title, outcome and due date as fields, edited in place: there is no Save button, and a field is handed back once it changes — leave it, press Enter, or pick a date. Escape abandons what was typed in a field. Clear the title and leave the field to see the module's refusal on it, and the field show what the goal still says; a date the field cannot read is put back when you leave it. Delete goal… sits beside the fields."
+           Code="@EditCode">
+        <div class="sb-stack">
+            <GoalCard Goal="@_edited"
+                      Expanded="true"
+                      OnEdit="EditSample"
+                      OnDelete="@(() => _editSaid = "Delete goal… pressed: the board asks first")"
+                      EditError="@_editError"
+                      TestId="goals-view-edit" />
+            <p class="sb-state" data-testid="goals-view-edit-said">@(_editSaid ?? "Change a field, then leave it.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Deleting a goal"
+           Description="Delete goal… on the open goal asks first, in a destructive confirm that says what the goal held stays as it is. Delete goal deletes it and folds it; Cancel changes nothing. Here the goals are stubs, so a deleted one leaves the board until the page is read again."
+           Code="@DeleteCode">
+        <div class="sb-board">
+            <GoalsBoard Model="@_deleteBoard"
+                        TestId="goals-view-delete-board"
+                        OnEditGoal="@(request => _deleteSaid = $"Edit {request.GoalId}")"
+                        OnDeleteGoal="DeleteSample"
+                        OnDetach="@(request => _deleteSaid = $"Detach {request.ItemKey} from {request.GoalId}")" />
+            <p class="sb-state" data-testid="goals-view-delete-said">@(_deleteSaid ?? "Press Delete goal… on the open goal.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Detaching work"
+           Description="With a host listening, every Plan, Tasks and Pull requests row the goal holds itself ends in an icon-only Detach, named for the item and the goal; a merged pull request's pill carries one too. #1358 has none: the goal holds it only through Recurring invoices, so detaching that task is what lets it go. Detaching changes nothing on the item, so it does not ask."
+           Code="@DetachCode">
+        <div class="sb-stack">
+            <GoalCard Goal="@_detached"
+                      Expanded="true"
+                      OnDetach="DetachSample"
+                      TestId="goals-view-detach" />
+            <p class="sb-state" data-testid="goals-view-detach-said">@(_detachSaid ?? "Press a row's Detach.")</p>
+        </div>
+    </Story>
+
     <Story Name="Empty"
            Description="No goals, and nothing in progress outside one: the goals column is an empty state with New goal as its action, and the stand-up beside it still says what was finished and planned."
            Code="@EmptyCode">
@@ -101,6 +140,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         new("color-scheme.md#impediment-state-tones", "Which tone each impediment state takes, and why New carries a dot."),
         new("color-scheme.md#pull-request-status-marks", "The glyph and ink of each checks and approvals mark on a goal's pull requests."),
         new("accessibility.md#iconography-accessibility", "Why the bar, the dots and the glyphs say their figures in words."),
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why the open goal's fields have no Save button, and how a refused edit is put back."),
         new("typography-and-layout.md#iconography", "The glyphs the view draws, and the size they are drawn at.")
     ];
 
@@ -121,24 +161,70 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     }
     private string? _dialogError;
 
+    private GoalCardModel _edited = Paid;
+    private string? _editError;
+    private string? _editSaid;
+
+    /// <summary>The host's part, stubbed on the module's own rules: refuse what the module
+    /// refuses, keep the rest.</summary>
+    private void EditSample(GoalEditRequest request)
+    {
+        _editError = request.Title.Length == 0 ? "A goal needs a title."
+            : request.DueDate is null ? "A goal needs a due date."
+            : request.Outcome?.Contains('\n') == true ? "A goal's outcome is one line."
+            : null;
+        if (_editError is not null) return;
+
+        _edited = _edited with { Title = request.Title, Outcome = request.Outcome, DueDate = request.DueDate!.Value };
+        _editSaid = $"Saved: {request.Title} · {request.Outcome ?? "no outcome"} · due {request.DueDate:d MMM}";
+    }
+
+    private GoalsBoardModel _deleteBoard = Board;
+    private string? _deleteSaid;
+
+    private void DeleteSample(string goalId)
+    {
+        var goal = _deleteBoard.Goals.First(g => g.Id == goalId);
+        _deleteBoard = _deleteBoard with { Goals = [.. _deleteBoard.Goals.Where(g => g.Id != goalId)] };
+        _deleteSaid = $"Deleted {goal.Title}";
+    }
+
+    private GoalCardModel _detached = Paid;
+    private string? _detachSaid;
+
+    private void DetachSample(string key)
+    {
+        var index = Enumerable.Range(0, _detached.PullRequests.Count).FirstOrDefault(i => _detached.PullRequestKey(i) == key, -1);
+        _detached = _detached with
+        {
+            Plans = [.. _detached.Plans.Where(plan => plan.Key != key)],
+            Tasks = [.. _detached.Tasks.Where(task => task.Key != key)],
+            PullRequests = [.. _detached.PullRequests.Where((_, i) => i != index)],
+            PullRequestKeys = [.. (_detached.PullRequestKeys ?? []).Where((_, i) => i != index)]
+        };
+        _detachSaid = $"Detached {key}";
+    }
+
     private static DateOnly Oct(int day) => new(2026, 10, day);
 
     private static readonly GoalCardModel Paid = new(
         "paid", "Customers get paid faster", Oct(30), new DateOnly(2026, 11, 6), true,
         new GoalCounts(9, 15, 3, 1, 2, 3),
-        [new GoalPlanModel("Bank integration", 5, 9)],
+        [new GoalPlanModel("Bank integration", 5, 9, "plan:bank-integration")],
         [
-            new GoalTaskModel("t1", "Invoice PDF export", GoalTaskStatus.Done),
-            new GoalTaskModel("t2", "Reminder emails", GoalTaskStatus.Done),
-            new GoalTaskModel("t3", "Recurring invoices", GoalTaskStatus.Doing),
-            new GoalTaskModel("t4", "Credit notes", GoalTaskStatus.Blocked)
+            new GoalTaskModel("t1", "Invoice PDF export", GoalTaskStatus.Done, "task:t1"),
+            new GoalTaskModel("t2", "Reminder emails", GoalTaskStatus.Done, "task:t2"),
+            new GoalTaskModel("t3", "Recurring invoices", GoalTaskStatus.Doing, "task:t3"),
+            new GoalTaskModel("t4", "Credit notes", GoalTaskStatus.Blocked, "task:t4")
         ],
         [
             new PullRequestStatusModel(1341, "open", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(1, 2)),
             new PullRequestStatusModel(1358, "draft", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(0, null)),
             new PullRequestStatusModel(1352, "merged"),
             new PullRequestStatusModel(1355, "merged")
-        ]);
+        ],
+        "Invoices are paid within 14 days of sending",
+        ["pr:1341", null, "pr:1352", "pr:1355"]);
 
     private static readonly GoalCardModel Search = new(
         "search", "Devbook search ships", Oct(23), null, false,
@@ -250,6 +336,28 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     private const string OnTrackCode = """
         <GoalCard Goal="@goal" />
         <GoalCard Goal="@goal" Expanded="true" Candidates="@candidates" OnAttach="AttachAsync" />
+        """;
+
+    private const string EditCode = """
+        <GoalCard Goal="@goal"
+                  Expanded="true"
+                  OnEdit="request => EditAsync(request.GoalId, request.Title, request.Outcome, request.DueDate)"
+                  OnDelete="() => _confirmDelete = true"
+                  EditError="@_refusal" />
+        """;
+
+    private const string DeleteCode = """
+        <GoalsBoard Model="@board"
+                    OnEditGoal="EditAsync"
+                    OnDeleteGoal="goalId => DeleteAsync(goalId)"
+                    OnDetach="request => DetachAsync(request.GoalId, request.ItemKey)"
+                    EditError="@_refusal" />
+        """;
+
+    private const string DetachCode = """
+        <GoalCard Goal="@(goal with { PullRequestKeys = ["pr:1341", null, "pr:1352", "pr:1355"] })"
+                  Expanded="true"
+                  OnDetach="key => DetachAsync(goal.Id, key)" />
         """;
 
     private const string EmptyCode = """

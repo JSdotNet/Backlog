@@ -13,10 +13,16 @@
     "Attach to ‹goal›"; with none open it opens a menu of the goals' titles. That menu
     is plain library use, not a goal picker of its own.
 
+    The open goal is edited in place, its rows detached and the goal deleted through
+    GoalCard; each act reaches the host only when it listens (OnEditGoal, OnDetach,
+    OnDeleteGoal). Delete goal… asks first in a destructive ConfirmDialog that says what
+    the goal held stays as it is, and the goal is folded before the host is told.
+
     Beside the goals sits the StandUpPanel aside, which falls under them in one column
     once the board is narrower than 900 px. With no goals and nothing in progress
     outside one, the goals column is a real empty state with New goal as its action.
 *@
+@inject IJSRuntime Js
 <div class="@ClassValue" data-testid="@TestId">
     <header class="goals-board__header">
         <h1 class="goals-board__title">Goals</h1>
@@ -32,7 +38,7 @@
                     TestId="@Part("iteration")" />
         <span class="goals-board__window" data-testid="@Part("window")">@GoalsText.Window(Model.Last, Model.Next)</span>
         <span class="goals-board__spacer" aria-hidden="true"></span>
-        <AppButton OnClick="() => OnNewGoal.InvokeAsync()" TestId="@Part("new-goal")">New goal</AppButton>
+        <AppButton OnClick="() => OnNewGoal.InvokeAsync()" TestId="@Part("new-goal")" id="@_newGoalId">New goal</AppButton>
         <CopyButton Text="@StandUpClipboard.Text(Model)"
                     Label="Copy"
                     StatusCssClass="sr-only"
@@ -71,6 +77,11 @@
                               OnToggle="() => ToggleAsync(goal.Id)"
                               Candidates="Model.Candidates"
                               OnAttach="key => OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, key))"
+                              OnEdit="@(OnEditGoal.HasDelegate ? EventCallback.Factory.Create<GoalEditRequest>(this, request => OnEditGoal.InvokeAsync(request)) : default)"
+                              OnDelete="@(OnDeleteGoal.HasDelegate ? EventCallback.Factory.Create(this, () => _deleting = goal) : default)"
+                              OnDetach="@(OnDetach.HasDelegate ? EventCallback.Factory.Create<string>(this, key => OnDetach.InvokeAsync(new GoalDetachRequest(goal.Id, key))) : default)"
+                              EditError="@(goal.Id == _selected ? EditError : null)"
+                              Busy="Busy"
                               TestId="@Part($"goal-{goal.Id}")" />
                 }
 
@@ -118,6 +129,18 @@
                  AriaLabel="Attach to goal"
                  OnItemSelected="AttachFromMenuAsync"
                  TestId="@(Part("attach-menu") ?? "goals-board-attach-menu")" />
+
+    <ConfirmDialog Open="@(_deleting is not null)"
+                   OpenChanged="open => { if (!open) _deleting = null; }"
+                   Title="Delete this goal?"
+                   Message="@DeleteMessage"
+                   ConfirmText="Delete goal"
+                   Destructive="true"
+                   OnConfirm="ConfirmDeleteAsync"
+                   OnCancel="() => _deleting = null"
+                   TestId="@(Part("delete-confirm") ?? "goals-board-delete-confirm")"
+                   ConfirmTestId="@(Part("delete-confirm-yes") ?? "goals-board-delete-confirm-yes")"
+                   CancelTestId="@(Part("delete-confirm-no") ?? "goals-board-delete-confirm-no")" />
 </div>
 
 @code {
@@ -133,6 +156,9 @@
     private double _menuX;
     private double _menuY;
     private string? _menuItemKey;
+    private GoalCardModel? _deleting;
+    private bool _focusNewGoal;
+    private readonly string _newGoalId = "goals-new-goal-" + Guid.NewGuid().ToString("N");
 
     [Parameter, EditorRequired]
     public GoalsBoardModel Model { get; set; } = default!;
@@ -169,6 +195,24 @@
     /// <summary>An impediment's note was written; without a listener the notes are text.</summary>
     [Parameter]
     public EventCallback<ImpedimentNoteRequest> OnEditImpedimentNote { get; set; }
+
+    /// <summary>A field of the open goal changed. Without a listener no goal is editable.</summary>
+    [Parameter]
+    public EventCallback<GoalEditRequest> OnEditGoal { get; set; }
+
+    /// <summary>A goal's deletion was confirmed: its id. Without a listener there is no
+    /// Delete goal….</summary>
+    [Parameter]
+    public EventCallback<string> OnDeleteGoal { get; set; }
+
+    /// <summary>An item's Detach was pressed on a goal's row. Without a listener no row has one.</summary>
+    [Parameter]
+    public EventCallback<GoalDetachRequest> OnDetach { get; set; }
+
+    /// <summary>Why the open goal's last edit was refused, in the module's words; shown in
+    /// that goal, under its fields.</summary>
+    [Parameter]
+    public string? EditError { get; set; }
 
     /// <summary>A refusal to show above the board, in the module's words.</summary>
     [Parameter]
@@ -224,6 +268,13 @@
     /// is told, so it never believes no goal is open.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_focusNewGoal)
+        {
+            // The deleted goal took Delete goal… with it: the focus waits on New goal.
+            _focusNewGoal = false;
+            await global::Backlog.UI.Components.Tasks.QuickEditField.FocusAsync(Js, _newGoalId, select: false);
+        }
+
         if (!_announce) return;
 
         _announce = false;
@@ -248,6 +299,29 @@
         _menuX = args.ClientX;
         _menuY = args.ClientY;
         _menuOpen = true;
+    }
+
+    private string DeleteMessage => _deleting is { } goal
+        ? $"{goal.Title} is deleted. The plans, tasks and pull requests it holds stay as they are and belong to no goal."
+        : string.Empty;
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_deleting is not { } goal) return;
+
+        // The dialog stays open, Confirm busy, until the host has answered; a refusal
+        // leaves the goal open where the person acted.
+        await OnDeleteGoal.InvokeAsync(goal.Id);
+        await Task.Yield();
+        _deleting = null;
+        if (Model.Goals.Any(g => g.Id == goal.Id) && Error is not null) return;
+
+        _focusNewGoal = true;
+        if (_selected == goal.Id)
+        {
+            _selected = null;
+            await SelectedGoalIdChanged.InvokeAsync(null);
+        }
     }
 
     private async Task AttachFromMenuAsync(MenuItem goal)

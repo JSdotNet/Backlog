@@ -55,14 +55,15 @@ public static class GoalsMapper
 
         GoalCardModel Card(StandUpGoalDto goal)
         {
-            var attached = attachments.TryGetValue(goal.Id, out var held) ? held.Attachments.Select(a => a.Item).ToList() : [];
+            var stored = attachments.GetValueOrDefault(goal.Id);
+            var attached = stored is not null ? stored.Attachments.Select(a => a.Item).ToList() : [];
 
             var plans = attached
                 .Where(item => item.Kind == GoalAttachmentKind.Plan && !string.IsNullOrWhiteSpace(item.PlanTag))
                 .Select(item =>
                 {
                     var rows = candidates.Tasks.Where(task => task.PlanTags.Any(tag => GoalsKeys.SamePlan(tag, item.PlanTag))).ToList();
-                    return new GoalPlanModel(GoalsKeys.Bare(item.PlanTag), rows.Count(row => row.Status == GoalTaskStatus.Done), rows.Count);
+                    return new GoalPlanModel(GoalsKeys.Bare(item.PlanTag), rows.Count(row => row.Status == GoalTaskStatus.Done), rows.Count, GoalsKeys.For(item));
                 })
                 .ToList();
 
@@ -71,8 +72,17 @@ public static class GoalsMapper
                 .Select(item => tasks[item.TaskId!.Value])
                 .ToList();
 
-            var pulls = PullRequestRefs(attached, tasks)
-                .Select(pull => Status(pull.Repository, pull.Number, null))
+            // A goal's own pull request detaches; one only a task brings has no key.
+            var own = attached
+                .Where(item => item.Kind == GoalAttachmentKind.PullRequest && item.Repository is not null && item.Number is not null)
+                .Select(item => GoalsKeys.PullRequestIdentity(item.Repository!, item.Number!.Value))
+                .ToHashSet(StringComparer.Ordinal);
+            var refs = PullRequestRefs(attached, tasks).ToList();
+            var pulls = refs.Select(pull => Status(pull.Repository, pull.Number, null)).ToList();
+            var pullKeys = refs
+                .Select(pull => own.Contains(GoalsKeys.PullRequestIdentity(pull.Repository, pull.Number))
+                    ? GoalsKeys.ForPullRequest(pull.Repository, pull.Number)
+                    : null)
                 .ToList();
 
             return new GoalCardModel(
@@ -83,8 +93,10 @@ public static class GoalsMapper
                 goal.Standing == GoalStanding.AtRisk,
                 new GoalCounts(goal.Progress.Done, goal.Progress.Total, goal.Progress.Doing, goal.Progress.Blocked, goal.Progress.ToDo, goal.Progress.DoneInWindow),
                 plans,
-                [.. goalTasks.Select(task => new GoalTaskModel(task.Id.ToString(), task.Title, task.Status))],
-                pulls);
+                [.. goalTasks.Select(task => new GoalTaskModel(task.Id.ToString(), task.Title, task.Status, GoalsKeys.ForTask(task.Id)))],
+                pulls,
+                stored?.Outcome,
+                pullKeys);
         }
 
         StandUpGroup Group(StandUpGroupDto group) => new(
