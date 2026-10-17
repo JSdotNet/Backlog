@@ -16,6 +16,13 @@ internal sealed class EmptyRoadmapTagSource : IRoadmapTagSource
 {
     public static EmptyRoadmapTagSource Instance { get; } = new();
 
+    /// <summary>No plan, so nothing ever changes.</summary>
+    public event Action? Changed
+    {
+        add { }
+        remove { }
+    }
+
     public Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<string>>([]);
 }

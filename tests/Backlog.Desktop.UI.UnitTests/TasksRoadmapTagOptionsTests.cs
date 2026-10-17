@@ -22,6 +22,12 @@ public sealed class TasksRoadmapTagOptionsTests
 {
     private sealed class StubRoadmapTags(params string[] tags) : IRoadmapTagSource
     {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
         public Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<string>>(tags);
     }

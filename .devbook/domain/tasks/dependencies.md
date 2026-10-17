@@ -54,7 +54,9 @@ status: draft
   - **Tag vocabulary.** Tasks reads the roadmap tags for its picker, as the
     outbound Customer/Supplier row says. A roadmap tag is a slug Tasks conforms
     to, not one it defines, which is why renaming a roadmap item's title must not
-    change it.
+    change it. Tasks reads them again whenever the plan changes, so an item just
+    planned is offered — in the picker and in the Goals view's attach search —
+    without a reload.
   - **Gathering.** Roadmap gathers tasks by their tag and totals the `effort`
     they registered. Tasks registers the effort and files the tag.
 - Roadmap is not a consumer of a projection, and Tasks does not know what is
