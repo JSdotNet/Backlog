@@ -1,7 +1,7 @@
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.UI.Components.Badges;
 
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// The words the pane prints beside the module's tokens. The module speaks in

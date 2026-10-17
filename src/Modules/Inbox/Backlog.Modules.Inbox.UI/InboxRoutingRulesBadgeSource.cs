@@ -3,7 +3,7 @@ using System.Globalization;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.SharedKernel;
 
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// The Inbox page's value in the settings menu: how many routing rules there are,

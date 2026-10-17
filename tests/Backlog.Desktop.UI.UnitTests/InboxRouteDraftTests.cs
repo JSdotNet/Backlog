@@ -1,5 +1,5 @@
-using Backlog.Desktop.UI.Inbox;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
+using Backlog.Modules.Inbox.UI;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

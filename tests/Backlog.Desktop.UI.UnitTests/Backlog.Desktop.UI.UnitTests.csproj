@@ -70,7 +70,7 @@
          tests drive directly, plus the unsupported folder-editor launcher a
          browser-hosted screen gets. -->
     <Using Include="Backlog.Infrastructure.FileSystem" />
-    <Using Include="Backlog.Desktop.UI.Inbox" />
+    <Using Include="Backlog.Modules.Inbox.UI" />
     <Using Include="Backlog.Desktop.UI.Tasks" />
     <Using Include="Backlog.Desktop.UI.Devbook" />
     <Using Include="Backlog.Desktop.UI.Shell" />

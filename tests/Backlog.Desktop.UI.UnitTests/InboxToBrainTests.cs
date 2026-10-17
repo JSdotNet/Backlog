@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.Inbox;
+using Backlog.Modules.Inbox.UI;
 using Backlog.UI.Components.Feedback;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;

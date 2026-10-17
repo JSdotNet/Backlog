@@ -1,6 +1,6 @@
 using Backlog.Modules.Inbox.Abstractions.Services;
 
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// The backlog tag source a host that has wired none stands in with: it offers

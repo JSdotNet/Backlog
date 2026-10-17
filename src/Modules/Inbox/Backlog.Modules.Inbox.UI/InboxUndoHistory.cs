@@ -1,4 +1,4 @@
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>The decisions an Inbox session makes, as the undo history and the
 /// inbox-zero screen count them.</summary>

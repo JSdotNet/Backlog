@@ -1,7 +1,7 @@
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.Badges;
 
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// What a suggestion chip says, as triage draws it: the tag as a tag, the

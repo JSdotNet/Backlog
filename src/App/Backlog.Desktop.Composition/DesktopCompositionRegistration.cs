@@ -1,5 +1,4 @@
 using Backlog.Desktop.UI.Devbook.Extensions;
-using Backlog.Desktop.UI.Inbox;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.AzureFoundry;
@@ -26,6 +25,7 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
+using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Roadmap.Extensions;

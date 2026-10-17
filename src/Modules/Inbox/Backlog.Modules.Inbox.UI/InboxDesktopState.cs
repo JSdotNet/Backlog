@@ -8,7 +8,7 @@ using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Selects;
 
-namespace Backlog.Desktop.UI.Inbox;
+namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// Drives the Inbox pane: the snapshot the module handed over, which slice of it
