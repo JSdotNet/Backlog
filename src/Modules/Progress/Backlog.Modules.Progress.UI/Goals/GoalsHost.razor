@@ -34,6 +34,12 @@
     - attach, through IGoals.AttachAsync. An item another goal holds is refused with
       progress.item_in_other_goal, which names that goal; a ConfirmDialog asks, and
       confirming attaches again with moveFromOtherGoal;
+    - a field of the open goal, through IGoals.EditAsync with the other two as stored.
+      A refusal — no title, no due date, an outcome of more than one line — shows in the
+      goal under its fields, in the module's words, and the field shows the stored value;
+    - Delete goal…, once the board's ConfirmDialog has asked, through IGoals.DeleteAsync.
+      What the goal held is left as it is and shows under No goal on the next reading;
+    - a row's Detach, through IGoals.DetachAsync. A refusal shows above the board;
     - a state picked for an impediment, through IImpediments.MoveAsync with no person,
       so the last one stands. A refusal shows above the board and the picker goes back
       to the stored state;
@@ -63,13 +69,17 @@ else
 {
     <GoalsBoard Model="_model"
                 SelectedGoalId="@_selectedGoalId"
-                SelectedGoalIdChanged="id => _selectedGoalId = id"
+                SelectedGoalIdChanged="SelectGoal"
                 IterationChanged="SetIterationAsync"
                 OnNewGoal="() => { _createError = null; _creating = true; }"
                 OnRefresh="RefreshAsync"
                 OnAttach="AttachAsync"
                 OnMoveImpediment="MoveAsync"
                 OnEditImpedimentNote="EditNoteAsync"
+                OnEditGoal="EditGoalAsync"
+                OnDeleteGoal="DeleteGoalAsync"
+                OnDetach="DetachAsync"
+                EditError="@_editError"
                 Error="@(_writeError ?? _readError)"
                 Busy="_writing"
                 TestId="goals-board" />
@@ -131,6 +141,7 @@ else
     private bool _writing;
     private bool _creating;
     private string? _createError;
+    private string? _editError;
     private PendingMove? _move;
 
     /// <summary>An attach another goal refused, waiting on the person's say.</summary>
@@ -330,6 +341,78 @@ else
             {
                 var attached = await goals.AttachAsync(move.GoalId, move.Item, moveFromOtherGoal: true);
                 if (attached.IsFailure) _writeError = attached.Error.Message;
+                return true;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    /// <summary>Another goal opened, or none: an edit refused on the last one is not its.</summary>
+    private void SelectGoal(string? id)
+    {
+        if (id != _selectedGoalId) _editError = null;
+        _selectedGoalId = id;
+    }
+
+    private async Task EditGoalAsync(GoalEditRequest request)
+    {
+        if (_goals is not { } goals || !Guid.TryParse(request.GoalId, out var goalId)) return;
+
+        _writeError = null;
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var edited = await goals.EditAsync(goalId, new SetGoalRequest(request.Title, request.Outcome, request.DueDate));
+                _editError = edited.IsFailure ? edited.Error.Message : null;
+                return edited.IsSuccess;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    private async Task DeleteGoalAsync(string goalId)
+    {
+        if (_goals is not { } goals || !Guid.TryParse(goalId, out var id)) return;
+
+        _writeError = null;
+        _editError = null;
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var deleted = await goals.DeleteAsync(id);
+                if (deleted.IsFailure) _writeError = deleted.Error.Message;
+                else if (_selectedGoalId == goalId) _selectedGoalId = null;
+                return true;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    private async Task DetachAsync(GoalDetachRequest request)
+    {
+        if (_goals is not { } goals || !Guid.TryParse(request.GoalId, out var goalId) || !GoalsKeys.TryRead(request.ItemKey, out var item)) return;
+
+        _writeError = null;
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var detached = await goals.DetachAsync(goalId, item);
+                if (detached.IsFailure) _writeError = detached.Error.Message;
                 return true;
             }
             finally

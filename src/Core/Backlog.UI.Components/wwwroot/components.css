@@ -21497,6 +21497,58 @@ select.field__input {
     gap: var(--spacing-md);
 }
 
+.goal-card__details {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.goal-card__fields {
+    display: grid;
+    flex: 1 1 24rem;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(9rem, 1fr);
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.goal-card__outcome {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* A row's Detach: a quiet glyph at the row's end; the button keeps its full target. */
+.goal-card__detach {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+}
+
+.goal-card__field-box {
+    min-width: 0;
+}
+
+.goal-card__merged-pull {
+    display: inline-flex;
+    align-items: center;
+}
+
+.goal-card__merged-pull .goal-card__detach {
+    margin-left: 0;
+}
+
+.goal-card__pull {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.goal-card__task-title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
 .goal-card__columns {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -21519,8 +21571,14 @@ select.field__input {
 
 .goal-card__plan {
     display: flex;
+    align-items: center;
     justify-content: space-between;
     gap: var(--spacing-sm);
+}
+
+.goal-card__plan-title {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .goal-card__task {
@@ -21602,7 +21660,8 @@ select.field__input {
    columns stacked. */
 @container goals-board (max-width: 900px) {
     .goals-board__layout,
-    .goal-card__columns {
+    .goal-card__columns,
+    .goal-card__fields {
         grid-template-columns: minmax(0, 1fr);
     }
 }
