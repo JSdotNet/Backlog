@@ -7,7 +7,7 @@
     last and next window as "12–16 Oct → 19–23 Oct", New goal, an icon-only Copy that
     puts the four stand-up blocks on the clipboard as plain text, and Refresh.
 
-    Under GOALS each goal is a GoalCard; one is open at a time, the first when the view
+    Under GOALS, its heading carrying the count as the stand-up's blocks do, each goal is a GoalCard; one is open at a time, the first when the view
     first draws. Below the goals, No goal lists the work in progress in scope that no
     goal holds, each with Attach…: with a goal open it attaches to that goal, titled
     "Attach to ‹goal›"; with none open it opens a menu of the goals' titles. That menu
@@ -54,7 +54,11 @@
 
     <div class="goals-board__layout">
         <div class="goals-board__goals" data-testid="@Part("goals")">
-            <SectionHeader Title="Goals" Level="2" CssClass="goals-board__section-header" />
+            <SectionHeader Title="Goals" Level="2" CssClass="goals-board__section-header">
+                <Actions>
+                    <Badge Kind="tone" Slug="quiet" TestId="@Part("goals-count")">@Model.Goals.Count</Badge>
+                </Actions>
+            </SectionHeader>
 
             @if (IsEmpty)
             {

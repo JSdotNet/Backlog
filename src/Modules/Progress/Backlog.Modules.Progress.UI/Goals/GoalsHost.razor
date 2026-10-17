@@ -29,7 +29,10 @@
     id; goals-view-empty is the board's real empty state alone.
 
     Every write goes through the module and the view is read again once it lands:
-    - the iteration switch, through IIterationSettings.SetLength;
+    - the iteration switch, through IIterationSettings.SetLength. The first time 2 weeks
+      is chosen — no two-week start kept yet — TwoWeekStartDialog asks for the day first,
+      offering the Monday of the current week; Save keeps it through SetTwoWeekStart and
+      then sets the length, and Cancel leaves the iteration as it was;
     - New goal, through IGoals.CreateAsync, the refusal kept in the dialog;
     - attach, through IGoals.AttachAsync. An item another goal holds is refused with
       progress.item_in_other_goal, which names that goal; a ConfirmDialog asks, and
@@ -91,6 +94,11 @@ else
                   Error="@_createError"
                   OnSave="CreateAsync" />
 
+<TwoWeekStartDialog Open="_askingStart"
+                    OpenChanged="open => _askingStart = open"
+                    Offered="@Iterations.MondayOf(Today)"
+                    OnSave="SetTwoWeekStartAsync" />
+
 <ConfirmDialog Open="@(_move is not null)"
                OpenChanged="open => { if (!open) _move = null; }"
                Title="Move to this goal?"
@@ -140,6 +148,7 @@ else
     private string? _writeError;
     private bool _writing;
     private bool _creating;
+    private bool _askingStart;
     private string? _createError;
     private string? _editError;
     private PendingMove? _move;
@@ -261,10 +270,33 @@ else
         if (_settings is null) return;
 
         _writeError = null;
+
+        // 2 weeks with no start yet asks for the day first; nothing is kept until it is given.
+        if (iteration == GoalsIteration.TwoWeeks && _settings.TwoWeekStart is null)
+        {
+            _askingStart = true;
+            return;
+        }
+
         var settings = _settings;
         await WriteAsync(() =>
         {
             settings.SetLength(GoalsMapper.Length(iteration), Today);
+            return Task.FromResult(true);
+        });
+    }
+
+    /// <summary>The day was given: it is kept as the two-week start, then the view reads by
+    /// 2 weeks.</summary>
+    private async Task SetTwoWeekStartAsync(DateOnly start)
+    {
+        if (_settings is not { } settings) return;
+
+        _askingStart = false;
+        await WriteAsync(() =>
+        {
+            settings.SetTwoWeekStart(start);
+            settings.SetLength(IterationLength.TwoWeeks, Today);
             return Task.FromResult(true);
         });
     }

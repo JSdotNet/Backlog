@@ -60,6 +60,9 @@ public static class GoalsText
         return $"{counts.Done} done, {counts.Doing} in progress, {counts.Blocked} blocked, {counts.ToDo} not started";
     }
 
+    /// <summary>One item's effort: "5 pts".</summary>
+    public static string Points(int points) => $"{points.ToString(English)} pts";
+
     /// <summary>"21 / 18 pts", or "21 pts" without a pace.</summary>
     public static string PointsTag(int planned, int? capacity) =>
         capacity is { } pace ? $"{planned} / {pace} pts" : $"{planned} pts";

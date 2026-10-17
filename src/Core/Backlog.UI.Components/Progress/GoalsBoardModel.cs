@@ -100,7 +100,9 @@ public sealed record GoalsItem(string Key, GoalsItemKind Kind, string Title, int
 /// <summary>An item in the stand-up's Finished or Planned list.</summary>
 /// <param name="Title">The item's title.</param>
 /// <param name="PullRequest">A pull request item's status line; null for anything else.</param>
-public sealed record StandUpEntry(string Title, PullRequestStatusModel? PullRequest = null);
+/// <param name="Effort">The item's <c>effort:</c> in points, when it carries one; a planned
+/// item shows it.</param>
+public sealed record StandUpEntry(string Title, PullRequestStatusModel? PullRequest = null, int? Effort = null);
 
 /// <summary>The items of one goal, or of No goal when <paramref name="GoalTitle"/> is null.</summary>
 public sealed record StandUpGroup(string? GoalTitle, IReadOnlyList<StandUpEntry> Items);

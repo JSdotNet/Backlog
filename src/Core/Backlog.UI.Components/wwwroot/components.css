@@ -21400,6 +21400,13 @@ select.field__input {
     min-width: 0;
 }
 
+/* The Goals heading carries its count beside it, as each stand-up block's does. */
+.goals-board__section-header {
+    justify-content: flex-start;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
 .goals-board__section-header .section-header__title,
 .stand-up-panel__header .section-header__title {
     font-family: var(--font-family-base);
@@ -21744,6 +21751,22 @@ select.field__input {
     color: var(--color-text-secondary);
 }
 
+/* A planned item's effort sits at the row's end, in the points tag's figures. */
+.stand-up-panel__item--planned {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.stand-up-panel__effort {
+    flex: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 .stand-up-panel__resolved {
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
@@ -21821,6 +21844,12 @@ select.field__input {
 
 .goal-create-dialog .field + .field {
     margin-top: var(--spacing-sm);
+}
+
+.two-week-start-dialog__text {
+    margin: 0 0 var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
 }
 /* The goal a piece of work counts toward: a small label and one quiet button, inline
    so it sits in a heading line, a card row or a field list without a row of its own. */

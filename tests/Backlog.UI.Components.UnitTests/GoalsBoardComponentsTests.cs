@@ -49,7 +49,7 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         [
             new StandUpGroup("Customers get paid faster",
             [
-                new StandUpEntry("Customer search by IBAN"),
+                new StandUpEntry("Customer search by IBAN", Effort: 8),
                 new StandUpEntry("Payment status webhook", new PullRequestStatusModel(1357, "open", new PullRequestChecks(9, 0, 5)))
             ])
         ],
@@ -340,6 +340,31 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         Assert.Equal("21 points planned, you usually finish 18 a week", points.GetAttribute("title"));
 
         Assert.Equal("1 resolved", panel.Find("[data-testid='su-resolved']").TextContent);
+    }
+
+    [Fact]
+    public void The_goals_heading_carries_the_count_of_goals()
+    {
+        var board = RenderBoard();
+
+        var heading = board.Find("[data-testid='goals-board-goals'] h2");
+        Assert.Equal("Goals", heading.TextContent.Trim());
+        Assert.Equal("2", board.Find("[data-testid='goals-board-goals-count']").TextContent.Trim());
+
+        var empty = RenderBoard(Board with { Goals = [], NoGoal = [] });
+        Assert.Equal("0", empty.Find("[data-testid='goals-board-goals-count']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_planned_item_shows_its_effort_in_points_and_one_without_shows_none()
+    {
+        var panel = _context.Render<StandUpPanel>(p => p.Add(c => c.StandUp, StandUp).Add(c => c.TestId, "su"));
+
+        var items = panel.FindAll("[data-testid='su-planned'] .stand-up-panel__item");
+        Assert.Equal("8 pts", items[0].QuerySelector("[data-testid='su-effort']")!.TextContent);
+        Assert.Contains("Customer search by IBAN", items[0].TextContent);
+        Assert.Null(items[1].QuerySelector("[data-testid='su-effort']"));
+        Assert.Empty(panel.FindAll("[data-testid='su-finished'] [data-testid='su-effort']"));
     }
 
     [Fact]
@@ -736,6 +761,43 @@ public sealed class GoalsBoardComponentsTests : IDisposable
 
         Assert.Equal("A goal needs a due date.", dialog.Find("[data-testid='goal-create-dialog-error']").TextContent.Trim());
         Assert.Equal("date", dialog.Find("[data-testid='goal-create-dialog-due'] input").GetAttribute("type"));
+    }
+
+    [Fact]
+    public void The_two_week_start_dialog_opens_on_the_offered_day_and_hands_back_the_one_given()
+    {
+        DateOnly? saved = null;
+        var dialog = _context.Render<TwoWeekStartDialog>(p => p
+            .Add(c => c.Open, true)
+            .Add(c => c.Offered, Oct(19))
+            .Add(c => c.OnSave, (DateOnly day) => saved = day));
+
+        var field = dialog.Find("[data-testid='two-week-start-dialog-start'] input");
+        Assert.Equal("date", field.GetAttribute("type"));
+        Assert.Equal("2026-10-19", field.GetAttribute("value"));
+
+        dialog.Find("[data-testid='two-week-start-dialog-start'] input").Input("2026-10-05");
+        dialog.Find("[data-testid='two-week-start-dialog-save']").Click();
+
+        dialog.WaitForAssertion(() => Assert.Equal(Oct(5), saved));
+    }
+
+    [Fact]
+    public void The_two_week_start_dialog_refuses_a_blank_day_and_keeps_nothing()
+    {
+        var saves = 0;
+        var dialog = _context.Render<TwoWeekStartDialog>(p => p
+            .Add(c => c.Open, true)
+            .Add(c => c.Offered, Oct(19))
+            .Add(c => c.OnSave, (DateOnly _) => saves++));
+
+        dialog.Find("[data-testid='two-week-start-dialog-start'] input").Input("");
+        dialog.Find("[data-testid='two-week-start-dialog-save']").Click();
+
+        dialog.WaitForAssertion(() => Assert.Equal(
+            "Two-week iterations need a day to count from.",
+            dialog.Find("[data-testid='two-week-start-dialog-error']").TextContent.Trim()));
+        Assert.Equal(0, saves);
     }
 
     private static string Normalise(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));

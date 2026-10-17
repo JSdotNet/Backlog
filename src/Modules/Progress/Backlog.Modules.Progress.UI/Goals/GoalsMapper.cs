@@ -105,7 +105,8 @@ public static class GoalsMapper
                 item.Title,
                 item.Kind == GoalAttachmentKind.PullRequest && item.Repository is { } repository && item.Number is { } number
                     ? Status(repository, number, item.Title)
-                    : null))]);
+                    : null,
+                item.Effort))]);
 
         var standUpModel = new StandUpModel(
             [.. standUp.Finished.Select(Group)],

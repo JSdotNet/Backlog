@@ -332,6 +332,7 @@ The system SHALL, with Week chosen, read each window as Monday to Friday, and on
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Choosing_2_weeks_the_first_time_asks_for_the_start_offering_this_weeks_monday_and_keeps_it_before_the_length, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Cancelling_the_two_week_start_keeps_the_iteration_as_it_was, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.With_a_two_week_start_kept_2_weeks_switches_without_asking, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_two_week_start_dialog_opens_on_the_offered_day_and_hands_back_the_one_given, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_two_week_start_dialog_refuses_a_blank_day_and_keeps_nothing]
 ```
 
 The system SHALL, with 2 weeks chosen, read each window as fourteen days starting on the two-week start or a whole number of fourteen days from it.
@@ -391,6 +392,7 @@ related: [.devbook/domain/progress/features.md#the-stand-up]
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_goals_heading_carries_the_count_of_goals, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_stand_up_heads_each_block_with_its_count_and_tags_planned_with_points]
 ```
 
 The system SHALL show the stand-up as four blocks in this order: Goals, Finished, Planned and Impediments, each heading with its count.
@@ -443,7 +445,7 @@ The system SHALL list under Planned, each once, the items goals hold that are in
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_points_tag_adds_up_planned_effort_beside_the_weekly_pace, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_points_tag_scales_the_pace_to_a_day, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.The_points_tag_compares_planned_with_capacity]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_points_tag_adds_up_planned_effort_beside_the_weekly_pace, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.The_points_tag_scales_the_pace_to_a_day, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.The_points_tag_compares_planned_with_capacity, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_planned_item_shows_its_effort_in_points_and_one_without_shows_none, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.A_planned_items_effort_reaches_the_stand_up_in_points]
 ```
 
 The system SHALL tag Planned with the planned items' `effort:` added up, then the person's pace from the Roadmap scaled to the next window's working days, as `planned / capacity pts`.

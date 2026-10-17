@@ -136,6 +136,74 @@ public sealed class GoalsHostTests : IDisposable
     }
 
     [Fact]
+    public void Choosing_2_weeks_the_first_time_asks_for_the_start_offering_this_weeks_monday_and_keeps_it_before_the_length()
+    {
+        var host = Render();
+        host.WaitForAssertion(() => host.Find("[data-testid='goals-board-iteration-twoweeks']"));
+        var before = _standUp.Reads;
+
+        host.Find("[data-testid='goals-board-iteration-twoweeks']").Click();
+
+        var monday = Iterations.MondayOf(DateOnly.FromDateTime(DateTime.Now));
+        host.WaitForAssertion(() => Assert.Equal(
+            monday.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            host.Find("[data-testid='two-week-start-dialog-start'] input").GetAttribute("value")));
+        Assert.Empty(_settings.Writes);
+        Assert.Equal(before, _standUp.Reads);
+
+        host.Find("[data-testid='two-week-start-dialog-start'] input").Input("2026-10-05");
+        host.Find("[data-testid='two-week-start-dialog-save']").Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal(["start 2026-10-05", "length TwoWeeks"], _settings.Writes);
+            Assert.True(_standUp.Reads > before);
+            Assert.Empty(host.FindAll("[data-testid='two-week-start-dialog']"));
+        });
+    }
+
+    [Fact]
+    public void Cancelling_the_two_week_start_keeps_the_iteration_as_it_was()
+    {
+        var host = Render();
+        host.WaitForAssertion(() => host.Find("[data-testid='goals-board-iteration-twoweeks']"));
+
+        host.Find("[data-testid='goals-board-iteration-twoweeks']").Click();
+        host.WaitForAssertion(() => host.Find("[data-testid='two-week-start-dialog-cancel']"));
+        host.Find("[data-testid='two-week-start-dialog-cancel']").Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Empty(host.FindAll("[data-testid='two-week-start-dialog']"));
+            Assert.Equal("true", host.Find("[data-testid='goals-board-iteration-week']").GetAttribute("aria-checked"));
+        });
+        Assert.Empty(_settings.Writes);
+        Assert.Null(_settings.TwoWeekStart);
+    }
+
+    [Fact]
+    public void With_a_two_week_start_kept_2_weeks_switches_without_asking()
+    {
+        _settings.TwoWeekStart = Oct(5);
+        var host = Render();
+        host.WaitForAssertion(() => host.Find("[data-testid='goals-board-iteration-twoweeks']"));
+
+        host.Find("[data-testid='goals-board-iteration-twoweeks']").Click();
+
+        host.WaitForAssertion(() => Assert.Equal(["length TwoWeeks"], _settings.Writes));
+        Assert.Empty(host.FindAll("[data-testid='two-week-start-dialog']"));
+    }
+
+    [Fact]
+    public void A_planned_items_effort_reaches_the_stand_up_in_points()
+    {
+        var host = Render();
+
+        host.WaitForAssertion(() =>
+            Assert.Equal("3 pts", host.Find("[data-testid='goals-board-stand-up-planned'] [data-testid='goals-board-stand-up-effort']").TextContent));
+    }
+
+    [Fact]
     public void Refresh_reads_the_shell_and_the_view_again()
     {
         var reads = new List<bool>();
@@ -696,9 +764,12 @@ public sealed class GoalsHostTests : IDisposable
 
         public IterationLength Length { get; private set; } = IterationLength.Week;
 
-        public DateOnly? TwoWeekStart { get; private set; }
+        public DateOnly? TwoWeekStart { get; set; }
 
         public DateOnly? SetOn { get; private set; }
+
+        /// <summary>Each write, in the order it was made.</summary>
+        public List<string> Writes { get; } = [];
 
         public void RaiseChanged() => _changed?.Invoke();
 
@@ -706,9 +777,14 @@ public sealed class GoalsHostTests : IDisposable
         {
             Length = length;
             SetOn = today;
+            Writes.Add($"length {length}");
         }
 
-        public void SetTwoWeekStart(DateOnly start) => TwoWeekStart = start;
+        public void SetTwoWeekStart(DateOnly start)
+        {
+            TwoWeekStart = start;
+            Writes.Add($"start {start:yyyy-MM-dd}");
+        }
     }
 
     internal sealed class FakePullRequests : IGoalPullRequestReader
