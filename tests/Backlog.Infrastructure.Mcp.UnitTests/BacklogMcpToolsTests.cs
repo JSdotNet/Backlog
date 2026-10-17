@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Reflection;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
@@ -58,7 +59,11 @@ public class BacklogMcpToolsTests
                 "update_stage",
                 "finish_run",
                 "list_runs",
-                "get_run"
+                "get_run",
+
+                // Progress's impediments, beside set_blocked (local ADR 0035).
+                "raise_impediment",
+                "set_impediment_state"
             ],
             BacklogMcpTools.ToolNames);
     }
@@ -78,6 +83,7 @@ public class BacklogMcpToolsTests
         Assert.Equal(DevbookFeatures.RepositoryDevbook, BacklogMcpTools.Devbook.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
+        Assert.Equal(ProgressFeatures.Goals, BacklogMcpTools.Impediments.FeatureKey);
     }
 
     /// <summary>
@@ -112,7 +118,7 @@ public class BacklogMcpToolsTests
             .GroupBy(group => group.FeatureKey, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
-        Assert.Equal(4, byKey.Count);
+        Assert.Equal(5, byKey.Count);
 
         Assert.Equal(
             [BacklogMcpTools.Work, BacklogMcpTools.Tracker],
@@ -210,7 +216,9 @@ public class BacklogMcpToolsTests
             SurfaceTools.RecordPrompt,
             SurfaceTools.SetRunContext,
             SurfaceTools.UpdateStage,
-            SurfaceTools.FinishRun
+            SurfaceTools.FinishRun,
+            ImpedimentTools.RaiseImpediment,
+            ImpedimentTools.SetImpedimentState
         ];
 
         // The writes a client may safely repeat, and which ones is not guessable

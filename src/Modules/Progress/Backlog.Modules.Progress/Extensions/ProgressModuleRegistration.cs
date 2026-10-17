@@ -6,6 +6,8 @@ using Backlog.Modules.Progress.Features.CreateSeries;
 using Backlog.Modules.Progress.Features.FillSprint;
 using Backlog.Modules.Progress.Features.GetSeries;
 using Backlog.Modules.Progress.Features.ListGoals;
+using Backlog.Modules.Progress.Features.ListImpediments;
+using Backlog.Modules.Progress.Features.TrackImpediment;
 using Backlog.Modules.Progress.Features.MarkSprintItem;
 using Backlog.Modules.Progress.Features.ReadSprintProgress;
 using Backlog.Modules.Progress.Features.SetGoal;
@@ -102,6 +104,35 @@ public static class ProgressModuleRegistration
         services.TryAddSingleton<IGoalReplication>(sp => new GoalReplication(
             sp.GetService<IGoalReplicaStore>(),
             sp.GetRequiredService<GoalSaved>(),
+            sp.GetRequiredService<ProgressGate>()));
+
+        // Impediments (local ADR 0035 §5), on the goals switch. Composed through factories
+        // so a host that keeps no impediments still builds: the repository and the
+        // blocked-task source are the host's, and are asked for only when a call needs them.
+        services.TryAddSingleton<ImpedimentSaved>();
+        services.AddScoped(sp => new ImpedimentChanges(
+            sp.GetRequiredService<IImpedimentRepository>(),
+            sp.GetRequiredService<ProgressGate>(),
+            sp.GetRequiredService<ImpedimentSaved>()));
+        services.AddScoped(sp => new ListImpedimentsQueryHandler(sp.GetRequiredService<IImpedimentRepository>()));
+        services.AddScoped(sp => new ImpedimentCommandHandler(
+            sp.GetRequiredService<ImpedimentChanges>(),
+            sp.GetRequiredService<TimeProvider>()));
+        services.AddScoped<IImpediments>(sp => new Impediments(
+            sp.GetRequiredService<ListImpedimentsQueryHandler>(),
+            sp.GetRequiredService<ImpedimentCommandHandler>(),
+            sp.GetService<IAppFeatureSettings>(),
+            sp.GetRequiredService<ImpedimentSaved>()));
+        services.AddScoped<IBlockedTaskPolicy>(sp => new BlockedTaskPolicy(
+            sp.GetRequiredService<IBlockedTaskSource>(),
+            sp.GetRequiredService<ImpedimentChanges>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetService<IAppFeatureSettings>()));
+
+        // Each impediment as an `impediment` document on the task feed, on the goals' terms.
+        services.TryAddSingleton<IImpedimentReplication>(sp => new ImpedimentReplication(
+            sp.GetService<IImpedimentReplicaStore>(),
+            sp.GetRequiredService<ImpedimentSaved>(),
             sp.GetRequiredService<ProgressGate>()));
 
         return services;

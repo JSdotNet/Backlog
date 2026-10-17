@@ -131,6 +131,7 @@ public sealed class TaskSyncWorker : IDisposable
     private readonly IGitHubSettingsReplication? _github;
     private readonly ISprintSeriesReplication? _sprints;
     private readonly IGoalReplication? _goals;
+    private readonly IImpedimentReplication? _impediments;
     private readonly IMyDayPreferencesReplication? _myDay;
     private readonly ILogger _log;
 
@@ -211,6 +212,8 @@ public sealed class TaskSyncWorker : IDisposable
     /// <param name="goals">Progress's goal replication port, for its local-change notice
     /// only: a goal changed here is pushed after the same settle delay (local ADR 0035).
     /// Null on a head without Progress.</param>
+    /// <param name="impediments">Progress's impediment replication port, for its
+    /// local-change notice only, on the goals' terms. Null on a head without Progress.</param>
     public TaskSyncWorker(
         IServiceProvider services,
         IAppFeatureSettings features,
@@ -223,7 +226,8 @@ public sealed class TaskSyncWorker : IDisposable
         IGitHubSettingsReplication? github = null,
         ISprintSeriesReplication? sprints = null,
         IMyDayPreferencesReplication? myDay = null,
-        IGoalReplication? goals = null)
+        IGoalReplication? goals = null,
+        IImpedimentReplication? impediments = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(features);
@@ -242,6 +246,7 @@ public sealed class TaskSyncWorker : IDisposable
         _sprints = sprints;
         _myDay = myDay;
         _goals = goals;
+        _impediments = impediments;
         _log =log ?? NullLogger<TaskSyncWorker>.Instance;
 
         // Both gates can move while the app is running, and each of them moving
@@ -254,6 +259,7 @@ public sealed class TaskSyncWorker : IDisposable
         if (_sprints is not null) _sprints.Changed += OnLocalChange;
         if (_myDay is not null) _myDay.Changed += OnLocalChange;
         if (_goals is not null) _goals.Changed += OnLocalChange;
+        if (_impediments is not null) _impediments.Changed += OnLocalChange;
 
         ApplyGates();
     }
@@ -389,6 +395,7 @@ public sealed class TaskSyncWorker : IDisposable
         if (_sprints is not null) _sprints.Changed -= OnLocalChange;
         if (_myDay is not null) _myDay.Changed -= OnLocalChange;
         if (_goals is not null) _goals.Changed -= OnLocalChange;
+        if (_impediments is not null) _impediments.Changed -= OnLocalChange;
 
         _lifetime.Cancel();
         _lifetime.Dispose();

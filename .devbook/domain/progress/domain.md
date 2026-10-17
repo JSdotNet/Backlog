@@ -220,13 +220,20 @@ aliases: [BlockedTaskPolicy]
 ```
 
 Raises an impediment when a task is marked blocked. When a task gains the mark, by its
-`blocked:` token or a `set_blocked` call, and no open impediment holds it back, the
+`blocked:` token or a `set_blocked` call, and no impediment tracks that block, the
 policy raises a `New` impediment titled with the task's title that holds the task
-back. Tasks knows nothing of it: the policy reads the mark from the task, and stores
-nothing on the task.
+back. An impediment tracks a task's block when it holds the task back and is open, or
+was raised on or after the day the task was marked blocked. The second half keeps a
+person's Resolve from being undone while the task is still marked, and lets a task
+marked blocked again later raise a new one. Tasks knows nothing of it: the policy
+reads the mark from the task, and stores nothing on the task.
 
-Invocation semantics: event-triggered policy, reacting to a task saved with the
-blocked mark it did not have before. What it promises is a requirement of
+Invocation semantics: event-triggered policy. Tasks' change signal names no task, so
+an adapter beside Progress hears every task written on this device and runs the
+policy, which reads every blocked task that is not finished and asks each whether
+its block is tracked. A task copy pulled by sync is not heard: the device that marked
+the task raised the impediment, and it arrives as its own document. What the policy
+promises is a requirement of
 [Tracking an impediment](requirements.md#tracking-an-impediment).
 
 ## Stand-up Reading

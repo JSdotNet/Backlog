@@ -41,6 +41,10 @@ public enum SyncItemKind
     /// <summary>A goal: its title, outcome, due date and attachments, as one whole
     /// document (local ADR 0035 §9).</summary>
     Goal,
+
+    /// <summary>An impediment: its state, history, check-again date, note and the tasks it
+    /// holds back, as one whole document (local ADR 0035 §9).</summary>
+    Impediment,
 }
 
 /// <summary>

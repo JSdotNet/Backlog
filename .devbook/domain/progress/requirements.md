@@ -545,9 +545,10 @@ The system SHALL record with each move the day it was made and who the impedimen
 ```meta
 type: requirement
 status: draft
+tests: [integration:dotnet:Backlog.HostComposition.UnitTests.BlockedTaskRaisesImpedimentTests.Set_blocked_raises_one_New_impediment_and_unblocking_leaves_it, integration:dotnet:Backlog.HostComposition.UnitTests.BlockedTaskRaisesImpedimentTests.A_blocked_token_in_the_entry_text_raises_one_too]
 ```
 
-When a task is marked blocked, by its `blocked:` token or a `set_blocked` call, the system SHALL raise a New impediment titled with the task's title that holds the task back, unless an impediment that is not Resolved already holds it back.
+When a task is marked blocked, by its `blocked:` token or a `set_blocked` call, the system SHALL raise a New impediment titled with the task's title that holds the task back, unless an impediment already holds it back that is not Resolved, or that was raised on or after the day the task was marked blocked.
 
 #### Scenario: Marking a task blocked
 
@@ -566,6 +567,12 @@ When a task is marked blocked, by its `blocked:` token or a `set_blocked` call, 
 - **Given** the only impediment that held back "Bank import mapping" is Resolved
 - **When** the task is marked blocked again
 - **Then** a New impediment "Bank import mapping" holds it back
+
+#### Scenario: Resolved while the task is still blocked
+
+- **Given** "Bank import mapping" was marked blocked on 15 October, and the impediment that raised is Resolved on 16 October
+- **When** the task is written again with its mark unchanged
+- **Then** no impediment is raised
 
 ### Requirement: Unblocking a task leaves its impediment
 

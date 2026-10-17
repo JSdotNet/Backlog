@@ -5,7 +5,7 @@ status: draft
 type: invariants
 ```
 
-What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, and where it is enforced. Nothing here is built yet, so no rule names a test.
+What each aggregate and domain service on [`domain.md`](domain.md) enforces, one chapter each: each rule, where it is enforced, and the unit test that proves it once the rule is built.
 
 ## Goal
 
@@ -111,6 +111,7 @@ related: [.devbook/domain/progress/domain.md#impediment]
 ```meta
 status: draft
 type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.An_impediment_has_a_title
 ```
 
 An impediment's title is not blank (`progress.impediment_without_title`).
@@ -122,6 +123,7 @@ Enforced at: constructor, `Rename()`
 ```meta
 status: draft
 type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.An_impediment_starts_New_and_its_history_opens_with_that_step
 ```
 
 A new impediment is in state New, and its history opens with that step.
@@ -133,6 +135,7 @@ Enforced at: constructor
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.An_impediment_moves_forward_along_its_states, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Any_other_move_is_refused_and_changes_nothing, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Moving_an_escalated_impediment_back_to_Reported_is_refused]
 ```
 
 An impediment moves only from New to Reported, from Reported to Escalated or Being handled, and from Escalated to Being handled; any other move is refused (`progress.impediment_move_not_allowed`).
@@ -145,6 +148,7 @@ Enforced at: `MoveTo()`
 ```meta
 status: draft
 type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Any_open_impediment_may_be_resolved
 ```
 
 An impediment in any state but Resolved may move to Resolved.
@@ -156,6 +160,7 @@ Enforced at: `MoveTo()`
 ```meta
 status: draft
 type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_resolved_impediment_stays_resolved
 ```
 
 A resolved impediment moves to no other state (`progress.impediment_resolved`).
@@ -168,9 +173,10 @@ Enforced at: `MoveTo()`
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.Every_move_records_its_day_and_who_it_is_with, unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.The_history_days_never_go_backwards]
 ```
 
-Each change of state adds one state change with its state and day, and the history's days never go backwards.
+Each change of state adds one state change with its state and day, and the history's days never go backwards: a move dated before the last step is refused (`progress.impediment_move_before_last_step`).
 
 Enforced at: `MoveTo()`, `State Change`
 
@@ -179,6 +185,7 @@ Enforced at: `MoveTo()`, `State Change`
 ```meta
 status: draft
 type: invariant
+tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentInvariantTests.A_task_is_held_back_once_and_released_by_id
 ```
 
 An impediment holds back each task at most once; linking the same task again changes nothing.

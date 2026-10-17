@@ -51,6 +51,11 @@ public static class TaskFold
     /// <see cref="CaptureType"/> is; persisted on every replica, so never to be renamed.</summary>
     public const string GoalType = "goal";
 
+    /// <summary>The kind token of an impediment — Progress's whole impediment, synced
+    /// between desktops (.devbook/arc42/adr/0035). Never a task row, for the reason
+    /// <see cref="GoalType"/> gives; persisted on every replica, so never to be renamed.</summary>
+    public const string ImpedimentType = "impediment";
+
     /// <summary>The kind token of the My Day preferences — Clear My Day overnight, set
     /// on a desktop (.devbook/arc42/adr/0032). Never a row: the projection keeps the
     /// document whole beside the rows, as <see cref="MyDayPreferencesDocument"/>. A
@@ -71,6 +76,7 @@ public static class TaskFold
         SprintSeriesType,
         MyDayPreferencesType,
         GoalType,
+        ImpedimentType,
     };
 
     /// <summary>Folds <paramref name="records"/> into <paramref name="rows"/>, and
