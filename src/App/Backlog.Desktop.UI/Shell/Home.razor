@@ -379,8 +379,10 @@
                flag, fused because they are one context's two lists, led by the In
                progress view that summarises both. Each list is a takeover, so
                pressing the pressed one, Escape, or the surface's own close button
-               returns to the workspace. Renders only while one of them is offered. *@
-            @if (SessionsOffered || PullRequestsOffered)
+               returns to the workspace. Renders only while one of them is offered,
+               or the Goals view is: with the goals flag on, Goals leads the group
+               and is offered on its own (local ADR 0035 §10). *@
+            @if (SessionsOffered || PullRequestsOffered || GoalsOffered)
             {
                 <ButtonGroup CssClass="header-group header-group--work"
                              AriaLabel="Work in progress"
@@ -388,18 +390,40 @@
                     @* A main view, not a takeover, though it sits with two: pressing
                        it shows the view as a view-switch option does, and nothing
                        closes it. First,
-                       because it is the summary the other two are the lists behind. *@
-                    <ToggleButton BaseClass="header-group__option"
-                                  PressedCssClass="header-group__option--selected"
-                                  Pressed="ViewOptionPressed(ShellView.InProgress)"
-                                  id="in-progress-view-option"
-                                  Title="In progress"
-                                  TestId="in-progress-view-option"
-                                  aria-controls="in-progress-view"
-                                  OnClick="() => ShowView(ShellView.InProgress)">
-                        <ActivityIcon />
-                        <span class="header-nav-label header-nav-label--tier-2">In progress</span>
-                    </ToggleButton>
+                       because it is the summary the other two are the lists behind.
+                       One member, ShellView.Goals, under two names: Goals while the
+                       goals flag is on, In progress as it was while it is off. *@
+                    @if (GoalsOffered)
+                    {
+                        <ToggleButton BaseClass="header-group__option"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="ViewOptionPressed(ShellView.Goals)"
+                                      id="goals-view-option"
+                                      Title="Goals"
+                                      TestId="goals-view-option"
+                                      aria-controls="goals-view"
+                                      OnClick="() => ShowView(ShellView.Goals)">
+                            <TargetIcon />
+                            <span class="header-nav-label header-nav-label--tier-2">Goals</span>
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Goals)"
+                                                Title="@FeatureStatusTitle(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Goals)"
+                                                TestId="goals-feature-status" />
+                        </ToggleButton>
+                    }
+                    else
+                    {
+                        <ToggleButton BaseClass="header-group__option"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="ViewOptionPressed(ShellView.Goals)"
+                                      id="in-progress-view-option"
+                                      Title="In progress"
+                                      TestId="in-progress-view-option"
+                                      aria-controls="in-progress-view"
+                                      OnClick="() => ShowView(ShellView.Goals)">
+                            <ActivityIcon />
+                            <span class="header-nav-label header-nav-label--tier-2">In progress</span>
+                        </ToggleButton>
+                    }
 
                     @if (SessionsOffered)
                     {
@@ -770,6 +794,21 @@
                     <RoadmapBand OnOpenTasks="OpenPlanTasks" />
                 </div>
             }
+            else if (GoalsViewVisible)
+            {
+                @* The Goals view, while the goals flag is on: In progress's place and
+                   no Now board (local ADR 0035 §10). Its goals and stand-up are the
+                   Goals view's own build; until then the body says what lands here. *@
+                <div class="goals-view" id="goals-view" data-testid="goals-view">
+                    <div class="goals-view__body" data-testid="goals-view-body">
+                        <EmptyState Title="Goals"
+                                    Description="Your goals and the stand-up show here."
+                                    TestId="goals-view-empty">
+                            <Icon><TargetIcon Size="24" /></Icon>
+                        </EmptyState>
+                    </div>
+                </div>
+            }
             else if (InProgressViewVisible)
             {
                 @* A view like the roadmap: no Escape, no filter bar. The tab is the
@@ -842,7 +881,7 @@
         // when the roadmap was a takeover as the Roadmap view over the workspace;
         // the surface is checked again here so that no path can put the old
         // takeover back on screen.
-        _view = Remembered(ShellNavigation.LastView, _view);
+        _view = ShellViews.Read(ShellNavigation.LastView, _view);
 
         if (_surface == WorkspaceSurface.Roadmap)
         {
@@ -1063,16 +1102,26 @@
     private ShellView EffectiveView => _view switch
     {
         ShellView.Roadmap when !RoadmapViewOffered => ShellView.Tasks,
-        ShellView.InProgress when !InProgressViewOffered => ShellView.Tasks,
+        ShellView.Goals when !GoalsOffered && !InProgressViewOffered => ShellView.Tasks,
         _ => _view
     };
 
-    /// <summary>Whether the work in progress group offers In progress: while either
-    /// of the lists it summarises is on.</summary>
-    private bool InProgressViewOffered => SessionsOffered || PullRequestsOffered;
+    /// <summary>Whether the goals flag is on: the work in progress group then leads
+    /// with Goals in In progress's place, offered on the flag alone, whether or not
+    /// Sessions or Pull requests are (local ADR 0035 §10).</summary>
+    private bool GoalsOffered => IsFeatureEnabled(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Goals);
 
-    /// <summary>Whether the In progress view is on screen.</summary>
-    private bool InProgressViewVisible => WorkspaceVisible && EffectiveView == ShellView.InProgress;
+    /// <summary>Whether the work in progress group offers In progress: while the goals
+    /// flag is off and either of the lists it summarises is on.</summary>
+    private bool InProgressViewOffered => !GoalsOffered && (SessionsOffered || PullRequestsOffered);
+
+    /// <summary>Whether the Goals view is on screen: the shared member, with the goals
+    /// flag on.</summary>
+    private bool GoalsViewVisible => WorkspaceVisible && GoalsOffered && EffectiveView == ShellView.Goals;
+
+    /// <summary>Whether the In progress view is on screen: the shared member, with the
+    /// goals flag off.</summary>
+    private bool InProgressViewVisible => WorkspaceVisible && InProgressViewOffered && EffectiveView == ShellView.Goals;
 
     /// <summary>Whether the task list is in front of the reader — the Tasks view, or
     /// the Board or the Calendar laying out the same filtered rows, on screen in
@@ -1147,7 +1196,7 @@
     /// narrowed to the anchor would take away. Tools reads none, so there a chip is a
     /// single select and the scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral =>
-        TasksListOnScreen || InProgressViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible;
+        TasksListOnScreen || InProgressViewVisible || GoalsViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button
@@ -1172,6 +1221,7 @@
                 InboxVisible ? "inbox"
                 : TasksListOnScreen ? "tasks"
                 : RoadmapViewVisible ? "roadmap"
+                : GoalsViewVisible ? "goals"
                 : DevbookVisible ? "devbook"
                 : DashboardVisible ? "dashboard"
                 : SessionsVisible ? "sessions"
@@ -1215,7 +1265,7 @@
     private void OpenSprintFromBrief(Backlog.Modules.Dashboard.Abstractions.Services.SprintBriefSprint sprint)
     {
         _sprintRequest = new Backlog.Modules.Progress.UI.InProgress.SprintViewRequest(sprint.SeriesId, sprint.Number);
-        ShowView(ShellView.InProgress);
+        ShowView(ShellView.Goals);
     }
 
     /// <summary>
@@ -1513,7 +1563,7 @@
                             Reader="_work"
                             OnOpenSession="OpenSessionAsync"
                             OnOpenPullRequest="OpenPullRequestAsync"
-                            OnOpenInProgress="() => ShowView(ShellView.InProgress)"
+                            OnOpenInProgress="() => ShowView(ShellView.Goals)"
                             ShowSessions="SessionsOffered"
                             ShowPullRequests="PullRequestsOffered" />;
 

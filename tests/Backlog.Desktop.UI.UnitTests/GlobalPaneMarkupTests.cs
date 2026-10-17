@@ -97,8 +97,9 @@ public sealed class GlobalPaneMarkupTests
 
         // Each takeover group renders only when one of its takeovers is offered; the
         // view switch always renders, because it is the way back from a takeover.
+        // The work in progress group renders for the Goals view too, under the goals flag.
         Assert.Contains("@if (SurfaceSwitcherVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("@if (SessionsOffered || PullRequestsOffered)", home, StringComparison.Ordinal);
+        Assert.Contains("@if (SessionsOffered || PullRequestsOffered || GoalsOffered)", home, StringComparison.Ordinal);
         var nav = home.IndexOf("<nav class=\"app-header__nav\"", StringComparison.Ordinal);
         var viewSwitch = home.IndexOf("TestId=\"view-switch\"", StringComparison.Ordinal);
         var inboxGuard = home.IndexOf("@if (InboxPaneOptionVisible)", nav, StringComparison.Ordinal);
