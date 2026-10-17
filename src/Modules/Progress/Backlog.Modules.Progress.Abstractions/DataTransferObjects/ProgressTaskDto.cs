@@ -5,8 +5,11 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// A snapshot for one reading: Progress keeps no copy of it.
 /// </summary>
 /// <param name="IsBlocked">Whether a person marked the task blocked.</param>
-/// <param name="PlanTags">The plan tags the task is filed under, without the
-/// <c>+</c> sigil.</param>
+/// <param name="PlanTags">The roadmap slugs the task's tags carry, without the <c>+</c>
+/// sigil: its plan tags, and the bare tag an entry filed before the sigil — or tagged
+/// <c>#slug</c> — carries, the set the roadmap item of that slug gathers by tag. Named by
+/// Tasks' <c>PlanTagMatch.SlugsCarried</c> where the task is read, since Progress may not
+/// reach Tasks.</param>
 /// <param name="RepositoryAliases">The repositories the task belongs to, by alias.</param>
 /// <param name="Tags">The task's tags as written, plan tags included.</param>
 /// <param name="CompletedOn">The day the task was finished, when it is.</param>

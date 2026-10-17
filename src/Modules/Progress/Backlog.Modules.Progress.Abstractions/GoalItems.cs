@@ -26,7 +26,8 @@ public sealed record GoalItem(ProgressTaskDto? Task, PullRequestRefDto? PullRequ
 /// Counts a goal's items from the current state of its work — the rules of
 /// <c>.devbook/domain/progress/domain.md#goal-progress</c> and <c>#done</c>, each item once:
 /// <list type="bullet">
-/// <item>an attached plan counts each entry filed under its tag, in any repository —
+/// <item>an attached plan counts each entry its roadmap item gathers by tag — the slugs
+/// <see cref="ProgressTaskDto.PlanTags"/> carries — in any repository,
 /// except an entry another goal holds directly as a task, which counts in that goal
 /// (<c>#goal-assignment</c>);</item>
 /// <item>an attached task counts 1, and the pull requests it links ride along and do not

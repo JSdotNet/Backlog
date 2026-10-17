@@ -91,8 +91,7 @@ public sealed class ProgressTaskSource(Func<ITaskItems> tasks, Func<IRepositoryD
                 _ => ProgressTaskStatus.Archived
             },
             entry.BlockedSince is not null,
-            [.. entry.Tags.Where(tag => tag.TrimStart().StartsWith('+')).Select(Bare).Where(tag => tag.Length > 0)
-                .Distinct(StringComparer.OrdinalIgnoreCase)],
+            PlanTagMatch.SlugsCarried(entry.Tags),
             [.. (entry.RepoIds ?? [])
                 .Select(id => aliasById.TryGetValue(id, out var alias) ? alias : id)
                 .Distinct(StringComparer.OrdinalIgnoreCase)],

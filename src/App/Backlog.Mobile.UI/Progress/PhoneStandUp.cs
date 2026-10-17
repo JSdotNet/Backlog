@@ -44,8 +44,8 @@ public sealed class PhoneStandUp(ProgressViewProjection progress, TaskViewProjec
 
     /// <summary>
     /// The synced tasks in the words the stand-up's rules read, as the desktop's own task
-    /// source gives them: the status token as the status, the blocked mark, the plan tags
-    /// without their sigil, the repository ids (the phone keeps no aliases), the linked pull
+    /// source gives them: the status token as the status, the blocked mark, the roadmap slugs
+    /// its tags carry by the roadmap's own rule, the repository ids (the phone keeps no aliases), the linked pull
     /// requests, and whether an <c>after:</c> dependency, resolved against every task the
     /// phone holds, still waits on open work. A capture, a note and every whole document the
     /// desktop replicates never reach here — the task fold keeps no row for one.
@@ -71,8 +71,7 @@ public sealed class PhoneStandUp(ProgressViewProjection progress, TaskViewProjec
             task.Title,
             StatusOf(task.Status),
             task.BlockedSince is not null,
-            [.. task.Tags.Where(tag => tag.TrimStart().StartsWith('+')).Select(GoalItems.Bare).Where(tag => tag.Length > 0)
-                .Distinct(StringComparer.OrdinalIgnoreCase)],
+            PlanTagMatch.SlugsCarried(task.Tags),
             [.. task.RepoIds.Distinct(StringComparer.OrdinalIgnoreCase)],
             [.. task.Tags],
             task.CompletedOn,
