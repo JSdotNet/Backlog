@@ -9,7 +9,7 @@
     <Story Name="At risk"
            Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The Goals heading carries its count, as Finished, Planned and Impediments do. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them; type pay to see its matches under their kind labels. The other goals are folded rows.
 
-No goal lists the work in progress no goal holds, each with Attach…, which attaches to the open goal; fold every goal and it asks which. Beside the goals the stand-up lists Finished, Planned with each item's effort in points and the points tag, and Impediments with a state picker that offers only the moves an impediment may make, and each one's note with Add note or Edit note. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
+No goal lists the work in progress no goal holds, each with Attach…, which attaches to the open goal; fold every goal and it opens the shared goal picker to ask which. Beside the goals the stand-up lists Finished, Planned with each item's effort in points and the points tag, and Impediments with a state picker that offers only the moves an impediment may make, and each one's note with Add note or Edit note. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
            Code="@BoardCode">
         <div class="sb-board">
             <GoalsBoard Model="@Board"
@@ -17,10 +17,18 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
                         IterationChanged="@(length => _said = $"Read by {GoalsText.Iteration(length)}")"
                         OnNewGoal="@(() => _dialogOpen = true)"
                         OnRefresh="@(() => _said = "Refresh")"
-                        OnAttach="@(request => _said = $"Attach {request.ItemKey} to {request.GoalId}")"
+                        OnAttach="@(request => _said = $"Attach {request.Subject.Key} to {request.GoalId}")"
+                        OnPickGoal="@(subject => _picking = subject)"
                         OnMoveImpediment="@(request => _said = $"Move {request.ImpedimentId} to {GoalsText.State(request.State)}")"
                         OnEditImpedimentNote="@(request => _said = request.Note is null ? $"Clear the note on {request.ImpedimentId}" : $"Note on {request.ImpedimentId}: {request.Note}")" />
             <p class="sb-state" data-testid="goals-view-said">@(_said ?? "Switch the iteration, attach an item or move an impediment.")</p>
+            <GoalPicker Open="@(_picking is not null)"
+                        OpenChanged="@(open => { if (!open) _picking = null; })"
+                        Subject="@_picking"
+                        Goals="PickerGoals"
+                        TestId="goals-view-picker"
+                        OnAttach="@(id => { _said = $"Attach {_picking?.Key} to {PickerGoals.First(goal => goal.Id == id).Title}"; _picking = null; })"
+                        OnCreate="@(draft => { _said = $"Set {draft.Title} and attach {_picking?.Key} to it"; _picking = null; })" />
         </div>
     </Story>
 
@@ -55,7 +63,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
                         TestId="goals-view-delete-board"
                         OnEditGoal="@(request => _deleteSaid = $"Edit {request.GoalId}")"
                         OnDeleteGoal="DeleteSample"
-                        OnDetach="@(request => _deleteSaid = $"Detach {request.ItemKey} from {request.GoalId}")" />
+                        OnDetach="@(request => _deleteSaid = $"Detach {request.Subject.Key} from {request.GoalId}")" />
             <p class="sb-state" data-testid="goals-view-delete-said">@(_deleteSaid ?? "Press Delete goal… on the open goal.")</p>
         </div>
     </Story>
@@ -157,6 +165,25 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     ];
 
     private string? _said;
+    private GoalSubject? _picking;
+
+    /// <summary>The board's goals as the picker offers them.</summary>
+    private static readonly IReadOnlyList<GoalOption> PickerGoals =
+    [
+        new(new Guid("6f1c0a52-0000-4000-8000-000000000001"), "Customers get paid faster", 9, 15, Oct(30)),
+        new(new Guid("6f1c0a52-0000-4000-8000-000000000002"), "Devbook search ships", 5, 6, Oct(23)),
+        new(new Guid("6f1c0a52-0000-4000-8000-000000000003"), "Phone capture in daily use", 3, 10, new DateOnly(2026, 11, 30))
+    ];
+
+    private static readonly Guid T1 = new("7a2d0b63-0000-4000-8000-000000000001");
+    private static readonly Guid T2 = new("7a2d0b63-0000-4000-8000-000000000002");
+    private static readonly Guid T3 = new("7a2d0b63-0000-4000-8000-000000000003");
+    private static readonly Guid T4 = new("7a2d0b63-0000-4000-8000-000000000004");
+    private static readonly Guid Terms = new("7a2d0b63-0000-4000-8000-000000000005");
+    private static readonly Guid Vat = new("7a2d0b63-0000-4000-8000-000000000006");
+    private static readonly Guid Widget = new("7a2d0b63-0000-4000-8000-000000000007");
+
+    private static GoalSubject Pr(int number) => GoalSubject.ForPullRequest("JSdotNet/Backlog", number);
     private string? _noteSaid;
     private bool _dialogOpen;
     private bool _startOpen;
@@ -206,17 +233,17 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     private GoalCardModel _detached = Paid;
     private string? _detachSaid;
 
-    private void DetachSample(string key)
+    private void DetachSample(GoalSubject subject)
     {
-        var index = Enumerable.Range(0, _detached.PullRequests.Count).FirstOrDefault(i => _detached.PullRequestKey(i) == key, -1);
+        var index = Enumerable.Range(0, _detached.PullRequests.Count).FirstOrDefault(i => _detached.PullRequestSubject(i) == subject, -1);
         _detached = _detached with
         {
-            Plans = [.. _detached.Plans.Where(plan => plan.Key != key)],
-            Tasks = [.. _detached.Tasks.Where(task => task.Key != key)],
+            Plans = [.. _detached.Plans.Where(plan => plan.Subject != subject)],
+            Tasks = [.. _detached.Tasks.Where(task => task.Subject != subject)],
             PullRequests = [.. _detached.PullRequests.Where((_, i) => i != index)],
-            PullRequestKeys = [.. (_detached.PullRequestKeys ?? []).Where((_, i) => i != index)]
+            PullRequestSubjects = [.. (_detached.PullRequestSubjects ?? []).Where((_, i) => i != index)]
         };
-        _detachSaid = $"Detached {key}";
+        _detachSaid = $"Detached {subject.Key}";
     }
 
     private static DateOnly Oct(int day) => new(2026, 10, day);
@@ -224,12 +251,12 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     private static readonly GoalCardModel Paid = new(
         "paid", "Customers get paid faster", Oct(30), new DateOnly(2026, 11, 6), true,
         new GoalCounts(9, 15, 3, 1, 2, 3),
-        [new GoalPlanModel("Bank integration", 5, 9, "plan:bank-integration")],
+        [new GoalPlanModel("Bank integration", 5, 9, GoalSubject.ForPlan("bank-integration"))],
         [
-            new GoalTaskModel("t1", "Invoice PDF export", GoalTaskStatus.Done, "task:t1"),
-            new GoalTaskModel("t2", "Reminder emails", GoalTaskStatus.Done, "task:t2"),
-            new GoalTaskModel("t3", "Recurring invoices", GoalTaskStatus.Doing, "task:t3"),
-            new GoalTaskModel("t4", "Credit notes", GoalTaskStatus.Blocked, "task:t4")
+            new GoalTaskModel("t1", "Invoice PDF export", GoalTaskStatus.Done, GoalSubject.ForTask(T1)),
+            new GoalTaskModel("t2", "Reminder emails", GoalTaskStatus.Done, GoalSubject.ForTask(T2)),
+            new GoalTaskModel("t3", "Recurring invoices", GoalTaskStatus.Doing, GoalSubject.ForTask(T3)),
+            new GoalTaskModel("t4", "Credit notes", GoalTaskStatus.Blocked, GoalSubject.ForTask(T4))
         ],
         [
             new PullRequestStatusModel(1341, "open", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(1, 2)),
@@ -238,7 +265,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
             new PullRequestStatusModel(1355, "merged")
         ],
         "Invoices are paid within 14 days of sending",
-        ["pr:1341", null, "pr:1352", "pr:1355"]);
+        [Pr(1341), null, Pr(1352), Pr(1355)]);
 
     private static readonly GoalCardModel Search = new(
         "search", "Devbook search ships", Oct(23), null, false,
@@ -287,16 +314,16 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         new GoalsWindow(Oct(19), Oct(23)),
         [Paid, Search, Phone],
         [
-            new GoalsItem("task:terms", GoalsItemKind.Task, "Payment terms on quotes"),
-            new GoalsItem("task:vat", GoalsItemKind.Task, "VAT rate per line item"),
-            new GoalsItem("pr:1357", GoalsItemKind.PullRequest, "Payment status webhook", 1357)
+            new GoalsItem(GoalSubject.ForTask(Terms), "Payment terms on quotes"),
+            new GoalsItem(GoalSubject.ForTask(Vat), "VAT rate per line item"),
+            new GoalsItem(Pr(1357), "Payment status webhook")
         ],
         StandUp,
         [
-            new GoalsItem("plan:payment-provider", GoalsItemKind.Plan, "Payment provider switch"),
-            new GoalsItem("task:terms", GoalsItemKind.Task, "Payment terms on quotes"),
-            new GoalsItem("pr:1357", GoalsItemKind.PullRequest, "Payment status webhook", 1357),
-            new GoalsItem("task:widget", GoalsItemKind.Task, "Quick-capture widget")
+            new GoalsItem(GoalSubject.ForPlan("payment-provider"), "Payment provider switch"),
+            new GoalsItem(GoalSubject.ForTask(Terms), "Payment terms on quotes"),
+            new GoalsItem(Pr(1357), "Payment status webhook"),
+            new GoalsItem(GoalSubject.ForTask(Widget), "Quick-capture widget")
         ]);
 
     private static readonly GoalsBoardModel Empty = Board with
@@ -343,7 +370,8 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
                     IterationChanged="length => ReadAsync(length)"
                     OnNewGoal="() => _newGoal = true"
                     OnRefresh="ReadAsync"
-                    OnAttach="request => AttachAsync(request.GoalId, request.ItemKey)"
+                    OnAttach="request => AttachAsync(request.GoalId, request.Subject)"
+                    OnPickGoal="subject => _picking = subject"
                     OnMoveImpediment="request => MoveAsync(request.ImpedimentId, request.State)"
                     OnEditImpedimentNote="request => EditNoteAsync(request.ImpedimentId, request.Note)"
                     Error="@_error" />
@@ -366,14 +394,14 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         <GoalsBoard Model="@board"
                     OnEditGoal="EditAsync"
                     OnDeleteGoal="goalId => DeleteAsync(goalId)"
-                    OnDetach="request => DetachAsync(request.GoalId, request.ItemKey)"
+                    OnDetach="request => DetachAsync(request.GoalId, request.Subject)"
                     EditError="@_refusal" />
         """;
 
     private const string DetachCode = """
-        <GoalCard Goal="@(goal with { PullRequestKeys = ["pr:1341", null, "pr:1352", "pr:1355"] })"
+        <GoalCard Goal="@(goal with { PullRequestSubjects = [pr1341, null, pr1352, pr1355] })"
                   Expanded="true"
-                  OnDetach="key => DetachAsync(goal.Id, key)" />
+                  OnDetach="subject => DetachAsync(goal.Id, subject)" />
         """;
 
     private const string EmptyCode = """

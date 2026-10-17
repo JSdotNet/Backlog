@@ -10,8 +10,9 @@
     Under GOALS, its heading carrying the count as the stand-up's blocks do, each goal is a GoalCard; one is open at a time, the first when the view
     first draws. Below the goals, No goal lists the work in progress in scope that no
     goal holds, each with Attach…: with a goal open it attaches to that goal, titled
-    "Attach to ‹goal›"; with none open it opens a menu of the goals' titles. That menu
-    is plain library use, not a goal picker of its own.
+    "Attach to ‹goal›"; with none open it hands the work to OnPickGoal, and the host
+    opens the shared GoalPicker for it. Every item is a GoalSubject, handed back as it
+    came; the board never reads one.
 
     The open goal is edited in place, its rows detached and the goal deleted through
     GoalCard; each act reaches the host only when it listens (OnEditGoal, OnDetach,
@@ -80,10 +81,10 @@
                               Expanded="@(goal.Id == _selected)"
                               OnToggle="() => ToggleAsync(goal.Id)"
                               Candidates="Model.Candidates"
-                              OnAttach="key => OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, key))"
+                              OnAttach="subject => OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, subject))"
                               OnEdit="@(OnEditGoal.HasDelegate ? EventCallback.Factory.Create<GoalEditRequest>(this, request => OnEditGoal.InvokeAsync(request)) : default)"
                               OnDelete="@(OnDeleteGoal.HasDelegate ? EventCallback.Factory.Create(this, () => _deleting = goal) : default)"
-                              OnDetach="@(OnDetach.HasDelegate ? EventCallback.Factory.Create<string>(this, key => OnDetach.InvokeAsync(new GoalDetachRequest(goal.Id, key))) : default)"
+                              OnDetach="@(OnDetach.HasDelegate ? EventCallback.Factory.Create<GoalSubject>(this, subject => OnDetach.InvokeAsync(new GoalDetachRequest(goal.Id, subject))) : default)"
                               EditError="@(goal.Id == _selected ? EditError : null)"
                               Busy="Busy"
                               TestId="@Part($"goal-{goal.Id}")" />
@@ -107,8 +108,8 @@
                                            Variant="ButtonVariant.Ghost"
                                            Disabled="@(Model.Goals.Count == 0)"
                                            title="@AttachTitle"
-                                           OnClick="args => AttachFromNoGoalAsync(item, args)"
-                                           TestId="@Part($"attach-{item.Key}")">Attach…</AppButton>
+                                           OnClick="() => AttachFromNoGoalAsync(item)"
+                                           TestId="@Part($"attach-{item.Subject.Key}")">Attach…</AppButton>
                             </div>
                         }
                     </section>
@@ -124,15 +125,6 @@
                       CssClass="goals-board__stand-up"
                       TestId="@Part("stand-up")" />
     </div>
-
-    <ContextMenu Open="_menuOpen"
-                 OpenChanged="open => _menuOpen = open"
-                 X="_menuX"
-                 Y="_menuY"
-                 Items="GoalItems"
-                 AriaLabel="Attach to goal"
-                 OnItemSelected="AttachFromMenuAsync"
-                 TestId="@(Part("attach-menu") ?? "goals-board-attach-menu")" />
 
     <ConfirmDialog Open="@(_deleting is not null)"
                    OpenChanged="open => { if (!open) _deleting = null; }"
@@ -156,10 +148,6 @@
     private string? _selectedParameter;
     private bool _initialised;
     private bool _announce;
-    private bool _menuOpen;
-    private double _menuX;
-    private double _menuY;
-    private string? _menuItemKey;
     private GoalCardModel? _deleting;
     private bool _focusNewGoal;
     private readonly string _newGoalId = "goals-new-goal-" + Guid.NewGuid().ToString("N");
@@ -191,6 +179,11 @@
     /// <summary>An item was picked to attach to a goal, from a goal's search or No goal.</summary>
     [Parameter]
     public EventCallback<GoalAttachRequest> OnAttach { get; set; }
+
+    /// <summary>A No goal row's Attach… was pressed with no goal open: the host opens the
+    /// GoalPicker for that work.</summary>
+    [Parameter]
+    public EventCallback<GoalSubject> OnPickGoal { get; set; }
 
     /// <summary>An impediment's state was picked.</summary>
     [Parameter]
@@ -247,8 +240,6 @@
         ? $"Attach to {goal.Title}"
         : Model.Goals.Count == 0 ? "Set a goal first" : "Attach to a goal";
 
-    private IReadOnlyList<MenuItem> GoalItems => [.. Model.Goals.Select(goal => new MenuItem(goal.Id, goal.Title))];
-
     private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
 
     protected override void OnParametersSet()
@@ -291,19 +282,10 @@
         await SelectedGoalIdChanged.InvokeAsync(_selected);
     }
 
-    private async Task AttachFromNoGoalAsync(GoalsItem item, MouseEventArgs args)
-    {
-        if (Selected is { } goal)
-        {
-            await OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, item.Key));
-            return;
-        }
-
-        _menuItemKey = item.Key;
-        _menuX = args.ClientX;
-        _menuY = args.ClientY;
-        _menuOpen = true;
-    }
+    private Task AttachFromNoGoalAsync(GoalsItem item) =>
+        Selected is { } goal
+            ? OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, item.Subject))
+            : OnPickGoal.InvokeAsync(item.Subject);
 
     private string DeleteMessage => _deleting is { } goal
         ? $"{goal.Title} is deleted. The plans, tasks and pull requests it holds stay as they are and belong to no goal."
@@ -325,16 +307,6 @@
         {
             _selected = null;
             await SelectedGoalIdChanged.InvokeAsync(null);
-        }
-    }
-
-    private async Task AttachFromMenuAsync(MenuItem goal)
-    {
-        _menuOpen = false;
-        if (_menuItemKey is { } key)
-        {
-            _menuItemKey = null;
-            await OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, key));
         }
     }
 }

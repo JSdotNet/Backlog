@@ -40,4 +40,14 @@ public sealed class GoalSubjectTests
         Assert.Equal("plan +release-q4", GoalSubject.ForPlan("release-q4").Noun);
         Assert.Equal("plan +release-q4", GoalSubject.ForPlan("+release-q4").Noun);
     }
+
+    [Fact]
+    public void Each_kind_of_work_has_one_line_of_text_for_a_test_id()
+    {
+        var id = new Guid("00000000-0000-0000-0000-000000000002");
+
+        Assert.Equal("plan:release-q4", GoalSubject.ForPlan("+release-q4").Key);
+        Assert.Equal("task:00000000-0000-0000-0000-000000000002", GoalSubject.ForTask(id).Key);
+        Assert.Equal("pr:JSdotNet/Backlog#1357", GoalSubject.ForPullRequest("JSdotNet/Backlog", 1357).Key);
+    }
 }

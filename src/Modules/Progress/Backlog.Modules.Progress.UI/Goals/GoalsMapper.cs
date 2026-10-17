@@ -1,6 +1,7 @@
 using System.Globalization;
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.UI.Components.Goals;
 using Backlog.UI.Components.Progress;
 
 namespace Backlog.Modules.Progress.UI.Goals;
@@ -39,8 +40,8 @@ public static class GoalsMapper
 
         PullRequestStatusModel Status(string repository, int number, string? title)
         {
-            var identity = GoalsKeys.PullRequestIdentity(repository, number);
-            var candidate = candidates.PullRequests.FirstOrDefault(pull => GoalsKeys.PullRequestIdentity(pull.Repository, pull.Number) == identity);
+            var identity = GoalSubjects.PullRequestIdentity(repository, number);
+            var candidate = candidates.PullRequests.FirstOrDefault(pull => GoalSubjects.PullRequestIdentity(pull.Repository, pull.Number) == identity);
 
             return statuses.TryGetValue(identity, out var read)
                 ? new PullRequestStatusModel(
@@ -62,8 +63,8 @@ public static class GoalsMapper
                 .Where(item => item.Kind == GoalAttachmentKind.Plan && !string.IsNullOrWhiteSpace(item.PlanTag))
                 .Select(item =>
                 {
-                    var rows = candidates.Tasks.Where(task => task.PlanTags.Any(tag => GoalsKeys.SamePlan(tag, item.PlanTag))).ToList();
-                    return new GoalPlanModel(GoalsKeys.Bare(item.PlanTag), rows.Count(row => row.Status == GoalTaskStatus.Done), rows.Count, GoalsKeys.For(item));
+                    var rows = candidates.Tasks.Where(task => task.PlanTags.Any(tag => GoalSubjects.SamePlan(tag, item.PlanTag))).ToList();
+                    return new GoalPlanModel(GoalSubjects.Bare(item.PlanTag), rows.Count(row => row.Status == GoalTaskStatus.Done), rows.Count, GoalSubjects.FromItem(item));
                 })
                 .ToList();
 
@@ -72,16 +73,16 @@ public static class GoalsMapper
                 .Select(item => tasks[item.TaskId!.Value])
                 .ToList();
 
-            // A goal's own pull request detaches; one only a task brings has no key.
+            // A goal's own pull request detaches; one only a task brings has no subject.
             var own = attached
                 .Where(item => item.Kind == GoalAttachmentKind.PullRequest && item.Repository is not null && item.Number is not null)
-                .Select(item => GoalsKeys.PullRequestIdentity(item.Repository!, item.Number!.Value))
+                .Select(item => GoalSubjects.PullRequestIdentity(item.Repository!, item.Number!.Value))
                 .ToHashSet(StringComparer.Ordinal);
             var refs = PullRequestRefs(attached, tasks).ToList();
             var pulls = refs.Select(pull => Status(pull.Repository, pull.Number, null)).ToList();
-            var pullKeys = refs
-                .Select(pull => own.Contains(GoalsKeys.PullRequestIdentity(pull.Repository, pull.Number))
-                    ? GoalsKeys.ForPullRequest(pull.Repository, pull.Number)
+            var pullSubjects = refs
+                .Select(pull => own.Contains(GoalSubjects.PullRequestIdentity(pull.Repository, pull.Number))
+                    ? GoalSubject.ForPullRequest(pull.Repository, pull.Number)
                     : null)
                 .ToList();
 
@@ -93,10 +94,10 @@ public static class GoalsMapper
                 goal.Standing == GoalStanding.AtRisk,
                 new GoalCounts(goal.Progress.Done, goal.Progress.Total, goal.Progress.Doing, goal.Progress.Blocked, goal.Progress.ToDo, goal.Progress.DoneInWindow),
                 plans,
-                [.. goalTasks.Select(task => new GoalTaskModel(task.Id.ToString(), task.Title, task.Status, GoalsKeys.ForTask(task.Id)))],
+                [.. goalTasks.Select(task => new GoalTaskModel(task.Id.ToString(), task.Title, task.Status, GoalSubject.ForTask(task.Id)))],
                 pulls,
                 stored?.Outcome,
-                pullKeys);
+                pullSubjects);
         }
 
         StandUpGroup Group(StandUpGroupDto group) => new(
@@ -160,7 +161,7 @@ public static class GoalsMapper
             .Select(item => (Repository: item.Repository!, Number: item.Number!.Value));
 
         return [.. fromGoals.Concat(fromStandUp)
-            .DistinctBy(pull => GoalsKeys.PullRequestIdentity(pull.Repository, pull.Number))
+            .DistinctBy(pull => GoalSubjects.PullRequestIdentity(pull.Repository, pull.Number))
             .Select(pull => new PullRequestRefDto(pull.Repository, pull.Number.ToString(CultureInfo.InvariantCulture)))];
     }
 
@@ -207,15 +208,15 @@ public static class GoalsMapper
     private static IReadOnlyList<GoalsItem> Candidates(GoalsCandidates candidates) =>
     [
         .. candidates.Plans
-            .Select(GoalsKeys.Bare)
+            .Select(GoalSubjects.Bare)
             .Where(tag => tag.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(tag => new GoalsItem(GoalsKeys.ForPlan(tag), GoalsItemKind.Plan, tag)),
+            .Select(tag => new GoalsItem(GoalSubject.ForPlan(tag), tag)),
         .. candidates.Tasks
             .Where(task => task.Status != GoalTaskStatus.Done)
-            .Select(task => new GoalsItem(GoalsKeys.ForTask(task.Id), GoalsItemKind.Task, task.Title)),
+            .Select(task => new GoalsItem(GoalSubject.ForTask(task.Id), task.Title)),
         .. candidates.PullRequests
-            .Select(pull => new GoalsItem(GoalsKeys.ForPullRequest(pull.Repository, pull.Number), GoalsItemKind.PullRequest, pull.Title, pull.Number))
+            .Select(pull => new GoalsItem(GoalSubject.ForPullRequest(pull.Repository, pull.Number), pull.Title))
     ];
 
     /// <summary>A goal's own pull requests, then those its attached tasks link, each once.</summary>
@@ -233,11 +234,11 @@ public static class GoalsMapper
             .Select(pull => (pull.Repository, Number: int.TryParse(pull.Number, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : 0))
             .Where(pull => pull.Number > 0);
 
-        return own.Concat(linked).DistinctBy(pull => GoalsKeys.PullRequestIdentity(pull.Repository, pull.Number));
+        return own.Concat(linked).DistinctBy(pull => GoalSubjects.PullRequestIdentity(pull.Repository, pull.Number));
     }
 
     private static string? Identity(string repository, string number) =>
-        int.TryParse(number, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? GoalsKeys.PullRequestIdentity(repository, n) : null;
+        int.TryParse(number, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? GoalSubjects.PullRequestIdentity(repository, n) : null;
 
     private static string Slug(LinkedPullRequestState state) => state.ToString().ToLowerInvariant();
 

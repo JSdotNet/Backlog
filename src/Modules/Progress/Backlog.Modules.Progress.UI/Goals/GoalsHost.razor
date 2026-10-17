@@ -2,8 +2,8 @@
 @using global::Backlog.Modules.Progress.Abstractions.Services
 @using global::Backlog.SharedKernel.Results
 @using global::Backlog.UI.Components.Feedback
+@using global::Backlog.UI.Components.Goals
 @using global::Backlog.UI.Components.Icons
-@using global::Backlog.UI.Components.Overlays
 @using global::Backlog.UI.Components.Progress
 @implements IDisposable
 @inject IServiceProvider Services
@@ -34,9 +34,14 @@
       offering the Monday of the current week; Save keeps it through SetTwoWeekStart and
       then sets the length, and Cancel leaves the iteration as it was;
     - New goal, through IGoals.CreateAsync, the refusal kept in the dialog;
-    - attach, through IGoals.AttachAsync. An item another goal holds is refused with
-      progress.item_in_other_goal, which names that goal; a ConfirmDialog asks, and
-      confirming attaches again with moveFromOtherGoal;
+    - attach, through IGoals.AttachAsync, every item a GoalSubject that GoalSubjects
+      turns into the module's item. A No goal row's Attach… with no goal open opens the
+      shared GoalPicker for it, over the open goals, its New goal… setting a goal (title
+      and due date) and attaching to it. An item another goal holds is refused with
+      progress.item_in_other_goal: the GoalPicker opens on the goal it was meant for,
+      with IGoals.FindGoalOfAsync's goal as the one it holds — the picker names that
+      goal and says the attach moves it — and Attach attaches again with
+      moveFromOtherGoal. A refusal inside the picker stays in it;
     - a field of the open goal, through IGoals.EditAsync with the other two as stored.
       A refusal — no title, no due date, an outcome of more than one line — shows in the
       goal under its fields, in the module's words, and the field shows the stored value;
@@ -77,6 +82,7 @@ else
                 OnNewGoal="() => { _createError = null; _creating = true; }"
                 OnRefresh="RefreshAsync"
                 OnAttach="AttachAsync"
+                OnPickGoal="OpenPicker"
                 OnMoveImpediment="MoveAsync"
                 OnEditImpedimentNote="EditNoteAsync"
                 OnEditGoal="EditGoalAsync"
@@ -99,16 +105,16 @@ else
                     Offered="@Iterations.MondayOf(Today)"
                     OnSave="SetTwoWeekStartAsync" />
 
-<ConfirmDialog Open="@(_move is not null)"
-               OpenChanged="open => { if (!open) _move = null; }"
-               Title="Move to this goal?"
-               Message="@(_move?.Message ?? string.Empty)"
-               ConfirmText="Move"
-               OnConfirm="ConfirmMoveAsync"
-               OnCancel="() => _move = null"
-               TestId="goals-move-confirm"
-               ConfirmTestId="goals-move-confirm-yes"
-               CancelTestId="goals-move-confirm-no" />
+<GoalPicker Open="@(_picking is not null)"
+            OpenChanged="open => { if (!open) _picking = null; }"
+            Subject="@_picking?.Subject"
+            Goals="PickerGoals"
+            CurrentGoal="@_picking?.Holder"
+            InitialSelection="@_picking?.Target"
+            Busy="_writing"
+            Error="@_pickError"
+            OnAttach="PickAsync"
+            OnCreate="PickNewAsync" />
 
 @code {
     /// <summary>The refusal an item another goal holds is attached with.</summary>
@@ -151,10 +157,17 @@ else
     private bool _askingStart;
     private string? _createError;
     private string? _editError;
-    private PendingMove? _move;
+    private Picking? _picking;
+    private string? _pickError;
 
-    /// <summary>An attach another goal refused, waiting on the person's say.</summary>
-    private sealed record PendingMove(Guid GoalId, GoalItemDto Item, string Message);
+    /// <summary>The goal a New goal… in the picker set, while the attach that followed it
+    /// was refused: a second Attach with the same draft attaches to it rather than setting
+    /// it twice.</summary>
+    private (GoalDraft Draft, Guid Id)? _pickCreated;
+
+    /// <summary>The work the GoalPicker is open for: the goal that holds it when a move
+    /// asked, and the goal the move was meant for, chosen at opening.</summary>
+    private sealed record Picking(GoalSubject Subject, GoalOption? Holder, Guid? Target);
 
     private bool Available => _standUp is not null && _goals is not null;
 
@@ -331,8 +344,9 @@ else
 
     private async Task AttachAsync(GoalAttachRequest request)
     {
-        if (_goals is not { } goals || !Guid.TryParse(request.GoalId, out var goalId) || !GoalsKeys.TryRead(request.ItemKey, out var item)) return;
+        if (_goals is not { } goals || !Guid.TryParse(request.GoalId, out var goalId)) return;
 
+        var item = GoalSubjects.ToItem(request.Subject);
         _writeError = null;
         await WriteAsync(async () =>
         {
@@ -342,16 +356,21 @@ else
                 var attached = await goals.AttachAsync(goalId, item);
                 if (attached.IsSuccess) return true;
 
-                if (attached.Error.Code == ItemInOtherGoal)
-                {
-                    var target = _model?.Goals.FirstOrDefault(goal => goal.Id == request.GoalId)?.Title ?? "this goal";
-                    _move = new PendingMove(goalId, item, $"{attached.Error.Message}. Move it to {target}?");
-                }
-                else
+                if (attached.Error.Code != ItemInOtherGoal)
                 {
                     _writeError = attached.Error.Message;
+                    return false;
                 }
 
+                // The picker names the goal that holds it and asks before the move.
+                var holder = await goals.FindGoalOfAsync(item);
+                if (holder.IsFailure || holder.Value is not { } held)
+                {
+                    _writeError = attached.Error.Message;
+                    return false;
+                }
+
+                Open(new Picking(request.Subject, Option(held), goalId));
                 return false;
             }
             finally
@@ -361,18 +380,74 @@ else
         });
     }
 
-    private async Task ConfirmMoveAsync()
-    {
-        if (_goals is not { } goals || _move is not { } move) return;
+    /// <summary>A No goal row's Attach… with no goal open.</summary>
+    private void OpenPicker(GoalSubject subject) => Open(new Picking(subject, null, null));
 
-        _move = null;
+    private void Open(Picking picking)
+    {
+        _pickError = null;
+        _pickCreated = null;
+        _picking = picking;
+    }
+
+    /// <summary>The open goals, the goal a move was meant for among them even once reached.</summary>
+    private IReadOnlyList<GoalOption> PickerGoals
+    {
+        get
+        {
+            var open = GoalSubjects.OpenGoals(_summaries, _picking?.Holder?.Id);
+            return _picking?.Target is { } target && open.All(goal => goal.Id != target)
+                   && _summaries.FirstOrDefault(summary => summary.Goal.Id == target) is { } meant
+                ? [.. open, GoalSubjects.Option(meant)]
+                : open;
+        }
+    }
+
+    private GoalOption Option(GoalDto goal) =>
+        _summaries.FirstOrDefault(summary => summary.Goal.Id == goal.Id) is { } summary
+            ? GoalSubjects.Option(summary)
+            : new GoalOption(goal.Id, goal.Title, 0, goal.Attachments.Count, goal.DueDate);
+
+    private Task PickAsync(Guid goalId) => PickWriteAsync((goals, picking) => AttachPickedAsync(goals, picking, goalId));
+
+    private Task PickNewAsync(GoalDraft draft) => PickWriteAsync(async (goals, picking) =>
+    {
+        // Set once: a refused attach after the goal was set is retried on that goal.
+        if (_pickCreated is { } earlier && earlier.Draft == draft) return await AttachPickedAsync(goals, picking, earlier.Id);
+
+        var created = await goals.CreateAsync(new SetGoalRequest(draft.Title, null, draft.DueDate));
+        if (created.IsFailure) return created;
+
+        _pickCreated = (draft, created.Value.Id);
+        return await AttachPickedAsync(goals, picking, created.Value.Id);
+    });
+
+    private static Task<Result<GoalDto>> AttachPickedAsync(IGoals goals, Picking picking, Guid goalId) =>
+        goals.AttachAsync(goalId, GoalSubjects.ToItem(picking.Subject),
+            moveFromOtherGoal: picking.Holder is { } holder && holder.Id != goalId);
+
+    /// <summary>The picker's attach, its refusal kept in the picker.</summary>
+    private async Task PickWriteAsync(Func<IGoals, Picking, Task<Result<GoalDto>>> write)
+    {
+        if (_goals is not { } goals || _picking is not { } picking || _writing) return;
+
+        _writeError = null;
         await WriteAsync(async () =>
         {
             _writing = true;
             try
             {
-                var attached = await goals.AttachAsync(move.GoalId, move.Item, moveFromOtherGoal: true);
-                if (attached.IsFailure) _writeError = attached.Error.Message;
+                var written = await write(goals, picking);
+                if (written.IsFailure)
+                {
+                    _pickError = written.Error.Message;
+                    // A goal set before the refusal is on the board now.
+                    return _pickCreated is not null;
+                }
+
+                _pickError = null;
+                _pickCreated = null;
+                _picking = null;
                 return true;
             }
             finally
@@ -435,8 +510,9 @@ else
 
     private async Task DetachAsync(GoalDetachRequest request)
     {
-        if (_goals is not { } goals || !Guid.TryParse(request.GoalId, out var goalId) || !GoalsKeys.TryRead(request.ItemKey, out var item)) return;
+        if (_goals is not { } goals || !Guid.TryParse(request.GoalId, out var goalId)) return;
 
+        var item = GoalSubjects.ToItem(request.Subject);
         _writeError = null;
         await WriteAsync(async () =>
         {

@@ -1,3 +1,5 @@
+using System.Globalization;
+using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.Goals;
 
@@ -6,10 +8,24 @@ namespace Backlog.Modules.Progress.UI.Goals;
 /// <summary>
 /// The library's <see cref="GoalSubject"/> as the goal port names it. The library draws
 /// goal controls without seeing Progress, so its record and the module's item are two
-/// shapes of one identity, and this is the one place they meet.
+/// shapes of one identity, and this is the one place they meet — the Goals view's
+/// rows, matches and No goal included.
 /// </summary>
 public static class GoalSubjects
 {
+    /// <summary>The subject the module's <paramref name="item"/> names, a plan's sigil dropped.</summary>
+    public static GoalSubject FromItem(GoalItemDto item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return item.Kind switch
+        {
+            GoalAttachmentKind.Plan => GoalSubject.ForPlan(Bare(item.PlanTag)),
+            GoalAttachmentKind.Task => GoalSubject.ForTask(item.TaskId ?? Guid.Empty),
+            _ => GoalSubject.ForPullRequest(item.Repository ?? string.Empty, item.Number ?? 0)
+        };
+    }
+
     public static GoalItemDto ToItem(GoalSubject subject)
     {
         ArgumentNullException.ThrowIfNull(subject);
@@ -42,6 +58,27 @@ public static class GoalSubjects
                 .ThenBy(summary => summary.Goal.Title, StringComparer.CurrentCultureIgnoreCase)
                 .Select(Option)
         ];
+    }
+
+    /// <summary>A plan tag without its sigil, the way the module stores it.</summary>
+    public static string Bare(string? tag) => (tag ?? string.Empty).Trim().TrimStart('+').Trim();
+
+    /// <summary>Whether two plan tags name one plan, sigil and case aside.</summary>
+    public static bool SamePlan(string? left, string? right) =>
+        string.Equals(Bare(left), Bare(right), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A pull request's identity for comparing, repository case aside.</summary>
+    public static string PullRequestIdentity(string repository, int number) =>
+        GoalSubject.ForPullRequest(repository, number).Key.ToUpperInvariant();
+
+    /// <summary><see cref="PullRequestIdentity(string,int)"/> of a reference whose number is
+    /// text; null when the number is not one.</summary>
+    public static string? PullRequestIdentity(PullRequestRefDto pull)
+    {
+        ArgumentNullException.ThrowIfNull(pull);
+        return int.TryParse(pull.Number, NumberStyles.None, CultureInfo.InvariantCulture, out var number)
+            ? PullRequestIdentity(pull.Repository, number)
+            : null;
     }
 
     public static GoalOption Option(GoalSummaryDto summary)
