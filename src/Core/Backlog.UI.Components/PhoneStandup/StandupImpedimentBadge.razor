@@ -1,0 +1,34 @@
+@*
+    An impediment's state as its badge, on the tones
+    .devbook/design/color-scheme.md#impediment-state-tones maps the five states onto:
+    New outlined with a leading dot in the error ink (nobody has been told yet),
+    Reported outlined, Escalated the fault surface with an up arrow, Being handled
+    the alert surface, Resolved the settled one. The dot and the arrow are
+    decoration and hidden from assistive technology; the word says the state.
+*@
+
+<Badge Kind="standup-impediment" Slug="@StandupWords.Slug(State)" CssClass="@CssClass" TestId="@TestId">
+    @if (State == StandupImpedimentState.New)
+    {
+        <span class="standup-impediment-dot" aria-hidden="true"></span>
+    }
+    else if (State == StandupImpedimentState.Escalated)
+    {
+        <svg class="standup-impediment-arrow" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor"
+             stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M12 19V5M6 11l6-6 6 6" />
+        </svg>
+    }
+    @StandupWords.Label(State)
+</Badge>
+
+@code {
+    [Parameter]
+    public StandupImpedimentState State { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+}

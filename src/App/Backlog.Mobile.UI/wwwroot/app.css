@@ -269,3 +269,132 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 
 /* The editor's dictation and attach buttons, and what they leave under the body. */
 .note-page__attached { display: grid; gap: .5rem; }
+
+/*
+  The Stand-up, a goal's page and an impediment's page. The library draws the
+  cards, the bars, the block lists, the state list and the badges
+  (PhoneStandup); this file lays them out down the screen and draws the phone's
+  own pull request line. Every target keeps the 44px touch minimum, and the
+  colours are the library's tokens.
+*/
+.standup-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.standup-heading h1 { margin: 0; font-family: var(--font-family-heading); }
+/* The artboard's refresh: a 44px box on the raised surface, inside the border. */
+.standup-heading__refresh {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+}
+
+.standup, .standup-detail { display: grid; gap: 1.5rem; padding-bottom: 1.5rem; }
+.standup__iteration { display: grid; gap: .75rem; }
+.standup__windows { color: var(--color-text-secondary); font-size: .8125rem; }
+
+.standup__block { display: grid; gap: .5rem; }
+.standup__block-head { display: flex; align-items: center; gap: .5rem; }
+.standup__block-head .standup__block-title { flex: 1; }
+.standup__block-title {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+/* A count or Waiting beside a block title keeps its own case and spacing. */
+.standup__block-title .badge { letter-spacing: normal; text-transform: none; }
+.standup__dot { width: 8px; height: 8px; border-radius: var(--border-radius-full); }
+.standup__dot--finished { background: var(--color-success-text); }
+.standup__dot--planned { background: var(--color-primary); }
+.standup__dot--impediments { background: var(--color-error-text); }
+.standup__points { color: var(--color-primary-light); font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); }
+
+.standup__impediments {
+    display: grid;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+.standup__impediments > .standup-impediment + .standup-impediment { border-top: var(--border-width) solid var(--color-background-raised); }
+.standup__resolved { gap: 0; border-top: var(--border-width) solid var(--color-background-raised); }
+.standup__resolved .fold__trigger { min-height: 44px; padding: 0 1rem; color: var(--color-text-secondary); font-size: .8125rem; }
+
+.standup-back { display: flex; align-items: center; gap: .25rem; margin: -.5rem 0 .75rem -.5rem; }
+.standup-back__link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    color: var(--color-text-primary);
+}
+.standup-back__title { font-family: var(--font-family-heading); font-size: var(--font-size-lg); font-weight: var(--font-weight-semibold); }
+
+.standup-detail__head { display: grid; gap: .375rem; }
+.standup-detail__head h1 { margin: 0; font-family: var(--font-family-heading); font-size: 1.375rem; line-height: var(--line-height-tight); }
+.standup-detail__line { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; color: var(--color-text-secondary); font-size: .8125rem; }
+
+.standup-detail__progress, .standup-detail__plan { border-radius: var(--border-radius-lg); }
+.standup-detail__progress-body { display: grid; gap: .625rem; }
+.standup-detail__figure { display: flex; align-items: center; gap: .5rem; }
+.standup-detail__done { font-family: var(--font-family-heading); font-size: 1.75rem; font-weight: var(--font-weight-semibold); }
+.standup-detail__done-word { flex: 1; color: var(--color-text-secondary); }
+.standup-detail__legend { display: flex; flex-wrap: wrap; gap: .75rem; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.standup-detail__key { display: inline-flex; align-items: center; gap: .3rem; }
+.standup-detail__swatch { width: 8px; height: 8px; border-radius: var(--border-radius-full); }
+.standup-detail__swatch--doing { background: var(--color-primary); }
+.standup-detail__swatch--blocked { background: var(--color-error-text); }
+.standup-detail__swatch--to-do { box-shadow: inset 0 0 0 1.5px var(--color-secondary); }
+
+.standup-detail__plan-head { display: flex; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; font-weight: var(--font-weight-medium); }
+.standup-detail__plan-items { display: grid; gap: .5rem; margin: 0; padding: .25rem 0 0; list-style: none; }
+.standup-detail__plan-item { display: flex; flex-wrap: wrap; align-items: center; gap: .625rem; font-size: var(--font-size-xs); }
+
+.standup-detail__list {
+    margin: 0;
+    padding: .25rem 0;
+    list-style: none;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+.standup-detail__row { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; min-height: 44px; padding: .25rem 1rem; }
+.standup-detail__item-title { flex: 1; min-width: 0; }
+.standup-detail__word { color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.standup-detail__word--merged { color: var(--color-success-text); }
+.standup-detail__word--blocked, .standup-detail__word--closed { color: var(--color-error-text); }
+
+.standup-detail__alert { margin: 0; color: var(--color-error-text); font-size: .85rem; }
+.standup-detail__field { display: grid; gap: .375rem; }
+/* Waiting is a pill beside the field, never a bar across it. */
+.standup-detail__field > .badge { justify-self: start; }
+/* The library's growing textarea is set in the editor's monospace; a note is prose. */
+.standup-detail__input .grow-wrap { font-family: var(--font-family-base); }
+.standup-detail__field .field__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.standup-detail__field .field__input { min-height: 44px; }
+
+/* The phone's own pull request line (Components/Progress/PhonePullRequestStatus.razor):
+   the number chip in the tone of the state, then the checks and approvals marks in
+   their inks (color-scheme.md#pull-request-status-marks). */
+.pr-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .625rem; font-size: var(--font-size-xs); }
+.pr-line__mark { display: inline-flex; align-items: center; gap: .25rem; }
+.pr-line__mark--passed, .pr-line__mark--met { color: var(--color-success-text); }
+.pr-line__mark--running, .pr-line__mark--short { color: var(--color-primary-light); }
+.pr-line__mark--failing { color: var(--color-error-text); }

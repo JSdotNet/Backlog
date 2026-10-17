@@ -1,0 +1,315 @@
+@page "/standup/goals/{Id:guid}"
+@using System.Globalization
+@using Backlog.Mobile.UI.Progress
+@using Backlog.Mobile.UI.Tasks
+@using Backlog.Modules.Progress.Abstractions
+@using Backlog.Modules.Progress.Abstractions.DataTransferObjects
+@inject ProgressViewProjection Progress
+@inject PhoneStandUp StandUp
+@inject TaskViewProjection Tasks
+@inject DeviceOutbox Outbox
+@implements IDisposable
+
+@*
+    One goal, opened from the stand-up (.devbook/domain/progress/features.md#goals-on-the-phone):
+    its forecast badge, due and landing date, done/total with how the open items
+    stand and the last four weeks of what was done, then its items under Plan,
+    Tasks and Pull requests — each item once, by the rules the desktop counts it
+    by (GoalItems, .devbook/domain/progress/domain.md#goal-progress).
+
+    Read-only: setting a goal and attaching work are the desktop's. A goal this
+    phone does not hold says so and leads back to the stand-up.
+*@
+
+<PageTitle>@(Goal?.Goal.Title ?? "Goal")</PageTitle>
+
+<nav class="standup-back" aria-label="Goal">
+    <a class="standup-back__link" href="@StandupText.StandupHref" aria-label="Back to the stand-up" data-testid="goal-back">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" /></svg>
+    </a>
+    <span class="standup-back__title">Goal</span>
+</nav>
+
+@if (!Progress.GoalsOn)
+{
+    @if (_looked)
+    {
+        <EmptyState Title="Stand-up is off"
+                    Description="Goals are off on the desktop, or it has not synced them yet."
+                    TestId="goal-off" />
+    }
+}
+else if (Goal is { } view)
+{
+    var goal = view.Goal;
+    var reading = StandUp.Read().Goals.FirstOrDefault(entry => entry.Id == goal.Id);
+    var items = Items(view);
+    var progress = GoalItems.Count(items);
+    var work = PhoneStandUp.Work(Tasks.Live());
+
+    <div class="standup-detail" data-testid="goal-page">
+        <div class="standup-detail__head">
+            <h1 data-testid="goal-title">@goal.Title</h1>
+            <span class="standup-detail__line" data-testid="goal-line">
+                @if (reading is not null)
+                {
+                    <StandupStandingBadge Standing="StandupText.Standing(reading.Standing)" TestId="goal-standing" />
+                }
+                <span>due @StandupWords.Day(goal.DueDate)@(reading?.LandsOn is { } lands ? $" · lands ~{StandupWords.Day(lands)}" : null)</span>
+            </span>
+        </div>
+
+        <Card AriaLabel="Progress" CssClass="standup-detail__progress" TestId="goal-progress">
+            <div class="standup-detail__progress-body">
+                <div class="standup-detail__figure">
+                    <span class="standup-detail__done" data-testid="goal-done">@progress.Done/@progress.Total</span>
+                    <span class="standup-detail__done-word">done</span>
+                    <WeekSpark Counts="Weeks(items)" CssClass="standup-detail__spark" TestId="goal-spark" />
+                </div>
+                <GoalStackedBar Done="progress.Done" Doing="progress.Doing" Blocked="progress.Blocked" ToDo="progress.ToDo"
+                                Height="10" TestId="goal-bar" />
+                <span class="standup-detail__legend" data-testid="goal-legend">
+                    <span class="standup-detail__key"><span class="standup-detail__swatch standup-detail__swatch--doing" aria-hidden="true"></span>@progress.Doing doing</span>
+                    <span class="standup-detail__key"><span class="standup-detail__swatch standup-detail__swatch--blocked" aria-hidden="true"></span>@progress.Blocked blocked</span>
+                    <span class="standup-detail__key"><span class="standup-detail__swatch standup-detail__swatch--to-do" aria-hidden="true"></span>@progress.ToDo to do</span>
+                </span>
+            </div>
+        </Card>
+
+        @if (items.Count == 0 && view.PullRequests.Count == 0)
+        {
+            <EmptyState Title="Nothing attached yet"
+                        Description="Attach a plan, a task or a pull request to this goal on the desktop."
+                        TestId="goal-empty" />
+        }
+
+        @{
+            var plans = Plans(goal);
+            // A task attached directly is listed under Tasks, so a plan does not list it again.
+            var directIds = Direct(goal, items).Select(item => item.Task!.Id).ToHashSet();
+        }
+        @if (plans.Count > 0)
+        {
+            <section class="standup__block" aria-labelledby="goal-plan-title" data-testid="goal-plans">
+                <h2 class="standup__block-title" id="goal-plan-title">Plan</h2>
+                @foreach (var plan in plans)
+                {
+                    var planItems = items.Where(item => item.Task is { } task && task.PlanTags.Any(tag => string.Equals(GoalItems.Bare(tag), plan, StringComparison.OrdinalIgnoreCase))).ToList();
+                    var planProgress = GoalItems.Count(planItems);
+
+                    var planTitle = StandupText.PlanTitle(plan);
+
+                    <Card AriaLabel="@planTitle" CssClass="standup-detail__plan" TestId="goal-plan">
+                        <span class="standup-detail__plan-head">
+                            <span class="standup-detail__plan-title" data-testid="goal-plan-title">@planTitle</span>
+                            <span data-testid="goal-plan-done">@planProgress.Done/@planProgress.Total</span>
+                        </span>
+                        <GoalStackedBar Done="planProgress.Done" Doing="planProgress.Doing" Blocked="planProgress.Blocked"
+                                        ToDo="planProgress.ToDo" Height="6" TestId="goal-plan-bar" />
+                        <ul class="standup-detail__plan-items">
+                            @foreach (var item in planItems.Where(item => item.State != GoalItemState.Done && !directIds.Contains(item.Task!.Id)))
+                            {
+                                <li class="standup-detail__plan-item" data-testid="goal-plan-item">
+                                    <span class="standup-detail__item-title">@item.Task!.Title</span>
+                                    @TaskTrailing(item)
+                                </li>
+                            }
+                        </ul>
+                    </Card>
+                }
+            </section>
+        }
+
+        @{
+            var direct = Direct(goal, items);
+        }
+        @if (direct.Count > 0)
+        {
+            <section class="standup__block" aria-labelledby="goal-tasks-title" data-testid="goal-tasks">
+                <h2 class="standup__block-title" id="goal-tasks-title">Tasks</h2>
+                <ul class="standup-detail__list">
+                    @foreach (var item in direct)
+                    {
+                        <li class="standup-detail__row" data-testid="goal-task">
+                            <StatusDot Tone="Tone(item.State)" />
+                            <span class="sr-only">@StateWord(item.State):</span>
+                            <span class="standup-detail__item-title">@item.Task!.Title</span>
+                            @TaskTrailing(item)
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+
+        @if (view.PullRequests.Count > 0)
+        {
+            <section class="standup__block" aria-labelledby="goal-pulls-title" data-testid="goal-pulls">
+                <h2 class="standup__block-title" id="goal-pulls-title">Pull requests</h2>
+                <ul class="standup-detail__list">
+                    @foreach (var pull in view.PullRequests)
+                    {
+                        <li class="standup-detail__row" data-testid="goal-pull">
+                            <PhonePullRequestStatus Number="@StandupText.Number(pull.Number)" State="pull.State"
+                                                    Checks="pull.Checks" Approvals="pull.Approvals"
+                                                    TestId="goal-pull-status" />
+                            <span class="standup-detail__item-title" data-testid="goal-pull-title">@StandupText.PullRequestTitle(new PullRequestRefDto(pull.Repository, pull.Number), work)</span>
+                            @* The chip already says the state to a screen reader; this word is for the eye. *@
+                            <span class="@($"standup-detail__word standup-detail__word--{ChipWord(pull.State)}")" aria-hidden="true" data-testid="goal-pull-word">@PhonePullRequestStatus.Word(pull.State)</span>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+    </div>
+}
+else if (_looked)
+{
+    <EmptyState Title="This goal isn't on this phone"
+                Description="It may have been deleted on the desktop, or not have reached this phone yet."
+                TestId="goal-missing">
+        <Action>
+            <a href="@StandupText.StandupHref">Back to the stand-up</a>
+        </Action>
+    </EmptyState>
+}
+
+@code {
+    private bool _looked;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private GoalView? Goal => Progress.FindGoal(Id);
+
+    private bool _disposed;
+
+    /// <summary>
+    /// Drawn at once from what the phone holds; a pull runs behind it, so a slow network
+    /// never holds the first render. Opened straight from an address, the phone may not
+    /// have the goal yet, and the pull brings it if the service answers; a failure leaves
+    /// the page on what the phone holds — the stand-up is where it is put in words.
+    /// </summary>
+    protected override void OnInitialized()
+    {
+        Progress.Changed += OnChanged;
+        Tasks.Changed += OnChanged;
+        Outbox.Changed += OnChanged;
+
+        _ = InvokeAsync(LookAsync);
+    }
+
+    private async Task LookAsync()
+    {
+        try
+        {
+            await Progress.PullAsync();
+            await Tasks.PullAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Shown below from what the phone holds.
+        }
+
+        _looked = true;
+        if (!_disposed) StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Progress.Changed -= OnChanged;
+        Tasks.Changed -= OnChanged;
+        Outbox.Changed -= OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>The goal's items, each once, by the desktop's rules over what the phone holds.</summary>
+    private IReadOnlyList<GoalItem> Items(GoalView view) =>
+        GoalItems.Items(
+            view.Goal,
+            [.. Progress.Goals().Select(other => other.Goal)],
+            PhoneStandUp.Work(Tasks.Live()),
+            StandupText.Linked(Progress.Context()));
+
+    /// <summary>
+    /// The items done in each of the last four weeks, Monday to Sunday, oldest first, the
+    /// last being the week holding today.
+    /// </summary>
+    private IReadOnlyList<int> Weeks(IReadOnlyList<GoalItem> items)
+    {
+        var today = Progress.Today;
+        var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+
+        return
+        [
+            .. Enumerable.Range(0, 4)
+                .Select(back => monday.AddDays(-7 * (3 - back)))
+                .Select(start => items.Count(item => item.DoneOn is { } on && on >= start && on <= start.AddDays(6)))
+        ];
+    }
+
+    /// <summary>The goal's plans, by tag, in the order they were attached.</summary>
+    private static List<string> Plans(GoalDto goal) =>
+    [
+        .. goal.Attachments
+            .Select(attachment => attachment.Item)
+            .Where(item => item.Kind == GoalAttachmentKind.Plan)
+            .Select(item => GoalItems.Bare(item.PlanTag))
+            .Where(tag => tag.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+    ];
+
+    /// <summary>The counted items of the tasks attached directly, in the order they were attached.</summary>
+    private static List<GoalItem> Direct(GoalDto goal, IReadOnlyList<GoalItem> items)
+    {
+        var byTask = items.Where(item => item.Task is not null).ToDictionary(item => item.Task!.Id);
+
+        return
+        [
+            .. goal.Attachments
+                .Select(attachment => attachment.Item)
+                .Where(item => item.Kind == GoalAttachmentKind.Task && item.TaskId is not null)
+                .Select(item => byTask.GetValueOrDefault(item.TaskId!.Value))
+                .OfType<GoalItem>()
+                .DistinctBy(item => item.Task!.Id)
+        ];
+    }
+
+    /// <summary>What follows a task on its row: the line of its first pull request when it
+    /// links one, and "blocked" in the error ink when it is blocked.</summary>
+    private RenderFragment TaskTrailing(GoalItem item) => __builder =>
+    {
+        if (item.Task!.PullRequests.FirstOrDefault() is { } pull)
+        {
+            var status = StandupText.StatusOf(StandupText.Statuses(Progress.Context()), pull);
+            <PhonePullRequestStatus Number="@StandupText.Number(pull.Number)" State="status.State"
+                                    Checks="status.Checks" Approvals="status.Approvals" TestId="goal-item-pr" />
+        }
+
+        if (item.State == GoalItemState.Blocked)
+        {
+            <span class="standup-detail__word standup-detail__word--blocked">blocked</span>
+        }
+    };
+
+    private static FlowStepTone Tone(GoalItemState state) => state switch
+    {
+        GoalItemState.Done => FlowStepTone.Done,
+        GoalItemState.Blocked => FlowStepTone.Blocked,
+        GoalItemState.Doing => FlowStepTone.Active,
+        _ => FlowStepTone.Pending
+    };
+
+    private static string StateWord(GoalItemState state) => state switch
+    {
+        GoalItemState.Done => "Done",
+        GoalItemState.Blocked => "Blocked",
+        GoalItemState.Doing => "Doing",
+        _ => "To do"
+    };
+
+    private static string ChipWord(LinkedPullRequestState state) =>
+        state == LinkedPullRequestState.Unknown ? "unknown" : state.ToString().ToLowerInvariant();
+}

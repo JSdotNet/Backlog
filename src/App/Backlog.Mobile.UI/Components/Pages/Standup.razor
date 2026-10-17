@@ -1,0 +1,361 @@
+@page "/standup"
+@using Backlog.Mobile.UI.Progress
+@using Backlog.Mobile.UI.Tasks
+@using Backlog.Modules.Progress.Abstractions
+@using Backlog.Modules.Progress.Abstractions.DataTransferObjects
+@inject ProgressViewProjection Progress
+@inject PhoneStandUp StandUp
+@inject TaskViewProjection Tasks
+@inject DeviceOutbox Outbox
+@inject SyncStatusTracker Status
+@inject AppLifecycle Lifecycle
+@implements IDisposable
+
+@*
+    The stand-up on the phone (.devbook/domain/progress/features.md#goals-on-the-phone):
+    the four blocks the desktop reads — Goals, Finished, Planned and Impediments —
+    over the last window and the next, read by the desktop's own rules
+    (PhoneStandUp), so the two never disagree about the same work.
+
+    The iteration switch is the phone's own choice for this visit and is saved
+    nowhere: it opens on the length the desktop last read by, else Week. A goal
+    and an impediment each open on a page of their own. Nothing here changes
+    anything; the one edit the phone makes is on an impediment's page. Copying
+    the stand-up and attaching work are the desktop's.
+
+    Shown only while goals are on, which the phone reads as holding a stand-up
+    context (ProgressViewProjection.GoalsOn).
+*@
+
+<PageTitle>Stand-up</PageTitle>
+
+<header class="standup-heading">
+    <h1>Stand-up</h1>
+    <IconButton AriaLabel="Refresh" Title="Refresh the stand-up" Disabled="_refreshing"
+                OnClick="RefreshAsync" CssClass="standup-heading__refresh" TestId="standup-refresh">
+        <RefreshCwIcon Size="20" />
+    </IconButton>
+</header>
+
+@if (_pullNotice is not null)
+{
+    <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="standup-pull-notice" />
+}
+
+@if (!Progress.GoalsOn)
+{
+    @if (_looked)
+    {
+        <EmptyState Title="Stand-up is off"
+                    Description="Goals are off on the desktop, or it has not synced them yet. Turn goals on there to read the stand-up here."
+                    TestId="standup-off" />
+    }
+}
+else
+{
+    var reading = StandUp.Read(Length);
+    var context = Progress.Context();
+    var statuses = StandupText.Statuses(context);
+    var work = Work();
+
+    <div class="standup" data-testid="standup">
+        <div class="standup__iteration">
+            <RadioGroup TValue="IterationLength"
+                        Options="Lengths"
+                        Value="Length"
+                        ValueChanged="length => _length = length"
+                        OptionLabel="StandupText.Length"
+                        OptionTestId="@(length => $"standup-length-{length.ToString().ToLowerInvariant()}")"
+                        AriaLabel="Iteration"
+                        BaseClass="standup-switch"
+                        OptionVariantClass=""
+                        OptionCssClass="standup-switch__option"
+                        CheckedOptionCssClass="standup-switch__option standup-switch__option--checked"
+                        TestId="standup-iteration" />
+            <span class="standup__windows" data-testid="standup-windows">@StandupText.Window(reading.Last) → @StandupText.Window(reading.Next)</span>
+        </div>
+
+        <section class="standup__block" aria-labelledby="standup-goals-title" data-testid="standup-goals">
+            <h2 class="standup__block-title" id="standup-goals-title">Goals</h2>
+            @if (reading.Goals.Count == 0)
+            {
+                <EmptyState Title="No goals yet"
+                            Description="Set a goal on the desktop; it shows here once it has synced."
+                            TestId="standup-goals-empty" />
+            }
+            else
+            {
+                @foreach (var goal in reading.Goals)
+                {
+                    <StandupGoalCard @key="goal.Id"
+                                     Title="@goal.Title"
+                                     Standing="StandupText.Standing(goal.Standing)"
+                                     Done="goal.Progress.Done"
+                                     Doing="goal.Progress.Doing"
+                                     Blocked="goal.Progress.Blocked"
+                                     ToDo="goal.Progress.ToDo"
+                                     DoneInWindow="goal.Progress.DoneInWindow"
+                                     DueDate="goal.DueDate"
+                                     Href="@StandupText.GoalHref(goal.Id)"
+                                     TestId="standup-goal" />
+                }
+            }
+        </section>
+
+        <section class="standup__block" aria-labelledby="standup-finished-title" data-testid="standup-finished">
+            <h2 class="standup__block-title" id="standup-finished-title">
+                <span class="standup__dot standup__dot--finished" aria-hidden="true"></span>
+                Finished
+                <Badge Kind="" TestId="standup-finished-total">@ItemCount(reading.Finished)</Badge>
+            </h2>
+            @if (ItemCount(reading.Finished) == 0)
+            {
+                <EmptyState Title="Nothing finished"
+                            Description="Nothing was done in the last window."
+                            TestId="standup-finished-empty" />
+            }
+            else
+            {
+                <StandupWorkList TItem="StandUpItemDto"
+                                 Groups="Groups(reading.Finished)"
+                                 ItemTitle="item => ItemTitle(item, work)"
+                                 AriaLabel="Finished"
+                                 TestId="standup-finished-list">
+                    <Trailing Context="item">
+                        @if (StandupText.PullRequestOf(item, work) is { } pull)
+                        {
+                            var status = StandupText.StatusOf(statuses, pull);
+                            <Badge Kind="standup-pr" Slug="@ChipSlug(status.State)">#@StandupText.Number(pull.Number)<span class="sr-only">@($" {PhonePullRequestStatus.Word(status.State)}")</span></Badge>
+                        }
+                    </Trailing>
+                </StandupWorkList>
+            }
+        </section>
+
+        <section class="standup__block" aria-labelledby="standup-planned-title" data-testid="standup-planned">
+            <div class="standup__block-head">
+                <h2 class="standup__block-title" id="standup-planned-title">
+                    <span class="standup__dot standup__dot--planned" aria-hidden="true"></span>
+                    Planned
+                    <Badge Kind="" TestId="standup-planned-total">@ItemCount(reading.Planned)</Badge>
+                </h2>
+                <span class="standup__points" title="@PointsTitle(reading)" data-testid="standup-points">@PointsLine(reading)</span>
+            </div>
+            @if (ItemCount(reading.Planned) == 0)
+            {
+                <EmptyState Title="Nothing planned"
+                            Description="No open work is expected in the next window."
+                            TestId="standup-planned-empty" />
+            }
+            else
+            {
+                <StandupWorkList TItem="StandUpItemDto"
+                                 Groups="Groups(reading.Planned)"
+                                 ItemTitle="item => ItemTitle(item, work)"
+                                 HasDetail="item => StandupText.PullRequestOf(item, work) is not null"
+                                 AriaLabel="Planned"
+                                 TestId="standup-planned-list">
+                    <Trailing Context="item">
+                        @if (item.Effort is { } effort && StandupText.PullRequestOf(item, work) is null)
+                        {
+                            @StandupText.Points(effort)
+                        }
+                    </Trailing>
+                    <Detail Context="item">
+                        @if (StandupText.PullRequestOf(item, work) is { } pull)
+                        {
+                            var status = StandupText.StatusOf(statuses, pull);
+                            <PhonePullRequestStatus Number="@StandupText.Number(pull.Number)" State="status.State"
+                                                    Checks="status.Checks" Approvals="status.Approvals"
+                                                    TestId="standup-planned-pr" />
+                            @if (item.Effort is { } effort)
+                            {
+                                <span>@StandupText.Points(effort)</span>
+                            }
+                        }
+                    </Detail>
+                </StandupWorkList>
+            }
+        </section>
+
+        <section class="standup__block" aria-labelledby="standup-impediments-title" data-testid="standup-impediments">
+            <h2 class="standup__block-title" id="standup-impediments-title">
+                <span class="standup__dot standup__dot--impediments" aria-hidden="true"></span>
+                Impediments
+                <Badge Kind="" TestId="standup-impediments-total">@reading.Impediments.Count</Badge>
+            </h2>
+            @{
+                var resolved = Resolved(reading);
+            }
+            @if (reading.Impediments.Count == 0 && resolved.Count == 0)
+            {
+                <EmptyState Title="Nothing in the way"
+                            Description="No impediment is open."
+                            TestId="standup-impediments-empty" />
+            }
+            else
+            {
+                <div class="standup__impediments">
+                    @foreach (var impediment in reading.Impediments)
+                    {
+                        <StandupImpedimentCard @key="impediment.Id"
+                                               Title="@impediment.Title"
+                                               State="StandupText.State(impediment.State)"
+                                               Meta="@OpenMeta(impediment)"
+                                               Goal="@impediment.GoalTitle"
+                                               Href="@StandupText.ImpedimentHref(impediment.Id)"
+                                               TestId="standup-impediment" />
+                    }
+                    @if (resolved.Count > 0)
+                    {
+                        <FoldControl Label="@($"{resolved.Count} resolved")"
+                                     Expanded="_showResolved"
+                                     ExpandedChanged="expanded => _showResolved = expanded"
+                                     ChevronAtEnd="true"
+                                     CssClass="standup__resolved"
+                                     TestId="standup-resolved">
+                            @foreach (var impediment in resolved)
+                            {
+                                <StandupImpedimentCard @key="impediment.Id"
+                                                       Title="@impediment.Title"
+                                                       State="StandupImpedimentState.Resolved"
+                                                       Meta="@($"Resolved {StandupWords.Day(impediment.ResolvedOn!.Value)}")"
+                                                       Href="@StandupText.ImpedimentHref(impediment.Id)"
+                                                       TestId="standup-resolved-impediment" />
+                            }
+                        </FoldControl>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private static readonly IReadOnlyList<IterationLength> Lengths =
+        [IterationLength.Day, IterationLength.Week, IterationLength.TwoWeeks, IterationLength.Month];
+
+    private IterationLength? _length;
+    private string? _pullNotice;
+    private bool _refreshing;
+    private bool _looked;
+    private bool _showResolved;
+    private bool _disposed;
+
+    /// <summary>The length this visit reads by: the one the person switched to, else the
+    /// one a desktop last read by, else Week.</summary>
+    private IterationLength Length => _length ?? Progress.Context()?.Length ?? IterationLength.Week;
+
+    /// <summary>Drawn at once from what the phone holds; the pull runs behind it, so a slow
+    /// network never holds the first render.</summary>
+    protected override void OnInitialized()
+    {
+        Progress.Changed += OnChanged;
+        Tasks.Changed += OnChanged;
+        Outbox.Changed += OnChanged;
+        Lifecycle.Resumed += OnResumed;
+
+        _ = InvokeAsync(RefreshAsync);
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Progress.Changed -= OnChanged;
+        Tasks.Changed -= OnChanged;
+        Outbox.Changed -= OnChanged;
+        Lifecycle.Resumed -= OnResumed;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnResumed() => _ = InvokeAsync(RefreshAsync);
+
+    /// <summary>
+    /// Pulls Progress and the tasks the stand-up counts. A failure keeps the stand-up as
+    /// the phone last saw it and says why in one line, as Today does.
+    /// </summary>
+    private async Task RefreshAsync()
+    {
+        if (_refreshing) return;
+        _refreshing = true;
+
+        try
+        {
+            await Progress.PullAsync();
+            await Tasks.PullAsync();
+            _pullNotice = null;
+            Status.RecordSynced();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var reason = ex is SyncUnavailableException { Code: "sync.replica_unavailable" }
+                ? "Cloud sync is still starting up."
+                : "Cloud sync can't be reached.";
+
+            _pullNotice = $"{reason} Showing the stand-up as this phone last saw it.";
+            Status.RecordUnreachable();
+        }
+        finally
+        {
+            _refreshing = false;
+            _looked = true;
+        }
+
+        if (!_disposed) StateHasChanged();
+    }
+
+    private Dictionary<Guid, SprintTaskDto> Work()
+    {
+        var work = new Dictionary<Guid, SprintTaskDto>();
+        foreach (var task in PhoneStandUp.Work(Tasks.Live())) work.TryAdd(task.Id, task);
+        return work;
+    }
+
+    private static IReadOnlyList<StandupWorkGroup<StandUpItemDto>> Groups(IReadOnlyList<StandUpGroupDto> groups) =>
+        [.. groups.Select(group => new StandupWorkGroup<StandUpItemDto>(group.GoalId is null ? null : group.GoalTitle, group.Items))];
+
+    private static int ItemCount(IReadOnlyList<StandUpGroupDto> groups) => groups.Sum(group => group.Items.Count);
+
+    /// <summary>The planned points against the person's pace, when a pace is known: "21 / 18 pts".</summary>
+    private static string PointsLine(StandUpDto reading) =>
+        reading.Capacity is { } capacity ? $"{reading.PlannedEffort} / {capacity} pts" : StandupText.Points(reading.PlannedEffort);
+
+    private string PointsTitle(StandUpDto reading) =>
+        reading.Capacity is { } capacity
+            ? $"{reading.PlannedEffort} points planned, you usually finish {capacity} {StandupText.PaceSpan(Length)}"
+            : $"{reading.PlannedEffort} points planned";
+
+    /// <summary>The artboard's one meta line, before the goal: who it is with — "Not reported
+    /// yet" while it is New and nobody was told, nothing when a later state names nobody —
+    /// then when to look again if that is set, else how long it has been open.</summary>
+    private static string OpenMeta(StandUpImpedimentDto impediment)
+    {
+        var parts = new List<string>(2);
+        if (impediment.With is { } with) parts.Add(with);
+        else if (impediment.State == ImpedimentState.New) parts.Add("Not reported yet");
+        parts.Add(impediment.CheckAgain is { } day
+            ? $"check {day.ToString("ddd", System.Globalization.CultureInfo.InvariantCulture)}"
+            : StandupText.Days(impediment.DaysOpen));
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>What a block item is called: a task by its title, a pull request attached
+    /// straight to a goal by the title of a task that links it, else "Pull request" — its
+    /// number is on the chip beside it.</summary>
+    private static string ItemTitle(StandUpItemDto item, IReadOnlyDictionary<Guid, SprintTaskDto> work) =>
+        item.Kind == GoalAttachmentKind.PullRequest && StandupText.PullRequestOf(item, work) is { } pull
+            ? StandupText.PullRequestTitle(pull, work.Values) ?? "Pull request"
+            : item.Title;
+
+    /// <summary>The impediments resolved inside the last window — the ones
+    /// <see cref="StandUpDto.ResolvedInLast"/> counts, by the same rule.</summary>
+    private List<ImpedimentDto> Resolved(StandUpDto reading) =>
+    [
+        .. Progress.Impediments().Where(impediment =>
+            impediment.ResolvedOn is { } on && on >= reading.Last.First && on <= reading.Last.Last)
+    ];
+
+    private static string ChipSlug(LinkedPullRequestState state) =>
+        state == LinkedPullRequestState.Unknown ? "unknown" : state.ToString().ToLowerInvariant();
+}

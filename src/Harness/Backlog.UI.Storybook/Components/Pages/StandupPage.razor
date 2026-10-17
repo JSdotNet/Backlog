@@ -1,0 +1,246 @@
+@page "/standup"
+
+<PageTitle>Stand-up — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Stand-up"
+           Summary="StandupGoalCard, GoalStackedBar, WeekSpark, StandupWorkList, StandupImpedimentCard, ImpedimentStateSteps and the two badges: the parts of the phone's Stand-up tab, a goal's page and an impediment's page."
+           Guidelines="@Rules">
+
+    <Story Name="Goal card at risk"
+           Description="One goal in the Goals block: its title and forecast badge, the bar of how its items stand, done/total with the items done in the last window, and the due date. The whole card is one link to the goal's page."
+           Code="@AtRiskCode">
+        <div class="sb-phone">
+            <StandupGoalCard Title="Customers get paid faster" Standing="StandupStanding.AtRisk"
+                             Done="9" Doing="3" Blocked="1" ToDo="2" DoneInWindow="3"
+                             DueDate="new DateOnly(2026, 10, 30)" Href="#goal-card-at-risk" TestId="story-goal-card" />
+        </div>
+    </Story>
+
+    <Story Name="Goal card on track"
+           Description="A goal with nothing done in the last window prints no +n; a part of the bar with no items is not drawn."
+           Code="@OnTrackCode">
+        <div class="sb-phone">
+            <StandupGoalCard Title="Devbook search ships" Standing="StandupStanding.OnTrack"
+                             Done="5" ToDo="1" DueDate="new DateOnly(2026, 10, 23)" Href="#goal-card-on-track"
+                             TestId="story-goal-card-on-track" />
+        </div>
+    </Story>
+
+    <Story Name="Goal bar"
+           Description="Done, doing, blocked and to do as one bar, each part as wide as its share. It is an image whose words say the counts, so a screen reader hears &quot;9 of 15 done, 3 in progress, 1 blocked, 2 not started&quot;. The card draws it 8px tall, the goal page 10px and a plan 6px."
+           Code="@BarCode">
+        <div class="sb-phone sb-stack">
+            <GoalStackedBar Done="9" Doing="3" Blocked="1" ToDo="2" Height="10" TestId="story-goal-bar" />
+            <GoalStackedBar Done="5" Doing="1" Blocked="1" ToDo="2" Height="6" />
+            <GoalStackedBar />
+        </div>
+    </Story>
+
+    <Story Name="Done per week"
+           Description="The last four weeks of a goal, oldest first: each bar as tall as the items done in it against the busiest week, the current week in the success ink. A week with nothing done still draws a sliver."
+           Code="@SparkCode">
+        <div class="sb-phone">
+            <WeekSpark Counts="@([1, 2, 3, 3])" TestId="story-week-spark" />
+            <WeekSpark Counts="@([0, 4, 0, 1])" />
+        </div>
+    </Story>
+
+    <Story Name="Iteration switch"
+           Description="The Stand-up's Day, Week, 2 weeks and Month: a RadioGroup wearing the stand-up's pill track, so it keeps the radio group's one tab stop and arrow keys. Each choice is 44px tall."
+           Code="@SwitchCode">
+        <div class="sb-phone">
+            <RadioGroup TValue="string" Options="@Lengths" Value="@_length" ValueChanged="value => _length = value"
+                        AriaLabel="Iteration" BaseClass="standup-switch" OptionVariantClass=""
+                        OptionCssClass="standup-switch__option"
+                        CheckedOptionCssClass="standup-switch__option standup-switch__option--checked"
+                        TestId="story-iteration-switch" />
+        </div>
+    </Story>
+
+    <Story Name="Finished"
+           Description="A block's items grouped by the goal that counts them, with No goal last. Trailing holds what the host knows about an item — here the number of the pull request that finished it."
+           Code="@FinishedCode">
+        <div class="sb-phone">
+            <StandupWorkList TItem="Item" Groups="@Finished" ItemTitle="item => item.Title" AriaLabel="Finished"
+                             TestId="story-finished">
+                <Trailing Context="item">
+                    @if (item.Pull is { } pull)
+                    {
+                        <Badge Kind="standup-pr" Slug="merged">#@pull</Badge>
+                    }
+                </Trailing>
+            </StandupWorkList>
+        </div>
+    </Story>
+
+    <Story Name="Planned"
+           Description="Detail puts a line under the items HasDetail picks — on the phone, a planned item's pull request with its checks and approvals, and its effort; the rest keep their effort at the end of the line."
+           Code="@PlannedCode">
+        <div class="sb-phone">
+            <StandupWorkList TItem="Item" Groups="@Planned" ItemTitle="item => item.Title" AriaLabel="Planned"
+                             HasDetail="item => item.Pull is not null" TestId="story-planned">
+                <Trailing Context="item">
+                    @if (item.Pull is null && item.Points is { } points)
+                    {
+                        @($"{points} pts")
+                    }
+                </Trailing>
+                <Detail Context="item">
+                    <Badge Kind="standup-pr" Slug="open">#@item.Pull</Badge>
+                    <span>@item.Points pts</span>
+                </Detail>
+            </StandupWorkList>
+        </div>
+    </Story>
+
+    <Story Name="Impediment rows"
+           Description="One impediment per row: its title and state badge, then who it is with, how long it has been open, and the goal it holds back in the error ink. Each row is one link to the impediment's page."
+           Code="@ImpedimentCode">
+        <div class="sb-phone sb-stack">
+            <StandupImpedimentCard Title="Bank sample files missing" State="StandupImpedimentState.Escalated"
+                                   Meta="account manager · 3 days" Goal="Customers get paid faster"
+                                   Href="#impediment-rows" TestId="story-impediment" />
+            <StandupImpedimentCard Title="Android build runner flaky" State="StandupImpedimentState.BeingHandled"
+                                   Meta="Platform team · 2 days · check Tue" Href="#impediment-rows" />
+            <StandupImpedimentCard Title="Credit note numbering unclear" State="StandupImpedimentState.New"
+                                   Meta="Not reported yet · 1 day" Goal="Customers get paid faster" Href="#impediment-rows" />
+        </div>
+    </Story>
+
+    <Story Name="Badges"
+           Description="The forecast and the five impediment states, on the one tone scale: Escalated and At risk take the fault surface, Being handled the alert surface, Resolved and On track the settled one; New and Reported are outlined, New with a dot saying nobody has been told."
+           Code="@BadgesCode">
+        <div class="sb-phone sb-row">
+            <StandupStandingBadge Standing="StandupStanding.AtRisk" TestId="story-standing" />
+            <StandupStandingBadge Standing="StandupStanding.OnTrack" />
+            @foreach (var state in StandupWords.States)
+            {
+                <StandupImpedimentBadge State="state" />
+            }
+        </div>
+    </Story>
+
+    <Story Name="State list"
+           Description="Every state an impediment can be in, as the control that moves it: the states passed ticked with their day and who it was with, the current one lit, the ones ahead empty rings. Only the moves the domain allows can be taken, and the arrows move the focus without taking anything: Space, Enter or a tap does. Choose one: the list is live here."
+           Code="@StepsCode">
+        <div class="sb-phone">
+            <ImpedimentStateSteps Current="_state" History="@History" OnSelect="state => _state = state"
+                                  CanMoveTo="state => CanMove(_state, state)"
+                                  TestId="story-state-steps" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private string _length = "Week";
+    private StandupImpedimentState _state = StandupImpedimentState.Escalated;
+
+    /// <summary>The domain's moves, written out for the sample; the phone passes
+    /// ImpedimentStates.Allows from the Progress module.</summary>
+    private static bool CanMove(StandupImpedimentState from, StandupImpedimentState to) =>
+        (from, to) switch
+        {
+            (StandupImpedimentState.Resolved, _) => false,
+            (_, StandupImpedimentState.Resolved) => true,
+            (StandupImpedimentState.New, StandupImpedimentState.Reported) => true,
+            (StandupImpedimentState.Reported, StandupImpedimentState.Escalated or StandupImpedimentState.BeingHandled) => true,
+            (StandupImpedimentState.Escalated, StandupImpedimentState.BeingHandled) => true,
+            _ => false,
+        };
+
+    private static readonly IReadOnlyList<string> Lengths = ["Day", "Week", "2 weeks", "Month"];
+
+    private sealed record Item(string Title, int? Pull = null, int? Points = null);
+
+    private static readonly IReadOnlyList<StandupWorkGroup<Item>> Finished =
+    [
+        new("Customers get paid faster", [new("Invoice PDF export", 1338), new("Reminder emails", 1335), new("Import history per account")]),
+        new("Devbook search ships", [new("Rank results by heading", 1346), new("Highlight matches")]),
+        new(null, [new("VAT rate per line item")])
+    ];
+
+    private static readonly IReadOnlyList<StandupWorkGroup<Item>> Planned =
+    [
+        new("Customers get paid faster", [new("Customer search by IBAN", 1341, 3), new("Payment matching rules", Points: 8)]),
+        new("Phone capture in daily use", [new("Capture from the share sheet", Points: 5)])
+    ];
+
+    private static readonly IReadOnlyList<StandupImpedimentStep> History =
+    [
+        new(StandupImpedimentState.New, new DateOnly(2026, 10, 14), null),
+        new(StandupImpedimentState.Reported, new DateOnly(2026, 10, 15), "bank support"),
+        new(StandupImpedimentState.Escalated, new DateOnly(2026, 10, 16), "account manager")
+    ];
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#goal-forecast-badges", "Which tone At risk and On track take, and why their edges differ."),
+        new("color-scheme.md#impediment-state-tones", "How the five impediment states map onto the tone scale, and what a step's marker wears."),
+        new("color-scheme.md#chart-roles", "Why the bar and the spark carry their numbers in words as well as in shape."),
+        new("accessibility.md#target-sizes-and-text", "How tall the switch's choices and the state list's rows have to be under a thumb.")
+    ];
+
+    private const string AtRiskCode = """
+        <StandupGoalCard Title="Customers get paid faster" Standing="StandupStanding.AtRisk"
+                         Done="9" Doing="3" Blocked="1" ToDo="2" DoneInWindow="3"
+                         DueDate="goal.DueDate" Href="standup/goals/{id}" />
+        """;
+
+    private const string OnTrackCode = """
+        <StandupGoalCard Title="Devbook search ships" Standing="StandupStanding.OnTrack"
+                         Done="5" ToDo="1" DueDate="goal.DueDate" Href="standup/goals/{id}" />
+        """;
+
+    private const string BarCode = """
+        <GoalStackedBar Done="9" Doing="3" Blocked="1" ToDo="2" Height="10" />
+        """;
+
+    private const string SparkCode = """
+        <WeekSpark Counts="doneThisWeekAndTheThreeBefore" />
+        """;
+
+    private const string SwitchCode = """
+        <RadioGroup TValue="IterationLength" Options="Lengths" Value="Length" ValueChanged="Switch"
+                    OptionLabel="StandupText.Length" AriaLabel="Iteration"
+                    BaseClass="standup-switch" OptionVariantClass=""
+                    OptionCssClass="standup-switch__option"
+                    CheckedOptionCssClass="standup-switch__option standup-switch__option--checked" />
+        """;
+
+    private const string FinishedCode = """
+        <StandupWorkList TItem="StandUpItemDto" Groups="Groups(reading.Finished)" ItemTitle="item => item.Title">
+            <Trailing Context="item">
+                <Badge Kind="standup-pr" Slug="merged">#1338</Badge>
+            </Trailing>
+        </StandupWorkList>
+        """;
+
+    private const string PlannedCode = """
+        <StandupWorkList TItem="StandUpItemDto" Groups="Groups(reading.Planned)" ItemTitle="item => item.Title"
+                         HasDetail="item => PullRequestOf(item) is not null">
+            <Trailing Context="item">@Points(item)</Trailing>
+            <Detail Context="item">
+                <PhonePullRequestStatus Number="1341" State="status.State" Checks="status.Checks" Approvals="status.Approvals" />
+            </Detail>
+        </StandupWorkList>
+        """;
+
+    private const string ImpedimentCode = """
+        <StandupImpedimentCard Title="Bank sample files missing" State="StandupImpedimentState.Escalated"
+                               Meta="account manager · 3 days" Goal="Customers get paid faster"
+                               Href="standup/impediments/{id}" />
+        """;
+
+    private const string BadgesCode = """
+        <StandupStandingBadge Standing="StandupStanding.AtRisk" />
+        <StandupImpedimentBadge State="StandupImpedimentState.Escalated" />
+        """;
+
+    private const string StepsCode = """
+        <ImpedimentStateSteps Current="StandupText.State(impediment.State)"
+                              History="StandupText.History(impediment)"
+                              CanMoveTo="CanMoveTo"
+                              OnSelect="MoveAsync" />
+        """;
+}

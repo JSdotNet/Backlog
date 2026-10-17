@@ -198,19 +198,9 @@ public sealed class Impediment
     /// <summary>Whether it holds back the task <paramref name="taskId"/>.</summary>
     public bool Holds(Guid taskId) => _holdsBack.Contains(taskId);
 
-    /// <summary>The state order: forward along New, Reported, Escalated, Being handled,
-    /// Escalated the one state a move may skip, and any open state to Resolved.</summary>
-    internal static bool Allows(ImpedimentState from, ImpedimentState to) =>
-        (from, to) switch
-        {
-            (ImpedimentState.Resolved, _) => false,
-            (_, ImpedimentState.Resolved) => true,
-            (ImpedimentState.New, ImpedimentState.Reported) => true,
-            (ImpedimentState.Reported, ImpedimentState.Escalated) => true,
-            (ImpedimentState.Reported, ImpedimentState.BeingHandled) => true,
-            (ImpedimentState.Escalated, ImpedimentState.BeingHandled) => true,
-            _ => false,
-        };
+    /// <summary>The state order, which the phone offers moves by as well: see
+    /// <see cref="ImpedimentStates.Allows"/>.</summary>
+    internal static bool Allows(ImpedimentState from, ImpedimentState to) => ImpedimentStates.Allows(from, to);
 
     private static Result<string> CleanTitle(string? title) =>
         string.IsNullOrWhiteSpace(title) ? ProgressErrors.ImpedimentWithoutTitle() : title.Trim();

@@ -1,0 +1,54 @@
+@using System.Globalization
+
+@*
+    A goal's last few weeks at a glance: one bar per week, as tall as the items
+    done in it against the busiest of them, oldest first. The current week wears
+    the success ink and the earlier ones the border tone, so the eye lands on
+    this week; the image's words carry every number
+    ("Done per week: 1, 2, 3, 3"), so neither the height nor the colour is the
+    only carrier (.devbook/design/color-scheme.md#chart-roles).
+
+    A week with nothing done still draws a sliver, so four bars always read as
+    four weeks.
+*@
+
+<div class="@ClassValue" role="img" aria-label="@Label" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @for (var index = 0; index < Counts.Count; index++)
+    {
+        var current = index == Counts.Count - 1;
+        <span class="@(current ? "week-spark__bar week-spark__bar--current" : "week-spark__bar")"
+              style="@($"height: {BarHeight(Counts[index]).ToString(CultureInfo.InvariantCulture)}px")"></span>
+    }
+</div>
+
+@code {
+    /// <summary>The tallest a bar is drawn, in pixels, for the busiest week.</summary>
+    private const int Tallest = 21;
+
+    /// <summary>The items done per week, oldest first; the last is the current week.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<int> Counts { get; set; } = [];
+
+    /// <summary>What the bars count, before the numbers: "Done per week".</summary>
+    [Parameter]
+    public string AriaLabel { get; set; } = "Done per week";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Label => $"{AriaLabel}: {string.Join(", ", Counts.Select(count => count.ToString(CultureInfo.InvariantCulture)))}";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "week-spark" : $"week-spark {CssClass}";
+
+    private int BarHeight(int count)
+    {
+        var busiest = Math.Max(1, Counts.Count == 0 ? 1 : Counts.Max());
+        return count <= 0 ? 2 : Math.Max(3, (int)Math.Round(Tallest * (double)count / busiest));
+    }
+}

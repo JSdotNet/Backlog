@@ -1,0 +1,22 @@
+@*
+    A goal's forecast as its badge: At risk or On track, on the tones
+    .devbook/design/color-scheme.md#goal-forecast-badges gives them — the fault
+    surface with its own ink as its edge, and the settled surface inside the strong
+    border. The word is always printed, so the tone never carries it alone.
+
+    A Badge of its own kind rather than a new shape, so it sits on the one tone
+    scale every badge family reads.
+*@
+
+<Badge Kind="standup" Slug="@StandupWords.Slug(Standing)" CssClass="@CssClass" TestId="@TestId">@StandupWords.Label(Standing)</Badge>
+
+@code {
+    [Parameter]
+    public StandupStanding Standing { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+}

@@ -1746,6 +1746,17 @@ button.badge:hover {
     transform: rotate(90deg);
 }
 
+/* ChevronAtEnd: a drawn chevron that points down closed and turns to point up open,
+   so the row reads as a list that opens below it. */
+.fold__chevron--end {
+    display: inline-flex;
+    font-size: inherit;
+}
+
+.fold__chevron--end.fold__chevron--open {
+    transform: rotate(180deg);
+}
+
 @media (prefers-reduced-motion: reduce) {
     .fold__chevron,
     .entry-doc__fold-chevron {
@@ -18700,6 +18711,400 @@ select.field__input {
     .focus__ring-fill {
         transition: none;
     }
+}
+
+/* --- Phone stand-up: goals, blocks and impediments ---------------------- */
+/*
+  The parts of the phone's Stand-up, goal and impediment pages
+  (PhoneStandup/*.razor): a goal's card and the bar of how its items stand,
+  the done-per-week spark, a block's items grouped by goal, an impediment's
+  row, its state list, and the iteration switch the page draws with a
+  RadioGroup. Every target keeps the 44px touch minimum of
+  accessibility.md#target-sizes-and-text.
+
+  Each state takes the tone it wears everywhere else — done the success ink,
+  doing the accent, blocked the error ink — and the badges sit on the one tone
+  scale (color-scheme.md#goal-forecast-badges, #impediment-state-tones). The
+  words always say what the colour says.
+*/
+
+.standup-switch {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+}
+
+.standup-switch__option {
+    min-height: 44px;
+    padding: 0 var(--spacing-xs);
+    border: 0;
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.standup-switch__option--checked {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.badge--standup,
+.badge--standup-impediment {
+    gap: var(--spacing-xs);
+    flex: none;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-secondary);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+}
+
+.badge--standup-at-risk,
+.badge--standup-impediment-escalated {
+    border-color: var(--color-error-text);
+    background: var(--color-error);
+    color: var(--color-error-text);
+}
+
+.badge--standup-on-track,
+.badge--standup-impediment-resolved {
+    background: var(--color-success);
+    color: var(--color-success-text);
+}
+
+.badge--standup-impediment-new {
+    border-color: var(--color-secondary);
+}
+
+.badge--standup-impediment-being-handled {
+    background: var(--color-warning);
+    color: var(--color-text-primary);
+}
+
+.standup-impediment-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-error-text);
+}
+
+.standup-impediment-arrow {
+    flex: none;
+}
+
+.goal-bar {
+    display: flex;
+    gap: 2px;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+}
+
+.goal-bar__part {
+    flex-basis: 0;
+    min-width: 2px;
+}
+
+.goal-bar__part--done {
+    background: var(--color-success-text);
+}
+
+.goal-bar__part--doing {
+    background: var(--color-primary);
+}
+
+.goal-bar__part--blocked {
+    background: var(--color-error-text);
+}
+
+.goal-bar__part--to-do {
+    background: var(--color-background-raised);
+}
+
+.week-spark {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: var(--spacing-xs);
+    height: 28px;
+}
+
+.week-spark__bar {
+    width: 10px;
+    border-radius: 2px;
+    background: var(--color-border);
+}
+
+.week-spark__bar--current {
+    background: var(--color-success-text);
+}
+
+.standup-goal {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: 14px var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.standup-goal:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.standup-goal:focus-visible,
+.standup-impediment:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.standup-goal__head,
+.standup-impediment__head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.standup-goal__title {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9375rem;
+    font-weight: var(--font-weight-semibold);
+}
+
+.standup-goal__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.standup-goal__done {
+    color: var(--color-text-primary);
+}
+
+.standup-work {
+    margin: 0;
+    padding: var(--spacing-xs) 0;
+    list-style: none;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.standup-work__goal {
+    display: block;
+    padding: var(--spacing-sm) var(--spacing-md) 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.standup-work__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.standup-work__item {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding: 6px var(--spacing-md);
+}
+
+.standup-work__line {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.standup-work__title {
+    flex: 1;
+    min-width: 0;
+}
+
+.standup-work__trailing {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.standup-work__detail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.standup-impediment {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-xs);
+    min-height: 44px;
+    padding: 12px var(--spacing-md);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.standup-impediment:hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.standup-impediment__title {
+    flex: 1;
+    min-width: 0;
+    font-weight: var(--font-weight-medium);
+}
+
+/* One line, as the artboard draws it: what does not fit ends in an ellipsis. */
+.standup-impediment__meta {
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.standup-impediment__goal {
+    color: var(--color-error-text);
+}
+
+/* A radio group laid out as a column of rows rather than a row of pills. */
+.impediment-steps {
+    display: grid;
+}
+
+.impediment-steps__step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 10px;
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+}
+
+/* A state the impediment cannot move to is still part of its history, not a
+   dimmed control: it cannot be taken, and still reads at full strength. */
+.impediment-steps__step:disabled {
+    cursor: default;
+    opacity: 1;
+}
+
+.impediment-steps__step:not(:disabled):hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.impediment-steps__step--current {
+    min-height: 48px;
+    border-color: var(--color-border-strong);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.impediment-steps__step--current:has(.impediment-steps__marker--escalated) {
+    border-color: var(--color-error-text);
+    background: var(--color-error);
+    color: var(--color-error-text);
+}
+
+.impediment-steps__marker {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--border-radius-full);
+    color: var(--color-background);
+}
+
+.impediment-steps__marker--passed {
+    background: var(--color-success-text);
+}
+
+.impediment-steps__marker--current {
+    background: var(--color-primary);
+}
+
+.impediment-steps__marker--current.impediment-steps__marker--escalated,
+.impediment-steps__marker--current.impediment-steps__marker--new {
+    background: var(--color-error-text);
+}
+
+.impediment-steps__marker--current.impediment-steps__marker--resolved {
+    background: var(--color-success-text);
+}
+
+.impediment-steps__marker--open {
+    box-shadow: inset 0 0 0 2px var(--color-border);
+}
+
+.impediment-steps__label {
+    flex: 1;
+    min-width: 0;
+}
+
+.impediment-steps__with {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-normal);
+}
+
+.impediment-steps__day {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+}
+
+/* A pull request's number as a chip in the tone of its state: merged settled, open
+   the alert surface, a draft dashed and neutral, closed the fault surface. */
+.badge--standup-pr {
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-full);
+    font-family: var(--font-family-mono);
+}
+
+.badge--standup-pr-merged {
+    background: var(--color-success);
+    color: var(--color-success-text);
+}
+
+.badge--standup-pr-open {
+    background: var(--color-warning);
+    color: var(--color-primary-light);
+}
+
+.badge--standup-pr-draft {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+.badge--standup-pr-closed {
+    background: var(--color-error);
+    color: var(--color-error-text);
+}
+
+.badge--standup-pr-unknown {
+    color: var(--color-text-secondary);
 }
 
 /* --- Attachment strip ---------------------------------------------------- */

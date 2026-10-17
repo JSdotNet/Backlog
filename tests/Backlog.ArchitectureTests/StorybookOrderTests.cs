@@ -66,6 +66,7 @@ public class StorybookOrderTests
         ["Metrics"] = ["usage-metrics", "productivity"],
         ["Notes"] = ["notes"],
         ["Overlays"] = ["overlays"],
+        ["PhoneStandup"] = ["standup"],
         ["Roadmap"] = ["roadmap"],
         ["Progress"] = ["sprint-settings", "sprint-view", "sprint-planning"],
         ["Selection"] = ["selection-bar"],
