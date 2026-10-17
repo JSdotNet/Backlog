@@ -451,7 +451,7 @@ The system SHALL list under Impediments every impediment that is not Resolved, w
 #### Scenario: One escalated, one resolved
 
 - **Given** "Bank sample files missing" was raised on Wednesday 14 October and is Escalated to the account manager, and one other impediment was resolved on 15 October
-- **When** the stand-up is read on Friday 16 October
+- **When** the stand-up is read by Day on Friday 16 October, so the last window is Thursday 15 October
 - **Then** it lists "Bank sample files missing", Escalated, "Account manager · 3 days · Customers get paid faster", and reads "1 resolved"
 
 #### Scenario: A new impediment

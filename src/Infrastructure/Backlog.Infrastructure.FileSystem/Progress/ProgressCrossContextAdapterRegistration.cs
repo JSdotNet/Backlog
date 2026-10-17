@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -38,6 +39,12 @@ public static class ProgressCrossContextAdapterRegistration
             new SprintRepositories(() => sp.GetService<IRepositoryDirectory>()));
         services.Replace(ServiceDescriptor.Singleton<IGoalPullRequestReader>(sp =>
             new GitHubGoalPullRequests(() => sp.GetService<GitHubIntegration>())));
+
+        // The pace the stand-up's points tag compares planned effort with: Roadmap
+        // Planning's global pace, replacing the module's answer of none. Scoped, as the
+        // roadmap's port is.
+        services.Replace(ServiceDescriptor.Scoped<IStandUpPace>(sp =>
+            new PlanningVelocityStandUpPace(() => sp.GetService<IPlanningVelocity>())));
 
         // The blocked tasks the impediment policy reads, and the watcher that runs it on
         // every local task write (local ADR 0035 §5–6). The head resolves the watcher once.

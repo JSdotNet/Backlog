@@ -10,6 +10,7 @@ using Backlog.Modules.Progress.Features.ListImpediments;
 using Backlog.Modules.Progress.Features.TrackImpediment;
 using Backlog.Modules.Progress.Features.MarkSprintItem;
 using Backlog.Modules.Progress.Features.ReadSprintProgress;
+using Backlog.Modules.Progress.Features.ReadStandUp;
 using Backlog.Modules.Progress.Features.SetGoal;
 using Backlog.Modules.Progress.Features.StartSprint;
 using Backlog.Modules.Progress.Services;
@@ -98,6 +99,24 @@ public static class ProgressModuleRegistration
             sp.GetRequiredService<AttachWorkCommandHandler>(),
             sp.GetService<IAppFeatureSettings>(),
             sp.GetRequiredService<GoalSaved>()));
+
+        // The stand-up (local ADR 0035), on the goals switch. The iteration setting and the
+        // pace are the host's; the module's own answers keep Week in memory and know no pace.
+        services.TryAddSingleton<IIterationSettings, InMemoryIterationSettings>();
+        services.TryAddSingleton<IStandUpPace, NoStandUpPace>();
+        services.AddScoped(sp => new ReadStandUpQueryHandler(
+            sp.GetRequiredService<IGoalRepository>(),
+            sp.GetRequiredService<IImpedimentRepository>(),
+            sp.GetRequiredService<ISprintTaskSource>(),
+            sp.GetRequiredService<IGoalPullRequestReader>(),
+            sp.GetRequiredService<IIterationSettings>(),
+            sp.GetRequiredService<IStandUpPace>(),
+            sp.GetService<IWorkingHoursSettings>()));
+        services.AddScoped<IStandUp>(sp => new StandUp(
+            sp.GetRequiredService<ReadStandUpQueryHandler>(),
+            sp.GetRequiredService<IIterationSettings>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetService<IAppFeatureSettings>()));
 
         // Each goal as a `goal` document on the task feed, on the series' terms. Not behind
         // the goals switch: goals recorded while it is off are kept, so they travel too.

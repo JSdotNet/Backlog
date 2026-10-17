@@ -123,7 +123,34 @@ public static class GoalCounting
         IReadOnlyList<Goal> all,
         IReadOnlyList<SprintTaskDto> tasks,
         IReadOnlyList<LinkedPullRequestDto> pullRequests,
-        DayWindow? window = null)
+        DayWindow? window = null) =>
+        Count(Items(goal, all, tasks, pullRequests), window);
+
+    /// <summary>The progress of a goal whose <see cref="Items"/> a reading already resolved,
+    /// so a reading that lists the items too resolves them once.</summary>
+    public static GoalProgress Count(IReadOnlyList<GoalItem> items, DayWindow? window = null)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+
+        return new GoalProgress(
+            items.Count(item => item.State == GoalItemState.Done),
+            items.Count,
+            items.Count(item => item.State == GoalItemState.Doing),
+            items.Count(item => item.State == GoalItemState.Blocked),
+            items.Count(item => item.State == GoalItemState.ToDo),
+            window is { } days ? items.Count(item => item.DoneOn is { } on && days.Contains(on)) : 0);
+    }
+
+    /// <summary>
+    /// Each item <paramref name="goal"/> counts, once, with where it stands: its counted
+    /// tasks first, then the attached pull requests no counted task links — the items
+    /// <see cref="Count"/> counts, for a reading that lists them.
+    /// </summary>
+    public static IReadOnlyList<GoalItem> Items(
+        Goal goal,
+        IReadOnlyList<Goal> all,
+        IReadOnlyList<SprintTaskDto> tasks,
+        IReadOnlyList<LinkedPullRequestDto> pullRequests)
     {
         ArgumentNullException.ThrowIfNull(pullRequests);
 
@@ -131,51 +158,59 @@ public static class GoalCounting
         foreach (var answer in pullRequests) answers.TryAdd(Key(answer.Repository, answer.Number), answer);
 
         var counted = TasksOf(goal, all, tasks);
-        var items = new List<(ItemState State, DateOnly? DoneOn)>();
+        var items = new List<GoalItem>();
 
-        foreach (var task in counted) items.Add(StateOf(task, answers));
+        foreach (var task in counted)
+        {
+            var (state, doneOn) = StateOf(task, answers);
+            items.Add(new GoalItem(task, null, state, doneOn));
+        }
 
         var ridingAlong = counted.SelectMany(task => task.PullRequests).ToList();
         foreach (var attached in goal.Attachments.Where(a => a.Kind == GoalAttachmentKind.PullRequest))
         {
             if (ridingAlong.Any(pull => attached.IsPullRequest(pull.Repository, pull.Number))) continue;
 
-            answers.TryGetValue(Key(PullRequestRefOf(attached)), out var answer);
-            items.Add(StateOf(answer));
+            var pull = PullRequestRefOf(attached);
+            answers.TryGetValue(Key(pull), out var answer);
+            var (state, doneOn) = StateOf(answer);
+            items.Add(new GoalItem(null, pull, state, doneOn));
         }
 
-        return new GoalProgress(
-            items.Count(item => item.State == ItemState.Done),
-            items.Count,
-            items.Count(item => item.State == ItemState.Doing),
-            items.Count(item => item.State == ItemState.Blocked),
-            items.Count(item => item.State == ItemState.ToDo),
-            window is { } days ? items.Count(item => item.DoneOn is { } on && days.Contains(on)) : 0);
+        return items;
     }
 
-    private static (ItemState, DateOnly?) StateOf(SprintTaskDto task, Dictionary<string, LinkedPullRequestDto> answers)
+    /// <summary>The key a pull request is told apart by: its repository and number, the
+    /// number without a leading <c>#</c>. Compare without regard to case.</summary>
+    public static string KeyOf(PullRequestRefDto pull)
+    {
+        ArgumentNullException.ThrowIfNull(pull);
+        return Key(pull);
+    }
+
+    private static (GoalItemState, DateOnly?) StateOf(SprintTaskDto task, Dictionary<string, LinkedPullRequestDto> answers)
     {
         var linked = task.PullRequests
             .Select(pull => answers.TryGetValue(Key(pull.Repository, pull.Number), out var answer) ? answer : null)
             .ToList();
 
-        if (task.Status == SprintTaskStatus.Done) return (ItemState.Done, task.CompletedOn);
+        if (task.Status == SprintTaskStatus.Done) return (GoalItemState.Done, task.CompletedOn);
 
         if (linked.Count > 0 && linked.All(answer => answer?.State == LinkedPullRequestState.Merged))
         {
-            return (ItemState.Done, linked.Max(answer => answer!.MergedOn));
+            return (GoalItemState.Done, linked.Max(answer => answer!.MergedOn));
         }
 
-        if (task.IsBlocked) return (ItemState.Blocked, null);
-        return task.Status == SprintTaskStatus.InProgress ? (ItemState.Doing, null) : (ItemState.ToDo, null);
+        if (task.IsBlocked) return (GoalItemState.Blocked, null);
+        return task.Status == SprintTaskStatus.InProgress ? (GoalItemState.Doing, null) : (GoalItemState.ToDo, null);
     }
 
-    private static (ItemState, DateOnly?) StateOf(LinkedPullRequestDto? answer) =>
+    private static (GoalItemState, DateOnly?) StateOf(LinkedPullRequestDto? answer) =>
         answer?.State switch
         {
-            LinkedPullRequestState.Merged => (ItemState.Done, answer.MergedOn),
-            LinkedPullRequestState.Open or LinkedPullRequestState.Draft => (ItemState.Doing, null),
-            _ => (ItemState.ToDo, null),
+            LinkedPullRequestState.Merged => (GoalItemState.Done, answer.MergedOn),
+            LinkedPullRequestState.Open or LinkedPullRequestState.Draft => (GoalItemState.Doing, null),
+            _ => (GoalItemState.ToDo, null),
         };
 
     /// <summary>A pull request attachment in the words Tasks and GitHub use for one.</summary>
@@ -186,12 +221,21 @@ public static class GoalCounting
 
     private static string Key(string repository, string number) =>
         $"{repository.Trim()}#{number.Trim().TrimStart('#')}";
-
-    private enum ItemState
-    {
-        ToDo,
-        Doing,
-        Blocked,
-        Done
-    }
 }
+
+/// <summary>Where one item a goal counts stands: the first that applies of done, blocked,
+/// doing and to do (<see cref="GoalCounting"/>).</summary>
+public enum GoalItemState
+{
+    ToDo,
+    Doing,
+    Blocked,
+    Done
+}
+
+/// <summary>One item a goal counts: a task — an attached one or a plan's entry — or an
+/// attached pull request no counted task links. Exactly one of <see cref="Task"/> and
+/// <see cref="PullRequest"/> is set.</summary>
+/// <param name="DoneOn">The day it was done, when it is: its task's completion day, or the
+/// day its last pull request merged.</param>
+public sealed record GoalItem(SprintTaskDto? Task, PullRequestRefDto? PullRequest, GoalItemState State, DateOnly? DoneOn);

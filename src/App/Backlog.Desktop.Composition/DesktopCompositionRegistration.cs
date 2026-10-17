@@ -326,6 +326,9 @@ public static class DesktopCompositionRegistration
         // navigation file beside the surface it reopens on.
         services.AddSingleton<Backlog.Modules.DevPc.Abstractions.IToolsViewPreferences>(sp =>
             new ToolsViewPreferences(sp.GetService<ShellNavigationStore>()));
+        // The iteration the Goals view and the stand-up read in, kept in the same file.
+        services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>(sp =>
+            new Backlog.Infrastructure.FileSystem.Progress.IterationSettings(sp.GetService<ShellNavigationStore>()));
         // Show archived (local ADR 0029, §3): whether the archived repositories are
         // offered in the scope, the Board and the pickers, kept per device in the same file.
         services.AddSingleton<Backlog.SharedKernel.IShowArchivedRepositories>(sp =>

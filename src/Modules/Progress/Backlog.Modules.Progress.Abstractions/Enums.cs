@@ -124,3 +124,35 @@ public enum ImpedimentState
     /// <summary>No longer in the way. A resolved impediment moves to no other state.</summary>
     Resolved
 }
+
+/// <summary>How long the window is that a person reads their goals and stand-up in
+/// (<c>.devbook/domain/progress/domain.md#iteration</c>,
+/// <c>.devbook/domain/progress/context.md#iteration-length</c>). Stored as the setting's
+/// values — <c>day</c>, <c>week</c>, <c>two-weeks</c> and <c>month</c> — mapped explicitly by
+/// each store, never as the member names or numbers; a store reads a member name as a fallback.</summary>
+public enum IterationLength
+{
+    /// <summary>One worked day of the person's working week.</summary>
+    Day,
+
+    /// <summary>Monday to Friday.</summary>
+    Week,
+
+    /// <summary>Fourteen days from the two-week start, or a whole number of fourteen days after it.</summary>
+    TwoWeeks,
+
+    /// <summary>One calendar month, from its first day to its last.</summary>
+    Month
+}
+
+/// <summary>Whether a goal lands in time (<c>.devbook/domain/progress/domain.md#goal-forecast</c>).
+/// Read afresh on every reading and never stored.</summary>
+public enum GoalStanding
+{
+    /// <summary>It lands on or before its due date, nothing open holds it back, or it has no open item.</summary>
+    OnTrack,
+
+    /// <summary>It lands after its due date, has no landing date with items still open, or
+    /// an open impediment holds back one of its items.</summary>
+    AtRisk
+}
