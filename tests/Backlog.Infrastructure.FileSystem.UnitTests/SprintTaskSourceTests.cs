@@ -63,6 +63,20 @@ public class SprintTaskSourceTests
         Assert.Equal([open.Id, done.Id], read.Select(task => task.Id));
     }
 
+    /// <summary>A goal's attached plan counts its entries in every repository
+    /// (<c>.devbook/domain/progress/domain.md#goal-attachment</c>).</summary>
+    [Fact]
+    public void A_goals_plan_brings_in_its_tasks_in_every_repository()
+    {
+        var here = Entry("Here", tags: ["+bank-integration"]);
+        var elsewhere = Entry("Elsewhere", tags: ["+bank-integration"], repoId: "JSdotNet/Tools");
+        var unregistered = Entry("Unregistered", tags: ["+bank-integration"], repoId: "Someone/Else");
+
+        var read = Select([here, elsewhere, unregistered], new SprintTaskQuery([], ["bank-integration"], [], AnyRepository: true));
+
+        Assert.Equal([here.Id, elsewhere.Id, unregistered.Id], read.Select(task => task.Id));
+    }
+
     [Fact]
     public void A_task_carries_the_day_it_started_and_the_day_it_was_blocked()
     {

@@ -130,6 +130,7 @@ public static class SyncActivityPresentation
         SyncItemKind.Note => "Note",
         SyncItemKind.SprintSeries => "Sprint series",
         SyncItemKind.MyDayPreferences => "My Day preferences",
+        SyncItemKind.Goal => "Goal",
         _ => kind.ToString(),
     };
 

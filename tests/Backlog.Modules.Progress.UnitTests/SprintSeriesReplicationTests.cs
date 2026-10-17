@@ -27,6 +27,7 @@ public sealed class SprintSeriesReplicationTests : IDisposable
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(new FakeTimeProvider(Morning));
         services.AddSingleton<ISprintSeriesRepository>(_repository);
+        services.AddSingleton<IGoalRepository>(new InMemoryGoalRepository());
         services.AddSingleton<ISprintSeriesReplicaStore>(_store);
         services.AddSingleton<ISprintTaskSource>(new FakeTaskSource());
         services.AddSingleton<ISprintPullRequestReader>(new FakePullRequests());

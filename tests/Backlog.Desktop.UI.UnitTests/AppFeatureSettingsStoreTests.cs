@@ -83,6 +83,7 @@ public sealed class AppFeatureSettingsStoreTests
                 AppFeatures.InboxPane,
                 RoadmapFeatures.Roadmap,
                 ProgressFeatures.Progress,
+                ProgressFeatures.Goals,
                 DevbookFeatures.RepositoryDevbook,
                 DevbookFeatures.ArchifyDiagrams,
                 DevbookFeatures.C4Diagrams,

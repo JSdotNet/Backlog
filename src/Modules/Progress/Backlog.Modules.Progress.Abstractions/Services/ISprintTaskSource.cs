@@ -23,7 +23,12 @@ public interface ISprintTaskSource
 
 /// <summary>What a sprint asks Tasks for. Plan tags are compared without the
 /// <c>+</c> sigil and without regard to case; so are repository aliases.</summary>
+/// <param name="AnyRepository">Whether a plan tag brings in its tasks in every repository,
+/// <paramref name="RepositoryAliases"/> aside — how a goal's attached plan counts its
+/// entries (<c>.devbook/domain/progress/domain.md#goal-attachment</c>). Last and defaulted,
+/// so a sprint's query reads as it did.</param>
 public sealed record SprintTaskQuery(
     IReadOnlyCollection<Guid> TaskIds,
     IReadOnlyCollection<string> PlanTags,
-    IReadOnlyCollection<string> RepositoryAliases);
+    IReadOnlyCollection<string> RepositoryAliases,
+    bool AnyRepository = false);

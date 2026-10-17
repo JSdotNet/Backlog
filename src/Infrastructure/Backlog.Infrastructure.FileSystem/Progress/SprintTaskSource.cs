@@ -47,7 +47,7 @@ public sealed class SprintTaskSource(Func<ITaskItems> tasks, Func<IRepositoryDir
                 .Select(entry => ToSprintTask(entry, aliasById))
                 .Where(task =>
                     ids.Contains(task.Id)
-                    || (task.PlanTags.Any(plans.Contains) && task.RepositoryAliases.Any(repos.Contains)))
+                    || (task.PlanTags.Any(plans.Contains) && (query.AnyRepository || task.RepositoryAliases.Any(repos.Contains))))
                 .DistinctBy(task => task.Id)
         ];
     }

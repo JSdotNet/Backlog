@@ -354,6 +354,7 @@ public sealed class SprintSyncBetweenDevicesTests : IDisposable
             services.AddSingleton(_ => new RootedSqliteSprintSeriesRepository(() => root));
             services.AddSingleton<ISprintSeriesRepository>(sp => sp.GetRequiredService<RootedSqliteSprintSeriesRepository>());
             services.AddSingleton<ISprintSeriesReplicaStore>(sp => sp.GetRequiredService<RootedSqliteSprintSeriesRepository>());
+            services.AddSingleton<IGoalRepository>(_ => new RootedSqliteGoalRepository(() => root));
             services.AddProgressModule();
 
             _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });

@@ -45,6 +45,12 @@ public static class TaskFold
     /// <see cref="CaptureType"/> is.</summary>
     public const string SprintSeriesType = "sprint-series";
 
+    /// <summary>The kind token of a goal — Progress's whole goal, synced between desktops
+    /// (.devbook/arc42/adr/0035). Never a task row; the phone's goal pages read it from
+    /// their own read model once they exist. A literal duplicated for the reason
+    /// <see cref="CaptureType"/> is; persisted on every replica, so never to be renamed.</summary>
+    public const string GoalType = "goal";
+
     /// <summary>The kind token of the My Day preferences — Clear My Day overnight, set
     /// on a desktop (.devbook/arc42/adr/0032). Never a row: the projection keeps the
     /// document whole beside the rows, as <see cref="MyDayPreferencesDocument"/>. A
@@ -64,6 +70,7 @@ public static class TaskFold
         GitHubAccountsType,
         SprintSeriesType,
         MyDayPreferencesType,
+        GoalType,
     };
 
     /// <summary>Folds <paramref name="records"/> into <paramref name="rows"/>, and

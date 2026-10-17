@@ -138,4 +138,10 @@ public sealed class SyncActivityPresentationTests
     {
         Assert.Equal("My Day preferences", SyncActivityPresentation.Kind(SyncItemKind.MyDayPreferences));
     }
+
+    [Fact]
+    public void A_goal_reads_by_name()
+    {
+        Assert.Equal("Goal", SyncActivityPresentation.Kind(SyncItemKind.Goal));
+    }
 }

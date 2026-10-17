@@ -28,6 +28,7 @@ public sealed class SprintSeriesPlanningTests : IDisposable
         var services = new ServiceCollection();
         services.AddSingleton<TimeProvider>(_time);
         services.AddSingleton<ISprintSeriesRepository>(_repository);
+        services.AddSingleton<IGoalRepository>(new InMemoryGoalRepository());
         services.AddSingleton<ISprintTaskSource>(_tasks);
         services.AddSingleton<ISprintPullRequestReader>(_pulls);
         services.AddSingleton<IAppFeatureSettings>(_features);

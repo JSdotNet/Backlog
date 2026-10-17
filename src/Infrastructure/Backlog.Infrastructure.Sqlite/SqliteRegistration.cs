@@ -20,7 +20,7 @@ namespace Backlog.Infrastructure.Sqlite;
 public static class SqliteRegistration
 {
     /// <summary>
-    /// Registers the task repository, the roadmap plan, the sprint series, the inbox tables and the
+    /// Registers the task repository, the roadmap plan, the sprint series, the goals, the inbox tables and the
     /// Claude Code api_request table, each a
     /// singleton rooted at <paramref name="rootDirectory"/>.
     /// <para>
@@ -64,6 +64,13 @@ public static class SqliteRegistration
             new RootedSqliteSprintSeriesRepository(() => rootDirectory(sp)));
         services.AddSingleton<ISprintSeriesRepository>(sp => sp.GetRequiredService<RootedSqliteSprintSeriesRepository>());
         services.AddSingleton<ISprintSeriesReplicaStore>(sp => sp.GetRequiredService<RootedSqliteSprintSeriesRepository>());
+
+        // Progress's goals (local ADR 0035): one row per goal in progress_goals, the row
+        // also the `goal` document that travels, so one instance answers both ports.
+        services.AddSingleton(sp =>
+            new RootedSqliteGoalRepository(() => rootDirectory(sp)));
+        services.AddSingleton<IGoalRepository>(sp => sp.GetRequiredService<RootedSqliteGoalRepository>());
+        services.AddSingleton<IGoalReplicaStore>(sp => sp.GetRequiredService<RootedSqliteGoalRepository>());
 
         services.AddSingleton<RootedSqliteInboxRepository>(sp =>
             new RootedSqliteInboxRepository(() => rootDirectory(sp)));

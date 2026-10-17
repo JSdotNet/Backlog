@@ -88,4 +88,38 @@ public static class ProgressErrors
 
     public static Error NotAnItem(Guid taskId) =>
         Error.NotFound("progress.not_an_item", $"Task {taskId} is not in this sprint.");
+
+    // --- Goals (.devbook/domain/progress/domain.invariants.md#goal) ---------------
+
+    /// <summary>The <see cref="ProgressFeatures.Goals"/> switch is off.</summary>
+    public static Error GoalsOff() =>
+        Error.Validation("progress.goals_off", "Goals are switched off. Turn them on in Settings to work with goals.");
+
+    public static Error GoalNotFound(Guid goalId) =>
+        Error.NotFound("progress.goal_not_found", $"There is no goal {goalId}.");
+
+    public static Error GoalWithoutTitle() =>
+        Error.Validation("progress.goal_without_title", "A goal needs a title.");
+
+    public static Error GoalWithoutDueDate() =>
+        Error.Validation("progress.goal_without_due_date", "A goal needs a due date.");
+
+    public static Error OutcomeNotOneLine() =>
+        Error.Validation("progress.outcome_not_one_line", "A goal's outcome is one line.");
+
+    public static Error PullRequestWithoutRepository() =>
+        Error.Validation(
+            "progress.pull_request_without_repository",
+            "A pull request is named by its repository and a number above zero.");
+
+    public static Error TaskRequired() =>
+        Error.Validation("progress.task_required", "Name the task by its id.");
+
+    public static Error AttachmentKindNotAllowed(GoalAttachmentKind kind) =>
+        Error.Validation("progress.attachment_kind_not_allowed", $"A goal holds plans, tasks and pull requests, not '{kind}'.");
+
+    /// <summary>The item is another goal's (<c>.devbook/domain/progress/requirements.md#requirement-an-item-belongs-to-at-most-one-goal</c>);
+    /// the message names that goal, as the requirement asks.</summary>
+    public static Error ItemInOtherGoal(string goalTitle) =>
+        Error.Conflict("progress.item_in_other_goal", $"Already in {goalTitle}");
 }
