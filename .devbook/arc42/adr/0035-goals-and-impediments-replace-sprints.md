@@ -228,11 +228,18 @@ stand-up rules live in `Progress.Abstractions` (`GoalItems`, `StandUpReading`),
 and both heads call them. What only a desktop can find out — each pull
 request's state, checks and approvals, the pace, the working week and the
 iteration choice — a desktop writes as one `stand-up-context` document, so the
-phone never asks GitHub. A phone edit is a command, not the impediment: one
+phone never asks GitHub. A desktop writes it only while `goals` is on, and the
+phone, which keeps no feature settings, reads holding one as the flag. A phone edit is a command, not the impediment: one
 `impediment-edit` document per change, carrying the value the phone saw. A
 desktop applies it through the impediment features only while the field still
 holds that value, so a change made on a desktop since stands, and then retires
 the edit with a tombstone.
+
+The phone offers only the moves `ImpedimentStates.Allows` permits, the rule the
+aggregate refuses by, published in `Progress.Abstractions` beside `GoalItems`. It
+shows an edit as asked until a copy of the impediment says it, says what a
+desktop changed since, or, once the edit has left the outbox, still does not say
+it.
 
 ### 9. Goals and impediments ride the task feed
 
