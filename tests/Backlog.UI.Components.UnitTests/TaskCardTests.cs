@@ -337,8 +337,8 @@ public sealed class TaskCardTests
         (string)Assert.Single(context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]!;
 
     /// <summary>The row's copy button, on the card's top line, named for the task
-    /// it copies — and only when the host turns it on: a card standing alone, the
-    /// In progress view's, is a summary rather than something to paste.</summary>
+    /// it copies — and only when the host turns it on: a card standing alone is a
+    /// summary rather than something to paste.</summary>
     [Fact]
     public void The_copy_button_sits_on_the_top_line_named_for_the_task_and_only_when_allowed()
     {

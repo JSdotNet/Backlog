@@ -378,7 +378,7 @@ internal static class IntegrationFixtures
     // --- Work in progress ---------------------------------------------------
 
     /// <summary>
-    /// The sessions the work cards and the In progress view are drawn from, one per
+    /// The sessions the work cards are drawn from, one per
     /// state a session reaches from what it leaves on disk. The quiet one asks for the
     /// person and says so as "Quiet 30 min"; the detail line is the host's sentence,
     /// written out because the library holds no clock.

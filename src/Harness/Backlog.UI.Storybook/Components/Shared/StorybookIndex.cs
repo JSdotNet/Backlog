@@ -184,7 +184,7 @@ internal static class StorybookIndex
             // page rather than stories on Progress, because the stand-up read on a
             // phone — a goal as a card that opens its page, a block grouped by goal,
             // an impediment's state as the list that moves it — is a convention of
-            // its own, and the Progress chapter is the desktop's sprints. It draws its
+            // its own, and the Progress chapter is the desktop's Goals view. It draws its
             // own components, the Badge Badges introduced and the RadioGroup Radio
             // group did, both above.
             new("standup", "Stand-up", "StandupGoalCard, GoalStackedBar, WeekSpark, StandupWorkList, StandupImpedimentCard and ImpedimentStateSteps: the phone's Stand-up tab, a goal's page and an impediment's page.")

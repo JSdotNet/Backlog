@@ -8,8 +8,7 @@ namespace Backlog.Modules.Roadmap.UI;
 /// (<c>.devbook/domain/roadmap/domain.md#roadmap-item-gathering</c>).
 /// <para>
 /// Raised by the band and answered by the shell, which owns the view switch and the
-/// task list's filters — the roadmap references no Tasks module, the same arrangement
-/// as the In progress view's "open this task".
+/// task list's filters — the roadmap references no Tasks module.
 /// </para>
 /// </summary>
 /// <param name="PlanTag">The plan tag with its <c>+</c>, the way a task carries it. The

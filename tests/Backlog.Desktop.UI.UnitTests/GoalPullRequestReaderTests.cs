@@ -11,7 +11,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// state, merge day, author and opened day, the check counts and failing check names,
 /// and the approvals against what the base branch requires
 /// (<c>.devbook/domain/progress/features.md#pull-request-status</c>) — read through the
-/// status read and its own cache, never the In progress view's slim read.
+/// status read and its own cache, never WorkInProgressReader's slim read.
 /// </summary>
 public sealed class GoalPullRequestReaderTests
 {

@@ -41,7 +41,7 @@ public sealed class GitHubClientPullRequestFactsTests
 
     // --- Diff size --------------------------------------------------------------
 
-    /// <summary>How big the pull request is, which the In progress view's card draws as
+    /// <summary>How big the pull request is, which a pull request card draws as
     /// <c>+412 −198</c>; a node without the counts has none rather than zero.</summary>
     [Fact]
     public async Task An_open_pull_request_carries_its_diff_size_when_github_gives_one()

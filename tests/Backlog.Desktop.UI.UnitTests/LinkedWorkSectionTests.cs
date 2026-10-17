@@ -27,8 +27,8 @@ public sealed class LinkedWorkSectionTests
 
     private const string Repository = "JSdotNet/Backlog";
 
-    /// <summary>The section says "None yet" for each kind an entry has none of, offers no
-    /// "Open in In progress", and its own link action offers the loose work and links it.</summary>
+    /// <summary>The section says "None yet" for each kind an entry has none of, and its
+    /// own link action offers the loose work and links it.</summary>
     [Fact]
     public async Task The_side_panel_section_links_a_session_or_pull_request_to_its_entry()
     {
@@ -46,9 +46,6 @@ public sealed class LinkedWorkSectionTests
             Assert.NotEmpty(section.FindAll("[data-testid='work-links-no-sessions']"));
             Assert.NotEmpty(section.FindAll("[data-testid='work-links-no-pull-requests']"));
         });
-
-        // The In progress view it once led to is gone with the goals flag.
-        Assert.Empty(section.FindAll("[data-testid='work-links-open-in-progress']"));
 
         section.Find("[data-testid='work-links-link']").Click();
         section.WaitForAssertion(() =>

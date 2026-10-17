@@ -4070,7 +4070,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Takes an AI session or a pull request off an entry, by hand — the unlink on
-    /// each linked card of the In progress view and the detail panel — through
+    /// each linked card of the detail panel — through
     /// <see cref="ITaskItems.UnlinkFromIssueAsync"/>, the counterpart of the use
     /// case <see cref="LinkWorkAsync"/> writes through. A session still live, or a
     /// pull request of the reader's still open, goes back to "Not linked to a task".

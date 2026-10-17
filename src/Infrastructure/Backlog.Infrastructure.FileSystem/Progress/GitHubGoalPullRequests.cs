@@ -17,7 +17,7 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// <para>
 /// It keeps nothing of its own: it reads through
 /// <see cref="GitHubIntegration.ReadLinkedPullRequestStatusesAsync"/>, the adapter's
-/// status cache, which keeps answers on the terms the In progress view's linked read is
+/// status cache, which keeps answers on the terms WorkInProgressReader's linked read is
 /// kept on: a merged pull request is read once and kept for the life of the process, a
 /// number GitHub answered without is not asked about again, and any other is read again
 /// once its answer is older than <see cref="FreshFor"/>. A pull request GitHub could not
@@ -33,7 +33,7 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 public sealed class GitHubGoalPullRequests(Func<GitHubIntegration?> gitHub) : IGoalPullRequestReader
 {
     /// <summary>How long an answer that is not merged is kept before it is asked again —
-    /// the In progress view's own freshness, so the two never disagree for long.</summary>
+    /// WorkInProgressReader's own freshness, so the two never disagree for long.</summary>
     public static readonly TimeSpan FreshFor = TimeSpan.FromMinutes(1);
 
     public async Task<IReadOnlyList<GoalPullRequestDto>> ReadAsync(
