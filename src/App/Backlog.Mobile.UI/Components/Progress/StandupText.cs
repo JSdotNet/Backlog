@@ -115,7 +115,7 @@ public static class StandupText
     public static IReadOnlyList<LinkedPullRequestDto> Linked(StandUpContextDto? context) =>
     [
         .. (context?.PullRequests ?? [])
-            .Select(pull => new LinkedPullRequestDto(pull.Repository, pull.Number, pull.State, pull.MergedOn, pull.Author, pull.OpenedOn))
+            .Select(pull => LinkedPullRequestDto.Of(pull))
     ];
 
     /// <summary>What a desktop last said about <paramref name="pull"/>, or that nothing has
@@ -130,7 +130,7 @@ public static class StandupText
 
     /// <summary>The pull request a stand-up item names: its own for a pull request, else the
     /// first its task links; null for a task that links none.</summary>
-    public static PullRequestRefDto? PullRequestOf(StandUpItemDto item, IReadOnlyDictionary<Guid, SprintTaskDto> work)
+    public static PullRequestRefDto? PullRequestOf(StandUpItemDto item, IReadOnlyDictionary<Guid, ProgressTaskDto> work)
     {
         ArgumentNullException.ThrowIfNull(item);
         ArgumentNullException.ThrowIfNull(work);
@@ -156,7 +156,7 @@ public static class StandupText
 
     /// <summary>A pull request's title as the phone knows it: the title of a synced task that
     /// links it, or null — the statuses a desktop sends carry no title.</summary>
-    public static string? PullRequestTitle(PullRequestRefDto pull, IEnumerable<SprintTaskDto> work)
+    public static string? PullRequestTitle(PullRequestRefDto pull, IEnumerable<ProgressTaskDto> work)
     {
         ArgumentNullException.ThrowIfNull(pull);
         ArgumentNullException.ThrowIfNull(work);

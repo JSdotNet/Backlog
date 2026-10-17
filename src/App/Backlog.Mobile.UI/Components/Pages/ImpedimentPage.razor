@@ -355,19 +355,19 @@ else if (_looked)
         string.Equals(string.IsNullOrWhiteSpace(left) ? null : left.Trim(), string.IsNullOrWhiteSpace(right) ? null : right.Trim(), StringComparison.Ordinal);
 
     /// <summary>The tasks it holds back that the phone holds, in the order they were linked.</summary>
-    private List<SprintTaskDto> HeldBack(ImpedimentDto impediment)
+    private List<ProgressTaskDto> HeldBack(ImpedimentDto impediment)
     {
         var work = PhoneStandUp.Work(Tasks.Live()).ToDictionary(task => task.Id);
-        return [.. impediment.HoldsBack.Select(id => work.GetValueOrDefault(id)).OfType<SprintTaskDto>()];
+        return [.. impediment.HoldsBack.Select(id => work.GetValueOrDefault(id)).OfType<ProgressTaskDto>()];
     }
 
-    private static FlowStepTone Tone(SprintTaskDto task) =>
-        task.Status == SprintTaskStatus.Done || task.CompletedOn is not null ? FlowStepTone.Done
+    private static FlowStepTone Tone(ProgressTaskDto task) =>
+        task.Status == ProgressTaskStatus.Done || task.CompletedOn is not null ? FlowStepTone.Done
         : task.IsBlocked ? FlowStepTone.Blocked
         : FlowStepTone.Pending;
 
-    private static string StateWord(SprintTaskDto task) =>
-        task.Status == SprintTaskStatus.Done || task.CompletedOn is not null ? "Done"
+    private static string StateWord(ProgressTaskDto task) =>
+        task.Status == ProgressTaskStatus.Done || task.CompletedOn is not null ? "Done"
         : task.IsBlocked ? "Blocked"
         : "Open";
 }

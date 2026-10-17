@@ -165,7 +165,7 @@ internal static class StandupSeed
     }
 
     private static GoalPullRequestDto Pull(int number, LinkedPullRequestState state, DateOnly? mergedOn, GoalPullRequestChecksDto checks, GoalPullRequestApprovalsDto approvals) =>
-        new(Repository, number.ToString(CultureInfo.InvariantCulture), state, mergedOn, checks, approvals, "jsdotnet", mergedOn?.AddDays(-3));
+        new(Repository, number.ToString(CultureInfo.InvariantCulture), state, mergedOn, checks, approvals);
 
     private static ProgressViewRow Row(Guid id, string kind, DateTimeOffset at, string content) => new(id, kind, at, null, 0, content);
 

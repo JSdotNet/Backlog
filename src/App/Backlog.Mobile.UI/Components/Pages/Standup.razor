@@ -309,9 +309,9 @@ else
         if (!_disposed) StateHasChanged();
     }
 
-    private Dictionary<Guid, SprintTaskDto> Work()
+    private Dictionary<Guid, ProgressTaskDto> Work()
     {
-        var work = new Dictionary<Guid, SprintTaskDto>();
+        var work = new Dictionary<Guid, ProgressTaskDto>();
         foreach (var task in PhoneStandUp.Work(Tasks.Live())) work.TryAdd(task.Id, task);
         return work;
     }
@@ -347,7 +347,7 @@ else
     /// <summary>What a block item is called: a task by its title, a pull request attached
     /// straight to a goal by the title of a task that links it, else "Pull request" — its
     /// number is on the chip beside it.</summary>
-    private static string ItemTitle(StandUpItemDto item, IReadOnlyDictionary<Guid, SprintTaskDto> work) =>
+    private static string ItemTitle(StandUpItemDto item, IReadOnlyDictionary<Guid, ProgressTaskDto> work) =>
         item.Kind == GoalAttachmentKind.PullRequest && StandupText.PullRequestOf(item, work) is { } pull
             ? StandupText.PullRequestTitle(pull, work.Values) ?? "Pull request"
             : item.Title;
