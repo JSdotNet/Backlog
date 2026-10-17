@@ -374,7 +374,7 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
 2. **The side pane beside any view.** Withdrawn with the side pane by the
    amendment of 2026-10-15; its tests were removed, and item 8 holds what replaced it.
 3. **Header order and groups.** `The_nav_reads_inbox_views_devbook_then_the_work_in_progress_and_the_other_takeovers`,
-   `In_progress_is_a_main_view_that_leads_the_work_in_progress_group`.
+   `Goals_leads_the_work_in_progress_group`.
 4. **Takeovers.** `A_takeover_keeps_the_view_switch_unpressed_and_a_view_option_returns_to_the_workspace`,
    `Escape_heard_at_the_document_closes_the_takeover`,
    `Closing_a_takeover_opened_from_the_roadmap_returns_to_the_roadmap`.

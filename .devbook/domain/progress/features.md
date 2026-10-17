@@ -8,8 +8,8 @@ status: draft
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-Every feature here sits behind the [Goals area](context.md#goals-area) flag. Why
-goals and impediments are the model is local
+Every feature here is always on: no flag stands in front of goals, impediments or
+the stand-up. Why goals and impediments are the model is local
 [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md).
 
 ## The Goals view
@@ -17,16 +17,16 @@ goals and impediments are the model is local
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#goals-area
 related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#goal-forecast, .devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/requirements.md#the-goals-view, .devbook/domain/sessions/features.md#in-progress-by-task]
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests]
 ```
 
 Answer "where are my goals, and what is in the way" as one desktop view. **Goals** is
 the first option of the work in progress group in the header, a main view rather than
-a takeover, so the Devbook still opens beside it. It replaces the
+a takeover, so the Devbook still opens beside it. It replaced the
 [In progress](../sessions/features.md#in-progress-by-task) view, and has no board of
-sessions and pull requests by task.
+sessions and pull requests by task. It is offered whether or not the Sessions and Pull
+requests lists are.
 
 ```mermaid
 flowchart LR
@@ -64,7 +64,6 @@ it, and whenever goals, impediments or the iteration setting change elsewhere.
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#goals-area
 related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/requirements.md#setting-a-goal]
 ```
 
@@ -78,7 +77,6 @@ changes. Goals are set on the desktop only.
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#goals-area
 related: [.devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/domain.md#goal-progress, .devbook/domain/progress/domain.md#goal-assignment, .devbook/domain/progress/requirements.md#attaching-work-to-a-goal]
 ```
 
@@ -105,7 +103,6 @@ Attaching changes nothing on the task, the plan or the pull request.
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#goals-area
 setting: [.devbook/domain/progress/context.md#iteration-length, .devbook/domain/progress/context.md#two-week-start]
 related: [.devbook/domain/progress/domain.md#iteration, .devbook/domain/progress/requirements.md#choosing-the-iteration]
 ```
@@ -123,7 +120,6 @@ length covers.
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#goals-area
 related: [.devbook/domain/progress/domain.md#stand-up, .devbook/domain/progress/domain.md#planned, .devbook/domain/progress/domain.md#pace, .devbook/domain/progress/requirements.md#the-stand-up]
 ```
 
@@ -176,7 +172,6 @@ from the reading; none is written by a model. Copying is a desktop action. Forma
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#goals-area
 related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#impediment-state, .devbook/domain/progress/requirements.md#tracking-an-impediment, .devbook/design/color-scheme.md]
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentMovesTests]
 ```
@@ -236,7 +231,6 @@ calls Progress.
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#goals-area
 related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook/domain/sessions/features.md#pull-request-readiness, .devbook/design/color-scheme.md]
 ```
 
@@ -263,7 +257,6 @@ number received alone.
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#goals-area
 related: [.devbook/domain/progress/requirements.md#goals-on-the-phone, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
 ```
 
@@ -310,7 +303,6 @@ and the older one is lost. Two goals are two documents, so a change to one never
 displaces a change to the other. A deleted goal or impediment is deleted on every
 device, and the newer-change rule decides the deletion like any other change.
 
-Goals and impediments travel whether the [Goals area](context.md#goals-area) is on or
-off, because what is recorded while it is off is kept. One that arrives from another
+One that arrives from another
 device shows at once on every screen that draws it, without the person pressing
 Refresh.

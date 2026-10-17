@@ -4,14 +4,15 @@
 date: 2026-10-17
 status: proposed
 roadmap: [goals-standup]
-related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/context.md#goals-area", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
+related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
 Progress stops modelling sprints. It owns two aggregates instead: a **Goal**,
 which gathers plans, tasks and pull requests toward a due date, and an
 **Impediment**, which tracks what holds a task back. An **iteration** is a
 viewing window over that work, not a thing anyone creates. The In progress view
-becomes the **Goals** view, and the `goals` flag replaces the `progress` flag.
+becomes the **Goals** view, always on: the `goals` flag that replaced the
+`progress` flag while the plan was built is retired with the In progress view.
 
 ## Status
 
@@ -228,8 +229,8 @@ stand-up rules live in `Progress.Abstractions` (`GoalItems`, `StandUpReading`),
 and both heads call them. What only a desktop can find out — each pull
 request's state, checks and approvals, the pace, the working week and the
 iteration choice — a desktop writes as one `stand-up-context` document, so the
-phone never asks GitHub. A desktop writes it only while `goals` is on, and the
-phone, which keeps no feature settings, reads holding one as the flag. A phone edit is a command, not the impediment: one
+phone never asks GitHub. A desktop writes it once it has a goal, and the phone
+shows its Stand-up tab while it holds one. A phone edit is a command, not the impediment: one
 `impediment-edit` document per change, carrying the value the phone saw. A
 desktop applies it through the impediment features only while the field still
 holds that value, so a change made on a desktop since stands, and then retires
@@ -255,7 +256,7 @@ Two more kinds serve the phone (§8): the one `stand-up-context` document under
 a constant id, newest reading wins, and an `impediment-edit` document per edit.
 A desktop never takes either as a task.
 
-### 10. The view is Goals, behind the `goals` flag
+### 10. The view is Goals, always on
 
 ```meta
 ```
@@ -263,12 +264,17 @@ A desktop never takes either as a task.
 The In progress view is renamed **Goals** and its Now board, the needs-you
 sessions and pull requests, is dropped. Goals keeps In progress's place as the
 first option of the work in progress group, `Goals | Sessions | Pull requests`,
-and stays a main view in ADR 0022's sense.
+and stays a main view in ADR 0022's sense. It is offered whether or not Sessions
+and Pull requests are.
 
-The app feature key [`goals`](../../domain/progress/context.md#goals-area), off
-and marked `DEV`, switches the whole context and replaces the `progress` key.
-With it off, the header shows the In progress view as it is today, without its
-sprint switch. The plan retires that view with the flag once Goals leaves `DEV`.
+Goals, impediments and the stand-up are always on. While the plan was built, the
+app feature key `goals`, off and marked `DEV`, switched the whole context in place
+of the `progress` key, and with it off the header showed the In progress view
+without its sprint switch. The plan's last entry retires the key, every check of
+it and that view. A task's side panel keeps its sessions and pull requests, which
+the view's cards also drew. The impediment tools on the Backlog server have no key
+of their own left to sit behind, so they ride the Tasks key, which is always on as
+well.
 
 ## Consequences
 
@@ -341,8 +347,8 @@ This record supersedes, by reference and without rewriting them:
   **Goals**, in the same place, without the Now board.
 - **ADR 0028**, in its sprint parts: §1's sprint series, sprints, membership,
   goal rules and close outcomes; §2's sprint items and plan links; §4's `progress`
-  flag, now `goals`; and the sprint consequences, rejected options and
-  verification items.
+  flag, retired with no flag in its place; and the sprint consequences, rejected
+  options and verification items.
 
 What stands: Progress as its own bounded context, downstream of Tasks, Roadmap
 Planning and Repository Management (ADR 0028 §1's boundary). References by id
@@ -352,7 +358,7 @@ and tag, read on every reading (§2's rule). Tasks knowing nothing of Progress
 ## Verification
 
 ```meta
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_in_progress_with_the_goals_flag_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_the_goals_flag_on_goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_goals_view_draws_the_board_over_the_shells_tasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.An_item_another_goal_holds_asks_first_and_moves_on_confirm, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_goals, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_is_offered_without_sessions_or_pull_requests, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_goals_view_draws_the_board_over_the_shells_tasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.An_item_another_goal_holds_asks_first_and_moves_on_confirm, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests]
 ```
 
 Look for tests that show these behaviours:
@@ -371,5 +377,5 @@ Look for tests that show these behaviours:
    impediment.
 7. **The phone's limits.** The phone changes only an impediment's state,
    check-again date and note, and only through the outbox.
-8. **The flag withdraws the context.** With `goals` off, the header offers no
-   Goals view.
+8. **Goals is always on.** The header offers the Goals view with no flag turned
+   on, and with Sessions and Pull requests both off.

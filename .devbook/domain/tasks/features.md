@@ -497,7 +497,7 @@ a different fact from Readiness, which reads blocked from `depends_on`. The mark
 `blocked:` token on the task's metadata line, with the day it was set, and an agent
 sets or clears it with the `set_blocked` tool. Removing the token unblocks the task.
 
-While the [Goals area](../progress/context.md#goals-area) is on, marking a task blocked
+Marking a task blocked
 [raises a New impediment that holds it back](../progress/features.md#raising-an-impediment-from-a-blocked-task),
 unless an open impediment already holds it back. Progress reacts to the mark. The task
 stores no impediment id, and Tasks never calls Progress.

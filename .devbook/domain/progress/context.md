@@ -39,31 +39,12 @@ relationships are in [dependencies.md](dependencies.md).
 Progress used to lay sprint series over repositories. ADR 0035 retires them, with
 their settings and the parts of local
 [ADR 0028](../../arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md)
-that described them. The sprint code still in `src/` is retired by the plan
-`+goals-standup`, and nothing in these chapters describes it.
+that described them, and the plan `+goals-standup` retired their code.
 
-## Goals area
-
-```meta
-status: draft
-type: feature-flag
-key: goals
-default: off
-related: [".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement"]
-```
-
-The flag switches the whole context. Turning it on shows the
-[Goals view](features.md#the-goals-view) on the desktop and the stand-up on the
-phone, and lets a blocked task raise an impediment. Switching it off withdraws every
-part of Progress. The goals and impediments already recorded are kept, and come
-back when the flag is turned on. It replaces the earlier `progress` flag.
-
-It ships off and marked `DEV`, the settings screen's mark for a feature still under
-construction
-([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
-The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a
-person's choice is kept in `features.json` beside the app's other per-device
-choices. The flag is retired when Progress leaves `DEV`.
+Goals, impediments and the stand-up are always on. The `goals` flag that switched the
+whole context while it was built was retired with the plan's last entry, and with it
+the In progress view it kept for a person who had it off
+(local [ADR 0035 §10](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md#10-the-view-is-goals-always-on)).
 
 ## Iteration length
 
