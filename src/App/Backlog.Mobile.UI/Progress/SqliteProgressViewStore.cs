@@ -19,9 +19,11 @@ public interface IProgressViewStore
     /// <summary>Where the next pull starts, or null for the beginning.</summary>
     string? ReadCursor();
 
-    /// <summary>Writes <paramref name="rows"/> over whatever is kept for their ids and, when
-    /// <paramref name="cursor"/> is given, moves the cursor, in one transaction, so a page is
-    /// never half kept.</summary>
+    /// <summary>Writes each of <paramref name="rows"/> over what is kept for its id when it is
+    /// the later copy by <see cref="ProgressFold.Wins"/>, and, when <paramref name="cursor"/> is
+    /// given, moves the cursor, in one transaction, so a page is never half kept. An older
+    /// copy is passed over, so two writers racing — a pull and a queued edit — leave the later
+    /// one on disk whichever writes last.</summary>
     Task SaveAsync(IReadOnlyList<ProgressViewRow> rows, string? cursor = null, CancellationToken cancellationToken = default);
 
     /// <summary>Forgets the cursor, so the next pull starts from the beginning. The rows
@@ -127,6 +129,11 @@ public sealed class SqliteProgressViewStore : IProgressViewStore
                     deleted_at = excluded.deleted_at,
                     server_ts = excluded.server_ts,
                     content = excluded.content
+                WHERE excluded.updated_at > progress_view.updated_at
+                    OR (excluded.updated_at = progress_view.updated_at
+                        AND (excluded.server_ts > progress_view.server_ts
+                            OR (excluded.server_ts = progress_view.server_ts
+                                AND excluded.deleted_at IS NOT NULL AND progress_view.deleted_at IS NULL)))
                 """;
             command.Parameters.AddWithValue("$id", row.Id.ToString());
             command.Parameters.AddWithValue("$kind", row.Kind);

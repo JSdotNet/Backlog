@@ -160,6 +160,38 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
         Assert.Equal(history, (await devices.Desktop.Impediments(impediments => impediments.GetAsync(impediment.Id, Cancellation))).History.Count);
     }
 
+    /// <summary>The phone sends a move and restarts before any desktop has applied it; the
+    /// move it asks next names the first one's state, so the desktop applies both in order
+    /// rather than dropping the second as stale.</summary>
+    [Fact]
+    public async Task Two_moves_with_a_phone_restart_between_them_are_both_applied_on_the_desktop()
+    {
+        await using var devices = await PairedAsync();
+        var impediment = await devices.Desktop.Impediments(impediments => impediments.RaiseAsync(new RaiseImpedimentRequest("Bank sample files missing"), Cancellation));
+        Assert.True((await devices.Desktop.SyncAsync()).IsSuccess);
+        await devices.Phone.PullAsync(Cancellation);
+        await Task.Delay(20, Cancellation);
+
+        Assert.NotNull(await devices.Phone.MoveImpedimentAsync(impediment.Id, ImpedimentState.Reported, "bank support", Cancellation));
+        await devices.Outbox.FlushAsync(Cancellation);
+        Assert.Empty(devices.Outbox.Entries);
+
+        using var restarted = new ProgressViewProjection(
+            new SqliteProgressViewStore(Path.Combine(_root, "phone", "device.db")), devices.Outbox, new CloudSyncClient(devices.Clients[1]), TimeProvider.System);
+        var second = await restarted.MoveImpedimentAsync(impediment.Id, ImpedimentState.Escalated, "account manager", Cancellation);
+        Assert.Equal(ImpedimentState.Reported, second!.WasState);
+        await devices.Outbox.FlushAsync(Cancellation);
+
+        Assert.True((await devices.Desktop.SyncAsync()).IsSuccess);
+
+        var onDesktop = await devices.Desktop.Impediments(impediments => impediments.GetAsync(impediment.Id, Cancellation));
+        Assert.Equal(ImpedimentState.Escalated, onDesktop.State);
+
+        await restarted.PullAsync(Cancellation);
+        Assert.Equal(ImpedimentState.Escalated, restarted.FindImpediment(impediment.Id)!.State);
+        Assert.Null(restarted.AskedFor(impediment.Id, ImpedimentEditKind.State));
+    }
+
     private static TaskChange Document(Guid id, string type, string content, DateTimeOffset at) =>
         new(id, at, DeletedAt: null, TaskSyncClientExtensions.Payload("Progress document") with { Type = type, ContentMd = content, InMyDayOn = null });
 

@@ -289,6 +289,130 @@ public sealed class ProgressViewTests : IDisposable
         Assert.Null(_progress.AskedFor(ImpedimentId, ImpedimentEditKind.State));
     }
 
+    /// <summary>A desktop that applies the first of two delivered moves and refuses the second
+    /// retires both: once every edit of the chain is retired, the copy the phone holds is the
+    /// answer, and the move it does not bear out gives way as a refused first move does.</summary>
+    [Fact]
+    public async Task A_desktop_that_applies_the_first_move_and_refuses_the_second_ends_the_chain()
+    {
+        _service.Append(ImpedimentDocument(Now.AddDays(-1)));
+        await _progress.PullAsync(Cancellation);
+
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Reported, cancellationToken: Cancellation);
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Escalated, cancellationToken: Cancellation);
+        await _outbox.WhenIdleAsync();
+        Assert.Empty(_outbox.Entries);
+        var sent = _service.Pushed;
+
+        // The desktop's answer: the impediment moved once, then both edits retired.
+        _service.Append(ImpedimentDocument(Now.AddMinutes(5), state: "Reported"));
+        foreach (var edit in sent) _service.Append(Retired(edit, Now.AddMinutes(5)));
+        await _progress.PullAsync(Cancellation);
+
+        Assert.Null(_progress.AskedFor(ImpedimentId, ImpedimentEditKind.State));
+        Assert.False(_progress.IsWaiting(ImpedimentId, ImpedimentEditKind.State));
+
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        var retried = await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Escalated, cancellationToken: Cancellation);
+        Assert.Equal(ImpedimentState.Reported, retried!.WasState);
+    }
+
+    /// <summary>Only a retired chain is answered whole: while the second move is still live on
+    /// the feed, a copy bearing out the first is progress, as before.</summary>
+    [Fact]
+    public async Task A_chain_whose_second_move_is_not_yet_retired_keeps_waiting_for_it()
+    {
+        _service.Append(ImpedimentDocument(Now.AddDays(-1)));
+        await _progress.PullAsync(Cancellation);
+
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Reported, cancellationToken: Cancellation);
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Escalated, cancellationToken: Cancellation);
+        await _outbox.WhenIdleAsync();
+        var sent = _service.Pushed;
+
+        _service.Append(ImpedimentDocument(Now.AddMinutes(5), state: "Reported"));
+        _service.Append(Retired(sent[0], Now.AddMinutes(5)));
+        await _progress.PullAsync(Cancellation);
+
+        Assert.Equal(ImpedimentState.Escalated, _progress.AskedFor(ImpedimentId, ImpedimentEditKind.State)!.State);
+    }
+
+    /// <summary>
+    /// An edit that has left the phone is not forgotten when the phone restarts before a
+    /// desktop applies it: the next edit of the field names what that one asked, so the
+    /// desktop applies the two in order rather than dropping the second as stale.
+    /// </summary>
+    [Fact]
+    public async Task An_edit_that_left_the_phone_before_a_restart_is_what_the_next_edit_saw()
+    {
+        _service.Append(ImpedimentDocument(Now.AddDays(-1), state: "Reported"));
+        await _progress.PullAsync(Cancellation);
+
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Escalated, cancellationToken: Cancellation);
+        await _outbox.WhenIdleAsync();
+        Assert.Empty(_outbox.Entries);
+
+        using var restarted = new ProgressViewProjection(_store, _outbox, new CloudSyncClient(new HttpClient(new Handler(_service)) { BaseAddress = new Uri("https://sync.test") }), _clock);
+        var second = await restarted.MoveImpedimentAsync(ImpedimentId, ImpedimentState.BeingHandled, "Priya", Cancellation);
+
+        Assert.Equal(ImpedimentState.Escalated, second!.WasState);
+        Assert.Equal(ImpedimentState.BeingHandled, restarted.AskedFor(ImpedimentId, ImpedimentEditKind.State)!.State);
+    }
+
+    /// <summary>The same, after the phone's pull has brought its own edit back from the feed
+    /// and a second restart: the edit row it keeps is still the chain, until a tombstone
+    /// retires it.</summary>
+    [Fact]
+    public async Task An_edit_the_feed_returned_is_kept_across_restarts_until_it_is_retired()
+    {
+        _service.Append(ImpedimentDocument(Now.AddDays(-1), state: "Reported"));
+        await _progress.PullAsync(Cancellation);
+
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Escalated, cancellationToken: Cancellation);
+        await _outbox.WhenIdleAsync();
+        await _progress.PullAsync(Cancellation);
+
+        using (var once = NewProjection())
+        {
+            Assert.Equal(ImpedimentState.Escalated, once.AskedFor(ImpedimentId, ImpedimentEditKind.State)!.State);
+        }
+
+        _service.Append(Retired(Assert.Single(_service.Pushed), Now.AddMinutes(5)));
+        await _progress.PullAsync(Cancellation);
+
+        using var twice = NewProjection();
+        Assert.Null(twice.AskedFor(ImpedimentId, ImpedimentEditKind.State));
+    }
+
+    /// <summary>A chain given way to a newer copy stays given way after a restart, though no
+    /// desktop ever retired its edit (one closed before it pushed the tombstone): the phone
+    /// marks the edit settled, so it is not seeded again as a ghost still waiting.</summary>
+    [Fact]
+    public async Task A_chain_a_newer_copy_answered_is_not_seeded_again_after_a_restart()
+    {
+        _service.Append(ImpedimentDocument(Now.AddDays(-1), state: "Reported"));
+        await _progress.PullAsync(Cancellation);
+
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Escalated, cancellationToken: Cancellation);
+        await _outbox.WhenIdleAsync();
+        await _progress.PullAsync(Cancellation);
+        Assert.NotNull(_progress.AskedFor(ImpedimentId, ImpedimentEditKind.State));
+
+        _service.Append(ImpedimentDocument(Now.AddMinutes(5), state: "Reported"));
+        await _progress.PullAsync(Cancellation);
+
+        using var restarted = NewProjection();
+        Assert.Null(restarted.AskedFor(ImpedimentId, ImpedimentEditKind.State));
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        Assert.Equal(ImpedimentState.Reported, (await restarted.MoveImpedimentAsync(ImpedimentId, ImpedimentState.BeingHandled, cancellationToken: Cancellation))!.WasState);
+    }
+
+    private ProgressViewProjection NewProjection() =>
+        new(_store, _outbox, new CloudSyncClient(new HttpClient(new Handler(_service)) { BaseAddress = new Uri("https://sync.test") }), _clock);
+
+    /// <summary>The tombstone a desktop writes for an edit it answered.</summary>
+    private static TaskChange Retired(TaskChange edit, DateTimeOffset at) => edit with { UpdatedAt = at, DeletedAt = at };
+
     /// <summary>A pull holds the projection for as long as the network takes; queuing an edit
     /// needs nothing it is doing, so a tap is kept at once while a slow pull is in flight.</summary>
     [Fact]
@@ -353,7 +477,13 @@ public sealed class ProgressViewTests : IDisposable
 
         var tasks = new Dictionary<Guid, TaskViewRow>();
         Assert.Empty(TaskFold.Apply(tasks, [Record(later, 1), Record(ContextDocument(Now), 2), Record(EditDocument(), 3)]));
-        Assert.Empty(ProgressFold.Apply(rows, [Record(EditDocument(), 6), Record(TestTasks.Task("A task", Now), 7)]));
+        Assert.Empty(ProgressFold.Apply(rows, [Record(TestTasks.Task("A task", Now), 7)]));
+
+        // An impediment edit is kept, live or retired: its tombstone is a desktop's answer.
+        var edit = EditDocument();
+        Assert.Equal(ProgressFold.ImpedimentEditType, Assert.Single(ProgressFold.Apply(rows, [Record(edit, 6)])).Kind);
+        ProgressFold.Apply(rows, [Record(edit with { UpdatedAt = Now.AddHours(2), DeletedAt = Now.AddHours(2) }, 8)]);
+        Assert.NotNull(rows[edit.Id].DeletedAt);
     }
 
     private static TaskChangeRecord Record(TaskChange change, long serverTimestamp) => new(change, Guid.NewGuid(), serverTimestamp);
@@ -461,6 +591,23 @@ public sealed class SqliteProgressViewStoreTests : IDisposable
         Assert.Null(reopened.ReadCursor());
         Assert.Equal(2, reopened.ReadRows().Count);
     }
+
+    /// <summary>The file keeps the later of two copies by the fold's own order, whichever is
+    /// written last, so two writers racing — a pull and a queued edit — never put an older
+    /// copy, or a live one over its tombstone, back on disk.</summary>
+    [Fact]
+    public async Task A_save_never_writes_an_older_copy_over_a_later_one()
+    {
+        var store = new SqliteProgressViewStore(_path);
+        var edit = new ProgressViewRow(Guid.NewGuid(), "impediment-edit", T0, null, 9, "{}");
+        var retired = edit with { UpdatedAt = T0.AddMinutes(5), DeletedAt = T0.AddMinutes(5), ServerTimestamp = 12 };
+
+        await store.SaveAsync([retired], cancellationToken: TestContext.Current.CancellationToken);
+        await store.SaveAsync([edit], cancellationToken: TestContext.Current.CancellationToken);
+        await store.SaveAsync([edit with { UpdatedAt = T0.AddMinutes(5), ServerTimestamp = 12 }], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(retired, Assert.Single(new SqliteProgressViewStore(_path).ReadRows()));
+    }
 }
 
 /// <summary>The Progress view in memory, for the tests about the fold and the reads.</summary>
@@ -484,7 +631,11 @@ internal sealed class InMemoryProgressViewStore : IProgressViewStore
     {
         lock (_lock)
         {
-            foreach (var row in rows) _rows[row.Id] = row;
+            foreach (var row in rows)
+            {
+                if (!_rows.TryGetValue(row.Id, out var held) || ProgressFold.Wins(row, held)) _rows[row.Id] = row;
+            }
+
             if (cursor is not null) _cursor = cursor;
         }
 

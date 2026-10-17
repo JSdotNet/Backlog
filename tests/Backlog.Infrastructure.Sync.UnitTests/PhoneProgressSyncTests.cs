@@ -24,6 +24,21 @@ internal sealed class RecordingImpedimentEdits : IImpedimentEditIntake
     }
 }
 
+/// <summary>Progress's edit intake, noting how many impediment copies the merge had already
+/// handed over each time it is offered an edit.</summary>
+internal sealed class OrderedImpedimentEdits(RecordingImpedimentReplication impediments) : IImpedimentEditIntake
+{
+    public List<int> CopiesTakenBefore { get; } = [];
+
+    public ImpedimentEditOutcome Answer { get; set; } = ImpedimentEditOutcome.Applied;
+
+    public Task<ImpedimentEditOutcome> ApplyAsync(ImpedimentEditDto edit, CancellationToken cancellationToken = default)
+    {
+        CopiesTakenBefore.Add(impediments.Offered.Count);
+        return Task.FromResult(Answer);
+    }
+}
+
 /// <summary>Progress's stand-up context, as the test set it.</summary>
 internal sealed class FixedStandUpContext : IStandUpContextSource
 {
@@ -126,6 +141,52 @@ public sealed class PhoneProgressSyncTests
         Assert.Equal(3, edits.Offered.Count);
         Assert.Equal(change.Id, Assert.Single(retirements.Waiting()).Id);
         Assert.Equal(0, await merge.RetryDeferredEditsAsync(Cancellation));
+    }
+
+    /// <summary>
+    /// A desktop closed between applying an edit and pushing its tombstone leaves the edit
+    /// live on the replica, behind the impediment it changed and any change made to it since.
+    /// The desktop that meets it next meets the two in one page: the impediment's latest copy
+    /// is taken first, so the edit is offered against that copy — stale or already so — and
+    /// can never stamp the older value over the change made since.
+    /// </summary>
+    [Fact]
+    public async Task An_edit_a_closed_desktop_never_retired_meets_the_latest_copy_of_its_impediment_first()
+    {
+        var impediments = new RecordingImpedimentReplication();
+        var edits = new OrderedImpedimentEdits(impediments) { Answer = ImpedimentEditOutcome.Stale };
+        var retirements = new ImpedimentEditRetirements();
+        var edit = ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), Edit(ImpedimentEditKind.State));
+        var changedSince = ImpedimentReplicaDocuments.ToChange(
+            new ImpedimentReplicaCopyDto(ImpedimentId, "Bank sample files missing", """{"version":1,"title":"Bank sample files missing","history":[]}""", Morning.AddHours(2)));
+
+        await new TaskReplicaMerge(new InMemoryTaskStore(), impediments: impediments, impedimentEdits: edits, retirements: retirements)
+            .ApplyAsync([TaskChanges.Record(edit, Phone, 100), TaskChanges.Record(changedSince, Phone, 103)], Cancellation);
+
+        Assert.Equal(1, Assert.Single(edits.CopiesTakenBefore));
+        Assert.Equal(edit.Id, Assert.Single(retirements.Waiting()).Id);
+    }
+
+    /// <summary>
+    /// The phone restarted with an edit sent but not applied: its next edit of the field names
+    /// what the first asked (the phone keeps its sent edits, local ADR 0035 §8), so the desktop
+    /// is offered the two in the order they were asked, in one page, and retires both.
+    /// </summary>
+    [Fact]
+    public async Task Two_edits_of_one_field_from_a_restarted_phone_are_offered_in_the_order_asked()
+    {
+        var edits = new RecordingImpedimentEdits();
+        var retirements = new ImpedimentEditRetirements();
+        var first = Edit(ImpedimentEditKind.State) with { WasState = ImpedimentState.New };
+        var second = first with { State = ImpedimentState.Escalated, WasState = ImpedimentState.Reported, AskedAt = Morning.AddMinutes(1) };
+        var firstChange = ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), first);
+        var secondChange = ImpedimentEditReplicaDocuments.ToChange(Guid.NewGuid(), second);
+
+        await new TaskReplicaMerge(new InMemoryTaskStore(), impedimentEdits: edits, retirements: retirements)
+            .ApplyAsync([TaskChanges.Record(firstChange, Phone, 100), TaskChanges.Record(secondChange, Phone, 101)], Cancellation);
+
+        Assert.Equal([first, second], edits.Offered);
+        Assert.Equal(2, retirements.Waiting().Count);
     }
 
     [Fact]
