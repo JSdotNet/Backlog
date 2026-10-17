@@ -26,6 +26,7 @@ public class StylesheetDuplicateSelectorTests
     private const string Roadmap = "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/wwwroot/roadmap.css";
     private const string Dashboard = "src/Modules/Dashboard/Backlog.Modules.Dashboard.UI/wwwroot/dashboard.css";
     private const string DevPc = "src/Modules/DevPc/Backlog.Modules.DevPc.UI/wwwroot/devpc.css";
+    private const string Inbox = "src/Modules/Inbox/Backlog.Modules.Inbox.UI/wwwroot/inbox.css";
 
     /// <summary>A duplicate this test tolerates: the selector, how many top-level
     /// rules declare it, and why it has not been folded.</summary>
@@ -62,13 +63,6 @@ public class StylesheetDuplicateSelectorTests
             new(".header-accent", 2, SharedWithSiblings),
             new(".header-accent:focus-visible", 2, SharedWithSiblings),
             new(".header-util:focus-visible", 2, SharedWithSiblings),
-            new(".inbox-pane__header", 2, SharedWithSiblings),
-            new(".inbox-pane__body", 2, SharedWithSiblings),
-            new(".inbox-pane__eyebrow", 2, SharedWithSiblings),
-            new(".inbox-pane__title", 2, SharedWithSiblings),
-            new(".inbox-pane__subtitle", 2, SharedWithSiblings),
-            new(".inbox-pane__capture-result", 2, SharedWithSiblings),
-            new(".inbox-pane__files", 2, SharedWithSiblings),
             new(".sessions-panel__eyebrow", 2, SharedWithSiblings),
             new(".sessions-panel__title", 2, SharedWithSiblings),
             new(".sessions-panel__subtitle", 2, SharedWithSiblings),
@@ -206,10 +200,21 @@ public class StylesheetDuplicateSelectorTests
             new(".tools-panel__subtitle", 2, SharedWithSiblings),
             new(".tools-panel__message", 2, SharedWithSiblings),
             new(".tools-inventory__meta", 2, SharedWithSiblings),
+        ],
+        // Moved out of the desktop stylesheet with the Inbox pane's rules (issue #759).
+        [Inbox] =
+        [
+            new(".inbox-pane__header", 2, SharedWithSiblings),
+            new(".inbox-pane__body", 2, SharedWithSiblings),
+            new(".inbox-pane__eyebrow", 2, SharedWithSiblings),
+            new(".inbox-pane__title", 2, SharedWithSiblings),
+            new(".inbox-pane__subtitle", 2, SharedWithSiblings),
+            new(".inbox-pane__capture-result", 2, SharedWithSiblings),
+            new(".inbox-pane__files", 2, SharedWithSiblings),
         ]
     };
 
-    public static TheoryData<string> Stylesheets => [App, Components, Capture, Roadmap, Dashboard, DevPc];
+    public static TheoryData<string> Stylesheets => [App, Components, Capture, Roadmap, Dashboard, DevPc, Inbox];
 
     [Theory]
     [MemberData(nameof(Stylesheets))]

@@ -8,6 +8,11 @@
     the shared control library and nothing of the two contexts it routes to:
     the join to the backlog is a port in Inbox.Abstractions that an adapter
     under src/Infrastructure answers, never a reference from here.
+
+    The pane's own rules ship here too, in wwwroot/inbox.css, served at
+    _content/Backlog.Modules.Inbox.UI/inbox.css; every host that renders the
+    takeover links it after the library's components.css and before the
+    shell's app.css.
   -->
   <PropertyGroup>
     <!--
