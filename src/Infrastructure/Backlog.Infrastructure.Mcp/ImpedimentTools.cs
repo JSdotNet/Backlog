@@ -14,9 +14,9 @@ namespace Backlog.Infrastructure.Mcp;
 /// (<c>.devbook/domain/progress/features.md#tracking-an-impediment</c>, local ADR 0035 §5).
 /// <para>
 /// <b>A class of its own rather than two more methods on <see cref="TrackerTools"/>.</b>
-/// That group is gated on the Tasks key; impediments are Progress's and answer to the
-/// <see cref="ProgressFeatures.Goals"/> switch, and local ADR 0012 §7 asks one feature
-/// check per group. Marking a task blocked raises an impediment on its own — the
+/// Impediments are Progress's, not Tasks', so the tools are constructed from Progress's
+/// port in a group of their own, gated on the same always-on Tasks key
+/// (<see cref="BacklogMcpTools.Impediments"/>). Marking a task blocked raises an impediment on its own — the
 /// blocked-task policy hears the task write — so a session reaches for
 /// <c>raise_impediment</c> only for one no task's mark describes.
 /// </para>

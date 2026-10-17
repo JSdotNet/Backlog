@@ -329,7 +329,7 @@
     private GoalControlSlot? OfferedGoalSlot => GoalSlot is { IsOffered: true } slot ? slot : null;
 
     /// <summary>Follows the cascaded slot, so the goal control comes and goes as the host's
-    /// goals switch turns, whether or not the screen around this re-renders on it.</summary>
+    /// slot says it is offered, whether or not the screen around this re-renders then.</summary>
     private void FollowGoalSlot()
     {
         _goalWatch ??= new GoalSlotWatch(() => _ = InvokeAsync(StateHasChanged));

@@ -35,24 +35,31 @@ public sealed class GoalAttachTests : IDisposable
     // ---- What is drawn ---------------------------------------------------------------
 
     [Fact]
-    public void With_goals_off_or_no_goal_port_nothing_is_drawn()
+    public void With_no_goal_port_nothing_is_drawn()
     {
-        Compose(on: false, new FakeGoals(Goal("Launch")));
-        var off = Render();
-        Assert.Empty(off.Nodes);
-
         using var bare = new BunitContext();
         bare.JSInterop.Mode = JSRuntimeMode.Loose;
-        bare.Services.AddSingleton<IAppFeatureSettings>(new GoalsSwitch(true));
         var unported = bare.Render<GoalAttach>(parameters => parameters.Add(p => p.Subject, Work));
         Assert.Empty(unported.Nodes);
+    }
+
+    /// <summary>Goals are always on: a host that composed a goal port and no feature
+    /// settings at all draws the control.</summary>
+    [Fact]
+    public void With_a_goal_port_and_no_feature_settings_the_control_is_drawn()
+    {
+        Compose(new FakeGoals(Goal("Launch")));
+
+        var control = Render();
+
+        control.WaitForAssertion(() => control.Find("[data-testid=goal-control-open]"));
     }
 
     [Fact]
     public void The_control_reads_the_goal_that_holds_the_work_or_offers_to_attach_one()
     {
         var launch = Goal("Launch the desktop app", holds: GoalItemDto.ForTask(TaskId));
-        Compose(on: true, new FakeGoals(launch, Goal("Docs")));
+        Compose(new FakeGoals(launch, Goal("Docs")));
 
         var held = Render();
         held.WaitForAssertion(() => Assert.Equal("Launch the desktop app", held.Find("[data-testid=goal-control-open]").TextContent.Trim()));
@@ -61,27 +68,13 @@ public sealed class GoalAttachTests : IDisposable
         free.WaitForAssertion(() => Assert.Equal("Attach to goal", free.Find("[data-testid=goal-control-open]").TextContent.Trim()));
     }
 
-    [Fact]
-    public void Turning_goals_on_draws_the_control_without_a_reload()
-    {
-        var features = new GoalsSwitch(false);
-        _context.Services.AddSingleton<IAppFeatureSettings>(features);
-        _context.Services.AddSingleton<IGoals>(new FakeGoals(Goal("Launch")));
-        var control = Render();
-        Assert.Empty(control.Nodes);
-
-        features.Turn(true);
-
-        control.WaitForAssertion(() => control.Find("[data-testid=goal-control-open]"));
-    }
-
     // ---- Attaching -------------------------------------------------------------------
 
     [Fact]
     public async Task Attaching_work_no_goal_holds_attaches_it_without_a_move()
     {
         var docs = Goal("Docs");
-        var goals = Compose(on: true, new FakeGoals(Goal("Launch"), docs));
+        var goals = Compose(new FakeGoals(Goal("Launch"), docs));
         var control = await OpenPickerAsync();
 
         await ChooseAsync(control, docs.Goal.Id);
@@ -101,7 +94,7 @@ public sealed class GoalAttachTests : IDisposable
     {
         var launch = Goal("Launch the desktop app", holds: GoalItemDto.ForTask(TaskId));
         var docs = Goal("Docs");
-        var goals = Compose(on: true, new FakeGoals(launch, docs));
+        var goals = Compose(new FakeGoals(launch, docs));
         var control = await OpenPickerAsync();
 
         Assert.NotNull(control.Find($"[data-testid=goal-picker-option][data-goal-id='{launch.Goal.Id}'] [data-testid=goal-picker-attached]"));
@@ -119,7 +112,7 @@ public sealed class GoalAttachTests : IDisposable
     [Fact]
     public async Task A_new_goal_is_set_and_the_work_attached_to_it()
     {
-        var goals = Compose(on: true, new FakeGoals(Goal("Launch")));
+        var goals = Compose(new FakeGoals(Goal("Launch")));
         var control = await OpenPickerAsync();
 
         await control.Find("[data-testid=goal-picker-new]").ClickAsync(new MouseEventArgs());
@@ -137,13 +130,13 @@ public sealed class GoalAttachTests : IDisposable
     public async Task A_refused_attach_stays_in_the_picker_in_the_modules_words()
     {
         var docs = Goal("Docs");
-        var goals = Compose(on: true, new FakeGoals(docs) { Refuse = "Goals are switched off." });
+        var goals = Compose(new FakeGoals(docs) { Refuse = "The task could not be read." });
         var control = await OpenPickerAsync();
 
         await ChooseAsync(control, docs.Goal.Id);
         await control.Find("[data-testid=goal-picker-attach]").ClickAsync(new MouseEventArgs());
 
-        control.WaitForAssertion(() => Assert.Equal("Goals are switched off.", control.Find("[data-testid=goal-picker-error]").TextContent.Trim()));
+        control.WaitForAssertion(() => Assert.Equal("The task could not be read.", control.Find("[data-testid=goal-picker-error]").TextContent.Trim()));
         Assert.Single(control.FindAll("[data-testid=goal-picker]"));
         Assert.Single(goals.Writes);
     }
@@ -151,7 +144,7 @@ public sealed class GoalAttachTests : IDisposable
     [Fact]
     public async Task Pressing_attach_again_after_a_new_goals_attach_was_refused_attaches_to_that_goal_rather_than_setting_another()
     {
-        var goals = Compose(on: true, new FakeGoals(Goal("Launch")) { Refuse = "The task could not be read." });
+        var goals = Compose(new FakeGoals(Goal("Launch")) { Refuse = "The task could not be read." });
         var control = await OpenPickerAsync();
 
         await control.Find("[data-testid=goal-picker-new]").ClickAsync(new MouseEventArgs());
@@ -201,7 +194,7 @@ public sealed class GoalAttachTests : IDisposable
     [Fact]
     public void AddGoalControls_cascades_the_control_to_every_screen()
     {
-        Compose(on: true, new FakeGoals(Goal("Launch")));
+        Compose(new FakeGoals(Goal("Launch")));
         _context.Services.AddGoalControls();
 
         var shelf = _context.Render<RoadmapPlanShelf>(parameters => parameters
@@ -211,14 +204,11 @@ public sealed class GoalAttachTests : IDisposable
             Assert.Equal("Attach to goal", shelf.Find("[data-testid=roadmap-shelf-goal-release-q4] [data-testid=goal-control-open]").TextContent.Trim()));
     }
 
-    /// <summary>Goals composed and switched off: the slot is cascaded, and no place that
-    /// wraps the control draws its wrapper — the shelf row, the work card, the item
-    /// editor. Turned on, the shelf draws the control without being re-rendered by its host.</summary>
+    /// <summary>Goals composed: every place that wraps the control draws it — the shelf
+    /// row, the work card, the item editor — with no feature switch to turn on first.</summary>
     [Fact]
-    public void With_goals_off_the_cascaded_control_draws_no_wrapper_anywhere_until_goals_are_turned_on()
+    public void The_cascaded_control_is_drawn_in_every_place_that_wraps_it()
     {
-        var features = new GoalsSwitch(false);
-        _context.Services.AddSingleton<IAppFeatureSettings>(features);
         _context.Services.AddSingleton<IGoals>(new FakeGoals(Goal("Launch")));
         _context.Services.AddGoalControls();
 
@@ -230,13 +220,6 @@ public sealed class GoalAttachTests : IDisposable
             .Add(p => p.Open, true)
             .Add(p => p.Item, Item("sync")));
 
-        Assert.Empty(shelf.FindAll(".roadmap-shelf__goal"));
-        Assert.Empty(links.FindAll("[data-testid=work-links-item]"));
-        Assert.Empty(links.FindAll("[data-testid=work-links-goal]"));
-        Assert.Empty(editor.FindAll("[data-testid=roadmap-editor-goal]"));
-
-        features.Turn(true);
-
         shelf.WaitForAssertion(() => shelf.Find("[data-testid=roadmap-shelf-goal-release-q4] [data-testid=goal-control-open]"));
         links.WaitForAssertion(() => links.Find("[data-testid=work-links-goal] [data-testid=goal-control-open]"));
         editor.WaitForAssertion(() => editor.Find("[data-testid=roadmap-editor-goal] [data-testid=goal-control-open]"));
@@ -245,7 +228,6 @@ public sealed class GoalAttachTests : IDisposable
     [Fact]
     public void Without_a_goal_port_the_cascaded_control_is_not_offered()
     {
-        _context.Services.AddSingleton<IAppFeatureSettings>(new GoalsSwitch(true));
         _context.Services.AddGoalControls();
 
         var shelf = _context.Render<RoadmapPlanShelf>(parameters => parameters
@@ -286,9 +268,8 @@ public sealed class GoalAttachTests : IDisposable
 
     // ---- Helpers ---------------------------------------------------------------------
 
-    private FakeGoals Compose(bool on, FakeGoals goals)
+    private FakeGoals Compose(FakeGoals goals)
     {
-        _context.Services.AddSingleton<IAppFeatureSettings>(new GoalsSwitch(on));
         _context.Services.AddSingleton<IGoals>(goals);
         return goals;
     }
@@ -320,29 +301,6 @@ public sealed class GoalAttachTests : IDisposable
             Lane: null, TaskId: null, DependsOn: [], Tag: tag);
 
     public void Dispose() => _context.Dispose();
-
-    /// <summary>The feature switch with only the goals key behind it; it can be turned
-    /// while a screen is up, as Settings turns it.</summary>
-    private sealed class GoalsSwitch(bool on) : IAppFeatureSettings
-    {
-        private bool _on = on;
-
-        public event Action? Changed;
-
-        public AppFeatureSettings Current { get; } = new();
-
-        public string SettingsPath => "features.json";
-
-        public bool IsEnabled(string key) => key == ProgressFeatures.Goals && _on;
-
-        public string? SetEnabled(string key, bool enabled) => null;
-
-        public void Turn(bool on)
-        {
-            _on = on;
-            Changed?.Invoke();
-        }
-    }
 
     /// <summary>
     /// The goal port over goals in memory: each write is recorded and applied the way the
@@ -386,7 +344,7 @@ public sealed class GoalAttachTests : IDisposable
         public Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)
         {
             Writes.Add($"Attach {goalId} {item.Kind}:{item.TaskId?.ToString() ?? item.PlanTag ?? $"{item.Repository}#{item.Number}"} move:{moveFromOtherGoal}");
-            if (Refuse is { } refusal) return Task.FromResult(Result.Failure<GoalDto>(Error.Validation("progress.goals_off", refusal)));
+            if (Refuse is { } refusal) return Task.FromResult(Result.Failure<GoalDto>(Error.Validation("progress.task_required", refusal)));
 
             if (Holder(item) is { } holder && holder.Goal.Id != goalId)
             {

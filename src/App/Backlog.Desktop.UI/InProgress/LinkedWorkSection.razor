@@ -1,20 +1,19 @@
 @implements IDisposable
 @using Backlog.Desktop.UI.Tasks
 @using Backlog.UI.Components.Integrations
-@using Backlog.UI.Components.Tasks
 @inject TasksDesktopState State
 @inject IServiceProvider Services
 @inject IJSRuntime JS
 
 @*
-    A task's "Sessions and pull requests", in its side panel: the same cards the In
-    progress view draws, "Open in In progress", and "Link a session or pull
-    request…" — the shell's fill for the slot the Tasks pane offers, because the
-    cards carry what Sessions and GitHub say and that pane may reach neither.
+    A task's "Sessions and pull requests", in its side panel: the cards of the
+    sessions and pull requests it links, and "Link a session or pull request…" —
+    the shell's fill for the slot the Tasks pane offers, because the cards carry
+    what Sessions and GitHub say and that pane may reach neither.
 
     It reads the session record when it first draws, which is local, and never
-    GitHub on its own: a linked pull request draws from the open read the In
-    progress view made, else from what the task list already read about it. The
+    GitHub on its own: a linked pull request draws from the open read the shell's
+    reader last made, else from what the task list already read about it. The
     link action is the one thing that asks GitHub, because a person asked for the
     list of what could be linked.
 *@
@@ -27,7 +26,6 @@
                 OnOpenPullRequest="pull => OnOpenPullRequest.InvokeAsync(pull.Key)"
                 OnUnlinkSession="session => UnlinkAsync(session, null)"
                 OnUnlinkPullRequest="pull => UnlinkAsync(null, pull)"
-                OnOpenInProgress="OnOpenInProgress"
                 OnLink="OpenPickerAsync"
                 Busy="_opening"
                 HeadingId="@HeadingId"
@@ -52,7 +50,7 @@
     [Parameter, EditorRequired]
     public EntryRow Row { get; set; } = default!;
 
-    /// <summary>The shell's reader, shared with the In progress view.</summary>
+    /// <summary>The shell's reader, shared with the Goals view.</summary>
     [Parameter, EditorRequired]
     public WorkInProgressReader Reader { get; set; } = default!;
 
@@ -61,11 +59,6 @@
 
     [Parameter]
     public EventCallback<string> OnOpenPullRequest { get; set; }
-
-    /// <summary>"Open in In progress"; unset while the view is not offered, and the
-    /// control is then not drawn.</summary>
-    [Parameter]
-    public EventCallback OnOpenInProgress { get; set; }
 
     /// <summary>Whether the session list is on: off, no session is read, drawn or offered.</summary>
     [Parameter]
@@ -88,7 +81,7 @@
     private IToastChannel? _toasts;
 
     /// <summary>The loose items by their key, as offered the last time the picker opened.</summary>
-    private Dictionary<string, InProgressLoose> _offered = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, LooseWork> _offered = new(StringComparer.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
@@ -103,7 +96,7 @@
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private InProgressProjection Projection => new(
+    private WorkLinksProjection Projection => new(
         State.Rows,
         Reader.Sessions,
         Reader.PullRequests,

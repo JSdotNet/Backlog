@@ -434,10 +434,7 @@ internal static class StorybookIndex
             new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order — derived, edited, and wired by dragging."),
             // Last in the group: a second layout of the tasks the pages above
             // introduce, read once a task and its states are known.
-            new("task-list/calendar", "Task calendar", "TaskCalendar: a month of tasks by due date — Monday-first whole weeks, today ringed with its My Day count, two chips a day and the rest behind +N more, overdue and done drawn apart, and a tray of undated tasks to drag onto a day."),
-            // After the calendar: a view of tasks with their work cards, which the Integrations
-            // chapter introduced above.
-            new("task-list/in-progress", "In progress", "InProgressBoard: every task in progress with the sessions and pull requests linked to it, in sections by what needs the person, and the work no task links yet; linking, unlinking, where the focus goes, and one feature off.")
+            new("task-list/calendar", "Task calendar", "TaskCalendar: a month of tasks by due date — Monday-first whole weeks, today ringed with its My Day count, two chips a day and the rest behind +N more, overdue and done drawn apart, and a tray of undated tasks to drag onto a day.")
         ]),
 
         // Its own chapter for the same reason Task list is: two components, one

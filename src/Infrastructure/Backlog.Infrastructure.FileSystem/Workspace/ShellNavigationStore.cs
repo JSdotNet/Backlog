@@ -41,7 +41,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// bands the reader folded to one lane are the same kind of choice and ride beside it.
 /// </para>
 /// <para>
-/// So do the Calendar's Month | Week range, the In progress view's two toggles and the
+/// So do the Calendar's Month | Week range and the
 /// header's repository scope, and the system tools pane's tab and host filter: each is
 /// how the reader last had a screen, kept on this device only. So is show archived
 /// (local ADR 0029, §3), whether the archived repositories are offered where they are
@@ -128,8 +128,6 @@ public sealed class ShellNavigationStore
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
         CalendarRange = string.IsNullOrWhiteSpace(dto?.CalendarRange) ? DefaultCalendarRange : dto.CalendarRange;
-        InProgressNeedsYouFirst = dto?.InProgressNeedsYouFirst ?? true;
-        InProgressIncludeFinishedToday = dto?.InProgressIncludeFinishedToday ?? false;
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
@@ -190,14 +188,6 @@ public sealed class ShellNavigationStore
     /// not know as Month. Only the range is kept, never the date it showed.
     /// </summary>
     public string CalendarRange { get; private set; }
-
-    /// <summary>Whether the In progress view puts the sessions waiting on the reader
-    /// first — its "Needs you first" toggle: on until turned off on this device.</summary>
-    public bool InProgressNeedsYouFirst { get; private set; }
-
-    /// <summary>Whether the In progress view also lists what finished today — its
-    /// "Include finished today" toggle: off until turned on on this device.</summary>
-    public bool InProgressIncludeFinishedToday { get; private set; }
 
     /// <summary>
     /// The header's repository scope by alias, in the order it was chosen: the first is
@@ -357,22 +347,6 @@ public sealed class ShellNavigationStore
         if (range == CalendarRange) return;
 
         CalendarRange = range;
-        Save();
-    }
-
-    public void SetInProgressNeedsYouFirst(bool needsYouFirst)
-    {
-        if (needsYouFirst == InProgressNeedsYouFirst) return;
-
-        InProgressNeedsYouFirst = needsYouFirst;
-        Save();
-    }
-
-    public void SetInProgressIncludeFinishedToday(bool include)
-    {
-        if (include == InProgressIncludeFinishedToday) return;
-
-        InProgressIncludeFinishedToday = include;
         Save();
     }
 
@@ -667,8 +641,6 @@ public sealed class ShellNavigationStore
                 CalendarPlansShown = CalendarPlansShown ? true : null,
                 // Each of these is left out while at its default, the same way.
                 CalendarRange = CalendarRange == DefaultCalendarRange ? null : CalendarRange,
-                InProgressNeedsYouFirst = InProgressNeedsYouFirst ? null : false,
-                InProgressIncludeFinishedToday = InProgressIncludeFinishedToday ? true : null,
                 RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope],
                 // Left out until the tools pane has been on a tab or a filter here.
                 ToolsTab = ToolsTab,
@@ -735,12 +707,6 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? CalendarRange { get; init; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public bool? InProgressNeedsYouFirst { get; init; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public bool? InProgressIncludeFinishedToday { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RepositoryScope { get; init; }

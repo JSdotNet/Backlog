@@ -40,11 +40,7 @@ internal enum ShellView
 
     /// <summary>The work in progress group's own view, first in that group rather
     /// than in the task views' switch: it answers "what is moving", which is that
-    /// group's question. While <c>ProgressFeatures.Goals</c> is on it is the Goals
-    /// view (local ADR 0035 §10), offered whenever the flag is; while the flag is
-    /// off it is the In progress view as it was — every entry in progress with the
-    /// sessions and pull requests linked to it — offered while the Sessions or the
-    /// Pull requests feature is on.
+    /// group's question. It is the Goals view (local ADR 0035 §10), always offered.
     /// <para>
     /// Stored as <c>Goals</c>. It was <c>InProgress</c> until the Goals rename, and a
     /// file that still holds that name reads as this member through

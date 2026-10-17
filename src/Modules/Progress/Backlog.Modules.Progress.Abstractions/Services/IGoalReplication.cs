@@ -30,9 +30,7 @@ public enum GoalReplicaOutcome
 /// <para>
 /// A goal is the unit because it is the consistency boundary for its attachments. The
 /// client routes by kind and never looks inside; which copy wins, and whether a copy can
-/// be read at all, is decided here. A deleted goal travels as its tombstone. Not behind
-/// the <see cref="ProgressFeatures.Goals"/> switch: goals recorded while it is off are
-/// kept, so they travel too.
+/// be read at all, is decided here. A deleted goal travels as its tombstone.
 /// </para>
 /// </summary>
 public interface IGoalReplication

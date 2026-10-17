@@ -245,7 +245,7 @@ public sealed class WorkInProgressReaderTests
         var reader = Reader(host, out _, () => WorkInProgressReader.LinksOf(host.State.Rows));
         await ReadAsync(reader);
 
-        var projection = new InProgressProjection(
+        var projection = new WorkLinksProjection(
             host.State.Rows, reader.Sessions, reader.PullRequests, _ => null, _ => null, _ => null, Noon, reader.SessionsRead, reader.LinkedPullRequests);
         var pulls = projection.PullRequestsOf(row);
 
@@ -262,7 +262,9 @@ public sealed class WorkInProgressReaderTests
         Assert.Equal("JSdotNet", open.Author);
         Assert.Null(open.MergedAt);
 
-        var view = host.Context.Render<InProgressView>(parameters => parameters.Add(p => p.Reader, reader));
+        var view = host.Context.Render<LinkedWorkSection>(parameters => parameters
+            .Add(p => p.Row, row)
+            .Add(p => p.Reader, reader));
         view.WaitForAssertion(() =>
         {
             var card = view.Find($"[data-pull-request='{Repository}#655']");

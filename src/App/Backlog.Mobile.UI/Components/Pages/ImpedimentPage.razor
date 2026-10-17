@@ -47,13 +47,13 @@
     <span class="standup-back__title">Impediment</span>
 </nav>
 
-@if (!Progress.GoalsOn)
+@if (!Progress.HoldsStandUp)
 {
     @if (_looked)
     {
-        <EmptyState Title="Stand-up is off"
-                    Description="Goals are off on the desktop, or it has not synced them yet."
-                    TestId="impediment-off" />
+        <EmptyState Title="No stand-up yet"
+                    Description="A desktop sends the stand-up once it has a goal and has synced."
+                    TestId="impediment-none" />
     }
 }
 else if (Impediment is { } impediment)

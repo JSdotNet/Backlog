@@ -28,14 +28,11 @@ namespace Backlog.Modules.Progress.Services;
 public sealed class BlockedTaskPolicy(
     IBlockedTaskSource tasks,
     ImpedimentChanges changes,
-    TimeProvider clock,
-    IAppFeatureSettings? features = null)
+    TimeProvider clock)
     : IBlockedTaskPolicy
 {
     public async Task<IReadOnlyList<ImpedimentDto>> ReactAsync(CancellationToken cancellationToken = default)
     {
-        if (!(features?.IsEnabled(ProgressFeatures.Goals) ?? false)) return [];
-
         var blocked = await tasks.ReadBlockedAsync(cancellationToken).ConfigureAwait(false);
         if (blocked.Count == 0) return [];
 

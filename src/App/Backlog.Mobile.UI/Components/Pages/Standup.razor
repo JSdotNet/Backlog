@@ -24,8 +24,8 @@
     anything; the one edit the phone makes is on an impediment's page. Copying
     the stand-up and attaching work are the desktop's.
 
-    Shown only while goals are on, which the phone reads as holding a stand-up
-    context (ProgressViewProjection.GoalsOn).
+    Shown once a desktop has sent the stand-up, which the phone reads as holding a
+    stand-up context (ProgressViewProjection.HoldsStandUp).
 *@
 
 <PageTitle>Stand-up</PageTitle>
@@ -43,13 +43,13 @@
     <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="standup-pull-notice" />
 }
 
-@if (!Progress.GoalsOn)
+@if (!Progress.HoldsStandUp)
 {
     @if (_looked)
     {
-        <EmptyState Title="Stand-up is off"
-                    Description="Goals are off on the desktop, or it has not synced them yet. Turn goals on there to read the stand-up here."
-                    TestId="standup-off" />
+        <EmptyState Title="No stand-up yet"
+                    Description="A desktop sends the stand-up once it has a goal and has synced. Set a goal there to read the stand-up here."
+                    TestId="standup-none" />
     }
 }
 else

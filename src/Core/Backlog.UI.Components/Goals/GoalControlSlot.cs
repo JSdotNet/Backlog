@@ -16,11 +16,10 @@ namespace Backlog.UI.Components.Goals;
 /// page that sets none — every one of those places draws exactly what it drew before.
 /// </para>
 /// <para>
-/// A slot can be cascaded and still not be offered: the host composes Progress, and the
-/// goals switch is off. A place that wraps the control in a layout element of its own
-/// asks <see cref="IsOffered"/> first, so it draws no empty wrapper, and
-/// <see cref="Watch"/>es the slot, so it draws one again as the switch turns — whether or
-/// not the screen around it re-renders on that switch.
+/// A slot can be cascaded and still not be offered, when the host says so. A place that
+/// wraps the control in a layout element of its own asks <see cref="IsOffered"/> first,
+/// so it draws no empty wrapper, and <see cref="Watch"/>es the slot, so it draws one
+/// again as that answer changes — whether or not the screen around it re-renders then.
 /// </para>
 /// </summary>
 /// <param name="render">The control for one subject.</param>

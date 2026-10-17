@@ -7,9 +7,7 @@ namespace Backlog.Modules.Progress.Abstractions.Services;
 /// The stand-up (<c>.devbook/domain/progress/domain.md#stand-up-reading</c>,
 /// <c>.devbook/domain/progress/features.md#the-stand-up</c>): the goals, what was finished
 /// in the last window, what is planned for the next, and the open impediments, read afresh
-/// from the work they name. It stores nothing. Every call fails with
-/// <see cref="ProgressErrors.GoalsOff"/> while the <see cref="ProgressFeatures.Goals"/>
-/// switch is off.
+/// from the work they name. It stores nothing.
 /// </summary>
 public interface IStandUp
 {

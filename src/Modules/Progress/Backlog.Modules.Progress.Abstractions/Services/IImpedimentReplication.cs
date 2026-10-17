@@ -25,9 +25,7 @@ public enum ImpedimentReplicaOutcome
 /// The port the sync client hands replicated impediments to, and reads them from: one
 /// whole <c>impediment</c> document per impediment, the newer write winning per document
 /// (<c>.devbook/domain/progress/features.md#syncing-goals-and-impediments</c>, local ADR
-/// 0035 §9) — the terms <see cref="IGoalReplication"/> gives a goal. Not behind the
-/// <see cref="ProgressFeatures.Goals"/> switch: impediments recorded while it is off are
-/// kept, so they travel too.
+/// 0035 §9) — the terms <see cref="IGoalReplication"/> gives a goal.
 /// </summary>
 public interface IImpedimentReplication
 {

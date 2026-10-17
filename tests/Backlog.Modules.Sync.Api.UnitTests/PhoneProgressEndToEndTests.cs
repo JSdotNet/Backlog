@@ -230,7 +230,6 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
 
             var services = new ServiceCollection();
             services.AddSingleton(TimeProvider.System);
-            services.AddSingleton<IAppFeatureSettings, GoalsOn>();
             services.AddSingleton<IProgressTaskSource, NoTasks>();
             services.AddSingleton<IGoalPullRequestReader, OneOpenPullRequest>();
             services.AddSqlite(_ => root);
@@ -295,19 +294,6 @@ public sealed class PhoneProgressEndToEndTests : IDisposable
                 standUpContext: _provider.GetRequiredService<IStandUpContextSource>(),
                 retirements: retirements);
         }
-    }
-
-    private sealed class GoalsOn : IAppFeatureSettings
-    {
-        public event Action? Changed { add { } remove { } }
-
-        public AppFeatureSettings Current { get; } = new();
-
-        public string SettingsPath => "features.json";
-
-        public bool IsEnabled(string key) => key == ProgressFeatures.Goals;
-
-        public string? SetEnabled(string key, bool enabled) => null;
     }
 
     private sealed class NoTasks : IProgressTaskSource

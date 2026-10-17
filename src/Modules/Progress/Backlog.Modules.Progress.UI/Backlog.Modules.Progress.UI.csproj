@@ -2,7 +2,7 @@
 
   <!--
     The Progress module's UI (.devbook/domain/progress/features.md): the Goals view
-    (Goals/GoalsHost), which the desktop shell draws while the goals switch is on, and
+    (Goals/GoalsHost), which the desktop shell draws as one of its main views, and
     the attach-to-goal control it offers on tasks and pull requests. The board it draws
     is the shared library's GoalsBoard, so the storybook shows it with no goal behind it.
 
@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
-    <!-- IAppFeatureSettings: the goals switch the Goals view is drawn under. -->
+    <!-- Result: what every goal port call answers with. -->
     <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
   </ItemGroup>

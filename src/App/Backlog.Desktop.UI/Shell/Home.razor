@@ -374,96 +374,68 @@
                 }
             </div>
 
-            @* The work in progress: what the assistants are running and what they
-               shipped. Two takeovers of the Sessions context, each under its own
-               flag, fused because they are one context's two lists, led by the In
-               progress view that summarises both. Each list is a takeover, so
-               pressing the pressed one, Escape, or the surface's own close button
-               returns to the workspace. Renders only while one of them is offered,
-               or the Goals view is: with the goals flag on, Goals leads the group
-               and is offered on its own (local ADR 0035 §10). *@
-            @if (SessionsOffered || PullRequestsOffered || GoalsOffered)
-            {
-                <ButtonGroup CssClass="header-group header-group--work"
-                             AriaLabel="Work in progress"
-                             TestId="work-in-progress-switcher">
-                    @* A main view, not a takeover, though it sits with two: pressing
-                       it shows the view as a view-switch option does, and nothing
-                       closes it. First,
-                       because it is the summary the other two are the lists behind.
-                       One member, ShellView.Goals, under two names: Goals while the
-                       goals flag is on, In progress as it was while it is off. *@
-                    @if (GoalsOffered)
-                    {
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="ViewOptionPressed(ShellView.Goals)"
-                                      id="goals-view-option"
-                                      Title="Goals"
-                                      TestId="goals-view-option"
-                                      aria-controls="goals-view"
-                                      OnClick="() => ShowView(ShellView.Goals)">
-                            <TargetIcon />
-                            <span class="header-nav-label header-nav-label--tier-2">Goals</span>
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Goals)"
-                                                Title="@FeatureStatusTitle(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Goals)"
-                                                TestId="goals-feature-status" />
-                        </ToggleButton>
-                    }
-                    else
-                    {
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="ViewOptionPressed(ShellView.Goals)"
-                                      id="in-progress-view-option"
-                                      Title="In progress"
-                                      TestId="in-progress-view-option"
-                                      aria-controls="in-progress-view"
-                                      OnClick="() => ShowView(ShellView.Goals)">
-                            <ActivityIcon />
-                            <span class="header-nav-label header-nav-label--tier-2">In progress</span>
-                        </ToggleButton>
-                    }
+            @* The work in progress: the goals, and what the assistants are running
+               and what they shipped. Goals leads, always offered (local ADR 0035
+               §10); then two takeovers of the Sessions context, each under its own
+               flag, fused because they are one context's two lists. Each list is a
+               takeover, so pressing the pressed one, Escape, or the surface's own
+               close button returns to the workspace. *@
+            <ButtonGroup CssClass="header-group header-group--work"
+                         AriaLabel="Work in progress"
+                         TestId="work-in-progress-switcher">
+                @* A main view, not a takeover, though it sits with two: pressing
+                   it shows the view as a view-switch option does, and nothing
+                   closes it. First, because it is what the work is for. *@
+                <ToggleButton BaseClass="header-group__option"
+                              PressedCssClass="header-group__option--selected"
+                              Pressed="ViewOptionPressed(ShellView.Goals)"
+                              id="goals-view-option"
+                              Title="Goals"
+                              TestId="goals-view-option"
+                              aria-controls="goals-view"
+                              OnClick="() => ShowView(ShellView.Goals)">
+                    <TargetIcon />
+                    <span class="header-nav-label header-nav-label--tier-2">Goals</span>
+                </ToggleButton>
 
-                    @if (SessionsOffered)
-                    {
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="SessionsVisible"
-                                      id="sessions-toggle-button"
-                                      Title="Sessions"
-                                      TestId="sessions-toggle-button"
-                                      aria-controls="sessions-surface"
-                                      PressedChanged="ToggleSessions">
-                            <SquareTerminalIcon />
-                            <span class="header-nav-label header-nav-label--tier-2">Sessions</span>
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
-                                                Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
-                                                TestId="sessions-feature-status" />
-                        </ToggleButton>
-                    }
+                @if (SessionsOffered)
+                {
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="SessionsVisible"
+                                  id="sessions-toggle-button"
+                                  Title="Sessions"
+                                  TestId="sessions-toggle-button"
+                                  aria-controls="sessions-surface"
+                                  PressedChanged="ToggleSessions">
+                        <SquareTerminalIcon />
+                        <span class="header-nav-label header-nav-label--tier-2">Sessions</span>
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
+                                            Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
+                                            TestId="sessions-feature-status" />
+                    </ToggleButton>
+                }
 
-                    @* Its own option and its own flag, since it asks GitHub on every
-                       opening and the session list asks nothing. *@
-                    @if (PullRequestsOffered)
-                    {
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="PullRequestsVisible"
-                                      id="pull-requests-toggle-button"
-                                      Title="Pull requests"
-                                      TestId="pull-requests-toggle-button"
-                                      aria-controls="pull-requests-surface"
-                                      PressedChanged="TogglePullRequests">
-                            <GitPullRequestIcon />
-                            <span class="header-nav-label header-nav-label--tier-2">Pull requests</span>
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
-                                                Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
-                                                TestId="pull-requests-feature-status" />
-                        </ToggleButton>
-                    }
-                </ButtonGroup>
-            }
+                @* Its own option and its own flag, since it asks GitHub on every
+                   opening and the session list asks nothing. *@
+                @if (PullRequestsOffered)
+                {
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="PullRequestsVisible"
+                                  id="pull-requests-toggle-button"
+                                  Title="Pull requests"
+                                  TestId="pull-requests-toggle-button"
+                                  aria-controls="pull-requests-surface"
+                                  PressedChanged="TogglePullRequests">
+                        <GitPullRequestIcon />
+                        <span class="header-nav-label header-nav-label--tier-2">Pull requests</span>
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
+                                            Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
+                                            TestId="pull-requests-feature-status" />
+                    </ToggleButton>
+                }
+            </ButtonGroup>
 
             @* The remaining takeovers, loose: the Dashboard and Dev PC Management's
                Tools, related only by each taking the screen. WorkspaceSurface is a
@@ -795,31 +767,13 @@
             }
             else if (GoalsViewVisible)
             {
-                @* The Goals view, while the goals flag is on: In progress's place and
-                   no Now board (local ADR 0035 §10). The goals, No goal and the
-                   stand-up, read through the Progress ports over the shell's task
-                   list and open pull requests (GoalsTab). *@
+                @* The Goals view: the goals, No goal and the stand-up, read through
+                   the Progress ports over the shell's task list and open pull
+                   requests (GoalsTab, local ADR 0035 §10). *@
                 <div class="goals-view" id="goals-view" data-testid="goals-view">
                     <div class="goals-view__body" data-testid="goals-view-body">
                         <GoalsTab Reader="_work" ReadsPullRequests="PullRequestsOffered" />
                     </div>
-                </div>
-            }
-            else if (InProgressViewVisible)
-            {
-                @* A view like the roadmap: no Escape, no filter bar. The tab is the
-                   view by task (InProgressTab). *@
-                <div class="in-progress-view" id="in-progress-view" data-testid="in-progress-view">
-                    <InProgressTab Reader="_work"
-                                   OnOpenTask="OpenEntryAsync"
-                                   OnOpenSession="OpenSessionAsync"
-                                   OnOpenPullRequest="OpenPullRequestAsync"
-                                   ShowSessions="SessionsOffered"
-                                   ShowPullRequests="PullRequestsOffered"
-                                   NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
-                                   NeedsYouFirstChanged="OnNeedsYouFirstChanged"
-                                   IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
-                                   IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged" />
                 </div>
             }
             else
@@ -1095,26 +1049,11 @@
     private ShellView EffectiveView => _view switch
     {
         ShellView.Roadmap when !RoadmapViewOffered => ShellView.Tasks,
-        ShellView.Goals when !GoalsOffered && !InProgressViewOffered => ShellView.Tasks,
         _ => _view
     };
 
-    /// <summary>Whether the goals flag is on: the work in progress group then leads
-    /// with Goals in In progress's place, offered on the flag alone, whether or not
-    /// Sessions or Pull requests are (local ADR 0035 §10).</summary>
-    private bool GoalsOffered => IsFeatureEnabled(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Goals);
-
-    /// <summary>Whether the work in progress group offers In progress: while the goals
-    /// flag is off and either of the lists it summarises is on.</summary>
-    private bool InProgressViewOffered => !GoalsOffered && (SessionsOffered || PullRequestsOffered);
-
-    /// <summary>Whether the Goals view is on screen: the shared member, with the goals
-    /// flag on.</summary>
-    private bool GoalsViewVisible => WorkspaceVisible && GoalsOffered && EffectiveView == ShellView.Goals;
-
-    /// <summary>Whether the In progress view is on screen: the shared member, with the
-    /// goals flag off.</summary>
-    private bool InProgressViewVisible => WorkspaceVisible && InProgressViewOffered && EffectiveView == ShellView.Goals;
+    /// <summary>Whether the Goals view is on screen. Always offered (local ADR 0035 §10).</summary>
+    private bool GoalsViewVisible => WorkspaceVisible && EffectiveView == ShellView.Goals;
 
     /// <summary>Whether the task list is in front of the reader — the Tasks view, or
     /// the Board or the Calendar laying out the same filtered rows, on screen in
@@ -1171,12 +1110,6 @@
             ? value
             : fallback;
 
-    // The In progress view's two choices, kept by the shell as the Board's columns
-    // are, so a relaunch reopens the board as the reader left it.
-    private void OnNeedsYouFirstChanged(bool value) => ShellNavigation.SetInProgressNeedsYouFirst(value);
-
-    private void OnIncludeFinishedTodayChanged(bool value) => ShellNavigation.SetInProgressIncludeFinishedToday(value);
-
     /// <summary>Whether what is on screen can show several repositories at once:
     /// the task list, the Dashboard, the session list, or the pull requests list —
     /// and the Inbox, which shows none but routes into the list: it sat beside the
@@ -1189,7 +1122,7 @@
     /// narrowed to the anchor would take away. Tools reads none, so there a chip is a
     /// single select and the scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral =>
-        TasksListOnScreen || InProgressViewVisible || GoalsViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible;
+        TasksListOnScreen || GoalsViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button
@@ -1438,7 +1371,7 @@
     private string? _focusPullRequest;
 
     /// <summary>
-    /// A pull request a card on the In progress view or a task's side panel names,
+    /// A pull request a card in a task's side panel names,
     /// opened from the card: the pull requests list on screen with its row marked.
     /// The mirror of <see cref="OpenSessionAsync"/>, on the same terms.
     /// </summary>
@@ -1462,25 +1395,11 @@
 
     private const string PullRequestsOffTestId = "in-progress-pull-requests-off";
 
-    /// <summary>The sessions and open pull requests the In progress view and a
-    /// task's side panel draw from, read by either and kept for both. Rebuilt with
+    /// <summary>The sessions and open pull requests the Goals view and a task's
+    /// side panel draw from, read by either and kept for both. Rebuilt with
     /// the page, which the Router remounts on every route change — so a trip to
     /// Settings and back reads again, which is what that trip is usually for.</summary>
     private WorkInProgressReader _work = new(null, null);
-
-    /// <summary>An entry the In progress view names, opened from its title: the
-    /// Tasks view on screen with that entry selected.</summary>
-    private async Task OpenEntryAsync(Guid id)
-    {
-        if (State.Rows.FirstOrDefault(candidate => candidate.Id == id) is not { } row) return;
-
-        ShowView(ShellView.Tasks);
-
-        // In progress shows entries the list's own filters may hide; the list is
-        // widened to it, as a press on the row would be.
-        State.Reveal(row);
-        await State.SelectAsync(row);
-    }
 
     /// <summary>
     /// A roadmap item's "Open in Tasks": the Tasks view on screen, listing every entry
@@ -1508,10 +1427,10 @@
     }
 
     /// <summary>The Tasks detail panel's "Sessions and pull requests", for the
-    /// selected entry. Offered while the In progress view is: the section is that
-    /// view's cards for one entry, and its "Open in In progress" leads there. Built
-    /// once, and again on every feature change, rather than as a new fragment on
-    /// every render — see <see cref="BuildLinkedWork"/>.</summary>
+    /// selected entry. Offered while the Sessions or the Pull requests feature is on:
+    /// the section draws only the kinds that are. Built once, and again on every
+    /// feature change, rather than as a new fragment on every render — see
+    /// <see cref="BuildLinkedWork"/>.</summary>
     private RenderFragment<EntryRow>? LinkedWorkFor => _linkedWork;
 
     private RenderFragment<EntryRow>? _linkedWork;
@@ -1521,7 +1440,7 @@
     /// here, and that is a feature's to change.</summary>
     private RenderFragment<EntryRow>? BuildLinkedWork()
     {
-        if (!InProgressViewOffered) return null;
+        if (!SessionsOffered && !PullRequestsOffered) return null;
 
         return row => builder => builder.AddContent(0, LinkedWorkSectionFor(row));
     }
@@ -1532,7 +1451,6 @@
                             Reader="_work"
                             OnOpenSession="OpenSessionAsync"
                             OnOpenPullRequest="OpenPullRequestAsync"
-                            OnOpenInProgress="() => ShowView(ShellView.Goals)"
                             ShowSessions="SessionsOffered"
                             ShowPullRequests="PullRequestsOffered" />;
 

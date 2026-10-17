@@ -16,7 +16,7 @@ public sealed record StandUpContextCopyDto(string Content, DateTimeOffset Update
 public interface IStandUpContextSource
 {
     /// <summary>The context as it reads now, or null when there is nothing to send: no
-    /// goal is set, or the <see cref="ProgressFeatures.Goals"/> switch is off on this desktop.</summary>
+    /// goal is set.</summary>
     Task<StandUpContextCopyDto?> ReadAsync(CancellationToken cancellationToken = default);
 }
 
@@ -45,8 +45,7 @@ public enum ImpedimentEditOutcome
 /// Where the sync client hands an <c>impediment-edit</c> document the phone wrote: one change
 /// to an impediment's state, check-again date or note, applied through the module's own
 /// impediment features (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>, local
-/// ADR 0035 §8). Not behind the <see cref="ProgressFeatures.Goals"/> switch, for the reason
-/// replication is not: what the person asked for while it is off is kept.
+/// ADR 0035 §8).
 /// </summary>
 public interface IImpedimentEditIntake
 {

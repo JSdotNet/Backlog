@@ -157,13 +157,12 @@ public sealed class ProgressViewProjection : IDisposable
     }
 
     /// <summary>
-    /// Whether the person has goals on (<c>.devbook/domain/progress/context.md#goals-area</c>),
-    /// as far as the phone can tell. The phone keeps no feature settings of its own, and a
-    /// desktop writes the stand-up context only while its <c>goals</c> flag is on, so a
-    /// context the phone holds is the flag read from here: the Stand-up tab and its pages
-    /// show while there is one, and say Stand-up is off while there is none.
+    /// Whether a desktop has sent the stand-up yet. Goals are always on
+    /// (<c>.devbook/domain/progress/context.md#goals-area</c>), and a desktop writes the
+    /// stand-up context once it has a goal, so the Stand-up tab and its pages show while
+    /// the phone holds one, and say there is no stand-up yet while it holds none.
     /// </summary>
-    public bool GoalsOn => Context() is not null;
+    public bool HoldsStandUp => Context() is not null;
 
     /// <summary>
     /// Pulls the task feed from the Progress cursor until the service says it is drained,

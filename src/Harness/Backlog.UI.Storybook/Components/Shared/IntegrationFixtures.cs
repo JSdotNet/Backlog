@@ -414,39 +414,6 @@ internal static class IntegrationFixtures
         "JSdotNet/Backlog#1020", 1020, "Bump Aspire to the next patch", IntegrationArtifactState.Open,
         Checks: IntegrationCheckState.Passing, Additions: 6, Deletions: 6);
 
-    /// <summary>
-    /// The tasks the In progress page lays out: two that need the person — one for a
-    /// quiet session, one for a pull request with requested changes — two that are
-    /// moving, one with nothing linked yet, and one finished today. The repositories
-    /// and their hues are <see cref="ProductRepo"/>'s, <see cref="SyncRepo"/>'s and
-    /// <see cref="PluginsRepo"/>'s.
-    /// </summary>
-    public static IReadOnlyList<InProgressTask> InProgressTasks { get; } =
-    [
-        new("extract", "Extract TaskCard from the TaskItem row", [QuietSession], [DraftPullRequest],
-            Plan: "+task-views", Repository: "backlog", Colour: ProductRepo.Colour,
-            SubItems: "3 of 5 sub-items", Started: "Started Oct 1", Due: "Due Oct 8", Effort: "5 pts"),
-        new("facet", "Plan facet on the Tasks filter", [], [ChangesRequestedPullRequest],
-            Plan: "+task-views", Repository: "backlog", Colour: ProductRepo.Colour,
-            SubItems: "1 of 2 sub-items", Started: "Started Oct 3", Due: "Due Oct 6", Overdue: true, Effort: "3 pts"),
-        new("timeline", "Stage timeline on the dashboard", [RunningSession], [],
-            Plan: "+delivery-surfaces", Repository: "claude-plugins", Colour: PluginsRepo.Colour,
-            SubItems: "0 of 3 sub-items", Started: "Started today", Due: "Due Oct 23", Effort: "5 pts"),
-        new("retries", "Sync retries with backoff", [FinishedSession], [ApprovedPullRequest],
-            Plan: "+sync-hardening", Repository: "Sync", Colour: SyncRepo.Colour,
-            SubItems: "2 of 2 sub-items", Started: "Started Sep 29", Due: "Due Oct 9", Effort: "3 pts"),
-        new("banner", "Sync conflict banner copy", [], [],
-            Status: "Done", Repository: "Sync", Colour: SyncRepo.Colour, Started: "Started yesterday", Effort: "1 pt", Finished: true)
-    ];
-
-    /// <summary>What no task links: a live session and one of the reader's own
-    /// pull requests.</summary>
-    public static IReadOnlyList<InProgressLoose> InProgressLoose { get; } =
-    [
-        new(Session: LooseSession, Repository: "backlog", Colour: ProductRepo.Colour),
-        new(PullRequest: LoosePullRequest, Repository: "backlog", Colour: ProductRepo.Colour)
-    ];
-
     /// <summary>The choices the "Link to a task…" picker offers: the tasks in
     /// progress first, then the ones ready to start.</summary>
     public static IReadOnlyList<WorkLinkOption> LinkTaskOptions { get; } =

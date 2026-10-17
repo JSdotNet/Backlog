@@ -11,10 +11,6 @@ public static class ProgressErrors
 {
     // --- Goals (.devbook/domain/progress/domain.invariants.md#goal) ---------------
 
-    /// <summary>The <see cref="ProgressFeatures.Goals"/> switch is off.</summary>
-    public static Error GoalsOff() =>
-        Error.Validation("progress.goals_off", "Goals are switched off. Turn them on in Settings to work with goals.");
-
     public static Error PlanTagRequired() =>
         Error.Validation("progress.plan_tag_required", "Name the plan by its plan tag.");
 

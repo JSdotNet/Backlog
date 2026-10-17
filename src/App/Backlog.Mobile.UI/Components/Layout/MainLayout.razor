@@ -22,12 +22,13 @@
     arrive on any tab, and this is the one component every tab sits inside. A
     share made before pairing waits in the outbox with the rest.
 
-    The Stand-up tab sits between Inbox and Notes only while goals are on, which
-    the phone reads as holding a stand-up context (ProgressViewProjection.GoalsOn).
+    The Stand-up tab sits between Inbox and Notes once a desktop has sent the
+    stand-up, which the phone reads as holding a stand-up context
+    (ProgressViewProjection.HoldsStandUp).
     The layout pulls Progress once it is drawn, again when the app comes back to
     the front and when the phone is paired anew, so the tab can appear on
     whichever tab the app is on — after a first pull that did not answer, or a
-    desktop that turned goals on since — and draws the bar again whenever
+    desktop that set its first goal since — and draws the bar again whenever
     Progress changes.
 *@
 
@@ -74,7 +75,7 @@
 
     private bool _pullingProgress;
 
-    private IReadOnlyList<NavItem> Tabs => Progress.GoalsOn ? TabsWithStandUp : TabsWithoutStandUp;
+    private IReadOnlyList<NavItem> Tabs => Progress.HoldsStandUp ? TabsWithStandUp : TabsWithoutStandUp;
 
     private bool Paired => Credentials.Current is not null;
 

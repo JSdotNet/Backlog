@@ -23,9 +23,8 @@ namespace Backlog.Modules.Progress.Extensions;
 /// <see cref="UnreadPullRequests"/> when the host registered none.
 /// </para>
 /// <para>
-/// Composing the module draws nothing and offers nothing. The <c>goals</c> switch
-/// decides at every call whether the ports answer, so turning it on or off needs no
-/// restart, and while it is off no screen of Progress is drawn.
+/// Composing the module draws nothing on its own; the ports always answer, since goals,
+/// impediments and the stand-up are always on (local ADR 0035 §10).
 /// </para>
 /// </summary>
 public static class ProgressModuleRegistration
@@ -38,8 +37,7 @@ public static class ProgressModuleRegistration
         services.TryAddSingleton<ProgressGate>();
         services.TryAddSingleton<IGoalPullRequestReader, UnreadPullRequests>();
 
-        // Goals (local ADR 0035). The port asks the goals switch at every call; the
-        // repository and the replica store are the host's.
+        // Goals (local ADR 0035). The repository and the replica store are the host's.
         services.TryAddSingleton<GoalSaved>();
         services.AddScoped<GoalChanges>();
         services.AddScoped<ListGoalsQueryHandler>();
@@ -49,10 +47,9 @@ public static class ProgressModuleRegistration
             sp.GetRequiredService<ListGoalsQueryHandler>(),
             sp.GetRequiredService<SetGoalCommandHandler>(),
             sp.GetRequiredService<AttachWorkCommandHandler>(),
-            sp.GetService<IAppFeatureSettings>(),
             sp.GetRequiredService<GoalSaved>()));
 
-        // The stand-up (local ADR 0035), on the goals switch. The iteration setting and the
+        // The stand-up (local ADR 0035). The iteration setting and the
         // pace are the host's; the module's own answers keep Week in memory and know no pace.
         services.TryAddSingleton<IIterationSettings, InMemoryIterationSettings>();
         services.TryAddSingleton<IStandUpPace, NoStandUpPace>();
@@ -67,17 +64,15 @@ public static class ProgressModuleRegistration
         services.AddScoped<IStandUp>(sp => new StandUp(
             sp.GetRequiredService<ReadStandUpQueryHandler>(),
             sp.GetRequiredService<IIterationSettings>(),
-            sp.GetRequiredService<TimeProvider>(),
-            sp.GetService<IAppFeatureSettings>()));
+            sp.GetRequiredService<TimeProvider>()));
 
-        // Each goal as a `goal` document on the task feed (local ADR 0018). Not behind
-        // the goals switch: goals recorded while it is off are kept, so they travel too.
+        // Each goal as a `goal` document on the task feed (local ADR 0018).
         services.TryAddSingleton<IGoalReplication>(sp => new GoalReplication(
             sp.GetService<IGoalReplicaStore>(),
             sp.GetRequiredService<GoalSaved>(),
             sp.GetRequiredService<ProgressGate>()));
 
-        // Impediments (local ADR 0035 §5), on the goals switch. Composed through factories
+        // Impediments (local ADR 0035 §5). Composed through factories
         // so a host that keeps no impediments still builds: the repository and the
         // blocked-task source are the host's, and are asked for only when a call needs them.
         services.TryAddSingleton<ImpedimentSaved>();
@@ -92,15 +87,13 @@ public static class ProgressModuleRegistration
         services.AddScoped<IImpediments>(sp => new Impediments(
             sp.GetRequiredService<ListImpedimentsQueryHandler>(),
             sp.GetRequiredService<ImpedimentCommandHandler>(),
-            sp.GetService<IAppFeatureSettings>(),
             sp.GetRequiredService<ImpedimentSaved>()));
         services.AddScoped<IBlockedTaskPolicy>(sp => new BlockedTaskPolicy(
             sp.GetRequiredService<IBlockedTaskSource>(),
             sp.GetRequiredService<ImpedimentChanges>(),
-            sp.GetRequiredService<TimeProvider>(),
-            sp.GetService<IAppFeatureSettings>()));
+            sp.GetRequiredService<TimeProvider>()));
 
-        // Each impediment as an `impediment` document on the task feed, on the goals' terms.
+        // Each impediment as an `impediment` document on the task feed, as each goal is.
         services.TryAddSingleton<IImpedimentReplication>(sp => new ImpedimentReplication(
             sp.GetService<IImpedimentReplicaStore>(),
             sp.GetRequiredService<ImpedimentSaved>(),
@@ -113,7 +106,6 @@ public static class ProgressModuleRegistration
             sp.GetRequiredService<IGoalRepository>(),
             sp.GetRequiredService<IIterationSettings>(),
             sp.GetRequiredService<TimeProvider>(),
-            sp.GetService<IAppFeatureSettings>(),
             sp.GetService<IWorkingHoursSettings>()));
         services.TryAddSingleton<IImpedimentEditIntake>(sp => new ImpedimentEditIntake(
             sp.GetRequiredService<IServiceScopeFactory>()));
