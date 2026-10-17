@@ -50,6 +50,10 @@
     private ElementReference[] _elements = [];
     private int _focusTarget = -1;
 
+    // Where the arrows last left the focus while SelectOnFocus is off: the roving tab
+    // stop until a choice is taken, so Tab out and back returns to it.
+    private int _focused = -1;
+
     /// <summary>The choices, in the order they are drawn and arrowed through.</summary>
     [Parameter, EditorRequired]
     public IReadOnlyList<TValue> Options { get; set; } = [];
@@ -82,6 +86,15 @@
     /// <summary>Every choice disabled, and no key moves the selection.</summary>
     [Parameter]
     public bool Disabled { get; set; }
+
+    /// <summary>
+    /// Whether the arrow keys take the choice they land on, as the WAI-ARIA radio group
+    /// does — the default. Off, the arrows move the focus only and Space, Enter or a click
+    /// takes the focused choice: for a group where taking a choice does something that
+    /// cannot be taken back by arrowing on, such as moving an impediment to Resolved.
+    /// </summary>
+    [Parameter]
+    public bool SelectOnFocus { get; set; } = true;
 
     [Parameter]
     public string? AriaLabel { get; set; }
@@ -133,13 +146,16 @@
         ? $"{OptionStem} btn--pressed radio-group__option radio-group__option--checked"
         : $"{OptionStem} {CheckedOptionCssClass}";
 
-    /// <summary>The one choice at <c>tabindex="0"</c>: the checked one when the
-    /// keyboard can reach it, else the first that it can.</summary>
+    /// <summary>The one choice at <c>tabindex="0"</c>: the one the arrows last focused
+    /// while <see cref="SelectOnFocus"/> is off, else the checked one when the keyboard
+    /// can reach it, else the first that it can.</summary>
     private int TabStop
     {
         get
         {
             var reachable = Reachable();
+            if (!SelectOnFocus && reachable.Contains(_focused)) return _focused;
+
             var current = reachable.FindIndex(slot => IsChecked(Options[slot]));
             return current >= 0 ? reachable[current] : reachable.Count > 0 ? reachable[0] : -1;
         }
@@ -195,6 +211,7 @@
         if (IsOptionDisabled(option) || IsChecked(option)) return Task.CompletedTask;
 
         Value = option;
+        _focused = -1;
         StateHasChanged();
         return ValueChanged.InvokeAsync(option);
     }
@@ -219,6 +236,14 @@
         if (target < 0) return Task.CompletedTask;
 
         _focusTarget = reachable[target];
+
+        // Manual activation: the focus moves and nothing is taken until Space, Enter or a click.
+        if (!SelectOnFocus)
+        {
+            _focused = reachable[target];
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
 
         // A move that lands where it started still owes the focus a render.
         if (IsChecked(Options[reachable[target]]))

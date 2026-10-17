@@ -723,6 +723,18 @@ The system SHALL let the phone change an impediment's state, check-again date an
 - **When** the person writes a note on the desktop, then a different note on the phone, and both sync
 - **Then** both devices show the desktop's note
 
+#### Scenario: A move the desktop did not apply gives way
+
+- **Given** "Bank sample files missing" is Escalated, and the phone's move to Being handled has left the phone
+- **When** the next copy the phone pulls is still Escalated
+- **Then** the phone shows it Escalated
+
+#### Scenario: Only the moves its state allows are offered
+
+- **Given** "Credit note numbering unclear" is New
+- **When** the person opens its state list on the phone
+- **Then** only Reported and Resolved can be chosen
+
 #### Scenario: No goal editing on the phone
 
 - **Given** the goal "Customers get paid faster" is open on the phone

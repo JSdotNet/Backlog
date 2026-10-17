@@ -51,8 +51,18 @@
                                               disabled="@Disabled"
                                               @onclick="ToggleAsync"
                                               @attributes="AdditionalAttributes">
-        <span class="@ChevronClass" aria-hidden="true">&#9656;</span>
+        @if (!ChevronAtEnd)
+        {
+            <span class="@ChevronClass" aria-hidden="true">&#9656;</span>
+        }
         <span class="fold__label">@(LabelContent ?? DefaultLabel)</span>
+        @if (ChevronAtEnd)
+        {
+            <span class="@($"{ChevronClass} fold__chevron--end")" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M6 9l6 6 6-6" /></svg>
+            </span>
+        }
     </button>;
 
     /// <summary>The trigger inside an <c>h1</c>-<c>h6</c>. Built by hand because a
@@ -100,6 +110,12 @@
     /// default, emits the bare button.</summary>
     [Parameter]
     public int? HeadingLevel { get; set; }
+
+    /// <summary>Draws the chevron after the label, at the trigger's far end, pointing down
+    /// while closed and up while open, rather than the leading one pointing right: for a fold that closes a list, such as "1 resolved" under the phone's
+    /// impediments, where the label leads the row and the chevron says it opens.</summary>
+    [Parameter]
+    public bool ChevronAtEnd { get; set; }
 
     /// <summary>Replaces <c>fold__heading</c> as the class the heading carries.
     /// Ignored without <see cref="HeadingLevel"/>.</summary>

@@ -91,4 +91,25 @@ public sealed class FoldControlTests
 
         Assert.NotNull(fold.Find("h6"));
     }
+
+    [Theory]
+    [InlineData(false, "fold__chevron", "fold__label")]
+    [InlineData(true, "fold__label", "fold__chevron")]
+    public void The_chevron_leads_the_label_unless_it_is_asked_to_end_the_row(bool atEnd, string first, string last)
+    {
+        using var context = new BunitContext();
+
+        var fold = context.Render<FoldControl>(parameters => parameters
+            .Add(f => f.Label, "1 resolved")
+            .Add(f => f.ChevronAtEnd, atEnd)
+            .AddChildContent("<p>body</p>"));
+
+        var parts = fold.Find(".fold__trigger").Children;
+        Assert.Equal(2, parts.Length);
+        Assert.Equal(first, parts[0].ClassList[0]);
+        Assert.Equal(last, parts[1].ClassList[0]);
+        Assert.Equal("true", fold.Find(".fold__chevron").GetAttribute("aria-hidden"));
+        Assert.Equal(atEnd, fold.Find(".fold__chevron").ClassList.Contains("fold__chevron--end"));
+        Assert.Equal(atEnd ? 1 : 0, fold.FindAll(".fold__chevron svg").Count);
+    }
 }

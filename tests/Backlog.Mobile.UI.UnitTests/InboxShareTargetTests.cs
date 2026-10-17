@@ -75,7 +75,8 @@ public sealed class InboxShareTargetTests
     {
         using var host = ShellHost.Paired();
         var app = host.Open("");
-        app.WaitForAssertion(() => Assert.Equal(1, host.Tasks.Pulls));
+        // Today's own pull, and the one the shell makes for Progress.
+        app.WaitForAssertion(() => Assert.Equal(2, host.Tasks.Pulls));
 
         host.Share.Share("https://youtu.be/abc123", "How to fold a fitted sheet");
 

@@ -1,0 +1,373 @@
+@page "/standup/impediments/{Id:guid}"
+@using Backlog.Mobile.UI.Progress
+@using Backlog.Mobile.UI.Tasks
+@using Backlog.Modules.Progress.Abstractions
+@using Backlog.Modules.Progress.Abstractions.DataTransferObjects
+@inject ProgressViewProjection Progress
+@inject PhoneStandUp StandUp
+@inject TaskViewProjection Tasks
+@inject DeviceOutbox Outbox
+@implements IDisposable
+
+@*
+    One impediment, opened from the stand-up (.devbook/domain/progress/features.md#goals-on-the-phone):
+    how long it has been open and the goal it holds back, its state as a list
+    that is also the control, its check-again day, its note, and the tasks it
+    holds back.
+
+    The one thing the phone changes in Progress is here: the state, the
+    check-again day and the note, each queued through the device outbox as an
+    impediment-edit for a desktop to apply (local ADR 0035 §8). The phone owns
+    none of it, so the impediment it holds does not change until a desktop has
+    applied the edit and the pull after it brings the impediment back. Until
+    then the page shows what was asked, with Waiting beside it, the way Today
+    shows a tick still on its way.
+
+    Each field is saved when it is committed — a choice made, a date that is a
+    date, a note left — never on a keystroke, so Enter in the field cannot send
+    the same edit twice. The fields stay live while an edit is being kept: the
+    projection queues edits one at a time, in the order they were asked.
+
+    What was asked is the projection's to say (ProgressViewProjection.AskedFor),
+    by the rule its next edit reads too: it gives way once the impediment says it
+    (applied), once it says something that is neither what was asked nor what the
+    phone saw (a desktop changed it since, and that change stands), or once the
+    edit has left the phone and a newer copy of this impediment still does not say
+    it (the desktop refused it or found it stale). A pull that changes anything
+    else — another goal, the stand-up context — answers nothing about it.
+*@
+
+<PageTitle>@(Impediment?.Title ?? "Impediment")</PageTitle>
+
+<nav class="standup-back" aria-label="Impediment">
+    <a class="standup-back__link" href="@StandupText.StandupHref" aria-label="Back to the stand-up" data-testid="impediment-back">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" /></svg>
+    </a>
+    <span class="standup-back__title">Impediment</span>
+</nav>
+
+@if (!Progress.GoalsOn)
+{
+    @if (_looked)
+    {
+        <EmptyState Title="Stand-up is off"
+                    Description="Goals are off on the desktop, or it has not synced them yet."
+                    TestId="impediment-off" />
+    }
+}
+else if (Impediment is { } impediment)
+{
+    var open = StandUp.Read().Impediments.FirstOrDefault(entry => entry.Id == impediment.Id);
+    var state = AskedState ?? impediment.State;
+
+    <div class="standup-detail" data-testid="impediment-page">
+        <div class="standup-detail__head">
+            <h1 data-testid="impediment-title">@impediment.Title</h1>
+            <span class="standup-detail__line" data-testid="impediment-line">
+                @if (open is not null)
+                {
+                    @StandupText.WorkingDays(open.DaysOpen)
+                    @if (open.GoalId is { } goalId)
+                    {
+                        @(" · blocks ")
+                        <a href="@StandupText.GoalHref(goalId)" data-testid="impediment-goal">@open.GoalTitle</a>
+                    }
+                }
+                else if (impediment.ResolvedOn is { } resolvedOn)
+                {
+                    @($"Resolved {StandupWords.Day(resolvedOn)}")
+                }
+            </span>
+        </div>
+
+        @if (_editError is not null)
+        {
+            <Alert Message="@_editError" Role="alert" BaseClass="standup-detail__alert" TestId="impediment-error" />
+        }
+
+        <section class="standup__block" aria-labelledby="impediment-state-title" data-testid="impediment-state">
+            <h2 class="standup__block-title" id="impediment-state-title">
+                State
+                @Waiting(ImpedimentEditKind.State)
+            </h2>
+            <ImpedimentStateSteps Current="StandupText.State(state)"
+                                  History="Steps(impediment)"
+                                  OnSelect="MoveAsync"
+                                  CanMoveTo="to => ImpedimentMoves.Allows(state, StandupText.State(to))"
+                                  TestId="impediment-steps" />
+        </section>
+
+        <div class="standup-detail__field">
+            <TextField Label="Check again"
+                       Type="date"
+                       Value="@_checkText"
+                       ValueChanged="value => _checkText = value"
+                       CssClass="standup-detail__input"
+                       TestId="impediment-check-again"
+                       onchange="@(EventCallback.Factory.Create<ChangeEventArgs>(this, SaveCheckAgainAsync))" />
+            @Waiting(ImpedimentEditKind.CheckAgain)
+        </div>
+
+        <div class="standup-detail__field">
+            <TextArea Label="Note"
+                      Rows="2"
+                      Value="@_noteText"
+                      ValueChanged="value => _noteText = value"
+                      CssClass="standup-detail__input"
+                      TestId="impediment-note"
+                      onchange="@(EventCallback.Factory.Create<ChangeEventArgs>(this, SaveNoteAsync))" />
+            @Waiting(ImpedimentEditKind.Note)
+        </div>
+
+        @{
+            var held = HeldBack(impediment);
+        }
+        @if (held.Count > 0)
+        {
+            <section class="standup__block" aria-labelledby="impediment-holds-title" data-testid="impediment-holds">
+                <h2 class="standup__block-title" id="impediment-holds-title">Holds back</h2>
+                <ul class="standup-detail__list">
+                    @foreach (var task in held)
+                    {
+                        <li class="standup-detail__row" data-testid="impediment-held">
+                            <StatusDot Tone="Tone(task)" />
+                            <span class="sr-only">@StateWord(task):</span>
+                            <span class="standup-detail__item-title">@task.Title</span>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+    </div>
+}
+else if (_looked)
+{
+    <EmptyState Title="This impediment isn't on this phone"
+                Description="It may have been removed on the desktop, or not have reached this phone yet."
+                TestId="impediment-missing">
+        <Action>
+            <a href="@StandupText.StandupHref">Back to the stand-up</a>
+        </Action>
+    </EmptyState>
+}
+
+@code {
+    private const string DayFormat = "yyyy-MM-dd";
+
+    private Guid _forId;
+    private bool _looked;
+    private bool _taken;
+    private string? _editError;
+
+    // The state a move is being kept for right now, so a second tap on it queues nothing.
+    private ImpedimentState? _moving;
+
+    // Each field's text, and the value it last took or saved: text that differs from its
+    // base is the person's own and unsaved, and a copy arriving leaves it alone.
+    private string _checkText = string.Empty;
+    private string _checkBase = string.Empty;
+    private string _noteText = string.Empty;
+    private string _noteBase = string.Empty;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private ImpedimentDto? Impediment => Progress.FindImpediment(Id);
+
+    /// <summary>The state this phone asked for last, while it can still stand — the
+    /// projection's answer, so the page and the next edit read one rule.</summary>
+    private ImpedimentState? AskedState => Progress.AskedFor(Id, ImpedimentEditKind.State)?.State;
+
+    private bool _disposed;
+
+    /// <summary>
+    /// Drawn at once from what the phone holds; a pull runs behind it, so a slow network
+    /// never holds the first render. Opened straight from an address, the phone may not
+    /// have the impediment yet, and the pull brings it if the service answers; a failure leaves
+    /// the page on what the phone holds — the stand-up is where it is put in words.
+    /// </summary>
+    protected override void OnInitialized()
+    {
+        Progress.Changed += OnChanged;
+        Tasks.Changed += OnChanged;
+        Outbox.Changed += OnChanged;
+
+        _ = InvokeAsync(LookAsync);
+    }
+
+    private async Task LookAsync()
+    {
+        try
+        {
+            await Progress.PullAsync();
+            await Tasks.PullAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Shown below from what the phone holds.
+        }
+
+        _looked = true;
+        Take();
+        if (!_disposed) StateHasChanged();
+    }
+
+    /// <summary>A different impediment on the same page — the Router reuses it between two
+    /// impediment addresses — starts its fields afresh.</summary>
+    protected override void OnParametersSet()
+    {
+        if (Id != _forId)
+        {
+            _forId = Id;
+            _taken = false;
+            _editError = null;
+            _moving = null;
+            _checkText = _checkBase = _noteText = _noteBase = string.Empty;
+        }
+
+        Take();
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Progress.Changed -= OnChanged;
+        Tasks.Changed -= OnChanged;
+        Outbox.Changed -= OnChanged;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(() =>
+    {
+        Take();
+        StateHasChanged();
+    });
+
+    /// <summary>
+    /// Takes into the fields nobody is typing in what they should show: the value this phone
+    /// asked for while it can still stand (<see cref="ProgressViewProjection.AskedFor"/>),
+    /// else the impediment's own.
+    /// </summary>
+    private void Take()
+    {
+        if (Impediment is not { } impediment) return;
+
+        var checkAsked = Progress.AskedFor(Id, ImpedimentEditKind.CheckAgain);
+        var check = Day(checkAsked is null ? impediment.CheckAgain : checkAsked.CheckAgain);
+        if (!_taken || _checkText == _checkBase) _checkText = check;
+        _checkBase = check;
+
+        var noteAsked = Progress.AskedFor(Id, ImpedimentEditKind.Note);
+        var note = (noteAsked is null ? impediment.Note : noteAsked.Note) ?? string.Empty;
+        if (!_taken || SameNote(_noteText, _noteBase)) _noteText = note;
+        _noteBase = note;
+
+        _taken = true;
+    }
+
+    private static string Day(DateOnly? day) =>
+        day?.ToString(DayFormat, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+
+    /// <summary>"Waiting" beside a field while an edit this phone asked for it is still in
+    /// the outbox, the way Today marks a tick still on its way.</summary>
+    private RenderFragment Waiting(ImpedimentEditKind kind) => __builder =>
+    {
+        if (Progress.AskedFor(Id, kind) is null || !Progress.IsWaiting(Id, kind)) return;
+
+        <Badge Kind="sync" Slug="waiting" Title="Kept on this phone until cloud sync takes it"
+               TestId="@($"impediment-waiting-{kind.ToString().ToLowerInvariant()}")">Waiting</Badge>
+    };
+
+    /// <summary>The history to draw: the impediment's own, with the state this phone asked
+    /// for added as today's step until it gives way.</summary>
+    private IReadOnlyList<StandupImpedimentStep> Steps(ImpedimentDto impediment)
+    {
+        var steps = StandupText.History(impediment);
+        return AskedState is { } asked && asked != impediment.State
+            ? [.. steps, new StandupImpedimentStep(StandupText.State(asked), Progress.Today, null)]
+            : steps;
+    }
+
+    /// <summary>Asks for a move, unless it is to the state already shown or the one a move
+    /// is being kept for — a double tap queues it once.</summary>
+    private async Task MoveAsync(StandupImpedimentState state)
+    {
+        var target = StandupText.State(state);
+        if (target == _moving || target == (AskedState ?? Impediment?.State)) return;
+
+        _moving = target;
+        try
+        {
+            await KeepAsync(() => Progress.MoveImpedimentAsync(Id, target));
+        }
+        finally
+        {
+            _moving = null;
+        }
+    }
+
+    private async Task SaveCheckAgainAsync(ChangeEventArgs change)
+    {
+        var text = change.Value?.ToString() ?? string.Empty;
+        _checkText = text;
+        if (text == _checkBase) return;
+
+        DateOnly? day = DateOnly.TryParseExact(text, DayFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed)
+            ? parsed
+            : null;
+
+        // A date field reports an incomplete date as empty; only a cleared field clears it.
+        if (day is null && text.Length > 0) return;
+
+        if (await KeepAsync(() => Progress.SetCheckAgainAsync(Id, day)) is not null) _checkBase = text;
+    }
+
+    private async Task SaveNoteAsync(ChangeEventArgs change)
+    {
+        var text = change.Value?.ToString() ?? string.Empty;
+        _noteText = text;
+        if (SameNote(text, _noteBase)) return;
+
+        if (await KeepAsync(() => Progress.EditNoteAsync(Id, text)) is not null) _noteBase = text;
+    }
+
+    /// <summary>Queues one edit. One that could not be kept on the phone says so and leaves
+    /// the field as the person left it. Not guarded against a second edit while one is
+    /// kept: the projection queues them one at a time, in the order they were asked.</summary>
+    private async Task<ImpedimentEditDto?> KeepAsync(Func<Task<ImpedimentEditDto?>> edit)
+    {
+        _editError = null;
+
+        try
+        {
+            return await edit();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _editError = "This change couldn't be kept on this phone. Try again.";
+            return null;
+        }
+    }
+
+    /// <summary>Two notes are the same when they say the same once trimmed, blank as none,
+    /// as the projection compares them.</summary>
+    private static bool SameNote(string? left, string? right) =>
+        string.Equals(string.IsNullOrWhiteSpace(left) ? null : left.Trim(), string.IsNullOrWhiteSpace(right) ? null : right.Trim(), StringComparison.Ordinal);
+
+    /// <summary>The tasks it holds back that the phone holds, in the order they were linked.</summary>
+    private List<SprintTaskDto> HeldBack(ImpedimentDto impediment)
+    {
+        var work = PhoneStandUp.Work(Tasks.Live()).ToDictionary(task => task.Id);
+        return [.. impediment.HoldsBack.Select(id => work.GetValueOrDefault(id)).OfType<SprintTaskDto>()];
+    }
+
+    private static FlowStepTone Tone(SprintTaskDto task) =>
+        task.Status == SprintTaskStatus.Done || task.CompletedOn is not null ? FlowStepTone.Done
+        : task.IsBlocked ? FlowStepTone.Blocked
+        : FlowStepTone.Pending;
+
+    private static string StateWord(SprintTaskDto task) =>
+        task.Status == SprintTaskStatus.Done || task.CompletedOn is not null ? "Done"
+        : task.IsBlocked ? "Blocked"
+        : "Open";
+}

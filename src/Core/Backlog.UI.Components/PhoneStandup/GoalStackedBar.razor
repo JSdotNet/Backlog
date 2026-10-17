@@ -1,0 +1,72 @@
+@using System.Globalization
+
+@*
+    How a goal's items stand, as one bar: done, doing, blocked and to do, each part
+    as wide as its share, in that order. The parts take the tone their state wears
+    everywhere else — done the success ink, doing the accent, blocked the error ink,
+    to do the empty track — and the bar is an image whose words say the same counts
+    (.devbook/design/color-scheme.md#chart-roles: the colour is never the only
+    carrier). A part with nothing in it is not drawn, so a gap never stands for
+    zero.
+
+    The stand-up card, the goal page and each plan on it draw this one bar at
+    three heights; Height is the only thing that differs.
+*@
+
+<div class="@ClassValue"
+     role="img"
+     aria-label="@Label"
+     style="@($"height: {Height.ToString(CultureInfo.InvariantCulture)}px")"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    @Part("done", Done)
+    @Part("doing", Doing)
+    @Part("blocked", Blocked)
+    @Part("to-do", ToDo)
+</div>
+
+@code {
+    /// <summary>Items done.</summary>
+    [Parameter]
+    public int Done { get; set; }
+
+    /// <summary>Open items in progress.</summary>
+    [Parameter]
+    public int Doing { get; set; }
+
+    /// <summary>Open items marked blocked.</summary>
+    [Parameter]
+    public int Blocked { get; set; }
+
+    /// <summary>Open items neither in progress nor blocked.</summary>
+    [Parameter]
+    public int ToDo { get; set; }
+
+    /// <summary>The bar's height in pixels: 8 on a card, 10 on a goal's page, 6 on a plan.</summary>
+    [Parameter]
+    public int Height { get; set; } = 8;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>What a screen reader hears: "9 of 15 done, 3 in progress, 1 blocked, 2 not started".</summary>
+    private string Label => StandupWords.Progress(Done, Doing, Blocked, ToDo);
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "goal-bar" : $"goal-bar {CssClass}";
+
+    private RenderFragment Part(string slug, int count) => builder =>
+    {
+        if (count <= 0) return;
+
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", $"goal-bar__part goal-bar__part--{slug}");
+        builder.AddAttribute(2, "style", $"flex-grow: {count.ToString(CultureInfo.InvariantCulture)}");
+        builder.CloseElement();
+    };
+}
