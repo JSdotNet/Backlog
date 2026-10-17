@@ -77,6 +77,23 @@ public class ProgressTaskSourceTests
         Assert.Equal([here.Id, elsewhere.Id, unregistered.Id], read.Select(task => task.Id));
     }
 
+    /// <summary>A goal's plan brings in what its roadmap item gathers by tag
+    /// (<c>.devbook/domain/roadmap/domain.md#roadmap-item-gathering</c>): an entry filed
+    /// before the sigil — or tagged <c>#slug</c>, which is stored bare — counts beside a
+    /// <c>+slug</c> one, and a person named like the plan does not.</summary>
+    [Fact]
+    public void A_goals_plan_brings_in_an_entry_carrying_its_bare_tag_as_the_roadmap_does()
+    {
+        var plan = Entry("Plan tag", tags: ["+qa-plan-completion-tasked"]);
+        var bare = Entry("Bare tag", tags: ["qa-plan-completion-tasked"]);
+        var person = Entry("Person", tags: ["@qa-plan-completion-tasked"]);
+
+        var read = Select([plan, bare, person], new ProgressTaskQuery([], ["qa-plan-completion-tasked"], [], AnyRepository: true));
+
+        Assert.Equal([plan.Id, bare.Id], read.Select(task => task.Id));
+        Assert.Equal(["qa-plan-completion-tasked"], read[1].PlanTags);
+    }
+
     [Fact]
     public void A_task_carries_the_day_it_started_and_the_day_it_was_blocked()
     {
@@ -108,7 +125,7 @@ public class ProgressTaskSourceTests
         var entry = Entry(
             "Model",
             EntryStatus.InProgress,
-            tags: ["+Goals-Standup", "#release"],
+            tags: ["+Goals-Standup", "@ana"],
             blockedSince: new DateOnly(2026, 10, 13),
             projections:
             [
@@ -122,7 +139,7 @@ public class ProgressTaskSourceTests
         Assert.Equal(ProgressTaskStatus.InProgress, task.Status);
         Assert.True(task.IsBlocked);
         Assert.Equal(["Goals-Standup"], task.PlanTags);
-        Assert.Equal(["+Goals-Standup", "#release"], task.Tags);
+        Assert.Equal(["+Goals-Standup", "@ana"], task.Tags);
         Assert.Equal(["backlog"], task.RepositoryAliases);
         Assert.Equal(new DateOnly(2026, 10, 1), task.CreatedOn);
         var pull = Assert.Single(task.PullRequests);

@@ -85,7 +85,8 @@ related: [.devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/pr
 Say which work reaches a goal. Three kinds of item attach:
 
 - a **plan**, by its [plan tag](../roadmap/domain.md#roadmap-tag), which brings in
-  every entry filed under it, including entries filed later;
+  every entry its roadmap item gathers by tag — filed under `+tag` or carrying the
+  bare `#tag` — including entries filed later;
 - a **task**, by its id, whose linked pull requests come with it;
 - a **pull request**, by its repository and number, for work no task covers.
 

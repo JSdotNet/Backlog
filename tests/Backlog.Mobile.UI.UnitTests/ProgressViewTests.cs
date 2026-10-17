@@ -148,6 +148,24 @@ public sealed class ProgressViewTests : IDisposable
         Assert.Equal("bank support", impediment.With);
     }
 
+    /// <summary>The phone's goal counts what the roadmap item gathers by tag: an entry
+    /// tagged <c>#bank-integration</c> is stored bare, and the attached plan counts it beside
+    /// the <c>+bank-integration</c> one.</summary>
+    [Fact]
+    public async Task A_goals_plan_counts_an_entry_carrying_its_bare_tag()
+    {
+        _service.Append(TestTasks.Task("Map the bank's fields", Now.AddDays(-5), status: "in_progress", tags: ["+bank-integration"]));
+        _service.Append(TestTasks.Task("Statement format", Now.AddDays(-5), status: "ready", tags: ["bank-integration"]));
+        _service.Append(TestTasks.Task("Ask Ana", Now.AddDays(-5), status: "ready", tags: ["@bank-integration"]));
+        _service.Append(GoalDocument(Now.AddDays(-6), """{"kind":"Plan","plan":"bank-integration","attachedOn":"2026-10-12"}"""));
+
+        await _progress.PullAsync(Cancellation);
+        await _tasks.PullAsync(Cancellation);
+
+        var goal = Assert.Single(new PhoneStandUp(_progress, _tasks).Read().Goals);
+        Assert.Equal(new GoalProgressDto(Done: 0, Total: 2, Doing: 1, Blocked: 0, ToDo: 1, DoneInWindow: 0), goal.Progress);
+    }
+
     [Fact]
     public async Task The_stand_up_matches_the_desktop_reading_of_the_same_work()
     {

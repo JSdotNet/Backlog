@@ -12,7 +12,8 @@ namespace Backlog.Modules.Progress.UI.Goals;
 /// <param name="Title">What the task reads.</param>
 /// <param name="Status">Its status as a dot: in progress is <see cref="GoalTaskStatus.Doing"/>,
 /// in progress and blocked <see cref="GoalTaskStatus.Blocked"/>.</param>
-/// <param name="PlanTags">The plans it is filed under, with or without the sigil.</param>
+/// <param name="PlanTags">The roadmap slugs its tags carry, with or without the sigil — what
+/// the roadmap item of each gathers by tag, a bare <c>#slug</c> tag included.</param>
 /// <param name="PullRequests">The pull requests it links.</param>
 /// <param name="InScope">Whether the header's repository scope holds it.</param>
 public sealed record GoalsTaskCandidate(

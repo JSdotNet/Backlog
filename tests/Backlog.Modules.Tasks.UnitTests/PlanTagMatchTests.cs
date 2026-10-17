@@ -34,6 +34,31 @@ public sealed class PlanTagMatchTests
         Assert.False(PlanTagMatch.Carries(tag, "release-q4"));
     }
 
+    /// <summary>A goal's attached plan counts what the roadmap item gathers: the slugs a
+    /// task carries are the plan tag less its sigil and the bare tag an entry filed before
+    /// the sigil carries — the one a person types as <c>#slug</c> — and never a person.</summary>
+    [Fact]
+    public void The_slugs_a_task_carries_are_its_plan_tags_and_its_bare_tags_but_no_person()
+    {
+        Assert.Equal(
+            ["release-q4", "qa-plan-completion-tasked"],
+            PlanTagMatch.SlugsCarried(["+release-q4", "qa-plan-completion-tasked", "@release-q4", "+", " ", "Release-Q4"]));
+    }
+
+    [Theory]
+    [InlineData("+release-q4")]
+    [InlineData("release-q4")]
+    [InlineData("RELEASE-Q4")]
+    [InlineData("@release-q4")]
+    [InlineData("other")]
+    [InlineData("++release-q4")]
+    public void A_slug_is_carried_exactly_when_the_roadmap_rollup_says_it_is(string tag)
+    {
+        Assert.Equal(
+            PlanTagMatch.Carries(tag, "release-q4"),
+            PlanTagMatch.SlugsCarried([tag]).Contains("release-q4", StringComparer.OrdinalIgnoreCase));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("  ")]

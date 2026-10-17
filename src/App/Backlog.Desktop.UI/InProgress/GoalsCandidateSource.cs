@@ -3,7 +3,6 @@ using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Tasks.Abstractions;
-using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Progress;
 
 namespace Backlog.Desktop.UI.InProgress;
@@ -42,7 +41,7 @@ internal static class GoalsCandidateSource
         row.Id!.Value,
         string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle,
         Status(row),
-        [.. row.PreviewTags.Where(tag => TagText.Kind(tag) is TagKind.Plan)],
+        PlanTagMatch.SlugsCarried(row.PreviewTags),
         [.. row.PullRequestLinks.Select(link => new PullRequestRefDto(link.Repository, link.Number.ToString(CultureInfo.InvariantCulture)))],
         inScope);
 

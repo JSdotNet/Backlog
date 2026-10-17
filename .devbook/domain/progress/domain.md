@@ -62,9 +62,15 @@ One piece of work attached to a goal, of one of three kinds:
 
 | Kind | Named by | Brings in |
 |---|---|---|
-| Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every entry filed under the tag, in any repository, finished or not, including entries filed later |
+| Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every entry its roadmap item [gathers by tag](../roadmap/domain.md#roadmap-item-gathering), in any repository, finished or not, including entries filed later |
 | Task | its task id | the task, and the pull requests it links |
 | Pull request | its repository and number | the pull request alone |
+
+A plan counts exactly the entries its roadmap item's bar gathers by tag: the ones
+filed under `+tag`, and the ones carrying the bare tag, as an entry filed before the
+sigil does or one tagged `#tag` is stored. A person tag spelled like the plan is not
+one of them. Tasks owns that rule, and whoever hands Progress its tasks names each
+task's slugs by it, so a goal and the roadmap never count a plan differently.
 
 Equality is by kind and identity. The attachment also stores the day it was made.
 
