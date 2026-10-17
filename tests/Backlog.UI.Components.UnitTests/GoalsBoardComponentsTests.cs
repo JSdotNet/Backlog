@@ -441,6 +441,193 @@ public sealed class GoalsBoardComponentsTests : IDisposable
         Assert.Same(picker, row.FindComponent<BadgeSelect>().Instance);
     }
 
+    /// <summary>The note shows under the meta line as written; without a host listening
+    /// it is text alone, with no button that would do nothing.</summary>
+    [Fact]
+    public void A_note_shows_under_the_meta_line_and_without_a_host_it_cannot_be_edited()
+    {
+        var row = _context.Render<ImpedimentRow>(p => p
+            .Add(c => c.Impediment, Bank with { Note = "QA12 phone note\nAsk for CAMT.053 too" })
+            .Add(c => c.TestId, "imp"));
+
+        Assert.Equal("QA12 phone note\nAsk for CAMT.053 too", row.Find("[data-testid='imp-note']").TextContent);
+        Assert.Empty(row.FindAll("[data-testid='imp-note-edit']"));
+
+        var bare = _context.Render<ImpedimentRow>(p => p.Add(c => c.Impediment, Bank).Add(c => c.TestId, "bare"));
+        Assert.Empty(bare.FindAll(".impediment-row__note-line"));
+    }
+
+    [Fact]
+    public void Without_a_note_the_row_offers_to_add_one_named_for_the_impediment()
+    {
+        var row = RenderEditable(Bank, _ => { });
+
+        Assert.Empty(row.FindAll("[data-testid='imp-note']"));
+        var button = row.Find("[data-testid='imp-note-edit']");
+        Assert.Equal("Add note", button.TextContent.Trim());
+        Assert.Equal("Add note to Bank sample files missing", button.GetAttribute("aria-label"));
+    }
+
+    /// <summary>Leaving the box hands the note back trimmed, and the focus stays wherever the
+    /// person took it: it is not pulled back to the button.</summary>
+    [Fact]
+    public void Leaving_the_box_hands_the_note_back_trimmed_and_leaves_the_focus_where_it_went()
+    {
+        var notes = new List<string?>();
+        var row = RenderEditable(Bank with { Note = "QA12 phone note" }, note => notes.Add(note));
+
+        var button = row.Find("[data-testid='imp-note-edit']");
+        Assert.Equal("Edit note", button.TextContent.Trim());
+        button.Click();
+
+        var box = row.Find("[data-testid='imp-note-editor'] textarea");
+        Assert.Equal("QA12 phone note", box.GetAttribute("value"));
+        row.WaitForAssertion(() => Assert.Contains(box.Id!, Focused));
+        box.Input("  Samples promised for Tuesday  ");
+        row.Find(".impediment-row__note-editor").FocusOut();
+
+        row.WaitForAssertion(() => Assert.Equal(["Samples promised for Tuesday"], notes));
+        Assert.Empty(row.FindAll("[data-testid='imp-note-editor']"));
+        Assert.DoesNotContain(row.Find("[data-testid='imp-note-edit']").Id, Focused);
+    }
+
+    /// <summary>Closed by a key, the box gives the focus back to the button; a commit by
+    /// Ctrl+Enter is handed back once, even when the closing box raises a focusout after.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_key_that_closes_the_box_puts_the_focus_back_on_the_button(bool commit)
+    {
+        var notes = new List<string?>();
+        var row = RenderEditable(Bank with { Note = "QA12 phone note" }, note => notes.Add(note));
+
+        row.Find("[data-testid='imp-note-edit']").Click();
+        row.Find("[data-testid='imp-note-editor'] textarea").Input("Call the bank");
+        var editor = row.Find(".impediment-row__note-editor");
+        editor.KeyDown(commit ? new KeyboardEventArgs { Key = "Enter", CtrlKey = true } : new KeyboardEventArgs { Key = "Escape" });
+
+        row.WaitForAssertion(() => Assert.Equal(row.Find("[data-testid='imp-note-edit']").Id, Focused[^1]));
+        Assert.Equal(commit ? ["Call the bank"] : [], notes);
+    }
+
+    /// <summary>The Escape that abandons the draft stops at the box, so a surface around the
+    /// row that closes on Escape does not close with it.</summary>
+    [Fact]
+    public void Escape_in_the_box_does_not_reach_the_surface_around_the_row()
+    {
+        var host = _context.Render<Harnesses.ImpedimentNoteEscapeHarness>(p => p.Add(c => c.Impediment, Bank));
+
+        host.Find("[data-testid='imp-note-edit']").Click();
+        host.Find(".impediment-row__note-editor").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Empty(host.FindAll("[data-testid='imp-note-editor']"));
+        Assert.Empty(host.Instance.HostKeys);
+
+        // With the box closed the next Escape is the surface's.
+        host.Find("[data-testid='host']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        Assert.Equal(["Escape"], host.Instance.HostKeys);
+    }
+
+    /// <summary>While the host saves the note the row shows the note handed back, and its
+    /// button is busy rather than disabled, so the focus on it stays.</summary>
+    [Fact]
+    public void While_the_note_is_saved_the_row_shows_it_and_the_button_stays_focusable()
+    {
+        var saving = new TaskCompletionSource();
+        var row = _context.Render<ImpedimentRow>(p => p
+            .Add(c => c.Impediment, Bank)
+            .Add(c => c.OnEditNote, (string? _) => saving.Task)
+            .Add(c => c.TestId, "imp"));
+
+        row.Find("[data-testid='imp-note-edit']").Click();
+        row.Find("[data-testid='imp-note-editor'] textarea").Input("Call the bank");
+        row.Find(".impediment-row__note-editor").KeyDown(new KeyboardEventArgs { Key = "Enter", CtrlKey = true });
+
+        row.WaitForAssertion(() => Assert.Equal("Call the bank", row.Find("[data-testid='imp-note']").TextContent));
+        var button = row.Find("[data-testid='imp-note-edit']");
+        Assert.False(button.HasAttribute("disabled"));
+        Assert.Equal("true", button.GetAttribute("aria-busy"));
+
+        saving.SetResult();
+        row.WaitForAssertion(() => Assert.Empty(row.FindAll("[data-testid='imp-note']")));
+    }
+
+    /// <summary>A note being saved in the stand-up keeps its own row enabled while the
+    /// others wait, as a move does.</summary>
+    [Fact]
+    public void While_a_note_is_saved_the_other_rows_wait_and_its_own_stays_enabled()
+    {
+        var saving = new TaskCompletionSource();
+        var standUp = StandUp with { Impediments = [Bank, Runner] };
+        var panel = _context.Render<StandUpPanel>(p => p
+            .Add(c => c.StandUp, standUp)
+            .Add(c => c.OnEditImpedimentNote, (ImpedimentNoteRequest _) => saving.Task)
+            .Add(c => c.TestId, "su"));
+
+        panel.Find("[data-testid='su-impediment-bank-note-edit']").Click();
+        panel.Find("[data-testid='su-impediment-bank-note-editor'] textarea").Input("Call the bank");
+        panel.Find(".impediment-row__note-editor").KeyDown(new KeyboardEventArgs { Key = "Enter", CtrlKey = true });
+        panel.Render(p => p.Add(c => c.Busy, true));
+
+        Assert.False(panel.Find("[data-testid='su-impediment-bank-note-edit']").HasAttribute("disabled"));
+        Assert.True(panel.Find("[data-testid='su-impediment-runner-note-edit']").HasAttribute("disabled"));
+
+        saving.SetResult();
+    }
+
+    [Fact]
+    public void Ctrl_Enter_hands_the_note_back_and_a_blank_one_clears_it()
+    {
+        var notes = new List<string?>();
+        var row = RenderEditable(Bank with { Note = "QA12 phone note" }, note => notes.Add(note));
+
+        row.Find("[data-testid='imp-note-edit']").Click();
+        row.Find("[data-testid='imp-note-editor'] textarea").Input("   ");
+        row.Find(".impediment-row__note-editor").KeyDown(new KeyboardEventArgs { Key = "Enter", CtrlKey = true });
+
+        row.WaitForAssertion(() => Assert.Equal([(string?)null], notes));
+    }
+
+    [Fact]
+    public void Escape_abandons_the_draft_and_an_unchanged_note_is_not_handed_back()
+    {
+        var notes = new List<string?>();
+        var row = RenderEditable(Bank with { Note = "QA12 phone note" }, note => notes.Add(note));
+
+        row.Find("[data-testid='imp-note-edit']").Click();
+        row.Find("[data-testid='imp-note-editor'] textarea").Input("Something else");
+        row.Find(".impediment-row__note-editor").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Empty(row.FindAll("[data-testid='imp-note-editor']"));
+        Assert.Equal("QA12 phone note", row.Find("[data-testid='imp-note']").TextContent);
+
+        row.Find("[data-testid='imp-note-edit']").Click();
+        row.Find("[data-testid='imp-note-editor'] textarea").Input(" QA12 phone note ");
+        row.Find(".impediment-row__note-editor").FocusOut();
+
+        Assert.Empty(row.FindAll("[data-testid='imp-note-editor']"));
+        Assert.Empty(notes);
+    }
+
+    [Fact]
+    public void A_note_from_the_board_names_the_impediment()
+    {
+        ImpedimentNoteRequest? request = null;
+        var board = RenderBoard(more: p => p.Add(c => c.OnEditImpedimentNote, (ImpedimentNoteRequest r) => request = r));
+
+        board.Find("[data-testid='goals-board-stand-up-impediment-bank-note-edit']").Click();
+        board.Find("[data-testid='goals-board-stand-up-impediment-bank-note-editor'] textarea").Input("Call the bank");
+        board.Find(".impediment-row__note-editor").FocusOut();
+
+        board.WaitForAssertion(() => Assert.Equal(new ImpedimentNoteRequest("bank", "Call the bank"), request));
+    }
+
+    private IRenderedComponent<ImpedimentRow> RenderEditable(StandUpImpediment impediment, Action<string?> onNote) =>
+        _context.Render<ImpedimentRow>(p => p
+            .Add(c => c.Impediment, impediment)
+            .Add(c => c.OnEditNote, onNote)
+            .Add(c => c.TestId, "imp"));
+
     private static readonly StandUpImpediment Runner = new(
         "runner", "Android build runner flaky", StandUpImpedimentState.BeingHandled,
         [StandUpImpedimentState.Resolved], "Platform team", 4, null, null);

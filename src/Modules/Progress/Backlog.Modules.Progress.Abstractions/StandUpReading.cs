@@ -232,7 +232,8 @@ public static class StandUpReading
             age,
             impediment.CheckAgain,
             goal?.Id,
-            goal?.Title);
+            goal?.Title,
+            impediment.Note);
     }
 
     private static void Add(List<StandUpGroupDto> groups, GoalDto? goal, IEnumerable<StandUpItemDto> items)

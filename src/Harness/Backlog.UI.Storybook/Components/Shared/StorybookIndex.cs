@@ -456,7 +456,7 @@ internal static class StorybookIndex
             // Before the Goals view, which draws it on every goal's pull requests: nothing
             // is shown before its parts.
             new("pull-request-status", "Pull request status", "PullRequestStatus: a pull request's #n pill, its checks as passed/total and its approvals as received/required, each a glyph and a count in the mark's ink, the words said only to a screen reader — on every pull request row in Progress and the Pull requests pane."),
-            new("goals-view", "Goals view", "GoalsBoard, GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow and GoalCreateDialog: the Goals view — the iteration switch and its windows, each goal with its stacked bar, forecast and attached work, No goal, and the stand-up with Finished, Planned and the impediment state picker.")
+            new("goals-view", "Goals view", "GoalsBoard, GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow and GoalCreateDialog: the Goals view — the iteration switch and its windows, each goal with its stacked bar, forecast and attached work, No goal, and the stand-up with Finished, Planned and the impediment state picker and note.")
         ]),
 
         new("Dashboard",

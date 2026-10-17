@@ -9,7 +9,7 @@
     <Story Name="At risk"
            Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them; type pay to see its matches under their kind labels. The other goals are folded rows.
 
-No goal lists the work in progress no goal holds, each with Attach…, which attaches to the open goal; fold every goal and it asks which. Beside the goals the stand-up lists Finished, Planned with its points tag, and Impediments with a state picker that offers only the moves an impediment may make. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
+No goal lists the work in progress no goal holds, each with Attach…, which attaches to the open goal; fold every goal and it asks which. Beside the goals the stand-up lists Finished, Planned with its points tag, and Impediments with a state picker that offers only the moves an impediment may make, and each one's note with Add note or Edit note. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
            Code="@BoardCode">
         <div class="sb-board">
             <GoalsBoard Model="@Board"
@@ -18,7 +18,8 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
                         OnNewGoal="@(() => _dialogOpen = true)"
                         OnRefresh="@(() => _said = "Refresh")"
                         OnAttach="@(request => _said = $"Attach {request.ItemKey} to {request.GoalId}")"
-                        OnMoveImpediment="@(request => _said = $"Move {request.ImpedimentId} to {GoalsText.State(request.State)}")" />
+                        OnMoveImpediment="@(request => _said = $"Move {request.ImpedimentId} to {GoalsText.State(request.State)}")"
+                        OnEditImpedimentNote="@(request => _said = request.Note is null ? $"Clear the note on {request.ImpedimentId}" : $"Note on {request.ImpedimentId}: {request.Note}")" />
             <p class="sb-state" data-testid="goals-view-said">@(_said ?? "Switch the iteration, attach an item or move an impediment.")</p>
         </div>
     </Story>
@@ -70,6 +71,17 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         </Story>
     }
 
+    <Story Name="Impediment with a note"
+           Description="The note the phone's impediment page writes, under the meta line and wrapped as written. Edit note opens it in place as a text box: leave the box or press Ctrl+Enter to keep it, Escape to abandon it; there is no Save button, and a blank note clears it. The focus goes back to the button once the box closes. A row with no host listening shows the note as text, with no button."
+           Code="@NoteCode">
+        <div class="sb-menu">
+            <ImpedimentRow Impediment="@_noted"
+                           OnEditNote="EditSampleNote"
+                           TestId="goals-view-impediment-note" />
+            <p class="sb-state" data-testid="goals-view-note-said">@(_noteSaid ?? "Edit the note, then leave the box.")</p>
+        </div>
+    </Story>
+
     <Story Name="New goal"
            Description="New goal opens a dialog over a title, a one-line outcome and a due date. Save hands the draft back trimmed; the host creates the goal through the module and closes the dialog, or keeps it open with the module's refusal under the fields."
            Code="@DialogCode">
@@ -93,7 +105,20 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     ];
 
     private string? _said;
+    private string? _noteSaid;
     private bool _dialogOpen;
+
+    private StandUpImpediment _noted = new(
+        "s-noted", "Bank sample files missing", StandUpImpedimentState.Escalated,
+        [StandUpImpedimentState.BeingHandled, StandUpImpedimentState.Resolved], "Account manager", 3, Oct(20), "Customers get paid faster",
+        "Account manager promised the CAMT.053 samples by Tuesday.\nAsk for a failed-payment file too.");
+
+    /// <summary>The host's part, stubbed: keep the note handed back and say what was saved.</summary>
+    private void EditSampleNote(string? note)
+    {
+        _noted = _noted with { Note = note };
+        _noteSaid = note is null ? "Note cleared" : $"Saved: {note}";
+    }
     private string? _dialogError;
 
     private static DateOnly Oct(int day) => new(2026, 10, day);
@@ -148,7 +173,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
             new StandUpImpediment("bank", "Bank sample files missing", StandUpImpedimentState.Escalated,
                 [StandUpImpedimentState.BeingHandled, StandUpImpedimentState.Resolved], "Account manager", 3, null, "Customers get paid faster"),
             new StandUpImpediment("runner", "Android build runner flaky", StandUpImpedimentState.BeingHandled,
-                [StandUpImpedimentState.Resolved], "Platform team", 4, Oct(20), null),
+                [StandUpImpedimentState.Resolved], "Platform team", 4, Oct(20), null, "Platform team is swapping the runner image."),
             new StandUpImpediment("credit", "Credit note numbering unclear", StandUpImpedimentState.New,
                 [StandUpImpedimentState.Reported, StandUpImpedimentState.Resolved], null, 1, null, "Customers get paid faster")
         ],
@@ -218,6 +243,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
                     OnRefresh="ReadAsync"
                     OnAttach="request => AttachAsync(request.GoalId, request.ItemKey)"
                     OnMoveImpediment="request => MoveAsync(request.ImpedimentId, request.State)"
+                    OnEditImpedimentNote="request => EditNoteAsync(request.ImpedimentId, request.Note)"
                     Error="@_error" />
         """;
 
@@ -258,6 +284,11 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
                            OnMove="state => MoveAsync(id, state)" />
             """;
     }
+
+    private const string NoteCode = """
+        <ImpedimentRow Impediment="@(impediment with { Note = "Account manager promised the CAMT.053 samples by Tuesday." })"
+                       OnEditNote="note => EditNoteAsync(impediment.Id, note)" />
+        """;
 
     private const string DialogCode = """
         <GoalCreateDialog Open="_newGoal"

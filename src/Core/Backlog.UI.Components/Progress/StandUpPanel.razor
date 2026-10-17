@@ -6,9 +6,10 @@
     goal holds last, read "title · no goal". Planned lists the next window's items, a
     pull request with its status line, and tags the heading with the points planned
     against the scaled pace, "21 / 18 pts", titled in words. Impediments lists every open
-    one with its state picker, then "n resolved" when the last window resolved any.
+    one with its state picker and its note, then "n resolved" when the last window
+    resolved any.
 
-    While a move is saved the other pickers wait, and the one being moved stays enabled:
+    While a move or a note is saved the other rows wait, and the one being moved stays enabled:
     a disabled select loses the focus, so a keyboard user would be dropped to the page. A
     resolve the host accepts takes its row out of the list, focused picker and all, so the
     focus moves on to the impediment that took its place, the last one when it was the
@@ -66,8 +67,9 @@
             <ImpedimentRow @key="impediment.Id"
                            @ref="_rows[impediment.Id]"
                            Impediment="impediment"
-                           Disabled="@(Busy && impediment.Id != _moving)"
+                           Disabled="@(Busy && impediment.Id != _moving && impediment.Id != _noting)"
                            OnMove="state => MoveAsync(impediment.Id, at, state)"
+                           OnEditNote="@(OnEditImpedimentNote.HasDelegate ? EventCallback.Factory.Create<string?>(this, note => EditNoteAsync(impediment.Id, note)) : default)"
                            TestId="@Part($"impediment-{impediment.Id}")" />
         }
         @if (StandUp.ResolvedInLast > 0)
@@ -81,6 +83,7 @@
     private readonly string _id = "stand-up-" + Guid.NewGuid().ToString("N");
     private readonly Dictionary<string, ImpedimentRow> _rows = new(StringComparer.Ordinal);
     private string? _moving;
+    private string? _noting;
     private int _parameterSets;
     private (string Id, int Index, int ParameterSets)? _resolving;
 
@@ -94,6 +97,10 @@
     /// <summary>An impediment's state was picked.</summary>
     [Parameter]
     public EventCallback<ImpedimentMoveRequest> OnMoveImpediment { get; set; }
+
+    /// <summary>An impediment's note was written; without a listener the notes are text.</summary>
+    [Parameter]
+    public EventCallback<ImpedimentNoteRequest> OnEditImpedimentNote { get; set; }
 
     /// <summary>While a move is being saved: the pickers wait.</summary>
     [Parameter]
@@ -125,6 +132,21 @@
         }
 
         if (state == StandUpImpedimentState.Resolved) _resolving = (impedimentId, index, _parameterSets);
+    }
+
+    /// <summary>A note is saved like a move: the other rows wait, and this one keeps its
+    /// button so the focus it went back to stays.</summary>
+    private async Task EditNoteAsync(string impedimentId, string? note)
+    {
+        _noting = impedimentId;
+        try
+        {
+            await OnEditImpedimentNote.InvokeAsync(new ImpedimentNoteRequest(impedimentId, note));
+        }
+        finally
+        {
+            _noting = null;
+        }
     }
 
     protected override void OnParametersSet() => _parameterSets++;

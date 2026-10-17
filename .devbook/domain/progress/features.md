@@ -157,6 +157,11 @@ An impediment's line names who it is with, its age in working days and the goal 
 holds back, such as "Account manager · 3 days · Customers get paid faster". A New one
 reads "Not reported yet". A check-again date takes the age's place: "check Tue".
 
+Under that line the impediment's note shows as written, whichever device wrote it. On
+the desktop, **Add note** or **Edit note** opens it in place: leaving the box keeps
+it, Escape abandons it, and a blank note clears it. The note is saved like the
+phone's, through Progress, and the stand-up is read again.
+
 ### Copying the stand-up
 
 ```meta

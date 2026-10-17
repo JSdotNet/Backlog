@@ -48,7 +48,7 @@ public sealed class GoalsMapperTests
         Capacity: 18,
         Impediments:
         [
-            new StandUpImpedimentDto(BankId, "Bank sample files missing", ImpedimentState.Escalated, "Account manager", 3, null, PaidId, "Customers get paid faster")
+            new StandUpImpedimentDto(BankId, "Bank sample files missing", ImpedimentState.Escalated, "Account manager", 3, null, PaidId, "Customers get paid faster", "QA12 phone note")
         ],
         ResolvedInLast: 1);
 
@@ -187,6 +187,7 @@ public sealed class GoalsMapperTests
         Assert.Equal("Account manager", impediment.With);
         Assert.Equal(3, impediment.DaysOpen);
         Assert.Equal("Customers get paid faster", impediment.GoalTitle);
+        Assert.Equal("QA12 phone note", impediment.Note);
     }
 
     [Fact]

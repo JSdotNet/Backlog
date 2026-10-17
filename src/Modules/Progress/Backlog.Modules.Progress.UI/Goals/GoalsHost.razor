@@ -36,7 +36,9 @@
       confirming attaches again with moveFromOtherGoal;
     - a state picked for an impediment, through IImpediments.MoveAsync with no person,
       so the last one stands. A refusal shows above the board and the picker goes back
-      to the stored state.
+      to the stored state;
+    - a note written on an impediment's row, through IImpediments.EditNoteAsync, blank
+      clearing it. A refusal shows above the board and the row shows the stored note.
 *@
 @if (!Available)
 {
@@ -67,6 +69,7 @@ else
                 OnRefresh="RefreshAsync"
                 OnAttach="AttachAsync"
                 OnMoveImpediment="MoveAsync"
+                OnEditImpedimentNote="EditNoteAsync"
                 Error="@(_writeError ?? _readError)"
                 Busy="_writing"
                 TestId="goals-board" />
@@ -350,6 +353,27 @@ else
                 // read again too, so the picker draws the stored state from a fresh reading.
                 var moved = await impediments.MoveAsync(id, GoalsMapper.State(request.State));
                 if (moved.IsFailure) _writeError = moved.Error.Message;
+                return true;
+            }
+            finally
+            {
+                _writing = false;
+            }
+        });
+    }
+
+    private async Task EditNoteAsync(ImpedimentNoteRequest request)
+    {
+        if (_impediments is not { } impediments || !Guid.TryParse(request.ImpedimentId, out var id)) return;
+
+        _writeError = null;
+        await WriteAsync(async () =>
+        {
+            _writing = true;
+            try
+            {
+                var edited = await impediments.EditNoteAsync(id, request.Note);
+                if (edited.IsFailure) _writeError = edited.Error.Message;
                 return true;
             }
             finally

@@ -129,6 +129,7 @@ public enum StandUpImpedimentState
 /// <param name="DaysOpen">Its age in working days.</param>
 /// <param name="CheckAgain">The day to look at it again; null with none.</param>
 /// <param name="GoalTitle">The goal it holds back; null with none.</param>
+/// <param name="Note">The person's note on it; null with none.</param>
 public sealed record StandUpImpediment(
     string Id,
     string Title,
@@ -137,7 +138,8 @@ public sealed record StandUpImpediment(
     string? With,
     int DaysOpen,
     DateOnly? CheckAgain,
-    string? GoalTitle);
+    string? GoalTitle,
+    string? Note = null);
 
 /// <summary>
 /// The stand-up beside the goals (<c>.devbook/domain/progress/features.md#the-stand-up</c>).
@@ -188,6 +190,10 @@ public sealed record GoalAttachRequest(string GoalId, string ItemKey);
 
 /// <summary>Move the impediment <paramref name="ImpedimentId"/> to <paramref name="State"/>.</summary>
 public sealed record ImpedimentMoveRequest(string ImpedimentId, StandUpImpedimentState State);
+
+/// <summary>Replace the note of the impediment <paramref name="ImpedimentId"/> with
+/// <paramref name="Note"/>, trimmed; null clears it.</summary>
+public sealed record ImpedimentNoteRequest(string ImpedimentId, string? Note);
 
 /// <summary>A new goal as the New goal dialog hands it back, trimmed.</summary>
 /// <param name="Outcome">The one-line outcome; null when left blank.</param>
