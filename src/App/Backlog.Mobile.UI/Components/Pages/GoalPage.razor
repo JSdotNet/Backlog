@@ -4,6 +4,7 @@
 @using Backlog.Mobile.UI.Tasks
 @using Backlog.Modules.Progress.Abstractions
 @using Backlog.Modules.Progress.Abstractions.DataTransferObjects
+@using Backlog.UI.Components.Progress
 @inject ProgressViewProjection Progress
 @inject PhoneStandUp StandUp
 @inject TaskViewProjection Tasks
@@ -149,13 +150,16 @@ else if (Goal is { } view)
                 <ul class="standup-detail__list">
                     @foreach (var pull in view.PullRequests)
                     {
+                        var title = StandupText.PullRequestTitle(new PullRequestRefDto(pull.Repository, pull.Number), work);
+
                         <li class="standup-detail__row" data-testid="goal-pull">
-                            <PhonePullRequestStatus Number="@StandupText.Number(pull.Number)" State="pull.State"
-                                                    Checks="pull.Checks" Approvals="pull.Approvals"
-                                                    TestId="goal-pull-status" />
-                            <span class="standup-detail__item-title" data-testid="goal-pull-title">@StandupText.PullRequestTitle(new PullRequestRefDto(pull.Repository, pull.Number), work)</span>
-                            @* The chip already says the state to a screen reader; this word is for the eye. *@
-                            <span class="@($"standup-detail__word standup-detail__word--{ChipWord(pull.State)}")" aria-hidden="true" data-testid="goal-pull-word">@PhonePullRequestStatus.Word(pull.State)</span>
+                            <PullRequestStatus Model="@StandupText.StatusModel(pull, title)" TestId="goal-pull-status" />
+                            <span class="standup-detail__item-title" data-testid="goal-pull-title">@title</span>
+                            @* The shared line says "merged" itself; every other state is said here, once. *@
+                            @if (pull.State != LinkedPullRequestState.Merged)
+                            {
+                                <span class="@($"standup-detail__word standup-detail__word--{StandupText.Word(pull.State)}")" data-testid="goal-pull-word">@StandupText.Word(pull.State)</span>
+                            }
                         </li>
                     }
                 </ul>
@@ -284,8 +288,13 @@ else if (_looked)
         if (item.Task!.PullRequests.FirstOrDefault() is { } pull)
         {
             var status = StandupText.StatusOf(StandupText.Statuses(Progress.Context()), pull);
-            <PhonePullRequestStatus Number="@StandupText.Number(pull.Number)" State="status.State"
-                                    Checks="status.Checks" Approvals="status.Approvals" TestId="goal-item-pr" />
+            <PullRequestStatus Model="@StandupText.StatusModel(status, item.Task.Title)" TestId="goal-item-pr" />
+
+            // The shared line says "merged" itself and every other state only by the pill's tone.
+            if (status.State != LinkedPullRequestState.Merged)
+            {
+                <span class="sr-only" data-testid="goal-item-pr-state">@StandupText.Word(status.State)</span>
+            }
         }
 
         if (item.State == GoalItemState.Blocked)
@@ -309,7 +318,4 @@ else if (_looked)
         GoalItemState.Doing => "Doing",
         _ => "To do"
     };
-
-    private static string ChipWord(LinkedPullRequestState state) =>
-        state == LinkedPullRequestState.Unknown ? "unknown" : state.ToString().ToLowerInvariant();
 }

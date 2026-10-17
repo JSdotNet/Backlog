@@ -3,6 +3,7 @@
 @using Backlog.Mobile.UI.Tasks
 @using Backlog.Modules.Progress.Abstractions
 @using Backlog.Modules.Progress.Abstractions.DataTransferObjects
+@using Backlog.UI.Components.Progress
 @inject ProgressViewProjection Progress
 @inject PhoneStandUp StandUp
 @inject TaskViewProjection Tasks
@@ -125,7 +126,7 @@ else
                         @if (StandupText.PullRequestOf(item, work) is { } pull)
                         {
                             var status = StandupText.StatusOf(statuses, pull);
-                            <Badge Kind="standup-pr" Slug="@ChipSlug(status.State)">#@StandupText.Number(pull.Number)<span class="sr-only">@($" {PhonePullRequestStatus.Word(status.State)}")</span></Badge>
+                            <Badge Kind="gh" Slug="@StandupText.Word(status.State)">#@StandupText.Number(pull.Number)<span class="sr-only">@($" {StandupText.Word(status.State)}")</span></Badge>
                         }
                     </Trailing>
                 </StandupWorkList>
@@ -165,9 +166,12 @@ else
                         @if (StandupText.PullRequestOf(item, work) is { } pull)
                         {
                             var status = StandupText.StatusOf(statuses, pull);
-                            <PhonePullRequestStatus Number="@StandupText.Number(pull.Number)" State="status.State"
-                                                    Checks="status.Checks" Approvals="status.Approvals"
-                                                    TestId="standup-planned-pr" />
+                            <PullRequestStatus Model="@StandupText.StatusModel(status, item.Title)" TestId="standup-planned-pr" />
+                            @* The shared line says "merged" itself and every other state only by the pill's tone. *@
+                            @if (status.State != LinkedPullRequestState.Merged)
+                            {
+                                <span class="sr-only" data-testid="standup-planned-pr-state">@StandupText.Word(status.State)</span>
+                            }
                             @if (item.Effort is { } effort)
                             {
                                 <span>@StandupText.Points(effort)</span>
@@ -355,7 +359,4 @@ else
         .. Progress.Impediments().Where(impediment =>
             impediment.ResolvedOn is { } on && on >= reading.Last.First && on <= reading.Last.Last)
     ];
-
-    private static string ChipSlug(LinkedPullRequestState state) =>
-        state == LinkedPullRequestState.Unknown ? "unknown" : state.ToString().ToLowerInvariant();
 }

@@ -273,9 +273,9 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 /*
   The Stand-up, a goal's page and an impediment's page. The library draws the
   cards, the bars, the block lists, the state list and the badges
-  (PhoneStandup); this file lays them out down the screen and draws the phone's
-  own pull request line. Every target keeps the 44px touch minimum, and the
-  colours are the library's tokens.
+  (PhoneStandup), and a pull request's line is the shared PullRequestStatus;
+  this file lays them out down the screen. Every target keeps the 44px touch
+  minimum, and the colours are the library's tokens.
 */
 .standup-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
 .standup-heading h1 { margin: 0; font-family: var(--font-family-heading); }
@@ -389,12 +389,3 @@ html, body { background-color: var(--color-background); color: var(--color-text-
     text-transform: uppercase;
 }
 .standup-detail__field .field__input { min-height: 44px; }
-
-/* The phone's own pull request line (Components/Progress/PhonePullRequestStatus.razor):
-   the number chip in the tone of the state, then the checks and approvals marks in
-   their inks (color-scheme.md#pull-request-status-marks). */
-.pr-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .625rem; font-size: var(--font-size-xs); }
-.pr-line__mark { display: inline-flex; align-items: center; gap: .25rem; }
-.pr-line__mark--passed, .pr-line__mark--met { color: var(--color-success-text); }
-.pr-line__mark--running, .pr-line__mark--short { color: var(--color-primary-light); }
-.pr-line__mark--failing { color: var(--color-error-text); }

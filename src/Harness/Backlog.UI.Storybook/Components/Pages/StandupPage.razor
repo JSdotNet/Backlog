@@ -66,7 +66,7 @@
                 <Trailing Context="item">
                     @if (item.Pull is { } pull)
                     {
-                        <Badge Kind="standup-pr" Slug="merged">#@pull</Badge>
+                        <Badge Kind="gh" Slug="merged">#@pull</Badge>
                     }
                 </Trailing>
             </StandupWorkList>
@@ -86,7 +86,7 @@
                     }
                 </Trailing>
                 <Detail Context="item">
-                    <Badge Kind="standup-pr" Slug="open">#@item.Pull</Badge>
+                    <Badge Kind="gh" Slug="open">#@item.Pull</Badge>
                     <span>@item.Points pts</span>
                 </Detail>
             </StandupWorkList>
@@ -211,7 +211,7 @@
     private const string FinishedCode = """
         <StandupWorkList TItem="StandUpItemDto" Groups="Groups(reading.Finished)" ItemTitle="item => item.Title">
             <Trailing Context="item">
-                <Badge Kind="standup-pr" Slug="merged">#1338</Badge>
+                <Badge Kind="gh" Slug="merged">#1338</Badge>
             </Trailing>
         </StandupWorkList>
         """;
@@ -221,7 +221,8 @@
                          HasDetail="item => PullRequestOf(item) is not null">
             <Trailing Context="item">@Points(item)</Trailing>
             <Detail Context="item">
-                <PhonePullRequestStatus Number="1341" State="status.State" Checks="status.Checks" Approvals="status.Approvals" />
+                @* The phone draws the shared pull request status line here: the pill, then the checks and approvals marks. *@
+                <Badge Kind="gh" Slug="open">#1341</Badge>
             </Detail>
         </StandupWorkList>
         """;

@@ -99,7 +99,7 @@ public sealed class StandupScreenTests
         Assert.Contains("Pull request", finished);
         Assert.DoesNotContain(finished, title => title.Contains("JSdotNet/Backlog#", StringComparison.Ordinal));
         var invoice = app.FindAll("[data-testid='standup-finished-list-item']").Single(item => item.TextContent.Contains("Invoice PDF export", StringComparison.Ordinal));
-        Assert.Contains("badge--standup-pr-merged", invoice.QuerySelector(".badge")!.ClassList);
+        Assert.Contains("badge--gh-merged", invoice.QuerySelector(".badge")!.ClassList);
         Assert.Equal("#1338 merged", invoice.QuerySelector(".badge")!.TextContent.Trim());
         Assert.Equal(" merged", invoice.QuerySelector(".badge .sr-only")!.TextContent);
 
@@ -137,6 +137,22 @@ public sealed class StandupScreenTests
         var resolved = app.Find("[data-testid='standup-resolved-impediment']");
         Assert.Equal("Staging VPN certificate expired", resolved.QuerySelector("[data-testid='standup-resolved-impediment-title']")!.TextContent);
         Assert.Equal("Resolved 14 Oct", Squash(resolved.QuerySelector("[data-testid='standup-resolved-impediment-meta']")!.TextContent));
+    }
+
+    /// <summary>A planned item's pull request says its state once, for a screen reader, beside
+    /// the shared line that draws it only as the pill's tone.</summary>
+    [Fact]
+    public void A_planned_pull_request_says_its_state_to_a_screen_reader()
+    {
+        using var host = ShellHost.Paired(clock: Clock(), tasks: StandupFixture.Service());
+
+        var app = host.Open("standup");
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='standup-planned-pr-state']")));
+        var state = Assert.Single(app.FindAll("[data-testid='standup-planned-pr-state']"));
+        Assert.Equal("open", state.TextContent);
+        Assert.Contains("sr-only", state.ClassList);
+        Assert.Contains("Map the bank's fields", state.Closest("[data-testid='standup-planned-list-item']")!.TextContent, StringComparison.Ordinal);
     }
 
     [Fact]

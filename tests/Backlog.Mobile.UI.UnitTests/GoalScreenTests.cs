@@ -68,7 +68,7 @@ public sealed class GoalScreenTests
         var visible = string.Concat(mapping.QuerySelectorAll("[aria-hidden='true']").Select(part => part.TextContent));
         Assert.DoesNotContain("checks", visible, StringComparison.Ordinal);
         Assert.DoesNotContain("approvals", visible, StringComparison.Ordinal);
-        Assert.Contains("badge--standup-pr-open", mapping.QuerySelector("[data-testid='goal-item-pr-number']")!.ClassList);
+        Assert.Contains("badge--gh-open", mapping.QuerySelector("[data-testid='goal-item-pr-number']")!.ClassList);
 
         var task = Assert.Single(app.FindAll("[data-testid='goal-task']"));
         Assert.Contains("Invoice PDF export", task.TextContent, StringComparison.Ordinal);
@@ -76,13 +76,34 @@ public sealed class GoalScreenTests
         Assert.Null(task.QuerySelector("[data-testid='goal-item-pr-checks']"));
 
         var pull = Assert.Single(app.FindAll("[data-testid='goal-pull']"));
-        Assert.Equal("#1352 merged", pull.QuerySelector("[data-testid='goal-pull-status-number']")!.TextContent.Trim());
-        Assert.Equal("merged", pull.QuerySelector("[data-testid='goal-pull-word']")!.TextContent);
-        // Announced once, by the chip.
-        Assert.Equal("true", pull.QuerySelector("[data-testid='goal-pull-word']")!.GetAttribute("aria-hidden"));
+        Assert.Equal("#1352", pull.QuerySelector("[data-testid='goal-pull-status-number']")!.TextContent.Trim());
+        Assert.Contains("badge--gh-merged", pull.QuerySelector("[data-testid='goal-pull-status-number']")!.ClassList);
+        // "merged" is said once, by the shared line; the row adds no word of its own.
+        Assert.Equal("merged", pull.QuerySelector("[data-testid='goal-pull-status-merged']")!.TextContent);
+        Assert.Null(pull.QuerySelector("[data-testid='goal-pull-word']"));
         // Merged: its checks and approvals no longer decide anything, so neither mark is drawn.
         Assert.Null(pull.QuerySelector("[data-testid='goal-pull-status-checks']"));
         Assert.Null(pull.QuerySelector("[data-testid='goal-pull-status-approvals']"));
+    }
+
+    /// <summary>The shared status line says "merged" and nothing else in words, so an item's
+    /// open pull request has its state said once beside it, for a screen reader only.</summary>
+    [Fact]
+    public void An_item_pull_request_says_its_state_to_a_screen_reader_unless_the_line_does()
+    {
+        using var host = ShellHost.Paired(clock: Clock(), tasks: StandupFixture.Service());
+        var app = host.Open(Route(StandupFixture.PaidId));
+        app.WaitForAssertion(() => Assert.NotEmpty(app.FindAll("[data-testid='goal-plan-item']")));
+
+        var mapping = app.FindAll("[data-testid='goal-plan-item']").Single(item => item.TextContent.Contains("Map the bank's fields", StringComparison.Ordinal));
+        var state = mapping.QuerySelector("[data-testid='goal-item-pr-state']")!;
+        Assert.Equal("open", state.TextContent);
+        Assert.Contains("sr-only", state.ClassList);
+
+        // Merged is said by the line itself, so the task row adds nothing.
+        var invoice = Assert.Single(app.FindAll("[data-testid='goal-task']"));
+        Assert.Equal("merged", invoice.QuerySelector("[data-testid='goal-item-pr-merged']")!.TextContent);
+        Assert.Null(invoice.QuerySelector("[data-testid='goal-item-pr-state']"));
     }
 
     [Fact]

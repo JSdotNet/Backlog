@@ -3,6 +3,7 @@ using System.Globalization;
 using Backlog.Modules.Progress.Abstractions;
 using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.PhoneStandup;
+using Backlog.UI.Components.Progress;
 
 namespace Backlog.Mobile.UI.Components.Progress;
 
@@ -162,6 +163,36 @@ public static class StandupText
 
         var key = GoalItems.KeyOf(pull);
         return work.FirstOrDefault(task => task.PullRequests.Any(linked => string.Equals(GoalItems.KeyOf(linked), key, StringComparison.OrdinalIgnoreCase)))?.Title;
+    }
+
+    /// <summary>A pull request's state as one lower-case word — "open", "draft", "merged",
+    /// "closed" or "unknown" — which is also the slug of the <c>gh</c> badge its pill wears.</summary>
+    public static string Word(LinkedPullRequestState state) => state switch
+    {
+        LinkedPullRequestState.Merged => "merged",
+        LinkedPullRequestState.Open => "open",
+        LinkedPullRequestState.Draft => "draft",
+        LinkedPullRequestState.Closed => "closed",
+        _ => "unknown"
+    };
+
+    /// <summary>
+    /// What a desktop last said about a pull request, as the shared status line draws it
+    /// (<see cref="PullRequestStatusModel"/>): its number, its state word, its checks and its
+    /// approvals against what the base branch requires. The phone has no address for it, so
+    /// the pill leads nowhere; <paramref name="title"/>, when a synced task gives one, is the
+    /// pill's tooltip.
+    /// </summary>
+    public static PullRequestStatusModel StatusModel(GoalPullRequestDto pull, string? title = null)
+    {
+        ArgumentNullException.ThrowIfNull(pull);
+
+        return new PullRequestStatusModel(
+            int.TryParse(Number(pull.Number), NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : 0,
+            Word(pull.State),
+            pull.Checks is { } checks ? new PullRequestChecks(checks.Passed, checks.Failed, checks.Pending) : null,
+            pull.Approvals is { } approvals ? new PullRequestApprovals(approvals.Received, approvals.Required) : null,
+            title);
     }
 
     /// <summary>A pull request's number without its <c>#</c>.</summary>
