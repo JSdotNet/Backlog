@@ -3,13 +3,13 @@
 <PageTitle>Goals view — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Goals view"
-           Summary="GoalsBoard and its parts — GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow and GoalCreateDialog: the desktop Goals view, with the iteration switch, the goals and what no goal holds, and the stand-up beside them. Every value is handed in and every act is a callback, so the goals below are stubs with no module behind them."
+           Summary="GoalsBoard and its parts — GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow, GoalCreateDialog and TwoWeekStartDialog: the desktop Goals view, with the iteration switch, the goals and what no goal holds, and the stand-up beside them. Every value is handed in and every act is a callback, so the goals below are stubs with no module behind them."
            Guidelines="@Rules">
 
     <Story Name="At risk"
-           Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them; type pay to see its matches under their kind labels. The other goals are folded rows.
+           Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The Goals heading carries its count, as Finished, Planned and Impediments do. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them; type pay to see its matches under their kind labels. The other goals are folded rows.
 
-No goal lists the work in progress no goal holds, each with Attach…, which attaches to the open goal; fold every goal and it asks which. Beside the goals the stand-up lists Finished, Planned with its points tag, and Impediments with a state picker that offers only the moves an impediment may make, and each one's note with Add note or Edit note. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
+No goal lists the work in progress no goal holds, each with Attach…, which attaches to the open goal; fold every goal and it asks which. Beside the goals the stand-up lists Finished, Planned with each item's effort in points and the points tag, and Impediments with a state picker that offers only the moves an impediment may make, and each one's note with Add note or Edit note. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
            Code="@BoardCode">
         <div class="sb-board">
             <GoalsBoard Model="@Board"
@@ -90,7 +90,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     </Story>
 
     <Story Name="Stand-up"
-           Description="The aside on its own: Finished with the item no goal holds last as title · no goal, Planned with a pull request's status line and the points tag titled in words, and Impediments followed by how many the last window resolved."
+           Description="The aside on its own: Finished with the item no goal holds last as title · no goal, Planned with each item's effort in points at the row's end — Payment terms on quotes carries none, so it shows none — a pull request's status line, and the points tag titled in words, and Impediments followed by how many the last window resolved."
            Code="@StandUpCode">
         <div class="sb-menu">
             <StandUpPanel StandUp="@Board.StandUp" Iteration="GoalsIteration.Week" TestId="goals-view-stand-up" />
@@ -121,6 +121,18 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         </div>
     </Story>
 
+    <Story Name="Two-week start"
+           Description="The first time a person chooses 2 weeks there is no day two-week iterations count from yet, so the host asks for it before it reads by 2 weeks, offering the Monday of the current week — Monday 19 October here. Read by 2 weeks keeps the day and switches; Cancel leaves the iteration as it was. Clear the field and press Read by 2 weeks to see the refusal. Once a start is kept, 2 weeks switches at once."
+           Code="@StartCode">
+        <AppButton OnClick="@(() => _startOpen = true)" TestId="goals-view-two-weeks">2 weeks</AppButton>
+        <TwoWeekStartDialog Open="_startOpen"
+                            OpenChanged="open => _startOpen = open"
+                            Offered="@Oct(19)"
+                            TestId="goals-view-start-dialog"
+                            OnSave="@(start => { _startOpen = false; _startSaid = $"Two-week iterations count from {start:ddd d MMM}"; })" />
+        <p class="sb-state" data-testid="goals-view-start-said">@(_startSaid ?? "Press 2 weeks.")</p>
+    </Story>
+
     <Story Name="New goal"
            Description="New goal opens a dialog over a title, a one-line outcome and a due date. Save hands the draft back trimmed; the host creates the goal through the module and closes the dialog, or keeps it open with the module's refusal under the fields."
            Code="@DialogCode">
@@ -147,6 +159,8 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     private string? _said;
     private string? _noteSaid;
     private bool _dialogOpen;
+    private bool _startOpen;
+    private string? _startSaid;
 
     private StandUpImpediment _noted = new(
         "s-noted", "Bank sample files missing", StandUpImpedimentState.Escalated,
@@ -248,9 +262,11 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         [
             new StandUpGroup("Customers get paid faster",
             [
-                new StandUpEntry("Customer search by IBAN"),
-                new StandUpEntry("Payment status webhook", new PullRequestStatusModel(1357, "open", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(1, 2)))
-            ])
+                new StandUpEntry("Customer search by IBAN", Effort: 8),
+                new StandUpEntry("Recurring invoices", Effort: 8),
+                new StandUpEntry("Payment status webhook", new PullRequestStatusModel(1357, "open", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(1, 2)), 5)
+            ]),
+            new StandUpGroup(null, [new StandUpEntry("Payment terms on quotes")])
         ],
         PlannedEffort: 21,
         Capacity: 18,
@@ -396,6 +412,13 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     private const string NoteCode = """
         <ImpedimentRow Impediment="@(impediment with { Note = "Account manager promised the CAMT.053 samples by Tuesday." })"
                        OnEditNote="note => EditNoteAsync(impediment.Id, note)" />
+        """;
+
+    private const string StartCode = """
+        <TwoWeekStartDialog Open="_askingStart"
+                            OpenChanged="open => _askingStart = open"
+                            Offered="@Iterations.MondayOf(today)"
+                            OnSave="start => { settings.SetTwoWeekStart(start); settings.SetLength(IterationLength.TwoWeeks, today); }" />
         """;
 
     private const string DialogCode = """
