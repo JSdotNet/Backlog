@@ -17,7 +17,7 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// <item><b>Parts.</b> Input and action, Structure and navigation, Feedback,
 /// Content, Devbook — the components that compose into everything
 /// else.</item>
-/// <item><b>Subjects.</b> Integrations, Task list, Roadmap, Progress, Dashboard — a set of
+/// <item><b>Subjects.</b> Goals, Integrations, Task list, Roadmap, Progress, Dashboard — a set of
 /// components that only mean something together, each its own chapter because
 /// each is its own convention.</item>
 /// <item><b>Combined usage.</b> The whole surfaces: a document, a folder, an
@@ -366,6 +366,17 @@ internal static class StorybookIndex
             // AppButton, all introduced in groups above this one, and no
             // component of its own: the pane is a module's and cannot render here.
             new("devbook/brain-pane", "Brain in the pane", "The Devbook pane on the Brain: the Brain badge after its title, the Brain | repository switch, the warning for OneDrive's conflict copies, and the prompt to set up a Brain.")
+        ]),
+
+        // The first subject, ahead of Integrations rather than with Progress where its
+        // context is: the goal control is drawn on the work cards, the task side panel
+        // and the roadmap shelf, which are all below, so the page that introduces it has
+        // to come first or each of those would be a bend. It is made of parts only — a
+        // Modal, a SearchBox, two TextFields, ToggleButtons, an EmptyState, a Callout, an
+        // Alert and AppButtons, all introduced above.
+        new("Goals",
+        [
+            new("goals", "Goals", "GoalControl and GoalPicker: the Goal line a task, a plan or a pull request carries, and the dialog that attaches it to one open goal or a new one — searching, nothing to choose, the goal that holds it already, and the note before a move.")
         ]),
 
         // The second subject-named group with subpages, for the reason recorded

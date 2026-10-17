@@ -103,7 +103,11 @@
         var generation = ++_generation;
         SprintSeriesDto? found = null;
 
-        if ((_features?.IsEnabled(ProgressFeatures.Progress) ?? false) && Planning is { } planning)
+        // Goals replace sprints in the task panel (local ADR 0035): while they are on,
+        // the goal control stands where this section stood.
+        if ((_features?.IsEnabled(ProgressFeatures.Progress) ?? false)
+            && !_features.IsEnabled(ProgressFeatures.Goals)
+            && Planning is { } planning)
         {
             var listed = await planning.ListSeriesAsync();
             if (listed.IsSuccess) found = SprintPlanning.SeriesOf(listed.Value, Candidate.Repositories);
