@@ -125,7 +125,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.Abstractions` | The Roadmap module's published surface — the plan DTOs, `IRoadmapPlanning`, and `RoadmapFeatures` |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning's desktop face — the band above the panes and its editor |
 | `src/Modules/Progress/Backlog.Modules.Progress` | Progress module — the sprint series and their sprints, the series assignment and sprint progress services, and the `ISprintSeriesRepository` port |
-| `src/Modules/Progress/Backlog.Modules.Progress.Abstractions` | The Progress module's published surface — the sprint DTOs, `ISprintSeriesPlanning`, `ISprintProgress`, the `ISprintTaskSource` and `ISprintPullRequestReader` ports, and `ProgressFeatures` |
+| `src/Modules/Progress/Backlog.Modules.Progress.Abstractions` | The Progress module's published surface — the sprint DTOs, `ISprintSeriesPlanning`, `ISprintProgress`, the `ISprintTaskSource` and `IGoalPullRequestReader` ports, and `ProgressFeatures` |
 | `src/Modules/Progress/Backlog.Modules.Progress.UI` | Progress's desktop face — today the `ProgressOnly` switch every sprint screen is drawn under |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.Abstractions` | Sessions' published surface — the session record, its states and groupings, and the `IAgentSessionSource` port |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions' desktop face — the full-screen session list over the readers `Backlog.Infrastructure.Sessions` provides |

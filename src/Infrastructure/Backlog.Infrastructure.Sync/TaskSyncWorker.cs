@@ -130,6 +130,7 @@ public sealed class TaskSyncWorker : IDisposable
     private readonly IRoadmapReplication? _roadmap;
     private readonly IGitHubSettingsReplication? _github;
     private readonly ISprintSeriesReplication? _sprints;
+    private readonly IGoalReplication? _goals;
     private readonly IMyDayPreferencesReplication? _myDay;
     private readonly ILogger _log;
 
@@ -207,6 +208,9 @@ public sealed class TaskSyncWorker : IDisposable
     /// notice — a switch flipped here is pushed after the same settle delay — and for the
     /// one-time feed replay that catches an upgraded device up on preferences its cursor
     /// had passed (local ADR 0032). Null on a head that keeps none.</param>
+    /// <param name="goals">Progress's goal replication port, for its local-change notice
+    /// only: a goal changed here is pushed after the same settle delay (local ADR 0035).
+    /// Null on a head without Progress.</param>
     public TaskSyncWorker(
         IServiceProvider services,
         IAppFeatureSettings features,
@@ -218,7 +222,8 @@ public sealed class TaskSyncWorker : IDisposable
         IRoadmapReplication? roadmap = null,
         IGitHubSettingsReplication? github = null,
         ISprintSeriesReplication? sprints = null,
-        IMyDayPreferencesReplication? myDay = null)
+        IMyDayPreferencesReplication? myDay = null,
+        IGoalReplication? goals = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(features);
@@ -236,6 +241,7 @@ public sealed class TaskSyncWorker : IDisposable
         _github = github;
         _sprints = sprints;
         _myDay = myDay;
+        _goals = goals;
         _log =log ?? NullLogger<TaskSyncWorker>.Instance;
 
         // Both gates can move while the app is running, and each of them moving
@@ -247,6 +253,7 @@ public sealed class TaskSyncWorker : IDisposable
         if (_github is not null) _github.Changed += OnLocalChange;
         if (_sprints is not null) _sprints.Changed += OnLocalChange;
         if (_myDay is not null) _myDay.Changed += OnLocalChange;
+        if (_goals is not null) _goals.Changed += OnLocalChange;
 
         ApplyGates();
     }
@@ -381,6 +388,7 @@ public sealed class TaskSyncWorker : IDisposable
         if (_github is not null) _github.Changed -= OnLocalChange;
         if (_sprints is not null) _sprints.Changed -= OnLocalChange;
         if (_myDay is not null) _myDay.Changed -= OnLocalChange;
+        if (_goals is not null) _goals.Changed -= OnLocalChange;
 
         _lifetime.Cancel();
         _lifetime.Dispose();
@@ -681,7 +689,7 @@ public sealed class TaskSyncWorker : IDisposable
         var state = _state.Current;
 
         // Every document the push offers again: the tasks, the roadmap's two, the
-        // GitHub settings' two and every sprint series.
+        // GitHub settings' two, every sprint series and every goal.
         if (republish) state = state with { PushWatermark = DateTimeOffset.MinValue, DocumentWatermarks = null };
         if (rehydrate) state = state with { PullCursor = null };
 

@@ -37,6 +37,10 @@ public enum SyncItemKind
     /// <summary>The My Day preferences: the Clear My Day overnight switch, as one whole
     /// document (local ADR 0032).</summary>
     MyDayPreferences,
+
+    /// <summary>A goal: its title, outcome, due date and attachments, as one whole
+    /// document (local ADR 0035 §9).</summary>
+    Goal,
 }
 
 /// <summary>

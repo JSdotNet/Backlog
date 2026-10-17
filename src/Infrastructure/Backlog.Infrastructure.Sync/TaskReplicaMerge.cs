@@ -131,6 +131,10 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// without it skips the document.
 /// </para>
 /// <para>
+/// <b>Nor is a goal.</b> A <c>goal</c> document is one of Progress's goals, whole
+/// (local ADR 0035 §9), and goes to its replication port on the series' terms.
+/// </para>
+/// <para>
 /// <b>Nor are the My Day preferences.</b> A <c>my-day-preferences</c> document goes to
 /// the preferences port on the same terms (local ADR 0032, §3): before the local task is
 /// read, decided by its own stamp, and Skipped on a head without the port — which is
@@ -147,7 +151,8 @@ public sealed class TaskReplicaMerge(
     IGitHubSettingsReplication? github = null,
     IInboxNoteReplication? notes = null,
     ISprintSeriesReplication? sprints = null,
-    IMyDayPreferencesReplication? myDay = null)
+    IMyDayPreferencesReplication? myDay = null,
+    IGoalReplication? goals = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -184,6 +189,10 @@ public sealed class TaskReplicaMerge(
     /// older desktop build. The phone folds the document itself and composes no
     /// merge.</summary>
     private readonly IMyDayPreferencesReplication? _myDay = myDay;
+
+    /// <summary>Where a goal goes, or null on a head without Progress — the phone, or a
+    /// build from before the port.</summary>
+    private readonly IGoalReplication? _goals = goals;
 
     /// <summary>The signal the host's repository raises on every write, held
     /// here only to be silenced. A document arriving from the replica is not a
@@ -630,6 +639,11 @@ public sealed class TaskReplicaMerge(
             return await ApplyMyDayPreferencesAsync(record, moved, cancellationToken).ConfigureAwait(false);
         }
 
+        if (GoalReplicaDocuments.IsGoal(record.Change))
+        {
+            return await ApplyGoalAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
         var local = await _tasks
             .GetIncludingDeletedAsync(record.Change.Id, cancellationToken)
             .ConfigureAwait(false);
@@ -847,6 +861,51 @@ public sealed class TaskReplicaMerge(
             case SprintSeriesReplicaOutcome.Unreadable:
                 _log.LogWarning(
                     "Skipping {Kind} document {DocumentId} from the replica: it does not read as that series. "
+                    + "The local copy is left as it is.",
+                    record.Change.Task.Type,
+                    record.Change.Id);
+                return ApplyOutcome.Unreadable;
+
+            // An echo or an older copy: the local one stands, as it does for a task.
+            default:
+                return ApplyOutcome.Held;
+        }
+    }
+
+    /// <summary>
+    /// Hands a goal document to Progress's port and counts what it answered, exactly as
+    /// <see cref="ApplySprintSeriesAsync"/> does for a series (local ADR 0035 §9).
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyGoalAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        // Skipped, not held, on a head without the port: the goal will not land until
+        // this build can take it, and it never becomes a task.
+        if (_goals is null)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no goals.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _goals
+            .ApplyAsync(GoalReplicaDocuments.ToCopy(record.Change), cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case GoalReplicaOutcome.Taken:
+                Moved(moved, SyncDirection.Received, SyncItemKind.Goal, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                return ApplyOutcome.Written;
+
+            case GoalReplicaOutcome.Unreadable:
+                _log.LogWarning(
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that goal. "
                     + "The local copy is left as it is.",
                     record.Change.Task.Type,
                     record.Change.Id);

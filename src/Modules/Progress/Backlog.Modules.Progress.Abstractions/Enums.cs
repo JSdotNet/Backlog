@@ -87,3 +87,18 @@ public enum LinkedPullRequestState
     Merged,
     Closed
 }
+
+/// <summary>The three kinds of work a goal holds
+/// (<c>.devbook/domain/progress/domain.md#goal-attachment</c>). Stored by name, so the
+/// names are persisted values and never renamed.</summary>
+public enum GoalAttachmentKind
+{
+    /// <summary>A plan, by its plan tag: every entry filed under the tag.</summary>
+    Plan,
+
+    /// <summary>A task, by its id, with the pull requests it links.</summary>
+    Task,
+
+    /// <summary>A pull request, by its repository and number.</summary>
+    PullRequest
+}

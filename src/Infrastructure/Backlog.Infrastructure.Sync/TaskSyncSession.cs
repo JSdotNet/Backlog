@@ -66,6 +66,7 @@ public sealed class TaskSyncSession
     private readonly IInboxNoteReplication? _notes;
     private readonly ISprintSeriesReplication? _sprints;
     private readonly IMyDayPreferencesReplication? _myDay;
+    private readonly IGoalReplication? _goals;
 
     /// <param name="credentials">Whose device this is. Read before every push
     /// and pull to check the progress in <paramref name="state"/> belongs to the
@@ -88,6 +89,8 @@ public sealed class TaskSyncSession
     /// <param name="myDay">Where the My Day preferences are read from for the push
     /// (local ADR 0032), or null on a head that keeps none. Optional for the same
     /// reason.</param>
+    /// <param name="goals">Where every goal is read from for the push (local ADR 0035),
+    /// or null on a head without Progress. Optional for the same reason.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
@@ -101,7 +104,8 @@ public sealed class TaskSyncSession
         IGitHubSettingsReplication? github = null,
         IInboxNoteReplication? notes = null,
         ISprintSeriesReplication? sprints = null,
-        IMyDayPreferencesReplication? myDay = null)
+        IMyDayPreferencesReplication? myDay = null,
+        IGoalReplication? goals = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -123,6 +127,7 @@ public sealed class TaskSyncSession
         _notes = notes;
         _sprints = sprints;
         _myDay = myDay;
+        _goals = goals;
     }
 
     /// <summary>
@@ -347,6 +352,15 @@ public sealed class TaskSyncSession
             refused += documents.Value.Refused;
         }
 
+        if (_goals is not null)
+        {
+            var documents = await PushGoalsAsync(_goals, cancellationToken).ConfigureAwait(false);
+            if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
+
+            pushed += documents.Value.Pushed;
+            refused += documents.Value.Refused;
+        }
+
         return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()) { Refused = refused });
     }
 
@@ -483,6 +497,26 @@ public sealed class TaskSyncSession
             SyncItemKind.SprintSeries,
             cancellationToken,
             change => SprintReplicaDocuments.MarkOf(change.Id)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends every goal, each as one whole document, when its stamp is later than the one
+    /// this device last had accepted for that goal — on the terms
+    /// <see cref="PushSprintSeriesAsync"/> gives a series, with a mark per goal. A device
+    /// that never set a goal sends nothing.
+    /// </summary>
+    private async Task<Result<(int Pushed, int Refused)>> PushGoalsAsync(
+        IGoalReplication goals,
+        CancellationToken cancellationToken)
+    {
+        var held = await goals.ReadAllAsync(cancellationToken).ConfigureAwait(false);
+
+        return await PushWholeDocumentsAsync(
+            held,
+            copy => Task.FromResult<TaskChange?>(GoalReplicaDocuments.ToChange(copy)),
+            SyncItemKind.Goal,
+            cancellationToken,
+            change => GoalReplicaDocuments.MarkOf(change.Id)).ConfigureAwait(false);
     }
 
     /// <summary>The note a sent task's log line carries: what was already known

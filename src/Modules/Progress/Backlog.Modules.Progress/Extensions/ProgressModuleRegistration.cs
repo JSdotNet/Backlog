@@ -1,11 +1,14 @@
 using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Progress.Features.AttachWork;
 using Backlog.Modules.Progress.Features.CloseSprint;
 using Backlog.Modules.Progress.Features.ConfigureSeries;
 using Backlog.Modules.Progress.Features.CreateSeries;
 using Backlog.Modules.Progress.Features.FillSprint;
 using Backlog.Modules.Progress.Features.GetSeries;
+using Backlog.Modules.Progress.Features.ListGoals;
 using Backlog.Modules.Progress.Features.MarkSprintItem;
 using Backlog.Modules.Progress.Features.ReadSprintProgress;
+using Backlog.Modules.Progress.Features.SetGoal;
 using Backlog.Modules.Progress.Features.StartSprint;
 using Backlog.Modules.Progress.Services;
 using Backlog.SharedKernel;
@@ -78,6 +81,28 @@ public static class ProgressModuleRegistration
             sp.GetRequiredService<SeriesSaved>(),
             sp.GetRequiredService<ProgressGate>(),
             sp.GetService<ISprintSeriesRepository>()));
+
+        // Goals (local ADR 0035), beside the sprint code the plan +goals-standup retires.
+        // The port asks the goals switch at every call; the repository and the replica
+        // store are the host's, as the series' are.
+        services.TryAddSingleton<GoalSaved>();
+        services.AddScoped<GoalChanges>();
+        services.AddScoped<ListGoalsQueryHandler>();
+        services.AddScoped<SetGoalCommandHandler>();
+        services.AddScoped<AttachWorkCommandHandler>();
+        services.AddScoped<IGoals>(sp => new Goals(
+            sp.GetRequiredService<ListGoalsQueryHandler>(),
+            sp.GetRequiredService<SetGoalCommandHandler>(),
+            sp.GetRequiredService<AttachWorkCommandHandler>(),
+            sp.GetService<IAppFeatureSettings>(),
+            sp.GetRequiredService<GoalSaved>()));
+
+        // Each goal as a `goal` document on the task feed, on the series' terms. Not behind
+        // the goals switch: goals recorded while it is off are kept, so they travel too.
+        services.TryAddSingleton<IGoalReplication>(sp => new GoalReplication(
+            sp.GetService<IGoalReplicaStore>(),
+            sp.GetRequiredService<GoalSaved>(),
+            sp.GetRequiredService<ProgressGate>()));
 
         return services;
     }
