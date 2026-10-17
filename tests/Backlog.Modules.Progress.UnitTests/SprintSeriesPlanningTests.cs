@@ -29,7 +29,7 @@ public sealed class SprintSeriesPlanningTests : IDisposable
         services.AddSingleton<TimeProvider>(_time);
         services.AddSingleton<ISprintSeriesRepository>(_repository);
         services.AddSingleton<ISprintTaskSource>(_tasks);
-        services.AddSingleton<ISprintPullRequestReader>(_pulls);
+        services.AddSingleton<IGoalPullRequestReader>(_pulls);
         services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
 

@@ -22,8 +22,8 @@ except the reaction to a blocked task, and none of them writes to the other side
 | [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Progress = customer) | Registry lookup by repository alias | `.devbook/domain/repository-management/domain.md#repository-alias`, `.devbook/domain/repository-management/domain.md#archived-repository` | A pull request attachment names its repository, and No goal narrows to the header's repository scope. An archived repository's pull requests are not read. |
 
 A pull request's state, its checks, its approvals and the approvals its base branch's
-protection rule requires are read from GitHub by the same infrastructure reads the pull
-requests list uses. That is a transport rather than a relationship with another
+protection rule or rulesets require are read from GitHub by the same infrastructure the
+pull requests list uses, in a read of its own beside the In progress view's slimmer one. That is a transport rather than a relationship with another
 context: Progress names a pull request by its repository and number, and asks GitHub
 for nothing else. Where no GitHub is configured, or GitHub does not answer, a pull
 request reads as unknown and a task is done by its status alone.

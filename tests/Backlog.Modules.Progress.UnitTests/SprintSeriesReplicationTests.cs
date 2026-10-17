@@ -29,7 +29,7 @@ public sealed class SprintSeriesReplicationTests : IDisposable
         services.AddSingleton<ISprintSeriesRepository>(_repository);
         services.AddSingleton<ISprintSeriesReplicaStore>(_store);
         services.AddSingleton<ISprintTaskSource>(new FakeTaskSource());
-        services.AddSingleton<ISprintPullRequestReader>(new FakePullRequests());
+        services.AddSingleton<IGoalPullRequestReader>(new FakePullRequests());
         services.AddSingleton<IAppFeatureSettings>(_features);
         services.AddProgressModule();
 

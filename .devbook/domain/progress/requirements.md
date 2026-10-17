@@ -624,13 +624,25 @@ type: requirement
 status: draft
 ```
 
-The system SHALL show on every open pull request row in Progress an icon and its approvals as `approvals/required`, reading required from the base branch's protection rule.
+The system SHALL show on every open pull request row in Progress an icon and its approvals as `approvals/required`, reading required as the larger of the base branch's protection rule and its rulesets' pull request rules, and SHALL read no required total for a base branch no rule asks an approval of.
 
 #### Scenario: One of two approvals
 
 - **Given** #1341 has one approval and its base branch `main` requires two
 - **When** its row is drawn
 - **Then** it shows the approvals icon and `1/2`
+
+#### Scenario: A ruleset asks for the approval
+
+- **Given** #1350's base branch has no protection rule and a ruleset whose pull request rule requires one approval
+- **When** its row is drawn
+- **Then** required is 1
+
+#### Scenario: No rule asks for an approval
+
+- **Given** #1358's base branch `main` has a ruleset that requires status checks and no review
+- **When** its status is read
+- **Then** it has no required total, and its approvals still count the ones received
 
 ### Requirement: Checks and approvals are named for screen readers only
 

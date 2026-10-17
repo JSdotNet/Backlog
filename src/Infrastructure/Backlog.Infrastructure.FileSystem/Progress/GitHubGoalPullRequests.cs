@@ -7,35 +7,36 @@ using Backlog.Modules.Progress.Abstractions.Services;
 namespace Backlog.Infrastructure.FileSystem.Progress;
 
 /// <summary>
-/// Progress's <see cref="ISprintPullRequestReader"/>, answered from GitHub through the
-/// read by number the In progress view's linked pull requests already use
-/// (<see cref="GitHubIntegration.ListLinkedPullRequestsAsync"/>): each pull request's
-/// state, merge day, author and the day it was opened
-/// (<c>.devbook/domain/progress/dependencies.md</c>).
+/// Progress's <see cref="IGoalPullRequestReader"/>, answered from GitHub through the
+/// read by number with each pull request's status
+/// (<see cref="GitHubIntegration.ListLinkedPullRequestStatusesAsync"/>): its state, merge
+/// day, check counts and failing check names, approvals against the approvals its base
+/// branch requires, author and the day it was opened
+/// (<c>.devbook/domain/progress/dependencies.md</c>,
+/// <c>.devbook/domain/progress/features.md#pull-request-status</c>).
 /// <para>
 /// It keeps nothing of its own: it reads through
-/// <see cref="GitHubIntegration.ReadLinkedPullRequestsAsync"/>, the cache the In
-/// progress view's reader reads through too, so the sprint view and the Now view asking
-/// about the same links in one refresh ask GitHub once. On that cache's terms, a merged
-/// pull request is read once and kept for the life of the process, a number GitHub
-/// answered without is not asked about again, and any other is read again once its
-/// answer is older than <see cref="FreshFor"/>. A pull request GitHub could not be asked
-/// about — no GitHub configured, a repository that refused, a number that is not a pull
-/// request — answers <see cref="LinkedPullRequestState.Unknown"/> with no author, the
-/// module's own answer, so a member is then done by its task's status alone. A pull
-/// request in an archived repository (local ADR 0029) is not asked about: it answers
-/// whatever that cache last kept for it, stale or not, and unread otherwise. It never
-/// throws for GitHub's sake.
+/// <see cref="GitHubIntegration.ReadLinkedPullRequestStatusesAsync"/>, the adapter's
+/// status cache, which keeps answers on the terms the In progress view's linked read is
+/// kept on: a merged pull request is read once and kept for the life of the process, a
+/// number GitHub answered without is not asked about again, and any other is read again
+/// once its answer is older than <see cref="FreshFor"/>. A pull request GitHub could not
+/// be asked about — no GitHub configured, a repository that refused, a number that is not
+/// a pull request — answers <see cref="LinkedPullRequestState.Unknown"/> with no checks,
+/// no approvals and no author, the module's own answer, so a task is then done by its
+/// status alone. A pull request in an archived repository (local ADR 0029) is not asked
+/// about: it answers whatever that cache last kept for it, stale or not, and unread
+/// otherwise. It never throws for GitHub's sake.
 /// </para>
 /// </summary>
 /// <param name="gitHub">The GitHub adapter, resolved per call; null reads nothing.</param>
-public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub) : ISprintPullRequestReader
+public sealed class GitHubGoalPullRequests(Func<GitHubIntegration?> gitHub) : IGoalPullRequestReader
 {
     /// <summary>How long an answer that is not merged is kept before it is asked again —
     /// the In progress view's own freshness, so the two never disagree for long.</summary>
     public static readonly TimeSpan FreshFor = TimeSpan.FromMinutes(1);
 
-    public async Task<IReadOnlyList<LinkedPullRequestDto>> ReadAsync(
+    public async Task<IReadOnlyList<GoalPullRequestDto>> ReadAsync(
         IReadOnlyList<PullRequestRefDto> pullRequests,
         CancellationToken cancellationToken = default)
     {
@@ -48,13 +49,13 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub) : 
             .DistinctBy(Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var answers = new Dictionary<string, LinkedPullRequestDto>(StringComparer.OrdinalIgnoreCase);
+        var answers = new Dictionary<string, GoalPullRequestDto>(StringComparer.OrdinalIgnoreCase);
         if (wanted.Count > 0 && configured is not null)
         {
             // An archived repository is not read from GitHub (local ADR 0029). Left out of
             // the question rather than asked and answered empty, which the shared cache
             // would keep as answered without and so overwrite an answer already known with
-            // Unknown; the sprint keeps the repository and whatever was last read for it.
+            // Unknown; Progress keeps the repository and whatever was last read for it.
             var archived = wanted
                 .Where(reference => configured.ResolveRepository(reference.RepositoryFullName) is { Archived: true })
                 .ToList();
@@ -62,19 +63,19 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub) : 
 
             if (archived.Count > 0)
             {
-                Answer(answers, archived, configured.KeptLinkedPullRequests(archived), answeredWithout: false);
+                Answer(answers, archived, configured.KeptLinkedPullRequestStatuses(archived), answeredWithout: false);
             }
 
             if (active.Count > 0)
             {
                 try
                 {
-                    var listing = await configured.ReadLinkedPullRequestsAsync(active, FreshFor, cancellationToken).ConfigureAwait(false);
+                    var listing = await configured.ReadLinkedPullRequestStatusesAsync(active, FreshFor, cancellationToken).ConfigureAwait(false);
                     Answer(answers, active, listing, answeredWithout: true);
                 }
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    // GitHub not answering is the module's Unknown, not a failed sprint: what
+                    // GitHub not answering is the module's Unknown, not a failed reading: what
                     // was not read is asked about again on the next reading.
                 }
             }
@@ -84,7 +85,7 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub) : 
         // answers back to its links finds them.
         return [.. pullRequests.Select(pull => answers.TryGetValue(Key(pull), out var answer)
             ? answer with { Repository = pull.Repository, Number = pull.Number }
-            : LinkedPullRequestDto.Unread(pull))];
+            : GoalPullRequestDto.Unread(pull))];
     }
 
     /// <summary>Puts <paramref name="listing"/>'s answer to each of <paramref name="asked"/>
@@ -92,7 +93,7 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub) : 
     /// repository answered without — not a pull request, or deleted — answers Unknown; a
     /// listing of what was kept, which asked nothing, leaves such a link unread.</summary>
     private static void Answer(
-        Dictionary<string, LinkedPullRequestDto> answers,
+        Dictionary<string, GoalPullRequestDto> answers,
         IReadOnlyList<GitHubPullRequestReference> asked,
         GitHubLinkedPullRequestListing listing,
         bool answeredWithout)
@@ -113,24 +114,42 @@ public sealed class GitHubSprintPullRequests(Func<GitHubIntegration?> gitHub) : 
 
             if (pull is not null)
             {
-                answers[Key(reference)] = new LinkedPullRequestDto(
-                    reference.RepositoryFullName,
-                    reference.Number.ToString(CultureInfo.InvariantCulture),
-                    State(pull.State),
-                    pull.MergedAt is { } merged ? DateOnly.FromDateTime(merged.ToLocalTime().Date) : null,
-                    string.IsNullOrWhiteSpace(pull.AuthorLogin) ? null : pull.AuthorLogin,
-                    pull.CreatedAt is { } opened ? DateOnly.FromDateTime(opened.ToLocalTime().Date) : null);
+                answers[Key(reference)] = Map(pull) with
+                {
+                    Repository = reference.RepositoryFullName,
+                    Number = reference.Number.ToString(CultureInfo.InvariantCulture)
+                };
             }
             else if (answeredWithout && !whole && !refused.Contains(reference.RepositoryFullName.Trim()))
             {
-                answers[Key(reference)] = new LinkedPullRequestDto(
-                    reference.RepositoryFullName,
-                    reference.Number.ToString(CultureInfo.InvariantCulture),
-                    LinkedPullRequestState.Unknown,
-                    null,
-                    null);
+                answers[Key(reference)] = GoalPullRequestDto.Unread(
+                    new PullRequestRefDto(reference.RepositoryFullName, reference.Number.ToString(CultureInfo.InvariantCulture)));
             }
         }
+    }
+
+    /// <summary>
+    /// One pull request GitHub answered, as Progress reads it: the state; the merge and
+    /// opened days in local time; the check counts with the failing checks' names, or
+    /// none where the head commit has no checks or they were refused; the approvals
+    /// received and the approvals the base branch requires, null where no rule requires
+    /// one; and the author.
+    /// </summary>
+    public static GoalPullRequestDto Map(GitHubLinkedPullRequest pull)
+    {
+        ArgumentNullException.ThrowIfNull(pull);
+
+        return new GoalPullRequestDto(
+            pull.RepositoryFullName,
+            pull.Number.ToString(CultureInfo.InvariantCulture),
+            State(pull.State),
+            pull.MergedAt is { } merged ? DateOnly.FromDateTime(merged.ToLocalTime().Date) : null,
+            pull.CheckCounts is { } checks
+                ? new GoalPullRequestChecksDto(checks.Passed, checks.Failed, checks.Pending, [.. pull.FailingChecks])
+                : null,
+            new GoalPullRequestApprovalsDto(pull.Reviews.Approvals, pull.Reviews.Required),
+            string.IsNullOrWhiteSpace(pull.AuthorLogin) ? null : pull.AuthorLogin,
+            pull.CreatedAt is { } opened ? DateOnly.FromDateTime(opened.ToLocalTime().Date) : null);
     }
 
     private static GitHubPullRequestReference? Reference(PullRequestRefDto pull) =>
