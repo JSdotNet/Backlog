@@ -249,6 +249,10 @@ _ = app.Services.GetRequiredService<BackupWorker>();
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 
+// And the blocked-task watcher, on the same terms and for the same reason the desktop
+// head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
+
 // And the devbook database refresher: resolving it points every database reader
 // at the app's storage, so it has to exist before the first pane opens.
 _ = app.Services.GetRequiredService<DevbookDatabaseRefresher>();

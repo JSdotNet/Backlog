@@ -176,6 +176,10 @@ public static class SyncClientRegistration
         // above and IHttpClientFactory owns its lifetime — a singleton here would
         // pin one handler chain for the life of the process. The state they share
         // is the host's ITaskSyncStateStore, which is where the singleton belongs.
+        // The impediment edits a pull dealt with, waiting for the push that retires them
+        // (local ADR 0035 §8). A singleton: the merge that adds and the session that sends
+        // are transient, and must meet in one queue.
+        services.TryAddSingleton<ImpedimentEditRetirements>();
         services.TryAddTransient<TaskReplicaMerge>();
         services.TryAddTransient<TaskSyncSession>();
 

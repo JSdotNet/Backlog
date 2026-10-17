@@ -69,6 +69,37 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>The goal control the host cascades sits in the picked pull request's
+    /// head line, for that pull request: the rows are whole toggles, and a button cannot
+    /// sit inside one. With no slot cascaded the head line is what it was.</summary>
+    [Fact]
+    public void The_detail_head_line_draws_the_goal_for_the_picked_pull_request()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, updated: Noon.AddHours(-2)))
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2, updated: Noon.AddHours(-1)));
+        using var context = Context(client);
+        var drawn = new List<Backlog.UI.Components.Goals.GoalSubject>();
+        var slot = new Backlog.UI.Components.Goals.GoalControlSlot(subject => builder =>
+        {
+            drawn.Add(subject);
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "data-testid", "goal-slot");
+            builder.CloseElement();
+        });
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters.AddCascadingValue(slot));
+
+        pane.WaitForAssertion(() => Assert.NotNull(Detail(pane).QuerySelector(".pull-request-detail__line [data-testid='goal-slot']")));
+        Assert.Equal([Backlog.UI.Components.Goals.GoalSubject.ForPullRequest("JSdotNet/Archify", 2)], drawn.Distinct());
+        Assert.Empty(pane.FindAll("[data-testid='pull-request-row'] [data-testid='goal-slot']"));
+
+        using var bare = Context(new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1)));
+        var unslotted = bare.Render<PullRequestsPane>();
+        unslotted.WaitForAssertion(() => Detail(unslotted));
+        Assert.Empty(unslotted.FindAll("[data-testid='goal-slot']"));
+    }
+
     /// <summary>Mine on every open, because the list a person opens this for is their
     /// own; Everyone's widens it, and the badge names both numbers while it does
     /// not.</summary>
@@ -1168,7 +1199,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() =>
         {
             Assert.Equal("No checks have reported yet.", pane.Find("[data-testid='pull-request-detail-checks']").TextContent.Trim());
-            Assert.Empty(pane.FindAll("[data-testid='pull-request-checks-meter']"));
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-status-checks']"));
         });
     }
 
@@ -1879,11 +1910,50 @@ public sealed class PullRequestsPaneTests : IDisposable
 
     // --- Checks, labels and pins ----------------------------------------------
 
-    /// <summary>GitHub's "8/9" as a meter on the row — passed, failed and running as
-    /// three widths beside the words, the exact counts in its title — and the review in
-    /// words in the detail.</summary>
+    /// <summary>The rules of each row's base branch are read beside the list, so the
+    /// approvals mark carries a verdict: short of the required total, met at it, and the
+    /// count alone where no rule asks for one.</summary>
     [Fact]
-    public void The_checks_meter_says_its_counts_in_words_and_the_review_is_said_in_the_detail()
+    public void The_row_reads_its_base_branchs_required_approvals_into_a_verdict()
+    {
+        var client = new StubClient()
+            .Requires("main", 2)
+            .Requires("release", null)
+            .Lists(
+                "JSdotNet/Backlog",
+                Pull("JSdotNet/Backlog", 1) with { Reviews = new GitHubReviewSummary(GitHubReviewState.ReviewRequired, Approvals: 1, ChangesRequested: 0) },
+                Pull("JSdotNet/Backlog", 2) with { Reviews = new GitHubReviewSummary(GitHubReviewState.Approved, Approvals: 2, ChangesRequested: 0) },
+                Pull("JSdotNet/Backlog", 3) with
+                {
+                    BaseRefName = "release",
+                    Reviews = new GitHubReviewSummary(GitHubReviewState.None, Approvals: 1, ChangesRequested: 0)
+                });
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var shortOf = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-status-approvals']")!;
+            Assert.Equal("short", shortOf.GetAttribute("data-variant"));
+            Assert.Equal("1/2", shortOf.QuerySelector(".pull-request-status__count")!.TextContent);
+            Assert.Equal("1 of 2 approvals", shortOf.QuerySelector(".sr-only")!.TextContent);
+
+            var met = Row(pane, "JSdotNet/Backlog#2").QuerySelector("[data-testid='pull-request-status-approvals']")!;
+            Assert.Equal("met", met.GetAttribute("data-variant"));
+            Assert.Equal("2/2", met.QuerySelector(".pull-request-status__count")!.TextContent);
+
+            var unrequired = Row(pane, "JSdotNet/Backlog#3").QuerySelector("[data-testid='pull-request-status-approvals']")!;
+            Assert.Equal("unrequired", unrequired.GetAttribute("data-variant"));
+            Assert.Equal("1 approval, none required", unrequired.QuerySelector(".sr-only")!.TextContent);
+        });
+    }
+
+    /// <summary>The row's status line (.devbook/domain/progress/features.md#pull-request-status):
+    /// checks as passed/total in their variant and approvals as received/required, the
+    /// words for a screen reader only — and the review in words in the detail.</summary>
+    [Fact]
+    public void The_row_carries_the_status_line_and_the_review_is_said_in_the_detail()
     {
         var client = new StubClient().Lists(
             "JSdotNet/Backlog",
@@ -1908,17 +1978,26 @@ public sealed class PullRequestsPaneTests : IDisposable
 
         pane.WaitForAssertion(() =>
         {
-            var first = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-checks-meter']")!;
-            Assert.Equal("7/10 checks passed", NormalizedText(first));
-            Assert.Equal("7 of the head commit's 10 checks passed, 1 failed, 2 still running or waiting.", first.GetAttribute("title"));
-            Assert.Equal("--checks-passed: 7; --checks-failed: 1; --checks-running: 2", first.GetAttribute("style"));
-            Assert.Equal(3, first.QuerySelectorAll("[aria-hidden='true'] > span").Length);
+            var first = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-status-checks']")!;
+            Assert.Equal("failing", first.GetAttribute("data-variant"));
+            Assert.Equal("7/10", first.QuerySelector(".pull-request-status__count")!.TextContent);
+            Assert.Equal("7 of 10 checks failing", first.QuerySelector(".sr-only")!.TextContent);
+            // The base branch's rules were not read: the count alone, and no verdict on
+            // whether it is enough.
+            var approvals = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-status-approvals']")!;
+            Assert.Equal("received", approvals.GetAttribute("data-variant"));
+            Assert.Equal("1", approvals.QuerySelector(".pull-request-status__count")!.TextContent);
+            Assert.Equal("1 approval", approvals.QuerySelector(".sr-only")!.TextContent);
 
-            var second = Row(pane, "JSdotNet/Backlog#2").QuerySelector("[data-testid='pull-request-checks-meter']")!;
-            Assert.Equal("9/9 checks passed", NormalizedText(second));
+            // The row already names the pull request: the line draws no second #n.
+            Assert.Null(Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-status-number']"));
 
-            // No counts read: no meter.
-            Assert.Null(Row(pane, "JSdotNet/Backlog#3").QuerySelector("[data-testid='pull-request-checks-meter']"));
+            var second = Row(pane, "JSdotNet/Backlog#2").QuerySelector("[data-testid='pull-request-status-checks']")!;
+            Assert.Equal("passed", second.GetAttribute("data-variant"));
+            Assert.Equal("9/9", second.QuerySelector(".pull-request-status__count")!.TextContent);
+
+            // No counts read: no checks mark.
+            Assert.Null(Row(pane, "JSdotNet/Backlog#3").QuerySelector("[data-testid='pull-request-status-checks']"));
         });
 
         Select(pane, "JSdotNet/Backlog#1");
@@ -2572,6 +2651,23 @@ public sealed class PullRequestsPaneTests : IDisposable
             _lists[fullName] = () => pulls;
             return this;
         }
+
+        private readonly Dictionary<string, int?> _required = new(StringComparer.Ordinal);
+
+        /// <summary>The approvals a base branch's rules require, as the rules read answers
+        /// them: a null value is a branch read with no rule. A branch not named is unread.</summary>
+        public StubClient Requires(string branch, int? approvals)
+        {
+            _required[branch] = approvals;
+            return this;
+        }
+
+        public Task<IReadOnlyDictionary<string, int?>> ReadRequiredApprovalsAsync(
+            GitHubRepositoryRef repository,
+            IReadOnlyCollection<string> branches,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<string, int?>>(
+                branches.Where(_required.ContainsKey).ToDictionary(branch => branch, branch => _required[branch], StringComparer.Ordinal));
 
         private readonly Dictionary<string, List<GitHubOpenPullRequest>> _byNumber = new(StringComparer.OrdinalIgnoreCase);
 

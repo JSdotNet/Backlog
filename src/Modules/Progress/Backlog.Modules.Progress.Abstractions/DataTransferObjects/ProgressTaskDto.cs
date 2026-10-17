@@ -1,0 +1,70 @@
+namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+
+/// <summary>
+/// One task as Progress reads it from Tasks, through <see cref="Services.IProgressTaskSource"/>.
+/// A snapshot for one reading: Progress keeps no copy of it.
+/// </summary>
+/// <param name="IsBlocked">Whether a person marked the task blocked.</param>
+/// <param name="PlanTags">The roadmap slugs the task's tags carry, without the <c>+</c>
+/// sigil: its plan tags, and the bare tag an entry filed before the sigil — or tagged
+/// <c>#slug</c> — carries, the set the roadmap item of that slug gathers by tag. Named by
+/// Tasks' <c>PlanTagMatch.SlugsCarried</c> where the task is read, since Progress may not
+/// reach Tasks.</param>
+/// <param name="RepositoryAliases">The repositories the task belongs to, by alias.</param>
+/// <param name="Tags">The task's tags as written, plan tags included.</param>
+/// <param name="CompletedOn">The day the task was finished, when it is.</param>
+/// <param name="CreatedOn">The day the task was created, when known.</param>
+/// <param name="PullRequests">The pull requests linked to the task.</param>
+/// <param name="StartedOn">The day work on the task first moved to in progress, when
+/// Tasks knows it. Last and defaulted, so a caller written before it still constructs one.</param>
+/// <param name="BlockedSince">The day a person marked the task blocked, while it is.</param>
+/// <param name="DueOn">The day the task is due, when it has one — what the stand-up's
+/// Planned reads the items due in the next window from. Defaulted, as the ones above.</param>
+/// <param name="Effort">The task's <c>effort:</c> in story points, when it carries one.</param>
+/// <param name="Order">The task's place in the backlog's order — a plan's order among its entries.</param>
+/// <param name="WaitsOnOpenWork">Whether one of the task's <c>after:</c> dependencies, resolved
+/// against the whole backlog, names a task that is not done or names no live task — so the
+/// task is not ready yet (<c>.devbook/domain/tasks/domain.md#readiness</c>).</param>
+public sealed record ProgressTaskDto(
+    Guid Id,
+    string Title,
+    ProgressTaskStatus Status,
+    bool IsBlocked,
+    IReadOnlyList<string> PlanTags,
+    IReadOnlyList<string> RepositoryAliases,
+    IReadOnlyList<string> Tags,
+    DateOnly? CompletedOn,
+    DateOnly? CreatedOn,
+    IReadOnlyList<PullRequestRefDto> PullRequests,
+    DateOnly? StartedOn = null,
+    DateOnly? BlockedSince = null,
+    DateOnly? DueOn = null,
+    int? Effort = null,
+    int Order = 0,
+    bool WaitsOnOpenWork = false);
+
+/// <summary>A pull request linked to a task: the repository it lives in and its
+/// number, as the task records it.</summary>
+public sealed record PullRequestRefDto(string Repository, string Number);
+
+/// <summary>What a linked pull request says about itself, as the counting rules read it:
+/// its state and when it merged. <see cref="LinkedPullRequestState.Unknown"/> until
+/// something reads it.</summary>
+public sealed record LinkedPullRequestDto(
+    string Repository,
+    string Number,
+    LinkedPullRequestState State,
+    DateOnly? MergedOn)
+{
+    public static LinkedPullRequestDto Unread(PullRequestRefDto pullRequest) =>
+        new(pullRequest.Repository, pullRequest.Number, LinkedPullRequestState.Unknown, null);
+
+    /// <summary>The goals reader's answer as the counting rules read it: the state and the
+    /// merge day. The checks and the approvals are the Goals view's, read from the answer
+    /// itself.</summary>
+    public static LinkedPullRequestDto Of(GoalPullRequestDto pull)
+    {
+        ArgumentNullException.ThrowIfNull(pull);
+        return new(pull.Repository, pull.Number, pull.State, pull.MergedOn);
+    }
+}

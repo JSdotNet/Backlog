@@ -28,6 +28,7 @@ using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
+using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
@@ -139,10 +140,12 @@ public static class DesktopCompositionRegistration
         // planning port it holds exists.
         services.AddRoadmapAiContentSource();
 
-        // Progress (local ADR 0028): the sprint series and the progress service. Its
-        // ports ask the progress switch at every call and its screens draw under it,
-        // so composing it offers nothing while the switch is off.
+        // Progress (local ADR 0035): goals, impediments and the stand-up, always on
+        // (§10).
         services.AddProgressModule();
+        // The stand-up behind the shell's Ask AI port on the Goals view, after the
+        // module so the scoped stand-up port it holds exists.
+        services.AddGoalsAiContentSource();
 
         // Capture: the module brings the run, and the head decides where the
         // monitored sources and what past runs said are kept. The source adapters
@@ -157,7 +160,7 @@ public static class DesktopCompositionRegistration
         // services they capture.
         services.AddRoadmapCrossContextAdapters();
 
-        // The tasks a sprint names, read through Tasks' published ITaskItems.
+        // The tasks goals name, read through Tasks' published ITaskItems.
         services.AddProgressCrossContextAdapters();
 
         // The backlog's work badges ask what state a linked agent session is in; the
@@ -295,9 +298,8 @@ public static class DesktopCompositionRegistration
         // The Devices page: register or pair this device, where the sync service
         // is, and the task and session loops. Offered behind the sync switch.
         services.AddSyncSettings();
-        // The Sprints page: a card per sprint series and the repositories in none.
-        // Offered behind the progress switch, like every Progress screen.
-        services.AddProgressSettings();
+        // "Attach to goal" on tasks, plans and pull requests, cascaded to every screen.
+        services.AddGoalControls();
         // The band under every route reads the backlog's save state through the
         // library's interface, and the toast tray in MainLayout reads the channel a
         // screen puts a message in; concrete type and interface resolve the same one.
@@ -326,6 +328,9 @@ public static class DesktopCompositionRegistration
         // navigation file beside the surface it reopens on.
         services.AddSingleton<Backlog.Modules.DevPc.Abstractions.IToolsViewPreferences>(sp =>
             new ToolsViewPreferences(sp.GetService<ShellNavigationStore>()));
+        // The iteration the Goals view and the stand-up read in, kept in the same file.
+        services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>(sp =>
+            new Backlog.Infrastructure.FileSystem.Progress.IterationSettings(sp.GetService<ShellNavigationStore>()));
         // Show archived (local ADR 0029, §3): whether the archived repositories are
         // offered in the scope, the Board and the pickers, kept per device in the same file.
         services.AddSingleton<Backlog.SharedKernel.IShowArchivedRepositories>(sp =>

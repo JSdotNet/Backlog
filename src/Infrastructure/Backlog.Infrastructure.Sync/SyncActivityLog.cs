@@ -30,13 +30,17 @@ public enum SyncItemKind
     /// <summary>A note: the one Inbox item that syncs both ways with the phone.</summary>
     Note,
 
-    /// <summary>A sprint series: its cadence, its sprints and what each holds, as one
-    /// whole document.</summary>
-    SprintSeries,
-
     /// <summary>The My Day preferences: the Clear My Day overnight switch, as one whole
     /// document (local ADR 0032).</summary>
     MyDayPreferences,
+
+    /// <summary>A goal: its title, outcome, due date and attachments, as one whole
+    /// document (local ADR 0035 §9).</summary>
+    Goal,
+
+    /// <summary>An impediment: its state, history, check-again date, note and the tasks it
+    /// holds back, as one whole document (local ADR 0035 §9).</summary>
+    Impediment,
 }
 
 /// <summary>

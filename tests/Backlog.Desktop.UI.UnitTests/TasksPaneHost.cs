@@ -228,6 +228,17 @@ internal sealed class TasksPaneHost : IDisposable
         /// each repository is answered its own.</summary>
         public List<GitHubOpenPullRequest> OpenPullRequests { get; } = [];
 
+        /// <summary>The approvals each base branch's rules require, by branch; a branch
+        /// not named here is one whose rules could not be read.</summary>
+        public Dictionary<string, int?> RequiredApprovals { get; } = new(StringComparer.Ordinal);
+
+        public Task<IReadOnlyDictionary<string, int?>> ReadRequiredApprovalsAsync(
+            GitHubRepositoryRef repository,
+            IReadOnlyCollection<string> branches,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<string, int?>>(
+                branches.Where(RequiredApprovals.ContainsKey).ToDictionary(branch => branch, branch => RequiredApprovals[branch], StringComparer.Ordinal));
+
         public Task<IReadOnlyList<GitHubOpenPullRequest>> ListOpenPullRequestsAsync(
             GitHubRepositoryRef repository,
             CancellationToken cancellationToken = default)
@@ -267,6 +278,27 @@ internal sealed class TasksPaneHost : IDisposable
         /// <summary>Set, a read by number answers only once it completes — how a test
         /// holds that read back while the rest lands.</summary>
         public TaskCompletionSource? ByNumberGate { get; set; }
+
+        /// <summary>Every status read by number asked, as <c>owner/name 1,2</c> — kept apart
+        /// from <see cref="ReadByNumber"/>, so a test tells the status read from the slim one.</summary>
+        public List<string> StatusReadByNumber { get; } = [];
+
+        /// <summary>The status read answers what <see cref="PullRequestsByNumber"/> holds,
+        /// status facts and all, and records itself in <see cref="StatusReadByNumber"/>.</summary>
+        public Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestStatusesAsync(
+            GitHubRepositoryRef repository,
+            IReadOnlyCollection<int> numbers,
+            CancellationToken cancellationToken = default)
+        {
+            StatusReadByNumber.Add($"{repository.FullName} {string.Join(",", numbers.Order())}");
+
+            IReadOnlyList<GitHubLinkedPullRequest> answer =
+                [.. PullRequestsByNumber.Where(pull =>
+                    numbers.Contains(pull.Number)
+                    && string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))];
+
+            return Task.FromResult(answer);
+        }
 
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();

@@ -129,7 +129,8 @@ public sealed class TaskSyncWorker : IDisposable
     private readonly ITaskChangeSignal? _changes;
     private readonly IRoadmapReplication? _roadmap;
     private readonly IGitHubSettingsReplication? _github;
-    private readonly ISprintSeriesReplication? _sprints;
+    private readonly IGoalReplication? _goals;
+    private readonly IImpedimentReplication? _impediments;
     private readonly IMyDayPreferencesReplication? _myDay;
     private readonly ILogger _log;
 
@@ -200,13 +201,15 @@ public sealed class TaskSyncWorker : IDisposable
     /// local-change notice only: a binding set or an account added here is pushed
     /// after the same settle delay (local ADR 0021). Null on a head that keeps no
     /// GitHub settings.</param>
-    /// <param name="sprints">Progress's replication port, for its local-change notice
-    /// only: a sprint series changed here is pushed after the same settle delay. Null on
-    /// a head without Progress.</param>
     /// <param name="myDay">The My Day preferences replication port, for its local-change
     /// notice — a switch flipped here is pushed after the same settle delay — and for the
     /// one-time feed replay that catches an upgraded device up on preferences its cursor
     /// had passed (local ADR 0032). Null on a head that keeps none.</param>
+    /// <param name="goals">Progress's goal replication port, for its local-change notice
+    /// only: a goal changed here is pushed after the same settle delay (local ADR 0035).
+    /// Null on a head without Progress.</param>
+    /// <param name="impediments">Progress's impediment replication port, for its
+    /// local-change notice only, on the goals' terms. Null on a head without Progress.</param>
     public TaskSyncWorker(
         IServiceProvider services,
         IAppFeatureSettings features,
@@ -217,8 +220,9 @@ public sealed class TaskSyncWorker : IDisposable
         ITaskChangeSignal? changes = null,
         IRoadmapReplication? roadmap = null,
         IGitHubSettingsReplication? github = null,
-        ISprintSeriesReplication? sprints = null,
-        IMyDayPreferencesReplication? myDay = null)
+        IMyDayPreferencesReplication? myDay = null,
+        IGoalReplication? goals = null,
+        IImpedimentReplication? impediments = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(features);
@@ -234,8 +238,9 @@ public sealed class TaskSyncWorker : IDisposable
         _changes = changes;
         _roadmap = roadmap;
         _github = github;
-        _sprints = sprints;
         _myDay = myDay;
+        _goals = goals;
+        _impediments = impediments;
         _log =log ?? NullLogger<TaskSyncWorker>.Instance;
 
         // Both gates can move while the app is running, and each of them moving
@@ -245,8 +250,9 @@ public sealed class TaskSyncWorker : IDisposable
         if (_changes is not null) _changes.Changed += OnLocalChange;
         if (_roadmap is not null) _roadmap.Changed += OnLocalChange;
         if (_github is not null) _github.Changed += OnLocalChange;
-        if (_sprints is not null) _sprints.Changed += OnLocalChange;
         if (_myDay is not null) _myDay.Changed += OnLocalChange;
+        if (_goals is not null) _goals.Changed += OnLocalChange;
+        if (_impediments is not null) _impediments.Changed += OnLocalChange;
 
         ApplyGates();
     }
@@ -379,8 +385,9 @@ public sealed class TaskSyncWorker : IDisposable
         if (_changes is not null) _changes.Changed -= OnLocalChange;
         if (_roadmap is not null) _roadmap.Changed -= OnLocalChange;
         if (_github is not null) _github.Changed -= OnLocalChange;
-        if (_sprints is not null) _sprints.Changed -= OnLocalChange;
         if (_myDay is not null) _myDay.Changed -= OnLocalChange;
+        if (_goals is not null) _goals.Changed -= OnLocalChange;
+        if (_impediments is not null) _impediments.Changed -= OnLocalChange;
 
         _lifetime.Cancel();
         _lifetime.Dispose();
@@ -681,7 +688,7 @@ public sealed class TaskSyncWorker : IDisposable
         var state = _state.Current;
 
         // Every document the push offers again: the tasks, the roadmap's two, the
-        // GitHub settings' two and every sprint series.
+        // GitHub settings' two, every goal and every impediment.
         if (republish) state = state with { PushWatermark = DateTimeOffset.MinValue, DocumentWatermarks = null };
         if (rehydrate) state = state with { PullCursor = null };
 

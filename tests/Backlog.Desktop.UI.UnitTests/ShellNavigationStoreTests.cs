@@ -508,57 +508,6 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>
-    /// The In progress view's two toggles survive a restart: "Needs you first" is on
-    /// and "Include finished today" is off until changed, and each key is written only
-    /// while its toggle is away from that default.
-    /// </summary>
-    [Fact]
-    public void The_in_progress_toggles_survive_a_restart_and_their_defaults_write_no_key()
-    {
-        var path = NewSettingsPath();
-
-        try
-        {
-            var store = new ShellNavigationStore(path);
-            Assert.True(store.InProgressNeedsYouFirst);
-            Assert.False(store.InProgressIncludeFinishedToday);
-
-            store.SetLastView("InProgress");
-            using (var none = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(none.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
-                Assert.False(none.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
-            }
-
-            store.SetInProgressNeedsYouFirst(false);
-            store.SetInProgressIncludeFinishedToday(true);
-            using (var changed = JsonDocument.Parse(Written(path)))
-            {
-                Assert.False(changed.RootElement.GetProperty("inProgressNeedsYouFirst").GetBoolean());
-                Assert.True(changed.RootElement.GetProperty("inProgressIncludeFinishedToday").GetBoolean());
-            }
-
-            var restarted = new ShellNavigationStore(path);
-            Assert.False(restarted.InProgressNeedsYouFirst);
-            Assert.True(restarted.InProgressIncludeFinishedToday);
-            Assert.Equal("InProgress", restarted.LastView);
-
-            restarted.SetInProgressNeedsYouFirst(true);
-            restarted.SetInProgressIncludeFinishedToday(false);
-            var restartedAgain = new ShellNavigationStore(path);
-            Assert.True(restartedAgain.InProgressNeedsYouFirst);
-            Assert.False(restartedAgain.InProgressIncludeFinishedToday);
-            using var cleared = JsonDocument.Parse(Written(path));
-            Assert.False(cleared.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
-            Assert.False(cleared.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
-        }
-        finally
-        {
-            DeleteSettingsDirectory(path);
-        }
-    }
-
-    /// <summary>
     /// The header's repository scope survives a restart in the order it was chosen, so
     /// its anchor — the first alias — stays first. An empty scope is every repository
     /// and writes no key.
@@ -709,8 +658,6 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.Equal("Month", store.CalendarRange);
-            Assert.True(store.InProgressNeedsYouFirst);
-            Assert.False(store.InProgressIncludeFinishedToday);
             Assert.Empty(store.RepositoryScope);
             Assert.Equal("Plan", store.BoardColumns);
 
@@ -718,8 +665,6 @@ public sealed class ShellNavigationStoreTests
 
             using var document = JsonDocument.Parse(Written(path));
             Assert.False(document.RootElement.TryGetProperty("calendarRange", out _));
-            Assert.False(document.RootElement.TryGetProperty("inProgressNeedsYouFirst", out _));
-            Assert.False(document.RootElement.TryGetProperty("inProgressIncludeFinishedToday", out _));
             Assert.False(document.RootElement.TryGetProperty("repositoryScope", out _));
             Assert.Equal("Plan", document.RootElement.GetProperty("boardColumns").GetString());
         }
@@ -763,24 +708,20 @@ public sealed class ShellNavigationStoreTests
             store.Changed += () => changes++;
 
             store.SetCalendarRange("Month");
-            store.SetInProgressNeedsYouFirst(true);
-            store.SetInProgressIncludeFinishedToday(false);
             store.SetRepositoryScope([]);
             Assert.Equal(0, changes);
             Assert.False(File.Exists(path));
 
             store.SetCalendarRange("Week");
-            store.SetInProgressNeedsYouFirst(false);
-            store.SetInProgressIncludeFinishedToday(true);
             store.SetRepositoryScope(["backlog", "docs"]);
-            Assert.Equal(4, changes);
+            Assert.Equal(2, changes);
 
             store.SetRepositoryScope(["backlog", "docs"]);
-            Assert.Equal(4, changes);
+            Assert.Equal(2, changes);
 
             // The order is the anchor, so the same aliases in another order are a change.
             store.SetRepositoryScope(["docs", "backlog"]);
-            Assert.Equal(5, changes);
+            Assert.Equal(3, changes);
         }
         finally
         {

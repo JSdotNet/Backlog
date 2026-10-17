@@ -654,6 +654,114 @@ their lifecycles five different ways. `DevbookStatus`
 words onto one set of status tones. Review surface: storybook → *Badges*, and
 *Devbook* → **State**.
 
+### Impediment state tones
+
+```meta
+status: draft
+related: [".devbook/domain/progress/domain.md#impediment-state", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
+```
+
+An [impediment](../domain/progress/domain.md#impediment-state) wears one badge
+for its state, taken from the [tone scale](#badge-and-chip-tones) above. The
+scale gains no tone: the states map onto the tones it already has.
+
+| State | Tone | Drawn as |
+|---|---|---|
+| New | `quiet`, plus a dot | Outlined, `color-secondary` ink, and a leading dot in `color-error-text` |
+| Reported | `quiet` | Outlined, `color-secondary` ink |
+| Escalated | `fault` | `color-error` surface, `color-error-text` ink and edge, and a leading up arrow |
+| Being handled | `alert` | `color-warning` surface, `color-text-primary` ink, `color-border-strong` edge |
+| Resolved | `settled` | `color-success` surface, `color-success-text` ink, `color-border-strong` edge |
+
+Rules:
+
+- The dot on **New** says nobody has been told yet. It is a non-text mark, and
+  `color-error-text` clears the 3:1 such a mark owes on every surface it sits on
+  (5.17:1 on `color-background-raised`, the lightest). The dot is hidden from
+  assistive technology, because the badge's word already says New. The up arrow on
+  Escalated is hidden the same way.
+- Reported is outlined because nothing waits on the person: the impediment is in
+  someone else's hands. Escalated, Being handled and Resolved are filled, since
+  each is a state the person acts on or confirms.
+- The state history in an impediment's detail draws each step's marker in the
+  ink of its state's row above. A step not reached yet is an empty ring in
+  `color-border`, and the word beside it carries the meaning.
+- The stand-up's state picker wears the same badge as a read-only state, so an
+  editable state and a shown one look alike.
+
+Review surface: storybook → *Progress* → **Goals view** (the stories
+*Impediment New* through *Impediment Resolved*, and *Stand-up*), and the phone's
+storybook → *Stand-up*, **Badges** and **State list**.
+
+### Goal forecast badges
+
+```meta
+status: draft
+related: [".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/features.md#the-goals-view"]
+```
+
+A goal's forecast is one of two badges, from the [tone scale](#badge-and-chip-tones).
+
+| Forecast | Tone | Drawn as |
+|---|---|---|
+| At risk | `fault` | `color-error` surface, `color-error-text` ink and edge |
+| On track | `settled` | `color-success` surface, `color-success-text` ink, `color-border-strong` edge |
+
+At risk takes its own ink as its edge, which the tone scale allows a `fault`
+chip alone. On track takes `color-border-strong`, as every other filled chip
+does, so the two badges differ by more than their hue.
+
+Review surface: storybook → *Progress* → **Goals view** (*At risk*, *On track*).
+
+### Pull request status marks
+
+```meta
+status: draft
+related: [".devbook/domain/progress/features.md#pull-request-status", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/typography-and-layout.md#iconography"]
+```
+
+Every pull request row carries two [status marks](../domain/progress/features.md#pull-request-status):
+its checks and its approvals. Each mark is a Lucide glyph followed by a count,
+and both take the mark's ink.
+
+| Mark | Variant | Glyph | Count | Ink |
+|---|---|---|---|---|
+| Checks | Passed | `circle-check` | `passed/total` | `color-success-text` |
+| Checks | Running | `circle-dashed` | `passed/total` | `color-primary-light` |
+| Checks | Failing | `circle-x` | `passed/total` | `color-error-text` |
+| Approvals | Met | `user-check` | `approvals/required` | `color-success-text` |
+| Approvals | Short | `user-check` | `approvals/required` | `color-primary-light` |
+
+Rules:
+
+- The words "checks" and "approvals" MUST NOT be printed on the row. Each mark
+  carries them as visually hidden text, together with the variant, and the
+  visible count is hidden from assistive technology, so a screen reader hears
+  one phrase: "9 of 14 checks running", "1 of 2 approvals".
+- The glyph is decorative and hidden from assistive technology, per
+  `accessibility.md#iconography-accessibility`. The count and the hidden words
+  carry the meaning, so the ink is never the sole carrier.
+- Running and Short share `color-primary-light`, the `live` ink, because both
+  say that the pull request is still moving. A different glyph tells them apart.
+- Every ink here measures at least 3:1 as a glyph and 4.5:1 as text on the
+  surfaces a row sits on, per the
+  [contrast rules](#contrast-rules-wcag-aa-minimum).
+- A pull request with no checks, or whose checks total nought, draws no checks
+  mark.
+- A base branch no rule asks an approval of (required unset or nought) draws the
+  `user-check` glyph and the received count alone, in `color-text-secondary`,
+  spoken "n approvals, none required".
+- Where the rules were not read, the count stands alone in the same ink, spoken
+  "n approvals", with no verdict.
+- Approvals not read at all draw no approvals mark.
+- A merged pull request reads "merged" in `color-text-secondary` in place of
+  both marks.
+- The line leads with the pull request's `#n` pill in the `gh` badge family
+  ([badge tones](#badge-and-chip-tones)). A row that already names the number
+  shows the marks alone.
+
+Review surface: storybook → *Progress* → **Pull request status**.
+
 ### Chart roles
 
 ```meta

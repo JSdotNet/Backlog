@@ -1,0 +1,118 @@
+@*
+    An impediment's state as the list of every state it can be in, top to bottom
+    in the order it moves (.devbook/domain/progress/domain.md#impediment-state):
+    the states it has passed ticked with the day and who it was with then, the
+    one it is in lit in its own tone, and the ones still ahead as empty rings
+    (.devbook/design/color-scheme.md#impediment-state-tones). Choosing a state
+    moves it there, so the list is the state control as well as its history.
+
+    A RadioGroup, so it is one stop in the tab order with the arrow keys moving
+    through it, the library's one keyboard idiom for "one of these" — with manual
+    activation: the arrows move the focus only, and Space, Enter or a tap takes a
+    state. Taking one queues a change a desktop applies, and Resolved is one
+    arrow away from New, so a choice is never made by passing over it. Only the
+    moves the host says the domain allows (CanMoveTo) can be taken; every other
+    state is drawn and the arrows step over it. Every row is at least 44px tall
+    (.devbook/design/accessibility.md#target-sizes-and-text). The marker is
+    decoration; the radio's words carry the state.
+*@
+
+<RadioGroup TValue="StandupImpedimentState"
+            Options="StandupWords.States"
+            Value="Current"
+            ValueChanged="SelectAsync"
+            OptionContent="@Step"
+            OptionDisabled="IsRefused"
+            SelectOnFocus="false"
+            OptionTestId="@(state => PartTestId(StandupWords.Slug(state)))"
+            Disabled="Disabled"
+            AriaLabel="@AriaLabel"
+            BaseClass="@ClassValue"
+            OptionVariantClass=""
+            OptionCssClass="impediment-steps__step"
+            CheckedOptionCssClass="impediment-steps__step impediment-steps__step--current"
+            TestId="@TestId" />
+
+@code {
+    /// <summary>The state it is in now.</summary>
+    [Parameter]
+    public StandupImpedimentState Current { get; set; }
+
+    /// <summary>Every move it made, in order; the last step for a state gives its day
+    /// and who it was with.</summary>
+    [Parameter]
+    public IReadOnlyList<StandupImpedimentStep> History { get; set; } = [];
+
+    /// <summary>Which states the current one may move to, by the domain's rule; the host
+    /// passes it, as the library knows no rule. Without it every state may be chosen.</summary>
+    [Parameter]
+    public Func<StandupImpedimentState, bool>? CanMoveTo { get; set; }
+
+    /// <summary>Raised with the state a person chose.</summary>
+    [Parameter]
+    public EventCallback<StandupImpedimentState> OnSelect { get; set; }
+
+    /// <summary>Every state drawn and none can be taken.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "State";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The group's test id; each state's radio gets <c>{TestId}-{state}</c>,
+    /// the state as its slug.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "impediment-steps" : $"impediment-steps {CssClass}";
+
+    private string PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? part : $"{TestId}-{part}";
+
+    private bool IsRefused(StandupImpedimentState state) =>
+        state != Current && CanMoveTo is { } allowed && !allowed(state);
+
+    /// <summary>The last time it moved to <paramref name="state"/>, if it ever did.</summary>
+    private StandupImpedimentStep? StepOf(StandupImpedimentState state) =>
+        History.LastOrDefault(step => step.State == state);
+
+    /// <summary>Where a state sits against the current one: passed (behind it and
+    /// reached), current, or open (ahead of it, or skipped on the way).</summary>
+    private string Phase(StandupImpedimentState state) =>
+        state == Current ? "current" : state < Current && StepOf(state) is not null ? "passed" : "open";
+
+    private Task SelectAsync(StandupImpedimentState state) => OnSelect.InvokeAsync(state);
+
+    private RenderFragment Step(StandupImpedimentState state) => __builder =>
+    {
+        var phase = Phase(state);
+        var step = phase == "open" ? null : StepOf(state);
+
+        <span class="@($"impediment-steps__marker impediment-steps__marker--{phase} impediment-steps__marker--{StandupWords.Slug(state)}")"
+              data-phase="@phase" aria-hidden="true">
+            @if (phase == "current" && state == StandupImpedimentState.Escalated)
+            {
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.5"
+                     stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
+            }
+            else if (phase != "open")
+            {
+                <CheckIcon Size="12" CssClass="impediment-steps__tick" />
+            }
+        </span>
+        <span class="impediment-steps__label">
+            @StandupWords.Label(state)
+            @if (!string.IsNullOrWhiteSpace(step?.With))
+            {
+                <span class="impediment-steps__with"> · @step.With</span>
+            }
+        </span>
+        @if (step is not null)
+        {
+            @* The space keeps the day its own word in the radio's accessible name. *@
+            <span class="impediment-steps__day">@($" {StandupWords.StepDay(step.On)}")</span>
+        }
+    };
+}

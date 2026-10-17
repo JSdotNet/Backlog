@@ -3,7 +3,7 @@
 ```meta
 date: 2026-10-13
 status: proposed
-related: [".devbook/domain/progress/context.md", ".devbook/domain/context-map.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/roadmap/domain.md#roadmap-tag", ".devbook/domain/sessions/features.md#in-progress-by-task"]
+related: [".devbook/domain/progress/context.md", ".devbook/domain/context-map.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/roadmap/domain.md#roadmap-tag", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
 ```
 
 Sprints get a bounded context of their own, **Progress**. It names a task by its
@@ -18,6 +18,13 @@ sprint exists.
 Proposed, 2026-10-13. Not yet built: the plan `+progress-sprints` builds it. It
 awaits acceptance at the Personal Validation gate of the flow-spec run that
 drafted it.
+
+> **Superseded in part, 2026-10-17, by
+> [ADR 0035](0035-goals-and-impediments-replace-sprints.md) (proposed).** Its
+> sprint parts give way to goals and impediments: §1's sprint series, sprints,
+> membership, goal rules and close outcomes, §2's sprint items and plan links,
+> and §4's `progress` flag, now `goals`. Progress as its own boundary, references
+> by id and tag, and Tasks knowing nothing of Progress still stand.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.

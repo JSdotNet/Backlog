@@ -1,17 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <!--
-    The Progress module's UI (.devbook/domain/progress/features.md): the one rule every
-    Progress screen draws under — ProgressOnly renders its content only while the
-    progress switch is on, so with it off nothing of Progress is drawn — and Settings ›
-    Sprints, registered on the settings screen by AddProgressSettings — and the In
-    progress tab's sprint view (InProgress/InProgressSprints), which the desktop shell
-    composes around its view by task. The board it draws is the shared library's
-    SprintBoard, so the storybook shows it with no series behind it.
+    The Progress module's UI (.devbook/domain/progress/features.md): the Goals view
+    (Goals/GoalsHost), which the desktop shell draws as one of its main views, and
+    the attach-to-goal control it offers on tasks and pull requests. The board it draws
+    is the shared library's GoalsBoard, so the storybook shows it with no goal behind it.
 
     It references the shared control library rather than growing its own controls,
     which is the rule every module UI project follows, and the module's published
-    surface only — never the series, its repository or the handlers.
+    surface only — never a goal, its repository or the handlers.
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Modules.Progress.UI</RootNamespace>
@@ -19,15 +16,20 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
-    <!-- AddProgressSettings registers the Sprints page's SettingsSection. -->
+    <!-- GoalControlRegistration registers the attach-to-goal control. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
-    <!-- IAppFeatureSettings: the switch every Progress screen is drawn under. -->
+    <!-- Result: what every goal port call answers with. -->
     <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- GoalsAiContentSource is internal; its tests sit beside the other areas' sources. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 
 </Project>

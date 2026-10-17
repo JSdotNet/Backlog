@@ -1,7 +1,7 @@
 @*
     A task's sessions and pull requests as a section of its side panel: a small
-    heading, "Open in In progress" beside it, the same cards the In progress view
-    draws, and "Link a session or pull request…" under them.
+    heading, the same cards WorkLinks draws, and "Link a session or pull request…"
+    under them.
 
     The section is always drawn for a saved task, empty or not: the link action is
     how a task with nothing on it gets something, and "None yet" says the task was
@@ -14,14 +14,6 @@
 <section class="@ClassValue" aria-labelledby="@HeadingIdValue" data-testid="@TestId">
     <div class="work-links-panel__header">
         <h3 class="work-links-panel__heading" id="@HeadingIdValue" tabindex="-1">@Heading</h3>
-        @if (OnOpenInProgress.HasDelegate)
-        {
-            <AppButton Variant="ButtonVariant.Ghost"
-                       Size="ButtonSize.Small"
-                       CssClass="work-links-panel__open"
-                       TestId="work-links-open-in-progress"
-                       OnClick="() => OnOpenInProgress.InvokeAsync()">Open in In progress</AppButton>
-        }
     </div>
 
     <WorkLinks Sessions="Sessions"
@@ -82,10 +74,6 @@
     /// <summary>Whether pull requests are drawn — off while the host's pull requests list is off.</summary>
     [Parameter]
     public bool ShowPullRequests { get; set; } = true;
-
-    /// <summary>"Open in In progress": the host's view of every task's work.</summary>
-    [Parameter]
-    public EventCallback OnOpenInProgress { get; set; }
 
     /// <summary>"Link a session or pull request…": the host opens its picker.</summary>
     [Parameter]

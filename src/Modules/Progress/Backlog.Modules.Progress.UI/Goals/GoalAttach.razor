@@ -1,0 +1,181 @@
+@using global::Backlog.Modules.Progress.Abstractions.DataTransferObjects
+@using global::Backlog.Modules.Progress.Abstractions.Services
+@using global::Backlog.SharedKernel.Results
+@using global::Backlog.UI.Components.Goals
+@implements IDisposable
+@*
+    The goal control for one piece of work, with the goal port behind it
+    (.devbook/domain/progress/features.md#attaching-work-to-a-goal). The shell cascades
+    it through a GoalControlSlot (AddGoalControls), so the task panel, the plan shelf,
+    the roadmap item editor and the pull request screens draw it without seeing
+    Progress.
+
+    It asks the port which goal holds the work and which goals are open, draws the
+    library's GoalControl and GoalPicker over that, and writes every attach through
+    IGoals. Work another goal holds is moved, never attached twice: the picker says so
+    before the move, and the attach asks for it. A refusal stays in the picker in the
+    module's words.
+
+    With no goal port composed, nothing is drawn. A goal
+    stored anywhere else — another screen, another device through the sync — raises
+    IGoals.Changed and the control reads again.
+*@
+@if (_shown)
+{
+    <GoalControl GoalTitle="@_current?.Title"
+                 Busy="@(_writing && !_picking)"
+                 OnOpen="OpenAsync" />
+    <GoalPicker Open="_picking"
+                OpenChanged="value => _picking = value"
+                Subject="Subject"
+                Goals="_goals"
+                CurrentGoal="CurrentOption"
+                Busy="_writing"
+                Error="@_error"
+                OnAttach="AttachAsync"
+                OnCreate="CreateAsync" />
+}
+
+@code {
+    [Inject] private IServiceProvider Services { get; set; } = default!;
+
+    /// <summary>The work the control is for.</summary>
+    [Parameter, EditorRequired]
+    public GoalSubject Subject { get; set; } = default!;
+
+    private IGoals? _port;
+    private GoalSubject? _readFor;
+    private bool _shown;
+    private GoalDto? _current;
+    private IReadOnlyList<GoalOption> _goals = [];
+    private bool _picking;
+    private bool _writing;
+    private string? _error;
+    private int _generation;
+
+    /// <summary>The goal a New goal… set, while the attach that followed it was refused.
+    /// A second Attach with the same draft attaches to it rather than setting it twice.</summary>
+    private (GoalDraft Draft, Guid Id)? _created;
+
+    private GoalOption? CurrentOption =>
+        _current is { } current
+            ? _goals.FirstOrDefault(goal => goal.Id == current.Id) ?? new GoalOption(current.Id, current.Title, 0, current.Attachments.Count, current.DueDate)
+            : null;
+
+    protected override void OnInitialized()
+    {
+        _port = Services.GetService(typeof(IGoals)) as IGoals;
+        if (_port is not null) _port.Changed += OnChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // A host re-rendering with the same work reads nothing again; other work does.
+        if (Subject == _readFor) return;
+
+        _readFor = Subject;
+        _picking = false;
+        _error = null;
+        _created = null;
+        await ReadAsync();
+    }
+
+    private void OnChanged() => _ = InvokeAsync(ReadAgainAsync);
+
+    private async Task ReadAgainAsync()
+    {
+        await ReadAsync();
+        StateHasChanged();
+    }
+
+    private async Task ReadAsync()
+    {
+        var generation = ++_generation;
+        var shown = false;
+        GoalDto? current = null;
+        IReadOnlyList<GoalOption> goals = [];
+
+        if (_port is { } port)
+        {
+            var item = GoalSubjects.ToItem(Subject);
+            var held = await port.FindGoalOfAsync(item);
+            var listed = await port.ListAsync();
+            if (held.IsSuccess && listed.IsSuccess)
+            {
+                shown = true;
+                current = held.Value;
+                goals = GoalSubjects.OpenGoals(listed.Value, current?.Id);
+            }
+        }
+
+        if (generation != _generation) return;
+
+        _shown = shown;
+        _current = current;
+        _goals = goals;
+        if (!shown) _picking = false;
+    }
+
+    private async Task OpenAsync()
+    {
+        _error = null;
+        _created = null;
+        // The goals a person chooses from are the ones there are now, not the ones
+        // there were when the work was first drawn.
+        await ReadAsync();
+        _picking = _shown;
+    }
+
+    private Task AttachAsync(Guid goalId) => WriteAsync(port => AttachToAsync(port, goalId));
+
+    private Task CreateAsync(GoalDraft draft) => WriteAsync(async port =>
+    {
+        // Set once: a refused attach after a goal was set leaves that goal in place,
+        // and pressing Attach again is a retry of the attach, not a second goal.
+        if (_created is { } earlier && earlier.Draft == draft) return await AttachToAsync(port, earlier.Id);
+
+        var created = await port.CreateAsync(new SetGoalRequest(draft.Title, null, draft.DueDate));
+        if (created.IsFailure) return created;
+
+        _created = (draft, created.Value.Id);
+        return await AttachToAsync(port, created.Value.Id);
+    });
+
+    private async Task<Result<GoalDto>> AttachToAsync(IGoals port, Guid goalId)
+    {
+        var moving = _current is { } current && current.Id != goalId;
+        return await port.AttachAsync(goalId, GoalSubjects.ToItem(Subject), moveFromOtherGoal: moving);
+    }
+
+    private async Task WriteAsync(Func<IGoals, Task<Result<GoalDto>>> write)
+    {
+        if (_port is not { } port || _writing) return;
+
+        _writing = true;
+        try
+        {
+            var written = await write(port);
+            if (written.IsFailure)
+            {
+                _error = written.Error.Message;
+                return;
+            }
+
+            _error = null;
+            _picking = false;
+            _created = null;
+            _current = written.Value;
+        }
+        finally
+        {
+            _writing = false;
+        }
+
+        await ReadAsync();
+    }
+
+    public void Dispose()
+    {
+        if (_port is not null) _port.Changed -= OnChanged;
+    }
+}

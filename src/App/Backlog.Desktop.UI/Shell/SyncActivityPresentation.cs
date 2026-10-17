@@ -128,8 +128,9 @@ public static class SyncActivityPresentation
         SyncItemKind.Roadmap => "Roadmap",
         SyncItemKind.GitHubSettings => "GitHub settings",
         SyncItemKind.Note => "Note",
-        SyncItemKind.SprintSeries => "Sprint series",
         SyncItemKind.MyDayPreferences => "My Day preferences",
+        SyncItemKind.Goal => "Goal",
+        SyncItemKind.Impediment => "Impediment",
         _ => kind.ToString(),
     };
 

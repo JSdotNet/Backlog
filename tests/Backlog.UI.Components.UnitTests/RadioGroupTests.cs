@@ -316,4 +316,34 @@ public sealed class RadioGroupTests
         Assert.Equal("small", plain.FindAll("[role='radio']")[0].TextContent.Trim());
         Assert.Equal("small", templated.FindAll("[role='radio'] em")[0].TextContent);
     }
+
+    /// <summary>Manual activation: with SelectOnFocus off the arrows move the focus and the
+    /// tab stop with it, and only a click — which Space and Enter are on a button — takes
+    /// the choice.</summary>
+    [Theory]
+    [InlineData("ArrowDown")]
+    [InlineData("ArrowUp")]
+    [InlineData("End")]
+    public void With_select_on_focus_off_the_arrows_move_the_focus_and_take_nothing(string key)
+    {
+        using var context = new BunitContext();
+        var picked = new List<string>();
+
+        var group = context.Render<RadioGroup<string>>(parameters => parameters
+            .Add(p => p.Options, Sizes)
+            .Add(p => p.Value, "medium")
+            .Add(p => p.ValueChanged, (string next) => picked.Add(next))
+            .Add(p => p.OptionTestId, size => $"size-{size}")
+            .Add(p => p.SelectOnFocus, false));
+
+        group.Find("[data-testid='size-medium']").KeyDown(new KeyboardEventArgs { Key = key });
+
+        Assert.Empty(picked);
+        Assert.Equal(["false", "true", "false"], Checked(group));
+        Assert.Equal(key == "ArrowDown" || key == "End" ? ["-1", "-1", "0"] : ["0", "-1", "-1"], TabIndexes(group));
+
+        group.Find(key == "ArrowUp" ? "[data-testid='size-small']" : "[data-testid='size-large']").Click();
+
+        Assert.Equal([key == "ArrowUp" ? "small" : "large"], picked);
+    }
 }

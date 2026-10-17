@@ -158,12 +158,12 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>
-    /// The sync merge the head composes hands a <c>sprint-series</c> document to
-    /// Progress's replication port, which writes it into this device's own series rows:
-    /// the series another desktop synced lands here rather than as a draft task.
+    /// The sync merge the head composes reads a <c>sprint-series</c> document an older
+    /// desktop left on the replica and drops it (local ADR 0035): nothing is applied,
+    /// nothing is counted as unreadable, and it never lands as a draft task.
     /// </summary>
     [Fact]
-    public async Task The_maui_head_takes_a_synced_sprint_series_into_its_own_series()
+    public async Task The_maui_head_drops_a_retired_sprint_series_document()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -188,12 +188,11 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             [new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1)],
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(1, merged.Applied);
-        var held = Assert.Single(await provider
-            .GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.ISprintSeriesReplication>()
-            .ReadAllAsync(TestContext.Current.CancellationToken));
-        Assert.Equal(id, held.Id);
-        Assert.Equal(document, held.Content);
+        Assert.Equal(0, merged.Applied);
+        Assert.Equal(0, merged.Skipped);
+        Assert.Null(await provider
+            .GetRequiredService<Backlog.Modules.Tasks.ITaskRepository>()
+            .GetIncludingDeletedAsync(id, TestContext.Current.CancellationToken));
     }
 
     /// <summary>

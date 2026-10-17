@@ -49,6 +49,7 @@ public sealed partial class DesktopCompositionTests
         "AddAgentSessionSource",
         "AddAgentActivitySource",
         "AddRoadmapAiContentSource",
+        "AddGoalsAiContentSource",
         "AddTasksAiContentSource",
         "AddInboxAiContentSource",
         "AddDevbookAiContentSource",

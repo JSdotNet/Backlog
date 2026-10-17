@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-07
-related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/tasks/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md"]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/tasks/features.md#calendar-view", ".devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline", ".devbook/domain/sessions/features.md#session-inventory", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/domain/inbox/context.md#inbox-pane", ".devbook/domain/inbox/features.md#incoming-queue", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
 ```
 
 The desktop shell's workspace always shows exactly one **main view** — Tasks,
@@ -26,6 +26,11 @@ plan (its step 18). Proposed on 2026-10-07 and recorded after the fact by the
 flow-spec run of the plan's step 9, from the code the plan's steps 1, 5, 7 and 8
 merged into `plan/task-views` (pull requests #1040, #1044, #1043 and #1045); the
 deferred pieces step 18 settled landed in pull request #1134.
+
+> **Superseded in part, 2026-10-17, by
+> [ADR 0035](0035-goals-and-impediments-replace-sprints.md) (proposed).** §2's
+> **In progress** view becomes the **Goals** view, in the same place, without its
+> Now board of needs-you sessions and pull requests. The rest of this record stands.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
@@ -369,7 +374,7 @@ The bUnit tests in `Backlog.Desktop.UI.UnitTests` hold this record:
 2. **The side pane beside any view.** Withdrawn with the side pane by the
    amendment of 2026-10-15; its tests were removed, and item 8 holds what replaced it.
 3. **Header order and groups.** `The_nav_reads_inbox_views_devbook_then_the_work_in_progress_and_the_other_takeovers`,
-   `In_progress_is_a_main_view_that_leads_the_work_in_progress_group`.
+   `Goals_leads_the_work_in_progress_group`.
 4. **Takeovers.** `A_takeover_keeps_the_view_switch_unpressed_and_a_view_option_returns_to_the_workspace`,
    `Escape_heard_at_the_document_closes_the_takeover`,
    `Closing_a_takeover_opened_from_the_roadmap_returns_to_the_roadmap`.

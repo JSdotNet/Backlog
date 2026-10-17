@@ -28,7 +28,8 @@ public sealed class TodayScreenTests
         using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
         var app = host.Open("");
 
-        app.WaitForAssertion(() => Assert.Equal(1, tasks.Pulls));
+        // Today's own pull, and the one the shell makes for Progress so the Stand-up tab can show.
+        app.WaitForAssertion(() => Assert.Equal(2, tasks.Pulls));
 
         // "Wednesday 7 October" on an English phone; the phone's own culture
         // names the day, so the expectation is built the same way.

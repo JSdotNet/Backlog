@@ -191,8 +191,21 @@ public static class BacklogMcpTools
         typeof(SurfaceTools),
         DeliverySurfaceOperations.All);
 
+    /// <summary>
+    /// The impediment tools beside <c>set_blocked</c>: Progress's own, so their own group
+    /// (local ADR 0035 §5). Behind <c>backlog</c>, the always-on Tasks key, since Progress
+    /// has no switch of its own: goals, impediments and the stand-up are always on (§10).
+    /// An impediment holds tasks back, and a session raises one beside the
+    /// <see cref="Tracker"/> call that marks a task blocked, so the key that gates that call
+    /// gates this one.
+    /// </summary>
+    public static McpToolGroup Impediments { get; } = new(
+        TasksFeatures.Tasks,
+        typeof(ImpedimentTools),
+        [ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState]);
+
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

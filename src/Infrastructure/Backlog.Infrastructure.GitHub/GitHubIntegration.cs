@@ -312,7 +312,8 @@ public sealed partial class GitHubIntegration(
     {
         try
         {
-            return (await client.ListOpenPullRequestsAsync(repository, cancellationToken).ConfigureAwait(false), null);
+            var listed = await client.ListOpenPullRequestsAsync(repository, cancellationToken).ConfigureAwait(false);
+            return (await WithRequiredApprovalsAsync(repository, listed, cancellationToken).ConfigureAwait(false), null);
         }
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
         {
@@ -364,7 +365,8 @@ public sealed partial class GitHubIntegration(
         try
         {
             var repository = RepositoryForFullName(repositoryFullName);
-            return (await client.ListPullRequestsAsync(repository, numbers, cancellationToken).ConfigureAwait(false), null);
+            var pinned = await client.ListPullRequestsAsync(repository, numbers, cancellationToken).ConfigureAwait(false);
+            return (await WithRequiredApprovalsAsync(repository, pinned, cancellationToken).ConfigureAwait(false), null);
         }
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
         {
@@ -386,9 +388,27 @@ public sealed partial class GitHubIntegration(
     /// repository are one repository's. A number GitHub cannot find is left out.
     /// </para>
     /// </summary>
-    public async Task<GitHubLinkedPullRequestListing> ListLinkedPullRequestsAsync(
+    public Task<GitHubLinkedPullRequestListing> ListLinkedPullRequestsAsync(
         IEnumerable<GitHubPullRequestReference> links,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        ListLinkedAsync(links, withStatus: false, cancellationToken);
+
+    /// <summary>
+    /// <see cref="ListLinkedPullRequestsAsync"/> with each pull request's status — its
+    /// checks, its reviews and the approvals its base branch requires — read through
+    /// <see cref="IGitHubClient.ReadLinkedPullRequestStatusesAsync"/>, on the same terms:
+    /// one read per repository, side by side, an archived repository not read, each
+    /// refusal kept as its repository's failure.
+    /// </summary>
+    public Task<GitHubLinkedPullRequestListing> ListLinkedPullRequestStatusesAsync(
+        IEnumerable<GitHubPullRequestReference> links,
+        CancellationToken cancellationToken = default) =>
+        ListLinkedAsync(links, withStatus: true, cancellationToken);
+
+    private async Task<GitHubLinkedPullRequestListing> ListLinkedAsync(
+        IEnumerable<GitHubPullRequestReference> links,
+        bool withStatus,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(links);
 
@@ -396,7 +416,7 @@ public sealed partial class GitHubIntegration(
             .Where(link => link.Number > 0 && !string.IsNullOrWhiteSpace(link.RepositoryFullName))
             .Where(link => !IsArchived(link.RepositoryFullName))
             .GroupBy(link => link.RepositoryFullName.Trim(), StringComparer.OrdinalIgnoreCase)
-            .Select(group => ReadLinkedAsync(group.Key, [.. group.Select(link => link.Number).Distinct()], cancellationToken))
+            .Select(group => ReadLinkedAsync(group.Key, [.. group.Select(link => link.Number).Distinct()], withStatus, cancellationToken))
             .ToList();
 
         if (reads.Count == 0) return GitHubLinkedPullRequestListing.Empty;
@@ -414,9 +434,10 @@ public sealed partial class GitHubIntegration(
     /// one and a number GitHub answered without are kept for good, any other answer while
     /// it is younger than <paramref name="freshFor"/>, and a read of it still out that
     /// started inside that time is waited for rather than sent again. The shell's In
-    /// progress reader and Progress's sprint reader both read through it, so one refresh
-    /// asks GitHub about a pull request once. A read that throws is said as a failure of
-    /// <c>GitHub</c>, not thrown.
+    /// progress reader reads through it, so one refresh asks GitHub about a pull request
+    /// once. A read that throws is said as a failure of <c>GitHub</c>, not thrown.
+    /// Progress reads the wider status read through its own cache, on the same terms
+    /// (<see cref="ReadLinkedPullRequestStatusesAsync"/>).
     /// </summary>
     public Task<GitHubLinkedPullRequestListing> ReadLinkedPullRequestsAsync(
         IEnumerable<GitHubPullRequestReference> links,
@@ -437,15 +458,46 @@ public sealed partial class GitHubIntegration(
 
     private GitHubLinkedPullRequestCache? _linkedCache;
 
+    /// <summary>
+    /// <see cref="ListLinkedPullRequestStatusesAsync"/> through a cache of its own, on the
+    /// terms of <see cref="GitHubLinkedPullRequestCache"/>: a merged pull request — whose
+    /// checks and approvals cannot change again either — and a number GitHub answered
+    /// without are kept for good, any other answer while it is younger than
+    /// <paramref name="freshFor"/>, and a read still out that started inside that time
+    /// is waited for. Its own cache rather than the slim read's, because its answers
+    /// carry facts the slim read's do not and cost more to read: the In progress reader
+    /// keeps asking only for what a link records. A read that throws is said as a
+    /// failure of <c>GitHub</c>, not thrown.
+    /// </summary>
+    public Task<GitHubLinkedPullRequestListing> ReadLinkedPullRequestStatusesAsync(
+        IEnumerable<GitHubPullRequestReference> links,
+        TimeSpan freshFor,
+        CancellationToken cancellationToken = default) =>
+        LazyInitializer
+            .EnsureInitialized(ref _statusCache, () => new GitHubLinkedPullRequestCache(ListLinkedPullRequestStatusesAsync, time))
+            .ReadAsync(links, freshFor, cancellationToken);
+
+    /// <summary>What the cache behind <see cref="ReadLinkedPullRequestStatusesAsync"/>
+    /// last kept for <paramref name="links"/>, however old, reading nothing — as
+    /// <see cref="KeptLinkedPullRequests"/> is for the slim read.</summary>
+    public GitHubLinkedPullRequestListing KeptLinkedPullRequestStatuses(IEnumerable<GitHubPullRequestReference> links) =>
+        _statusCache?.Kept(links) ?? GitHubLinkedPullRequestListing.Empty;
+
+    private GitHubLinkedPullRequestCache? _statusCache;
+
     private async Task<(IReadOnlyList<GitHubLinkedPullRequest> PullRequests, GitHubRepositoryFailure? Failure)> ReadLinkedAsync(
         string repositoryFullName,
         IReadOnlyCollection<int> numbers,
+        bool withStatus,
         CancellationToken cancellationToken)
     {
         try
         {
             var repository = RepositoryForFullName(repositoryFullName);
-            return (await client.ReadLinkedPullRequestsAsync(repository, numbers, cancellationToken).ConfigureAwait(false), null);
+            var read = withStatus
+                ? client.ReadLinkedPullRequestStatusesAsync(repository, numbers, cancellationToken)
+                : client.ReadLinkedPullRequestsAsync(repository, numbers, cancellationToken);
+            return (await read.ConfigureAwait(false), null);
         }
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
         {

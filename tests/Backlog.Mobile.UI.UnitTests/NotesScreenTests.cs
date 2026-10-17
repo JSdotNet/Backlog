@@ -26,8 +26,8 @@ public sealed class NotesScreenTests
     {
         var books = Note("Books to read", "Shape Up. *The Making of a Manager*.", Now.AddDays(-5));
         var call = Note("Conflict cases from the call", "- Last write wins for the **title**.", Now.AddHours(-4).AddMinutes(-40));
-        var sprint = Note("Sprint goals — draft", "Ship the phone Today view.", Now.AddDays(-1));
-        var tasks = new ScriptedTaskService(books, call, sprint);
+        var goals = Note("Release goals — draft", "Ship the phone Today view.", Now.AddDays(-1));
+        var tasks = new ScriptedTaskService(books, call, goals);
         using var host = ShellHost.Paired(clock: new FakeTimeProvider(Now), tasks: tasks);
 
         var app = host.Open("notes");
@@ -38,7 +38,7 @@ public sealed class NotesScreenTests
 
         var rows = app.FindAll("[data-testid='note-row']");
         Assert.Equal(
-            ["Conflict cases from the call", "Sprint goals — draft", "Books to read"],
+            ["Conflict cases from the call", "Release goals — draft", "Books to read"],
             rows.Select(row => row.QuerySelector("[data-testid='note-row-title']")!.TextContent));
         Assert.Equal(
             ["09:50", "Yesterday", "Fri"],
@@ -79,8 +79,9 @@ public sealed class NotesScreenTests
         Assert.Empty(app.FindAll("[data-testid='note-row']"));
         Assert.Contains("“roadmap”", app.Find("[data-testid='notes-no-match']").TextContent, StringComparison.Ordinal);
 
-        // Searching asks nothing of the service: the one pull was the page's own.
-        Assert.Equal(1, tasks.Pulls);
+        // Searching asks nothing of the service: the two pulls were the page's own and the
+        // one the shell makes for Progress.
+        Assert.Equal(2, tasks.Pulls);
     }
 
     [Fact]
@@ -91,7 +92,8 @@ public sealed class NotesScreenTests
 
         var app = host.Open("notes");
 
-        app.WaitForAssertion(() => Assert.Equal(1, tasks.Pulls));
+        // The page's own pull, and the one the shell makes for Progress.
+        app.WaitForAssertion(() => Assert.Equal(2, tasks.Pulls));
         var empty = app.Find("[data-testid='notes-empty']");
         Assert.Contains("No notes yet", empty.TextContent, StringComparison.Ordinal);
         Assert.Contains("New note", empty.TextContent, StringComparison.Ordinal);

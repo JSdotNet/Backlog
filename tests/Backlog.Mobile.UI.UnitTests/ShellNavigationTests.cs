@@ -22,7 +22,7 @@ public sealed class ShellNavigationTests
         app.WaitForAssertion(() => Assert.Equal("Today", app.Find("h1").TextContent));
 
         var tabs = app.FindAll("[data-testid='tab-bar'] a");
-        Assert.Equal(["Today", "Inbox", "Notes"], tabs.Select(tab => tab.TextContent));
+        Assert.Equal(["Today", "Inbox", "Notes"], tabs.Select(tab => tab.TextContent.Trim()));
         Assert.Equal(["", "inbox", "notes"], tabs.Select(tab => tab.GetAttribute("href")));
         Assert.Contains("tab-bar__tab--active", app.Find("[data-testid='tab-bar-today']").ClassList);
         Assert.DoesNotContain("tab-bar__tab--active", app.Find("[data-testid='tab-bar-inbox']").ClassList);

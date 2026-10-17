@@ -574,52 +574,25 @@ public sealed class TaskSyncWorkerTests
         Assert.Equal("repository-registry", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
     }
 
-    /// <summary>A sprint series changed here is pushed after the same settle delay a
-    /// task write is.</summary>
+    /// <summary>A goal changed here is pushed after the same settle delay a task write is.</summary>
     [Fact]
-    public async Task A_sprint_series_change_runs_a_cycle_after_the_settle_delay()
+    public async Task A_goal_change_runs_a_cycle_after_the_settle_delay()
     {
-        using var fixture = Fixture.Create(featureOn: true, paired: true, sprints: new RecordingSprintSeriesReplication());
+        using var fixture = Fixture.Create(featureOn: true, paired: true, goals: new RecordingGoalReplication());
 
         var first = fixture.NextCycle();
         fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
         await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
         Assert.Empty(fixture.PushedBodies);
 
-        fixture.Sprints!.Hold(new SprintSeriesReplicaCopyDto(Guid.NewGuid(), "Platform", "{}", Noon.AddMinutes(1)));
-        fixture.Sprints.RaiseChanged();
+        fixture.Goals!.Hold(new GoalReplicaCopyDto(Guid.NewGuid(), "Customers get paid faster", "{}", Noon.AddMinutes(1)));
+        fixture.Goals.RaiseChanged();
 
         var settled = fixture.NextCycle();
         fixture.Clock.Advance(TaskSyncWorker.ChangeSettleDelay);
         await settled.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
 
-        Assert.Equal("sprint-series", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
-    }
-
-    /// <summary>"Republish everything" offers every sprint series again too.</summary>
-    [Fact]
-    public async Task Republishing_offers_every_sprint_series_again()
-    {
-        var sprints = new RecordingSprintSeriesReplication();
-        var series = new SprintSeriesReplicaCopyDto(Guid.NewGuid(), "Platform", "{}", Noon);
-        sprints.Hold(series);
-
-        using var fixture = Fixture.Create(
-            featureOn: true,
-            paired: true,
-            initialState: Mine(Noon.AddHours(1), "cursor-1").WithDocumentWatermark(SprintReplicaDocuments.MarkOf(series.Id), Noon),
-            sprints: sprints);
-
-        var caughtUp = fixture.NextCycle();
-        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
-        await caughtUp.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
-        Assert.Empty(fixture.PushedBodies);
-
-        var republished = fixture.NextCycle();
-        fixture.Worker.RepublishEverything();
-        await republished.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
-
-        Assert.Equal(series.Id, Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Id);
+        Assert.Equal("goal", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
     }
 
     /// <summary>A disposed worker stops listening, so a settings change after the
@@ -1059,16 +1032,16 @@ public sealed class TaskSyncWorkerTests
             RecordingRoadmapReplication? roadmap,
             RecordingGitHubSettingsReplication? github,
             TokenPipeline? tokens,
-            RecordingSprintSeriesReplication? sprints,
-            RecordingMyDayPreferencesReplication? myDay)
+            RecordingMyDayPreferencesReplication? myDay,
+            RecordingGoalReplication? goals)
         {
             _http = http;
             _repository = repository;
             _tokens = tokens;
             Roadmap = roadmap;
             GitHub = github;
-            Sprints = sprints;
             MyDay = myDay;
+            Goals = goals;
 
             Handler = handler;
             Tasks = tasks;
@@ -1088,19 +1061,19 @@ public sealed class TaskSyncWorkerTests
                 changes: Changes,
                 roadmap: roadmap,
                 github: github,
-                sprints: sprints,
-                myDay: myDay);
+                myDay: myDay,
+                goals: goals);
         }
 
         public TaskSyncWorker Worker { get; }
 
+        /// <summary>Progress's goal replication port, where a test composed one, handed to
+        /// the merge, the session and the worker alike.</summary>
+        public RecordingGoalReplication? Goals { get; }
+
         /// <summary>The My Day preferences port, where a test composed one, handed to the
         /// merge, the session and the worker alike.</summary>
         public RecordingMyDayPreferencesReplication? MyDay { get; }
-
-        /// <summary>Progress's replication port, where a test composed one, handed to the
-        /// merge, the session and the worker alike.</summary>
-        public RecordingSprintSeriesReplication? Sprints { get; }
 
         /// <summary>The GitHub settings replication port, where a test composed one,
         /// handed to the merge, the session and the worker alike.</summary>
@@ -1155,8 +1128,8 @@ public sealed class TaskSyncWorkerTests
             RecordingRoadmapReplication? roadmap = null,
             bool authenticated = false,
             RecordingGitHubSettingsReplication? github = null,
-            RecordingSprintSeriesReplication? sprints = null,
-            RecordingMyDayPreferencesReplication? myDay = null)
+            RecordingMyDayPreferencesReplication? myDay = null,
+            RecordingGoalReplication? goals = null)
         {
             var tasks = new InMemoryTaskStore();
             seed?.Invoke(tasks);
@@ -1222,8 +1195,8 @@ public sealed class TaskSyncWorkerTests
                 roadmap,
                 github,
                 tokens,
-                sprints,
-                myDay);
+                myDay,
+                goals);
         }
 
         /// <summary>
@@ -1282,15 +1255,15 @@ public sealed class TaskSyncWorkerTests
 
             return new TaskSyncSession(
                 new TaskSyncClient(_http),
-                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap, github: GitHub, sprints: Sprints, myDay: MyDay),
+                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap, github: GitHub, myDay: MyDay, goals: Goals),
                 _repository,
                 State,
                 Credentials,
                 Clock,
                 roadmap: Roadmap,
                 github: GitHub,
-                sprints: Sprints,
-                myDay: MyDay);
+                myDay: MyDay,
+                goals: Goals);
         }
     }
 

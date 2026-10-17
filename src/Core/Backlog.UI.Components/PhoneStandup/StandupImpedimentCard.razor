@@ -1,0 +1,62 @@
+@*
+    One impediment in the stand-up's Impediments block: its title and state badge
+    on one line, and one meta line under it — who it is with, how long it has
+    been open, and the goal it holds back in the error ink, the last because it
+    is the one thing on the line a reader acts on. The whole row is one link to
+    the impediment's own page.
+
+    The host composes the meta line's words; the goal is a parameter of its own
+    only so it can wear its tone.
+*@
+
+<a class="@ClassValue" href="@Href" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <span class="standup-impediment__head">
+        <span class="standup-impediment__title" data-testid="@PartTestId("title")">@Title</span>
+        <StandupImpedimentBadge State="State" TestId="@PartTestId("state")" />
+    </span>
+    @if (!string.IsNullOrWhiteSpace(Meta) || !string.IsNullOrWhiteSpace(Goal))
+    {
+        <span class="standup-impediment__meta" data-testid="@PartTestId("meta")">
+            @Meta
+            @if (!string.IsNullOrWhiteSpace(Goal))
+            {
+                @(string.IsNullOrWhiteSpace(Meta) ? null : " · ")
+                <span class="standup-impediment__goal">@Goal</span>
+            }
+        </span>
+    }
+</a>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public StandupImpedimentState State { get; set; }
+
+    /// <summary>The meta line before the goal: "Account manager · 3 days".</summary>
+    [Parameter]
+    public string? Meta { get; set; }
+
+    /// <summary>The goal it holds back, or null for none.</summary>
+    [Parameter]
+    public string? Goal { get; set; }
+
+    /// <summary>The impediment's own page.</summary>
+    [Parameter]
+    public string? Href { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The row's test id; its parts get <c>{TestId}-title</c>, <c>-state</c> and <c>-meta</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "standup-impediment" : $"standup-impediment {CssClass}";
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+}

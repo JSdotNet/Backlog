@@ -1,0 +1,72 @@
+@*
+    One goal in the stand-up's Goals block
+    (.devbook/domain/progress/domain.md#stand-up): its title and forecast badge,
+    the bar of how its items stand, and one line under it — done/total, how many
+    were done inside the last window (the "+3"), and the due date. The whole card
+    is one link to the goal's own page, so a thumb can land anywhere on it; the
+    bar's words and the badge's word are part of that link's name.
+
+    Pure presentation: the host reads the goal and hands over the numbers.
+*@
+
+<a class="@ClassValue" href="@Href" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <span class="standup-goal__head">
+        <span class="standup-goal__title" data-testid="@PartTestId("title")">@Title</span>
+        <StandupStandingBadge Standing="Standing" TestId="@PartTestId("standing")" />
+    </span>
+    <GoalStackedBar Done="Done" Doing="Doing" Blocked="Blocked" ToDo="ToDo" Height="8" TestId="@PartTestId("bar")" />
+    <span class="standup-goal__meta">
+        <span data-testid="@PartTestId("done")">
+            <strong class="standup-goal__done">@Done/@Total</strong>@(DoneInWindow > 0 ? $" · +{DoneInWindow}" : null)
+        </span>
+        <span data-testid="@PartTestId("due")">due @StandupWords.Day(DueDate)</span>
+    </span>
+</a>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public StandupStanding Standing { get; set; }
+
+    [Parameter]
+    public int Done { get; set; }
+
+    [Parameter]
+    public int Doing { get; set; }
+
+    [Parameter]
+    public int Blocked { get; set; }
+
+    [Parameter]
+    public int ToDo { get; set; }
+
+    /// <summary>Items done inside the last window, drawn as "+n" after done/total; none when 0.</summary>
+    [Parameter]
+    public int DoneInWindow { get; set; }
+
+    [Parameter]
+    public DateOnly DueDate { get; set; }
+
+    /// <summary>The goal's own page.</summary>
+    [Parameter]
+    public string? Href { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The card's test id; its parts get <c>{TestId}-title</c>, <c>-standing</c>,
+    /// <c>-bar</c>, <c>-done</c> and <c>-due</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private int Total => Done + Doing + Blocked + ToDo;
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "standup-goal" : $"standup-goal {CssClass}";
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+}

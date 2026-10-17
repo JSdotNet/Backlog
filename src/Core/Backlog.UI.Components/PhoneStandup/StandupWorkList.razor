@@ -1,0 +1,84 @@
+@typeparam TItem
+
+@*
+    A stand-up block's items, grouped by the goal that counts them
+    (.devbook/domain/progress/domain.md#stand-up): one heading line per goal in
+    the order the host gives, the items under it, and "No goal" for the work no
+    goal counts. Finished and Planned both read this way, so they share it.
+
+    What sits beside or under an item is the host's — a pull request's number
+    on a finished row, the effort and the checks on a planned one — through two
+    slots: Trailing on the item's own line, and Detail on a line under it for
+    the items HasDetail picks. The list knows nothing of either.
+*@
+
+<ul class="@ClassValue" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @foreach (var group in Groups.Where(group => group.Items.Count > 0))
+    {
+        <li class="standup-work__group" data-testid="@PartTestId("group")">
+            <span class="standup-work__goal" data-testid="@PartTestId("goal")">@(group.GoalTitle ?? NoGoalLabel)</span>
+            <ul class="standup-work__items">
+                @foreach (var item in group.Items)
+                {
+                    <li class="standup-work__item" data-testid="@PartTestId("item")">
+                        <span class="standup-work__line">
+                            <span class="standup-work__title" data-testid="@PartTestId("title")">@ItemTitle(item)</span>
+                            @if (Trailing is not null)
+                            {
+                                <span class="standup-work__trailing">@Trailing(item)</span>
+                            }
+                        </span>
+                        @if (Detail is not null && (HasDetail?.Invoke(item) ?? true))
+                        {
+                            <span class="standup-work__detail">@Detail(item)</span>
+                        }
+                    </li>
+                }
+            </ul>
+        </li>
+    }
+</ul>
+
+@code {
+    /// <summary>The groups, in the order they are drawn; a group with no items is skipped.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<StandupWorkGroup<TItem>> Groups { get; set; } = [];
+
+    /// <summary>What an item is called on its line.</summary>
+    [Parameter, EditorRequired]
+    public Func<TItem, string> ItemTitle { get; set; } = item => item?.ToString() ?? string.Empty;
+
+    /// <summary>What sits at the end of an item's line.</summary>
+    [Parameter]
+    public RenderFragment<TItem>? Trailing { get; set; }
+
+    /// <summary>A line under an item, for the items <see cref="HasDetail"/> picks.</summary>
+    [Parameter]
+    public RenderFragment<TItem>? Detail { get; set; }
+
+    /// <summary>Which items get <see cref="Detail"/>; every item when not given.</summary>
+    [Parameter]
+    public Func<TItem, bool>? HasDetail { get; set; }
+
+    /// <summary>The heading of the group no goal counts.</summary>
+    [Parameter]
+    public string NoGoalLabel { get; set; } = "No goal";
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The list's test id; its parts get <c>{TestId}-group</c>, <c>-goal</c>,
+    /// <c>-item</c> and <c>-title</c>.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "standup-work" : $"standup-work {CssClass}";
+
+    private string? PartTestId(string part) => string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{part}";
+}
