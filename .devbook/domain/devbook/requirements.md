@@ -1327,3 +1327,187 @@ The system SHALL say in the review when GitHub listed only part of a change's co
 - **Given** `feature/x` holds more commits than GitHub lists in one comparison
 - **When** the reader opens its review
 - **Then** the review says how many of the commits are shown
+
+## Domain view by unit
+
+```meta
+type: requirements
+status: draft
+roadmap: [devbook-domain-view]
+related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc42/adr/0036-the-domain-view-reads-by-unit.md]
+```
+
+> The requirements of the Domain area read by unit, behind the
+> [New domain view](context.md#new-domain-view) switch (local ADR 0036). Nothing
+> here is built yet: the plan `+devbook-domain-view` builds it.
+
+### Requirement: The flag off keeps today's Domain view
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show the Domain area exactly as it reads today while the `devbook-domain-view` switch is off.
+
+#### Scenario: A fresh install
+
+- **Given** the `devbook-domain-view` switch has never been changed
+- **When** the reader opens the Domain area of a repository's Devbook
+- **Then** the Domain area reads as it did before the switch existed
+
+### Requirement: The menu lists the files in reading order
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL list a bounded context's files in the devbook reading order, one row per file, each row titled by its kind.
+
+#### Scenario: An unsplit context
+
+- **Given** a context holding `context.md`, `domain.md`, `features.md`, `requirements.md`, `model.md` and `flow.md`
+- **When** the reader opens the context in the Domain view
+- **Then** the menu lists the context, Domain, Features, Requirements, Model, Flow and Glossary rows in that order
+
+### Requirement: A split file is a child of its kind's row
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL list a file named `<kind>.<name>.md` under its kind's row, titled by the file's own heading, and nest each further dot one level deeper.
+
+#### Scenario: A split domain
+
+- **Given** a context holding `domain.md` and `domain.order.md`, whose heading is *Order*
+- **When** the reader opens the context in the Domain view
+- **Then** the Domain row holds a child row titled *Order*
+
+#### Scenario: Two dots
+
+- **Given** a context holding `domain.order.md` and `domain.order.line.md`, whose heading is *Order line*
+- **When** the reader opens the context in the Domain view
+- **Then** *Order line* is a child of the *Order* row
+
+### Requirement: The rules are the Always true tab
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show `domain.<name>.invariants.md` as the Always true tab of the `domain.<name>.md` page and give it no row of its own.
+
+#### Scenario: An aggregate with its rules
+
+- **Given** a context holding `domain.order.md` and `domain.order.invariants.md`
+- **When** the reader opens *Order*
+- **Then** the page offers the About and Always true tabs, Always true shows the rules, and the menu has no row for the invariants file
+
+### Requirement: A demo is a button on its page
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL offer a `*.demo.html` file as a Demo button on the page it belongs to and give it no row of its own.
+
+#### Scenario: A page with a demo
+
+- **Given** a context holding `features.md` and `features.demo.html`
+- **When** the reader opens Features
+- **Then** the page offers a Demo button, and the menu has no row for the demo
+
+### Requirement: Dependencies are the Neighbours tab
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show a context's `dependencies.md` as the Neighbours tab of the context's page, each relation worded by its table's "Why" column, and give the file no row of its own.
+
+#### Scenario: A context with neighbours
+
+- **Given** a context whose `dependencies.md` lists Tasks with the Why *Notes link to and embed tasks*
+- **When** the reader opens the context's Neighbours tab
+- **Then** Tasks is listed with *Notes link to and embed tasks*, and the menu has no row for `dependencies.md`
+
+### Requirement: Underscore files stay hidden
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL list no file or folder whose name starts with `_`.
+
+#### Scenario: Generated renders
+
+- **Given** a context holding an `_archify` folder
+- **When** the reader opens the context in the Domain view
+- **Then** no row names `_archify` or a file inside it
+
+### Requirement: An unsplit domain picks its units in the page
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL offer an unsplit `domain.md`'s aggregates, domain services and Glossary as a chapter bar inside the Domain page.
+
+#### Scenario: One domain file
+
+- **Given** a context whose only domain file is `domain.md`, holding the aggregates *Knowledge Note* and *Remark* and the domain service *Cross-Linking*
+- **When** the reader opens Domain
+- **Then** the page's chapter bar offers *Knowledge Note*, *Remark*, *Cross-Linking* and Glossary, and picking *Remark* shows that aggregate
+
+### Requirement: Wording is the chapters' own
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL title each row and page with the heading as written, and summarize a unit with its chapter's first sentence.
+
+#### Scenario: A summary
+
+- **Given** a feature titled *Knowledge capture* whose first sentence is *Store notes as markdown.*
+- **When** the reader opens Features
+- **Then** the feature is listed as *Knowledge capture* with the summary *Store notes as markdown.*
+
+### Requirement: Technical detail is on Model only
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show field types, invocation semantics and event payloads on the Model page only.
+
+#### Scenario: An aggregate's About tab
+
+- **Given** an aggregate whose `model.md` lists its fields with their types
+- **When** the reader opens the aggregate's About tab
+- **Then** the tab names no field type, and the Model page's Fields tab does
+
+### Requirement: The context map reads as a map and as a list
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL offer the context map as a Map tab that draws the contexts and their relations and a List tab that names the contexts in reading order.
+
+#### Scenario: Switching to the list
+
+- **Given** a domain folder with three bounded contexts
+- **When** the reader opens Context map and picks List
+- **Then** the three contexts are listed in reading order

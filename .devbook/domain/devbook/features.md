@@ -771,6 +771,54 @@ says so instead of passing a partial answer off as whole. The review is read fro
 GitHub and held only for the session. Nothing is cloned, written to disk, or
 prepared, so a review leaves no trace in the repository or the app's storage.
 
+## Domain view by unit
+
+```meta
+type: feature
+status: draft
+feature-flag: .devbook/domain/devbook/context.md#new-domain-view
+roadmap: [devbook-domain-view]
+depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
+related: [.devbook/domain/devbook/requirements.md#domain-view-by-unit, .devbook/arc42/adr/0036-the-domain-view-reads-by-unit.md, .devbook/design/color-scheme.md#domain-view-element-tones]
+```
+
+Read a repository's domain one unit at a time: the context map, then each bounded
+context, then each file inside it. Every row in the Domain area's menu is a unit,
+and the page it opens is drawn for the kind of file the unit is. A reader who
+wants to know what a context does reads its functional pages. A reader who wants
+field types reads Model.
+
+| Menu row | The file | The page |
+| --- | --- | --- |
+| Context map | `context-map.md` | **Map** draws the contexts and their relations; **List** names them in reading order |
+| A context | `context.md` | **Overview** is the context's boundary; **Neighbours** is its `dependencies.md` |
+| Domain | `domain.md` and its splits | A unit picker. An aggregate opens **About** and **Always true**; a domain service opens one page |
+| Features | `features.md` | The features and their sub-features |
+| Requirements | `requirements.md` | Each requirement and its scenarios |
+| Model | `model.md` | **Diagram**, **Fields** and **Events** |
+| Flow | `flow.md` | The context's lifecycles |
+| Glossary | the Ubiquitous Language chapter | The context's terms |
+
+The menu lists files in the devbook reading order, and a split file nests under
+its kind's row. A rules file, a click demo and `dependencies.md` get no row of
+their own. Each one shows on the page it belongs to: the rules as the **Always
+true** tab, the demo as a **Demo** button, the dependencies as **Neighbours**. A
+file whose name starts with `_` stays hidden. How each file maps to a row is
+local [ADR 0036](../../arc42/adr/0036-the-domain-view-reads-by-unit.md).
+
+**Wording comes from the chapters.** A page shows the headings as written, and a
+row's summary is its chapter's first sentence. A relation on **Neighbours** reads
+the "Why" column of the dependency tables. No chapter gains a field for the view,
+so a devbook reads the same in the app and in a Markdown viewer.
+
+**Technical detail lives on Model.** Field types, how a domain service is invoked
+and what an event carries are shown on Model only. The functional pages, from the
+context's Overview to its Glossary, say what the domain does in its own
+language.
+
+The view is built behind the [New domain view](context.md#new-domain-view)
+switch. Until the switch is on, the Domain area reads as it always has.
+
 ## Instruction optimization
 
 ```meta

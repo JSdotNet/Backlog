@@ -119,3 +119,30 @@ the feature catalog yet: no code checks the key, so there is no default to state
 and nothing to switch. The chapter exists so the feature has its gate before the
 first line of it is built. When the review ships, the key lands in
 `DevbookFeatures` and in the catalog, and this chapter gains its `default`.
+
+## New domain view
+
+```meta
+status: draft
+type: feature-flag
+key: devbook-domain-view
+default: off
+roadmap: [devbook-domain-view]
+related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0036-the-domain-view-reads-by-unit.md", ".devbook/domain/devbook/requirements.md#requirement-the-flag-off-keeps-todays-domain-view"]
+```
+
+Turning it on replaces the Domain area of the Devbook with the
+[Domain view by unit](features.md#domain-view-by-unit). The menu then lists a
+bounded context's files as units, and each row opens a page drawn for the kind of
+file it is (local ADR 0036). Turned off, the Domain area is today's view,
+unchanged.
+
+It ships off and marked `DEV` while the plan `+devbook-domain-view` builds the
+new view. Only the Domain area reads it. The other areas of the Devbook, and the
+[Devbook pane](#devbook-pane) switch that offers the pane at all, do not. The
+settings screen lists it from the feature catalog in `AppFeatures.cs`, and a
+person's choice is kept in `features.json` beside the app's other per-device
+choices.
+
+The flag is retired when the old Domain view is removed, which a later plan does.
+The new view then always shows.
