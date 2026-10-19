@@ -870,11 +870,18 @@
     private bool DomainViewEnabled => _features?.IsEnabled(DevbookFeatures.DomainView) == true;
 
     /// <summary>A switch was flipped in Settings: the Domain area may now be the
-    /// other view.</summary>
+    /// other view, and its menu the other listing — by unit, or the flat list.
+    /// The menu reloads only when the New domain view switch is what moved, since
+    /// it is part of what the loaded menu is fingerprinted by.</summary>
     private void OnFeaturesChanged()
     {
         if (_disposed) return;
-        _ = InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(async () =>
+        {
+            if (_disposed) return;
+            await RefreshMenuAsync();
+            StateHasChanged();
+        });
     }
 
     /// <summary>The writer behind Capture, when the host composes one.</summary>
@@ -1917,18 +1924,29 @@
         _selectedC4View = null;
 
         var root = _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, target.AreaKey, StringComparison.Ordinal));
-        if (root is null || !root.Available || !ContainsPath(root, target.RelativePath)) return;
+        if (root is null || !root.Available) return;
+
+        // A file the Domain menu lists by unit draws no row of its own when it is a
+        // tab on another page; the reference opens that page instead.
+        var relativePath = target.RelativePath;
+        var anchor = target.Anchor;
+        if (!ContainsPath(root, relativePath))
+        {
+            if (UnitHostIn(root, relativePath) is not { } host) return;
+            relativePath = host;
+            anchor = null;
+        }
 
         _selectedSection = target.AreaKey;
-        _selectedChapterPaths[target.AreaKey] = target.RelativePath;
+        _selectedChapterPaths[target.AreaKey] = relativePath;
         _folderOpenError = null;
-        ExpandAncestorsToSelected(root.Children, target.RelativePath);
+        ExpandAncestorsToSelected(root.Children, relativePath);
 
         // The heading the reference named, kept with the chapter it is in; each
         // followed reference is a new request, so the same part asked for twice is
         // scrolled to twice. One naming no heading leaves nothing focused.
-        _focus = target.Anchor is { Length: > 0 } anchor
-            ? new ChapterFocus(ActiveRepositoryAlias, target.AreaKey, target.RelativePath, new DevbookFocus(anchor, ++_focusSequence))
+        _focus = anchor is { Length: > 0 } heading
+            ? new ChapterFocus(ActiveRepositoryAlias, target.AreaKey, relativePath, new DevbookFocus(heading, ++_focusSequence))
             : null;
     }
 
@@ -2227,9 +2245,12 @@
 
         // The Brain's folder is part of what was loaded: a setting moved to
         // another Brain with the same areas is a different set of notes.
+        // The New domain view switch too: on, a bounded context is listed by
+        // unit (local ADR 0036), so a menu loaded under the other setting is the
+        // other listing.
         var fingerprint = brain
             ? $"brain:{_brainRoot}|{string.Join("|", visibleKeys)}"
-            : string.Join("|", visibleKeys);
+            : string.Join("|", visibleKeys) + (DomainViewEnabled ? "|domain-view" : string.Empty);
         if (string.Equals(_loadedMenuRepositoryAlias, repositoryAlias, StringComparison.Ordinal)
             && string.Equals(_loadedMenuVisibleKeyFingerprint, fingerprint, StringComparison.Ordinal))
         {
@@ -2307,6 +2328,13 @@
         if (root is null) return;
 
         var selectedPath = SelectedChapterPath;
+        if (selectedPath is not null && !ContainsPath(root, selectedPath) && UnitHostIn(root, selectedPath) is { } host)
+        {
+            // The switch flipped on with a tab's file open: stay on its page.
+            _selectedChapterPaths[root.AreaKey] = host;
+            selectedPath = host;
+        }
+
         if (selectedPath is null || !ContainsPath(root, selectedPath))
         {
             var first = PreferredChapter(root) ?? FirstSelectableChapter(root);
@@ -2362,6 +2390,14 @@
 
         return null;
     }
+
+    /// <summary>The row a Domain path shows on when the menu lists by unit and the
+    /// path has no row of its own (<see cref="DevbookMenu.DomainUnitHosts"/>), or
+    /// null.</summary>
+    private static string? UnitHostIn(DevbookMenuNode root, string relativePath) =>
+        string.Equals(root.AreaKey, "domain", StringComparison.Ordinal)
+            ? DevbookMenu.DomainUnitHosts(relativePath).FirstOrDefault(host => ContainsPath(root, host))
+            : null;
 
     private static bool ContainsPath(DevbookMenuNode node, string selectedPath) =>
         string.Equals(node.Path, selectedPath, StringComparison.OrdinalIgnoreCase)
