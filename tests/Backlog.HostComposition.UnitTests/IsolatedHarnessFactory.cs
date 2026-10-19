@@ -40,9 +40,10 @@ namespace Backlog.HostComposition.UnitTests;
 /// double.</item>
 /// </list>
 /// <para>
-/// Harmless for a harness that composes no workspace store, which is the mobile
-/// one: nothing is replaced that was not registered, and the variables are ones
-/// it does not read.
+/// The mobile harness composes no workspace store, so nothing is replaced for it;
+/// its device database and credential go to the process folder through its own
+/// two variables, so its Development stand-up seed never writes into this
+/// worktree's <c>obj/local-development</c>.
 /// </para>
 /// </summary>
 internal abstract class IsolatedHarnessFactory<TEntryPoint> : WebApplicationFactory<TEntryPoint>
@@ -94,7 +95,7 @@ internal abstract class IsolatedHarnessFactory<TEntryPoint> : WebApplicationFact
 /// still running.
 /// </para>
 /// <para>
-/// Every variable in the desktop harness's <c>Program</c> that names a file or a
+/// Every variable in either harness's <c>Program</c> that names a file or a
 /// folder is here. The two it reads that do not are left alone:
 /// <c>BACKLOG_REPOSITORY_ROOT</c> says which checkout to seed, and
 /// <c>BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT</c> is an address.
@@ -126,7 +127,14 @@ internal static class HarnessIsolation
         ("BACKLOG_CAPTURE_TARGETS_PATH", "capture-targets.json", false),
         ("BACKLOG_PULL_REQUEST_PINS_PATH", "pull-request-pins.json", false),
         ("BACKLOG_SHELL_NAVIGATION_SETTINGS_PATH", "shell-navigation.settings.json", false),
-        ("BACKLOG_CLAUDE_SETTINGS_PATH", "claude.settings.json", false)
+        ("BACKLOG_CLAUDE_SETTINGS_PATH", "claude.settings.json", false),
+        // The phone harness's two: its device database — outbox, and the task and
+        // Progress views its Development stand-up seed writes into — and its
+        // credential, named apart from the desktop's in the same folder.
+        ("BACKLOG_MOBILE_OUTBOX_PATH", "mobile-outbox.db", false),
+        ("BACKLOG_MOBILE_DEVICE_CREDENTIAL_PATH", "mobile-device-credential.json", false),
+        // The folder both hand a pairing code through under auto-pair.
+        ("BACKLOG_PAIRING_HANDOFF_PATH", "pairing-handoff", true)
     ];
 
     static HarnessIsolation()

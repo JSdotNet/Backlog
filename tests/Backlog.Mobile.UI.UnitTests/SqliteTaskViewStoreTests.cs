@@ -59,6 +59,31 @@ public sealed class SqliteTaskViewStoreTests : IDisposable
         Assert.Single(store.ReadRows());
     }
 
+    /// <summary>Cleared, the file holds no task row, no cursor and no My Day
+    /// preferences — everything it held came from the replica — and the outbox's
+    /// tables beside them are left alone.</summary>
+    [Fact]
+    public async Task Clearing_forgets_every_row_the_cursor_and_the_preferences_but_not_the_outbox()
+    {
+        var task = TestTasks.Task("Book the train", T0);
+        var store = new SqliteTaskViewStore(_path);
+        await store.SaveAsync(
+            [new TaskViewRow(task.Id, task.UpdatedAt, null, 6, task.Task)],
+            "pos:7",
+            new MyDayPreferencesDocument(T0, 7, """{"clearsOvernight":false}"""),
+            TestContext.Current.CancellationToken);
+        var device = new Outbox.SqliteDeviceStore(_path);
+        await device.AddAsync(new Outbox.OutboxEntry(Guid.NewGuid(), "capture", "{}", 0, null, T0), TestContext.Current.CancellationToken);
+
+        await store.ClearAsync(TestContext.Current.CancellationToken);
+
+        var reopened = new SqliteTaskViewStore(_path);
+        Assert.Empty(reopened.ReadRows());
+        Assert.Null(reopened.ReadCursor());
+        Assert.Null(reopened.ReadMyDayPreferences());
+        Assert.Single(new Outbox.SqliteDeviceStore(_path).ReadOutbox());
+    }
+
     [Fact]
     public void A_new_file_keeps_no_my_day_preferences()
     {

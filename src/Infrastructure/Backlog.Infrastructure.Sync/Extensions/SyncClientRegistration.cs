@@ -458,6 +458,50 @@ public static class SyncClientRegistration
         return services;
     }
 
+    /// <summary>
+    /// Registers <see cref="LocalDevelopmentPairing"/> and the client it sends
+    /// on, for the development harnesses the AppHost asks to pair themselves.
+    /// Development only; the shipped heads never call it.
+    /// <para>
+    /// The client, <see cref="LocalDevelopmentPairing.HttpClientName"/>, has the
+    /// host's default pipeline taken off and none put back. The auto-pair's own
+    /// loop is the readiness poll and decides what may be sent again; a
+    /// pipeline underneath it would retry a register or a redeem on a timeout,
+    /// which is the one thing that loop refuses to do (guideline ADR 0015: no
+    /// nested retries, never retry a non-idempotent command). No
+    /// <see cref="SyncAuthenticationHandler"/> either: register, redeem and
+    /// token are anonymous, and the one bearer call — the desktop harness
+    /// minting a pairing code for the phone (<c>POST devices/codes</c>) — carries
+    /// a token the loop has just traded the desktop's own credential for, set on
+    /// that one request.
+    /// </para>
+    /// </summary>
+    public static IServiceCollection AddLocalDevelopmentPairing(this IServiceCollection services, Func<IServiceProvider, Uri> baseAddress)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(baseAddress);
+
+        var client = services.AddHttpClient(LocalDevelopmentPairing.HttpClientName, (sp, http) =>
+        {
+            http.BaseAddress = baseAddress(sp);
+            http.Timeout = LocalPairingCallBudget;
+        });
+
+#pragma warning disable EXTEXP0001 // See WithReplicationPipeline.
+        client.RemoveAllResilienceHandlers();
+#pragma warning restore EXTEXP0001
+
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<LocalDevelopmentPairing>();
+
+        return services;
+    }
+
+    /// <summary>How long one auto-pair call is waited for. With no pipeline
+    /// this is the call's only bound; a call that runs past it is one the loop
+    /// treats as possibly landed.</summary>
+    internal static readonly TimeSpan LocalPairingCallBudget = TimeSpan.FromSeconds(30);
+
     /// <summary>How long one replication attempt is waited for: the hundred
     /// seconds a plain <see cref="HttpClient"/> allows, sized for a full batch
     /// against a cold replica rather than for the typical call.</summary>

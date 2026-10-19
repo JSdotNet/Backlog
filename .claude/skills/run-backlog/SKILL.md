@@ -82,7 +82,7 @@ from `list_resources` (or `aspire describe`) for this run. The dashboard URL is 
 | --- | --- |
 | Aspire dashboard | Did it start, and what is failing? Resource states, console output, structured logs, traces. |
 | `desktop-web-harness` | Does a desktop screen work? This is the main UI target: every pane (Tasks, Dashboard, Roadmap, Sessions, Devbook, DevPc, Settings), and any screen at phone width by resizing the viewport. |
-| `mobile-web-harness` | Does Inbox quick-capture work? Its root is a capture box plus an inbox list whose Triage button acks through `sync`. It hosts no other pane. |
+| `mobile-web-harness` | Does a phone screen work? It hosts the phone app, `Backlog.Mobile.UI`: Today at its root, Inbox, Notes, Stand-up, the task pages and the capture sheet, all behind the pairing gate (see Sign in). |
 | `ui-storybook` | Does a shared component look and behave right on its own? It hosts `Backlog.UI.Components` alone, with no app or cloud behind it, next to the design chapters that govern each component. |
 | `sync`, and `openapi/v1.json` on it | Does the sync API accept and answer this call? The OpenAPI document is served only in Development. |
 | `azure-foundry-test` | What did the desktop harness's AI chat send? It is a local stand-in for Azure Foundry. |
@@ -95,19 +95,64 @@ instead close a takeover that was already on screen.
 ## Sign in
 
 - The harnesses have no user sign-in locally. The sync features need a paired device
-  instead. On `desktop-web-harness`, go to Settings → Features and turn on `sync`, then go
-  to Settings → Devices and choose **Register this device**. `mobile-web-harness` shows a
-  pairing-code entry while it is unpaired, and takes a code copied from the desktop
-  harness's **Pair with a code**. The service checks a bearer token on
-  `/api/sync/devices/me` and every `/api/sync/inbox` endpoint, so pair before exercising
-  them.
-- Each harness keeps its own device credential under its own `obj/local-development/`
-  (`BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH`, `BACKLOG_MOBILE_DEVICE_CREDENTIAL_PATH`), so
-  the two register as two devices under one owner.
+  instead. The service checks a bearer token on `/api/sync/devices/me` and every
+  `/api/sync/inbox` endpoint.
+- **The harnesses pair themselves.** The AppHost sets `Harness__AutoPair=true` on both.
+  `desktop-web-harness` turns its own `sync` feature on (kept per worktree) and registers
+  as *Desktop harness*. `mobile-web-harness` then asks the desktop for a pairing code; the
+  desktop mints one with its own credential and hands over only the code, and the phone
+  redeems it as *Phone harness*, under the same owner. Neither harness ever holds the
+  other's credential. The code travels through
+  `src/Harness/Backlog.Desktop.WebHarness/obj/local-development/pairing-handoff/`
+  (`BACKLOG_PAIRING_HANDOFF_PATH`, set by the AppHost on both), in the same DPAPI
+  envelope a stored credential gets, and is deleted once read. Nothing waits
+  on it: it completes once `sync` answers its device routes, which is after `cosmos` is up
+  (see Slow is healthy). Until then the phone shows its pairing screen. Its log lines, in
+  both harnesses' structured logs, start `Development auto-pair:`. After 15 minutes without
+  success it gives up with one warning naming the manual recipe below. A harness that
+  already holds a credential only checks it, with one token exchange per start, so a
+  restart re-pairs nothing.
+- While auto-pair is on, the AppHost turns the phone's stand-up seed off
+  (`Harness__SeedStandup=false`). When auto-pair pairs the phone afresh, it first clears
+  the phone's cached Progress and task views (goals, impediments, the stand-up and the
+  tasks), so after that pairing the Today and Stand-up tabs show only what the first pull
+  brings from the desktop. The outbox of unsent captures and edits is never cleared. A
+  phone that was already paired keeps what it cached, including a seed from an earlier
+  run; give it *A fresh unpaired phone* and delete the marker to start clean.
+- **Opt out for one run** by setting `Harness__AutoPair=false` in the shell that runs
+  `aspire start`. That stops new pairing only: a harness that already holds a credential
+  from an earlier run stays paired, and the phone seeds its stand-up as before. For an
+  unpaired phone, follow *A fresh unpaired phone* below. For both harnesses unpaired, stop
+  them, delete both `device-credential.json` files, and start them again.
+- **A fresh unpaired phone**, to walk the pairing flow by hand: stop `mobile-web-harness`,
+  create an empty `manual-pairing` file in
+  `src/Harness/Backlog.Mobile.WebHarness/obj/local-development/`, delete
+  `device-credential.json` beside it, and start the harness again. The marker keeps
+  auto-pair off for this worktree's phone until you delete it; delete it and restart the
+  harness to go back. The end-to-end tests' phone reset leaves this marker behind.
+- **Pairing by hand**, the fallback: on `desktop-web-harness`, go to Settings → Features
+  and turn on `sync`, then go to Settings → Devices and choose **Register this device**.
+  `mobile-web-harness` shows a pairing-code entry while it is unpaired, and takes a code
+  copied from the desktop harness's **Pair with a code**.
+- Each harness keeps its own device credential, a DPAPI envelope, under its own
+  `obj/local-development/device-credential.json` (`BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH`,
+  `BACKLOG_MOBILE_DEVICE_CREDENTIAL_PATH`), so the two are two devices under one owner.
+  Auto-pair hands the code over in a DPAPI envelope, so it works on Windows only;
+  elsewhere both harnesses log that it is unavailable.
 - Restarting `sync` generates a new signing key. That drops every device token and sync
   cursor, but not the pairings themselves: they live in the Cosmos `devices` container, and
   the client trades its credential for a fresh token on the next sync. A wiped emulator, or
   **Forget this device**, is what unpairs; the Devices tab offers re-pairing on the spot.
+  The `cosmos` container is persistent but has no data volume, so its `devices` can come
+  back empty while both harnesses keep their credentials. With auto-pair on, this recovers
+  when the harnesses next start: each checks its stored credential once per start, a
+  harness whose credential the token route refuses as `device.credential_invalid` discards
+  it and pairs again, and the desktop mints the phone's code only after its own credential
+  has been checked or registered again. After the emulator is reset under a running
+  AppHost, restart `desktop-web-harness` first, then (deleting the `manual-pairing` marker
+  if there is one) restart `mobile-web-harness`. The phone keeps its credential while it
+  carries the marker. Only as a last resort, stop both harnesses, delete both
+  `device-credential.json` files, and start them again.
 - No external secret is needed. If one ever is, record only a pointer to where it lives.
 - Never type a password, token or key into a form yourself. Open the page, say where the
   credential lives, and let the person sign in.

@@ -65,7 +65,8 @@ call a run complete without the person's explicit approval.
     worktree's running AppHost. Its screenshots and `sync` logs under `.qa-workspace/e2e/`
     are evidence.
   - It stops and starts `sync` and resets the phone harness's pairing, so never run it while
-    another scenario drives the same AppHost.
+    another scenario drives the same AppHost. The reset leaves that phone marked for pairing
+    by hand until its `manual-pairing` marker is deleted.
   - Its `README.md` covers the browser install and what a run changes.
 
 A change that runs nothing — `.devbook/`, `.agents/`, `.claude/`, `.github/`, or

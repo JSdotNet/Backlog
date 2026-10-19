@@ -66,4 +66,16 @@ internal sealed class InMemoryTaskViewStore(string? cursor = null, params TaskVi
         lock (_lock) _cursor = null;
         return Task.CompletedTask;
     }
+
+    public Task ClearAsync(CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            _rows.Clear();
+            _cursor = null;
+            _preferences = null;
+        }
+
+        return Task.CompletedTask;
+    }
 }

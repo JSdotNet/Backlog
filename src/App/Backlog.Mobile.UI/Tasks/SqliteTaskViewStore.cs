@@ -217,6 +217,19 @@ public sealed class SqliteTaskViewStore : ITaskViewStore
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task ClearAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = Open();
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+
+        command.CommandText = "DELETE FROM task_view; DELETE FROM task_cursor; DELETE FROM my_day_preferences;";
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     private static bool HasTable(SqliteConnection connection, SqliteTransaction transaction, string name)
     {
         using var command = connection.CreateCommand();

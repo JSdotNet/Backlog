@@ -18,6 +18,14 @@ builder.Services.AddRazorComponents()
 // pairing flow is exercised at all without two machines. The override variable
 // is this harness's own for the same reason: one shared name would let a single
 // setting collapse the pair back into one device.
+//
+// Under the AppHost the two pair themselves (see PhoneAutoPairing below): the
+// desktop registers, this harness asks it for a pairing code through the handoff
+// folder the AppHost passes to both, and redeems the code as a device of its own.
+// Only the code crosses; neither harness holds the other's credential. Pairing by
+// hand in Settings → Devices still works, and is what a run with
+// Harness__AutoPair=false, or a phone carrying the manual-pairing marker, falls
+// back to.
 builder.Services.AddSingleton(_ => DeviceCredentialStoreFactory.CreateLocalDevelopmentStore(
     builder.Environment.ContentRootPath,
     "BACKLOG_MOBILE_DEVICE_CREDENTIAL_PATH",
@@ -31,6 +39,16 @@ builder.Services.AddSingleton(_ => DeviceCredentialStoreFactory.CreateLocalDevel
 // none - it carries the Inbox, not a local task database. Registering it anyway
 // is not a dormant feature, it is a host that cannot start.
 builder.Services.AddSyncClient(new Uri("https+http://sync"));
+
+// The development auto-pair, when the AppHost sets Harness:AutoPair. Off by
+// default, so a host test or an opted-out run composes none of it. The pairing
+// code arrives through the handoff folder the AppHost gives both harnesses.
+if (builder.Configuration.GetValue(LocalDevelopmentPairing.ConfigurationKey, false))
+{
+    builder.Services.AddLocalDevelopmentPairing(_ => new Uri("https+http://sync"));
+    builder.Services.AddSingleton(new PhoneAutoPairingOptions(builder.Configuration[LocalDevelopmentPairing.HandoffPathVariable]));
+    builder.Services.AddHostedService<PhoneAutoPairing>();
+}
 
 // The inbox endpoints are bearer-only, so the data client leaves carrying the
 // same short-lived token the pairing client mints. The handler is chained here
@@ -74,7 +92,9 @@ var app = builder.Build();
 // A stand-up to look at without a desktop that has goals on: goals, impediments, a
 // stand-up context and the tasks they count, written into this device's views before
 // anything reads them, and only while they hold no goal. Off unless the configuration
-// turns it on, which appsettings.Development.json does.
+// turns it on, which appsettings.Development.json does — and the AppHost turns it
+// back off whenever it asks the harnesses to pair, so what a reviewer sees is synced
+// rather than seeded.
 if (app.Configuration.GetValue("Harness:SeedStandup", false))
 {
     await StandupSeed.SeedAsync(app.Services, app.Services.GetRequiredService<TimeProvider>());

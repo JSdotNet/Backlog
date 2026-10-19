@@ -15,6 +15,11 @@ internal sealed class PhoneHarness
 {
     public const string Resource = "mobile-web-harness";
 
+    /// <summary>The file whose presence keeps the harness from pairing itself;
+    /// <c>LocalDevelopmentPairing.ManualPairingMarkerFileName</c>, which this
+    /// project cannot reference.</summary>
+    private const string ManualPairingMarker = "manual-pairing";
+
     private readonly Uri _baseUrl;
 
     private PhoneHarness(IPage page, Uri baseUrl)
@@ -33,6 +38,12 @@ internal sealed class PhoneHarness
     /// (which also holds the cached Inbox, the task view and the notes) are
     /// removed, and it is started again. They live in the harness's own
     /// <c>obj/local-development</c>, so no other worktree is touched.</para>
+    ///
+    /// <para>It also leaves the <c>manual-pairing</c> marker there. Under an
+    /// AppHost that pairs the harnesses itself, a phone with no credential would
+    /// otherwise be paired again before the test reached the pairing screen; the
+    /// marker tells the harness to leave this one for the test. Delete it to hand
+    /// the phone back to the automatic pairing.</para>
     /// </summary>
     public static async Task ResetAsync(AspireAppHost appHost, CancellationToken cancellationToken)
     {
@@ -51,6 +62,9 @@ internal sealed class PhoneHarness
             var staged = new DirectoryInfo(Path.Combine(state.FullName, "talk-notes"));
             if (staged.Exists) staged.Delete(recursive: true);
         }
+
+        state.Create();
+        await File.WriteAllTextAsync(Path.Combine(state.FullName, ManualPairingMarker), string.Empty, cancellationToken);
 
         await appHost.StartAsync(Resource, cancellationToken);
     }
