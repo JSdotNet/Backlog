@@ -1,0 +1,7 @@
+{
+  "members": [
+    { "userId": "30000000-0000-0000-0000-000000000002", "name": "Kees de Vries", "isYou": false, "isActive": true, "isServiceAccount": false },
+    { "userId": "30000000-0000-0000-0000-000000000001", "name": "Jip Jansen", "isYou": true, "isActive": true, "isServiceAccount": false },
+    { "userId": "30000000-0000-0000-0000-000000000009", "name": "Build agent", "isYou": false, "isActive": true, "isServiceAccount": true }
+  ]
+}

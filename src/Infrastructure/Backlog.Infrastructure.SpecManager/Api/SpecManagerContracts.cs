@@ -13,97 +13,100 @@ internal static class SpecManagerJson
 }
 
 /// <summary>
-/// One product of <c>GET /api/producten</c>, which answers the products the account
+/// One product of <c>GET /api/products</c>, which answers the products the account
 /// is a member of, archived ones left out by the server. Only the two fields the
 /// settings page shows and stores are read; the rest are ignored.
 /// </summary>
 /// <param name="Slug">What every other path names the product by, and what a
 /// connected target stores.</param>
-/// <param name="Naam">The product's name, which the person knows it by.</param>
-internal sealed record ProductDto(string? Slug, string? Naam);
+/// <param name="Name">The product's name, which the person knows it by.</param>
+internal sealed record ProductDto(string? Slug, string? Name);
 
-/// <summary><c>GET /api/producten/{slug}/backlog</c>. Not paged.</summary>
-internal sealed record BacklogResponse(IReadOnlyList<BacklogitemDto>? Items);
+/// <summary><c>GET /api/products/{slug}/backlog</c>. Not paged.</summary>
+internal sealed record BacklogResponse(IReadOnlyList<BacklogItemDto>? Items);
 
 /// <summary>
 /// One backlog item as the REST list answers it. Ids are kept as the strings they
 /// arrive as: the connector compares them and never parses one.
 /// </summary>
-/// <param name="Prioriteit">The item's rank in the backlog — a number that moves
+/// <param name="Priority">The item's rank in the backlog — a number that moves
 /// with every drag, which is why it is never part of the display key.</param>
-/// <param name="Nummer">The item's fixed number within its product.</param>
-/// <param name="WachtOp">The waited-on items written out, filled only for an agent's
+/// <param name="Number">The item's fixed number within its product.</param>
+/// <param name="WaitsFor">The waited-on items written out, filled only for an agent's
 /// tool and null on the REST list; read for nothing here.</param>
-/// <param name="Geblokkeerd">The server's own judgement, null on the REST list; the
+/// <param name="Blocked">The server's own judgement, null on the REST list; the
 /// connector derives one when it is absent.</param>
-internal sealed record BacklogitemDto(
+internal sealed record BacklogItemDto(
     string Id,
-    string Titel,
-    string? Omschrijving,
+    string Title,
+    string? Description,
     string StatusId,
-    int Prioriteit,
-    int Nummer,
-    IReadOnlyList<string>? Verwijzingen,
+    int Priority,
+    int Number,
+    IReadOnlyList<string>? References,
     IReadOnlyList<string>? LabelIds,
-    string? ToegewezenAanId,
-    JiraherkomstDto? Jira,
-    bool IsGearchiveerd,
-    int? Inspanning,
-    IReadOnlyList<string>? WachtOpIds,
-    IReadOnlyList<AfgewachtItemDto>? WachtOp,
-    bool? Geblokkeerd,
-    BelemmeringDto? Belemmering,
-    string? Issuetype,
+    string? AssigneeId,
+    JiraOriginDto? Jira,
+    bool IsArchived,
+    int? Effort,
+    IReadOnlyList<string>? WaitsForIds,
+    IReadOnlyList<AwaitedItemDto>? WaitsFor,
+    bool? Blocked,
+    ObstacleDto? Obstacle,
+    string? IssueType,
     DateOnly? Deadline,
-    DateTimeOffset? AfgerondOp,
-    DateTimeOffset BijgewerktOp,
+    DateTimeOffset? FinishedAt,
+    DateTimeOffset UpdatedAt,
     string? SprintId,
-    string? Sprintnaam,
-    string? ExterneSleutel);
+    string? SprintName,
+    string? ExternalKey);
 
-/// <summary>Where a Jira-linked item came from. <see cref="LosgeraaktOp"/> is set
+/// <summary>Where a Jira-linked item came from. <see cref="DetachedAt"/> is set
 /// once the link is broken.</summary>
-internal sealed record JiraherkomstDto(string? Sleutel, string? Url, DateTimeOffset? LosgeraaktOp);
+internal sealed record JiraOriginDto(string? Key, string? Url, DateTimeOffset? DetachedAt);
 
 /// <summary>Why an item is stuck, said on the item itself. The reason is
 /// optional.</summary>
-internal sealed record BelemmeringDto(string? Reden, string? BelemmerdDoorId, DateTimeOffset? BelemmerdOp);
+internal sealed record ObstacleDto(string? Reason, string? ImpededById, DateTimeOffset? ImpededAt);
 
-internal sealed record AfgewachtItemDto(string? Id, int Nummer, string? Titel, bool Afgerond);
+internal sealed record AwaitedItemDto(string? Id, int Number, string? Title, bool Finished);
 
-/// <summary><c>GET /api/producten/{slug}/backlogstatussen</c>.</summary>
-internal sealed record StatusesResponse(IReadOnlyList<BacklogstatusDto>? Statussen);
+/// <summary><c>GET /api/products/{slug}/backlog-statuses</c>.</summary>
+internal sealed record StatusesResponse(IReadOnlyList<BacklogStatusDto>? Statuses);
 
-internal sealed record BacklogstatusDto(
+internal sealed record BacklogStatusDto(
     string Id,
-    string Naam,
-    int Volgorde,
-    bool IsEindstatus,
-    bool IsAistatus,
-    bool IsReviewstatus,
-    bool IsOntwikkelstatus)
+    string Name,
+    int Order,
+    bool IsEndStatus,
+    bool IsAiStatus,
+    bool IsReviewStatus,
+    bool IsDevelopmentStatus)
 {
     /// <summary>Whether the status marks work as begun: development, an agent, or
     /// review.</summary>
-    public bool IsWorkStatus => IsOntwikkelstatus || IsAistatus || IsReviewstatus;
+    public bool IsWorkStatus => IsDevelopmentStatus || IsAiStatus || IsReviewStatus;
 }
 
-/// <summary><c>GET /api/producten/{slug}/backloglabels</c>.</summary>
-internal sealed record LabelsResponse(IReadOnlyList<BackloglabelDto>? Labels);
+/// <summary><c>GET /api/products/{slug}/backlog-labels</c>.</summary>
+internal sealed record LabelsResponse(IReadOnlyList<BacklogLabelDto>? Labels);
 
-internal sealed record BackloglabelDto(string Id, string Naam);
+internal sealed record BacklogLabelDto(string Id, string Name);
 
-/// <summary><c>GET /api/producten/{slug}/backlogleden</c>.</summary>
-internal sealed record MembersResponse(IReadOnlyList<BacklogledDto>? Leden);
+/// <summary><c>GET /api/products/{slug}/backlog-members</c>.</summary>
+internal sealed record MembersResponse(IReadOnlyList<BacklogMemberDto>? Members);
 
-/// <param name="GebruikerId">The id <see cref="BacklogitemDto.ToegewezenAanId"/>
+/// <param name="UserId">The id <see cref="BacklogItemDto.AssigneeId"/>
 /// names a member by.</param>
-/// <param name="IsJij">Whether this is the member behind the token that asked.</param>
-internal sealed record BacklogledDto(string GebruikerId, string? Naam, bool IsJij, bool IsActief, bool IsServiceAccount);
+/// <param name="IsYou">Whether this is the member behind the token that asked.</param>
+internal sealed record BacklogMemberDto(string UserId, string? Name, bool IsYou, bool IsActive, bool IsServiceAccount);
 
-/// <summary>The body of <c>PUT /api/producten/{slug}/backlog/{id}/status</c>.</summary>
+/// <summary>The body of <c>PUT /api/products/{slug}/backlog/{id}/status</c>.</summary>
 internal sealed record SetStatusRequest(string StatusId);
 
-/// <summary>The problem details spec-manager answers an error with; only what a
-/// person is shown is read.</summary>
-internal sealed record ProblemResponse(string? Title, string? Detail);
+/// <summary>
+/// What a refusal's body says, in either shape spec-manager answers one with: its
+/// own <c>{ message, kind }</c>, or the problem details the framework answers with
+/// before that handling is reached. Only what a person is shown is read.
+/// </summary>
+internal sealed record ProblemResponse(string? Message, string? Title, string? Detail);

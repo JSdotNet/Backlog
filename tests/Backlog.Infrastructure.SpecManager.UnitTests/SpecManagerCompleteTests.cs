@@ -14,8 +14,8 @@ namespace Backlog.Infrastructure.SpecManager.UnitTests;
 public sealed class SpecManagerCompleteTests
 {
     private const string ItemId = "20000000-0000-0000-0000-000000000004";
-    private const string StatusPath = $"/api/producten/{StubSpecManager.Product}/backlog/{ItemId}/status";
-    private const string StatusesPath = $"/api/producten/{StubSpecManager.Product}/backlogstatussen";
+    private const string StatusPath = $"/api/products/{StubSpecManager.Product}/backlog/{ItemId}/status";
+    private const string StatusesPath = $"/api/products/{StubSpecManager.Product}/backlog-statuses";
 
     /// <summary>"Klaar", the one end status in the recorded statuses.</summary>
     private const string EndStatus = "10000000-0000-0000-0000-000000000005";
@@ -63,10 +63,10 @@ public sealed class SpecManagerCompleteTests
         using var scenario = new ConnectorScenario();
         scenario.SignedIn();
         scenario.Server.Route(HttpMethod.Get, StatusesPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.OK, """
-            { "statussen": [
-                { "id": "s-gearchiveerd", "naam": "Vervallen", "volgorde": 9, "isEindstatus": true },
-                { "id": "s-todo", "naam": "Te doen", "volgorde": 1, "isEindstatus": false },
-                { "id": "s-klaar", "naam": "Klaar", "volgorde": 5, "isEindstatus": true }
+            { "statuses": [
+                { "id": "s-gearchiveerd", "name": "Vervallen", "order": 9, "isEndStatus": true },
+                { "id": "s-todo", "name": "Te doen", "order": 1, "isEndStatus": false },
+                { "id": "s-klaar", "name": "Klaar", "order": 5, "isEndStatus": true }
             ] }
             """));
         scenario.Server.Route(HttpMethod.Put, StatusPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.OK, "{}"));
@@ -92,7 +92,7 @@ public sealed class SpecManagerCompleteTests
         using var scenario = new ConnectorScenario();
         scenario.SignedIn();
         scenario.Server.Route(HttpMethod.Get, StatusesPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.OK, """
-            { "statussen": [ { "id": "s-todo", "naam": "Te doen", "volgorde": 1, "isEindstatus": false } ] }
+            { "statuses": [ { "id": "s-todo", "name": "Te doen", "order": 1, "isEndStatus": false } ] }
             """));
 
         var refusal = await scenario.Connector.CompleteAsync(Item, TestContext.Current.CancellationToken);
@@ -101,20 +101,37 @@ public sealed class SpecManagerCompleteTests
         Assert.Empty(scenario.Server.To(StatusPath));
     }
 
-    /// <summary>A product whose agent switch is off answers a 403 with problem
-    /// details; the person reads spec-manager's own reason.</summary>
+    /// <summary>A product whose agent switch is off answers a 403 with spec-manager's
+    /// own error body, a <c>message</c> beside an optional <c>kind</c>; the person reads the
+    /// message.</summary>
     [Fact]
-    public async Task A_refusal_says_the_status_and_the_problems_detail()
+    public async Task A_refusal_says_the_status_and_spec_managers_message()
     {
         using var scenario = new ConnectorScenario();
         scenario.SignedIn();
         scenario.Server.Route(HttpMethod.Put, StatusPath, (_, _) => StubSpecManager.Respond(
             HttpStatusCode.Forbidden,
-            """{"type":"about:blank","title":"Verboden","status":403,"detail":"Statuswijzigingen via een agent staan uit voor dit product."}"""));
+            """{"message":"Statuswijzigingen via een agent staan uit voor dit product."}"""));
 
         var refusal = await scenario.Connector.CompleteAsync(Item, TestContext.Current.CancellationToken);
 
         Assert.Equal("spec-manager refused (403): Statuswijzigingen via een agent staan uit voor dit product.", refusal);
+    }
+
+    /// <summary>A refusal in problem details — what the framework answers before
+    /// spec-manager's own handling is reached — says its <c>detail</c>.</summary>
+    [Fact]
+    public async Task A_refusal_in_problem_details_says_the_detail()
+    {
+        using var scenario = new ConnectorScenario();
+        scenario.SignedIn();
+        scenario.Server.Route(HttpMethod.Put, StatusPath, (_, _) => StubSpecManager.Respond(
+            HttpStatusCode.BadRequest,
+            """{"type":"about:blank","title":"Bad Request","status":400,"detail":"The body is not a status change."}"""));
+
+        Assert.Equal(
+            "spec-manager refused (400): The body is not a status change.",
+            await scenario.Connector.CompleteAsync(Item, TestContext.Current.CancellationToken));
     }
 
     [Fact]
