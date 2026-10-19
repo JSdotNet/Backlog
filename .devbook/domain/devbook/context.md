@@ -148,5 +148,12 @@ While the plan builds it, the view is a frame: each menu row opens a placeholder
 that names the page its kind of file will get, and the plan's later steps
 replace the placeholders one page at a time.
 
+Model is the first page built. It opens on **Diagram**, which draws each
+`classDiagram` of the model file as the aggregate's consistency boundary: the
+root and its composed parts inside the band, what it holds by identity outside
+it, and the domain services below. A diagram that cannot be read that way, has
+no aggregate root, or holds structure no boundary shows is drawn with mermaid as
+before. **Fields** and **Events** are still placeholders.
+
 The flag is retired when the old Domain view is removed, which a later plan does.
 The new view then always shows.

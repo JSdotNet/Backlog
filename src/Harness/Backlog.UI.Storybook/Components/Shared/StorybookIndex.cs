@@ -247,6 +247,7 @@ internal static class StorybookIndex
             // fence at all — a Structurizr workspace read into mermaid at render
             // time — and an element list drawn as the DataTable above.
             new("diagrams/c4", "C4 from Structurizr DSL", "One workspace authored in c4hero, drawn as a landscape, a context, a container and a deployment view — and what the reader refuses to guess at."),
+            new("diagrams/domain-model", "Domain model", "DomainModelView and DomainModelDiagram: a context's classDiagram drawn as consistency-boundary bands, with mermaid when the fence cannot be arranged."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
             new("graph-atlas", "Graph atlas", "GraphAtlas: a graph drawn as a place — clustered in depth on a canvas, with the list beside it that the keyboard actually operates."),
 

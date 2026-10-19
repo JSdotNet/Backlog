@@ -7,6 +7,12 @@
 *@
 
 <section class="domain-view" data-testid="domain-view" data-page="@PageKey" aria-label="Domain view">
+    @if (Page == DomainViewPage.Model)
+    {
+        <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" />
+    }
+    else
+    {
     <EmptyState BaseClass="devbook-empty"
                 TitleCssClass="devbook-empty__title"
                 DescriptionCssClass="@(null)"
@@ -14,11 +20,12 @@
                 Description="@DomainViewUnit.Description(Page)"
                 TestId="domain-view-placeholder"
                 role="status" />
+    }
 </section>
 
 @code {
-    /// <summary>The repository whose Domain area this is. Unread by the frame; the
-    /// pages that fill it read their chapters through it.</summary>
+    /// <summary>The repository whose Domain area this is. The pages that fill the
+    /// frame — Model so far — read their chapters through it.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
