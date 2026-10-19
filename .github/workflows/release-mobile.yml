@@ -99,7 +99,7 @@ jobs:
           "No release-relevant changes were found since $latestTag." >> $env:GITHUB_STEP_SUMMARY
       - name: Setup JDK
         if: steps.release_gate.outputs.should_release == 'true'
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '21'
