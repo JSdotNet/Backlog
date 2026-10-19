@@ -421,6 +421,16 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
         public string? Unavailable => null;
 
+        public bool IsListening => false;
+
+        public Uri? Endpoint => null;
+
+        public string? SetPort(int port) => null;
+
+        public void Retry()
+        {
+        }
+
         public event Action? Changed
         {
             add { }

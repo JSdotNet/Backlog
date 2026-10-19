@@ -1,7 +1,8 @@
 namespace Backlog.Modules.DevPc.Abstractions;
 
 /// <summary>
-/// This machine's own MCP server, as far as a catalog row needs to know it.
+/// This machine's own MCP server, as far as a catalog row and the Settings
+/// screen's MCP server page need to know it.
 ///
 /// <para>A port rather than a reference to the worker, for the reason every other
 /// port in this project is one: the worker lives in the desktop head, which no
@@ -19,18 +20,17 @@ namespace Backlog.Modules.DevPc.Abstractions;
 /// registration only from a bound port would make registering the server require
 /// it to already be running.</para>
 ///
-/// <para>Deliberately no <c>Endpoint</c> and no <c>IsListening</c>. Both were
-/// here and both were read by nothing: the note they were specified for — the
-/// worker's port-collision sentence carried verbatim — is produced from
-/// <see cref="Unavailable"/>, and the state beside it ("no error, not bound
-/// yet") is the half-second a listener takes to start rather than anything a
-/// row should announce. An
-/// <c>Endpoint</c> that nothing read was worse than unused: it looked like the
-/// one place the address was built while the address a registration actually
-/// points at came from the catalog string, so the two could move apart with no
-/// build, test or row saying so. What holds them together instead is a test —
-/// the catalog's URL path is asserted against the constant the hosts serve
-/// from.</para>
+/// <para>The Settings page is what the rest is for: <see cref="IsListening"/> and
+/// <see cref="Endpoint"/> say whether the listener holds its port and where — the
+/// question a person asks when a client reports the connection refused — and
+/// <see cref="SetPort"/> and <see cref="Retry"/> are the two things that page can
+/// do about it. A catalog row reads none of them: it registers from
+/// <see cref="Port"/>, and its note is <see cref="Unavailable"/>. An earlier
+/// <c>Endpoint</c> and <c>IsListening</c> were taken out because nothing read
+/// them; they are back because the page does. The address is never built here or
+/// in the page from scratch — the worker builds <see cref="Endpoint"/> with the
+/// same helper a registration is written with, so the two cannot move
+/// apart.</para>
 /// </summary>
 public interface IMcpEndpointSource
 {
@@ -44,6 +44,37 @@ public interface IMcpEndpointSource
     /// wrong. A sentence rather than a flag, because the row shows it and the
     /// operator is the one who has to act on it.</summary>
     string? Unavailable { get; }
+
+    /// <summary>True while the listener holds its port. False while it is being
+    /// started, after a bind failed, and while a port change rebinds it; which of
+    /// those it is, <see cref="Unavailable"/> says.</summary>
+    bool IsListening { get; }
+
+    /// <summary>Where the listener answers — loopback, the bound port and the
+    /// endpoint path — or <see langword="null"/> while nothing is listening.
+    /// Bound rather than configured, unlike <see cref="Port"/>: it is the answer
+    /// to "is it there", and a screen showing where the server would be uses
+    /// <see cref="Port"/>.</summary>
+    Uri? Endpoint { get; }
+
+    /// <summary>
+    /// Moves the server to another loopback port, or answers why not in a
+    /// sentence fit to show beside the field — a port outside the usable range,
+    /// or one chosen but not saved for next time. <see langword="null"/> when it
+    /// was taken.
+    /// </summary>
+    /// <remarks>The listener rebinds on its own once the port moves, off the
+    /// calling thread, and <see cref="Changed"/> says when it has. Every
+    /// registration names the port, so each has to change with it.</remarks>
+    string? SetPort(int port);
+
+    /// <summary>
+    /// Tries the configured port again after a bind that failed — once whatever
+    /// held it has let go. Does nothing while the listener is running or still
+    /// starting. Never on the calling thread: the outcome arrives through
+    /// <see cref="Changed"/>.
+    /// </summary>
+    void Retry();
 
     /// <summary>
     /// The token a registration has to carry, minted and persisted if this

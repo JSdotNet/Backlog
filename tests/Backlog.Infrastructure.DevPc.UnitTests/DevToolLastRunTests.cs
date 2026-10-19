@@ -286,6 +286,14 @@ public sealed class DevToolLastRunTests : IDisposable
 
         public string? Unavailable => null;
 
+        public bool IsListening => true;
+
+        public Uri? Endpoint => new($"http://127.0.0.1:{Port}/mcp");
+
+        public string? SetPort(int port) => throw new NotSupportedException();
+
+        public void Retry() => throw new NotSupportedException();
+
         public string? CurrentToken => token;
 
         public string EnsureToken()
