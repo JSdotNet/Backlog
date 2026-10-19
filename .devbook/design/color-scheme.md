@@ -39,7 +39,8 @@ related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
 All tokens below are the **dark-mode** values. These are the only color values
-the product uses.
+the product uses, beside the one value
+[Domain View Element Tones](#domain-view-element-tones) adds.
 
 ### Brand
 
@@ -560,6 +561,50 @@ Rules:
   it is a followable badge, and the scope's active fill is gold because it is
   `color-primary`. Neither names which repository: the alias written on the chip
   does.
+- **Teal stays the Brain's.** Outside a code block, teal `#7FD1C1` means the
+  Brain or a repository's band 2 and nothing else. A view that colours its own
+  elements, such as the Domain view's
+  [element tones](#domain-view-element-tones), picks another value rather than
+  borrowing teal.
+
+## Domain View Element Tones
+
+```meta
+related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0036-the-domain-view-reads-by-unit.md", ".devbook/design/accessibility.md#contrast"]
+```
+
+The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
+marks a model element by its kind on the Model page's diagram and beside its
+name. The kind's glyph and word always say what the element is, and the tone
+only helps the eye group the same kind across a diagram.
+
+| Element | Tone | Against `color-background` / `-alt` / `-raised` |
+| --- | --- | --- |
+| Value object | `color-domain-value-object`, `#C3D96B` | 11.99:1 / 10.41:1 / 7.83:1 |
+
+Value objects take `#C3D96B`, a yellow-green between `color-band-3` and
+`color-primary`. It is the one value this file adds outside the palette, and it
+is argued here. Teal, the value the code theme spends as `code-type`, is not
+available to it, because teal is reserved for [the Brain](#the-brains-accent).
+
+**Information badges are neutral outlines.** On the Domain view's pages, the
+`DEV` mark, a chapter's date and a chapter's feature switch are information
+about the chapter, not something the product acts on. Each is drawn as a neutral
+outline: a transparent surface inside a 1px `color-border-strong` edge, with
+`color-text-secondary` ink. The rule that filled means the product acts on it
+([Badge and chip tones](#badge-and-chip-tones)) therefore holds on these pages
+too.
+
+Rules:
+
+- **Never the sole carrier.** An element's tone always sits beside its type
+  marker and its kind in words.
+- **The Domain view only.** These tones are for the Domain view behind the
+  [New domain view](../domain/devbook/context.md#new-domain-view) switch. The
+  type marker stays monochrome everywhere else.
+- **A new tone is argued here.** A kind that needs a tone gains a row in the
+  table above, with its contrast, and never borrows a band or a semantic token.
+
 
 ## Role Tokens
 
