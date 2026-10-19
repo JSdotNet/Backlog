@@ -263,20 +263,80 @@
                              aria-label="Filter by tag">
                             @foreach (var tag in State.TagFilters)
                             {
-                                @* The face carries the open count and the tooltip
+                                @* Keyed by the tag, on whatever is the iteration's root,
+                                   because a pressed plan moves: it leads the strip and
+                                   changes parent into its pair. Matched by position, the
+                                   chip under the focus would turn into another tag and
+                                   the next Space would press that one. Two copies of the
+                                   chip rather than one fragment for that reason too — a
+                                   fragment is a region, and a key inside a region is
+                                   matched only within it.
+
+                                   The face carries the open count and the tooltip
                                    carries both halves — see TagFilterOption. The
-                                   per-kind class is the same distinction the row
-                                   chips draw, so a person, a plan and a general tag
-                                   read apart on the bar the way they do on the row. *@
-                                <ToggleButton BaseClass="chip chip--filter"
-                                              CssClass="@TagFilterKindClass(tag)"
-                                              PressedCssClass="chip--active"
-                                              Pressed="@State.IsTagSelected(tag.Value)"
-                                              TestId="tag-filter-option"
-                                              Title="@TagFilterTitle(tag)"
-                                              PressedChanged="_ => State.ToggleTagFilter(tag.Value)">
-                                    @tag.Label<span class="chip__count">@tag.OpenCount</span>
-                                </ToggleButton>
+                                   per-kind class is the same distinction the row chips
+                                   draw, so a person, a plan and a general tag read
+                                   apart on the bar the way they do on the row. *@
+                                @if (State.SelectedPlan is { } plan && string.Equals(tag.Value, plan, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    @* The plan in view, one press from the clipboard — a
+                                       reader filters to a plan and then pastes its name
+                                       somewhere else. The tag verbatim, + and all,
+                                       because that is how a plan is written everywhere
+                                       it is typed.
+
+                                       Fused to the pressed chip rather than left at the
+                                       end of the bar, so the copy reads as the plan's
+                                       own and not as one more filter: one border round
+                                       both, a hairline between them, on the TagChip
+                                       precedent of a label and its remove. Two sibling
+                                       buttons in a layout wrapper, never one nested in
+                                       the other. The wrapper is one flex item, so the
+                                       strip's clipping takes or keeps the pair whole,
+                                       and components.js reserves the pair's width when
+                                       it leads the strip.
+
+                                       Only the pressed plan is wrapped, so the chip a
+                                       click toggles stays a toggle and the strip carries
+                                       no button per chip. The status line is announced
+                                       and not drawn: the glyph's check is the sighted
+                                       confirmation, and a sentence appearing would shove
+                                       the chips along the strip. *@
+                                    <span @key="tag.Value" class="filter-bar__plan-pair" data-testid="tag-filter-plan-pair">
+                                        <ToggleButton BaseClass="chip chip--filter"
+                                                      CssClass="@TagFilterKindClass(tag)"
+                                                      PressedCssClass="chip--active"
+                                                      Pressed="@State.IsTagSelected(tag.Value)"
+                                                      id="@TagFilterChipId(tag.Value)"
+                                                      TestId="tag-filter-option"
+                                                      Title="@TagFilterTitle(tag)"
+                                                      PressedChanged="_ => OnTagFilterPressed(tag.Value)">
+                                            @tag.Label<span class="chip__count">@tag.OpenCount</span>
+                                        </ToggleButton>
+                                        <CopyButton Text="@plan"
+                                                    Label="@($"Copy {plan}")"
+                                                    CssClass="filter-bar__plan-copy"
+                                                    ButtonBaseClass="filter-bar__plan-copy-button"
+                                                    StatusCssClass="sr-only"
+                                                    TestId="tag-filter-copy-plan"
+                                                    ButtonTestId="tag-filter-copy-plan-button"
+                                                    StatusTestId="tag-filter-copy-plan-status" />
+                                    </span>
+                                }
+                                else
+                                {
+                                    <ToggleButton @key="tag.Value"
+                                                  BaseClass="chip chip--filter"
+                                                  CssClass="@TagFilterKindClass(tag)"
+                                                  PressedCssClass="chip--active"
+                                                  Pressed="@State.IsTagSelected(tag.Value)"
+                                                  id="@TagFilterChipId(tag.Value)"
+                                                  TestId="tag-filter-option"
+                                                  Title="@TagFilterTitle(tag)"
+                                                  PressedChanged="_ => OnTagFilterPressed(tag.Value)">
+                                        @tag.Label<span class="chip__count">@tag.OpenCount</span>
+                                    </ToggleButton>
+                                }
                             }
                         </div>
 
@@ -297,26 +357,6 @@
                                    OnClick="() => _tagStripExpanded = !_tagStripExpanded">
                             @(_tagStripExpanded ? "Fewer" : "More")
                         </AppButton>
-
-                        @* The plan in view, one press from the clipboard — a reader
-                           filters to a plan and then pastes its name somewhere else.
-                           The tag verbatim, + and all, because that is how a plan is
-                           written everywhere it is typed. Only while a plan is pressed,
-                           so the chip a click toggles stays a toggle and the strip
-                           carries no button per chip. The status line is announced
-                           and not drawn: the glyph's check is the sighted
-                           confirmation, and a sentence appearing would shove the
-                           statuses along the bar. *@
-                        @if (State.SelectedPlan is { } plan)
-                        {
-                            <CopyButton Text="@plan"
-                                        Label="@($"Copy {plan}")"
-                                        CssClass="filter-bar__copy-plan"
-                                        StatusCssClass="sr-only"
-                                        TestId="tag-filter-copy-plan"
-                                        ButtonTestId="tag-filter-copy-plan-button"
-                                        StatusTestId="tag-filter-copy-plan-status" />
-                        }
                     }
 
                     @* Off the bar on the Board while its columns are the statuses:
@@ -944,6 +984,12 @@
         {
             _focusDevbookAction = false;
             await FocusQuietlyAsync(_devbookAction.FocusAsync);
+        }
+
+        if (_focusTagChip is { } chip)
+        {
+            _focusTagChip = null;
+            await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocusTagChip", TagFilterChipId(chip)));
         }
 
         if (_focusRevealedRow)
@@ -5192,6 +5238,26 @@
         var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
         return text.ToLowerInvariant();
     }
+
+    /// <summary>Which chip the focus is owed to after the next render, by tag value.
+    /// A plan press moves its chip — to the front and into its pair, or back out of
+    /// it — and a moved chip is a new element, so the focus the press left on the old
+    /// one has nowhere to stay. Set only for a press in the plan group — a plan, or
+    /// No plan, which lets go of one — because nothing else moves a chip.</summary>
+    private string? _focusTagChip;
+
+    private void OnTagFilterPressed(string tag)
+    {
+        if (tag == TasksDesktopState.NoPlanTag || TagText.Kind(tag) is TagKind.Plan) _focusTagChip = tag;
+
+        State.ToggleTagFilter(tag);
+    }
+
+    /// <summary>The chip's element id, for handing the focus back to it. Hex of the
+    /// lower-cased value, because a tag may carry characters an id should not, and
+    /// the two sentinels start with a space.</summary>
+    internal static string TagFilterChipId(string tag) =>
+        "tag-filter-option-" + Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(tag.ToLowerInvariant()));
 
     /// <summary>The bar's per-kind modifier, read off the stored value the way
     /// <c>TagChip</c> reads its own. "Untagged" is a general chip: it names no tag,

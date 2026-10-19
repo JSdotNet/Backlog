@@ -611,8 +611,9 @@ h1, h2, h3 {
     align-content: flex-start;
     font-size: var(--font-size-sm);
     max-height: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));
-    /* Never narrower than a pressed first chip. A plan opened from the roadmap is
-       put first (TasksDesktopState.RebuildTagFilters), and with every repository in
+    /* Never narrower than a pressed first chip. A pressed plan — opened from the
+       roadmap or pressed on the bar — is put first with its copy
+       (TasksDesktopState.RebuildTagFilters), and with every repository in
        scope the zero basis leaves the strip next to nothing — the chip that says why
        the list is short would be clipped whole. components.js measures that chip;
        unpressed, the variable is unset and the strip keeps taking only the slack. */
@@ -645,10 +646,65 @@ h1, h2, h3 {
     display: none;
 }
 
-/* The pressed plan's copy button. Pinned beside the toggle so a long strip never
-   squeezes it out, and only there while a plan is pressed. */
-.filter-bar__copy-plan {
+/*
+   The pressed plan and its copy, drawn as one chip: the toggle on the left, the
+   copy segment on the right, a hairline between them. One flex item in the strip,
+   so the strip's one-row clip takes or keeps the pair whole and components.js
+   reserves its full width when it leads.
+
+   The copy segment wears no `.chip` class on purpose. The 48rem step keeps only
+   `.chip--active` chips of a picked strip, and a `.chip` that is not active would
+   be hidden there — taking the copy away exactly where the pair is all that is
+   left of the strip. It takes the pressed chip's fill, border and height here
+   instead.
+*/
+.filter-bar__plan-pair {
+    display: inline-flex;
+    align-items: stretch;
     flex: 0 0 auto;
+}
+
+.filter-bar__plan-pair > .chip--active {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+}
+
+.filter-bar__plan-copy {
+    align-items: stretch;
+}
+
+.filter-bar__plan-copy-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-primary);
+    /* The join. The pressed chip's border is the colour of its fill, so it draws
+       no line; the hairline is this inset shadow, and the segment's own left
+       border goes so the two edges do not double up. */
+    border-left-width: 0;
+    box-shadow: inset var(--border-width) 0 0 0 color-mix(in srgb, var(--color-text-inverse) 35%, transparent);
+    border-start-end-radius: var(--border-radius-sm);
+    border-end-end-radius: var(--border-radius-sm);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font: inherit;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.filter-bar__plan-copy-button > span {
+    display: inline-flex;
+}
+
+.filter-bar__plan-copy-button:hover {
+    background: var(--color-primary-light);
+}
+
+.filter-bar__plan-copy-button:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* The one group in the bar that is not a filter. It keeps its room for the same
@@ -3771,6 +3827,15 @@ h1, h2, h3 {
 .app-header--fold-2 .header-group__option:has(> .header-nav-label--tier-2),
 .app-header--fold-3 .header-group__option:has(> .header-nav-label--tier-3),
 .app-header--fold-4 .header-group__option:has(> .header-nav-label--tier-4) {
+    padding-inline: var(--spacing-sm);
+}
+
+/* An option that never had a word — Show archived beside Colors — is a glyph in
+   a box from the start, so it takes the folded sides permanently. The height is
+   the option's own, so it lines up with the loose options it borrows the shape
+   from and the header grows no taller for it. */
+.header-group__option--icon-only {
+    flex: 0 0 auto;
     padding-inline: var(--spacing-sm);
 }
 

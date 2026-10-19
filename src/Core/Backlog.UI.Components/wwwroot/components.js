@@ -2166,19 +2166,76 @@
     const tagStrips = new WeakSet();
 
     //
-    // A pressed first chip — the plan "Open in Tasks" showed, which the state puts
-    // first — also gets its own width reserved, as `--tag-strip-lead`: the strip
-    // only takes what the other groups leave, and with every repository in scope
-    // that can be nothing, which would clip the one chip that says why the list is
-    // short. Reserved, the bar wraps a group onto its next row instead.
+    // A pressed first chip — a pressed plan, which the state puts first whether
+    // "Open in Tasks" showed it or the reader pressed it — also gets its own width
+    // reserved, as `--tag-strip-lead`: the strip only takes what the other groups
+    // leave, and with every repository in scope that can be nothing, which would
+    // clip the one chip that says why the list is short. Reserved, the bar wraps a
+    // group onto its next row instead.
+    //
+    // The first child is not always the chip itself: a host may fuse a pressed chip
+    // with a control of its own in one wrapper (the Tasks bar pairs a pressed plan
+    // with its copy), and then the wrapper is the flex item. Pressed is read off the
+    // child or the toggle directly inside it, and the width reserved is the child's,
+    // so the whole pair stays on screen rather than the chip without its copy.
+    const isPressedLead = (child) => child?.getAttribute('aria-pressed') === 'true'
+        || child?.querySelector(':scope > [aria-pressed="true"]') != null;
+
     const measureTagStrip = (strip) => {
         const chips = strip.children;
         const wrapped = chips.length > 1 && chips[chips.length - 1].offsetTop > chips[0].offsetTop;
         strip.toggleAttribute('data-overflowing', wrapped);
 
-        const lead = chips[0]?.getAttribute('aria-pressed') === 'true' ? chips[0].offsetWidth : 0;
+        const lead = isPressedLead(chips[0]) ? chips[0].offsetWidth : 0;
         if (lead > 0) strip.style.setProperty('--tag-strip-lead', `${lead}px`);
         else strip.style.removeProperty('--tag-strip-lead');
+    };
+
+    // Hands the focus back to a tag chip a press moved — into the pressed plan's pair
+    // at the front, or back out of it to wherever it sorts. Not backlogFocus: the
+    // strip is one row cut by overflow, and a plain focus() on a chip that sorts past
+    // that row scrolls the strip to it, losing the first row with nothing to scroll
+    // it back. So the focus never scrolls, and a chip the reader cannot see — clipped
+    // past the row, or hidden with the rest of the unpicked strip at a narrow width —
+    // does not take it; the More toggle does, since it is the way to that chip, and
+    // where More is not drawn either the focus is left where it was.
+    //
+    // The strip is put back on its first row before anything is measured. A chip
+    // reached by Tab may have scrolled it already, and a strip left scrolled shows
+    // the lead pair as clipped — the press would then hand the focus to More, and
+    // the next Space would open the strip instead of letting go of the plan.
+    window.backlogFocusTagChip = (id) => {
+        const visible = (element) => {
+            if (element.getClientRects().length === 0) return false;
+
+            const strip = element.closest(TAG_STRIP_SELECTOR);
+            if (!strip) return true;
+
+            const box = strip.getBoundingClientRect();
+            const own = element.getBoundingClientRect();
+            return own.top >= box.top - 1 && own.bottom <= box.bottom + 1;
+        };
+
+        const attempt = (framesLeft) => {
+            const chip = document.getElementById(id);
+            if (!chip) {
+                if (framesLeft > 0) requestAnimationFrame(() => attempt(framesLeft - 1));
+                return;
+            }
+
+            const strip = chip.closest(TAG_STRIP_SELECTOR);
+            if (strip) strip.scrollTop = 0;
+
+            if (visible(chip)) {
+                chip.focus({ preventScroll: true });
+                return;
+            }
+
+            const more = strip?.id ? document.querySelector(`[aria-controls="${strip.id}"]`) : null;
+            if (more && more.getClientRects().length > 0) more.focus({ preventScroll: true });
+        };
+
+        attempt(focusFrames);
     };
 
     const tagStripResize = new ResizeObserver((entries) => {

@@ -1438,8 +1438,8 @@ public sealed class HomeRepositoryScopeTests
     private static void DocsArchived(GitHubSettingsStore settings) =>
         Assert.Null(settings.SetRepositoryArchived("docs", archived: true));
 
-    private static IElement ShowArchivedSwitch(IRenderedComponent<Home> component) =>
-        component.WaitForElement("[data-testid='show-archived-toggle'] [role='switch']");
+    private static IElement ShowArchivedToggle(IRenderedComponent<Home> component) =>
+        component.WaitForElement("button[data-testid='show-archived-toggle']");
 
     /// <summary>Scenario "The repository scope": the Brain chip and backlog, no chip
     /// for the archived repository.</summary>
@@ -1454,7 +1454,44 @@ public sealed class HomeRepositoryScopeTests
             Assert.Equal(["backlog"], Chips(component).Select(chip => chip.TextContent.Trim()));
             Assert.NotNull(BrainChip(component));
         });
-        Assert.Equal("false", ShowArchivedSwitch(component).GetAttribute("aria-checked"));
+        Assert.Equal("false", ShowArchivedToggle(component).GetAttribute("aria-pressed"));
+    }
+
+    /// <summary>
+    /// The control is one glyph that stays pressed, not a switch with its name written
+    /// beside a track: the header had no room for the words. The name moves to
+    /// aria-label, the tooltip says what the next press does, and it stands alone in
+    /// the loose option shape rather than inside the scope group, where it would read
+    /// as one more repository.
+    /// </summary>
+    [Fact]
+    public void Show_archived_is_an_icon_only_pressed_toggle_outside_the_scope()
+    {
+        using var harness = CreateHarness(DocsArchived);
+        var component = Render(harness);
+
+        var toggle = ShowArchivedToggle(component);
+
+        Assert.Null(toggle.GetAttribute("role"));
+        Assert.Null(toggle.GetAttribute("aria-checked"));
+        Assert.Equal("false", toggle.GetAttribute("aria-pressed"));
+        Assert.Equal("Show archived repositories", toggle.GetAttribute("aria-label"));
+        Assert.Equal("Show archived repositories", toggle.GetAttribute("title"));
+        Assert.Contains("header-group__option--loose", toggle.ClassList);
+        Assert.NotNull(toggle.QuerySelector("svg.archive-icon[aria-hidden='true']"));
+        Assert.Empty(toggle.TextContent.Trim());
+        Assert.Null(toggle.QuerySelector("[class*='track']"));
+        Assert.Null(toggle.Closest("[role='group'], .header-group"));
+
+        toggle.Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var pressed = ShowArchivedToggle(component);
+            Assert.Equal("true", pressed.GetAttribute("aria-pressed"));
+            Assert.Equal("Show archived repositories", pressed.GetAttribute("aria-label"));
+            Assert.Equal("Hide archived repositories", pressed.GetAttribute("title"));
+        });
     }
 
     /// <summary>With nothing archived the switch has nothing to show, so it is not
@@ -1479,7 +1516,7 @@ public sealed class HomeRepositoryScopeTests
         var component = Render(harness);
         var path = ShellNavigationPath(harness.Root);
 
-        ShowArchivedSwitch(component).Click();
+        ShowArchivedToggle(component).Click();
 
         component.WaitForAssertion(() =>
         {
@@ -1491,7 +1528,7 @@ public sealed class HomeRepositoryScopeTests
             Assert.Equal("docs (archived)", chips[1].TextContent.Trim());
             Assert.StartsWith("Archived. ", chips[1].GetAttribute("title"), StringComparison.Ordinal);
         });
-        Assert.Equal("true", ShowArchivedSwitch(component).GetAttribute("aria-checked"));
+        Assert.Equal("true", ShowArchivedToggle(component).GetAttribute("aria-pressed"));
         Assert.True(new ShellNavigationStore(path).ShowArchivedRepositories);
         Assert.Contains("\"showArchivedRepositories\": true", File.ReadAllText(path), StringComparison.Ordinal);
     }
@@ -1506,7 +1543,7 @@ public sealed class HomeRepositoryScopeTests
 
         component.WaitForAssertion(() =>
             Assert.Equal(["backlog", "docs (archived)"], Chips(component).Select(chip => chip.TextContent.Trim())));
-        Assert.Equal("true", ShowArchivedSwitch(component).GetAttribute("aria-checked"));
+        Assert.Equal("true", ShowArchivedToggle(component).GetAttribute("aria-pressed"));
     }
 
     /// <summary>Scenario "The repository was archived since": the remembered scope comes
@@ -1559,7 +1596,7 @@ public sealed class HomeRepositoryScopeTests
         var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
         component.WaitForAssertion(() => Assert.Equal(["docs"], state.SelectedRepositoryAliases));
 
-        ShowArchivedSwitch(component).Click();
+        ShowArchivedToggle(component).Click();
 
         component.WaitForAssertion(() =>
         {
