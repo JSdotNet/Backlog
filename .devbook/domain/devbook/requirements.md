@@ -1346,6 +1346,7 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneDomainViewFlagTests.With_the_switch_off_the_Domain_area_is_todays_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.With_the_switch_off_a_split_context_is_todays_flat_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.With_the_switch_off_an_unsplit_context_is_todays_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneDomainViewFlagTests.Flipping_the_switch_relists_the_open_Domain_menu]
 ```
 
 The system SHALL show the Domain area exactly as it reads today while the `devbook-domain-view` switch is off.
@@ -1361,6 +1362,7 @@ The system SHALL show the Domain area exactly as it reads today while the `devbo
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Lists_an_unsplit_context_as_its_kinds, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Lists_a_split_context_by_kind_in_reading_order]
 ```
 
 The system SHALL list a bounded context's files in the devbook reading order, one row per file, each row titled by its kind.
@@ -1376,6 +1378,7 @@ The system SHALL list a bounded context's files in the devbook reading order, on
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Nests_each_split_file_under_its_kind_labelled_by_its_name_without_a_database, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Labels_a_split_row_by_its_heading_from_the_database, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.A_further_dot_nests_one_level_deeper, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.A_kind_with_no_base_file_is_a_row_that_only_opens_its_children]
 ```
 
 The system SHALL list a file named `<kind>.<name>.md` under its kind's row, titled by the file's own heading, and nest each further dot one level deeper.
@@ -1442,6 +1445,7 @@ The system SHALL show a context's `dependencies.md` as the Neighbours tab of the
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Draws_no_row_for_invariants_dependencies_demo_or_underscore_files]
 ```
 
 The system SHALL list no file or folder whose name starts with `_`.

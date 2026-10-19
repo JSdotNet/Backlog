@@ -189,6 +189,28 @@ internal sealed class DevbookMenuOutline
         return true;
     }
 
+    /// <summary>
+    /// A file's own heading, as the outline recorded it — the label a split file's
+    /// row takes in the New domain view (local ADR 0036). Unlike
+    /// <see cref="TryTitle"/> it answers for a file, because a split file is
+    /// titled after the unit it holds rather than after its context; it shares
+    /// the drift rung, so a chapter touched since the build keeps its name.
+    /// </summary>
+    public bool TryHeading(string relativeDirectory, string name, out string heading)
+    {
+        heading = string.Empty;
+        if (_index is null) return false;
+
+        var key = relativeDirectory.Length == 0 ? name : relativeDirectory + "/" + name;
+        if (!_titles.TryGetValue(key, out var candidate)) return false;
+
+        var entry = candidate.Entry;
+        if (entry.IsDirectory || string.IsNullOrWhiteSpace(entry.Title) || LooksStale(entry)) return false;
+
+        heading = entry.Title.Trim();
+        return true;
+    }
+
     /// <summary>Whether the outline's answer for an entry is last build's. A
     /// directory is asked about through its root document, which is where its
     /// title came from.

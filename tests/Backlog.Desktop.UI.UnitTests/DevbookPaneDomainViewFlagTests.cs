@@ -92,6 +92,54 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='domain-view']"));
     }
 
+    /// <summary>The menu is part of what the switch changes (local ADR 0036): off,
+    /// a split file is a row of its own beside its kind; on, it is a child of its
+    /// kind's row. Flipping the switch reloads the open menu into the other
+    /// listing, without a folder change to prompt it.</summary>
+    [Fact]
+    public async Task Flipping_the_switch_relists_the_open_Domain_menu()
+    {
+        await using var harness = CreateHarness(domainView: false);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Tasks")));
+        await ClickMenuItemAsync(component, "Tasks");
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Domain.order")));
+        Assert.Null(MenuItem(component, "Order"));
+
+        Assert.Null(harness.Features.SetEnabled(DevbookFeatures.DomainView, true));
+        component.WaitForAssertion(() => Assert.Null(MenuItem(component, "Domain.order")));
+
+        await ClickMenuItemAsync(component, "Domain");
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Order")));
+
+        Assert.Null(harness.Features.SetEnabled(DevbookFeatures.DomainView, false));
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Domain.order")));
+        Assert.Null(MenuItem(component, "Order"));
+    }
+
+    /// <summary>An invariants subpage has a row in the flat list and none in the
+    /// listing by unit, where it is its domain page's Always true tab. Open when
+    /// the switch flips on, it hands the selection to that page rather than
+    /// letting the pane fall back to the context map.</summary>
+    [Fact]
+    public async Task Flipping_the_switch_on_with_an_invariants_subpage_open_lands_on_its_domain_page()
+    {
+        await using var harness = CreateHarness(domainView: false);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Tasks")));
+        await ClickMenuItemAsync(component, "Tasks");
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Order invariants")));
+        await ClickMenuItemAsync(component, "Order invariants");
+        component.WaitForAssertion(() => Assert.Equal("tasks/domain.order.invariants.md", component.FindComponent<DomainDevbookPanel>().Instance.SelectedPath));
+
+        Assert.Null(harness.Features.SetEnabled(DevbookFeatures.DomainView, true));
+        component.WaitForAssertion(() => Assert.Equal("tasks/domain.order.md", component.FindComponent<DomainView>().Instance.SelectedPath));
+        component.WaitForAssertion(() => Assert.Null(MenuItem(component, "Order invariants")));
+        Assert.NotNull(MenuItem(component, "Order"));
+    }
+
     /// <summary>One menu row, by the label a reader reads; null while it is not drawn.</summary>
     private static IElement? MenuItem(IRenderedComponent<DevbookPane> component, string label) =>
         component.FindAll(".devbook-menu__item")
@@ -111,6 +159,8 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts and what joins them.\n");
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain: Tasks\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n");
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.order.md"), "# Order\n\nOne aggregate of the tasks context.\n");
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.order.invariants.md"), "# Invariants\n\nWhat an order always keeps.\n");
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
