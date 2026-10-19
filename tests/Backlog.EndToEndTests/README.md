@@ -134,7 +134,18 @@ It holds:
   a fresh token, so the Warning logs about rejected tokens are expected.
 - **`mobile-web-harness`** is reset to a phone that was never paired: it is stopped,
   its `obj/local-development` credential, outbox database and staged talk-note files are
-  removed, and it is started again. These files belong to this worktree only.
+  removed, an empty `manual-pairing` marker is written there, and it is started again.
+  These files belong to this worktree only. The marker stops the AppHost's auto-pair from
+  pairing the phone before step 1 does, and it stays after the run. The phone keeps the
+  pairing step 1 made, so the marker matters only once that credential goes — through
+  **Forget this device** or a later reset. From then on this worktree's phone waits to be
+  paired by hand until you delete the marker and restart `mobile-web-harness`. A run that
+  fails before step 1 leaves it in that state at once. A wiped emulator does not clear the
+  phone's credential: while the marker is there, auto-pair leaves that credential unchecked,
+  so the phone keeps a pairing the service no longer knows. Auto-pair checks a credential
+  only when a harness starts, and the phone pairs only with a code the desktop mints, so
+  restart `desktop-web-harness`, then delete the marker and restart `mobile-web-harness`:
+  auto-pair discards the stale credentials and pairs the phone again.
 - **`desktop-web-harness`** gets the *Sync* and *Inbox pane* features turned on (kept
   per worktree) and is registered with the sync service if it was not already.
 - **The desktop workspace is shared.** Every worktree on the machine uses the one

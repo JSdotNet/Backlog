@@ -35,4 +35,10 @@ public interface ITaskViewStore
     /// <summary>Forgets the cursor, so the next pull starts from the beginning.
     /// The rows stay: a full pull folds over them to the same result.</summary>
     Task ResetCursorAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Forgets every row, the cursor and the My Day preferences, in one
+    /// transaction: the view as a phone paired afresh starts it, so the next pull
+    /// starts from the beginning and the view holds only what it brings. The outbox's
+    /// tables in the same file are not touched.</summary>
+    Task ClearAsync(CancellationToken cancellationToken = default);
 }

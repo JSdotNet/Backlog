@@ -184,6 +184,50 @@ public sealed class ProgressViewTests : IDisposable
         Assert.Equal(IterationLength.Day, phone.Next.Length);
     }
 
+    /// <summary>
+    /// A phone paired afresh forgets what its views held — a stand-up seed, or an
+    /// earlier owner's goals and tasks — so the first pull shows synced data alone.
+    /// The outbox is the phone's own unsent work and stays: an edit still waiting
+    /// leaves as before, and a pull from the beginning brings the replica back.
+    /// </summary>
+    [Fact]
+    public async Task Forgetting_the_views_drops_every_synced_row_and_cursor_but_keeps_the_outbox()
+    {
+        var task = TestTasks.Task("Map the bank's fields", Now.AddDays(-3), status: "in_progress");
+        _service.Append(task);
+        _service.Append(GoalDocument(Now.AddDays(-2)));
+        _service.Append(ImpedimentDocument(Now.AddDays(-1)));
+        _service.Append(ContextDocument(Now.AddHours(-1)));
+        await _progress.PullAsync(Cancellation);
+        await _tasks.PullAsync(Cancellation);
+        _service.State = InboxServiceState.Unreachable;
+        await _progress.MoveImpedimentAsync(ImpedimentId, ImpedimentState.Escalated, cancellationToken: Cancellation);
+        await _outbox.WhenIdleAsync();
+        var changes = 0;
+        _progress.Changed += () => changes++;
+        _tasks.Changed += () => changes++;
+
+        await _progress.ForgetAsync(Cancellation);
+        await _tasks.ForgetAsync(Cancellation);
+
+        Assert.Empty(_progress.Goals());
+        Assert.Empty(_progress.Impediments());
+        Assert.Null(_progress.Context());
+        Assert.Empty(_tasks.Live());
+        Assert.Empty(_store.ReadRows());
+        Assert.Null(_store.ReadCursor());
+        Assert.Single(_outbox.Entries, entry => entry.Kind == ImpedimentEditOutboxKind.Token);
+        Assert.Equal(2, changes);
+
+        _service.State = InboxServiceState.Answering;
+        await _progress.PullAsync(Cancellation);
+        await _tasks.PullAsync(Cancellation);
+
+        Assert.Single(_progress.Goals());
+        Assert.Equal(task.Id, Assert.Single(_tasks.Live()).Id);
+        Assert.Null(_service.PulledFrom[^1]);
+    }
+
     [Fact]
     public async Task Each_impediment_edit_is_queued_as_its_own_document_and_pushed_beside_the_tasks()
     {
@@ -592,6 +636,24 @@ public sealed class SqliteProgressViewStoreTests : IDisposable
         Assert.Equal(2, reopened.ReadRows().Count);
     }
 
+    /// <summary>Cleared, the file holds no row and no cursor, and the task view's
+    /// tables and the outbox's beside it are left alone.</summary>
+    [Fact]
+    public async Task Clearing_forgets_every_row_and_the_cursor_and_nothing_else_in_the_file()
+    {
+        var goal = new ProgressViewRow(Guid.NewGuid(), "goal", T0, null, 3, """{"title":"Goal"}""");
+        var store = new SqliteProgressViewStore(_path);
+        await store.SaveAsync([goal], "pos:7", TestContext.Current.CancellationToken);
+        await new SqliteTaskViewStore(_path).SaveAsync([], "pos:3", TestContext.Current.CancellationToken);
+
+        await store.ClearAsync(TestContext.Current.CancellationToken);
+
+        var reopened = new SqliteProgressViewStore(_path);
+        Assert.Empty(reopened.ReadRows());
+        Assert.Null(reopened.ReadCursor());
+        Assert.Equal("pos:3", new SqliteTaskViewStore(_path).ReadCursor());
+    }
+
     /// <summary>The file keeps the later of two copies by the fold's own order, whichever is
     /// written last, so two writers racing — a pull and a queued edit — never put an older
     /// copy, or a live one over its tombstone, back on disk.</summary>
@@ -645,6 +707,17 @@ internal sealed class InMemoryProgressViewStore : IProgressViewStore
     public Task ResetCursorAsync(CancellationToken cancellationToken = default)
     {
         lock (_lock) _cursor = null;
+        return Task.CompletedTask;
+    }
+
+    public Task ClearAsync(CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            _rows.Clear();
+            _cursor = null;
+        }
+
         return Task.CompletedTask;
     }
 }

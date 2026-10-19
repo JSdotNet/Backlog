@@ -138,10 +138,34 @@ var resetRoot = LocalDataReset.ResolveRoot();
 // is why the confirmation below keeps it apart from the shared workspace it names.
 var resetShellNavigation = LocalDataReset.ResolveShellNavigation(builder.AppHostDirectory);
 
+// The two harnesses pair themselves against this run's sync service, so a reviewer
+// opens mobile-web-harness on synced data instead of on its pairing screen: the
+// desktop registers, mints a pairing code with its own credential when the phone
+// asks, and hands over only that code; the phone redeems it, through the same
+// device endpoints a person's clicks reach. Neither holds the other's credential.
+// It completes once sync answers its device routes, which is after the Cosmos
+// emulator is up; nothing waits on it. On unless Harness:AutoPair is false — set
+// Harness__AutoPair=false in the shell that starts the AppHost, or in its user
+// secrets, for a run that pairs by hand.
+var autoPair = !bool.TryParse(builder.Configuration["Harness:AutoPair"], out var autoPairSetting) || autoPairSetting;
+
+// The folder the phone asks for a pairing code in and the desktop hands it over
+// through, in the OS-protected envelope a stored credential gets: one value with
+// two readers, so they cannot look in different places. Under this worktree's
+// desktop harness, beside its other per-worktree state, unless the shell moved it;
+// made absolute here, since each harness would resolve a relative one against its
+// own folder.
+var pairingHandoffPath = Path.GetFullPath(
+    Environment.GetEnvironmentVariable("BACKLOG_PAIRING_HANDOFF_PATH") is { Length: > 0 } movedHandoff
+        ? movedHandoff
+        : Path.Combine(builder.AppHostDirectory, "..", "..", "Harness", "Backlog.Desktop.WebHarness", "obj", "local-development", "pairing-handoff"));
+
 builder.AddProject("desktop-web-harness", "..\\..\\Harness\\Backlog.Desktop.WebHarness\\Backlog.Desktop.WebHarness.csproj")
     .WithReference(sync)
     .WithReference(azureFoundryTest)
     .WithEnvironment("BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT", azureFoundryTest.GetEndpoint("http"))
+    .WithEnvironment("BACKLOG_PAIRING_HANDOFF_PATH", pairingHandoffPath)
+    .WithEnvironment("Harness__AutoPair", autoPair ? "true" : "false")
     .WaitFor(azureFoundryTest)
     .WithCommand(
         "reset-local-data",
@@ -159,9 +183,16 @@ builder.AddProject("desktop-web-harness", "..\\..\\Harness\\Backlog.Desktop.WebH
 
 // Mobile UI in the browser. The Android head needs an emulator, so this harness
 // hosts the same Razor components (Backlog.Mobile.UI) at phone width.
-builder.AddProject("mobile-web-harness", "..\\..\\Harness\\Backlog.Mobile.WebHarness\\Backlog.Mobile.WebHarness.csproj")
+var mobileWebHarness = builder.AddProject("mobile-web-harness", "..\\..\\Harness\\Backlog.Mobile.WebHarness\\Backlog.Mobile.WebHarness.csproj")
     .WithReference(sync)
-    .WaitFor(sync);
+    .WaitFor(sync)
+    .WithEnvironment("BACKLOG_PAIRING_HANDOFF_PATH", pairingHandoffPath)
+    .WithEnvironment("Harness__AutoPair", autoPair ? "true" : "false");
+
+// A paired phone shows what the desktop pushed, so the stand-up seed its Development
+// settings turn on would only blur synced data with seeded data. Off while the run
+// pairs itself; an opted-out run seeds as before.
+if (autoPair) mobileWebHarness.WithEnvironment("Harness__SeedStandup", "false");
 
 // Component storybook: the shared Backlog.UI.Components library on its own, with
 // no application or sync dependency, so the components can be reviewed and

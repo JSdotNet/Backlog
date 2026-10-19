@@ -1,4 +1,5 @@
 extern alias DesktopHarness;
+extern alias MobileHarness;
 
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
@@ -68,6 +69,28 @@ public class HarnessIsolationTests
                 $"{path} lies in the per-user workspace folder.");
         }
     }
+
+    /// <summary>
+    /// The phone harness, which seeds its stand-up in Development, writes its device
+    /// database — outbox and the cached task and Progress views — and keeps its
+    /// credential in the test folder too. Before this, every host test that started
+    /// it wrote the seeded goals into this worktree's own
+    /// <c>obj/local-development/mobile-outbox.db</c>, where the next AppHost run's
+    /// phone showed them beside synced data.
+    /// </summary>
+    [Fact]
+    public void The_phone_harness_keeps_its_device_database_and_credential_in_the_test_folder()
+    {
+        using var harness = new IsolatedPhone();
+        var services = harness.Services;
+
+        Assert.StartsWith(HarnessIsolation.Root, Path.GetFullPath(services.GetRequiredService<IDeviceCredentialStore>().StorePath), StringComparison.OrdinalIgnoreCase);
+        Assert.True(
+            File.Exists(Path.Combine(HarnessIsolation.Root, "machine", "mobile-outbox.db")),
+            "The phone harness's seeded device database is not in the test folder.");
+    }
+
+    private sealed class IsolatedPhone : IsolatedHarnessFactory<MobileHarness::Program>;
 
     private static bool IsUnder(string path, string folder) =>
         Path.GetFullPath(path).StartsWith(

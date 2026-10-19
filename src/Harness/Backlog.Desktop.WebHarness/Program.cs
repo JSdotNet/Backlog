@@ -17,6 +17,7 @@ using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Desktop.UI.Extensions;
@@ -210,6 +211,20 @@ AddAzureFoundryCostClient(builder.Services, azureFoundrySettings);
 // This assembly's own pages, under Components/Pages: they exist only to be
 // driven — the shipped app has no route that throws on request.
 builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
+
+// The development auto-pair: when the AppHost sets Harness:AutoPair, this harness
+// registers itself with this run's sync service, turns its own sync switch on, and
+// mints a pairing code for the phone harness whenever it asks, handing over only
+// the code through the folder the AppHost passes to both — see
+// DesktopAutoRegistration. Off by default, so a host test or an opted-out run
+// composes none of it. It reaches the service the sync client resolves, so the
+// credential it keeps is one that client can use.
+if (builder.Configuration.GetValue(LocalDevelopmentPairing.ConfigurationKey, false))
+{
+    builder.Services.AddLocalDevelopmentPairing(sp => sp.GetRequiredService<SyncServiceEndpoint>().Resolve().Address);
+    builder.Services.AddSingleton(new DesktopAutoRegistrationOptions(builder.Configuration[LocalDevelopmentPairing.HandoffPathVariable]));
+    builder.Services.AddHostedService<DesktopAutoRegistration>();
+}
 
 // Which worktree served this harness. It is only ever started from a checkout,
 // so there is nothing to gate on beyond finding one — and when it is missing the

@@ -29,6 +29,11 @@ public interface IProgressViewStore
     /// <summary>Forgets the cursor, so the next pull starts from the beginning. The rows
     /// stay: a full pull folds over them to the same result.</summary>
     Task ResetCursorAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Forgets every row and the cursor, in one transaction: the view as a phone
+    /// paired afresh starts it, so the next pull starts from the beginning and the view
+    /// holds only what it brings. Nothing else in the file is touched.</summary>
+    Task ClearAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -169,6 +174,19 @@ public sealed class SqliteProgressViewStore : IProgressViewStore
         command.CommandText = "DELETE FROM progress_cursor";
 
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task ClearAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = Open();
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+
+        command.CommandText = "DELETE FROM progress_view; DELETE FROM progress_cursor;";
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private SqliteConnection Open()

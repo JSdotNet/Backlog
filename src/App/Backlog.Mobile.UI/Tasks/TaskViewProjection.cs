@@ -330,6 +330,35 @@ public sealed class TaskViewProjection : IDisposable
         return new TaskChange(Guid.CreateVersion7(), now, DeletedAt: null, payload);
     }
 
+    /// <summary>
+    /// Forgets every row, the cursor and the My Day preferences, on disk and here, so
+    /// the next pull starts from the beginning and the view holds only what the replica
+    /// says: what a phone paired afresh starts from. Held by <see cref="_gate"/>, so a
+    /// pull or an add in flight finishes first. The outbox is not touched — a task
+    /// added here and not yet sent still leaves, and comes back with the next pull.
+    /// </summary>
+    public async Task ForgetAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+
+        try
+        {
+            await _store.ClearAsync(cancellationToken);
+
+            lock (_rowsLock)
+            {
+                _rows.Clear();
+                _preferences = null;
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        Changed?.Invoke();
+    }
+
     public void Dispose() => _gate.Dispose();
 
     private static bool IsCursorRejection(string? code) =>

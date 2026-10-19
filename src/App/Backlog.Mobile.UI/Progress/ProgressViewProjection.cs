@@ -293,6 +293,52 @@ public sealed class ProgressViewProjection : IDisposable
             ProjectionRefs: []));
     }
 
+    /// <summary>
+    /// Forgets every goal, impediment, stand-up context and kept edit row, on disk and
+    /// here, so the next pull starts from the beginning and the view holds only what the
+    /// replica says: what a phone paired afresh starts from. Held by both gates, so a
+    /// pull or a queued edit in flight finishes first. The outbox is not touched: an edit
+    /// still waiting there leaves as before, and its chain is remembered from it, as a
+    /// restart would.
+    /// </summary>
+    public async Task ForgetAsync(CancellationToken cancellationToken = default)
+    {
+        await _gate.WaitAsync(cancellationToken);
+
+        try
+        {
+            await _queueGate.WaitAsync(cancellationToken);
+
+            try
+            {
+                await _store.ClearAsync(cancellationToken);
+
+                lock (_rowsLock)
+                {
+                    _rows.Clear();
+                    _settled.Clear();
+                    _leftAt.Clear();
+                    _asked.Clear();
+
+                    foreach (var entry in _outbox.Entries.Where(entry => entry.Kind == ImpedimentEditOutboxKind.Token))
+                    {
+                        if (Asked(entry) is { } edit) Remember(entry.Id, edit);
+                    }
+                }
+            }
+            finally
+            {
+                _queueGate.Release();
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        Changed?.Invoke();
+    }
+
     public void Dispose()
     {
         _outbox.Delivered -= OnDelivered;
