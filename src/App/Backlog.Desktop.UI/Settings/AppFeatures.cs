@@ -110,6 +110,12 @@ public static class AppFeatures
             Status: AppFeatureStatus.Dev,
             FormerKeys: ["knowledge-semantic-search"]),
         new(
+            DevbookFeatures.DomainView,
+            "New domain view",
+            "Read the Devbook's Domain area one unit at a time: the context map, each bounded context, and each file inside it, on a page drawn for the kind of file it is. Turned off, the Domain area reads as it always has.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
+        new(
             DevPcFeatures.SystemTools,
             "System tools",
             "Check, update, enable, and disable what this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.",

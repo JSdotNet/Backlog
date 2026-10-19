@@ -1,0 +1,32 @@
+@*
+    The Domain area read by unit (local ADR 0036), behind the New domain view
+    switch. A frame for now: it names the page the selected menu row opens and
+    holds a placeholder per kind of file, which the plan +devbook-domain-view's
+    later steps replace one page at a time. With the switch off the pane renders
+    DomainDevbookPanel and never this.
+*@
+
+<section class="domain-view" data-testid="domain-view" data-page="@PageKey" aria-label="Domain view">
+    <EmptyState BaseClass="devbook-empty"
+                TitleCssClass="devbook-empty__title"
+                DescriptionCssClass="@(null)"
+                Title="@DomainViewUnit.Title(Page)"
+                Description="@DomainViewUnit.Description(Page)"
+                TestId="domain-view-placeholder"
+                role="status" />
+</section>
+
+@code {
+    /// <summary>The repository whose Domain area this is. Unread by the frame; the
+    /// pages that fill it read their chapters through it.</summary>
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The menu row the reader selected, relative to the Domain folder.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    private DomainViewPage Page => DomainViewUnit.PageFor(SelectedPath);
+
+    private string PageKey => DomainViewUnit.Key(Page);
+}

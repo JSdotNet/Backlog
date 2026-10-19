@@ -144,5 +144,9 @@ settings screen lists it from the feature catalog in `AppFeatures.cs`, and a
 person's choice is kept in `features.json` beside the app's other per-device
 choices.
 
+While the plan builds it, the view is a frame: each menu row opens a placeholder
+that names the page its kind of file will get, and the plan's later steps
+replace the placeholders one page at a time.
+
 The flag is retired when the old Domain view is removed, which a later plan does.
 The new view then always shows.
