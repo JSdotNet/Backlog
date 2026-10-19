@@ -13,11 +13,11 @@ public sealed class SpecManagerItemMappingTests
     /// before #6 did.</summary>
     private static readonly DateTimeOffset Since = new(2026, 10, 3, 0, 0, 0, TimeSpan.FromHours(2));
 
-    private static async Task<SourceItem> ItemAsync(int nummer)
+    private static async Task<SourceItem> ItemAsync(int number)
     {
         using var scenario = new ConnectorScenario();
         var items = await scenario.FetchAsync(Since);
-        return items.Single(item => item.ExternalId == FixtureId(nummer));
+        return items.Single(item => item.ExternalId == FixtureId(number));
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public sealed class SpecManagerItemMappingTests
     [Fact]
     public void An_item_waited_on_that_this_fetch_did_not_read_is_still_named()
     {
-        var item = Map(Bare() with { WachtOpIds = ["read-nowhere"] });
+        var item = Map(Bare() with { WaitsForIds = ["read-nowhere"] });
 
         Assert.Equal(["read-nowhere"], item.WaitsOn);
         Assert.False(item.IsBlocked);
@@ -202,10 +202,10 @@ public sealed class SpecManagerItemMappingTests
     {
         var item = Map(Bare() with
         {
-            IsGearchiveerd = archived,
+            IsArchived = archived,
             StatusId = archived ? "a" : "end",
-            Belemmering = new BelemmeringDto("Still impeded", null, null),
-            Geblokkeerd = true,
+            Obstacle = new ObstacleDto("Still impeded", null, null),
+            Blocked = true,
         });
 
         Assert.Equal(archived ? NormalisedSourceState.Dropped : NormalisedSourceState.Done, item.State);
@@ -263,12 +263,12 @@ public sealed class SpecManagerItemMappingTests
     [Fact]
     public void The_servers_blocked_flag_answers_the_waiting_and_never_hides_an_impediment()
     {
-        // spec-manager's geblokkeerd says whether a waited-on item is open (BACK-52);
+        // spec-manager's blocked says whether a waited-on item is open (BACK-52);
         // an impediment is on the item itself and is no part of it.
         var impeded = Bare() with
         {
-            Geblokkeerd = false,
-            Belemmering = new BelemmeringDto("Server down", null, null),
+            Blocked = false,
+            Obstacle = new ObstacleDto("Server down", null, null),
         };
 
         var item = Map(impeded);
@@ -282,9 +282,9 @@ public sealed class SpecManagerItemMappingTests
     {
         var waiting = Bare() with
         {
-            WachtOpIds = ["archived-elsewhere"],
-            WachtOp = [new AfgewachtItemDto("archived-elsewhere", 40, "Elsewhere", Afgerond: false)],
-            Geblokkeerd = true,
+            WaitsForIds = ["archived-elsewhere"],
+            WaitsFor = [new AwaitedItemDto("archived-elsewhere", 40, "Elsewhere", Finished: false)],
+            Blocked = true,
         };
 
         var item = Map(waiting);
@@ -342,23 +342,23 @@ public sealed class SpecManagerItemMappingTests
         Assert.Equal(NormalisedSourceState.Open, catalog.StateOf(null));
     }
 
-    private static BacklogitemDto Bare() => new(
-        "x", "Bare", null, "a", Prioriteit: 1, Nummer: 99, Verwijzingen: null, LabelIds: null, ToegewezenAanId: null,
-        Jira: null, IsGearchiveerd: false, Inspanning: null, WachtOpIds: null, WachtOp: null, Geblokkeerd: null,
-        Belemmering: null, Issuetype: null, Deadline: null, AfgerondOp: null, BijgewerktOp: DateTimeOffset.UnixEpoch,
-        SprintId: null, Sprintnaam: null, ExterneSleutel: null);
+    private static BacklogItemDto Bare() => new(
+        "x", "Bare", null, "a", Priority: 1, Number: 99, References: null, LabelIds: null, AssigneeId: null,
+        Jira: null, IsArchived: false, Effort: null, WaitsForIds: null, WaitsFor: null, Blocked: null,
+        Obstacle: null, IssueType: null, Deadline: null, FinishedAt: null, UpdatedAt: DateTimeOffset.UnixEpoch,
+        SprintId: null, SprintName: null, ExternalKey: null);
 
-    private static SourceItem Map(BacklogitemDto item) => SpecManagerItemMapper.Map(
+    private static SourceItem Map(BacklogItemDto item) => SpecManagerItemMapper.Map(
         item,
         new ProductCatalog([Status("a", 1), Status("end", 2, end: true)], [], DateTimeOffset.UnixEpoch),
-        new Dictionary<string, BacklogitemDto> { [item.Id] = item },
+        new Dictionary<string, BacklogItemDto> { [item.Id] = item },
         "https://spec.test",
         "p");
 
-    /// <summary>The fixture item numbered <paramref name="nummer"/>'s id.</summary>
-    internal static string FixtureId(int nummer) =>
-        "a0000000-0000-0000-0000-" + nummer.ToString("D12", System.Globalization.CultureInfo.InvariantCulture);
+    /// <summary>The fixture item numbered <paramref name="number"/>'s id.</summary>
+    internal static string FixtureId(int number) =>
+        "a0000000-0000-0000-0000-" + number.ToString("D12", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static BacklogstatusDto Status(string id, int order, bool end = false, bool ai = false) =>
-        new(id, id.ToUpperInvariant(), order, IsEindstatus: end, IsAistatus: ai, IsReviewstatus: false, IsOntwikkelstatus: false);
+    private static BacklogStatusDto Status(string id, int order, bool end = false, bool ai = false) =>
+        new(id, id.ToUpperInvariant(), order, IsEndStatus: end, IsAiStatus: ai, IsReviewStatus: false, IsDevelopmentStatus: false);
 }

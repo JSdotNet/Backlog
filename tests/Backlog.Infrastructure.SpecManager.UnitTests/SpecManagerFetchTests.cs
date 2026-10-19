@@ -11,9 +11,9 @@ namespace Backlog.Infrastructure.SpecManager.UnitTests;
 /// </summary>
 public sealed class SpecManagerFetchTests
 {
-    private const string BacklogPath = $"/api/producten/{StubSpecManager.Product}/backlog";
-    private const string StatusesPath = $"/api/producten/{StubSpecManager.Product}/backlogstatussen";
-    private const string MembersPath = $"/api/producten/{StubSpecManager.Product}/backlogleden";
+    private const string BacklogPath = $"/api/products/{StubSpecManager.Product}/backlog";
+    private const string StatusesPath = $"/api/products/{StubSpecManager.Product}/backlog-statuses";
+    private const string MembersPath = $"/api/products/{StubSpecManager.Product}/backlog-members";
 
     private static readonly DateTimeOffset Since = new(2026, 10, 3, 0, 0, 0, TimeSpan.FromHours(2));
 
@@ -28,7 +28,7 @@ public sealed class SpecManagerFetchTests
         Assert.DoesNotContain(items, item => item.State is NormalisedSourceState.Done or NormalisedSourceState.Dropped);
 
         var request = Assert.Single(scenario.Server.To(BacklogPath));
-        Assert.Equal("?gearchiveerd=false", request.Uri.Query);
+        Assert.Equal("?archived=false", request.Uri.Query);
     }
 
     [Fact]
@@ -40,15 +40,15 @@ public sealed class SpecManagerFetchTests
 
         var requests = scenario.Server.To(BacklogPath);
         Assert.Equal(2, requests.Count);
-        Assert.Equal("?gearchiveerd=false", requests[0].Uri.Query);
+        Assert.Equal("?archived=false", requests[0].Uri.Query);
 
         var archive = requests[1].Uri;
-        Assert.StartsWith("?gearchiveerd=true&gewijzigdSinds=", archive.Query, StringComparison.Ordinal);
+        Assert.StartsWith("?archived=true&changedSince=", archive.Query, StringComparison.Ordinal);
         // Round-trip, with the offset the moment was taken in, and the plus escaped
         // so the server does not read it as a space.
         Assert.Contains("%2B02", archive.Query, StringComparison.Ordinal);
         // The skew allowance taken off the last sync: 00:00 becomes 23:45 the day before.
-        Assert.EndsWith("gewijzigdSinds=2026-10-02T23:45:00.0000000+02:00", Uri.UnescapeDataString(archive.Query), StringComparison.Ordinal);
+        Assert.EndsWith("changedSince=2026-10-02T23:45:00.0000000+02:00", Uri.UnescapeDataString(archive.Query), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public sealed class SpecManagerFetchTests
         Assert.Contains(items, item => Number(item) == 6 && item.State == NormalisedSourceState.Done);
         Assert.Equal(SpecManagerConnector.ClockSkewAllowance, TimeSpan.FromMinutes(15));
         var archive = scenario.Server.To(BacklogPath)[1].Uri;
-        Assert.EndsWith("gewijzigdSinds=2026-10-04T14:55:00.0000000+00:00", Uri.UnescapeDataString(archive.Query), StringComparison.Ordinal);
+        Assert.EndsWith("changedSince=2026-10-04T14:55:00.0000000+00:00", Uri.UnescapeDataString(archive.Query), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed class SpecManagerFetchTests
         using var scenario = new ConnectorScenario();
         scenario.SignedIn(accountName: null);
         scenario.Backlog();
-        scenario.Server.Json(HttpMethod.Get, MembersPath, "leden.json");
+        scenario.Server.Json(HttpMethod.Get, MembersPath, "members.json");
 
         await scenario.Connector.FetchAsync(StubSpecManager.Product, null, TestContext.Current.CancellationToken);
         await scenario.Connector.FetchAsync(StubSpecManager.Product, null, TestContext.Current.CancellationToken);
@@ -163,7 +163,7 @@ public sealed class SpecManagerFetchTests
         await scenario.FetchAsync();
 
         Assert.Single(scenario.Server.To(StatusesPath));
-        Assert.Single(scenario.Server.To($"/api/producten/{StubSpecManager.Product}/backloglabels"));
+        Assert.Single(scenario.Server.To($"/api/products/{StubSpecManager.Product}/backlog-labels"));
     }
 
     [Fact]
@@ -193,6 +193,56 @@ public sealed class SpecManagerFetchTests
         var item = Assert.Single(items);
         Assert.Equal("AI bezig", item.SourceStateName);
         Assert.Equal(NormalisedSourceState.Active, item.State);
+    }
+
+    /// <summary>
+    /// The defect this answers: spec-manager moved its contract to English names,
+    /// and a field read under a name the answer no longer has is not refused — it
+    /// is read as its default. Every item would come out untitled as <c>#0</c>,
+    /// changed in 0001, and every status as neither work nor an end. Read off an
+    /// English answer, each of them has its own value.
+    /// </summary>
+    [Fact]
+    public async Task An_english_answer_is_read_field_by_field_and_never_as_defaults()
+    {
+        using var scenario = new ConnectorScenario();
+        scenario.SignedIn();
+        scenario.Server.Route(HttpMethod.Get, StatusesPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.OK, """
+            { "statuses": [
+                { "id": "s-todo", "name": "Te doen", "order": 1, "isEndStatus": false, "isDevelopmentStatus": false },
+                { "id": "s-refined", "name": "Verfijnd", "order": 2, "isEndStatus": false, "isDevelopmentStatus": false },
+                { "id": "s-build", "name": "Bouwen", "order": 3, "isEndStatus": false, "isDevelopmentStatus": true },
+                { "id": "s-done", "name": "Klaar", "order": 4, "isEndStatus": true, "isDevelopmentStatus": false }
+            ] }
+            """));
+        scenario.Server.Route(HttpMethod.Get, BacklogPath, (request, _) => StubSpecManager.Respond(
+            HttpStatusCode.OK,
+            request.RequestUri!.Query.Contains("archived=true", StringComparison.Ordinal)
+                ? """{ "items": [] }"""
+                : """
+                { "priorityVersion": 3, "items": [
+                    { "id": "e-1", "title": "Refined, not begun", "statusId": "s-refined", "priority": 1, "number": 41,
+                      "isArchived": false, "updatedAt": "2026-10-04T08:30:00+00:00" },
+                    { "id": "e-2", "title": "Finished since", "statusId": "s-done", "priority": 2, "number": 42,
+                      "isArchived": false, "finishedAt": "2026-10-04T09:00:00+00:00", "updatedAt": "2026-10-04T09:00:00+00:00" }
+                ] }
+                """));
+
+        var items = await scenario.Connector.FetchAsync(StubSpecManager.Product, Since, TestContext.Current.CancellationToken);
+
+        var refined = Assert.Single(items, item => item.ExternalId == "e-1");
+        Assert.Equal("Refined, not begun", refined.Title);
+        Assert.Equal("#41", refined.DisplayKey);
+        Assert.Equal(new DateTimeOffset(2026, 10, 4, 8, 30, 0, TimeSpan.Zero), refined.UpdatedAt);
+        // Before the development status, so Open — only when isDevelopmentStatus is read.
+        Assert.Equal(NormalisedSourceState.Open, refined.State);
+        Assert.Equal("Verfijnd", refined.SourceStateName);
+
+        var finished = Assert.Single(items, item => item.ExternalId == "e-2");
+        Assert.Equal("#42", finished.DisplayKey);
+        // Done, and kept as news, only when isEndStatus is read.
+        Assert.Equal(NormalisedSourceState.Done, finished.State);
+        Assert.Equal(new DateTimeOffset(2026, 10, 4, 9, 0, 0, TimeSpan.Zero), finished.CompletedAt);
     }
 
     [Fact]
@@ -277,12 +327,12 @@ public sealed class SpecManagerFetchTests
             scenario.Connector.FetchAsync("a product/../x", null, TestContext.Current.CancellationToken));
 
         var request = Assert.Single(scenario.Server.Requests);
-        Assert.Equal("/api/producten/a%20product%2F..%2Fx/backlog", request.Uri.AbsolutePath);
+        Assert.Equal("/api/products/a%20product%2F..%2Fx/backlog", request.Uri.AbsolutePath);
     }
 
     // --- The products to pick from ------------------------------------------------
 
-    private const string ProductsPath = "/api/producten";
+    private const string ProductsPath = "/api/products";
 
     /// <summary>The settings page picks a product rather than having its slug typed:
     /// each one the account can see, stored as its slug and shown by its name. The
@@ -295,8 +345,8 @@ public sealed class SpecManagerFetchTests
         scenario.SignedIn();
         scenario.Server.Route(HttpMethod.Get, ProductsPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.OK, """
             [
-                { "id": "6f1c0e8e-0000-0000-0000-000000000001", "slug": "fincent", "naam": "Fincent", "repository": "x", "doelbranch": "main" },
-                { "id": "6f1c0e8e-0000-0000-0000-000000000002", "slug": "backlog-demo", "naam": "", "repository": "y", "doelbranch": "main" }
+                { "id": "6f1c0e8e-0000-0000-0000-000000000001", "slug": "fincent", "name": "Fincent", "repository": "x", "targetBranch": "main" },
+                { "id": "6f1c0e8e-0000-0000-0000-000000000002", "slug": "backlog-demo", "name": "", "repository": "y", "targetBranch": "main" }
             ]
             """));
 
@@ -309,10 +359,31 @@ public sealed class SpecManagerFetchTests
         Assert.Equal("sma_current", Assert.Single(scenario.Server.To(ProductsPath)).Bearer);
     }
 
-    /// <summary>The app signs in with an agent token, which spec-manager does not
-    /// yet accept on the product list. A refusal is a list that could not be had,
-    /// said in a sentence that points at typing the slug instead, never a throw
-    /// into the page.</summary>
+    /// <summary>The product list is read like every other path: a token refused
+    /// before its time is refreshed once and the list asked again.</summary>
+    [Fact]
+    public async Task A_refused_token_on_the_product_list_is_refreshed_and_the_list_asked_again()
+    {
+        using var scenario = new ConnectorScenario();
+        scenario.SignedIn();
+        scenario.Server.Route(HttpMethod.Post, "/oauth/token", (_, _) => StubSpecManager.Respond(
+            HttpStatusCode.OK,
+            """{"access_token":"sma_second","refresh_token":"smr_second","token_type":"Bearer","expires_in":3600}"""));
+        scenario.Server.Route(HttpMethod.Get, ProductsPath, (request, _) =>
+            request.Headers.Authorization?.Parameter == "sma_second"
+                ? StubSpecManager.Respond(HttpStatusCode.OK, """[ { "slug": "fincent", "name": "Fincent" } ]""")
+                : StubSpecManager.Respond(HttpStatusCode.Unauthorized, "{}"));
+
+        var choices = await scenario.Connector.ListTargetChoicesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal([new ConnectorTargetChoice("fincent", "Fincent")], choices.Choices);
+        Assert.Equal(["sma_current", "sma_second"], scenario.Server.To(ProductsPath).Select(request => request.Bearer));
+    }
+
+    /// <summary>A product list spec-manager refuses or fails — a product the
+    /// account cannot see, a refresh that did not help, a server error — is a list
+    /// that could not be had, said in a sentence that points at typing the slug
+    /// instead, never a throw into the page.</summary>
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized)]
     [InlineData(HttpStatusCode.Forbidden)]

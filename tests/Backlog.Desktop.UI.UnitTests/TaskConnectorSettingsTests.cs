@@ -734,7 +734,7 @@ public sealed class TaskConnectorSettingsTests
     public void A_connector_that_cannot_list_falls_back_to_typing_and_says_why()
     {
         var connector = new ChoosingConnector(ConnectorTargetChoices.Unavailable(
-            "spec-manager would not list your products yet. Type the product's slug instead, as it appears in its spec-manager URL."));
+            "spec-manager would not list your products. Type the product's slug instead, as it appears in its spec-manager URL."));
         var (context, _) = ComposeChoosing(connector);
         using var _context = context;
 
@@ -742,7 +742,7 @@ public sealed class TaskConnectorSettingsTests
 
         Assert.NotNull(page.Find("input#task-connector-target"));
         Assert.Empty(page.FindAll("select#task-connector-target"));
-        Assert.Contains("would not list your products yet", page.Find("[data-testid='task-connector-target']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("would not list your products", page.Find("[data-testid='task-connector-target']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]

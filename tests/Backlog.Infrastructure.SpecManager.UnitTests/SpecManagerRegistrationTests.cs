@@ -96,7 +96,7 @@ public sealed class SpecManagerRegistrationTests
     {
         var (client, handler) = PipelineClient();
 
-        using var response = await client.GetAsync(new Uri("https://spec.test/api/producten/x/backlog"), TestContext.Current.CancellationToken);
+        using var response = await client.GetAsync(new Uri("https://spec.test/api/products/x/backlog"), TestContext.Current.CancellationToken);
 
         Assert.True(handler.RequestCount > 1, $"Expected a retry, saw {handler.RequestCount} request(s).");
     }

@@ -26,10 +26,10 @@ internal sealed class StubSpecManager : HttpMessageHandler
     {
         var stub = new StubSpecManager();
         stub.Json(HttpMethod.Get, "/.well-known/oauth-authorization-server", "oauth-metadata.json");
-        stub.Json(HttpMethod.Post, "/oauth/registreren", "registration.json", HttpStatusCode.Created);
+        stub.Json(HttpMethod.Post, "/oauth/register", "registration.json", HttpStatusCode.Created);
         stub.Json(HttpMethod.Post, "/oauth/token", "token.json");
-        stub.Json(HttpMethod.Get, $"/api/producten/{Product}/backlogstatussen", "statuses.json");
-        stub.Json(HttpMethod.Get, $"/api/producten/{Product}/backloglabels", "labels.json");
+        stub.Json(HttpMethod.Get, $"/api/products/{Product}/backlog-statuses", "statuses.json");
+        stub.Json(HttpMethod.Get, $"/api/products/{Product}/backlog-labels", "labels.json");
         return stub;
     }
 

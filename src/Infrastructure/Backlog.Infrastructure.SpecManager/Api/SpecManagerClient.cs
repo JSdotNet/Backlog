@@ -8,8 +8,9 @@ using Backlog.Infrastructure.SpecManager.OAuth;
 namespace Backlog.Infrastructure.SpecManager.Api;
 
 /// <summary>
-/// The REST calls the connector makes, and nothing else: four reads — the backlog,
-/// its statuses, its labels and its members — and one write, an item's status.
+/// The REST calls the connector makes, and nothing else: five reads — the products,
+/// a product's backlog, its statuses, its labels and its members — and one write, an
+/// item's status.
 /// Thin on purpose — what an answer means is the connector's business.
 /// <para>
 /// Every call carries the bearer <see cref="SpecManagerSignIn"/> hands out. A 401 is
@@ -45,16 +46,16 @@ internal sealed class SpecManagerClient
     /// or after it. The moment is sent round-trip with its offset, so the server
     /// never has to guess which zone it was meant in.
     /// </summary>
-    public async Task<IReadOnlyList<BacklogitemDto>> GetBacklogAsync(
+    public async Task<IReadOnlyList<BacklogItemDto>> GetBacklogAsync(
         string product,
         bool archived,
         DateTimeOffset? changedSince,
         CancellationToken cancellationToken)
     {
-        var query = "?gearchiveerd=" + (archived ? "true" : "false");
+        var query = "?archived=" + (archived ? "true" : "false");
         if (changedSince is { } since)
         {
-            query += "&gewijzigdSinds=" + Uri.EscapeDataString(since.ToString("O", CultureInfo.InvariantCulture));
+            query += "&changedSince=" + Uri.EscapeDataString(since.ToString("O", CultureInfo.InvariantCulture));
         }
 
         var answer = await GetAsync<BacklogResponse>(ProductPath(product, "backlog") + query, cancellationToken).ConfigureAwait(false);
@@ -62,36 +63,25 @@ internal sealed class SpecManagerClient
     }
 
     /// <summary>
-    /// The products the signed-in account is a member of — <c>GET /api/producten</c>.
-    /// <para>
-    /// Asked once, with no refresh-and-retry on a 401, unlike every other read:
-    /// spec-manager does not yet accept the app's agent token on this path, so a
-    /// 401 here is the expected answer and not a token that expired early, and
-    /// refreshing on it would rotate the person's tokens every time the settings
-    /// open. A refusal throws <see cref="HttpRequestException"/> with its status;
-    /// nobody signed in throws <see cref="SpecManagerSignInRequiredException"/>.
-    /// </para>
+    /// The products the signed-in account is a member of — <c>GET /api/products</c>.
+    /// With the app's agent token spec-manager answers only the products in which
+    /// MCP is on, so a product offered here is one whose backlog will answer too.
+    /// Read like every other path, a 401 refreshed once and asked again. A refusal
+    /// throws <see cref="HttpRequestException"/> with its status; nobody signed in
+    /// throws <see cref="SpecManagerSignInRequiredException"/>.
     /// </summary>
-    public async Task<IReadOnlyList<ProductDto>> GetProductsAsync(CancellationToken cancellationToken)
-    {
-        var token = await _signIn.GetAccessTokenAsync(cancellationToken).ConfigureAwait(false)
-            ?? throw new SpecManagerSignInRequiredException();
+    public async Task<IReadOnlyList<ProductDto>> GetProductsAsync(CancellationToken cancellationToken) =>
+        await GetAsync<IReadOnlyList<ProductDto>>("/api/products", cancellationToken).ConfigureAwait(false) ?? [];
 
-        using var response = await SendOnceAsync(HttpMethod.Get, "/api/producten", body: null, token, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<IReadOnlyList<ProductDto>>(SpecManagerJson.Options, cancellationToken).ConfigureAwait(false)
-            ?? [];
+    public async Task<IReadOnlyList<BacklogStatusDto>> GetStatusesAsync(string product, CancellationToken cancellationToken)
+    {
+        var answer = await GetAsync<StatusesResponse>(ProductPath(product, "backlog-statuses"), cancellationToken).ConfigureAwait(false);
+        return answer?.Statuses ?? [];
     }
 
-    public async Task<IReadOnlyList<BacklogstatusDto>> GetStatusesAsync(string product, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<BacklogLabelDto>> GetLabelsAsync(string product, CancellationToken cancellationToken)
     {
-        var answer = await GetAsync<StatusesResponse>(ProductPath(product, "backlogstatussen"), cancellationToken).ConfigureAwait(false);
-        return answer?.Statussen ?? [];
-    }
-
-    public async Task<IReadOnlyList<BackloglabelDto>> GetLabelsAsync(string product, CancellationToken cancellationToken)
-    {
-        var answer = await GetAsync<LabelsResponse>(ProductPath(product, "backloglabels"), cancellationToken).ConfigureAwait(false);
+        var answer = await GetAsync<LabelsResponse>(ProductPath(product, "backlog-labels"), cancellationToken).ConfigureAwait(false);
         return answer?.Labels ?? [];
     }
 
@@ -100,11 +90,11 @@ internal sealed class SpecManagerClient
     /// signed in, the account may not read them (401, 403), or the installation
     /// does not have the path yet (404).
     /// </summary>
-    public async Task<IReadOnlyList<BacklogledDto>?> GetMembersAsync(string product, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<BacklogMemberDto>?> GetMembersAsync(string product, CancellationToken cancellationToken)
     {
         try
         {
-            using var response = await SendAsync(ProductPath(product, "backlogleden"), cancellationToken).ConfigureAwait(false);
+            using var response = await SendAsync(ProductPath(product, "backlog-members"), cancellationToken).ConfigureAwait(false);
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
             {
                 return null;
@@ -112,7 +102,7 @@ internal sealed class SpecManagerClient
 
             response.EnsureSuccessStatusCode();
             var answer = await response.Content.ReadFromJsonAsync<MembersResponse>(SpecManagerJson.Options, cancellationToken).ConfigureAwait(false);
-            return answer?.Leden ?? [];
+            return answer?.Members ?? [];
         }
         catch (SpecManagerSignInRequiredException)
         {
@@ -183,16 +173,17 @@ internal sealed class SpecManagerClient
     }
 
     /// <summary>
-    /// What a refusal says, read from the problem details spec-manager answers errors
-    /// with: the <c>detail</c>, else the <c>title</c>, else nothing — and the caller
-    /// then says the status alone. A body that is not that shape is no reason.
+    /// What a refusal says: spec-manager's own <c>message</c>, else a problem's
+    /// <c>detail</c>, else its <c>title</c>, else nothing — and the caller then says
+    /// the status alone. A body that is neither shape is no reason.
     /// </summary>
     private static async Task<string?> ProblemOfAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         try
         {
             var problem = await response.Content.ReadFromJsonAsync<ProblemResponse>(SpecManagerJson.Options, cancellationToken).ConfigureAwait(false);
-            return !string.IsNullOrWhiteSpace(problem?.Detail) ? problem.Detail.Trim()
+            return !string.IsNullOrWhiteSpace(problem?.Message) ? problem.Message.Trim()
+                : !string.IsNullOrWhiteSpace(problem?.Detail) ? problem.Detail.Trim()
                 : !string.IsNullOrWhiteSpace(problem?.Title) ? problem.Title.Trim()
                 : null;
         }
@@ -203,7 +194,7 @@ internal sealed class SpecManagerClient
     }
 
     private static string ProductPath(string product, string resource) =>
-        $"/api/producten/{Uri.EscapeDataString(product)}/{resource}";
+        $"/api/products/{Uri.EscapeDataString(product)}/{resource}";
 }
 
 /// <summary>
@@ -224,7 +215,7 @@ internal sealed class SpecManagerRefusedException(HttpStatusCode status, string?
 {
     public HttpStatusCode Status { get; } = status;
 
-    /// <summary>The problem's <c>detail</c> or <c>title</c>, or null when it gave
-    /// neither.</summary>
+    /// <summary>spec-manager's <c>message</c>, or a problem's <c>detail</c> or
+    /// <c>title</c>, or null when it gave none of them.</summary>
     public string? Reason { get; } = reason;
 }
