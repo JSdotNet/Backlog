@@ -1490,7 +1490,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// a count of 0, so the empty list under it says why it is empty
     /// (<see cref="RebuildTagFilters"/>). Held or counted, the chip leads the whole
     /// one-row strip, so it is never the chip the strip clips. A plan chip the
-    /// reader pressed is not held, and keeps its place.
+    /// reader pressed is not held — it leaves the bar like any other once nothing
+    /// carries it — but it leads the strip too while it is pressed.
     /// </para>
     /// </summary>
     /// <param name="planTag">The plan tag with its <c>+</c>, as a chip's value.</param>
@@ -5777,10 +5778,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         // "No plan" leads the group, so however many plans follow it the one-row
-        // strip never clips it — unless a plan opened from the roadmap is shown, which
-        // takes the lead below. It earns its place off both halves: a live entry in
-        // some plan, or there is nothing to exclude, and a live entry in none, or
-        // pressing it would empty the list.
+        // strip never clips it — unless a plan is pressed, which takes the lead below.
+        // It earns its place off both halves: a live entry in some plan, or there is
+        // nothing to exclude, and a live entry in none, or pressing it would empty the
+        // list.
         var unplanned = scopedRows.Where(row => !HasPlan(row)).ToList();
 
         if (live.Any(HasPlan) && unplanned.Any(row => !IsFinished(row)))
@@ -5812,9 +5813,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // is a filter not in use and waits behind More. Wherever its name sorts, it is
         // moved up — and while nothing open carries it, it is held there, pressed at 0,
         // rather than being let go below with no chip to say why the list it asked for
-        // is not the list on screen. A plan the reader pressed keeps its place: a chip does not
-        // jump out from under the pointer that pressed it. Counted by what the plan gathers
-        // rather than by who wears its spelling, so the number on it is the list under it.
+        // is not the list on screen. Counted by what the plan gathers rather than by who
+        // wears its spelling, so the number on it is the list under it.
+        //
+        // A plan the reader pressed on the bar leads as well, for the same reason and
+        // one more: TasksPane fuses the pressed plan with its copy, so a pressed plan
+        // left mid-strip would take the copy behind More with it. At the front it is
+        // the one chip whose width components.js reserves. The chip moves away from
+        // the pointer that pressed it, and TasksPane hands the focus back to it. Moved,
+        // not held: it is still counted as any chip is, and it leaves the bar like one
+        // once nothing carries it.
         if (_shownPlan is { } shown)
         {
             var at = options.FindIndex(option => string.Equals(option.Value, shown, StringComparison.OrdinalIgnoreCase));
@@ -5822,6 +5830,17 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             if (at >= 0) options.RemoveAt(at);
 
             options.Insert(0, ShownPlanChip(shown, scopedRows));
+        }
+        else if (SelectedPlan is { } pressed)
+        {
+            var at = options.FindIndex(option => string.Equals(option.Value, pressed, StringComparison.OrdinalIgnoreCase));
+
+            if (at > 0)
+            {
+                var chip = options[at];
+                options.RemoveAt(at);
+                options.Insert(0, chip);
+            }
         }
 
         TagFilters = options;
