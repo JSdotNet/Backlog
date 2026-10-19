@@ -51,6 +51,55 @@ public sealed class ShellTests
         Assert.Null(bar.Find("[data-testid='tab-bar-inbox']").GetAttribute("aria-current"));
     }
 
+    [Fact]
+    public void A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name()
+    {
+        using var context = new BunitContext();
+        IReadOnlyList<NavItem> tabs =
+        [
+            new("", "Today", Match: true, Icon: Glyph<SunIcon>()),
+            new("standup", "Stand-up", Icon: Glyph<TargetIcon>())
+        ];
+
+        var bar = context.Render<TabBar>(parameters => parameters
+            .Add(p => p.Items, tabs)
+            .Add(p => p.TestId, "tab-bar"));
+
+        var standUp = bar.Find("[data-testid='tab-bar-stand-up']");
+        var parts = standUp.Children.Select(child => child.ClassName).ToArray();
+        Assert.Equal(["tab-bar__icon", "tab-bar__label"], parts);
+
+        var glyph = standUp.QuerySelector(".tab-bar__icon svg.target-icon")!;
+        Assert.Equal("true", glyph.GetAttribute("aria-hidden"));
+        Assert.Equal("false", glyph.GetAttribute("focusable"));
+        Assert.Equal("20", glyph.GetAttribute("width"));
+
+        Assert.Equal("Stand-up", standUp.TextContent.Trim());
+        Assert.Equal(["Today", "Stand-up"], bar.FindAll("a.tab-bar__tab").Select(link => link.TextContent.Trim()));
+        Assert.NotNull(bar.Find("[data-testid='tab-bar-today'] .tab-bar__icon svg.sun-icon"));
+    }
+
+    private static RenderFragment Glyph<TIcon>() where TIcon : IComponent => builder =>
+    {
+        builder.OpenComponent<TIcon>(0);
+        builder.AddAttribute(1, "Size", "20");
+        builder.CloseComponent();
+    };
+
+    [Fact]
+    public void A_tab_without_a_glyph_is_its_word_alone()
+    {
+        using var context = new BunitContext();
+
+        var bar = context.Render<TabBar>(parameters => parameters
+            .Add(p => p.Items, Tabs)
+            .Add(p => p.TestId, "tab-bar"));
+
+        Assert.Empty(bar.FindAll(".tab-bar__icon"));
+        Assert.Empty(bar.FindAll(".tab-bar__label"));
+        Assert.Empty(bar.Find("[data-testid='tab-bar-note']").Children);
+    }
+
     [Theory]
     [InlineData(0, "just now")]
     [InlineData(-30, "just now")]

@@ -15,7 +15,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The pull requests tasks link, as <see cref="WorkInProgressReader"/> reads them beside
 /// the open read: by number, only the ones the open read did not list, with their state,
 /// merge date and author — after the open read lands rather than as part of it, and a
-/// merged one read once and kept, so a visit to the In progress view does not sweep
+/// merged one read once and kept, so a visit to the Goals view does not sweep
 /// GitHub for work that has already landed.
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
@@ -245,7 +245,7 @@ public sealed class WorkInProgressReaderTests
         var reader = Reader(host, out _, () => WorkInProgressReader.LinksOf(host.State.Rows));
         await ReadAsync(reader);
 
-        var projection = new InProgressProjection(
+        var projection = new WorkLinksProjection(
             host.State.Rows, reader.Sessions, reader.PullRequests, _ => null, _ => null, _ => null, Noon, reader.SessionsRead, reader.LinkedPullRequests);
         var pulls = projection.PullRequestsOf(row);
 
@@ -262,7 +262,9 @@ public sealed class WorkInProgressReaderTests
         Assert.Equal("JSdotNet", open.Author);
         Assert.Null(open.MergedAt);
 
-        var view = host.Context.Render<InProgressView>(parameters => parameters.Add(p => p.Reader, reader));
+        var view = host.Context.Render<LinkedWorkSection>(parameters => parameters
+            .Add(p => p.Row, row)
+            .Add(p => p.Reader, reader));
         view.WaitForAssertion(() =>
         {
             var card = view.Find($"[data-pull-request='{Repository}#655']");
@@ -272,51 +274,30 @@ public sealed class WorkInProgressReaderTests
         });
     }
 
-    /// <summary>On one Refresh the sprint view reads its members' pull requests while the
-    /// In progress view's open read is still out: the read by number that follows takes
-    /// the sprint view's answers rather than asking GitHub again.</summary>
+    /// <summary>Progress reads each pull request's status — checks and approvals — through
+    /// a cache of its own, so the reader's slim read by number never stands in
+    /// for it, and the slim read keeps asking only for what a link records. Each read is
+    /// still asked once while fresh.</summary>
     [Fact]
-    public async Task On_one_refresh_the_sprint_view_and_the_in_progress_view_ask_github_about_a_linked_pull_request_once()
-    {
-        using var host = await TasksPaneHost.CreateAsync(Repository);
-        host.Client.PullRequestsByNumber.AddRange([Linked(655, GitHubItemState.Merged, mergedAt: Noon), Linked(656, GitHubItemState.Closed)]);
-        var (reader, sprint, clock) = SharedReaders(host, Link(655), Link(656));
-
-        host.Client.OpenGate = new TaskCompletionSource();
-        var refresh = reader.ReadAsync();
-        clock.Advance(TimeSpan.FromSeconds(1));
-        var answers = await sprint.ReadAsync([new(Repository, "655"), new(Repository, "656")], TestContext.Current.CancellationToken);
-        clock.Advance(TimeSpan.FromSeconds(1));
-        host.Client.OpenGate.SetResult();
-        await refresh;
-        await reader.LinkedRead;
-
-        Assert.Equal([$"{Repository} 655,656"], host.Client.ReadByNumber);
-        Assert.Equal([LinkedPullRequestState.Merged, LinkedPullRequestState.Closed], answers.Select(pull => pull.State));
-        Assert.Equal([655, 656], reader.LinkedPullRequests.Select(pull => pull.Number).Order());
-    }
-
-    /// <summary>The other way round: what the In progress view read by number serves the
-    /// sprint view while it is fresh.</summary>
-    [Fact]
-    public async Task The_sprint_view_reads_what_the_in_progress_view_just_read_without_asking_github()
+    public async Task The_goals_reader_reads_the_status_through_its_own_cache_beside_the_in_progress_view()
     {
         using var host = await TasksPaneHost.CreateAsync(Repository);
         host.Client.PullRequestsByNumber.Add(Linked(656, GitHubItemState.Closed, "octocat"));
-        var (reader, sprint, clock) = SharedReaders(host, Link(656));
+        var (reader, goals, clock) = SharedReaders(host, Link(656));
 
         await ReadAsync(reader);
         clock.Advance(TimeSpan.FromSeconds(30));
-        var answer = Assert.Single(await sprint.ReadAsync([new(Repository, "656")], TestContext.Current.CancellationToken));
+        var answer = Assert.Single(await goals.ReadAsync([new(Repository, "656")], TestContext.Current.CancellationToken));
+        await goals.ReadAsync([new(Repository, "656")], TestContext.Current.CancellationToken);
 
-        Assert.Single(host.Client.ReadByNumber);
+        Assert.Equal([$"{Repository} 656"], host.Client.ReadByNumber);
+        Assert.Equal([$"{Repository} 656"], host.Client.StatusReadByNumber);
         Assert.Equal(LinkedPullRequestState.Closed, answer.State);
-        Assert.Equal("octocat", answer.Author);
     }
 
-    /// <summary>The In progress reader and the sprint reader over one GitHub adapter, as the
+    /// <summary>The In progress reader and the goals reader over one GitHub adapter, as the
     /// desktop composes them, on one clock.</summary>
-    private static (WorkInProgressReader Reader, GitHubSprintPullRequests Sprint, FakeTimeProvider Clock) SharedReaders(
+    private static (WorkInProgressReader Reader, GitHubGoalPullRequests Goals, FakeTimeProvider Clock) SharedReaders(
         TasksPaneHost host,
         params Func<IEnumerable<GitHubPullRequestReference>>[] links)
     {
@@ -325,7 +306,7 @@ public sealed class WorkInProgressReaderTests
 
         return (
             new WorkInProgressReader(gitHub, new NoSessions(), clock, () => links.SelectMany(link => link())),
-            new GitHubSprintPullRequests(() => gitHub),
+            new GitHubGoalPullRequests(() => gitHub),
             clock);
     }
 

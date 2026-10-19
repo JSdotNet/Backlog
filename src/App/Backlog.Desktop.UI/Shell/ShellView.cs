@@ -14,7 +14,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// <para>
 /// The shell stores the member's name as <c>lastView</c> in
 /// <c>shell-navigation.json</c>, so a name here is a stored value. Board, Calendar
-/// and In progress join as members of their own, each one option in the switch.
+/// and Goals — once In progress — join as members of their own, each one option in the switch.
 /// </para>
 /// </summary>
 internal enum ShellView
@@ -38,10 +38,38 @@ internal enum ShellView
     /// members' order is not the options'.</summary>
     Board,
 
-    /// <summary>Every entry in progress with the sessions and pull requests linked to
-    /// it, by what needs the person. Offered while the Sessions or the Pull requests
-    /// feature is on, as the first option of the work in progress group rather than
-    /// of the task views' switch: it answers "what is moving", which is that group's
-    /// question. Appended, because the name is stored.</summary>
-    InProgress
+    /// <summary>The work in progress group's own view, first in that group rather
+    /// than in the task views' switch: it answers "what is moving", which is that
+    /// group's question. It is the Goals view (local ADR 0035 §10), always offered.
+    /// <para>
+    /// Stored as <c>Goals</c>. It was <c>InProgress</c> until the Goals rename, and a
+    /// file that still holds that name reads as this member through
+    /// <see cref="ShellViews.Read"/>. Appended, because the name is stored.
+    /// </para></summary>
+    Goals
+}
+
+/// <summary>Reads a stored <see cref="ShellView"/> name back.</summary>
+internal static class ShellViews
+{
+    /// <summary>The name <see cref="ShellView.Goals"/> was stored under before the
+    /// Goals rename.</summary>
+    internal const string InProgressName = "InProgress";
+
+    /// <summary>
+    /// The view <paramref name="stored"/> names, or <paramref name="fallback"/> for a
+    /// missing or unknown name. Only member names count, never numbers, and the
+    /// retired <c>InProgress</c> reads as <see cref="ShellView.Goals"/>.
+    /// </summary>
+    internal static ShellView Read(string? stored, ShellView fallback)
+    {
+        if (string.Equals(stored, InProgressName, StringComparison.Ordinal)) return ShellView.Goals;
+
+        return !string.IsNullOrEmpty(stored)
+            && char.IsLetter(stored[0])
+            && Enum.TryParse<ShellView>(stored, out var value)
+            && Enum.IsDefined(value)
+                ? value
+                : fallback;
+    }
 }

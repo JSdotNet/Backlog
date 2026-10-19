@@ -1,4 +1,4 @@
-# Progress
+# Domain
 
 ```meta
 type: domain
@@ -13,305 +13,293 @@ status: draft
 > aggregates get their own chapter at the end instead of being duplicated.
 
 What Progress owns and what it leaves to Tasks and Roadmap Planning is in
-[context.md](context.md). The model holds no copy of a task. A sprint names its
-tasks by id and its plans by their plan tag, and asks their owners for status on
+[context.md](context.md). The model holds no copy of a task, a plan or a pull
+request. A goal names each by its identity, and asks their owners for their state on
 every reading.
 
-## Sprint Series
+## Goal
 
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/repository-management/domain.md#repository-registry, .devbook/domain/progress/domain.invariants.md#sprint-series, .devbook/domain/progress/features.md#setting-up-a-sprint-series]
-aliases: [SprintSeries, series, sprint series]
+related: [.devbook/domain/progress/domain.invariants.md#goal, .devbook/domain/progress/features.md#setting-a-goal, .devbook/domain/progress/features.md#attaching-work-to-a-goal]
+aliases: [goal, goals]
 ```
 
-The cadence a set of repositories works to, and the consistency boundary for
-every sprint in it. A series holds:
+Something a person is working towards, with a date it should be reached by. A goal
+holds:
 
-- its `name`, which defaults to its repositories' aliases;
-- the moment it was set up, which travels with it to every desktop;
-- its [Series Repositories](#series-repositories);
-- its [Sprint Length](#sprint-length) and the weekday its sprints start on;
-- its [Name Pattern](#name-pattern);
-- its [Brief Visibility](#brief-visibility);
-- its [Series Switch](#series-switch);
-- its [Goal Rules](#goal-rule) and its [Goal Threshold](#goal-threshold);
-- its [Sprints](#sprint), numbered from 1.
+- its `title`, such as "Customers get paid faster";
+- an optional `outcome`, one line saying what is true once it is reached;
+- its `due date`;
+- its [Goal Attachments](#goal-attachment): the plans, tasks and pull requests whose
+  work reaches it;
+- the moment it was last changed, which travels with it to every device.
 
-The series is the root rather than the sprint, because **closing a sprint
-changes two sprints at once**. It ends one and starts the next with the carried
-items in it. A boundary drawn around one sprint would leave the carry-over to
-whatever called both. Numbering and the "one open sprint" rule are also rules
-across sprints, so they need the series to hold them.
+How far it has come is its [Goal Progress](#goal-progress), and whether it lands in
+time is its [Goal Forecast](#goal-forecast). Neither is stored: both are read afresh
+from the attached work on every reading, so a task finished elsewhere moves the goal
+at once.
 
-A series exists only while it has at least one repository. The rules it holds
-are in [its invariants](domain.invariants.md#sprint-series).
+The goal is the consistency boundary for its own attachments: one item is attached
+once, and the counting rules see the whole set. That one item belongs to at most one
+goal is a rule across goals, held by [Goal Assignment](#goal-assignment). The rules
+the goal holds are in [its invariants](domain.invariants.md#goal).
 
-A person can **delete** a series, whether it is on or off and whatever sprints it
-recorded, an open one included. Its sprints go with it, with their goals, marks,
-notes and outcomes. No task changes, because a sprint only names its tasks. Its
-repositories are in no series from then on. Nothing offers to bring a deleted
-series back. It leaves a **tombstone** under its id, stamped like any other
-change, so the deletion travels to every paired desktop the way a change does, and
-the [newer change wins](features.md#syncing-sprints-between-devices) over it as
-over any other.
+Deleting a goal removes it and its attachments. The plans, tasks and pull requests
+it held are unchanged and belong to no goal from then on.
 
-### Sprint
-
-```meta
-type: entity
-status: draft
-aliases: [sprint, time box, iteration]
-related: [.devbook/domain/progress/features.md#following-a-sprint, .devbook/domain/progress/features.md#closing-a-sprint]
-```
-
-One time box of a series. It holds:
-
-- its `number`, one more than the sprint before it;
-- its [Sprint Window](#sprint-window), the start and end dates;
-- its `goal`, free text saying what the sprint sets out to do;
-- its [Plan Links](#plan-link) and its [Sprint Items](#sprint-item);
-- whether it is open or closed.
-
-Its name is not stored. It is the series' [Name Pattern](#name-pattern) with the
-number filled in, so renaming the pattern renames every sprint of the series.
-
-A sprint's **members** are the tasks a person added to it directly, and every
-task its linked plans bring in. A linked plan brings in every task carrying that
-plan tag in the series' repositories, finished or not. A task that is both added
-directly and brought in by a plan is one member.
-
-### Plan Link
+### Goal Attachment
 
 ```meta
 type: value-object
 status: draft
-aliases: [PlanLink, linked plan]
-related: [.devbook/domain/roadmap/domain.md#roadmap-tag]
+aliases: [attached item, GoalAttachment]
+related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref]
 ```
 
-A whole plan linked to a sprint by its [plan tag](../roadmap/domain.md#roadmap-tag).
-Equality is by the tag. The link stores the tag, without its `+` sigil, and the day it was linked. Which tasks it brings in is
-read from Tasks on every reading, so a task filed under the plan later joins the
-sprint without anyone adding it.
+One piece of work attached to a goal, of one of three kinds:
 
-### Sprint Item
+| Kind | Named by | Brings in |
+|---|---|---|
+| Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every entry its roadmap item [gathers by tag](../roadmap/domain.md#roadmap-item-gathering), in any repository, finished or not, including entries filed later |
+| Task | its task id | the task, and the pull requests it links |
+| Pull request | its repository and number | the pull request alone |
 
-```meta
-type: entity
-status: draft
-aliases: [SprintItem, item, sprint row]
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/progress/features.md#following-a-sprint]
-```
+A plan counts exactly the entries its roadmap item's bar gathers by tag: the ones
+filed under `+tag`, and the ones carrying the bare tag, as an entry filed before the
+sigil does or one tagged `#tag` is stored. A person tag spelled like the plan is not
+one of them. Tasks owns that rule, and whoever hands Progress its tasks names each
+task's slugs by it, so a goal and the roadmap never count a plan differently.
 
-What the sprint itself records about one member task, identified by the task's
-id. It holds:
+Equality is by kind and identity. The attachment also stores the day it was made.
 
-- whether the task was added directly, rather than only brought in by a plan,
-  and the day it was;
-- whether it is marked as a goal task;
-- an optional one-line `note`;
-- an `open question` mark;
-- its [Close Outcome](#close-outcome), once the sprint closed with it unfinished;
-- whether it was a member when the sprint closed. A closed sprint reads its
-  members from these items alone, so what it held at closing stays its record
-  after its plans gather other tasks.
-
-A task brought in only by a plan has no item until something is recorded on it.
-The note and the open-question mark belong to Progress, not to the task: they
-say something about the task in this sprint, and the next sprint starts without
-them.
-
-Removing a task added directly ends what the item says about how it joined. While
-a linked plan still brings the task in, it stays a member and its item keeps its
-goal mark, note and open question. When no linked plan brings it in, its
-membership ends and the item goes with it: added again, the task starts with no
-goal mark, no note and no open question. The marks belong to a membership, not to
-the task, so they do not outlive it.
-
-A row shows the authors of the task's linked pull requests as its owner. There is
-no owner field, in the item or anywhere else in this context.
-
-### Sprint Window
+### Goal Progress
 
 ```meta
 type: value-object
 status: draft
-aliases: [SprintWindow, sprint dates]
+aliases: [progress, done/total, GoalProgress]
+related: [.devbook/domain/progress/requirements.md#attaching-work-to-a-goal]
 ```
 
-The first and last day of a sprint, both inclusive, as calendar dates. The window
-starts on the series' start weekday and is as long as the series'
-[Sprint Length](#sprint-length). Equality is by value.
+How much of a goal is [done](#done), as `done/total` over its items. Each item counts
+once:
 
-### Series Repositories
+- an attached plan counts each of its entries;
+- an attached task counts 1, and the pull requests it links ride along with it and
+  do not count again;
+- an attached pull request counts 1;
+- a task that is both attached directly and an entry of an attached plan counts once,
+  and so does a pull request attached directly that an attached task already links.
+
+Beside `done/total` it carries how the open items stand: doing, blocked and to do. It
+also carries how many items were done in the last iteration, shown as `+3`. Equality
+is by value.
+
+### Goal Forecast
 
 ```meta
 type: value-object
 status: draft
-aliases: [series repositories]
-related: [.devbook/domain/repository-management/domain.md#repository-alias]
+aliases: [forecast, landing date, lands, At risk, On track, GoalForecast]
+related: [.devbook/domain/progress/requirements.md#the-goals-view]
 ```
 
-The repositories a series belongs to, as a set of
-[repository aliases](../repository-management/domain.md#repository-alias),
-compared without regard to case. A repository belongs to at most one series, so
-the set is also what the [Series Assignment](#series-assignment) checks.
+When a goal is expected to land, and whether that is in time. The **landing date**
+comes from the goal's done rate: the items it had done in each of the last four
+iterations of the person's chosen [Iteration](#iteration) length, averaged. The open
+items at that rate give how many more iterations it needs, and the landing date is
+the last day of the last of them.
 
-### Sprint Length
+A goal is **At risk** when its landing date falls after its due date, or when an open
+[Impediment](#impediment) holds back one of its items. Otherwise it is **On track**.
+A goal with no open item is On track. A goal that did no item in the last four
+iterations has no landing date, and is At risk while it has open items.
 
-```meta
-type: enum
-status: draft
-aliases: [SprintLength, length]
-```
-
-How long each sprint of a series lasts: `OneWeek` (7 days) or `TwoWeeks` (14 days).
-A change of length applies from the next sprint; the open one keeps its window.
-
-### Name Pattern
-
-```meta
-type: value-object
-status: draft
-aliases: [NamePattern, sprint name]
-```
-
-The text a sprint's name is made from, with `{n}` standing for its number. The
-default is `Sprint {n}`, which names the third sprint "Sprint 3".
-
-### Brief Visibility
-
-```meta
-type: value-object
-status: draft
-aliases: [BriefVisibility]
-related: [.devbook/domain/progress/features.md#sprints-in-the-briefs]
-```
-
-Two choices a series makes: whether its open sprint shows in the daily brief,
-and whether it shows in the weekly brief. Each is on or off on its own. The daily
-choice also draws the [Since yesterday strip](features.md#the-daily-strip) on the
-sprint view.
-
-### Series Switch
-
-```meta
-type: value-object
-status: draft
-aliases: [IsOn, switched off, series switch]
-related: [.devbook/domain/progress/features.md#switching-a-series-off]
-```
-
-Whether a series is on. A new series is on. A series switched off keeps its
-repositories, its settings and its sprints, and still holds its repositories
-against every other series. Its repositories read as in no series: they show the
-In progress view until it is switched back on, and nothing it holds changed in
-between.
-
-A series the system switched off carries an **Off Reason**: one line saying why,
-such as `Switched off: backlog already works to "Core", which was set up
-first.` Switching the series on clears it. A series a person switched off has
-none.
-
-### Goal Rule
-
-```meta
-type: value-object
-status: draft
-aliases: [GoalRule, goal rules]
-related: [.devbook/domain/progress/features.md#setting-the-sprint-goal]
-```
-
-One way a series picks a sprint's goal tasks, of one [Goal Rule Kind](#goal-rule-kind).
-A rule of kind `InPlans` names its plan tags, and one of kind `Tagged` names its
-task tags. A series holds any combination of rules. A member is a goal task when
-any rule picks it, and it counts once however many rules do.
-
-### Goal Rule Kind
-
-```meta
-type: enum
-status: draft
-aliases: [GoalRuleKind]
-```
-
-- `InPlans`: the members brought in by the chosen plans.
-- `MarkedAsGoal`: the members whose [Sprint Item](#sprint-item) is marked as a goal task.
-- `Tagged`: the members carrying one of the chosen task tags.
-- `Everything`: every member of the sprint.
-
-### Goal Threshold
-
-```meta
-type: value-object
-status: draft
-aliases: [GoalThreshold, goal is met when]
-```
-
-When a sprint's goal is met: when every goal task is [done](#done), or when a set
-share of them is, such as 80%. The share is a whole percentage from 1 to 100, and
-100% is the same as every goal task. The default is every goal task.
-
-### Close Outcome
-
-```meta
-type: enum
-status: draft
-aliases: [CloseOutcome, carry, back to the backlog, drop]
-related: [.devbook/domain/progress/features.md#closing-a-sprint]
-```
-
-What closing a sprint did with one unfinished member:
-
-- `Carry`: the task joins the next sprint, as a directly added member.
-- `BackToBacklog`: the task leaves the sprint and joins no other.
-- `Drop`: the task is recorded as dropped in this sprint only.
-
-None of the three changes the task. Its status, tags and plan are what they were.
-
-## Series Assignment
+## Goal Assignment
 
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/progress/domain.invariants.md#series-assignment, .devbook/domain/progress/features.md#setting-up-a-sprint-series]
-aliases: [SeriesAssignment]
+related: [.devbook/domain/progress/domain.invariants.md#goal-assignment, .devbook/domain/progress/features.md#attaching-work-to-a-goal]
+aliases: [GoalAssignment]
 ```
 
-Gives a repository to a series, and holds the one rule that spans series: a
-repository belongs to at most one. It is a service because no single series can
-see the others. Its rules are in
-[its invariants](domain.invariants.md#series-assignment).
+Attaches an item to a goal, and holds the one rule that spans goals: an item belongs
+to at most one goal. It is a service because no single goal can see the others. It
+treats a plan's entries the same way: an entry that another goal holds as an attached
+task counts in that goal, and not in the goal that holds its plan.
 
-A person can only break the rule on two desktops at once, offline, so it is also
-what a synced series is held to: when a repository arrives in two switched-on
-series, it keeps the repository in the one set up first and switches the other
-off with its [Off Reason](#series-switch).
+An item another goal holds is refused, naming that goal, unless the attach asks to
+move it (`moveFromOtherGoal`). The move is opt-in: the view asks the person first and
+attaches again with the move on yes. Then the item leaves the other goal in the same
+change, and both goals are saved, so it is never in two.
 
-## Sprint Progress
+Invocation semantics: command-invoked, on every attach. Its rules are in
+[its invariants](domain.invariants.md#goal-assignment).
+
+## Impediment
+
+```meta
+type: aggregate
+status: draft
+related: [.devbook/domain/progress/domain.invariants.md#impediment, .devbook/domain/progress/features.md#tracking-an-impediment]
+aliases: [impediment, impediments, blocker]
+```
+
+Something outside the person's own work that holds it back, tracked until it is
+resolved. An impediment holds:
+
+- its `title`, such as "Bank sample files missing";
+- its [Impediment State](#impediment-state);
+- who it was reported or escalated to, as a name in words, such as "bank support" or
+  "account manager";
+- who handles it, as a name in words;
+- an optional `check again` date, the day the person means to look at it next;
+- an optional `note`;
+- its history of [State Changes](#state-change);
+- the tasks it [Holds Back](#holds-back), and through them their goals.
+
+An impediment is open until it is Resolved. Its age is the working days since it was
+raised, counted in the person's
+[working week](../roadmap/domain.md#working-week). The rules it holds are in
+[its invariants](domain.invariants.md#impediment).
+
+### Impediment State
+
+```meta
+type: enum
+status: draft
+aliases: [ImpedimentState, impediment state]
+related: [.devbook/domain/progress/requirements.md#tracking-an-impediment]
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> New
+    New --> Reported
+    Reported --> Escalated
+    Reported --> BeingHandled
+    Escalated --> BeingHandled
+    New --> Resolved
+    Reported --> Resolved
+    Escalated --> Resolved
+    BeingHandled --> Resolved
+    Resolved --> [*]
+```
+
+- `New`: raised, and not yet reported to anyone.
+- `Reported`: told to whoever can remove it.
+- `Escalated`: taken higher because the report was not enough. A state an impediment
+  may skip.
+- `BeingHandled`: someone is working on removing it. Shown as "Being handled".
+- `Resolved`: no longer in the way.
+
+### State Change
+
+```meta
+type: entity
+status: draft
+aliases: [history, StateChange]
+```
+
+One step in an impediment's history: the state it moved to, the day it moved, and
+who it was with at that step, such as "Reported · bank support". The history is
+in the order the steps happened, and the first step is always `New`.
+
+### Holds Back
+
+```meta
+type: value-object
+status: draft
+aliases: [holds back, blocks, HoldsBack]
+related: [.devbook/domain/tasks/domain.md#task]
+```
+
+A link from an impediment to one task it holds back, by the task's id. Equality is by
+the task id. The goal an impediment holds back is read through the task: the goal
+that counts the task, if any.
+
+## Blocked Task Policy
 
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/progress/features.md#following-a-sprint]
-aliases: [SprintProgress]
+related: [.devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task, .devbook/domain/tasks/domain.md#task]
+aliases: [BlockedTaskPolicy]
 ```
 
-Reads a sprint against its members' current state. It resolves the members from
-the direct items and the plan links, picks the goal tasks by the series'
-[Goal Rules](#goal-rule), decides which are [done](#done), and says whether the
-goal is met by the [Goal Threshold](#goal-threshold). It counts the goal tasks and
-all the work by where each member stands, done, blocked, in progress or not
-started in that order, and how many were
-[added after the start](#added-after-the-start). It gives the pace as members
-done inside the window per working day so far, Monday to Friday. A sprint with no
-goal task has not met its goal. Each member carries the days that place it in time:
-the day it was done, the day work on it started and the day it was marked blocked as
-Tasks records them, the day it joined the sprint, and the day each linked pull request
-was opened; the reading carries the day it was made. It stores nothing: every answer
-is read afresh, so a task finished elsewhere moves the sprint at once.
+Raises an impediment when a task is marked blocked. When a task gains the mark, by its
+`blocked:` token or a `set_blocked` call, and no impediment tracks that block, the
+policy raises a `New` impediment titled with the task's title that holds the task
+back. An impediment tracks a task's block when it holds the task back and is open, or
+was raised on or after the day the task was marked blocked. The second half keeps a
+person's Resolve from being undone while the task is still marked, and lets a task
+marked blocked again later raise a new one. Tasks knows nothing of it: the policy
+reads the mark from the task, and stores nothing on the task.
+
+Invocation semantics: event-triggered policy. Tasks' change signal names no task, so
+an adapter beside Progress hears every task written on this device and runs the
+policy, which reads every blocked task that is not finished and asks each whether
+its block is tracked. A task copy pulled by sync is not heard: the device that marked
+the task raised the impediment, and it arrives as its own document. What the policy
+promises is a requirement of
+[Tracking an impediment](requirements.md#tracking-an-impediment).
+
+## Stand-up Reading
+
+```meta
+type: domain-service
+status: draft
+related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/progress/features.md#the-goals-view, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#readiness]
+aliases: [StandUpReading]
+```
+
+Reads the goals and the impediments against the current state of the work they name,
+over one [Iteration](#iteration). It resolves each goal's items, decides which are
+[done](#done), and gives each goal its [Goal Progress](#goal-progress) and
+[Goal Forecast](#goal-forecast). It gives the four blocks of the
+[stand-up](#stand-up): the goals, what was finished in the last window, what is
+[planned](#planned) for the next, and the open impediments.
+
+Invocation semantics: query/composition-oriented. It stores nothing.
+
+## Shared Value Objects
+
+```meta
+type: shared-value-objects
+status: draft
+related: [.devbook/domain/progress/domain.invariants.md#iteration]
+```
+
+> Value Objects used by more than one aggregate or service in this bounded context.
+
+### Iteration
+
+```meta
+type: value-object
+status: draft
+aliases: [iteration, window, last, next, Iteration]
+related: [.devbook/domain/progress/domain.invariants.md#iteration, .devbook/domain/progress/context.md#iteration-length, .devbook/domain/progress/context.md#two-week-start]
+```
+
+A viewing window over the calendar, not a thing anyone creates or closes. It is
+shared by the goals, the impediments and the stand-up. Its **length** is one of four:
+
+| Length | One window |
+|---|---|
+| Day | one working day of the person's [working week](../roadmap/domain.md#working-week) |
+| Week | Monday to Friday |
+| Two weeks | fourteen days from the [two-week start](context.md#two-week-start), or a whole number of fourteen days before or after it; until a start is chosen, from the Monday of the current week |
+| Month | one calendar month, from its first day to its last |
+
+**Next** is the window that holds today. When today falls in no window, such as a
+Saturday in a Monday-to-Friday week, next is the first window after today. **Last** is
+the window just before next. On Saturday 17 October 2026, with Week chosen, last is
+12 to 16 October and next is 19 to 23 October.
+
+Equality is by length and first day.
 
 ## Ubiquitous Language
 
@@ -325,33 +313,53 @@ status: draft
 ```meta
 type: term
 status: draft
-related: [.devbook/domain/tasks/domain.md#task-status]
+related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#completed]
 ```
 
-A member is done in a sprint when its task's status is Done, or when every pull
-request linked to the task is merged. Either is enough. A task with no linked pull
-request is done only by its status. An archived task is not done by its status.
+A task is done when its status is Done, or when every pull request it links is
+merged. Either is enough. A task with no linked pull request is done only by its
+status. A pull request is done when it is merged. A plan's entry is a task, done the
+same way. The day an item was done is the day its task was
+[completed](../tasks/domain.md#completed), or the day its last pull request merged.
 
-A pull request counts from the moment it is linked, whenever it merged. Work that
-merged before its task was linked is linked by its number or its link from the task's
-side panel, and the member is then done by it like any other.
-
-### Added after the start
+### Stand-up
 
 ```meta
 type: term
 status: draft
+aliases: [standup, stand-up]
+related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/progress/domain.md#stand-up-reading]
 ```
 
-A member that joined the sprint after its first day: added directly later, brought
-in by a plan linked later, or filed under a linked plan after the start.
+The short reading a person gives of their work, in four blocks: goal progress, what
+was finished in the last iteration, what is planned for the next, and the
+impediments.
 
-### Goal Task
+### Planned
 
 ```meta
 type: term
 status: draft
+related: [.devbook/domain/progress/features.md#the-stand-up, .devbook/domain/tasks/domain.md#readiness]
 ```
 
-A member of a sprint that one of the series' [Goal Rules](#goal-rule) picks. The
-sprint's goal is met or not by the goal tasks alone.
+The work a stand-up expects in the next iteration. Nobody picks it: it is derived from
+three sources, each item listed once:
+
+- the items goals hold that are in progress and not blocked;
+- the items due inside the next window, under No goal when no goal holds them;
+- for each attached plan, its first [ready](../tasks/domain.md#readiness) entry in the
+  plan's order that is not in progress, marked blocked or archived yet.
+
+### Pace
+
+```meta
+type: term
+status: draft
+related: [.devbook/domain/roadmap/context.md#story-points-a-week]
+```
+
+The story points a person gets done in a working week, as the Roadmap measures it or
+the person typed it ([Story points a week](../roadmap/context.md#story-points-a-week)).
+A stand-up scales it to the next window: the pace times the window's working days,
+divided by the working days of a working week, rounded to whole points.

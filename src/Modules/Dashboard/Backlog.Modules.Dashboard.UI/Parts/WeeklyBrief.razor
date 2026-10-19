@@ -2,11 +2,7 @@
     The weekly brief: the last completed Monday-to-Sunday week read as a few sentences
     rather than as charts — the dashboard's "Read as brief".
 
-    First, a Sprint block for each sprint series shown in the weekly brief whose sprint
-    overlaps the week (BriefSprintPart); with Progress off or no such series it draws
-    nothing and the brief is unchanged.
-
-    Then four blocks, in the board's order — Shipping, Plan, Sessions, Cost — each a part of
+    Four blocks, in the board's order — Shipping, Plan, Sessions, Cost — each a part of
     its own reading through the insight its tab reads, so a block shares that tab's
     cached read and a source that cannot answer leaves the other three standing. Every
     sentence is a template filled from those figures (WeeklyBriefSentences), never
@@ -64,7 +60,6 @@
         </nav>
     </header>
 
-    <BriefSprintPart Scope="Scope" Week="_week" OnOpenSprint="OnOpenSprint" />
     <BriefShippingPart Scope="BlockScope" Week="_week" OnOpenTab="OnOpenTab" />
     <BriefPlanPart Scope="BlockScope" Week="_week" OnOpenTab="OnOpenTab" />
     <BriefSessionsPart Scope="BlockScope" Week="_week" OnOpenTab="OnOpenTab" />
@@ -105,12 +100,6 @@
     /// <summary>Raised with the pane's id of the tab a block links to.</summary>
     [Parameter]
     public EventCallback<string> OnOpenTab { get; set; }
-
-    /// <summary>A Sprint block's "Open Sprint n" was pressed: the host opens In progress
-    /// on that series' sprint view, on that sprint. Unset, the block draws no such
-    /// button.</summary>
-    [Parameter]
-    public EventCallback<SprintBriefSprint> OnOpenSprint { get; set; }
 
     /// <summary>The scope the blocks read: the pane's, over twelve weeks.</summary>
     private DashboardScope BlockScope => Scope with { Period = DashboardPeriod.TwelveWeeks };

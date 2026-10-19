@@ -24,6 +24,14 @@ public sealed class RoadmapPlanTagSource : IRoadmapTagSource
         _planning = planning;
     }
 
+    /// <summary>The plan's own change signal, which is held across scopes, so a save
+    /// from the roadmap band's scope reaches the task list in its own.</summary>
+    public event Action? Changed
+    {
+        add => _planning.Changed += value;
+        remove => _planning.Changed -= value;
+    }
+
     public async Task<IReadOnlyList<string>> TagsInUseAsync(CancellationToken cancellationToken = default)
     {
         var plan = await _planning.GetPlanAsync(cancellationToken).ConfigureAwait(false);

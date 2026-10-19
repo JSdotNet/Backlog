@@ -31,7 +31,7 @@ status: draft
 | [Devbook](../devbook/features.md#area-selection-and-scope) | Customer/Supplier (Repository Management = supplier) | Reads the archived flag from the registry | `.devbook/domain/repository-management/domain.md#archived-repository` | Opens an archived repository's devbook read-only and fetches no snapshot of it on its own. |
 | [Sessions](../sessions/features.md#pull-request-readiness) | Customer/Supplier (Repository Management = supplier) | Reads the archived flag from the registry | `.devbook/domain/repository-management/domain.md#archived-repository` | Leaves an archived repository out of the Pull requests pane's and the In progress view's GitHub reads. |
 | [Productivity](../productivity/features.md#personal-productivity-dashboard) | Customer/Supplier (Repository Management = supplier) | Reads the archived flag from the registry | `.devbook/domain/repository-management/domain.md#archived-repository` | Leaves an archived repository out of the dashboard's GitHub activity, and still counts its finished work. |
-| [Progress](../progress/features.md#following-a-sprint) | Customer/Supplier (Repository Management = supplier) | Reads the archived flag from the registry | `.devbook/domain/repository-management/domain.md#archived-repository` | Leaves an archived repository out of the sprint views' pull request reads. |
+| [Progress](../progress/features.md#pull-request-status) | Customer/Supplier (Repository Management = supplier) | Reads the archived flag from the registry | `.devbook/domain/repository-management/domain.md#archived-repository` | Leaves an archived repository out of the Goals view's pull request reads. |
 
 ## Notes
 

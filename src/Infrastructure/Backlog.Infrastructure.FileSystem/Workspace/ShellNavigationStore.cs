@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Backlog.SharedKernel;
@@ -40,7 +41,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// bands the reader folded to one lane are the same kind of choice and ride beside it.
 /// </para>
 /// <para>
-/// So do the Calendar's Month | Week range, the In progress view's two toggles and the
+/// So do the Calendar's Month | Week range and the
 /// header's repository scope, and the system tools pane's tab and host filter: each is
 /// how the reader last had a screen, kept on this device only. So is show archived
 /// (local ADR 0029, §3), whether the archived repositories are offered where they are
@@ -88,6 +89,9 @@ public sealed class ShellNavigationStore
     /// bounded context was renamed to Devbook.</summary>
     private const string LegacyDevbookName = "Knowledge";
 
+    /// <summary>The format <see cref="GoalsTwoWeekStart"/> is stored in.</summary>
+    private const string IsoDate = "yyyy-MM-dd";
+
     private readonly string _path;
 
     public ShellNavigationStore()
@@ -124,12 +128,14 @@ public sealed class ShellNavigationStore
         BoardColumns = string.IsNullOrWhiteSpace(dto?.BoardColumns) ? DefaultBoardColumns : dto.BoardColumns;
         CalendarPlansShown = dto?.CalendarPlansShown ?? false;
         CalendarRange = string.IsNullOrWhiteSpace(dto?.CalendarRange) ? DefaultCalendarRange : dto.CalendarRange;
-        InProgressNeedsYouFirst = dto?.InProgressNeedsYouFirst ?? true;
-        InProgressIncludeFinishedToday = dto?.InProgressIncludeFinishedToday ?? false;
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
+        GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
+        GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
+            ? start
+            : null;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -183,14 +189,6 @@ public sealed class ShellNavigationStore
     /// </summary>
     public string CalendarRange { get; private set; }
 
-    /// <summary>Whether the In progress view puts the sessions waiting on the reader
-    /// first — its "Needs you first" toggle: on until turned off on this device.</summary>
-    public bool InProgressNeedsYouFirst { get; private set; }
-
-    /// <summary>Whether the In progress view also lists what finished today — its
-    /// "Include finished today" toggle: off until turned on on this device.</summary>
-    public bool InProgressIncludeFinishedToday { get; private set; }
-
     /// <summary>
     /// The header's repository scope by alias, in the order it was chosen: the first is
     /// the anchor. Empty is every repository, the scope nobody narrowed. Aliases are
@@ -216,6 +214,16 @@ public sealed class ShellNavigationStore
     /// hidden — show archived (local ADR 0029, §3): off until turned on on this device.
     /// Read through the shared kernel's <c>IShowArchivedRepositories</c>.</summary>
     public bool ShowArchivedRepositories { get; private set; }
+
+    /// <summary>The iteration length the Goals view and the stand-up read in, as the
+    /// setting's value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until
+    /// one was chosen. Read through Progress's <c>IIterationSettings</c>, which reads a value it
+    /// does not know as Week.</summary>
+    public string? GoalsIterationLength { get; private set; }
+
+    /// <summary>The day two-week iterations count from, stored as an ISO date; null until
+    /// two weeks was first chosen, and for a stored value that is no date.</summary>
+    public DateOnly? GoalsTwoWeekStart { get; private set; }
 
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
@@ -342,22 +350,6 @@ public sealed class ShellNavigationStore
         Save();
     }
 
-    public void SetInProgressNeedsYouFirst(bool needsYouFirst)
-    {
-        if (needsYouFirst == InProgressNeedsYouFirst) return;
-
-        InProgressNeedsYouFirst = needsYouFirst;
-        Save();
-    }
-
-    public void SetInProgressIncludeFinishedToday(bool include)
-    {
-        if (include == InProgressIncludeFinishedToday) return;
-
-        InProgressIncludeFinishedToday = include;
-        Save();
-    }
-
     public void SetToolsTab(string tab)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tab);
@@ -373,6 +365,18 @@ public sealed class ShellNavigationStore
         if (hostFilter == ToolsHostFilter) return;
 
         ToolsHostFilter = hostFilter;
+        Save();
+    }
+
+    /// <summary>Replaces both iteration choices in one save, so a first choice of two weeks
+    /// writes its length and its start together.</summary>
+    public void SetGoalsIteration(string length, DateOnly? twoWeekStart)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(length);
+        if (length == GoalsIterationLength && twoWeekStart == GoalsTwoWeekStart) return;
+
+        GoalsIterationLength = length;
+        GoalsTwoWeekStart = twoWeekStart;
         Save();
     }
 
@@ -637,15 +641,17 @@ public sealed class ShellNavigationStore
                 CalendarPlansShown = CalendarPlansShown ? true : null,
                 // Each of these is left out while at its default, the same way.
                 CalendarRange = CalendarRange == DefaultCalendarRange ? null : CalendarRange,
-                InProgressNeedsYouFirst = InProgressNeedsYouFirst ? null : false,
-                InProgressIncludeFinishedToday = InProgressIncludeFinishedToday ? true : null,
                 RepositoryScope = RepositoryScope.Count == 0 ? null : [.. RepositoryScope],
                 // Left out until the tools pane has been on a tab or a filter here.
                 ToolsTab = ToolsTab,
                 ToolsHostFilter = ToolsHostFilter,
                 // Left out while off, the default. The key is a stored name: never
                 // rename it without reading the old one.
-                ShowArchivedRepositories = ShowArchivedRepositories ? true : null
+                ShowArchivedRepositories = ShowArchivedRepositories ? true : null,
+                // Left out until chosen. Both keys are stored names: never rename them
+                // without reading the old ones.
+                GoalsIterationLength = GoalsIterationLength,
+                GoalsTwoWeekStart = GoalsTwoWeekStart?.ToString(IsoDate, CultureInfo.InvariantCulture)
             }, JsonOptions);
 
     private ShellNavigationDto? Read()
@@ -703,12 +709,6 @@ public sealed class ShellNavigationStore
         public string? CalendarRange { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public bool? InProgressNeedsYouFirst { get; init; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public bool? InProgressIncludeFinishedToday { get; init; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string[]? RepositoryScope { get; init; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -720,6 +720,16 @@ public sealed class ShellNavigationStore
         /// <summary>Written as <c>showArchivedRepositories</c>, and only while on.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? ShowArchivedRepositories { get; init; }
+
+        /// <summary>Written as <c>goalsIterationLength</c>: <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? GoalsIterationLength { get; init; }
+
+        /// <summary>Written as <c>goalsTwoWeekStart</c>, an ISO date. A string rather than a
+        /// date, so a hand-edited value that is no date reads as none instead of failing
+        /// the whole file.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? GoalsTwoWeekStart { get; init; }
 
         /// <summary>The retired "No repo" chip's state, read only to migrate it — see
         /// <see cref="MigrateNoRepositoryOnly"/>. Never set on a save, so never written.</summary>

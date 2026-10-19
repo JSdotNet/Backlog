@@ -225,6 +225,10 @@ public static class MauiProgram
         // repository or product syncs on its own interval only while this exists.
         _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 
+        // And the blocked-task watcher, on the same terms: it raises an impediment for a
+        // task marked blocked (local ADR 0035), and a watcher nobody resolves hears nothing.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
+
         // And the MCP listener, on the same terms again - its constructor is
         // what queues the bind, so a singleton nobody resolves is a server no
         // session can reach. Queues, not performs: building the ASP.NET host

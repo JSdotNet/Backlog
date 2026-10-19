@@ -484,6 +484,24 @@ their waiting lines disappearing.
 and [dependency loops are named rather than broken](domain.invariants.md#invariant-every-task-in-a-dependency-loop-reads-blocked);
 [Dependency](domain.md#dependency) says why.
 
+### Marking a task blocked
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
+```
+
+Mark a task blocked by hand when something outside the backlog holds it up. This is
+a different fact from Readiness, which reads blocked from `depends_on`. The mark is the
+`blocked:` token on the task's metadata line, with the day it was set, and an agent
+sets or clears it with the `set_blocked` tool. Removing the token unblocks the task.
+
+Marking a task blocked
+[raises a New impediment that holds it back](../progress/features.md#raising-an-impediment-from-a-blocked-task),
+unless an open impediment already holds it back. Progress reacts to the mark. The task
+stores no impediment id, and Tasks never calls Progress.
+
 ## Multi-repo targeting
 
 ```meta

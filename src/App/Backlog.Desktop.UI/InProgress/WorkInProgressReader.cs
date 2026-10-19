@@ -5,14 +5,14 @@ using Backlog.Modules.Sessions.Abstractions;
 namespace Backlog.Desktop.UI.InProgress;
 
 /// <summary>
-/// The sessions and the open pull requests the In progress view and a task's
+/// The sessions and the open pull requests the Goals view and a task's
 /// "Sessions and pull requests" section draw from, read on demand and kept until the
 /// next read.
 /// <para>
 /// One reader the shell owns and hands to both, so opening a task after the view
 /// has read costs nothing, and the side panel never reads GitHub on its own: it reads
 /// the session record — local files — and leaves the pull requests to the view, or to
-/// the reader's own "Link a session or pull request…", which is an act a person asked
+/// the section's own "Link a session or pull request…", which is an act a person asked
 /// for. A task's recorded pull requests still draw from what the task list already
 /// read about them, so the panel is never empty for want of a GitHub read.
 /// </para>
@@ -32,9 +32,10 @@ namespace Backlog.Desktop.UI.InProgress;
 /// </para>
 /// <para>
 /// That read goes through <see cref="GitHubIntegration.ReadLinkedPullRequestsAsync"/>,
-/// the cache Progress's sprint reader reads through too: an answer read since this read
-/// of the open list began — by the sprint view, say, on the same Refresh — or a read of
-/// it still out that began since, is taken rather than asked for again.
+/// the slim read's cache: an answer read since this read of the open list began, or a
+/// read of it still out that began since, is taken rather than asked for again.
+/// Progress reads each pull request's checks and approvals through a status cache of its
+/// own (<see cref="GitHubIntegration.ReadLinkedPullRequestStatusesAsync"/>).
 /// </para>
 /// </summary>
 /// <param name="linked">The pull requests the tasks link, asked at the start of every
@@ -297,7 +298,7 @@ public sealed class WorkInProgressReader(
         int generation,
         DateTimeOffset startedAt)
     {
-        var listed = open.Select(pull => InProgressProjection.Key(pull.RepositoryFullName, pull.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var listed = open.Select(pull => WorkLinksProjection.Key(pull.RepositoryFullName, pull.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var wanted = links
             .Where(link => link.Number > 0 && !string.IsNullOrWhiteSpace(link.RepositoryFullName))
             .Where(link => !listed.Contains(Key(link)) && !_merged.ContainsKey(Key(link)) && !_missing.Contains(Key(link)))
@@ -314,8 +315,8 @@ public sealed class WorkInProgressReader(
         {
             try
             {
-                // Fresh means read since this read began: what the sprint view asked
-                // on the same Refresh, not what an earlier one left behind.
+                // Fresh means read since this read began: what another view asked on
+                // the same Refresh, not what an earlier one left behind.
                 listing = await configured.ReadLinkedPullRequestsAsync(wanted, _clock.GetUtcNow() - startedAt);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
@@ -327,13 +328,13 @@ public sealed class WorkInProgressReader(
 
         foreach (var pull in listing.PullRequests.Where(pull => pull.State is GitHubItemState.Merged))
         {
-            _merged[InProgressProjection.Key(pull.RepositoryFullName, pull.Number)] = pull;
+            _merged[WorkLinksProjection.Key(pull.RepositoryFullName, pull.Number)] = pull;
         }
 
         if (generation != _pullGeneration) return;
 
         var refused = listing.Failures.Select(failure => failure.RepositoryFullName).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var found = listing.PullRequests.Select(pull => InProgressProjection.Key(pull.RepositoryFullName, pull.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var found = listing.PullRequests.Select(pull => WorkLinksProjection.Key(pull.RepositoryFullName, pull.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (!refused.Contains("GitHub"))
         {
             foreach (var link in wanted.Where(link => !refused.Contains(link.RepositoryFullName.Trim()) && !found.Contains(Key(link))))
@@ -354,7 +355,7 @@ public sealed class WorkInProgressReader(
             .. _merged.Where(merged => linkedKeys.Contains(merged.Key) && !listed.Contains(merged.Key)).Select(merged => merged.Value),
             .. listing.PullRequests.Where(pull => pull.State is not GitHubItemState.Merged)
         ];
-        var readKeys = read.Select(pull => InProgressProjection.Key(pull.RepositoryFullName, pull.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var readKeys = read.Select(pull => WorkLinksProjection.Key(pull.RepositoryFullName, pull.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         LinkedPullRequests = [.. read, .. _byReference.Where(added => !readKeys.Contains(added.Key) && !listed.Contains(added.Key)).Select(added => added.Value)];
 
         if (wanted.Count > 0) Changed?.Invoke();
@@ -412,7 +413,7 @@ public sealed class WorkInProgressReader(
 
         LinkedPullRequests =
         [
-            .. LinkedPullRequests.Where(pull => !string.Equals(InProgressProjection.Key(pull.RepositoryFullName, pull.Number), key, StringComparison.OrdinalIgnoreCase)),
+            .. LinkedPullRequests.Where(pull => !string.Equals(WorkLinksProjection.Key(pull.RepositoryFullName, pull.Number), key, StringComparison.OrdinalIgnoreCase)),
             found
         ];
         Changed?.Invoke();
@@ -420,5 +421,5 @@ public sealed class WorkInProgressReader(
         return (found, null);
     }
 
-    private static string Key(GitHubPullRequestReference link) => InProgressProjection.Key(link.RepositoryFullName.Trim(), link.Number);
+    private static string Key(GitHubPullRequestReference link) => WorkLinksProjection.Key(link.RepositoryFullName.Trim(), link.Number);
 }

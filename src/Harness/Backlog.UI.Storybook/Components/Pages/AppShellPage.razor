@@ -8,7 +8,7 @@
            Guidelines="@Rules">
 
     <Story Name="Desktop header navigation"
-           Description="The desktop header's nav, left to right: the Inbox toggle, the view switch, the Devbook toggle, then the work in progress and the other takeovers. The view switch is a fused ButtonGroup of ToggleButtons with exactly one pressed — a view is replaced, never closed, so pressing the pressed one changes nothing. The Inbox and the Devbook are standalone toggles, and each takes the whole screen in place of the view: pressing it again returns to the view, which waited underneath. Escape closes the Devbook as it closes the other takeovers, but stays with the Inbox's own keys. The work in progress group is led by In progress, a view that summarises the two lists after it; Sessions and Pull requests are one context's two lists, fused with it. Dashboard and Tools stand loose.
+           Description="The desktop header's nav, left to right: the Inbox toggle, the view switch, the Devbook toggle, then the work in progress and the other takeovers. The view switch is a fused ButtonGroup of ToggleButtons with exactly one pressed — a view is replaced, never closed, so pressing the pressed one changes nothing. The Inbox and the Devbook are standalone toggles, and each takes the whole screen in place of the view: pressing it again returns to the view, which waited underneath. Escape closes the Devbook as it closes the other takeovers, but stays with the Inbox's own keys. The work in progress group is led by Goals, a view that summarises the two lists after it; Sessions and Pull requests are one context's two lists, fused with it. Goals is always offered, whether or not those two lists are. Dashboard and Tools stand loose.
 
 Each view and work-in-progress option leads with a glyph from the library's Icons folder. The glyph is decorative and hidden from assistive technology, so each option's name is still its word.
 
@@ -25,10 +25,10 @@ The sample is live: pick a view, or press the Inbox, the Devbook or a takeover �
                 </ButtonGroup>
                 <ToggleButton Pressed="@(_takeover == DevbookTakeover)" OnClick="() => ToggleTakeover(DevbookTakeover)" TestId="sb-devbook-toggle">Devbook</ToggleButton>
             </div>
-            @* In progress leads the group though it is a view, not a takeover: it is
-               the summary the two lists are behind, so a press shows it as a view. *@
+            @* Goals leads the group though it is a view, not a takeover: it is the
+               summary the two lists are behind, so a press shows it as a view. *@
             <ButtonGroup AriaLabel="Work in progress" TestId="sb-work-in-progress">
-                <ToggleButton Pressed="@ViewPressed("In progress")" OnClick="@(() => ShowView("In progress"))"><ActivityIcon />In progress</ToggleButton>
+                <ToggleButton Pressed="@ViewPressed("Goals")" OnClick="@(() => ShowView("Goals"))"><TargetIcon />Goals</ToggleButton>
                 <ToggleButton Pressed="@(_takeover == "Sessions")" OnClick="@(() => ToggleTakeover("Sessions"))"><SquareTerminalIcon />Sessions</ToggleButton>
                 <ToggleButton Pressed="@(_takeover == "Pull requests")" OnClick="@(() => ToggleTakeover("Pull requests"))"><GitPullRequestIcon />Pull requests</ToggleButton>
             </ButtonGroup>
@@ -49,6 +49,16 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
            Code="@TabBarCode">
         <div class="sb-phone">
             <TabBar Items="Tabs" AriaLabel="Sections" TestId="tab-bar" />
+        </div>
+    </Story>
+
+    <Story Name="Tab bar with glyphs"
+           Description="The phone's own bar, as a paired phone that holds a stand-up draws it: Today, Inbox, Stand-up and Notes, each with its glyph above its word — a sun, an inbox tray, a target and a sticky note. Every tab carries one or none does, so no tab reads as the odd one out. The glyph is decorative and hidden from assistive technology, so each tab's name is still its word, and it takes the word's ink, so the lit tab's glyph lights with it. The tab is still at least 48px tall.
+
+These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it."
+           Code="@GlyphTabBarCode">
+        <div class="sb-phone">
+            <TabBar Items="GlyphTabs" AriaLabel="Sections" TestId="tab-bar-glyphs" />
         </div>
     </Story>
 
@@ -91,6 +101,14 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
         new("app-shell", "Today", Match: true),
         new("app-shell/inbox", "Inbox"),
         new("app-shell/notes", "Notes")
+    ];
+
+    private static readonly IReadOnlyList<NavItem> GlyphTabs =
+    [
+        new("app-shell", "Today", Match: true, Icon: @<SunIcon Size="20" />),
+        new("app-shell/inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
+        new("app-shell/standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
+        new("app-shell/notes", "Notes", Icon: @<StickyNoteIcon Size="20" />)
     ];
 
     private static readonly string[] Surfaces = ["Dashboard", "Tools"];
@@ -153,6 +171,20 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
         }
         """;
 
+    private const string GlyphTabBarCode = """
+        <TabBar Items="Tabs" AriaLabel="Sections" TestId="tab-bar" />
+
+        @code {
+            private static readonly IReadOnlyList<NavItem> Tabs =
+            [
+                new("", "Today", Match: true, Icon: @<SunIcon Size="20" />),
+                new("inbox", "Inbox", Icon: @<InboxIcon Size="20" />),
+                new("standup", "Stand-up", Icon: @<TargetIcon Size="20" />),
+                new("notes", "Notes", Icon: @<StickyNoteIcon Size="20" />)
+            ];
+        }
+        """;
+
     private const string HeaderCode = """
         <nav class="app-header__nav" aria-label="Workspace views">
             <div class="app-header__workspace">
@@ -166,7 +198,7 @@ The tabs below are live: this page answers /app-shell/inbox and /app-shell/notes
                 <ToggleButton Pressed="DevbookVisible" OnClick="ToggleDevbook">Devbook</ToggleButton>
             </div>
             <ButtonGroup CssClass="header-group header-group--work" AriaLabel="Work in progress">
-                <ToggleButton Pressed="ViewOptionPressed(ShellView.InProgress)" OnClick="() => ShowView(ShellView.InProgress)"><ActivityIcon />In progress</ToggleButton>
+                <ToggleButton Pressed="ViewOptionPressed(ShellView.Goals)" Title="Goals" OnClick="() => ShowView(ShellView.Goals)"><TargetIcon />Goals</ToggleButton>
                 <ToggleButton Pressed="SessionsVisible" PressedChanged="ToggleSessions"><SquareTerminalIcon />Sessions</ToggleButton>
                 <ToggleButton Pressed="PullRequestsVisible" PressedChanged="TogglePullRequests"><GitPullRequestIcon />Pull requests</ToggleButton>
             </ButtonGroup>

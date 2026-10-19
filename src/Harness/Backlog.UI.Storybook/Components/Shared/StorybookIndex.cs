@@ -17,7 +17,7 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// <item><b>Parts.</b> Input and action, Structure and navigation, Feedback,
 /// Content, Devbook — the components that compose into everything
 /// else.</item>
-/// <item><b>Subjects.</b> Integrations, Task list, Roadmap, Progress, Dashboard — a set of
+/// <item><b>Subjects.</b> Goals, Integrations, Task list, Roadmap, Progress, Dashboard — a set of
 /// components that only mean something together, each its own chapter because
 /// each is its own convention.</item>
 /// <item><b>Combined usage.</b> The whole surfaces: a document, a folder, an
@@ -178,7 +178,16 @@ internal static class StorybookIndex
             // block, worked through a step at a time, is a subject of its own. It
             // draws only its own component; DayStep, its input, was introduced
             // with Task detail above.
-            new("focus", "Focus", "DayFocus: one timed task worked on now — a ring counting down to the end of its block, the current step, and Step done or Complete task.")
+            new("focus", "Focus", "DayFocus: one timed task worked on now — a ring counting down to the end of its block, the current step, and Step done or Complete task."),
+
+            // After Focus: the phone's fourth tab, and the last of its pages. Its own
+            // page rather than stories on Progress, because the stand-up read on a
+            // phone — a goal as a card that opens its page, a block grouped by goal,
+            // an impediment's state as the list that moves it — is a convention of
+            // its own, and the Progress chapter is the desktop's Goals view. It draws its
+            // own components, the Badge Badges introduced and the RadioGroup Radio
+            // group did, both above.
+            new("standup", "Stand-up", "StandupGoalCard, GoalStackedBar, WeekSpark, StandupWorkList, StandupImpedimentCard and ImpedimentStateSteps: the phone's Stand-up tab, a goal's page and an impediment's page.")
         ]),
 
         // Ahead of Content because Content composes it: a document that saves says
@@ -359,6 +368,17 @@ internal static class StorybookIndex
             new("devbook/brain-pane", "Brain in the pane", "The Devbook pane on the Brain: the Brain badge after its title, the Brain | repository switch, the warning for OneDrive's conflict copies, and the prompt to set up a Brain.")
         ]),
 
+        // The first subject, ahead of Integrations rather than with Progress where its
+        // context is: the goal control is drawn on the work cards, the task side panel
+        // and the roadmap shelf, which are all below, so the page that introduces it has
+        // to come first or each of those would be a bend. It is made of parts only — a
+        // Modal, a SearchBox, two TextFields, ToggleButtons, an EmptyState, a Callout, an
+        // Alert and AppButtons, all introduced above.
+        new("Goals",
+        [
+            new("goals", "Goals", "GoalControl and GoalPicker: the Goal line a task, a plan or a pull request carries, and the dialog that attaches it to one open goal or a new one — searching, nothing to choose, the goal that holds it already, and the note before a move.")
+        ]),
+
         // The second subject-named group with subpages, for the reason recorded
         // against the first: its five pages document one convention from several
         // angles — the same readiness-and-lifecycle idea explains the act, the
@@ -378,7 +398,7 @@ internal static class StorybookIndex
             new("integrations/references", "References", "Issues, pull requests and agent sessions that live outside the product: their state, their drift against local truth, and when it was last read."),
             // After the references: a work card is a session or a pull request with
             // more said about it, beside the task it worked on.
-            new("integrations/work", "Work cards", "WorkSessionCard, WorkPullRequestCard, WorkLinks, WorkLinksPanel and WorkLinkPicker: a session or a pull request as a card beside its task, the two columns that say None yet, with Unlink beside each card and no column for a feature that is off, the side panel section, and the picker behind linking one to a task."),
+            new("integrations/work", "Work cards", "WorkSessionCard, WorkPullRequestCard, WorkLinks, WorkLinksPanel and WorkLinkPicker: a session or a pull request as a card beside its task, a pull request card with its status line, the two columns that say None yet, with Unlink beside each card and no column for a feature that is off, the side panel section, and the picker behind linking one to a task."),
             new("integrations/density", "Density and overflow", "The same acts as a header toolbar, an inline row, an icon-only cluster and a set of menu items, and how the budget decides which."),
             new("integrations/ai", "AI in the document", "Rewriting a block and resolving a comment, attached to the comment model that already exists."),
 
@@ -414,10 +434,7 @@ internal static class StorybookIndex
             new("task-list/prompts", "Prompt tasks", "A body on a row, and the ids it waits on: a whole prompt on a task, and prompts chained so they run in order — derived, edited, and wired by dragging."),
             // Last in the group: a second layout of the tasks the pages above
             // introduce, read once a task and its states are known.
-            new("task-list/calendar", "Task calendar", "TaskCalendar: a month of tasks by due date — Monday-first whole weeks, today ringed with its My Day count, two chips a day and the rest behind +N more, overdue and done drawn apart, and a tray of undated tasks to drag onto a day."),
-            // After the calendar: a view of tasks with their work cards, which the Integrations
-            // chapter introduced above.
-            new("task-list/in-progress", "In progress", "InProgressBoard: every task in progress with the sessions and pull requests linked to it, in sections by what needs the person, and the work no task links yet; linking, unlinking, where the focus goes, and one feature off.")
+            new("task-list/calendar", "Task calendar", "TaskCalendar: a month of tasks by due date — Monday-first whole weeks, today ringed with its My Day count, two chips a day and the rest behind +N more, overdue and done drawn apart, and a tray of undated tasks to drag onto a day.")
         ]),
 
         // Its own chapter for the same reason Task list is: two components, one
@@ -429,15 +446,14 @@ internal static class StorybookIndex
             new("roadmap", "Roadmap", "RoadmapTimeline and RoadmapTimelineBar: a plan against a quarter-ruled time axis, with swimlanes, dependency arrows and bars you can drag — and RoadmapPlanShelf, the work still waiting for a place on it.")
         ]),
 
-        // Its own chapter, after Roadmap: a sprint series is a cadence a set of
-        // repositories works to, a convention of its own. The page draws the card
-        // its folder holds and the Card, TagChip and AppButton the Settings page
-        // lays around it, all three introduced further up.
+        // Its own chapter, after Roadmap: goals and the stand-up are a convention of
+        // their own, read over iteration windows rather than over a plan's axis.
         new("Progress",
         [
-            new("sprint-settings", "Sprint settings", "SprintSeriesCard: one sprint series on Settings › Sprints — its switch, its repositories with only the free ones offered, its length, start day and name pattern, how the sprint goal is counted, which briefs show it, and Delete series…, which asks first."),
-            new("sprint-view", "Sprint view", "SprintBoard and SprintViewSwitch: the In progress tab's sprint view — the Since yesterday strip, the goal card, the done line against the even pace, Needs you, one group per plan with its rows and pull request chips, and the folded Outside the sprint line."),
-            new("sprint-planning", "Sprint planning", "SprintAddPicker, SprintItemNoteDialog, SprintTaskPanel and the row menu SprintBoard carries while its sprint takes writes: adding a task or a whole plan to the open sprint, taking it out, marking it as goal, and its note and open question — from the sprint view and from a task's side panel.")
+            // Before the Goals view, which draws it on every goal's pull requests: nothing
+            // is shown before its parts.
+            new("pull-request-status", "Pull request status", "PullRequestStatus: a pull request's #n pill, its checks as passed/total and its approvals as received/required, each a glyph and a count in the mark's ink, the words said only to a screen reader — on every pull request row in Progress and the Pull requests pane."),
+            new("goals-view", "Goals view", "GoalsBoard, GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow and GoalCreateDialog: the Goals view — the iteration switch and its windows, each goal with its stacked bar, forecast and attached work, No goal, and the stand-up with Finished, Planned and the impediment state picker and note.")
         ]),
 
         new("Dashboard",

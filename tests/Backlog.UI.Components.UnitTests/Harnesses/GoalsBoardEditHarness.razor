@@ -1,0 +1,67 @@
+@using Backlog.UI.Components.Progress
+@* A host for the Goals board reduced to the module's goal rules: it refuses a goal with no
+   title or a second outcome line, as SetGoal does, keeps every other edit and answers each
+   delete — after a pause when Delay is set, so a test can send a second edit before the
+   first one's reading lands. It re-renders the board with its answer the way GoalsHost
+   does, which is what the card's refusal handling reads. *@
+
+<GoalsBoard Model="_model"
+            OnEditGoal="EditAsync"
+            OnDeleteGoal="DeleteAsync"
+            OnDetach="request => Detaches.Add(request)"
+            EditError="@_error"
+            Error="@_writeError"
+            TestId="goals-board" />
+
+@code {
+    private GoalsBoardModel _model = default!;
+    private string? _error;
+    private string? _writeError;
+
+    [Parameter, EditorRequired]
+    public GoalsBoardModel Model { get; set; } = default!;
+
+    /// <summary>How long each answer takes; none answers at once.</summary>
+    [Parameter]
+    public TimeSpan Delay { get; set; }
+
+    /// <summary>The refusal a delete is answered with; none deletes.</summary>
+    [Parameter]
+    public string? DeleteRefusal { get; set; }
+
+    public List<GoalEditRequest> Edits { get; } = [];
+
+    public List<string> Deletes { get; } = [];
+
+    public List<GoalDetachRequest> Detaches { get; } = [];
+
+    protected override void OnInitialized() => _model = Model;
+
+    private async Task EditAsync(GoalEditRequest request)
+    {
+        Edits.Add(request);
+        if (Delay > TimeSpan.Zero) await Task.Delay(Delay);
+
+        _error = request.Title.Length == 0 ? "A goal needs a title."
+            : request.DueDate is null ? "A goal needs a due date."
+            : request.Outcome?.Contains('\n') == true ? "A goal's outcome is one line."
+            : null;
+        if (_error is not null) return;
+
+        _model = _model with
+        {
+            Goals = [.. _model.Goals.Select(goal => goal.Id == request.GoalId
+                ? goal with { Title = request.Title, Outcome = request.Outcome, DueDate = request.DueDate!.Value }
+                : goal)]
+        };
+    }
+
+    private async Task DeleteAsync(string goalId)
+    {
+        Deletes.Add(goalId);
+        if (Delay > TimeSpan.Zero) await Task.Delay(Delay);
+
+        _writeError = DeleteRefusal;
+        if (DeleteRefusal is null) _model = _model with { Goals = [.. _model.Goals.Where(goal => goal.Id != goalId)] };
+    }
+}

@@ -2650,26 +2650,6 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
-/* Settings › Sprints: a card per series, the repositories in no series, and Add
-   another sprint, stacked. */
-.sprint-settings {
-    display: grid;
-    gap: var(--spacing-md);
-    min-width: 0;
-}
-
-.sprint-settings__chips,
-.sprint-settings__add {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs) var(--spacing-sm);
-}
-
-.sprint-settings__add .setting__body {
-    margin: 0;
-}
-
 /* A second topic inside one setting block - the Foundry resource's spend under
    its chat connection - headed like the block but a size down. */
 .setting__subtitle {
@@ -4041,9 +4021,9 @@ h1, h2, h3 {
     flex: 1 1 auto;
 }
 
-/* The In progress view, in the same column. Unlike the roadmap it scrolls as a
-   whole: its cards are a list, read top to bottom, with nothing to keep pinned. */
-.in-progress-view {
+/* The Goals view, in the same column. Unlike the roadmap it scrolls as a whole:
+   its goals are a list, read top to bottom, with nothing to keep pinned. */
+.goals-view {
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -4051,7 +4031,7 @@ h1, h2, h3 {
     overflow-y: auto;
 }
 
-.in-progress-view__body {
+.goals-view__body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
@@ -4999,30 +4979,12 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
-/* GitHub's "8/9", drawn: three parts of one bar, each growing by its own count,
-   beside the words. The bar is aria-hidden; the words and the title carry it. */
-.pull-request-checks-meter {
-    display: inline-flex;
+/* The shared status line's marks sit at the row's end, where the checks meter was. */
+.pull-requests-row__marks {
     flex: none;
-    gap: var(--spacing-xs);
-    align-items: center;
+    flex-wrap: nowrap;
     margin-left: auto;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
-
-.pull-request-checks-meter__bar {
-    display: flex;
-    overflow: hidden;
-    width: 3.5rem;
-    height: 0.375rem;
-    border-radius: var(--border-radius-full);
-    background: var(--color-border);
-}
-
-.pull-request-checks-meter__passed { flex: var(--checks-passed, 0) 1 0; background: var(--color-success-text); }
-.pull-request-checks-meter__failed { flex: var(--checks-failed, 0) 1 0; background: var(--color-error-text); }
-.pull-request-checks-meter__running { flex: var(--checks-running, 0) 1 0; background: var(--color-primary-light); }
 
 /* The detail of the picked pull request, beside the list or under it. */
 .pull-request-detail {

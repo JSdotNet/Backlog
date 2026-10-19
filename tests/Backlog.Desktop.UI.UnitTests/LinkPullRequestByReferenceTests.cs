@@ -1,7 +1,6 @@
 using Backlog.Desktop.UI.InProgress;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.UI.Components.Tasks;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -10,8 +9,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// "Link a session or pull request…" taking a pull request by number or link, whatever
-/// its state: the work that merged before its task was linked is the work a sprint
-/// member counts as done by, so a merged or closed pull request is linked as an open
+/// its state: the work that merged before its task was linked is the work a task a
+/// goal holds counts as done by, so a merged or closed pull request is linked as an open
 /// one is — read by number first, so one GitHub does not know is refused rather than
 /// recorded.
 /// <para>
@@ -200,7 +199,7 @@ public sealed class LinkPullRequestByReferenceTests
         var reader = Reader(host);
         await reader.ReadAsync();
 
-        var projection = new InProgressProjection(
+        var projection = new WorkLinksProjection(
             host.State.Rows,
             reader.Sessions,
             reader.PullRequests,
@@ -210,7 +209,7 @@ public sealed class LinkPullRequestByReferenceTests
             Noon,
             reader.SessionsRead,
             reader.LinkedPullRequests);
-        var gone = new InProgressLoose(
+        var gone = new LooseWork(
             PullRequest: new Backlog.UI.Components.Integrations.WorkPullRequest(
                 "JSdotNet/Backlog#700", 700, "Merged since", Backlog.UI.Components.Integrations.IntegrationArtifactState.Open),
             Repository: "Backlog");

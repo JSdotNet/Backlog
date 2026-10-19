@@ -1,4 +1,4 @@
-# Progress
+# Features
 
 ```meta
 type: features
@@ -8,559 +8,319 @@ status: draft
 > Features and sub-features this bounded context supports, described in
 > business/ubiquitous language rather than implementation terms.
 
-Every feature here sits behind the [Progress area](context.md#progress-area)
-flag.
+Every feature here is always on: no flag stands in front of goals, impediments or
+the stand-up. Why goals and impediments are the model is local
+[ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md).
 
-## Setting up a sprint series
-
-```meta
-type: feature
-status: draft
-feature-flag: .devbook/domain/progress/context.md#progress-area
-related: [.devbook/domain/progress/domain.md#sprint-series, .devbook/domain/progress/domain.md#series-assignment, .devbook/domain/progress/requirements.md#setting-up-a-sprint-series]
-```
-
-Give a set of repositories one cadence to work to. A person creates a series,
-gives it its repositories and chooses how its sprints run. A repository belongs
-to at most one series. A repository in no series keeps the
-[In progress](../sessions/features.md#in-progress-by-task) view it has today.
-
-### Choosing the cadence
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#sprint-length, .devbook/domain/progress/domain.md#sprint-window]
-```
-
-Choose a sprint length of one or two weeks, and the weekday sprints start on.
-Every sprint of the series runs from that weekday for that many days. A changed
-length or weekday applies from the next sprint.
-
-### Naming the sprints
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#name-pattern]
-```
-
-Choose the pattern a sprint's name is made from, with `{n}` for its number. The
-default `Sprint {n}` names the fourth sprint "Sprint 4".
-
-### Choosing which briefs show the series
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#brief-visibility, .devbook/domain/progress/features.md#sprints-in-the-briefs]
-```
-
-Choose whether the series' open sprint shows in the daily brief, and whether it
-shows in the weekly brief.
-
-### Switching a series off
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#series-switch, .devbook/domain/progress/requirements.md#requirement-a-switched-off-series-repositories-keep-the-in-progress-view]
-```
-
-Switch one series off without losing it. Its repositories show the In progress
-view again, and it keeps everything it holds until it is switched back on. A
-repository of a switched-off series still cannot join another series.
-
-### Deleting a series
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#sprint-series, .devbook/domain/progress/requirements.md#requirement-a-deleted-series-frees-its-repositories]
-```
-
-Delete a series made by mistake, or one no longer worked to. Any series can be
-deleted, on or off, with or without sprints. "Delete series…" on its card asks
-first, naming the series, how many sprints go with it and which repositories
-it frees. Cancel changes nothing. Once confirmed, the series and every sprint it
-recorded are gone, and its repositories show under "Not in a sprint", free to
-join another series. No task changes, and the series is deleted on every paired
-desktop. Nothing offers to bring it back: to keep its sprints, switch it off
-instead.
-
-### The Sprints settings page
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/context.md#progress-area]
-```
-
-Settings › Sprints is where a series is set up, offered while the Progress area is
-on. It draws one card per series: its switch, its repositories, its length, start
-weekday and name pattern with the next sprint's name, its goal rules and when the
-goal is met, which briefs show it, and "Delete series…". "Add repository" offers only the
-repositories in no series. A "Not in a sprint" card lists those repositories, and
-"Add another sprint" starts a series over the one picked. Every change is saved as
-it is made, and a refused change is said on its card in the module's words. Done
-is shown as the rule it is, not a choice: a task's status Done, or every linked pull
-request merged.
-
-### Starting the first sprint
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#sprint-window, .devbook/domain/progress/features.md#closing-a-sprint]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_series_added_on_the_settings_page_starts_its_first_sprint_from_its_card, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_switched_off_series_offers_no_start, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_series_with_no_sprint_carries_the_switch_and_its_sprint_side_starts_the_first, unit:dotnet:Backlog.UI.Components.UnitTests.SprintStartComponentsTests]
-```
-
-A new series runs no sprint until its first is started. While a series is switched on
-and has none, its card on Settings › Sprints says "No sprint has started yet." and
-offers **Start Sprint 1…**, named by the series' pattern; the sprint view of a scope
-holding it offers the same. Start asks for the first sprint's goal in words and the
-day it starts: the next start weekday, today when today is one. A day on another
-weekday is held back with the reason beside it. Every later sprint starts when the
-one before it [closes](#closing-a-sprint), so Start is offered once per series.
-
-## Filling a sprint
+## The Goals view
 
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#progress-area
-related: [.devbook/domain/progress/domain.md#sprint, .devbook/domain/progress/requirements.md#filling-a-sprint]
+related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#goal-forecast, .devbook/domain/progress/domain.md#stand-up-reading, .devbook/domain/progress/requirements.md#the-goals-view, .devbook/domain/sessions/features.md#in-progress-by-task]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests]
 ```
 
-Say what a sprint holds. Its membership is Progress's own: adding a task to a
-sprint, or linking a plan, changes nothing on the task.
+Answer "where are my goals, and what is in the way" as one desktop view. **Goals** is
+the first option of the work in progress group in the header, a main view rather than
+a takeover, so the Devbook still opens beside it. It replaced the
+[In progress](../sessions/features.md#in-progress-by-task) view, and has no board of
+sessions and pull requests by task. It is offered whether or not the Sessions and Pull
+requests lists are.
 
-### Adding a task
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#sprint-item]
-tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.A_removed_task_no_plan_brings_in_comes_back_without_its_old_marks, unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesPlanningTests.A_removed_task_a_linked_plan_still_brings_in_keeps_its_marks]
+```mermaid
+flowchart LR
+    Header["Header: iteration switch, last → next window, New goal"]
+    Goals["Goals: one row per goal"]
+    NoGoal["No goal: work in progress no goal holds"]
+    StandUp["Stand-up: Finished, Planned, Impediments"]
+    Header --> Goals --> NoGoal
+    Header --> StandUp
 ```
 
-Add one task to the open sprint by its id. Any task in the series' repositories
-can be added, whatever its status. Removing it again takes it out of the sprint
-and leaves the task as it was. What the sprint recorded on it — its goal mark,
-note and open question — goes with it, unless a linked plan still brings the
-task in ([Sprint Item](domain.md#sprint-item)).
+The header holds the [iteration switch](#choosing-the-iteration), the last and next
+window, such as "12–16 Oct → 19–23 Oct", **New goal**, **Copy**
+([copying the stand-up](#copying-the-stand-up)) and **Refresh**.
 
-### Linking a plan
+Each goal reads as one row: its title, its progress as `done/total`, the items done in
+the last iteration as `+3`, its due date, its landing date as "lands ~6 Nov" and an
+**At risk** or **On track** badge. A bar shows how much is done, in progress, blocked
+and not started, and says it in words to a screen reader. One goal is open at a time,
+the first when the view opens. Opened, the row lists what is attached to it under
+Plan, Tasks and Pull requests. A plan shows its own `done/total`; a pull request shows
+its [status](#pull-request-status), and a merged one reads as its number and "merged".
 
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#plan-link, .devbook/domain/roadmap/domain.md#roadmap-tag]
-```
+Below the goals, **No goal** lists the tasks in progress and the open pull requests in
+the header's repository scope that no goal holds, each with **Attach…**. The view lists
+every goal, whatever the repository scope. With no goals and nothing in progress
+outside one, the view says so and offers **New goal**.
 
-Link a whole plan to the sprint by its plan tag. The plan brings in every task
-filed under that tag in the series' repositories, finished or not. A task filed
-under the plan later joins the sprint by itself. Unlinking the plan takes out the
-tasks it brought in, except those added directly.
+Beside them sits the [stand-up](#the-stand-up), read over the same windows. The view is
+read when it opens, on a change of iteration, on Refresh, after each change made in
+it, and whenever goals, impediments or the iteration setting change elsewhere.
 
-### Planning from the sprint view
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/features.md#the-sprint-view, .devbook/domain/progress/features.md#keeping-a-note-on-an-item]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.Add_to_sprint_adds_a_task_through_the_module_and_the_sprint_is_read_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.Add_to_sprint_links_a_whole_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.The_row_menu_marks_goal_and_removes_through_the_module, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.The_note_dialog_writes_the_note_and_the_open_question, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.A_closed_sprint_offers_no_add_and_no_row_menu]
-```
-
-While the sprint view shows the open sprint, it plans it. **Add to sprint…** beside
-Refresh opens a picker over the series' repositories: plans first, then tasks, narrowed
-to one repository and by a search. Choosing a plan links it; choosing a task adds it.
-What the sprint already holds is listed but not offered again. The picker stays open
-for the next choice and says what the last one did.
-
-Each row carries a menu: mark the task as goal or take the mark off, add or edit its
-note, mark or clear its open question, and take it out — **Remove from sprint** for a
-task added directly, **Unlink +plan** for one a linked plan brought in. A closed sprint
-shows no menu and no Add. Every act is a write through Progress, and the sprint is read
-again once it lands; a refusal shows in Progress's words.
-
-### Planning from a task
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md, .devbook/domain/sessions/features.md#in-progress-by-task]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.A_tasks_sprint_section_adds_it_marks_it_and_takes_it_out_through_the_module, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.A_tasks_sprint_section_links_its_plan_and_writes_its_note, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintPlanningTests.With_progress_off_or_the_task_in_no_series_the_section_draws_nothing]
-```
-
-A task's side panel carries a **Sprint** section while its repository works to a series
-switched on. It says how the task stands in the open sprint — not in it, added directly,
-brought in by its plan, or both — and offers what applies: add the task or remove it,
-add its plan or unlink it, and, for a member, the goal mark and the note with its open
-question. The desktop shell composes the section from Progress beside **Sessions and
-pull requests**; the task gains no sprint field.
-
-The writes go to the open sprint. The next sprint starts only when the open one closes,
-so there is no later sprint to plan ahead into.
-
-## Setting the sprint goal
+## Setting a goal
 
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#progress-area
-related: [.devbook/domain/progress/domain.md#goal-rule, .devbook/domain/progress/domain.md#goal-threshold, .devbook/domain/progress/requirements.md#setting-the-sprint-goal]
+related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/requirements.md#setting-a-goal]
 ```
 
-Say what the sprint sets out to do, and how to tell it did. A sprint carries a
-goal in words. Its series picks the goal tasks by rules and says when the goal
-is met.
+Say what the work is for. **New goal** asks for a title, an optional one-line outcome
+and a due date. A goal's row offers the same fields to edit, and **Delete goal…**,
+which asks first. Deleting a goal frees what it held: no plan, task or pull request
+changes. Goals are set on the desktop only.
 
-### Choosing the goal rules
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#goal-rule-kind]
-```
-
-Choose any combination of rules for the series:
-
-- the tasks in chosen plans;
-- the tasks marked as goal;
-- the tasks with chosen tags;
-- every task in the sprint.
-
-A task picked by more than one rule counts once.
-
-### Writing the sprint goal
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#sprint]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.Edit_goal_on_the_open_sprint_writes_the_goal_through_the_module, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_closed_sprints_goal_card_only_reads, unit:dotnet:Backlog.UI.Components.UnitTests.SprintStartComponentsTests.The_goal_card_offers_edit_goal_only_when_the_host_does]
-```
-
-Write or change the open sprint's goal in words from the sprint view's goal card:
-**Edit goal**, or **Set goal** while the sprint has none. Blank clears it. The goal is
-the sprint's own; the first sprint's is asked when it [starts](#starting-the-first-sprint)
-and every later one's when the sprint before it [closes](#closing-a-sprint). A closed
-sprint's goal only reads.
-
-### Marking a task as goal
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#sprint-item]
-```
-
-Mark one sprint item as a goal task. The mark counts while the series has the
-"marked as goal" rule.
-
-### Choosing when the goal is met
-
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#goal-threshold, .devbook/domain/progress/domain.md#done]
-```
-
-Choose whether the goal is met when every goal task is done, or when a set share
-of them is, such as 80%. A task is done when its status is Done, or when every
-pull request linked to it is merged.
-
-## Following a sprint
+## Attaching work to a goal
 
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#progress-area
-related: [.devbook/domain/progress/domain.md#sprint-progress, .devbook/domain/progress/requirements.md#following-a-sprint, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/domain.md#goal-progress, .devbook/domain/progress/domain.md#goal-assignment, .devbook/domain/progress/requirements.md#attaching-work-to-a-goal]
 ```
 
-See the open sprint of the series in scope: its name, its dates, its goal, how
-many goal tasks are done, and whether the goal is met. Each member shows as a row
-with its task, whether it is done, and its owner. The owner is the author of the
-task's linked pull requests. A task with no linked pull request shows no owner.
+Say which work reaches a goal. Three kinds of item attach:
 
-### The sprint view
+- a **plan**, by its [plan tag](../roadmap/domain.md#roadmap-tag), which brings in
+  every entry its roadmap item gathers by tag — filed under `+tag` or carrying the
+  bare `#tag` — including entries filed later;
+- a **task**, by its id, whose linked pull requests come with it;
+- a **pull request**, by its repository and number, for work no task covers.
+
+An open goal offers "Attach a plan, task or pull request": typing lists the matching
+plans, tasks and pull requests, each named by its kind, and a pull request is found by
+its number too. **Attach…** on a No goal row attaches the item to the open goal, or
+asks which goal when none is open. Both questions are the same **Attach to goal**
+picker every other goal control opens. An item belongs to at most one goal. An item
+another goal holds is not attached silently: the picker opens on the goal it was meant
+for, names the goal that holds it and says attaching moves it from there, and
+**Attach** moves it. Detaching an item changes nothing on it. Attaching is a desktop
+action.
+
+[Goal Progress](domain.md#goal-progress) says how the attached work is counted.
+Attaching changes nothing on the task, the plan or the pull request.
+
+## Choosing the iteration
 
 ```meta
-type: sub-feature
+type: feature
 status: draft
-related: [.devbook/domain/progress/requirements.md#requirement-a-repository-in-no-series-keeps-the-in-progress-view, .devbook/domain/sessions/features.md#in-progress-by-task]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.With_progress_off_the_now_view_is_drawn_with_no_switch, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_repository_in_no_series_keeps_the_now_view_unchanged, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_switched_off_series_reads_as_no_series, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Choosing_the_sprint_draws_the_sprint_view_and_choosing_now_brings_the_now_view_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Pull_request_chips_are_coloured_by_state_and_the_owner_is_their_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.The_pace_reading_names_the_open_goal_tasks_the_blocked_ones_and_the_gap_to_the_even_pace, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.A_series_with_no_sprint_carries_the_switch_and_its_sprint_side_starts_the_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintStartTests.With_every_repository_in_scope_a_series_that_runs_a_sprint_comes_before_one_that_has_not_started]
+setting: [.devbook/domain/progress/context.md#iteration-length, .devbook/domain/progress/context.md#two-week-start]
+related: [.devbook/domain/progress/domain.md#iteration, .devbook/domain/progress/requirements.md#choosing-the-iteration]
 ```
 
-The [In progress](../sessions/features.md#in-progress-by-task) tab shows the sprint.
-While the header's repository scope holds a repository of a series that is switched on,
-a **Now | Sprint n** switch sits beside the title. Now is the view by task, unchanged.
-With no such repository in scope, or Progress off, there is no switch. A scope with
-repositories of several series shows the first series in scope order; with every
-repository in scope, the first series that runs a sprint. A series with no sprint yet
-names the switch for the sprint it will start, and its sprint side
-[starts the first](#starting-the-first-sprint).
+Choose the window the goals and the stand-up are read in: **Day**, **Week**,
+**2 weeks** or **Month**. The switch sits in the Goals view's header and on the
+phone's stand-up, and the choice is the person's own
+[Iteration length](context.md#iteration-length) setting. The first time a person
+chooses 2 weeks, they give the day two-week iterations count from. The header names
+the last and the next window. [Iteration](domain.md#iteration) says which days each
+length covers.
 
-The sprint side opens on the open sprint and steps to the previous and next one. It
-shows:
-
-- the series' name, how many repositories it has and the sprint's dates;
-- a filter to one of the series' repositories, drawn only when the series has more
-  than one, and grouping by plan or none;
-- the goal card: the goal in words, the goal tasks done of their total with a bar by
-  status, the goal rules that counted them, then all the sprint's work done of its
-  total, how much is outside the goal and how much was added after the start;
-- the done line: members done by the end of each working day against the even pace —
-  every member done by the last working day — with one sentence on where the sprint
-  stands;
-- **Needs you**: the members that are blocked, wait on review with an open pull
-  request, or carry an open question;
-- one group per plan, a goal plan's group marked "Goal plan", and a row per member:
-  its status, its title with "Goal" or "added" where they apply, a chip per linked pull
-  request coloured by its state (merged green, open amber, draft grey), its owner and
-  its note;
-- folded, "Outside the sprint": the live sessions and open pull requests on work the
-  sprint does not hold.
-
-The sprint is read when the side opens, on a step and on Refresh.
-
-### Copying a sprint as a table
+## The stand-up
 
 ```meta
-type: sub-feature
+type: feature
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.SprintTableClipboardTests]
+related: [.devbook/domain/progress/domain.md#stand-up, .devbook/domain/progress/domain.md#planned, .devbook/domain/progress/domain.md#pace, .devbook/domain/progress/requirements.md#the-stand-up]
 ```
 
-**Copy as table** in the sprint view's header puts the sprint on the clipboard as a
-table that pastes formatted into PowerPoint and Outlook. It has one row per item,
-grouped by plan in the board's order: goal plans first, then the other plans by name,
-then the items in no plan under "No plan". The plan is named on its group's first row.
+Read what to say at a stand-up without gathering it by hand. The stand-up has four
+blocks, read over the [iteration](#choosing-the-iteration):
 
-| Column | Holds |
+| Block | Holds |
 |---|---|
-| Plan | The plan tag, on the group's first row |
-| Item | The task's title |
-| Status | Done, In progress, In review, Blocked or Not started, in its colour |
-| Pull requests | Each linked pull request's number, linked to GitHub, with "open", "draft" or "closed" when it is not merged |
-| Owner | The authors of the linked pull requests |
-| Note | The sprint's note on the item, "Open question:" in front when it is one |
+| Goals | each goal's progress, `+n` done in the last window, due date and badge |
+| Finished | the items done in the last window, grouped by goal, then "No goal" |
+| Planned | the [planned](domain.md#planned) items for the next window, grouped by goal, with the points tag |
+| Impediments | each open impediment with its state, then how many were resolved in the last window |
 
-The table holds every item, whatever the repository filter shows. The clipboard
-carries it twice: as HTML with every style inline, which PowerPoint and Outlook keep,
-and as tab-separated plain text for anything that takes no HTML. The status colours
-are fixed values for a white page, because a pasted table never sees the app's theme.
-The button is unavailable while the sprint is being read.
+Each block's heading carries its count. A planned item shows its `effort:` in points,
+and a planned item with a pull request shows its [status](#pull-request-status).
 
-The daily strip's **Copy for the stand-up** copies the same table.
+On the desktop, the Goals block is the goals beside the stand-up, which holds
+Finished, Planned and Impediments. A finished item no goal holds reads "… · no goal",
+last.
 
-### The daily strip
+The **points tag** on Planned compares the planned effort with what the person
+usually gets done in such a window, such as `21 / 18 pts`. The first figure is the
+`effort:` of the planned items added up. The second is the person's
+[pace](domain.md#pace) from the Roadmap, scaled to the next window's working days. A
+planned item without an effort adds nothing to the first figure. The tag's title says
+it in words, such as "21 points planned, you usually finish 18 a week", the period
+following the iteration. Without a pace the tag is the planned points alone, such as
+`21 pts`.
 
-```meta
-type: sub-feature
-status: draft
-related: [.devbook/domain/progress/domain.md#brief-visibility, .devbook/domain/progress/domain.md#sprint-progress, .devbook/domain/progress/requirements.md#requirement-the-daily-strip-shows-only-for-the-open-sprint-of-a-series-in-the-daily]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintDailyTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_series_shown_in_the_daily_draws_the_since_yesterday_strip_above_the_goal_card_and_it_folds, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.Copy_for_the_stand_up_puts_the_strip_and_the_sprint_table_on_the_clipboard, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests.A_series_not_shown_in_the_daily_has_no_strip]
-```
+An impediment's line names who it is with, its age in working days and the goal it
+holds back, such as "Account manager · 3 days · Customers get paid faster". A New one
+reads "Not reported yet". A check-again date takes the age's place: "check Tue".
 
-A collapsible **Since yesterday** strip sits at the top of the sprint view, under the
-header and above the goal card, while the open sprint is shown and its series has
-"Show it in the daily" on. Its header holds a label — the day, the sprint and its
-working day — and one headline sentence on what landed and what is stuck, and folds
-the rest away. Open, it shows:
+Under that line the impediment's note shows as written, whichever device wrote it. On
+the desktop, **Add note** or **Edit note** opens it in place: leaving the box keeps
+it, Escape abandons it, and a blank note clears it. The note is saved like the
+phone's, through Progress, and the stand-up is read again.
 
-- a summary: the series, the goal tasks done of their total, all the work done of its
-  total and the working days left;
-- **Since yesterday**: what was done, opened for review, started and added to the
-  sprint since the previous working day — Friday on a Monday — up to today, with the
-  pull requests merged or opened; "Nothing moved" when nothing did;
-- **On today**: each member in progress, then each unfinished member waiting on review
-  with an open pull request;
-- **Blocked and open questions**: each blocked member with the day it was marked, and
-  each member carrying an open question in its note's words;
-- **Pace**: how many goal tasks are open, the blocked among them, and whether the goal
-  is at risk; then all the work against the even pace and about how much lands by the
-  last working day at the pace so far.
-
-The goal is at risk while it is not met and a goal task is blocked, the last working
-day has come, or the goal tasks still needed outnumber what the pace so far lands in
-the working days left. Every sentence is a fixed template filled from the sprint
-reading; none is written by a model. **Copy for the stand-up** puts the strip on the
-clipboard followed by the sprint's table from [Copying a sprint as a table](#copying-a-sprint-as-a-table):
-as HTML, which pastes formatted, and as plain text beside it.
-
-### Keeping a note on an item
+### Copying the stand-up
 
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/progress/domain.md#sprint-item]
+related: [.devbook/domain/progress/requirements.md#the-stand-up]
 ```
 
-Write a one-line note on a sprint item, and mark it as an open question. Both
-belong to the sprint, not to the task, and the next sprint starts without them.
+**Copy** puts the four blocks on the clipboard as plain text, each heading with its
+count, Finished and Planned grouped by goal with No goal last, the points tag beside
+Planned and "n resolved" after Impediments. Every line is a fixed template filled
+from the reading; none is written by a model. Copying is a desktop action. Formatted
+(HTML) copy is a later addition.
 
-## Closing a sprint
+## Tracking an impediment
 
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/progress/context.md#progress-area
-related: [.devbook/domain/progress/domain.md#close-outcome, .devbook/domain/progress/requirements.md#closing-a-sprint]
+related: [.devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#impediment-state, .devbook/domain/progress/requirements.md#tracking-an-impediment, .devbook/design/color-scheme.md]
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.ImpedimentMovesTests]
 ```
 
-End the open sprint and start the next one in one step:
+Keep track of what holds work back until it is out of the way. An impediment is raised
+with a title, and moves through its states as the person chases it:
 
-1. The person chooses an outcome for each unfinished item.
-2. The person writes the next sprint's goal.
-3. Progress closes the sprint and starts the next one.
+```mermaid
+flowchart LR
+    New --> Reported --> Escalated --> BH["Being handled"] --> Resolved
+    Reported --> BH
+    New -.-> Resolved
+    Reported -.-> Resolved
+    Escalated -.-> Resolved
+```
 
-The three outcomes are:
+Escalated may be skipped, and any open state may move straight to Resolved. Each move
+records its day, and who the impediment is with at that step. The impediment's page
+shows that history as a stepper, its check-again date, its note and the tasks it
+holds back, and through them the goal. Each state has its own colour, so a row says
+its state at a glance; [the colour scheme](../../design/color-scheme.md) gives them.
 
-| Outcome | The task | The sprint records |
-|---|---|---|
-| Carry | Joins the next sprint, as a directly added member | Carried |
-| Back to the backlog | Leaves the sprint and joins no other | Returned |
-| Drop | Is untouched | Dropped, in this sprint only |
+In the stand-up, each impediment's state is a picker wearing the state's badge. It
+offers only the moves the impediment may make, and picking one keeps who it was last
+with. A move the impediment may not make is refused with the reason, and the state
+stays as it was.
 
-No outcome changes the task. The next sprint is numbered one higher and starts on
-the first start weekday after the closed sprint's last day. It starts with no
-linked plan: an unfinished task a plan brought in moves on only when it is carried.
+An open impediment that holds back a goal's item makes that goal
+[At risk](domain.md#goal-forecast).
 
-Closing before the last day ends a sprint's work, not its window: a window always
-starts on the series' start weekday, on a [shared calendar](domain.invariants.md#sprint-series).
-The closed sprint keeps its planned days, and nothing more is recorded against it.
-The next sprint still starts on the first start weekday after the planned last day,
-but is open at once, so work can be added to it. Until its first working
-day the views show it as starting: for a Sprint 5 from Monday 26 October, the sprint
-view reads "Starts Mon 26 Oct · 10 working days", the daily strip "Sprint 5, starts
-Mon 26 Oct" with no at-risk landing from pace, and the burn-up chart's description
-says the sprint has not reached its first working day.
-
-### Closing from the sprint view
+### Raising an impediment from a blocked task
 
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/progress/features.md#the-sprint-view, .devbook/domain/progress/features.md#copying-a-sprint-as-a-table, .devbook/domain/progress/requirements.md#closing-a-sprint]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintCloseTests, unit:dotnet:Backlog.UI.Components.UnitTests.SprintCloseDialogTests]
+related: [.devbook/domain/progress/domain.md#blocked-task-policy, .devbook/domain/tasks/features.md#marking-a-task-blocked, .devbook/domain/progress/requirements.md#tracking-an-impediment]
 ```
 
-While the sprint view shows the open sprint, **Close sprint…** beside Add opens the
-close dialog over the sprint as last read. It reviews the sprint:
+Marking a task blocked raises an impediment for it, so nothing blocked goes untracked.
+A task is [marked blocked](../tasks/features.md#marking-a-task-blocked) by its
+`blocked:` token or a `set_blocked` call. When it is marked and no open impediment
+holds it back already, Progress raises a New impediment titled with the task's title
+that holds the task back. When one already does, nothing is raised, and nor is one
+when the person resolved the impediment this block raised while the task is still
+marked. Unblocking the task leaves the impediment as it is: the person resolves it.
 
-- the goal met or not, with the goal tasks done of their total;
-- all the sprint's work done of its total;
-- how many items were added after the start.
+An agent works with impediments through two MCP tools beside `set_blocked`, behind
+the always-on Tasks key `set_blocked` answers to: `raise_impediment` raises one with its title, the tasks it
+holds back and a note, and `set_impediment_state` moves one to reported, escalated,
+being-handled or resolved, with who it is with at that step.
 
-Then it lists every unfinished item, with its goal mark, its plan, its owner and where
-it stands under the title, and an outcome beside it: **Carry to Sprint n** — the
-default — **Back to the backlog** or **Drop**. **Set all to Sprint n** puts every item
-back on carry. Below the list the person writes the next sprint's goal.
+The task gains no impediment field. Progress reacts to the mark, and Tasks never
+calls Progress.
 
-**Copy the review as a table** copies the table from
-[Copying a sprint as a table](#copying-a-sprint-as-a-table) with a **Result** column
-added: Done, Carried to Sprint n, Back to the backlog or Dropped, following the choices
-as they stand. **Close and start Sprint n** closes the sprint through Progress and the
-view opens on the sprint it started. A refusal stays in the dialog in Progress's words.
+## Pull request status
 
-The closed sprint stays one step back through previous, read-only like every closed
-sprint, and still holds every item it had at closing.
+```meta
+type: feature
+status: draft
+related: [.devbook/domain/progress/requirements.md#pull-request-status, .devbook/domain/sessions/features.md#pull-request-readiness, .devbook/design/color-scheme.md]
+```
 
-## Syncing sprints between devices
+See whether a pull request can merge without opening it. Every pull request row in
+Progress, each row of the
+[Pull requests pane](../sessions/features.md#pull-request-readiness), and each open
+pull request card among a task's linked work in its side panel, carries its number
+and two marks:
+
+- **checks**: an icon and `passed/total`, such as `14/14`, with a running variant
+  (`9/14`, still running) and a failing one (`2/14`, failing);
+- **approvals**: an icon and `approvals/required`, such as `1/2`, where required is
+  the number of approvals the base branch's rules ask for: its protection rule or a
+  ruleset's pull request rule, whichever asks for more. A base branch no rule asks an
+  approval of has no required total, and neither does one whose rules GitHub will not
+  show.
+
+The words "checks" and "approvals" are screen-reader labels only, so the row stays
+short. A merged pull request reads "merged" instead of both marks. Checks that have
+not run draw no checks mark. With no required total, the approvals read as the
+number received alone.
+
+The Pull requests pane reads each base branch's rules once, beside its list, and
+keeps the answer for ten minutes, so its rows carry the required total too. A
+branch whose rules cannot be read leaves its rows' approvals as the number received,
+with no verdict either way. A task's linked pull request card draws the marks while
+the pull request is open; one the open list did not hold — merged, closed, or in a
+repository no longer configured — draws its state alone, because the read by number
+behind it asks for no checks or approvals.
+
+## Goals on the phone
+
+```meta
+type: feature
+status: draft
+related: [.devbook/domain/progress/requirements.md#goals-on-the-phone, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
+```
+
+Read the stand-up on the way to it. The phone's **Stand-up** tab shows the four blocks
+with the iteration switch. A goal opens on its own page: its badge, due and landing
+date, `done/total` with how many items are doing, blocked and to do, and its items
+under Plan, Tasks and Pull requests. An impediment opens on its own page: its age, the
+goal it holds back, its history, its check-again date, its note and the tasks it
+holds back.
+
+The phone reads goals, the stand-up and impediments. The one thing it changes is an
+impediment: its state, its check-again date and its note. Those changes go through the
+device outbox, as the phone's task edits do. The state list offers only the moves the
+impediment may make from where it stands. Until a desktop has applied a change, the
+impediment's page shows what was asked, with Waiting beside it while the change is
+still on the phone. Setting a goal, attaching work and copying the stand-up are desktop
+actions.
+
+The stand-up on the phone is the desktop's stand-up of the same work. Pull request
+checks and approvals show as a desktop last read them, so the phone never needs
+GitHub. A change made on the phone shows there once a desktop has applied it. When a
+desktop changed the same field after the phone last synced, the desktop's change
+stands and the phone's is dropped. So does a change a desktop did not apply: once a
+newer copy of the impediment reaches the phone without it, the phone shows that copy.
+
+## Syncing goals and impediments
 
 ```meta
 type: feature
 status: draft
 depends-on: [.devbook/domain/tasks/features.md#multi-device-sync]
-related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md, .devbook/domain/progress/domain.md#sprint-series, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/domain/progress/requirements.md#syncing-sprints-between-devices]
-tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.SprintSeriesReplicationTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.SprintSyncRefreshTests]
+related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/progress/requirements.md#syncing-goals-and-impediments]
 ```
 
-Keep every sprint series the same on every desktop the person has paired. A series
-travels whole beside the tasks the devices already sync
-([Multi-device sync](../tasks/features.md#multi-device-sync)): its cadence, naming,
-goal rules and brief choices, every sprint with its dates and goal, which tasks and
-plans belong to each, the goal marks, the notes and open questions, and how each
-closed sprint ended. It travels only while sync is on and the device is paired.
+Keep every goal and impediment the same on every device the person has paired. They
+travel beside the tasks the devices already sync
+([Multi-device sync](../tasks/features.md#multi-device-sync)), as two document kinds,
+`goal` and `impediment`, one document per goal or impediment under its own id. They
+travel only while sync is on and the device is paired.
 
-Each series is replaced whole, never merged, as the roadmap's
-[plan](../roadmap/features.md#syncing-the-plan-between-devices) is. When two devices
-have both changed one series since they last synced, the **newer change wins on
-every device** and the older one is lost. Two different series are two documents,
-so a change to one never displaces a change to the other. A device that has **never
-set up a series has nothing to send**.
+Each document is replaced whole, never merged. When two devices have both changed one
+goal or one impediment since they last synced, the newer change wins on every device
+and the older one is lost. Two goals are two documents, so a change to one never
+displaces a change to the other. A deleted goal is deleted on every device, and the
+newer-change rule decides the deletion like any other change. An impediment is never
+deleted: it is resolved.
 
-A **deleted series is deleted on every desktop**. The deletion travels as the
-series' last change, so the newer-change rule decides it like any other. A change
-made to the series on another desktop before that desktop heard of the deletion
-is older and is lost with it. A change saved after the deletion is newer and
-brings the series back on every desktop.
-
-Two desktops that each set up a series for the same repository while offline both
-keep theirs. Once both have synced, **the repository works to the series set up
-first**, and the other is switched off with a line saying why. It keeps every sprint
-it recorded, and once the person takes the repository out of it, it can be switched
-back on. Every desktop decides this the same way, from the series alone, and asks
-nobody.
-
-Series travel whether the [Progress area](context.md#progress-area) is on or off,
-because the series recorded while it is off are kept. The phone keeps no sprints and
-lists none.
-
-A series that arrives from another desktop **shows at once** on every screen that draws
-it — [the Sprints settings page](#the-sprints-settings-page),
-[the sprint view](#the-sprint-view), a task's
-[Sprint section](#planning-from-a-task) and the weekly brief's
-[Sprint block](#sprints-in-the-briefs) — without the person moving away or pressing
-Refresh, as a task pulled by sync shows in the Tasks pane. What the person has open
-keeps what they put in it: the Close dialog keeps its choices and next goal and lists
-any item that turned unfinished, a note being written keeps its text, and a sprint
-name held back for want of `{n}` stays in its field. The Close dialog closes only when
-the sprint it would close was closed on the other desktop.
-
-## Sprints in the briefs
-
-```meta
-type: feature
-status: draft
-feature-flag: .devbook/domain/progress/context.md#progress-area
-related: [.devbook/domain/progress/domain.md#brief-visibility, .devbook/domain/productivity/features.md#the-weekly-brief, .devbook/domain/progress/requirements.md#sprints-in-the-briefs]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintWeekBriefTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.DashboardWeeklyBriefTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.ProgressSprintBriefSourceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SprintBriefTableTests, integration:dotnet:Backlog.Desktop.UI.UnitTests.SprintViewTests]
-```
-
-Read the open sprint of a series in the daily and the weekly brief, for a series
-that chose to show there. The daily brief names the sprint, its goal, how many goal
-tasks are done, and whether the goal is met.
-
-The weekly brief opens with a Sprint block for each series that is switched on, shows
-there, and has a sprint overlapping the reported week; paging back a week reads that week's sprint.
-The block holds:
-
-- the sprint's name, then the series, its repositories, "week n of m" and the sprint's
-  window;
-- one sentence from a fixed template: the goal tasks and the items done by the week's
-  end against an even pace, what was added after the start and removed, and what is
-  blocked;
-- five figures: goal tasks done, done this week, items in the sprint with those added
-  after the start, pull requests merged that week, and blocked;
-- "Shipped, by plan": the members done that week, under their plan, each with the
-  pull requests it merged, linked to GitHub;
-- "Into week n", or "Into next week" in the sprint's last week: the items still open,
-  the blocked among them, and the pull requests waiting on review;
-- **Copy as table**, which copies the sprint the way the sprint view does
-  ([Copying a sprint as a table](#copying-a-sprint-as-a-table)): every item of the
-  block's sprint, whatever week the brief shows;
-- **Open Sprint n**, which opens In progress on that series' sprint view, on that
-  sprint, whichever series the repository scope would show first. Where In progress
-  is not offered there is no such button.
-
-The even pace is the share of the sprint's items that would be done by the week's end
-at the same rate every working day, Monday to Friday. Blocked, added and removed are
-the members' current marks, because a sprint keeps no history of them; a task taken
-out of an open sprint leaves no member, so only a close's Back to the backlog and Drop
-count as removed. The Dashboard reads all of this through its own port, answered from
-the Progress context's published surface. With Progress off, or no series showing in
-the weekly brief, there is no Sprint block and the brief is unchanged.
+One that arrives from another
+device shows at once on every screen that draws it, without the person pressing
+Refresh.

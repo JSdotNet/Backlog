@@ -23,6 +23,13 @@ namespace Backlog.Modules.Tasks.Abstractions.Services;
 /// </summary>
 public interface IRoadmapTagSource
 {
+    /// <summary>
+    /// Raised after the plan changed, whichever scope changed it, so a list holding the
+    /// tags reads them again rather than waiting for its own reload. It may arrive on
+    /// any thread.
+    /// </summary>
+    event Action? Changed;
+
     /// <summary>The distinct roadmap item tags in use across the plan, each as
     /// <c>+slug</c>, in the order they first appear. Empty when there is no plan
     /// or nothing is tagged.</summary>

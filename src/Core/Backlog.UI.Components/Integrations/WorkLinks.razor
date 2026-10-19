@@ -12,6 +12,9 @@
     the heading of a list that is switched off would say the task was looked at
     where nothing was asked.
 
+    A pull request carries the goal control beside it too, while a host cascades
+    one: the goal a pull request counts toward is set where the pull request is read.
+
     Each card carries an "Unlink" beside it while the host listens for one — a
     button of its own rather than a part of the card, because the card is already
     the button that opens the item, and a control inside a control is neither.
@@ -19,6 +22,8 @@
     The columns wrap under each other where the host is narrow; the host owns how
     wide that is.
 *@
+@implements IDisposable
+
 <div class="@ClassValue" data-testid="@TestId">
     @if (ShowSessions)
     {
@@ -64,21 +69,30 @@
             }
             @foreach (var pull in PullRequests)
             {
-                @if (OnUnlinkPullRequest.HasDelegate)
+                var goalSlot = OfferedGoalSlot;
+                var goal = goalSlot is null ? null : GoalSubject.FromPullRequestKey(pull.Key, pull.Number);
+                @if (OnUnlinkPullRequest.HasDelegate || goal is not null)
                 {
                     <div @key="pull.Key" class="work-links__item" data-testid="work-links-item">
                         <WorkPullRequestCard PullRequest="pull" OnOpen="OnOpenPullRequest" CssClass="work-links__card" />
-                        <AppButton Variant="ButtonVariant.Ghost"
-                                   Size="ButtonSize.Small"
-                                   CssClass="work-links__unlink"
-                                   TestId="work-links-unlink"
-                                   aria-label="@($"Unlink pull request #{pull.Number}")"
-                                   title="@($"Unlink pull request #{pull.Number} from this task")"
-                                   data-unlink="@pull.Key"
-                                   Busy="@_acts.IsRunning(PullRequestAct(pull))"
-                                   aria-disabled="@Blocked"
-                                   BusyLabel="Unlinking"
-                                   OnClick="() => _acts.RunAsync(PullRequestAct(pull), () => OnUnlinkPullRequest.InvokeAsync(pull))">Unlink</AppButton>
+                        @if (goal is not null)
+                        {
+                            <span class="work-links__goal" data-testid="work-links-goal">@goalSlot!.Render(goal)</span>
+                        }
+                        @if (OnUnlinkPullRequest.HasDelegate)
+                        {
+                            <AppButton Variant="ButtonVariant.Ghost"
+                                       Size="ButtonSize.Small"
+                                       CssClass="work-links__unlink"
+                                       TestId="work-links-unlink"
+                                       aria-label="@($"Unlink pull request #{pull.Number}")"
+                                       title="@($"Unlink pull request #{pull.Number} from this task")"
+                                       data-unlink="@pull.Key"
+                                       Busy="@_acts.IsRunning(PullRequestAct(pull))"
+                                       aria-disabled="@Blocked"
+                                       BusyLabel="Unlinking"
+                                       OnClick="() => _acts.RunAsync(PullRequestAct(pull), () => OnUnlinkPullRequest.InvokeAsync(pull))">Unlink</AppButton>
+                        }
                     </div>
                 }
                 else
@@ -133,6 +147,30 @@
 
     [Parameter]
     public string? TestId { get; set; } = "work-links";
+
+    /// <summary>The goal control a host cascades, drawn beside each pull request whose
+    /// key reads as <c>owner/name#number</c>. With none cascaded, the cards are what
+    /// they were.</summary>
+    [CascadingParameter]
+    public GoalControlSlot? GoalSlot { get; set; }
+
+    private GoalSlotWatch? _goalWatch;
+
+    /// <summary>The slot to draw, or null while there is none or the host offers no
+    /// goals — then not even the wrapper is drawn.</summary>
+    private GoalControlSlot? OfferedGoalSlot => GoalSlot is { IsOffered: true } slot ? slot : null;
+
+    /// <summary>Follows the cascaded slot, so the goal control comes and goes as the host's
+    /// slot says it is offered, whether or not the screen around this re-renders then.</summary>
+    private void FollowGoalSlot()
+    {
+        _goalWatch ??= new GoalSlotWatch(() => _ = InvokeAsync(StateHasChanged));
+        _goalWatch.Follow(GoalSlot);
+    }
+
+    protected override void OnParametersSet() => FollowGoalSlot();
+
+    public void Dispose() => _goalWatch?.Dispose();
 
     /// <summary>An unlink rewrites the task file. The pressed one shows it is
     /// running, and every other Unlink is ignored until it is done.</summary>

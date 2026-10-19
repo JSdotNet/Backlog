@@ -1,0 +1,85 @@
+@*
+    The question 2 weeks asks the first time it is chosen
+    (.devbook/domain/progress/features.md#choosing-the-iteration and
+    .devbook/domain/progress/context.md#two-week-start): the day two-week iterations
+    count from, with the host's offer — the Monday of the current week — filled in at each
+    opening. Save hands the day back, and the host keeps it as the person's two-week start
+    before it reads by 2 weeks; a field left blank or unreadable is refused here, under the
+    field, since there is no day to keep. Cancel closes the dialog and the iteration stays
+    as it was.
+*@
+<Modal Open="Open"
+       OpenChanged="OpenChanged"
+       Title="Two-week start"
+       CssClass="two-week-start-dialog"
+       TestId="@TestId">
+    <ChildContent>
+        <p class="two-week-start-dialog__text" data-testid="@Part("text")">
+            Two-week iterations count from this day: each one starts on it or a whole number of
+            fourteen days from it.
+        </p>
+        <TextField Label="Starts on"
+                   Type="date"
+                   Value="@_start"
+                   ValueChanged="value => _start = value"
+                   TestId="@Part("start")" />
+        <Alert Message="@_error" TestId="@Part("error")" />
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Ghost" OnClick="() => OpenChanged.InvokeAsync(false)" TestId="@Part("cancel")">Cancel</AppButton>
+        <AppButton Variant="ButtonVariant.Primary" Busy="Busy" BusyLabel="Saving" OnClick="SaveAsync" TestId="@Part("save")">Read by 2 weeks</AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    private string? _start;
+    private string? _error;
+    private bool _wasOpen;
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>The day the field opens on: the Monday of the current week.</summary>
+    [Parameter]
+    public DateOnly Offered { get; set; }
+
+    /// <summary>Save was pressed with a day in the field.</summary>
+    [Parameter]
+    public EventCallback<DateOnly> OnSave { get; set; }
+
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>Lands on the dialog; its parts take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; } = "two-week-start-dialog";
+
+    protected override void OnParametersSet()
+    {
+        if (Open && !_wasOpen)
+        {
+            _start = Offered.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            _error = null;
+        }
+
+        _wasOpen = Open;
+    }
+
+    private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    private Task SaveAsync()
+    {
+        if (!DateOnly.TryParseExact(_start?.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var day))
+        {
+            _error = "Two-week iterations need a day to count from.";
+            return Task.CompletedTask;
+        }
+
+        _error = null;
+        return OnSave.InvokeAsync(day);
+    }
+}
