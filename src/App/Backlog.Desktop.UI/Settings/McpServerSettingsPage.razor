@@ -1,0 +1,320 @@
+@*
+    One page of the Settings screen: this machine's own MCP server (local ADR
+    0012) - whether it holds its port, the address a client registers, the port
+    itself, why nothing is listening when nothing is, and the bearer token every
+    registration carries.
+
+    Offered whatever any feature says. The server is always on while the app runs,
+    and the person who needs this page most is the one whose client was just
+    refused a connection - on a machine where nothing else may be switched on yet.
+
+    The facts come from the host, through IMcpEndpointSource. The desktop head
+    composes it over its own listener. A host that composes none - the browser
+    harness - serves the endpoint on its own origin behind no token, and Aspire
+    owns its port, so there the page draws that address and nothing to edit.
+
+    The namespace is the screen's rather than the folder's, and this folder has
+    no _Imports.razor, for the reason the note at the top of Settings.razor gives.
+*@
+@namespace Backlog.Desktop.UI.Shell
+@inherits SettingsPageBase
+@using Backlog.Desktop.UI.Extensions
+@using Backlog.Modules.DevPc.Abstractions
+@inject IServiceProvider Services
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<SettingsHeadline>@Headline</SettingsHeadline>
+
+<div class="setting-columns">
+    <SettingsCard Title="@EndpointCardTitle"
+                  Id="mcp-server-endpoint-title"
+                  Description="Where Claude Code and every other MCP client on this machine reach Backlog's tools."
+                  TestId="mcp-server-endpoint-card">
+        <Alert BaseClass="setting__status"
+               CssClass="@StateTone"
+               Role="status"
+               Id="mcp-server-state"
+               TestId="mcp-server-state"
+               Message="@StateLabel" />
+
+        @* The worker's own sentence, verbatim: for a port somebody else holds it
+           already says what to do, including changing every registration. *@
+        @if (_source?.Unavailable is { } why)
+        {
+            <p class="setting__note" data-testid="mcp-server-error">@why</p>
+        }
+
+        <p class="setting__label" id="mcp-server-address-label">Address</p>
+        <div class="setting__body">
+            <code data-testid="mcp-server-address" aria-labelledby="mcp-server-address-label">@Address</code>
+            <CopyButton Text="@Address.ToString()"
+                        Label="Copy the address"
+                        TestId="mcp-server-address-copy" />
+        </div>
+
+        @if (_source is not null)
+        {
+            @* A Retry only once a bind has failed: while the listener runs there is
+               nothing to retry, and while it starts the attempt is already under
+               way. The worker queues the bind off this thread and the outcome comes
+               back through Changed. *@
+            @if (State == ListenerState.Failed)
+            {
+                <div class="setting__actions">
+                    <AppButton TestId="mcp-server-retry" OnClick="Retry">
+                        Retry
+                    </AppButton>
+                </div>
+            }
+
+            @* Saved as you go: a valid port is stored on change or Enter, and the
+               listener rebinds to it on its own. A refused one says why beside the
+               field and leaves the stored port alone. *@
+            <TextField Bare="true"
+                       LabelCssClass="setting__label"
+                       InputCssClass="@SettingsScreenContext.SettingInputClass(_portError)"
+                       Label="Port"
+                       Id="mcp-server-port"
+                       Type="number"
+                       data-testid="mcp-server-port-input"
+                       inputmode="numeric"
+                       autocomplete="off"
+                       aria-describedby="mcp-server-port-status"
+                       Value="@_draftPort"
+                       ValueChanged="value => _draftPort = value"
+                       @onchange="ApplyPort"
+                       @onkeydown="OnPortKeyDown" />
+            @* A refusal wears the error tone; the store's other sentence - the port
+               moved but could not be saved for next time - is news about a port
+               that did move, so it is a plain status like the hint it replaces. *@
+            <Alert BaseClass="setting__status"
+                   CssClass="@(_portError is not null ? "setting__status--error" : null)"
+                   Role="status"
+                   Id="mcp-server-port-status"
+                   TestId="mcp-server-port-status"
+                   Message="@(_portError ?? _portNote ?? PortHint)" />
+        }
+        else
+        {
+            <p class="setting__note" data-testid="mcp-server-host-note">
+                This host serves the endpoint on its own address, and its port is the host's.
+            </p>
+        }
+    </SettingsCard>
+
+    <SettingsCard Title="@TokenCardTitle"
+                  Id="mcp-server-token-title"
+                  Description="What every registration sends, so the server knows a request comes from you."
+                  TestId="mcp-server-token-card">
+        @if (_source is null)
+        {
+            <p class="setting__note" data-testid="mcp-server-token-note">This host asks for no token.</p>
+        }
+        else if (_source.CurrentToken is { } token)
+        {
+            @* Hidden on screen and whole on the clipboard: the token is a secret,
+               and a page that drew it would put it in every screenshot of
+               Settings. *@
+            <p class="setting__label" id="mcp-server-token-label">Token</p>
+            <div class="setting__body">
+                <code data-testid="mcp-server-token" aria-labelledby="mcp-server-token-label">@HiddenToken</code>
+                <CopyButton Text="@token"
+                            Label="Copy the token"
+                            TestId="mcp-server-token-copy" />
+            </div>
+            <p class="setting__note" data-testid="mcp-server-token-note">
+                A registration sends it as <code>Authorization: Bearer</code> and the token.
+                The copy holds the token itself, where the one above shows it hidden.
+            </p>
+        }
+        else
+        {
+            @* Drawing the page never mints one: a secret written to this machine
+               because a settings page was opened is one nobody asked for. The
+               server makes it when it starts, so this is the rare case of a
+               listener that never got that far. *@
+            <p class="setting__note" data-testid="mcp-server-token-note">
+                No token yet. The server creates one when it starts; create it now to copy it.
+            </p>
+            <div class="setting__actions">
+                <AppButton TestId="mcp-server-token-create" OnClick="CreateToken">
+                    Create the token
+                </AppButton>
+            </div>
+        }
+    </SettingsCard>
+</div>
+
+@code {
+    /// <summary>The card with the listener's state, its address and its port -
+    /// one of the page's <c>SettingsSection.CardTitles</c>.</summary>
+    public const string EndpointCardTitle = "MCP endpoint";
+
+    /// <summary>The card with the bearer token - the other of the page's
+    /// <c>SettingsSection.CardTitles</c>.</summary>
+    public const string TokenCardTitle = "Bearer token";
+
+    /// <summary>What the page shows in the token's place: the mask the Claude
+    /// Code page uses for the same token.</summary>
+    public const string HiddenToken = "••••••••";
+
+    /// <summary>Where the browser harness serves the endpoint, under its own
+    /// origin: the path both hosts share, without its leading slash so it is
+    /// resolved under the page's base rather than the server root.</summary>
+    private static readonly string HostRelativeEndpoint = BacklogMcpServerRegistration.EndpointPath.TrimStart('/');
+
+    /// <summary>The listener as the page tells it. Starting is the moment between
+    /// a bind being asked for and its outcome: no error, not bound yet.</summary>
+    private enum ListenerState
+    {
+        Listening,
+        Starting,
+        Failed
+    }
+
+    /// <summary>The host's MCP server, or null in a host that composes none.</summary>
+    private IMcpEndpointSource? _source;
+
+    /// <summary>What the port field holds; the stored port until somebody types.</summary>
+    private string _draftPort = string.Empty;
+
+    /// <summary>The stored port as the field last took it, to tell a draft
+    /// somebody typed from one the page filled in.</summary>
+    private string _shownPort = string.Empty;
+
+    /// <summary>Why the last port typed was refused, or null. The field wears
+    /// the error state only while this is set.</summary>
+    private string? _portError;
+
+    /// <summary>What the store said about a port it did take - that it moved but
+    /// could not be saved for next time - or null.</summary>
+    private string? _portNote;
+
+    /// <summary>What the port's status line says when there is nothing else to say.</summary>
+    private const string PortHint = "Every registration names this port, so moving it means changing it in each of them too.";
+
+    private string StateLabel => State switch
+    {
+        ListenerState.Listening => "Listening",
+        ListenerState.Starting => "Starting",
+        _ => "Not listening",
+    };
+
+    private string? StateTone => State switch
+    {
+        ListenerState.Listening => "setting__status--ok",
+        ListenerState.Starting => null,
+        _ => "setting__status--error",
+    };
+
+    private ListenerState State => _source switch
+    {
+        null => ListenerState.Listening,
+        { IsListening: true } => ListenerState.Listening,
+        { Unavailable: not null } => ListenerState.Failed,
+        _ => ListenerState.Starting,
+    };
+
+    /// <summary>Where a client reaches the server: the bound address while the
+    /// listener holds its port, the configured one while it does not - a
+    /// registration is written from that whether or not anything is listening -
+    /// and the page's own origin in a host with no listener of its own. Both
+    /// desktop forms come from <c>BacklogMcpServerRegistration.EndpointUri</c>,
+    /// the helper a registration is written with.</summary>
+    private Uri Address => _source is null
+        ? new Uri(new Uri(Navigation.BaseUri), HostRelativeEndpoint)
+        : _source.Endpoint ?? BacklogMcpServerRegistration.EndpointUri(_source.Port);
+
+    /// <summary>The sentence the frame shows over this page: the listener's
+    /// state and the port it is about.</summary>
+    private string Headline => _source is null
+        ? "The MCP server answers on this app's own address."
+        : State switch
+        {
+            ListenerState.Listening => $"The MCP server is listening on port {_source.Port}.",
+            ListenerState.Starting => $"The MCP server is starting on port {_source.Port}.",
+            _ => $"The MCP server is not listening on port {_source.Port}.",
+        };
+
+    protected override void OnInitialized()
+    {
+        _source = Services.GetService<IMcpEndpointSource>();
+        if (_source is null) return;
+
+        _draftPort = _shownPort = PortText(_source.Port);
+
+        // The listener binds, fails and rebinds on its own, off this thread, and
+        // the port may be changed from another window: the page follows both.
+        _source.Changed += OnSourceChanged;
+    }
+
+    /// <summary>Stores the typed port, or says why not. Committing the same
+    /// value twice - Enter, then the change the browser raises on blur - stores
+    /// nothing the second time.</summary>
+    private void ApplyPort()
+    {
+        if (_source is null) return;
+
+        _portNote = null;
+
+        if (!int.TryParse(_draftPort.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var port))
+        {
+            _portError = "Enter a port number.";
+            return;
+        }
+
+        var said = _source.SetPort(port);
+
+        // The store answers in one sentence for two outcomes. A port it holds
+        // afterwards was taken, and the sentence only says it will not survive a
+        // restart; any other answer is a refusal and the stored port is unchanged.
+        if (said is null || _source.Port == port)
+        {
+            _portError = null;
+            _portNote = said;
+            _draftPort = _shownPort = PortText(_source.Port);
+        }
+        else
+        {
+            _portError = said;
+        }
+    }
+
+    private void OnPortKeyDown(KeyboardEventArgs e)
+    {
+        if (_source is null) return;
+
+        if (e.Key == "Enter") ApplyPort();
+        else if (e.Key == "Escape")
+        {
+            _draftPort = _shownPort = PortText(_source.Port);
+            _portError = null;
+            _portNote = null;
+        }
+    }
+
+    /// <summary>Asks the worker to bind the configured port again. Returns at
+    /// once: the bind is queued off this thread.</summary>
+    private void Retry() => _source?.Retry();
+
+    private void CreateToken() => _ = _source?.EnsureToken();
+
+    private static string PortText(int port) => port.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>Arrives on whichever thread bound, failed or stored the port, so
+    /// it marshals. A port moved elsewhere replaces the field's draft only while
+    /// the draft is the port the field last showed: what somebody is halfway
+    /// through typing, or a refusal they have still to act on, is theirs.</summary>
+    private void OnSourceChanged() => _ = InvokeAsync(() =>
+    {
+        if (_source is not null && _portError is null && _draftPort == _shownPort) _draftPort = PortText(_source.Port);
+        _shownPort = _source is null ? string.Empty : PortText(_source.Port);
+        StateHasChanged();
+    });
+
+    public void Dispose()
+    {
+        if (_source is not null) _source.Changed -= OnSourceChanged;
+    }
+}

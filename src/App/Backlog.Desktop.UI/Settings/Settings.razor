@@ -31,15 +31,16 @@
     written in the pages that need them instead.
 
     The pages beside this file - FeaturesSettingsPage, AiSettingsPage,
-    StorageSettingsPage, GitHubAccountsSettingsPage, RepositoriesSettingsPage -
-    declare the same namespace for the same reason, and are named so that none
-    of them is called Settings.
+    StorageSettingsPage, GitHubAccountsSettingsPage, RepositoriesSettingsPage,
+    McpServerSettingsPage - declare the same namespace for the same reason, and
+    are named so that none of them is called Settings.
 *@
 @namespace Backlog.Desktop.UI.Shell
 @using Backlog.SharedKernel
 @using Backlog.Modules.Tasks.Abstractions
 @using Backlog.Modules.Devbook.Abstractions
 @using Backlog.Infrastructure.Claude
+@using Backlog.Modules.DevPc.Abstractions
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject IAppFeatureSettings Features
@@ -146,6 +147,18 @@
                              data-testid="github-settings"
                              aria-label="Repository settings">
                         <RepositoriesSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPages.Repositories)" />
+                    </section>
+                </CascadingValue>
+            }
+
+            @if (IsOpen(SettingsPages.McpServer))
+            {
+                <CascadingValue Name="@SettingsFrame.ActivePageCascade" Value="@IsShowing(SettingsPages.McpServer)">
+                    <section class="setting"
+                             hidden="@(!IsShowing(SettingsPages.McpServer))"
+                             data-testid="mcp-server-settings"
+                             aria-label="MCP server settings">
+                        <McpServerSettingsPage Screen="@_screen" Active="@IsShowing(SettingsPages.McpServer)" />
                     </section>
                 </CascadingValue>
             }
@@ -285,6 +298,10 @@
 
     private AzureFoundrySettingsStore? _azureFoundry;
 
+    /// <summary>This machine's MCP server, read off for the same reason: only the
+    /// desktop head composes one, and without it the page draws no badge.</summary>
+    private IMcpEndpointSource? _mcp;
+
     /// <summary>The value the menu draws on the right of <paramref name="page"/>'s
     /// name, or null for none.</summary>
     private string? BadgeFor(SettingsSection page) => page.Id switch
@@ -301,6 +318,7 @@
             gitHub: GitHub.Settings.Current.Accounts.Count > 0 || _screen.Connection?.IsConnected == true,
             azureFoundry: _azureFoundry?.Current.IsConfigured == true),
         SettingsPages.Storage => null,
+        SettingsPages.McpServer => SettingsBadges.McpServer(_mcp?.IsListening, failed: _mcp?.Unavailable is not null),
         _ when IsSwitchedOff(page) => SettingsBadges.Off,
         _ => _badgeSources.GetValueOrDefault(page.Id)?.Badge,
     };
@@ -309,7 +327,9 @@
 
     private bool IsBuiltInPageAvailable(string id) => id switch
     {
-        SettingsPages.Features or SettingsPages.Storage or SettingsPages.Repositories => true,
+        // The MCP server is always on while the app runs, and its page is about
+        // reaching it - which matters before any feature is, not because of one.
+        SettingsPages.Features or SettingsPages.Storage or SettingsPages.Repositories or SettingsPages.McpServer => true,
         SettingsPages.Ai => Features.IsEnabled(AppFeatures.AiAssistant) || UsageMetricsEnabled,
 
         // An account is only ever used to authenticate a GitHub call, and the two
@@ -389,10 +409,12 @@
         // setting was changed - this screen, another window, a sync.
         _claude = Services.GetService<ClaudeSettingsStore>();
         _azureFoundry = Services.GetService<AzureFoundrySettingsStore>();
+        _mcp = Services.GetService<IMcpEndpointSource>();
         Features.Changed += OnFeaturesChanged;
         GitHub.Settings.Changed += OnBadgeChanged;
         if (_claude is not null) _claude.Changed += OnBadgeChanged;
         if (_azureFoundry is not null) _azureFoundry.Changed += OnBadgeChanged;
+        if (_mcp is not null) _mcp.Changed += OnBadgeChanged;
 
         foreach (var section in OfferedSections)
         {
@@ -499,6 +521,7 @@
         GitHub.Settings.Changed -= OnBadgeChanged;
         if (_claude is not null) _claude.Changed -= OnBadgeChanged;
         if (_azureFoundry is not null) _azureFoundry.Changed -= OnBadgeChanged;
+        if (_mcp is not null) _mcp.Changed -= OnBadgeChanged;
         foreach (var source in _badgeSources.Values) source.Changed -= OnBadgeChanged;
     }
 

@@ -12,7 +12,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// The app-wide pages are drawn by the screen itself, because each takes the
 /// screen's shared context, but they are listed here as <see cref="SettingsSection"/>
 /// records so the menu, the addresses and the settings search see one list of pages
-/// rather than five built-in ones and the rest. Each declares the titles of the
+/// rather than six built-in ones and the rest. Each declares the titles of the
 /// cards it draws, which is what the search matches without rendering a page; a
 /// change to a page's cards changes its list here in the same change. A page
 /// whose cards depend on a feature declares them through
@@ -31,6 +31,12 @@ public static class SettingsPages
 
     public const string Repositories = "repositories";
 
+    /// <summary>This machine's own MCP server: whether it listens, where, its port
+    /// and its token. Offered whatever any feature says - the server is always on
+    /// while the app runs, and a person whose client is refused needs this page
+    /// most when nothing else is switched on.</summary>
+    public const string McpServer = "mcp-server";
+
     /// <summary>The app-wide pages, in the order each group lists them. The
     /// <see cref="SettingsSection.Order"/> here is only the page's place among the
     /// built-in pages of its group; built-in pages always precede registered ones.</summary>
@@ -48,6 +54,9 @@ public static class SettingsPages
         new(Accounts, "GitHub accounts", 3, typeof(GitHubAccountsSettingsPage),
             Group: SettingsGroup.Workspace,
             CardTitles: ["GitHub accounts", "Signed in with the GitHub CLI", "Add an account by login"]),
+        new(McpServer, "MCP server", 4, typeof(McpServerSettingsPage),
+            Group: SettingsGroup.Workspace,
+            CardTitles: [McpServerSettingsPage.EndpointCardTitle, McpServerSettingsPage.TokenCardTitle]),
         new(Ai, "AI providers", 0, typeof(AiSettingsPage),
             Group: SettingsGroup.Ai,
             CardTitles: AiCardTitles(usageMetrics: true, aiAssistant: true)),

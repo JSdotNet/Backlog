@@ -274,6 +274,14 @@ public class McpEndpointExpansionTests
 
         public string? Unavailable => null;
 
+        public bool IsListening => true;
+
+        public Uri? Endpoint => new($"http://127.0.0.1:{port}/mcp");
+
+        public string? SetPort(int newPort) => throw new NotSupportedException();
+
+        public void Retry() => throw new NotSupportedException();
+
         public string EnsureToken()
         {
             TokensMinted++;
