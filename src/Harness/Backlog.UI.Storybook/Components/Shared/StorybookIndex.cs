@@ -355,6 +355,8 @@ internal static class StorybookIndex
             // Card, EmptyState and MarkdownView from groups above, and its own
             // renderers.
             new("devbook/domain-units", "Domain units", "DomainUnitPage, DomainAggregateAbout, DomainServiceAbout, DomainEventList and DomainGlossary: a `domain.md` read one unit at a time — a chapter bar over an unsplit file, About for an aggregate, You can count on for a domain service."),
+            new("devbook/domain-features", "Domain features", "DomainFeatureBoard: a context's features in columns by what they build on, each card with its sub-features, flag or setting and proved requirements, and the detail picking one opens."),
+            new("devbook/domain-requirements", "Domain requirements", "DomainRequirementsView: per feature, each requirement's SHALL sentence and proof, each scenario as Given / When / Then rows, and the link to a unit's Always true tab."),
 
             // After Domain units, whose aggregate page this is the second tab of. The
             // order bends one way here: Domain units draws DomainUnitPage, whose

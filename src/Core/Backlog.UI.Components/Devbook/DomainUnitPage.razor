@@ -84,6 +84,18 @@
     [Parameter]
     public EventCallback<string> ActiveUnitChanged { get; set; }
 
+    /// <summary>The page an aggregate opens on: <see cref="AboutPage"/> or
+    /// <see cref="AlwaysTruePage"/>. Unset is About; the reader's own pick wins
+    /// until the host changes it.</summary>
+    [Parameter]
+    public string? ActiveUnitPage { get; set; }
+
+    /// <summary>An aggregate's About tab, as <see cref="ActiveUnitPage"/> names it.</summary>
+    public const string AboutPage = "about";
+
+    /// <summary>An aggregate's Always true tab, as <see cref="ActiveUnitPage"/> names it.</summary>
+    public const string AlwaysTruePage = "always-true";
+
     /// <summary>A reference the reader followed: a requirement, or a link in the
     /// prose.</summary>
     [Parameter]
@@ -100,6 +112,7 @@
     private IReadOnlyList<DomainChapterFile>? _readRules;
     private string? _active;
     private string? _activeParameter;
+    private string? _unitPageParameter;
 
     protected override void OnParametersSet()
     {
@@ -112,11 +125,24 @@
 
         // Taken from the host only when the host changed it: a host that does not
         // bind the pick keeps the reader's across its own re-renders.
+        var asked = false;
         if (!string.Equals(_activeParameter, ActiveUnit, StringComparison.Ordinal))
         {
             _activeParameter = ActiveUnit;
             _active = ActiveUnit;
+            asked = true;
         }
+
+        if (!string.Equals(_unitPageParameter, ActiveUnitPage, StringComparison.Ordinal))
+        {
+            _unitPageParameter = ActiveUnitPage;
+            asked = true;
+        }
+
+        // The host asked for a page of the unit it opened: that aggregate turns to
+        // it, and the reader's own pick wins again from there.
+        if (asked && ActiveUnitPage is { } page && OpenUnit is { Kind: DomainUnitKind.Aggregate } open)
+            _pageOf[open.Key] = $"{TabId(open)}-{page}";
     }
 
     private string? ActiveTabId =>
@@ -125,6 +151,10 @@
             : null;
 
     private static string TabId(DomainUnit unit) => $"domain-unit-{unit.Key}";
+
+    // The unit the page shows: the one picked, else the first.
+    private DomainUnit? OpenUnit =>
+        _units.FirstOrDefault(unit => string.Equals(unit.Key, _active, StringComparison.Ordinal)) ?? _units.FirstOrDefault();
 
     private static string AboutId(DomainUnit unit) => $"domain-unit-{unit.Key}-about";
 

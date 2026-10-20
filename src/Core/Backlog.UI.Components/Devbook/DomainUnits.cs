@@ -37,9 +37,24 @@ public sealed record DomainChapter(
     /// summary.</summary>
     public string Summary => DomainUnits.FirstSentence(Prose);
 
+    /// <summary>Every field of the chapter's <c>meta</c> block as written, by
+    /// name: what a reader asks of a chapter beyond its type, related and aliases —
+    /// a feature's <c>status</c>, <c>depends-on</c> and <c>feature-flag</c>, a
+    /// requirement's <c>tests</c>.</summary>
+    public IReadOnlyDictionary<string, string> Meta { get; init; } = EmptyMeta;
+
+    private static readonly IReadOnlyDictionary<string, string> EmptyMeta = new Dictionary<string, string>();
+
+    /// <summary>One <c>meta</c> field, or <see langword="null"/> when the block
+    /// states none.</summary>
+    public string? Field(string name) => Meta.TryGetValue(name, out var value) && value.Length > 0 ? value : null;
+
+    /// <summary>One list-valued <c>meta</c> field's entries as written.</summary>
+    public IReadOnlyList<string> ListField(string name) => DomainUnits.List(Field(name));
+
     /// <summary>The block's <c>tests</c> entries as written: the tests that prove
     /// the rule a chapter states, which the Always true tab marks it by.</summary>
-    public IReadOnlyList<string> Tests { get; init; } = [];
+    public IReadOnlyList<string> Tests => ListField("tests");
 
     /// <summary>The block's <c>status</c>, or <see langword="null"/> when it
     /// states none — <c>deprecated</c> is what the Glossary strikes through.</summary>
@@ -354,7 +369,7 @@ public static partial class DomainUnits
             WithoutFences(prose.ToString(), "annotation", "meta").Trim(),
             children)
         {
-            Tests = List(meta.GetValueOrDefault("tests")),
+            Meta = meta,
             Status = meta.GetValueOrDefault("status") is { Length: > 0 } status ? status : null
         };
     }
@@ -382,7 +397,7 @@ public static partial class DomainUnits
         return result;
     }
 
-    private static IReadOnlyList<string> List(string? value)
+    internal static IReadOnlyList<string> List(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return [];
         var text = value.Trim();
@@ -445,7 +460,7 @@ public static partial class DomainUnits
         return string.Join(' ', paragraph);
     }
 
-    private static string SentenceOf(string paragraph)
+    internal static string SentenceOf(string paragraph)
     {
         // A full stop ends the sentence only outside a code span and a link, and
         // only where a space or the end follows it — `e.g.` mid-sentence aside.
@@ -530,11 +545,11 @@ public static partial class DomainUnits
             : chapter.Aliases.FirstOrDefault(alias => Identifier().IsMatch(alias)) ?? runTogether;
     }
 
-    private static bool IsRequirement(DomainChapter chapter) =>
+    internal static bool IsRequirement(DomainChapter chapter) =>
         chapter.Type == "requirement"
         || (chapter.Type is null && chapter.Title.StartsWith("Requirement:", StringComparison.OrdinalIgnoreCase));
 
-    private static string RequirementTitle(string title) =>
+    internal static string RequirementTitle(string title) =>
         title.StartsWith("Requirement:", StringComparison.OrdinalIgnoreCase) ? title["Requirement:".Length..].Trim() : title;
 
     private static DomainUnitKind? KindOf(string? type) => type switch
@@ -545,7 +560,7 @@ public static partial class DomainUnits
         _ => null
     };
 
-    private static string PathOf(string reference)
+    internal static string PathOf(string reference)
     {
         var hash = reference.IndexOf('#');
         return hash < 0 ? reference : reference[..hash];
