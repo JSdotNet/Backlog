@@ -1,38 +1,75 @@
 @*
-    An aggregate's About tab in the Domain view (local ADR 0037): the chapter's
-    prose, one card per entity or value object it owns — its heading, its first
-    sentence, and the name the model gives it, small beneath — its enums as rows
-    of values, and the events it raises.
+    An aggregate's About tab in the Domain view (local ADR 0037): a composed
+    summary of the chapter, not the chapter itself. A hero holds the kind and
+    status as a kicker, the heading as written, the chapter's first sentence
+    (§5), a tile per group of rules it always keeps, the links out — Always true,
+    how it moves, the Glossary — and the reader's Brain notes. Below it, a card
+    per entity or value object it owns, its enums as rows of values read as
+    words, and the events it raises with who hears them.
 
-    The card names the model's name and nothing of its fields: field types are
-    Model's (§6).
+    Nothing here names a field: a summary that closes on a list of fields reads
+    as far as the colon, a note naming one is left out, and field types,
+    invocation and payloads are Model's (§6). The full prose stays in the
+    chapter.
 *@
 
-<div class="domain-about" data-testid="domain-aggregate-about">
-    @if (Chapter.Prose.Length > 0)
-    {
-        <MarkdownView Blocks="@_prose"
-                      Source="@Chapter.Prose"
-                      DevbookDocumentPath="@DocumentPath"
-                      DevbookFolder="DevbookFolder.Domain"
-                      OnDevbookNavigate="OnNavigate" />
-    }
+<div class="domain-about domain-about--summary" data-testid="domain-aggregate-about">
+    <section class="domain-about__hero" data-testid="domain-unit-hero" aria-labelledby="@($"{_id}-title")">
+        <div class="domain-about__headline">
+            <h2 class="domain-about__title" id="@($"{_id}-title")" data-testid="domain-unit-title">@Chapter.Title</h2>
+            <span class="domain-about__kicker" data-testid="domain-unit-kicker">@DomainUnits.Kicker(DomainUnitKind.Aggregate, Chapter.Status)</span>
+        </div>
+        @if (_lead.Length > 0)
+        {
+            <p class="domain-about__lead" data-testid="domain-unit-lead">@_lead</p>
+        }
+
+        @if (Rules.Count > 0)
+        {
+            <ul class="domain-about__tiles" aria-label="What it always keeps">
+                @foreach (var group in Rules)
+                {
+                    <li @key="group.Reference" class="domain-about__tile" data-testid="domain-unit-tile">
+                        <span class="domain-about__tile-title">@group.Title</span>
+                        <span class="domain-about__tile-body">@TileBody(group)</span>
+                    </li>
+                }
+            </ul>
+        }
+
+        <DomainLinkRow Links="@Links" />
+        @HeroFooter
+    </section>
 
     @if (_members.Count > 0)
     {
         <section class="domain-about__section" data-testid="domain-unit-members" aria-labelledby="@($"{_id}-members")">
-            <h3 class="domain-about__heading" id="@($"{_id}-members")">What it holds</h3>
+            <h3 class="domain-about__section-title" id="@($"{_id}-members")">What @DomainUnits.WithArticle(Chapter.Title) can hold</h3>
             <ul class="domain-about__cards">
                 @foreach (var member in _members)
                 {
+                    var proposed = string.Equals(member.Status, "proposed", StringComparison.OrdinalIgnoreCase);
+                    var rules = RuleCountOf?.Invoke(member) ?? 0;
                     <li class="domain-about__card-item">
-                        <Card Compact="true" CssClass="domain-about__card" AriaLabel="@member.Title" TestId="domain-unit-member" data-type="@member.Type">
-                            <h4 class="domain-about__card-title"><DevbookTypeMarker Value="@member.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@member.Title</h4>
+                        <Card Compact="true" CssClass="@(proposed ? "domain-about__card domain-about__card--proposed" : "domain-about__card")" AriaLabel="@member.Title" TestId="domain-unit-member" data-type="@member.Type">
+                            <h4 class="domain-about__card-title">@member.Title</h4>
                             @if (member.Summary.Length > 0)
                             {
                                 <p class="domain-about__card-summary">@member.Summary</p>
                             }
-                            <p class="domain-about__card-model" data-testid="domain-unit-member-model">@member.ModelName</p>
+                            <p class="domain-about__card-foot">
+                                <span class="domain-about__card-model">
+                                    <span data-testid="domain-unit-member-model">@member.ModelName</span>
+                                    @if (proposed)
+                                    {
+                                        <span class="domain-about__card-status" data-testid="domain-unit-member-proposed">· proposed</span>
+                                    }
+                                </span>
+                                @if (rules > 0 && OnShowRules.HasDelegate)
+                                {
+                                    <button type="button" class="domain-about__link" data-testid="domain-unit-member-rules" @onclick="() => OnShowRules.InvokeAsync()">@rules @(rules == 1 ? "rule" : "rules") →</button>
+                                }
+                            </p>
                         </Card>
                     </li>
                 }
@@ -43,19 +80,19 @@
     @if (_enums.Count > 0)
     {
         <section class="domain-about__section" data-testid="domain-unit-enums" aria-labelledby="@($"{_id}-enums")">
-            <h3 class="domain-about__heading" id="@($"{_id}-enums")">Its values</h3>
+            <h3 class="domain-about__section-title" id="@($"{_id}-enums")">How @DomainUnits.WithArticle(Chapter.Title) is described</h3>
             <dl class="domain-about__enums">
                 @foreach (var item in _enums)
                 {
                     <div class="domain-about__enum" data-testid="domain-unit-enum" data-enum="@item.Title">
-                        <dt class="domain-about__enum-title"><DevbookTypeMarker Value="enum" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@item.Title</dt>
+                        <dt class="domain-about__enum-title">@item.Title</dt>
                         <dd class="domain-about__enum-values">
                             @if (item.Values.Count > 0)
                             {
                                 <ul class="domain-about__values">
                                     @foreach (var value in item.Values)
                                     {
-                                        <li class="domain-about__value"><code>@value</code></li>
+                                        <li class="domain-about__value" data-value="@value">@DomainUnits.Humanize(value)</li>
                                     }
                                 </ul>
                             }
@@ -64,13 +101,17 @@
                                 @item.Summary
                             }
                         </dd>
+                        @if (item.Values.Count > 0 && item.Note.Length > 0)
+                        {
+                            <dd class="domain-about__enum-note" data-testid="domain-unit-enum-note">@item.Note</dd>
+                        }
                     </div>
                 }
             </dl>
         </section>
     }
 
-    <DomainEventList Events="@Events" />
+    <DomainEventList Events="@Events" Model="@Model" />
 </div>
 
 @code {
@@ -78,26 +119,52 @@
     [Parameter, EditorRequired]
     public DomainChapter Chapter { get; set; } = default!;
 
-    /// <summary>The file the chapter is in, which a relative link in its prose
-    /// resolves against.</summary>
-    [Parameter]
-    public string? DocumentPath { get; set; }
-
     /// <summary>The events the aggregate raises.</summary>
     [Parameter]
     public IReadOnlyList<DomainEventLine> Events { get; set; } = [];
 
+    /// <summary>The groups of rules Always true shows, one tile each.</summary>
     [Parameter]
-    public EventCallback<DevbookReference> OnNavigate { get; set; }
+    public IReadOnlyList<DomainRuleGroup> Rules { get; set; } = [];
+
+    /// <summary>The hero's link row.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainPageLink> Links { get; set; } = [];
+
+    /// <summary>The link beside the events' heading that opens Model.</summary>
+    [Parameter]
+    public DomainPageLink? Model { get; set; }
+
+    /// <summary>How many rules Always true holds about a member, which its card
+    /// links to.</summary>
+    [Parameter]
+    public Func<DomainMember, int>? RuleCountOf { get; set; }
+
+    /// <summary>Opens Always true.</summary>
+    [Parameter]
+    public EventCallback OnShowRules { get; set; }
+
+    /// <summary>What closes the hero: the reader's Brain notes on the unit.</summary>
+    [Parameter]
+    public RenderFragment? HeroFooter { get; set; }
 
     private readonly string _id = $"domain-about-{Guid.NewGuid():N}";
-    private IReadOnlyList<MdBlock> _prose = [];
+    private string _lead = string.Empty;
     private IReadOnlyList<DomainMember> _members = [];
     private IReadOnlyList<DomainEnum> _enums = [];
 
+    // A tile reads as the group's first two rules, each the heading as written.
+    private static string TileBody(DomainRuleGroup group)
+    {
+        var shown = group.Rules.Take(2).Select(rule => rule.Title.TrimEnd('.') + ".");
+        var more = group.Rules.Count - 2;
+        var body = string.Join(' ', shown);
+        return more > 0 ? $"{body} And {more} more." : body;
+    }
+
     protected override void OnParametersSet()
     {
-        _prose = MarkdownPreview.ParseDocument(Chapter.Prose);
+        _lead = DomainUnits.FunctionalSummary(Chapter.Prose);
         _members = DomainUnits.Members(Chapter);
         _enums = DomainUnits.Enums(Chapter);
     }

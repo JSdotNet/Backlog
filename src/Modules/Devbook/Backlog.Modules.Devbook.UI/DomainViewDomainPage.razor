@@ -17,6 +17,7 @@
                     DomainFiles="@_domainFiles"
                     RequirementFiles="@_requirementFiles"
                     InvariantFiles="@_invariantFiles"
+                    ModelPath="@_modelPath"
                     @bind-ActiveUnit="_activeUnit"
                     ActiveUnitPage="@OpenUnitPage"
                     OnNavigate="NavigateAsync"
@@ -60,6 +61,7 @@ else if (_problem is not null)
     private IReadOnlyList<DomainChapterFile> _domainFiles = [];
     private IReadOnlyList<DomainChapterFile> _requirementFiles = [];
     private IReadOnlyList<DomainChapterFile> _invariantFiles = [];
+    private string? _modelPath;
     private string _contextName = "the context";
     private string? _activeUnit;
     private string? _problem;
@@ -119,6 +121,7 @@ else if (_problem is not null)
         if (_disposed || version != _version) return;
         (_page, _domainFiles, _requirementFiles, _invariantFiles, _contextName, _problem) =
             (read.Page, read.DomainFiles, read.RequirementFiles, read.InvariantFiles, read.ContextName, read.Problem);
+        _modelPath = read.ModelPath;
     }
 
     /// <summary>The domain file the menu path names, the context's domain files
@@ -150,7 +153,10 @@ else if (_problem is not null)
         var page = domainFiles.FirstOrDefault(file => string.Equals(file.Path, document.Path, StringComparison.OrdinalIgnoreCase))
             ?? Parse(view, document);
 
-        return new DomainViewDomainRead(page, domainFiles, requirementFiles, invariantFiles, context.DisplayName, null);
+        return new DomainViewDomainRead(page, domainFiles, requirementFiles, invariantFiles, context.DisplayName, null)
+        {
+            ModelPath = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Model)?.Path
+        };
     }
 
     private static DomainChapterFile Parse(DomainDevbookView view, DomainDevbookDocument document) =>
