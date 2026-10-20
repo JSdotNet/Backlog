@@ -23776,18 +23776,67 @@ select.field__input {
    the same as an outside system's name beside it. */
 .domain-neighbours__card-title .devbook-ref {
     font: inherit;
+    color: inherit;
     text-align: left;
+    text-decoration: none;
 }
 
-.domain-neighbours__card-outside {
-    margin: var(--spacing-2xs) 0 0;
+.domain-neighbours__card-title .devbook-ref:hover,
+.domain-neighbours__card-title .devbook-ref:focus-visible {
+    text-decoration: underline;
+}
+
+/* Core and external after the name, as small words rather than badges. */
+.domain-neighbours__tag {
+    margin-left: var(--spacing-xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
 }
 
+.domain-neighbours__tag--core {
+    color: var(--color-primary);
+}
+
+/* The relation as a short phrase: two lines at most, the whole sentence on hover. */
 .domain-neighbours__card-line {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
     margin: var(--spacing-2xs) 0 0;
     color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-tight);
+}
+
+.domain-neighbours__side--hand-in-hand .domain-neighbours__card {
+    border-color: var(--domain-neighbours-partner-line);
+}
+
+.domain-neighbours__intro {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.domain-neighbours__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-neighbours__lede {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-neighbours__self-summary {
+    color: var(--color-primary);
     font-size: var(--font-size-sm);
 }
 
@@ -23805,53 +23854,20 @@ select.field__input {
 }
 
 .domain-neighbours__legend-item {
-    display: flex;
-    gap: var(--spacing-2xs);
+    margin: 0;
 }
 
-.domain-neighbours__legend dt {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
+.domain-neighbours__legend-item strong {
     color: var(--color-text-primary);
     font-weight: var(--font-weight-semibold);
 }
 
-.domain-neighbours__legend dd {
-    margin: 0;
+.domain-neighbours__legend-item--wide {
+    flex-basis: 100%;
 }
 
-.domain-neighbours__legend-dashed {
-    display: inline-block;
-    width: 1.25rem;
-    height: 0.75rem;
-    border: var(--border-width) dashed var(--color-border-strong);
-    border-radius: var(--border-radius-sm);
-}
-
-.domain-neighbours__legend-arrow {
-    position: relative;
-    display: inline-block;
-    width: 1.25rem;
-    height: var(--domain-neighbours-line-width);
-    background: var(--domain-neighbours-line);
-}
-
-.domain-neighbours__legend-arrow::after {
-    content: "";
-    position: absolute;
-    right: -2px;
-    top: 50%;
-    transform: translateY(-50%);
-    border-left: 6px solid var(--domain-neighbours-line);
-    border-block: 4px solid transparent;
-}
-
-.domain-neighbours__legend-amber {
-    display: inline-block;
-    width: 1.25rem;
-    height: var(--domain-neighbours-line-width);
-    background: var(--domain-neighbours-partner-line);
+.domain-neighbours__legend .domain-neighbours__legend-amber {
+    color: var(--domain-neighbours-partner-line);
 }
 
 /* One column on a narrow pane: listens to, the context, then listen to, then
