@@ -256,6 +256,38 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>
+    /// The sync merge the head composes hands an <c>iteration-settings</c> document to
+    /// its one store (local ADR 0036, §4): two weeks chosen on another desktop reads as
+    /// two weeks here, on the screens' port.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_takes_synced_iteration_settings_into_its_one_store()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        var settings = provider.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>();
+        Assert.Equal(Backlog.Modules.Progress.Abstractions.IterationLength.Week, settings.Length);
+
+        var stamp = new DateTimeOffset(2026, 10, 20, 8, 0, 0, TimeSpan.Zero);
+        var change = IterationReplicaDocuments.ToChange(
+            new Backlog.Modules.Progress.Abstractions.DataTransferObjects.IterationSettingsCopyDto(
+                """{"updatedAt":"2026-10-20T08:00:00Z","length":"two-weeks","twoWeekStart":"2026-10-19"}""", stamp));
+
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(
+            [new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, merged.Applied);
+        Assert.Equal(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, settings.Length);
+        Assert.Equal(new DateOnly(2026, 10, 19), settings.TwoWeekStart);
+    }
+
+    /// <summary>
     /// The roadmap's actual hours are answered by the adapter over the agent activity,
     /// and one instance serves every window, as the activity source it reads does.
     /// </summary>

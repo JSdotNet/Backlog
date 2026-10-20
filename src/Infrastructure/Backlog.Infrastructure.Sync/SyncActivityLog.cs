@@ -41,6 +41,10 @@ public enum SyncItemKind
     /// <summary>An impediment: its state, history, check-again date, note and the tasks it
     /// holds back, as one whole document (local ADR 0035 §9).</summary>
     Impediment,
+
+    /// <summary>The iteration settings: the iteration length and the two-week start, as
+    /// one whole document (local ADR 0036).</summary>
+    IterationSettings,
 }
 
 /// <summary>

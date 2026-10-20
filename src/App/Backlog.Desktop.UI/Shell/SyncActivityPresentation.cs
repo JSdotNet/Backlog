@@ -131,6 +131,7 @@ public static class SyncActivityPresentation
         SyncItemKind.MyDayPreferences => "My Day preferences",
         SyncItemKind.Goal => "Goal",
         SyncItemKind.Impediment => "Impediment",
+        SyncItemKind.IterationSettings => "Iteration settings",
         _ => kind.ToString(),
     };
 

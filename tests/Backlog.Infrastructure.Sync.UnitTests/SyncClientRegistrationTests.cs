@@ -151,6 +151,41 @@ public class SyncClientRegistrationTests
     }
 
     /// <summary>
+    /// The iteration settings port needs no registration of its own in the sync client
+    /// either (local ADR 0036, §4): a host that registers it has the merge the container
+    /// builds hand it the document, and the session and the loop compose with it.
+    /// </summary>
+    [Fact]
+    public async Task A_host_that_keeps_iteration_settings_has_the_merge_hand_them_over()
+    {
+        var iteration = new RecordingIterationSettingsReplication();
+        var services = new ServiceCollection();
+        services.AddSingleton<IDeviceCredentialStore>(new InMemoryDeviceCredentialStore());
+        services.AddSingleton<IAppFeatureSettings>(new StubFeatureSettings(enabled: true));
+        services.AddSingleton<ITaskRepository>(new InMemoryTaskStore());
+        services.AddSingleton<ITaskSyncStateStore>(new InMemoryTaskSyncStateStore());
+        services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication>(iteration);
+        services.AddSyncClient(SyncAddress);
+        services.AddTaskSyncClient(SyncAddress);
+
+        using var provider = Build(services);
+
+        var sent = new Backlog.Modules.Progress.Abstractions.DataTransferObjects.IterationSettingsCopyDto(
+            """{"length":"two-weeks","twoWeekStart":"2026-10-19"}""", new DateTimeOffset(2026, 10, 20, 8, 0, 0, TimeSpan.Zero));
+
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(
+            [TaskChanges.Record(IterationReplicaDocuments.ToChange(sent), Guid.NewGuid(), 1)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, merged.Applied);
+        Assert.Equal(sent, Assert.Single(iteration.Offered));
+        Assert.NotNull(provider.GetRequiredService<TaskSyncSession>());
+
+        using var worker = provider.GetRequiredService<TaskSyncWorker>();
+        Assert.True(iteration.HasListeners);
+    }
+
+    /// <summary>
     /// Opting in without choosing a sync-state store leaves both the session and
     /// the loop registered and unconstructable — the case Settings'
     /// <c>ResolveTaskSync</c> guard exists for. It is pinned here so that guard
