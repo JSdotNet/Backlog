@@ -149,12 +149,15 @@ hooks, beside the command hooks above. It draws an `execute-plan` run in two pla
 
 - **The band above the prompt**, while any entry is in flow: the plan's tag and done over
   total, then one row per entry running, at a gate or blocked — its delivery flow's stages
-  (✓ done, ● in progress, ✗ blocked, – skipped, ○ pending) and the stage it stands at, tagged
+  (✓ done, ● in progress, ✗ blocked, ‖ parked, – skipped, ○ pending) and the stage it stands at, tagged
   `gate` or `blocked`. Entries done or manual fold into one `also:` line. A band another plugin
   draws there, such as `delivery-run-view`'s flow band, stays under it.
 - **The Plan progress pane**, the band's **details** button or `/backlog-tools:plan-progress`:
   the whole plan as a matrix — every entry a row, every stage a column under its short name
   (`scp`, `imp`, `b&t`, `pv`, …) — with the gate's review link and each block's reason under it.
+  A surface has no `parked` status, so an unattended entry reports the Personal Validation it
+  moved onto its draft as `blocked`; the pane draws that as parked, and keeps ✗ for a block the
+  run stopped at.
 
 The status line carries the counts, and a toast says when an entry reaches its gate or blocks.
 
