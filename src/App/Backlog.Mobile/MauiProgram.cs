@@ -93,7 +93,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<AppLifecycle>();
 
 		// The in-app update, from GitHub Releases. The channel is compiled in by
-		// release-mobile.yml (-p:BacklogUpdateRepository=); every other build has
+		// release-all.yml (-p:BacklogUpdateRepository=); every other build has
 		// none, and its update window says a development build cannot update itself.
 		// Registered before AddMobileShell, whose UnsupportedAppUpdateService is only
 		// the default for a host that registers nothing. Transient, like the typed

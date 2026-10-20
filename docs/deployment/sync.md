@@ -71,11 +71,16 @@ round, presenting the branch subject as primary and the environment subject as a
 extra for `workflow_dispatch` runs. Nobody caught it because the workflow has never got past
 its first step (see *Current state* below).
 
-The environment subject is not scoped to a branch, so pair it with a **deployment branch
-policy** on the `backlog-sync` environment limiting deployments to `main`. Without that, any
-branch able to start the workflow can mint a token that holds Contributor and User Access
-Administrator on the resource group. The environment's protection rules are the branch
-restriction here; the credential no longer carries one.
+The environment subject is not scoped to a branch, so the environment's protection rules
+are the only branch restriction there can be; the credential carries none. **Today
+`backlog-sync` has none** — no deployment branch policy and no protection rules (checked
+2026-10-20) — so any ref able to start a workflow that declares the environment can mint a
+token that holds Contributor and User Access Administrator on the resource group.
+
+A deployment branch policy is recommended, but it has to admit what deploys: `main`, for
+the nightly and for Deploy All, **and the `v*` tags**, because a pushed `v*` tag runs
+Release All on `refs/tags/v…` and that run deploys the sync service. A `main`-only policy
+would fail every tag-push release at its sync job, and so publish nothing.
 
 ### 3. Set the GitHub environment variables
 
@@ -98,13 +103,14 @@ verified 2026-09-14; the error points at a region-access request, `aka.ms/cosmos
 Set it to `westeurope` once that request is granted.
 
 One more, on the **repository** rather than the environment: `BACKLOG_SYNC_SERVICE_URL`,
-read by `Release mobile` (`.github/workflows/release-mobile.yml`). The sideloaded APK has
+read by `Release All` (`.github/workflows/release-all.yml`). The sideloaded APK has
 no Settings field for the address, so the workflow compiles this value into it through the
 `BacklogSyncServiceUrl` MSBuild property. Set it once, after the first deploy, to the
 `SYNC_SERVICE_URI` that `Deploy Sync` prints under "Service endpoint" in its step summary;
 it only changes if the Container Apps environment is recreated. It is a variable rather
 than a secret because the address is public. A tag or manual release fails when it is
-unset, and the nightly skips with a note in its summary. `build/Install-AndroidApp.ps1`
+unset, and the nightly skips — desktop included, so the two apps keep one number — with a
+note in its summary. `build/Install-AndroidApp.ps1`
 passes the same property from `-SyncServiceUrl`, or from the address the desktop app's
 Devices page saved in `%LOCALAPPDATA%\Backlog\sync-service.json`.
 
@@ -143,9 +149,10 @@ rotating it does.
 
 ## Current state
 
-Verified 2026-09-09: **none of the first four prerequisites above have been done**, and
-this workflow has never completed a run. The fifth was added on 2026-09-14 and has not
-been set either.
+Verified 2026-09-09: **none of the first four prerequisites above had been done**. The
+fifth was added on 2026-09-14 and had not been set either. The table below is that day's
+state. Since then the workflow has completed a run: Deploy Sync succeeded from
+`workflow_dispatch` on 2026-10-20 at 20:44 UTC (run 39494451800).
 
 | Prerequisite | State |
 | --- | --- |
@@ -155,7 +162,7 @@ been set either.
 | 4. Budget alert | Not created. |
 | 5. Signing key secret | Not set. |
 
-So every run fails in `Verify deployment target`, before touching Azure, with:
+So every run then failed in `Verify deployment target`, before touching Azure, with:
 
 ```text
 Set these variables on the GitHub environment 'backlog-sync': AZURE_LOCATION,
@@ -163,8 +170,8 @@ AZURE_RESOURCE_GROUP, AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_SUBSCRIPTION_ID.
 ```
 
 That is the step doing its job — it names what is missing rather than letting `azd` fail
-halfway — but it does mean the later steps have never executed, so nothing past step one of
-this document is proven by a workflow run.
+halfway — but it meant the later steps had not executed by then, so nothing past step one
+of this document was proven by a workflow run until the run above.
 
 The template itself *has* been provisioned, from a local run of `build/Deploy-Azure.ps1`
 into `JS-AI` on 2026-09-14 — and every revision of the container app it produced sits in
@@ -286,7 +293,7 @@ Deployed, the key travels like this:
 | Step | Where | What |
 | --- | --- | --- |
 | 1 | GitHub environment `backlog-sync` | Secret `SYNC_TOKEN_SIGNING_KEY` (prerequisite 5) |
-| 2 | `.github/workflows/deploy-sync.yml` | Set in the step environment of `Verify deployment target`, which checks its shape, and of the three `azd` steps (preview, provision, deploy) — no other step sees it |
+| 2 | `.github/workflows/deploy-sync.yml` | Set in the step environment of `Verify deployment target`, which checks its shape, and of the four `azd` steps (preview, provision, the `service`-mode environment refresh, deploy) — no other step sees it |
 | 3 | `infra/sync/main.parameters.json` | `tokenSigningKey: ${SYNC_TOKEN_SIGNING_KEY}` — `azd` substitutes from the process environment |
 | 4 | `infra/sync/main.bicep` | `@secure() @minLength(44) param tokenSigningKey`, no default |
 | 5 | Container app `configuration.secrets` | `sync-token-signing-key` |
@@ -460,22 +467,43 @@ resource alone.
 
 ## Run from GitHub Actions
 
-**Manual only, for now.** Nothing on `main` triggers this workflow; a person starts every
-run, either here or through `Deploy All`. It used to run a full provision and deploy on a
-push to `main` touching `infra/sync/`, `azure.yaml`, `src/Modules/Sync/`, the service
-defaults, either `Directory.*.props`, or the workflow itself; that trigger is parked until
-the first deploy has been watched succeed by hand, and comes back as a deliberate change to
-`deploy-sync.yml`.
+**The infrastructure is manual; the service is not.** Nothing triggers this workflow on its
+own, and every infrastructure run — `preview`, `provision`, `deploy` — is started by a person,
+here or through `Deploy All`. The service, though, is deployed unattended: every
+**Release All** run that publishes a release, the nightly included, calls this workflow in
+`service` mode with the release number, so the production service is redeployed whenever a
+release goes out. The push-to-`main` trigger this workflow used to carry stays parked.
+
+A `service` run:
+
+1. verifies the target as every mode does, and checks `version` is `MAJOR.MINOR.PATCH`;
+   when Release All passes its `release_tag` and that tag already exists at another commit,
+   it stops there — a re-run of an older run never puts older service code into production
+   under a number a newer run released;
+2. signs in and recreates the azd environment;
+3. reads the last provision's outputs back with `azd env refresh` — no preview, no
+   provision;
+4. runs `azd deploy sync` with the MSBuild property `Version` set to the release number in
+   that step's environment. azd builds the image with `dotnet publish /t:PublishContainer`
+   in its own process environment, and MSBuild reads environment variables as properties,
+   so the assembly's informational version becomes `<version>+<sha>`;
+5. reads `GET /` back until it reports that version at the run's commit, and fails after ten
+   minutes otherwise. Release All publishes nothing until this passes.
+
+The image tag stays azd's own (`azd-deploy-<timestamp>`); the version is what `GET /`
+reports.
 
 Open **Actions -> Deploy Sync -> Run workflow**:
 
 | Input | Default | Notes |
 | --- | --- | --- |
-| `mode` | `preview` | `preview` runs `azd provision --preview` and stops. `provision` applies infrastructure. `deploy` applies infrastructure and then deploys the service. |
+| `mode` | `preview` | `preview` runs `azd provision --preview` and stops. `provision` applies infrastructure. `deploy` applies infrastructure and then deploys the service. `service` deploys the service alone, provisioning nothing. |
 | `environment_name` | `backlog-sync` | Selects the GitHub environment and names the azd environment. |
 
-Every mode runs the preview first, so a `deploy` run still shows what it is about to
-change before it changes it.
+Every infrastructure mode runs the preview first, so a `deploy` run still shows what it is
+about to change before it changes it. A dispatched run carries no version, so a `deploy`
+or `service` run from here reports `1.0.0` on `GET /` — visibly not a release; the release
+number comes only through Release All's call (`version` input).
 
 ## Run locally
 
