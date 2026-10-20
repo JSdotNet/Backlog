@@ -17,7 +17,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// same component, handed the same parameters, opening on the same chapter. That
 /// is the requirement "The flag off keeps today's Domain view", and the first test
 /// here is its proof. On, the area is the <see cref="DomainView"/> frame, which
-/// names the page the selected menu row opens (local ADR 0036).</para>
+/// names the page the selected menu row opens (local ADR 0037).</para>
 /// </summary>
 public sealed class DevbookPaneDomainViewFlagTests : IDisposable
 {
@@ -92,7 +92,7 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='domain-view']"));
     }
 
-    /// <summary>The menu is part of what the switch changes (local ADR 0036): off,
+    /// <summary>The menu is part of what the switch changes (local ADR 0037): off,
     /// a split file is a row of its own beside its kind; on, it is a child of its
     /// kind's row. Flipping the switch reloads the open menu into the other
     /// listing, without a folder change to prompt it.</summary>
@@ -140,7 +140,7 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
         Assert.NotNull(MenuItem(component, "Order"));
     }
 
-    /// <summary>The Domain row opens one unit at a time (local ADR 0036 §4): an
+    /// <summary>The Domain row opens one unit at a time (local ADR 0037 §4): an
     /// unsplit domain.md offers its units in a chapter bar, and a requirement a
     /// domain service lists opens the Requirements page.</summary>
     [Fact]

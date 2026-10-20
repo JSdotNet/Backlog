@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Domain menu with the New domain view switch (<c>devbook-domain-view</c>)
-/// on: a bounded context listed by unit, as local ADR 0036 decides — its kinds in
+/// on: a bounded context listed by unit, as local ADR 0037 decides — its kinds in
 /// the reading order, each split file nested under its kind and titled by its
 /// heading, the files that are a tab or a button on another page drawing no row.
 ///

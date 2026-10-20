@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Flow page's row (local ADR 0036): a flow's <c>stateDiagram-v2</c> read as one
+/// The Flow page's row (local ADR 0037): a flow's <c>stateDiagram-v2</c> read as one
 /// row of states, forward transitions above it, the ways back below it, and the
 /// restore loop — the last state back to the first — round the outside; a
 /// flowchart and a sequence drawn in the same style; and a diagram none of them

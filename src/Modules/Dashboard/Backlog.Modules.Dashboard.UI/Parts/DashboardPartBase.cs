@@ -1,5 +1,6 @@
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
+using Backlog.SharedKernel;
 using Backlog.UI.Components.Metrics;
 using Microsoft.AspNetCore.Components;
 
@@ -44,6 +45,7 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
     private DashboardScope? _fetchedFor;
     private IDisposable? _joined;
     private Func<Task>? _reload;
+    private IUsageResetSettings? _usageReset;
 
     /// <summary>The pane's refresh fan-out, when there is a pane: a refresh here reaches
     /// every part that reads the same insight. Null for a part rendered on its own.</summary>
@@ -211,9 +213,30 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
         await others;
     }
 
-    /// <param name="keepContent">A refresh of the same scope: figures already drawn
-    /// stay until the new ones land. A scope change or a first load clears them,
-    /// since they would answer a question the reader no longer asks.</param>
+    /// <summary>Loads again over the content on screen without invalidating the source:
+    /// for a choice the insight derives from on every call, such as which usage reset
+    /// cuts the weeks, where a re-read would be spent for nothing.</summary>
+    protected Task ReloadAsync() => LoadAsync(acknowledgeFirst: true, keepContent: true);
+
+    /// <summary>
+    /// Re-cuts this part whenever the usage resets change - a reset picked on the
+    /// Sessions tab, or re-timed in Settings - for a part that draws usage weeks. Every
+    /// such part mounted at once moves together, the hidden Overview tab included,
+    /// without the source being read again: the insight derives its weeks from the
+    /// reset on every call. Unsubscribed when the part goes.
+    /// </summary>
+    protected void ReloadOnChange(IUsageResetSettings usageReset)
+    {
+        ArgumentNullException.ThrowIfNull(usageReset);
+
+        if (_usageReset is not null) return;
+
+        _usageReset = usageReset;
+        _usageReset.Changed += OnUsageResetChanged;
+    }
+
+    private void OnUsageResetChanged() => _ = InvokeAsync(ReloadAsync);
+
     private async Task LoadAsync(bool acknowledgeFirst, bool keepContent = false)
     {
         // A filter changed twice in quick succession must not let the first answer
@@ -308,6 +331,12 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
 
         _joined?.Dispose();
         _joined = null;
+
+        if (_usageReset is not null)
+        {
+            _usageReset.Changed -= OnUsageResetChanged;
+            _usageReset = null;
+        }
 
         _inFlight?.Cancel();
         _inFlight?.Dispose();

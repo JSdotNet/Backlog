@@ -779,7 +779,7 @@ status: draft
 feature-flag: .devbook/domain/devbook/context.md#new-domain-view
 roadmap: [devbook-domain-view]
 depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
-related: [.devbook/domain/devbook/requirements.md#domain-view-by-unit, .devbook/arc42/adr/0036-the-domain-view-reads-by-unit.md, .devbook/design/color-scheme.md#domain-view-element-tones]
+related: [.devbook/domain/devbook/requirements.md#domain-view-by-unit, .devbook/arc42/adr/0037-the-domain-view-reads-by-unit.md, .devbook/design/color-scheme.md#domain-view-element-tones]
 ```
 
 Read a repository's domain one unit at a time: the context map, then each bounded
@@ -803,7 +803,7 @@ its kind's row. A rules file, a click demo and `dependencies.md` get no row of
 their own. Each one shows on the page it belongs to: the rules as the **Always
 true** tab, the demo as a **Demo** button, the dependencies as **Neighbours**. A
 file whose name starts with `_` stays hidden. How each file maps to a row is
-local [ADR 0036](../../arc42/adr/0036-the-domain-view-reads-by-unit.md).
+local [ADR 0037](../../arc42/adr/0037-the-domain-view-reads-by-unit.md).
 
 **Wording comes from the chapters.** A page shows the headings as written, and a
 row's summary is its chapter's first sentence. A relation on **Neighbours** reads

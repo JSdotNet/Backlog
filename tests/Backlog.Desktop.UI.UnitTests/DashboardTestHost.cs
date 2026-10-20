@@ -202,13 +202,19 @@ internal static class DashboardTestHost
             remove { }
         }
 
-        public UsageWeekReset? Current => null;
+        public IReadOnlyList<NamedUsageReset> Resets => [];
+
+        public NamedUsageReset? Selected => null;
 
         public string SettingsPath => "usage-reset.json";
 
-        public string? Set(DayOfWeek day, TimeOnly time) => null;
+        public (string? Id, string? Error) Add(string name, DayOfWeek day, TimeOnly time) => (null, null);
 
-        public string? Clear() => null;
+        public string? Update(string id, string name, DayOfWeek day, TimeOnly time) => null;
+
+        public string? Remove(string id) => null;
+
+        public string? Select(string id) => null;
     }
 
     private sealed class FixedWorkingHours : IWorkingHoursSettings

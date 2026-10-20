@@ -5,8 +5,8 @@ namespace Backlog.UI.Components.Progress;
 /// <summary>
 /// The stand-up as plain text for the clipboard
 /// (<c>.devbook/domain/progress/features.md#copying-the-stand-up</c>): Goals, Finished,
-/// Planned and Impediments, each heading with its count, Finished and Planned grouped by
-/// goal with No goal last. Every line is a fixed template over the reading, through
+/// Planned and Impediments, each heading with its count, Finished grouped by goal and
+/// Planned grouped by goal with No goal last. Every line is a fixed template over the reading, through
 /// <see cref="GoalsText"/>; none is written by a model. Pure, so the view and its tests
 /// read the same text. Hand it to <see cref="Buttons.CopyButton"/> as <c>Text</c>.
 /// </summary>

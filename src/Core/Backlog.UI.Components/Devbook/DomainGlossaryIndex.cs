@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.Devbook;
 
 /// <summary>One row of a context's Glossary: a term or a model chapter, as the
-/// Domain view's Glossary lists it (local ADR 0036 §5).</summary>
+/// Domain view's Glossary lists it (local ADR 0037 §5).</summary>
 /// <param name="Title">The heading as written.</param>
 /// <param name="Kind">The chapter's <c>type</c>: <c>term</c> for a word of the
 /// ubiquitous language, else the model kind — <c>aggregate</c>,
@@ -38,7 +38,7 @@ public sealed record DomainGlossaryEntry(
 public sealed record DomainConfusedPair(DomainGlossaryEntry First, DomainGlossaryEntry Second);
 
 /// <summary>
-/// Reads the Glossary of a bounded context out of its domain files (local ADR 0036
+/// Reads the Glossary of a bounded context out of its domain files (local ADR 0037
 /// §5): every term chapter under a <c>ubiquitous-language</c> grouping and every
 /// model chapter, A–Z. Pure, as <see cref="DomainUnits"/> is, so the storybook
 /// draws the page from a sample string.

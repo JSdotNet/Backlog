@@ -1,7 +1,9 @@
+using System.Globalization;
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI.Parts;
+using Backlog.SharedKernel;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -105,6 +107,127 @@ public sealed class DashboardSessionsTabTests
             StringComparison.Ordinal);
     }
 
+    // --- Which usage reset cuts the weeks ------------------------------------------
+
+    /// <summary>With no reset configured there is nothing to choose between, and the
+    /// sentence says what stands in, as it always has.</summary>
+    [Fact]
+    public void With_no_reset_configured_there_is_no_reset_picker()
+    {
+        var part = Render(out var context);
+        using var _ = context;
+
+        Assert.Empty(part.FindAll("[data-testid='dashboard-sessions-reset']"));
+        Assert.Contains("Calendar weeks from Monday", Squashed(part.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent), StringComparison.Ordinal);
+    }
+
+    /// <summary>One reset is not a choice, so there is no picker - but the sentences
+    /// name it, so a reader knows whose allowance the weeks are.</summary>
+    [Fact]
+    public void With_one_reset_there_is_no_picker_and_the_sentences_name_it()
+    {
+        var resets = new ListedResets(Work);
+        var part = RenderOn(resets, out var context, out var insights);
+        using var _ = context;
+
+        Assert.Empty(part.FindAll("[data-testid='dashboard-sessions-reset']"));
+        Assert.Contains(
+            "Weeks run from Monday 14:00 to the next, Work's usage reset",
+            Squashed(part.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent),
+            StringComparison.Ordinal);
+        Assert.Contains("the columns run from Work's reset (Monday 14:00)", Squashed(part.Markup), StringComparison.Ordinal);
+        Assert.Equal(1, insights.Calls);
+    }
+
+    /// <summary>Two resets are a choice: the picker lists them by name, first among the
+    /// chart's controls, and picking one re-cuts the weeks on it without asking the
+    /// sources to read again.</summary>
+    [Fact]
+    public void With_two_resets_the_picker_lists_them_and_picking_one_re_cuts_the_weeks()
+    {
+        var resets = new ListedResets(Work, Personal);
+        var part = RenderOn(resets, out var context, out var insights);
+        using var _ = context;
+
+        var picker = part.Find("[data-testid='dashboard-sessions-reset']");
+        Assert.Contains("badge--area", picker.ClassList);
+        Assert.Equal(["Work", "Personal"], picker.QuerySelectorAll("option").Select(option => option.TextContent.Trim()));
+        Assert.Equal("dashboard-sessions-reset", part.Find(".dashboard-sessions__controls [data-testid]").GetAttribute("data-testid"));
+
+        part.Find("[data-testid='dashboard-sessions-reset'] select").Change("personal");
+
+        part.WaitForAssertion(() => Assert.Contains(
+            "Weeks run from Thursday 12:00 to the next, Personal's usage reset",
+            Squashed(part.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent),
+            StringComparison.Ordinal));
+
+        Assert.Equal("personal", resets.Selected?.Id);
+        Assert.Equal(0, insights.Invalidations);
+        Assert.Equal(2, insights.Calls);
+    }
+
+    /// <summary>
+    /// The Overview's agent-time tile draws the usage-week series too, and its tab stays
+    /// mounted behind the Sessions tab: a pick there re-cuts the tile as well, from the
+    /// same reading, so the two never show weeks cut on different resets.
+    /// </summary>
+    [Fact]
+    public void Picking_a_reset_re_cuts_the_overview_agent_time_tile_too()
+    {
+        var resets = new ListedResets(Work, Personal);
+        var part = RenderOn(resets, out var context, out var insights);
+        using var _ = context;
+        var tile = context.Render<OverviewAgentTimeTile>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+
+        var before = tile.Find(".dashboard-overview-tile__value").TextContent.Trim();
+
+        part.Find("[data-testid='dashboard-sessions-reset'] select").Change("personal");
+
+        tile.WaitForAssertion(() =>
+            Assert.StartsWith("12h", tile.Find(".dashboard-overview-tile__value").TextContent.Trim(), StringComparison.Ordinal));
+        Assert.DoesNotContain("12h", before, StringComparison.Ordinal);
+
+        // Two parts, each loaded once and re-cut once - and nothing read again.
+        Assert.Equal(4, insights.Calls);
+        Assert.Equal(0, insights.Invalidations);
+    }
+
+    /// <summary>A pick the store refuses - the reset went in the meantime - says so on
+    /// the part, and the part reloads to show the list as it now is.</summary>
+    [Fact]
+    public void A_refused_pick_says_why_and_reloads()
+    {
+        var resets = new ListedResets(Work, Personal) { Refusal = "That reset is no longer there." };
+        var part = RenderOn(resets, out var context, out var insights);
+        using var _ = context;
+
+        part.Find("[data-testid='dashboard-sessions-reset'] select").Change("personal");
+
+        part.WaitForAssertion(() => Assert.Equal(
+            "That reset is no longer there.",
+            part.Find("[data-testid='dashboard-sessions-reset-status']").TextContent.Trim()));
+        Assert.Equal("work", resets.Selected?.Id);
+        Assert.Equal(2, insights.Calls);
+    }
+
+    private static readonly NamedUsageReset Work = new("work", "Work", new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0)));
+
+    private static readonly NamedUsageReset Personal = new("personal", "Personal", new UsageWeekReset(DayOfWeek.Thursday, new TimeOnly(12, 0)));
+
+    private static string Squashed(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static IRenderedComponent<SessionsPart> RenderOn(ListedResets resets, out BunitContext context, out ResetCutSessions insights)
+    {
+        context = new BunitContext();
+        _ = context.Services.AddUnavailableDashboard("backlog");
+        insights = new ResetCutSessions(Insight(), resets);
+        context.Services.AddSingleton<IUsageResetSettings>(resets);
+        context.Services.AddSingleton<ISessionInsights>(insights);
+
+        return context.Render<SessionsPart>(parameters => parameters.Add(p => p.Scope, DashboardScope.Default));
+    }
+
     private static IRenderedComponent<SessionsPart> Render(out BunitContext context, Action? opened = null)
     {
         context = new BunitContext();
@@ -155,6 +278,67 @@ public sealed class DashboardSessionsTabTests
             ],
             [],
             []);
+
+    /// <summary>Resets held in memory, and a choice between them that the picker moves.</summary>
+    private sealed class ListedResets(params NamedUsageReset[] resets) : IUsageResetSettings
+    {
+        private string? _selected;
+
+        public event Action? Changed;
+
+        public IReadOnlyList<NamedUsageReset> Resets => resets;
+
+        public NamedUsageReset? Selected => resets.FirstOrDefault(reset => reset.Id == _selected) ?? resets.FirstOrDefault();
+
+        public string SettingsPath => "usage-reset.json";
+
+        public (string? Id, string? Error) Add(string name, DayOfWeek day, TimeOnly time) => (null, null);
+
+        public string? Update(string id, string name, DayOfWeek day, TimeOnly time) => null;
+
+        public string? Remove(string id) => null;
+
+        /// <summary>When set, Select refuses with this message and changes nothing.</summary>
+        public string? Refusal { get; init; }
+
+        public string? Select(string id)
+        {
+            if (Refusal is not null) return Refusal;
+
+            _selected = id;
+            Changed?.Invoke();
+
+            return null;
+        }
+    }
+
+    /// <summary>The insight's half of the cut: the week it reports is the chosen reset's,
+    /// derived on every call the way the real insight derives it, with the calls and the
+    /// invalidations counted so a re-read would show.</summary>
+    private sealed class ResetCutSessions(AssistantSessionsInsight insight, IUsageResetSettings resets) : ISessionInsights
+    {
+        public int Calls { get; private set; }
+
+        public int Invalidations { get; private set; }
+
+        public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(DashboardScope scope, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+
+            var week = resets.Selected is { } selected
+                ? new UsageWeekInfo(WeekSource.Configured, $"{selected.Reset.Day} {selected.Reset.Time.ToString("HH:mm", CultureInfo.InvariantCulture)}", selected.Name)
+                : new UsageWeekInfo(WeekSource.Calendar, null);
+
+            // A figure that differs by reset, so a part that re-cut shows it: the
+            // Overview tile's headline stands in for its usage-week sparkline, which
+            // draws no text.
+            var active = resets.Selected?.Id == "personal" ? TimeSpan.FromHours(12) : insight.ActiveTime;
+
+            return Task.FromResult(InsightResult<AssistantSessionsInsight>.Ready(insight with { Week = week, ActiveTime = active }));
+        }
+
+        public void Invalidate() => Invalidations++;
+    }
 
     private sealed class Sessions(AssistantSessionsInsight insight) : ISessionInsights
     {

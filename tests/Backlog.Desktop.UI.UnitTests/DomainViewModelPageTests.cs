@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The Domain view's Model page, reached the way a reader reaches it: the New
 /// domain view switch on, a context opened, its Model row picked. The page opens on
 /// Diagram with a Diagram | Fields | Events bar and draws the file's classDiagram as
-/// the aggregate's consistency-boundary band (local ADR 0036); a split
+/// the aggregate's consistency-boundary band (local ADR 0037); a split
 /// <c>model.&lt;name&gt;.md</c> opens the same page, and a fence the reader cannot
 /// arrange is drawn with mermaid.
 /// </summary>

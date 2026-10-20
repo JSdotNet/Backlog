@@ -1,7 +1,7 @@
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>Which page of the new domain view a Domain menu row opens, read from
-/// its path alone (local ADR 0036).</summary>
+/// its path alone (local ADR 0037).</summary>
 public sealed class DomainViewUnitTests
 {
     [Theory]

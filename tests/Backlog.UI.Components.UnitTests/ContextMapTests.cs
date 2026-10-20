@@ -3,7 +3,7 @@ using Backlog.UI.Components.Diagrams;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Domain view's Context map page (local ADR 0036): the contexts of the map's
+/// The Domain view's Context map page (local ADR 0037): the contexts of the map's
 /// Mermaid fence classified by its Subdomain landscape table, one line per pair of
 /// contexts worded by the source context's dependency row, laid out on a ring that
 /// crosses as few lines as it can, and drawn as Map and List with no pattern name.

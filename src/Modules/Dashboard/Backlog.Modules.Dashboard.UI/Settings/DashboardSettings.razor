@@ -17,50 +17,109 @@
 @using global::Backlog.UI.Components.Settings
 @using global::Backlog.Modules.Dashboard.Abstractions.Insights
 @using global::Backlog.Modules.Dashboard.Abstractions.Services
+@using Microsoft.JSInterop
+@using global::Backlog.UI.Components.Badges
+@using global::Backlog.UI.Components.Buttons
+@implements IDisposable
 @inject IUsageResetSettings UsageReset
+@inject IJSRuntime JS
 @inject ISpendBudgetSettings SpendBudgets
 
 <SettingsHeadline>@Headline</SettingsHeadline>
 
 <div class="setting-columns">
-@* The week the dashboard cuts by. The assistant's allowance resets on a fixed
+@* The weeks the dashboard cuts by. The assistant's allowance resets on a fixed
    weekday and time, and a week of sessions read against calendar Mondays is a week
-   nobody spends; this is the person's own reading of the "Resets Mon 2:00 PM" on
-   the assistant's usage screen, in their own clock. Detection from the
-   assistant's records stands in while nothing is set, and the status says which
-   is in force. *@
+   nobody spends; each row is the person's own reading of the "Resets Mon 2:00 PM" on
+   one account's usage screen, in their own clock. A person with two accounts has two
+   resets, so the card holds a named list and the Sessions tab picks which one cuts
+   the weeks. Plain rows rather than editors that expand in place: a reset is three
+   fields, and an editor opened under a row would be the row again. Detection from
+   the assistant's records stands in while the list is empty. Add a reset sits in the
+   card's corner, where the settings card puts an action that belongs to the whole
+   card rather than to its last row. *@
 <SettingsCard Title="@UsageResetCardTitle"
-              Description="When your assistant's weekly allowance resets, as its usage screen shows it in your own clock."
+              Description="When each of your assistant accounts' weekly allowance resets, as its usage screen shows it in your own clock."
               TestId="usage-reset-settings">
+    <Action>
+        <AppButton Variant="ButtonVariant.Secondary"
+                   data-testid="usage-reset-add-button"
+                   OnClick="AddUsageReset">
+            Add a reset
+        </AppButton>
+    </Action>
+    <ChildContent>
     <p class="setting__note">
         The dashboard's weekly columns and hour grids then run from one reset to the
-        next instead of from a calendar Monday. Leave it unset and the dashboard uses
-        the reset it can detect from the assistant's own records, and calendar weeks
-        when it has seen none.
+        next instead of from a calendar Monday. With more than one reset, the Sessions
+        tab chooses which of them cuts the weeks.
     </p>
 
-    <div class="working-day" data-testid="usage-reset-row">
-        <SelectField Form="true"
-                     Label="Reset day"
-                     Id="usage-reset-day"
-                     TestId="usage-reset-day"
-                     CurrentValue="@(UsageReset.Current?.Day.ToString() ?? string.Empty)"
-                     IncludeEmptyOption="true"
-                     EmptyLabel="Not set"
-                     Options="@UsageResetDayOptions"
-                     OnChanged="SetUsageResetDay" />
+    @if (UsageReset.Resets.Count == 0)
+    {
+        <p class="setting__note" data-testid="usage-reset-empty">
+            No reset yet. The dashboard uses the reset it detects from your assistant's
+            records, or calendar weeks.
+        </p>
+    }
 
-        <TextField Bare="true"
-                   InputCssClass="setting__input"
-                   AriaLabel="Reset time"
-                   Id="usage-reset-time"
-                   data-testid="usage-reset-time"
-                   Type="time"
-                   autocomplete="off"
-                   aria-describedby="usage-reset-status"
-                   Disabled="@(UsageReset.Current is null)"
-                   Value="@_usageResetTimeDraft"
-                   @onchange="ApplyUsageResetTime" />
+    <div class="dashboard-usage-reset-list">
+    @foreach (var (reset, position) in UsageReset.Resets.Select((reset, index) => (reset, index + 1)))
+    {
+        @* The badge is a line of its own over the row's controls rather than a cell
+           beside them: a fourth column that only one row fills took its width out of
+           the day and the time, and a card as narrow as the harness's squeezed them
+           to a letter. The day is the select's inline shape, its name read aloud and
+           not printed, like the name and time beside it: a printed "<name> resets on"
+           wrapped over three lines in a column that narrow, and the row's values
+           already say what each field is. *@
+        <div class="working-day dashboard-usage-reset-row" data-testid="usage-reset-row" data-reset-id="@reset.Id" @key="reset.Id">
+            @if (UsageReset.Resets.Count >= 2 && UsageReset.Selected?.Id == reset.Id)
+            {
+                <Badge Kind="tone" Slug="live" CssClass="dashboard-usage-reset-row__badge" TestId="usage-reset-in-use">Cuts the dashboard's weeks</Badge>
+            }
+
+            <TextField Bare="true"
+                       InputCssClass="@($"{InputClass(reset.Id, NameField)} dashboard-usage-reset-row__name")"
+                       AriaLabel="@($"Reset name, row {position}")"
+                       Id="@NameInputId(reset.Id)"
+                       data-testid="usage-reset-name"
+                       autocomplete="off"
+                       maxlength="@NamedUsageReset.MaxNameLength"
+                       aria-describedby="usage-reset-status"
+                       Value="@Draft(reset.Id, NameField, reset.Name)"
+                       @onchange="@(e => ApplyUsageResetName(reset.Id, e))" />
+
+            <SelectField Label="@($"{reset.Name} resets on")"
+                         Id="@($"usage-reset-day-{reset.Id}")"
+                         BaseClass="dashboard-usage-reset-row__day"
+                         SelectCssClass="setting__input"
+                         TestId="usage-reset-day"
+                         CurrentValue="@reset.Reset.Day.ToString()"
+                         IncludeEmptyOption="false"
+                         Options="@UsageResetDayOptions"
+                         OnChanged="@(value => SetUsageResetDay(reset.Id, value))" />
+
+            <TextField Bare="true"
+                       InputCssClass="@InputClass(reset.Id, TimeField)"
+                       AriaLabel="@($"{reset.Name} resets at")"
+                       Id="@($"usage-reset-time-{reset.Id}")"
+                       data-testid="usage-reset-time"
+                       Type="time"
+                       autocomplete="off"
+                       aria-describedby="usage-reset-status"
+                       Value="@Draft(reset.Id, TimeField, FormatTime(reset.Reset.Time))"
+                       @onchange="@(e => ApplyUsageResetTime(reset.Id, e))" />
+
+            <AppButton Variant="ButtonVariant.Danger"
+                       Size="ButtonSize.Small"
+                       data-testid="usage-reset-remove-button"
+                       aria-label="@($"Remove {reset.Name}")"
+                       OnClick="@(() => RemoveUsageReset(reset.Id))">
+                Remove
+            </AppButton>
+        </div>
+    }
     </div>
 
     <p class="setting__status" id="usage-reset-status" data-testid="usage-reset-status" role="status">
@@ -74,19 +133,11 @@
         }
     </p>
 
-    <div class="setting__actions">
-        <AppButton Variant="ButtonVariant.None"
-                   data-testid="usage-reset-clear-button"
-                   Disabled="@(UsageReset.Current is null)"
-                   OnClick="ClearUsageReset">
-            Back to detecting it
-        </AppButton>
-    </div>
-
     <p class="setting__note">
         Kept in <code>@UsageReset.SettingsPath</code>, beside the app's other per-user
         choices rather than in the backlog folder - it is yours, not the workspace's.
     </p>
+    </ChildContent>
 </SettingsCard>
 
 @* The monthly spend budget, one amount per provider. Bare amounts, read in the
@@ -143,9 +194,20 @@
 
     public const string SpendBudgetCardTitle = "Monthly spend budget";
 
-    private string _usageResetTimeDraft = string.Empty;
+    private const string NameField = "name";
+
+    private const string TimeField = "time";
 
     private string? _usageResetError;
+
+    /// <summary>The field whose typed text was refused, which wears the error style
+    /// and keeps showing what was typed so it can be corrected - one at a time,
+    /// because the status line says one refusal.</summary>
+    private (string Id, string Field, string Text)? _refused;
+
+    /// <summary>The name field a just-added reset moves the focus to, once it is
+    /// drawn.</summary>
+    private string? _focusAfterRender;
 
     /// <summary>Why a field's typed amount was refused, per provider, so committing
     /// another field never hides a refusal whose text is still on screen.</summary>
@@ -161,41 +223,120 @@
     private static readonly IReadOnlyList<SelectorOption> UsageResetDayOptions =
         [.. WorkingHours.Week.Select(day => new SelectorOption(day.ToString(), day.ToString()))];
 
-    protected override void OnInitialized() => SyncUsageResetDraft();
+    /// <summary>The page stays alive while hidden, so a reset picked on the Sessions
+    /// tab has to reach it: the badge and the summary name the reset in force.</summary>
+    protected override void OnInitialized() => UsageReset.Changed += OnUsageResetChanged;
 
-    /// <summary>Picking a day sets the reset at once — with the time already in force,
-    /// or the assistant's usual afternoon when none was — so a half-configured reset
-    /// never exists; clearing the day forgets the whole reset.</summary>
-    private void SetUsageResetDay(string? value)
+    private void OnUsageResetChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => UsageReset.Changed -= OnUsageResetChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            _usageResetError = UsageReset.Clear();
-        }
-        else if (Enum.TryParse<DayOfWeek>(value, ignoreCase: true, out var day))
-        {
-            _usageResetError = UsageReset.Set(day, UsageReset.Current?.Time ?? new TimeOnly(14, 0));
-        }
+        if (_focusAfterRender is not { } id) return;
 
-        SyncUsageResetDraft();
+        _focusAfterRender = null;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogFocus", id, true);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
-    private void ApplyUsageResetTime(ChangeEventArgs e)
+    /// <summary>A new reset arrives complete - the next free "Account N", on the
+    /// assistant's usual Monday afternoon - so a half-configured one never exists,
+    /// and the focus goes to its name, the one field nobody keeps.</summary>
+    private void AddUsageReset()
     {
+        var (id, error) = UsageReset.Add(NextFreeName(), DayOfWeek.Monday, new TimeOnly(14, 0));
+
+        _refused = null;
+        _usageResetError = error;
+
+        if (id is not null) _focusAfterRender = NameInputId(id);
+    }
+
+    private void RemoveUsageReset(string id)
+    {
+        _refused = null;
+        _usageResetError = UsageReset.Remove(id);
+    }
+
+    private void ApplyUsageResetName(string id, ChangeEventArgs e)
+    {
+        if (Find(id) is not { } reset) return;
+
         var typed = e.Value?.ToString() ?? string.Empty;
-        _usageResetTimeDraft = typed;
 
-        if (UsageReset.Current is not { } current) return;
+        Commit(id, NameField, typed, UsageReset.Update(id, typed, reset.Reset.Day, reset.Reset.Time));
+    }
 
-        if (!TryReadTime(typed, out var time))
+    /// <summary>Picking a day keeps the reset's name and time.</summary>
+    private void SetUsageResetDay(string id, string? value)
+    {
+        if (Find(id) is not { } reset || !Enum.TryParse<DayOfWeek>(value, ignoreCase: true, out var day)) return;
+
+        _refused = null;
+        _usageResetError = UsageReset.Update(id, reset.Name, day, reset.Reset.Time);
+    }
+
+    private void ApplyUsageResetTime(string id, ChangeEventArgs e)
+    {
+        if (Find(id) is not { } reset) return;
+
+        var typed = e.Value?.ToString() ?? string.Empty;
+
+        Commit(
+            id,
+            TimeField,
+            typed,
+            TryReadTime(typed, out var time)
+                ? UsageReset.Update(id, reset.Name, reset.Reset.Day, time)
+                : "Give the reset a time, as HH:mm.");
+    }
+
+    /// <summary>A refusal keeps the typed text on screen beside its reason; a value the
+    /// store took shows what it now holds - including one that took effect but could
+    /// not be written, whose message is not a refusal.</summary>
+    private void Commit(string id, string field, string typed, string? error)
+    {
+        _refused = error is not null && !Took(id, field, typed) ? (id, field, typed) : null;
+        _usageResetError = error;
+    }
+
+    private bool Took(string id, string field, string typed) =>
+        Find(id) is { } reset
+        && (field == NameField
+            ? string.Equals(reset.Name, typed.Trim(), StringComparison.Ordinal)
+            : TryReadTime(typed, out var time) && reset.Reset.Time == time);
+
+    private NamedUsageReset? Find(string id) => UsageReset.Resets.FirstOrDefault(reset => reset.Id == id);
+
+    private bool IsRefused(string id, string field) =>
+        _refused is { } refused && refused.Id == id && refused.Field == field;
+
+    private string Draft(string id, string field, string stored) =>
+        IsRefused(id, field) ? _refused!.Value.Text : stored;
+
+    private string InputClass(string id, string field) =>
+        IsRefused(id, field) ? "setting__input setting__input--error" : "setting__input";
+
+    private static string NameInputId(string id) => $"usage-reset-name-{id}";
+
+    private string NextFreeName()
+    {
+        for (var number = UsageReset.Resets.Count + 1; ; number++)
         {
-            _usageResetError = "Give the reset a time, as HH:mm.";
-            return;
+            var name = $"Account {number}";
+
+            if (!UsageReset.Resets.Any(reset => string.Equals(reset.Name, name, StringComparison.OrdinalIgnoreCase))) return name;
         }
-
-        _usageResetError = UsageReset.Set(current.Day, time);
-
-        if (_usageResetError is null) SyncUsageResetDraft();
     }
 
     private void ApplyBudget(SpendProvider provider, ChangeEventArgs e)
@@ -262,19 +403,14 @@
         _ => provider.ToString().ToLowerInvariant()
     };
 
-    private void ClearUsageReset()
-    {
-        _usageResetError = UsageReset.Clear();
-        SyncUsageResetDraft();
-    }
-
-    private void SyncUsageResetDraft() =>
-        _usageResetTimeDraft = UsageReset.Current is { } reset ? FormatTime(reset.Time) : string.Empty;
-
     private string UsageResetSummary =>
-        UsageReset.Current is { } reset
-            ? $"Weeks run from {reset.Day} {FormatTime(reset.Time)} to the next {reset.Day} {FormatTime(reset.Time)}, on this machine's clock."
-            : "Not set - the dashboard uses the reset it detects from your assistant's records, or calendar weeks.";
+        UsageReset.Selected is not { } selected
+            ? string.Empty
+            : UsageReset.Resets.Count == 1
+                ? $"Weeks run from {Describe(selected.Reset)} to the next {Describe(selected.Reset)}, on this machine's clock."
+                : $"{selected.Name} cuts the dashboard's weeks, from {Describe(selected.Reset)} to the next, on this machine's clock. Choose another on the Sessions tab.";
+
+    private static string Describe(UsageWeekReset reset) => $"{reset.Day} {FormatTime(reset.Time)}";
 
     /// <summary>The wire format a <c>time</c> input takes and returns, and the
     /// one the settings file is written in - invariant, so the two never drift

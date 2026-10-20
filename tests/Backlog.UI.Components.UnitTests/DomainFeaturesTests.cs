@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Features page of the Domain view (local ADR 0036), read from the
+/// The Features page of the Domain view (local ADR 0037), read from the
 /// chapters as written: columns by <c>depends-on</c> depth, a card's sub-features,
 /// flag or setting and requirements with how many are proved, a proposed card
 /// dashed and a deprecated one at the end of its column, and the detail a pick

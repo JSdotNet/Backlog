@@ -12,7 +12,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The Domain view's context page, reached the way a reader reaches it: the New
 /// domain view switch on, a context's row picked. The row opens an Overview |
-/// Neighbours bar on Overview (local ADR 0036): the boundary prose, the chapters
+/// Neighbours bar on Overview (local ADR 0037): the boundary prose, the chapters
 /// per kind, the proof coverage, how settled they are and the flags and settings;
 /// Neighbours reads <c>dependencies.md</c>, or the <c>## Dependencies</c> chapter of
 /// a <c>context.md</c> that keeps its tables inline.

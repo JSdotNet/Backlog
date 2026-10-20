@@ -119,6 +119,7 @@ internal static class HarnessIsolation
         ("BACKLOG_WORKING_HOURS_SETTINGS_PATH", "working-hours.settings.json", false),
         ("BACKLOG_INBOX_ROUTING_RULES_PATH", "inbox-routing-rules.settings.json", false),
         ("BACKLOG_MY_DAY_PREFERENCES_PATH", "my-day-preferences.settings.json", false),
+        ("BACKLOG_ITERATION_SETTINGS_PATH", "iteration-settings.settings.json", false),
         ("BACKLOG_CAPTURE_SOURCES_SETTINGS_PATH", "capture-sources.settings.json", false),
         ("BACKLOG_CONNECTED_TARGETS_SETTINGS_PATH", "connected-targets.settings.json", false),
         ("BACKLOG_SPEC_MANAGER_CREDENTIALS_PATH", "spec-manager-credentials.json", false),

@@ -23,7 +23,7 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
     }
 
     /// <summary>Whether the Domain area lists a bounded context by unit (local ADR
-    /// 0036) rather than as the flat list of its files.</summary>
+    /// 0037) rather than as the flat list of its files.</summary>
     private bool DomainUnitsEnabled => features?.IsEnabled(DevbookFeatures.DomainView) == true;
 
     /// <summary>

@@ -85,7 +85,7 @@ public sealed record DomainFlowSection(DomainChapter Chapter, IReadOnlyList<Doma
 
 /// <summary>
 /// Reads a flow's <c>stateDiagram-v2</c> into one row of states and lays it out
-/// (local ADR 0036, the Flow page): forward transitions above the row, the ways
+/// (local ADR 0037, the Flow page): forward transitions above the row, the ways
 /// back below, and the restore loop — the way from the last state back to the
 /// first — round the outside. Pure, so the storybook draws the same row from a
 /// sample string.

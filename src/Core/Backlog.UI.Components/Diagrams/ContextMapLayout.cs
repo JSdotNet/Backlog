@@ -8,7 +8,7 @@ public sealed record ContextMapCard(ContextMapContext Context, double X, double 
 public sealed record ContextMapStroke(ContextMapLine Line, double X1, double Y1, double X2, double Y2, bool Core);
 
 /// <summary>
-/// Where the Context map's Map tab draws each card and line (local ADR 0036):
+/// Where the Context map's Map tab draws each card and line (local ADR 0037):
 /// every context on one ellipse, in the order that crosses the fewest lines. On a
 /// convex ring two lines cross exactly when their ends interleave round it, so the
 /// order alone decides the crossings; no line is routed.

@@ -1,7 +1,9 @@
 @*
     A task's sessions and pull requests as a section of its side panel: a small
-    heading, the same cards WorkLinks draws, and "Link a session or pull request…"
-    under them.
+    heading with "Link a session or pull request…" at the end of its line, then
+    the same cards WorkLinks draws. The action rides the heading's line rather
+    than taking one of its own under the cards: a side panel's height is the
+    scarce thing, and the heading's line was mostly empty.
 
     The section is always drawn for a saved task, empty or not: the link action is
     how a task with nothing on it gets something, and "None yet" says the task was
@@ -14,6 +16,15 @@
 <section class="@ClassValue" aria-labelledby="@HeadingIdValue" data-testid="@TestId">
     <div class="work-links-panel__header">
         <h3 class="work-links-panel__heading" id="@HeadingIdValue" tabindex="-1">@Heading</h3>
+        @if (OnLink.HasDelegate)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Size="ButtonSize.Small"
+                       CssClass="work-links-panel__link"
+                       TestId="work-links-link"
+                       Busy="Busy"
+                       OnClick="() => OnLink.InvokeAsync()">@LinkLabel</AppButton>
+        }
     </div>
 
     <WorkLinks Sessions="Sessions"
@@ -25,16 +36,6 @@
                ShowSessions="ShowSessions"
                ShowPullRequests="ShowPullRequests"
                Stacked="true" />
-
-    @if (OnLink.HasDelegate)
-    {
-        <AppButton Variant="ButtonVariant.Secondary"
-                   Size="ButtonSize.Small"
-                   CssClass="work-links-panel__link"
-                   TestId="work-links-link"
-                   Busy="Busy"
-                   OnClick="() => OnLink.InvokeAsync()">@LinkLabel</AppButton>
-    }
 </section>
 
 @code {

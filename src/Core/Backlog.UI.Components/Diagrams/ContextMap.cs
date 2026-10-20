@@ -6,7 +6,7 @@ using Backlog.UI.Components.Markdown;
 
 namespace Backlog.UI.Components.Diagrams;
 
-/// <summary>One bounded context of a context map (local ADR 0036).</summary>
+/// <summary>One bounded context of a context map (local ADR 0037).</summary>
 /// <param name="Id">The context's node id in the map's Mermaid fence — <c>Roadmap</c>
 /// for <c>Roadmap[Roadmap Planning]</c> — which the lines name it by.</param>
 /// <param name="Name">The node's label: <c>Roadmap Planning</c>.</param>
@@ -53,7 +53,7 @@ public sealed record ContextMapSource(string Slug, string Name, string? Dependen
 
 /// <summary>
 /// A <c>context-map.md</c> as the Domain view's Context map page reads it (local ADR
-/// 0036): the contexts of its Mermaid fence, classified by the Subdomain landscape
+/// 0037): the contexts of its Mermaid fence, classified by the Subdomain landscape
 /// table, the lines between them, and the published-languages and strategic-rules
 /// chapters as written. No pattern name from an edge label is kept.
 /// </summary>

@@ -5,8 +5,8 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// The stand-up as plain text for the clipboard
 /// (<c>.devbook/domain/progress/requirements.md#the-stand-up</c>): four blocks in order —
-/// Goals, Finished, Planned, Impediments — each heading with its count, Finished and
-/// Planned grouped by goal with No goal last, and every line a fixed template.
+/// Goals, Finished, Planned, Impediments — each heading with its count, Finished grouped
+/// by goal, Planned grouped by goal with No goal last, and every line a fixed template.
 /// </summary>
 public sealed class StandUpClipboardTests
 {
@@ -26,12 +26,12 @@ public sealed class StandUpClipboardTests
     private static readonly StandUpModel Week = new(
         Finished:
         [
-            new StandUpGroup("Customers get paid faster", [new StandUpEntry("Invoice PDF export"), new StandUpEntry("Reminder emails")]),
-            new StandUpGroup(null, [new StandUpEntry("VAT rate per line item")])
+            new StandUpGroup("Customers get paid faster", [new StandUpEntry("Invoice PDF export"), new StandUpEntry("Reminder emails")])
         ],
         Planned:
         [
-            new StandUpGroup("Customers get paid faster", [new StandUpEntry("Customer search by IBAN"), new StandUpEntry("Recurring invoices")])
+            new StandUpGroup("Customers get paid faster", [new StandUpEntry("Customer search by IBAN"), new StandUpEntry("Recurring invoices")]),
+            new StandUpGroup(null, [new StandUpEntry("Renew the signing certificate")])
         ],
         PlannedEffort: 21,
         Capacity: 18,
@@ -55,7 +55,7 @@ public sealed class StandUpClipboardTests
                                            || line.StartsWith("Planned ", StringComparison.Ordinal)
                                            || line.StartsWith("Impediments ", StringComparison.Ordinal)).ToList();
 
-        Assert.Equal(["Goals 2", "Finished 3", "Planned 2 · 21 / 18 pts", "Impediments 2"], headings);
+        Assert.Equal(["Goals 2", "Finished 2", "Planned 3 · 21 / 18 pts", "Impediments 2"], headings);
     }
 
     [Fact]
@@ -66,17 +66,17 @@ public sealed class StandUpClipboardTests
             "- Customers get paid faster: 9/15 · +3 · due 30 Oct · lands ~6 Nov · At risk",
             "- Devbook search ships: 5/6 · due 23 Oct · On track",
             "",
-            "Finished 3",
+            "Finished 2",
             "Customers get paid faster",
             "- Invoice PDF export",
             "- Reminder emails",
-            "No goal",
-            "- VAT rate per line item",
             "",
-            "Planned 2 · 21 / 18 pts",
+            "Planned 3 · 21 / 18 pts",
             "Customers get paid faster",
             "- Customer search by IBAN",
             "- Recurring invoices",
+            "No goal",
+            "- Renew the signing certificate",
             "",
             "Impediments 2",
             "- Bank sample files missing · Escalated · Account manager · 3 days · Customers get paid faster",
@@ -86,23 +86,22 @@ public sealed class StandUpClipboardTests
         Assert.Equal(expected, StandUpClipboard.Text(Board(Week, Paid, Search)));
     }
 
-    /// <summary>Scenario "A task done outside every goal": No goal is last under Finished,
-    /// whatever order the reading handed the groups in.</summary>
+    /// <summary>No goal is last under Planned, whatever order the reading handed the groups in.</summary>
     [Fact]
-    public void No_goal_is_last_under_Finished()
+    public void No_goal_is_last_under_Planned()
     {
         var standUp = Week with
         {
-            Finished =
+            Planned =
             [
-                new StandUpGroup(null, [new StandUpEntry("VAT rate per line item")]),
-                new StandUpGroup("Customers get paid faster", [new StandUpEntry("Invoice PDF export")])
+                new StandUpGroup(null, [new StandUpEntry("Renew the signing certificate")]),
+                new StandUpGroup("Customers get paid faster", [new StandUpEntry("Customer search by IBAN")])
             ]
         };
 
         var lines = Lines(StandUpClipboard.Text(Board(standUp, Paid))).ToList();
 
-        Assert.True(lines.IndexOf("No goal") > lines.IndexOf("- Invoice PDF export"));
+        Assert.True(lines.IndexOf("No goal") > lines.IndexOf("- Customer search by IBAN"));
     }
 
     /// <summary>An impediment moved on with nobody named copies without "Not reported yet":

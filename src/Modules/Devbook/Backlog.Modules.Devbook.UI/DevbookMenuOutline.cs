@@ -191,7 +191,7 @@ internal sealed class DevbookMenuOutline
 
     /// <summary>
     /// A file's own heading, as the outline recorded it — the label a split file's
-    /// row takes in the New domain view (local ADR 0036). Unlike
+    /// row takes in the New domain view (local ADR 0037). Unlike
     /// <see cref="TryTitle"/> it answers for a file, because a split file is
     /// titled after the unit it holds rather than after its context; it shares
     /// the drift rung, so a chapter touched since the build keeps its name.

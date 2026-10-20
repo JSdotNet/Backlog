@@ -128,13 +128,13 @@ type: feature-flag
 key: devbook-domain-view
 default: off
 roadmap: [devbook-domain-view]
-related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0036-the-domain-view-reads-by-unit.md", ".devbook/domain/devbook/requirements.md#requirement-the-flag-off-keeps-todays-domain-view"]
+related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0037-the-domain-view-reads-by-unit.md", ".devbook/domain/devbook/requirements.md#requirement-the-flag-off-keeps-todays-domain-view"]
 ```
 
 Turning it on replaces the Domain area of the Devbook with the
 [Domain view by unit](features.md#domain-view-by-unit). The menu then lists a
 bounded context's files as units, and each row opens a page drawn for the kind of
-file it is (local ADR 0036). Turned off, the Domain area is today's view,
+file it is (local ADR 0037). Turned off, the Domain area is today's view,
 unchanged.
 
 It ships off and marked `DEV` until the new view is accepted. Only the Domain area reads it. The other areas of the Devbook, and the

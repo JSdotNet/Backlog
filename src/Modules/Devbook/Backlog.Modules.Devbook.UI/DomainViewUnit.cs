@@ -2,7 +2,7 @@ namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// The page a Domain menu row opens in the new domain view: one per kind of file a
-/// row can be (local ADR 0036). A file that is a tab or a button on another page —
+/// row can be (local ADR 0037). A file that is a tab or a button on another page —
 /// <c>dependencies.md</c>, a <c>domain.&lt;name&gt;.invariants.md</c> — answers the page
 /// it shows on, so a path that reaches the view some other way still lands on a page.
 /// </summary>
@@ -40,7 +40,7 @@ public enum DomainViewPage
 /// Which <see cref="DomainViewPage"/> a selected Domain menu path opens. The path is
 /// the one the Devbook pane's menu holds — relative to the Domain folder, so
 /// <c>context-map.md</c>, <c>tasks</c> for a context's folder, <c>tasks/domain.md</c>
-/// for a file in it. Derived from the file name alone, as ADR 0036 decides: no
+/// for a file in it. Derived from the file name alone, as ADR 0037 decides: no
 /// chapter carries a field for the view.
 /// </summary>
 public static class DomainViewUnit

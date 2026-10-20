@@ -1,4 +1,4 @@
-# ADR 0036: The Domain view reads by unit
+# ADR 0037: The Domain view reads by unit
 
 ```meta
 date: 2026-10-20

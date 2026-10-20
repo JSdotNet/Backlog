@@ -3,6 +3,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sync;
@@ -91,6 +92,14 @@ public sealed class DesktopCompositionOptions
     /// The per-user file in the installed app; one under the content root in the
     /// harness, so a switch flipped there is not the installed app's.</summary>
     public required Func<IServiceProvider, MyDayPreferencesStore> MyDayPreferences { get; init; }
+
+    /// <summary>The person's iteration settings — the length and the two-week start —
+    /// which the Goals view and the stand-up read and the task feed carries between
+    /// desktops (local ADR 0036), seeded once from the <see cref="ShellNavigation"/> store
+    /// an earlier build kept them in. The per-user file in the installed app; one under
+    /// the content root in the harness, so a length chosen there is not the installed
+    /// app's.</summary>
+    public required Func<IServiceProvider, IterationSettingsStore> IterationSettings { get; init; }
 
     /// <summary>Which surface the shell was last showing.</summary>
     public required Func<IServiceProvider, ShellNavigationStore> ShellNavigation { get; init; }

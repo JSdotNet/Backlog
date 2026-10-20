@@ -3,7 +3,7 @@ using Backlog.SharedKernel.Devbook;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Glossary unit of the Domain page (local ADR 0036): every term under
+/// The Glossary unit of the Domain page (local ADR 0037): every term under
 /// <c>## Ubiquitous Language</c> and every model chapter of the context's domain
 /// files, A–Z, with its kind, its aliases as code chips and its first sentence; a
 /// filter that matches aliases too, kind filters, deprecated terms struck through,

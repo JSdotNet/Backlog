@@ -5,7 +5,7 @@ using Backlog.SharedKernel.Markdown;
 namespace Backlog.UI.Components.Devbook;
 
 /// <summary>One neighbour of a bounded context as the Domain view's Neighbours tab
-/// draws it (local ADR 0036): who it is and why the two meet, in the words of the
+/// draws it (local ADR 0037): who it is and why the two meet, in the words of the
 /// dependency table's row, with the row's pattern left off.</summary>
 /// <param name="Name">The first cell as plain text, without an <c>(external)</c>
 /// mark: <c>Devbook</c>, <c>GitHub</c>.</param>

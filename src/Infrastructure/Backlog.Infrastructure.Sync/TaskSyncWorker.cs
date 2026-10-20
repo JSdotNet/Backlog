@@ -132,6 +132,7 @@ public sealed class TaskSyncWorker : IDisposable
     private readonly IGoalReplication? _goals;
     private readonly IImpedimentReplication? _impediments;
     private readonly IMyDayPreferencesReplication? _myDay;
+    private readonly IIterationSettingsReplication? _iteration;
     private readonly ILogger _log;
 
     /// <summary>Completed when the first cycle this worker runs has finished,
@@ -206,10 +207,15 @@ public sealed class TaskSyncWorker : IDisposable
     /// one-time feed replay that catches an upgraded device up on preferences its cursor
     /// had passed (local ADR 0032). Null on a head that keeps none.</param>
     /// <param name="goals">Progress's goal replication port, for its local-change notice
-    /// only: a goal changed here is pushed after the same settle delay (local ADR 0035).
-    /// Null on a head without Progress.</param>
+    /// — a goal changed here is pushed after the same settle delay (local ADR 0035) — and
+    /// for the one-time feed replay that catches an upgraded device up on goals its cursor
+    /// had passed. Null on a head without Progress.</param>
     /// <param name="impediments">Progress's impediment replication port, for its
-    /// local-change notice only, on the goals' terms. Null on a head without Progress.</param>
+    /// local-change notice and its feed replay, on the goals' terms. Null on a head
+    /// without Progress.</param>
+    /// <param name="iteration">Progress's iteration settings replication port, for its
+    /// local-change notice and its one-time feed replay, on the My Day preferences' terms
+    /// (local ADR 0036). Null on a head that keeps none.</param>
     public TaskSyncWorker(
         IServiceProvider services,
         IAppFeatureSettings features,
@@ -222,7 +228,8 @@ public sealed class TaskSyncWorker : IDisposable
         IGitHubSettingsReplication? github = null,
         IMyDayPreferencesReplication? myDay = null,
         IGoalReplication? goals = null,
-        IImpedimentReplication? impediments = null)
+        IImpedimentReplication? impediments = null,
+        IIterationSettingsReplication? iteration = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(features);
@@ -241,6 +248,7 @@ public sealed class TaskSyncWorker : IDisposable
         _myDay = myDay;
         _goals = goals;
         _impediments = impediments;
+        _iteration = iteration;
         _log =log ?? NullLogger<TaskSyncWorker>.Instance;
 
         // Both gates can move while the app is running, and each of them moving
@@ -253,6 +261,7 @@ public sealed class TaskSyncWorker : IDisposable
         if (_myDay is not null) _myDay.Changed += OnLocalChange;
         if (_goals is not null) _goals.Changed += OnLocalChange;
         if (_impediments is not null) _impediments.Changed += OnLocalChange;
+        if (_iteration is not null) _iteration.Changed += OnLocalChange;
 
         ApplyGates();
     }
@@ -388,6 +397,7 @@ public sealed class TaskSyncWorker : IDisposable
         if (_myDay is not null) _myDay.Changed -= OnLocalChange;
         if (_goals is not null) _goals.Changed -= OnLocalChange;
         if (_impediments is not null) _impediments.Changed -= OnLocalChange;
+        if (_iteration is not null) _iteration.Changed -= OnLocalChange;
 
         _lifetime.Cancel();
         _lifetime.Dispose();
@@ -696,26 +706,39 @@ public sealed class TaskSyncWorker : IDisposable
     }
 
     /// <summary>
-    /// Reads the feed from the start once for a kind this build has learned to take
+    /// Reads the feed from the start once for the kinds this build has learned to take
     /// since the device last pulled (local ADR 0032, Verification 10): the My Day
-    /// preferences, where this head keeps them.
+    /// preferences, goals and impediments (local ADR 0035 §9), and the iteration settings
+    /// (local ADR 0036, §6), each where this head
+    /// keeps them.
     /// <para>
-    /// An older build skipped the document and moved its cursor past it, so without
-    /// this the device would hold the default until the switch next changed on another
-    /// desktop. Forgetting the cursor is <see cref="RehydrateFromScratch"/>'s step, taken
-    /// once and recorded in the same save, so a restart does not take it again. The rows
+    /// An older build skipped such a document and moved its cursor past it, so without
+    /// this the device would not see it until it next changed on another desktop — a goal
+    /// set there would never arrive. Forgetting the cursor is
+    /// <see cref="RehydrateFromScratch"/>'s step, taken once for every kind still missing
+    /// and recorded in the same save, so a restart does not take it again. The rows
     /// already held fold to the same result, because a replayed page writes nothing. A
-    /// head without the port has nothing to catch up on and keeps its cursor.
+    /// head without a kind's port has nothing to catch up on for it and keeps its cursor.
     /// </para>
     /// </summary>
     private void ApplyFeedReplays()
     {
-        if (_myDay is null) return;
-
         var state = _state.Current;
-        if (state.HasReplayedFeedFor(MyDayReplicaDocuments.PreferencesType)) return;
+        var missing = KindsThisHeadTakes().Where(kind => !state.HasReplayedFeedFor(kind)).ToList();
+        if (missing.Count == 0) return;
 
-        _state.Save(state.WithFeedReplay(MyDayReplicaDocuments.PreferencesType) with { PullCursor = null });
+        foreach (var kind in missing) state = state.WithFeedReplay(kind);
+
+        _state.Save(state with { PullCursor = null });
+    }
+
+    /// <summary>The replayable kinds whose port this head composed.</summary>
+    private IEnumerable<string> KindsThisHeadTakes()
+    {
+        if (_myDay is not null) yield return MyDayReplicaDocuments.PreferencesType;
+        if (_goals is not null) yield return GoalReplicaDocuments.GoalType;
+        if (_impediments is not null) yield return ImpedimentReplicaDocuments.ImpedimentType;
+        if (_iteration is not null) yield return IterationReplicaDocuments.SettingsType;
     }
 
     /// <summary>

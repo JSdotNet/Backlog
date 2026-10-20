@@ -1334,11 +1334,11 @@ The system SHALL say in the review when GitHub listed only part of a change's co
 type: requirements
 status: draft
 roadmap: [devbook-domain-view]
-related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc42/adr/0036-the-domain-view-reads-by-unit.md]
+related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc42/adr/0037-the-domain-view-reads-by-unit.md]
 ```
 
 > The requirements of the Domain area read by unit, behind the
-> [New domain view](context.md#new-domain-view) switch (local ADR 0036). The plan
+> [New domain view](context.md#new-domain-view) switch (local ADR 0037). The plan
 > `+devbook-domain-view` builds them page by page; the Context map, a context's
 > Overview and Neighbours, Domain, Features, Requirements, Model, Flow, the
 > Glossary and the Brain and task links are built. The Demo button is not.

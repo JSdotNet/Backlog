@@ -208,7 +208,7 @@ internal static partial class DevbookGraphBuilder
         // `feature-flag` and `roadmap` only when non-empty (the generator's
         // asList), `aliases` and `alternatives` whenever stated, then `tests`
         // only when non-empty — the test identifiers a requirement or invariant
-        // is proved by, which the Domain view reads (local ADR 0036). Only the
+        // is proved by, which the Domain view reads (local ADR 0037). Only the
         // authored entries: the generator also appends an `e2e:playwright` entry
         // for each `Proved by:` pointer whose scenario page a spec implements,
         // and that derivation is not ported — this corpus has no such spec yet,

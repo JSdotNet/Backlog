@@ -69,6 +69,7 @@ public sealed class TaskSyncSession
     private readonly IImpedimentReplication? _impediments;
     private readonly IStandUpContextSource? _standUpContext;
     private readonly ImpedimentEditRetirements? _retirements;
+    private readonly IIterationSettingsReplication? _iteration;
 
     /// <param name="credentials">Whose device this is. Read before every push
     /// and pull to check the progress in <paramref name="state"/> belongs to the
@@ -97,6 +98,9 @@ public sealed class TaskSyncSession
     /// for the push (local ADR 0035 §8), or null on a head without Progress.</param>
     /// <param name="retirements">The tombstones of the impediment edits the merge dealt
     /// with, sent by the push, or null on a head that applies none.</param>
+    /// <param name="iteration">Where the iteration settings are read from for the push
+    /// (local ADR 0036), or null on a head that keeps none. Optional for the reason
+    /// <paramref name="outbox"/> is.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
@@ -113,7 +117,8 @@ public sealed class TaskSyncSession
         IGoalReplication? goals = null,
         IImpedimentReplication? impediments = null,
         IStandUpContextSource? standUpContext = null,
-        ImpedimentEditRetirements? retirements = null)
+        ImpedimentEditRetirements? retirements = null,
+        IIterationSettingsReplication? iteration = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -138,6 +143,7 @@ public sealed class TaskSyncSession
         _impediments = impediments;
         _standUpContext = standUpContext;
         _retirements = retirements;
+        _iteration = iteration;
     }
 
     /// <summary>
@@ -352,6 +358,15 @@ public sealed class TaskSyncSession
             refused += documents.Value.Refused;
         }
 
+        if (_iteration is not null)
+        {
+            var documents = await PushIterationSettingsAsync(_iteration, cancellationToken).ConfigureAwait(false);
+            if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
+
+            pushed += documents.Value.Pushed;
+            refused += documents.Value.Refused;
+        }
+
         if (_goals is not null)
         {
             var documents = await PushGoalsAsync(_goals, cancellationToken).ConfigureAwait(false);
@@ -402,6 +417,25 @@ public sealed class TaskSyncSession
                 ? MyDayReplicaDocuments.ToChange(copy)
                 : null,
             SyncItemKind.MyDayPreferences,
+            cancellationToken);
+
+    /// <summary>
+    /// Sends the iteration settings as one whole document when their stamp is later than
+    /// the one this device last had accepted (local ADR 0036, §4) — on the terms
+    /// <see cref="PushMyDayPreferencesAsync"/> gives, the kind token as the mark. A device
+    /// that never chose an iteration has no document and sends nothing, so a newly paired
+    /// desktop takes the other's choice rather than Week. A legacy value seeded at the
+    /// floor stamp is sent like any other the first time, since no mark is held yet.
+    /// </summary>
+    private Task<Result<(int Pushed, int Refused)>> PushIterationSettingsAsync(
+        IIterationSettingsReplication iteration,
+        CancellationToken cancellationToken) =>
+        PushWholeDocumentsAsync(
+            new[] { IterationReplicaDocuments.SettingsType },
+            async _ => await iteration.ReadAsync(cancellationToken).ConfigureAwait(false) is { } copy
+                ? IterationReplicaDocuments.ToChange(copy)
+                : null,
+            SyncItemKind.IterationSettings,
             cancellationToken);
 
     /// <summary>

@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// How the Domain view's Neighbours tab reads a context's dependency tables
-/// (local ADR 0036): outbound rows listen to, inbound rows listen to the context,
+/// (local ADR 0037): outbound rows listen to, inbound rows listen to the context,
 /// Partnership rows meet once below, an <c>(external)</c> row is outside the
 /// domain, and each card's line is the row's reason cut to its first sentence.
 /// </summary>

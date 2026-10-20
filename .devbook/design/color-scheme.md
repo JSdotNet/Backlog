@@ -573,7 +573,7 @@ Rules:
 ## Domain View Element Tones
 
 ```meta
-related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0036-the-domain-view-reads-by-unit.md", ".devbook/design/accessibility.md#contrast"]
+related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0037-the-domain-view-reads-by-unit.md", ".devbook/design/accessibility.md#contrast"]
 ```
 
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)

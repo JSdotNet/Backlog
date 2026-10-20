@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// How the Domain view reads a <c>.domain</c> file into units (local ADR 0036
+/// How the Domain view reads a <c>.domain</c> file into units (local ADR 0037
 /// §4–6): which chapters the chapter bar offers, what an aggregate's About tab
 /// lists, which events a unit raises and which requirements a domain service is
 /// held to — all from the chapters' own headings, first sentences and
