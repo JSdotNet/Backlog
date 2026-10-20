@@ -1,0 +1,181 @@
+@*
+    A bounded context's page in the Domain view (local ADR 0036): an Overview |
+    Neighbours bar that opens on Overview. Overview is the context's boundary as
+    context.md writes it, how many chapters of each kind its files hold, how many
+    of its requirements and rules name a test, how settled its chapters are, and
+    its switches and settings. Neighbours is its dependency tables, drawn by
+    DomainNeighboursView.
+*@
+
+<section class="domain-context-page" data-testid="@TestId" aria-label="@($"Context {ContextName}")">
+    <Tabs AriaLabel="Context views"
+          TestId="domain-context-page-tabs"
+          ActiveId="@_tab"
+          ActiveIdChanged="@(id => _tab = id)">
+        <TabPanel Id="overview" Title="Overview" TabTestId="domain-context-page-tab-overview" TestId="domain-context-page-overview-panel">
+            <div class="domain-context-page__overview">
+                @if (Overview.Boundary.Length > 0)
+                {
+                    <div class="domain-context-page__boundary" data-testid="domain-context-page-boundary">
+                        <MarkdownView Blocks="@_boundary"
+                                      Source="@Overview.Boundary"
+                                      DevbookDocumentPath="@DocumentPath"
+                                      DevbookFolder="DevbookFolder.Domain"
+                                      OnDevbookNavigate="OnNavigate" />
+                    </div>
+                }
+                else
+                {
+                    <p class="domain-context-page__none" data-testid="domain-context-page-boundary-none">context.md draws no boundary above its first chapter.</p>
+                }
+
+                <section class="domain-context-page__section" data-testid="domain-context-page-counts" aria-labelledby="@($"{_id}-counts")">
+                    <h3 class="domain-context-page__heading" id="@($"{_id}-counts")">What the context holds</h3>
+                    @if (Overview.Counts.Count == 0)
+                    {
+                        <p class="domain-context-page__none">No chapter of a kind the view counts.</p>
+                    }
+                    else
+                    {
+                        <ul class="domain-context-page__counts">
+                            @foreach (var count in Overview.Counts)
+                            {
+                                <li class="domain-context-page__count" data-testid="domain-context-page-count" data-type="@count.Type">
+                                    <span class="domain-context-page__count-value">@count.Count</span>
+                                    <span class="domain-context-page__count-label">
+                                        <DevbookTypeMarker Value="@count.Type" CssClass="devbook-type-marker--leads" Labelled="false" ShowTooltip="false" />@count.Label
+                                    </span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+
+                <div class="domain-context-page__measures">
+                    <section class="domain-context-page__section" data-testid="domain-context-page-proof" aria-labelledby="@($"{_id}-proof")">
+                        <h3 class="domain-context-page__heading" id="@($"{_id}-proof")">Proved by a test</h3>
+                        @if (Overview.Provable == 0)
+                        {
+                            <p class="domain-context-page__none">No requirement or always-true rule to prove.</p>
+                        }
+                        else
+                        {
+                            <MetricMeter Value="@Overview.Proved"
+                                         Max="@Overview.Provable"
+                                         Label="Requirements and always-true rules"
+                                         FormatValue="@(value => value.ToString("0", System.Globalization.CultureInfo.InvariantCulture))"
+                                         Caption="@($"{Overview.Proved} of {Overview.Provable} name a test.")"
+                                         TestId="domain-context-page-proof-meter" />
+                        }
+                    </section>
+
+                    <section class="domain-context-page__section" data-testid="domain-context-page-settled" aria-labelledby="@($"{_id}-settled")">
+                        <h3 class="domain-context-page__heading" id="@($"{_id}-settled")">How settled</h3>
+                        @if (Overview.Statuses.Count == 0)
+                        {
+                            <p class="domain-context-page__none">No chapter states a status.</p>
+                        }
+                        else
+                        {
+                            <ul class="domain-context-page__statuses">
+                                @foreach (var status in Overview.Statuses)
+                                {
+                                    <li class="domain-context-page__status" data-testid="domain-context-page-status" data-status="@status.Status">
+                                        <DevbookStatusPill Status="@status.Status" Folder="DevbookFolder.Domain" />
+                                        <span class="domain-context-page__status-count">@status.Count</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </section>
+                </div>
+
+                <section class="domain-context-page__section" data-testid="domain-context-page-switches" aria-labelledby="@($"{_id}-switches")">
+                    <h3 class="domain-context-page__heading" id="@($"{_id}-switches")">Flags and settings</h3>
+                    @if (Overview.Switches.Count == 0)
+                    {
+                        <p class="domain-context-page__none" data-testid="domain-context-page-switches-none">The context has no flag or setting.</p>
+                    }
+                    else
+                    {
+                        <div class="domain-context-page__table-scroll">
+                            <table class="domain-context-page__table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Kind</th>
+                                        <th scope="col">Key</th>
+                                        <th scope="col">Default</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">What it does</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Overview.Switches)
+                                    {
+                                        <tr data-testid="domain-context-page-switch" data-key="@item.Key">
+                                            <th scope="row">@item.Title</th>
+                                            <td><Badge Kind="tone" CssClass="domain-context-page__kind" TestId="domain-context-page-switch-kind">@(item.IsSetting ? "Setting" : "Flag")</Badge></td>
+                                            <td>@if (item.Key is { } key) { <code>@key</code> }</td>
+                                            <td>@(item.Default ?? "—")</td>
+                                            <td><DevbookStatusPill Status="@item.Status" Folder="DevbookFolder.Domain" /></td>
+                                            <td>@item.Summary</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </section>
+            </div>
+        </TabPanel>
+        <TabPanel Id="neighbours" Title="Neighbours" TabTestId="domain-context-page-tab-neighbours" TestId="domain-context-page-neighbours-panel">
+            <DomainNeighboursView Neighbours="@Neighbours" ContextName="@ContextName" OnNavigate="OnNavigate" />
+        </TabPanel>
+    </Tabs>
+</section>
+
+@code {
+    /// <summary>The context's name as its <c>context.md</c> heads it.</summary>
+    [Parameter]
+    public string ContextName { get; set; } = "This context";
+
+    /// <summary>What the Overview tab shows.</summary>
+    [Parameter]
+    public DomainContextOverview Overview { get; set; } = DomainContextOverview.Empty;
+
+    /// <summary>What the Neighbours tab shows.</summary>
+    [Parameter]
+    public DomainNeighbourhood Neighbours { get; set; } = DomainNeighbourhood.Empty;
+
+    /// <summary>The <c>context.md</c> the boundary is read from, which a relative
+    /// link in it resolves against.</summary>
+    [Parameter]
+    public string? DocumentPath { get; set; }
+
+    /// <summary>The tab the page opens on: <c>overview</c> or <c>neighbours</c>.</summary>
+    [Parameter]
+    public string InitialTab { get; set; } = "overview";
+
+    /// <summary>A link in the boundary, or a neighbour, the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-context-page";
+
+    private readonly string _id = $"domain-context-page-{Guid.NewGuid():N}";
+    private string? _tab;
+    private IReadOnlyList<MdBlock> _boundary = [];
+    private string? _parsed;
+
+    protected override void OnParametersSet()
+    {
+        _tab ??= InitialTab;
+        if (!string.Equals(_parsed, Overview.Boundary, StringComparison.Ordinal))
+        {
+            _parsed = Overview.Boundary;
+            _boundary = MarkdownPreview.ParseDocument(Overview.Boundary);
+        }
+    }
+}

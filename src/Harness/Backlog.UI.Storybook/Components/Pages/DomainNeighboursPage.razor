@@ -1,0 +1,112 @@
+@page "/devbook/domain-neighbours"
+
+<PageTitle>Domain neighbours — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain neighbours"
+           Summary="A subpage of Devbook: the Neighbours tab of a bounded context in the Domain view (local ADR 0036). DomainNeighboursView draws the context's dependency tables as a board: the contexts it listens to on the left, the ones that listen to it on the right, the ones it works hand in hand with below. Each card is a name and the first sentence of its row's reason. The relationship pattern stays in the table and never reaches a card, and a short legend says what each place on the board means."
+           Guidelines="@Rules">
+
+    <Story Name="Board"
+           Description="Outbound rows listen to, inbound rows listen to the context, and every Partnership row, from either table, is one card below. GitHub and the Copilot CLI are outside the domain, so they are dashed cards that say so in words. A name that links to a context is a link that opens that context's page."
+           Code="@BoardCode"
+           Source="@Dependencies"
+           SourceLabel="dependencies.md">
+        <DomainNeighboursView ContextName="Tasks" Neighbours="@Board" OnNavigate="@(reference => _followed = reference.Path)" TestId="story-domain-neighbours" />
+        @if (_followed is not null)
+        {
+            <p class="sb-state" data-testid="story-domain-neighbours-followed">Followed: <code>@_followed</code></p>
+        }
+    </Story>
+
+    <Story Name="Tables inside context.md"
+           Description="A context that keeps its tables under a `## Dependencies` chapter of `context.md` reads the same way. An empty side says None rather than disappearing."
+           Code="@InlineCode"
+           Source="@Inline"
+           SourceLabel="context.md">
+        <DomainNeighboursView ContextName="Sync" Neighbours="@InlineBoard" TestId="story-domain-neighbours-inline" />
+    </Story>
+
+    <Story Name="No neighbours"
+           Description="Dependency tables that name no other context or system."
+           Code="@EmptyCode">
+        <DomainNeighboursView ContextName="Environment" TestId="story-domain-neighbours-empty" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why the Domain view's information marks are neutral outlines, never filled."),
+        new("color-scheme.md#badge-and-chip-tones", "Why a dashed edge with words says something is out of reach, as a repo link chip does.")
+    ];
+
+    private string? _followed;
+
+    internal const string Dependencies = """
+        # Tasks
+
+        ```meta
+        type: dependencies
+        status: draft
+        ```
+
+        ## Outbound dependencies
+
+        | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
+        |---|---|---|---|---|
+        | GitHub (external) | ACL | REST call via the Projection policy | `.devbook/domain/tasks/domain.md#projection` | Multi-repo tasks project to one GitHub issue per target repo; status syncs bidirectionally through an adapter. |
+        | Copilot CLI (external) | ACL | Command projection | `.devbook/domain/tasks/domain.md#projection` | Entries can project to one CLI task per target repo. |
+        | [Devbook](../devbook/domain.md#knowledge-note) | Partnership | Id-based cross-link | `.devbook/domain/devbook/domain.md#cross-linking` | Entries embed or deep-link Knowledge Note content for context. |
+        | [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Tasks = customer) | Repo-registry lookup | `.devbook/domain/repository-management/domain.md#repository` | `repo_ids` resolve to registered repos and their local clone paths. |
+        | [Sessions](../sessions/domain.md#session-state) | Customer/Supplier (Tasks = customer) | Port in Tasks' abstractions | `.devbook/domain/sessions/domain.md#session-state` | A task's work badge colours a linked session by its state. Tasks keeps only the session id. |
+
+        ## Inbound dependents (known)
+
+        | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
+        |---|---|---|---|---|
+        | [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` | `.devbook/domain/inbox/domain.md#itemtriaged` | Relies on Tasks creating a draft task from a triaged item. |
+        | [Devbook](../devbook/domain.md#knowledge-note) | Partnership | Bi-directional link by id | `.devbook/domain/devbook/domain.md#cross-linking` | Notes link to tasks and tasks link back. |
+        | [Roadmap Planning](../roadmap/domain.md#roadmap-plan) | Partnership | Optional cross-link by foreign id | `.devbook/domain/roadmap/domain.md#task-link` | Relies on a task id staying resolvable so a planned item can show real progress. |
+        | [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Tasks = supplier) | Subscribes to `AIWorkLogged` | `.devbook/domain/tasks/domain.md#aiworklogged` | Relies on AI-assisted activity evidence linked to a task. |
+        """;
+
+    private const string Inline = """
+        # Sync
+
+        ## Dependencies
+
+        Sync is upstream of the contexts whose documents it carries.
+
+        ### Outbound dependencies
+
+        | Depends on (context/module) | DDD pattern | Why |
+        |---|---|---|
+        | Shared kernel device identity | Conformist | The service stamps a session record with the DeviceId it issued. |
+
+        ### Inbound dependents (known)
+
+        | Consumer (context/module) | DDD pattern | What it relies on |
+        |---|---|---|
+        | [Tasks](../tasks/domain.md#task) | OHS + Published Language | A task document is stored whole and handed back unchanged. |
+        | [Sessions](../sessions/domain.md#session-log) | OHS + Published Language | A record is keyed by the machine that wrote it. |
+        """;
+
+    private static readonly DomainNeighbourhood Board = DomainNeighbours.Read(Dependencies, ".devbook/domain/tasks/dependencies.md");
+
+    private static readonly DomainNeighbourhood InlineBoard = DomainNeighbours.Read(Inline, ".devbook/domain/sync/context.md");
+
+    private const string BoardCode = """
+        <DomainNeighboursView ContextName="Tasks"
+                              Neighbours="@DomainNeighbours.Read(dependenciesMd, dependenciesPath)"
+                              OnNavigate="Follow" />
+        """;
+
+    private const string InlineCode = """
+        <DomainNeighboursView ContextName="Sync" Neighbours="@DomainNeighbours.Read(contextMd, contextPath)" />
+        """;
+
+    private const string EmptyCode = """
+        <DomainNeighboursView ContextName="Environment" Neighbours="@DomainNeighbourhood.Empty" />
+        """;
+}

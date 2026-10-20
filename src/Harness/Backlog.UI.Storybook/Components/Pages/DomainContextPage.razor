@@ -1,0 +1,154 @@
+@page "/devbook/domain-context"
+
+<PageTitle>Domain context — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain context"
+           Summary="A subpage of Devbook: the page a bounded context's row opens in the Domain view (local ADR 0036). DomainContextView is an Overview | Neighbours bar that opens on Overview. Overview reads `context.md` and the files beside it: the boundary prose above the first chapter, how many chapters of each kind the context holds, how many of its requirements and always-true rules name a test, how settled the chapters are, and the flags and settings. Neighbours is the context's dependency tables, drawn by DomainNeighboursView."
+           Guidelines="@Rules">
+
+    <Story Name="Overview"
+           Description="The boundary as `context.md` writes it, the chapter counts led by each kind's type marker, the share of requirements and rules that name a test as a meter, the status spread least settled first, and the context's `feature-flag` and `setting` chapters as a table. The Flag and Setting marks are information, so they are neutral outlines."
+           Code="@ContextCode"
+           Source="@Context"
+           SourceLabel="context.md">
+        <DomainContextView ContextName="Tasks" Overview="@Overview" Neighbours="@Neighbours" DocumentPath="@ContextPath" TestId="story-domain-context-page" />
+    </Story>
+
+    <Story Name="Opened on Neighbours"
+           Description="A `dependencies.md` that reaches the view some other way — a link, a search hit — opens the same page on Neighbours."
+           Code="@NeighboursTabCode"
+           Source="@DomainNeighboursPage.Dependencies"
+           SourceLabel="dependencies.md">
+        <DomainContextView ContextName="Tasks" Overview="@Overview" Neighbours="@Neighbours" InitialTab="neighbours" TestId="story-domain-context-page-neighbours" />
+    </Story>
+
+    <Story Name="A context with little written"
+           Description="A `context.md` with no prose above its first chapter and no other file: each section says what it lacks rather than leaving a gap."
+           Code="@ThinCode">
+        <DomainContextView ContextName="Monitoring" Overview="@Thin" TestId="story-domain-context-page-thin" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why a chapter's flag and setting marks are neutral outlines on the Domain view."),
+        new("color-scheme.md#badge-and-chip-tones", "What each status pill's tone means.")
+    ];
+
+    private const string ContextPath = ".devbook/domain/tasks/context.md";
+
+    private const string Context = """
+        # Tasks
+
+        ```meta
+        status: draft
+        index: root
+        type: context
+        ```
+
+        Tasks maintains a personal backlog of prompts, tasks, ideas, and tests across
+        multiple projects and repos. It converts triaged [Inbox Items](../inbox/domain.md#inbox-item)
+        into actionable, prioritized Tasks.
+
+        Outside it: what arrives and how it is triaged, which the Inbox answers.
+
+        ## Task backlog
+
+        ```meta
+        status: active
+        type: feature-flag
+        key: backlog
+        default: on
+        ```
+
+        Create, edit, filter, reorder, and store tasks. It is always enabled.
+
+        ## GitHub integration
+
+        ```meta
+        status: draft
+        type: feature-flag
+        key: github-integration
+        default: on
+        ```
+
+        Turning it on offers GitHub access in settings. Turned off, the pane hides it.
+
+        ## Week start
+
+        ```meta
+        status: proposed
+        type: setting
+        key: week-start
+        ```
+
+        The day the Goals view starts a week on.
+        """;
+
+    private const string Files = """
+        # Domain: Tasks
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        status: draft
+        ```
+
+        A refined, actionable item.
+
+        ## Requirement: A task has a title
+
+        ```meta
+        type: requirement
+        status: active
+        tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.TaskTests
+        ```
+
+        The system SHALL refuse a task without a title.
+
+        ## Requirement: A task has a status
+
+        ```meta
+        type: requirement
+        status: draft
+        ```
+
+        The system SHALL give every task a status.
+
+        ## A task is never its own parent
+
+        ```meta
+        type: invariant
+        status: draft
+        tests: unit:dotnet:Backlog.Modules.Tasks.UnitTests.ParentTests
+        ```
+
+        No cycle.
+        """;
+
+    private static readonly DomainContextOverview Overview = DomainContextOverview.Read(Context, [Files]);
+
+    private static readonly DomainNeighbourhood Neighbours =
+        DomainNeighbours.Read(DomainNeighboursPage.Dependencies, ".devbook/domain/tasks/dependencies.md");
+
+    private static readonly DomainContextOverview Thin = DomainContextOverview.Read("# Monitoring\n\n## Signals\n\nNothing yet.", []);
+
+    private const string ContextCode = """
+        <DomainContextView ContextName="@context.DisplayName"
+                           Overview="@DomainContextOverview.Read(contextMd, otherFiles)"
+                           Neighbours="@DomainNeighbours.Read(dependenciesMd, dependenciesPath)"
+                           DocumentPath="@contextPath"
+                           OnNavigate="Follow" />
+        """;
+
+    private const string NeighboursTabCode = """
+        <DomainContextView ContextName="Tasks" Overview="@overview" Neighbours="@neighbours" InitialTab="neighbours" />
+        """;
+
+    private const string ThinCode = """
+        <DomainContextView ContextName="Monitoring" Overview="@DomainContextOverview.Read(contextMd, [])" />
+        """;
+}

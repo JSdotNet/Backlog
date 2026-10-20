@@ -356,6 +356,11 @@ internal static class StorybookIndex
             // renderers.
             new("devbook/domain-units", "Domain units", "DomainUnitPage, DomainAggregateAbout, DomainServiceAbout, DomainEventList and DomainGlossary: a `domain.md` read one unit at a time — a chapter bar over an unsplit file, About for an aggregate, You can count on for a domain service."),
 
+            // After Domain units: the board a context's Neighbours tab draws, then
+            // the context page that holds it beside Overview (local ADR 0036).
+            new("devbook/domain-neighbours", "Domain neighbours", "DomainNeighboursView: a context's dependency tables as a board — listens to, listen to, hand in hand — with outside systems as dashed cards."),
+            new("devbook/domain-context", "Domain context", "DomainContextView: a bounded context's Overview — its boundary, what it holds, how much is proved and settled, its flags and settings — beside Neighbours."),
+
             // Last, because it is the one page of the group that is not about the
             // meta block: a review note is the convention's second fence, and the
             // chapter it sits in — heading, record, prose — is everything the pages
