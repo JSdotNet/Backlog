@@ -132,7 +132,7 @@ blocks, read over the [iteration](#choosing-the-iteration):
 | Block | Holds |
 |---|---|
 | Goals | each goal's progress, `+n` done in the last window, due date and badge |
-| Finished | the items done in the last window, grouped by goal, then "No goal" |
+| Finished | the items the goals count that were done in the last window, grouped by goal |
 | Planned | the [planned](domain.md#planned) items for the next window, grouped by goal, with the points tag |
 | Impediments | each open impediment with its state, then how many were resolved in the last window |
 
@@ -140,8 +140,8 @@ Each block's heading carries its count. A planned item shows its `effort:` in po
 and a planned item with a pull request shows its [status](#pull-request-status).
 
 On the desktop, the Goals block is the goals beside the stand-up, which holds
-Finished, Planned and Impediments. A finished item no goal holds reads "… · no goal",
-last.
+Finished, Planned and Impediments. Work no goal holds is not listed under Finished:
+the stand-up reports what the goals track.
 
 The **points tag** on Planned compares the planned effort with what the person
 usually gets done in such a window, such as `21 / 18 pts`. The first figure is the
@@ -170,7 +170,7 @@ related: [.devbook/domain/progress/requirements.md#the-stand-up]
 ```
 
 **Copy** puts the four blocks on the clipboard as plain text, each heading with its
-count, Finished and Planned grouped by goal with No goal last, the points tag beside
+count, Finished grouped by goal, Planned grouped by goal with No goal last, the points tag beside
 Planned and "n resolved" after Impediments. Every line is a fixed template filled
 from the reading; none is written by a model. Copying is a desktop action. Formatted
 (HTML) copy is a later addition.
