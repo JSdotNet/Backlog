@@ -4815,10 +4815,14 @@ button.task-panel__check:focus-visible {
    the badge's slug is the one thing both shapes carry. The child combinators keep
    a row from reading a sub-item's badge in the fold under it. The ancestor sits in
    :where so each rule weighs no more than the circle's own: the hover and focus
-   edge above still repaints it, and a completed circle's edge still wins. */
+   edge above still repaints it, and a completed circle's edge still wins.
+
+   Draft is the one exception to "the fill": its badge is filled with
+   --color-background-raised, the panel's own fill, so a circle in it vanished in
+   the detail pane. It takes the badge's text colour instead. */
 :where(.task-item:has(> :is(.task-item__head, .task-item__line, .task-item__actions) .badge--status-draft)) > .task-item__check,
 :where(.task-panel__header:has(> .task-panel__status.badge--status-draft, > .task-panel__status .badge--status-draft)) .task-panel__check {
-    border-color: var(--color-background-raised);
+    border-color: var(--color-text-secondary);
 }
 
 :where(.task-item:has(> :is(.task-item__head, .task-item__line, .task-item__actions) .badge--status-ready)) > .task-item__check,
