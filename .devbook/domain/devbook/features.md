@@ -865,6 +865,17 @@ opens that aggregate's **Always true** tab instead of a sentence explaining them
 A split `features.<name>.md` or `requirements.<name>.md` reads the same way for
 its one feature.
 
+**The Brain and the tasks show where they link.** Under each unit, feature and
+glossary term, the [From your Brain](#repo-links-and-backlinks) box lists the
+owner's Brain notes linking to that chapter or to one inside it, and a model
+part and a glossary term carry a **◆ n note** badge counting them. A note
+linking to the whole file names no unit, and shows only in the box under the
+page, which still lists every note linking anywhere in the file. A feature's
+detail and each requirement show the tasks whose Devbook references name the
+chapter as task chips: gold when this backlog holds the task, which pressing
+opens, and dashed, reading *not in this backlog*, when it does not. The box and
+the badge are the only teal on the view.
+
 The view is built behind the [New domain view](context.md#new-domain-view)
 switch. Until the switch is on, the Domain area reads as it always has.
 

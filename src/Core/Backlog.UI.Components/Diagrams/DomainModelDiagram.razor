@@ -122,6 +122,18 @@ else
     [Parameter]
     public string? TestId { get; set; } = "domain-model-diagram";
 
+    /// <summary>The domain chapter each class is, by the name the model gives it.
+    /// A class found here carries a badge counting the Brain notes linking to its
+    /// chapter.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? ChapterReferences { get; set; }
+
+    [CascadingParameter]
+    public DomainChapterLinks? Links { get; set; }
+
+    private IReadOnlyList<BrainNoteLink> NotesOf(DomainModelClass element) =>
+        Links is { } links && ChapterReferences?.GetValueOrDefault(element.Name) is { } reference ? links.NotesOn(reference) : [];
+
     private string? _arranged;
     private DomainModelArrangement? _arrangement;
 
@@ -132,7 +144,7 @@ else
         _arrangement = DomainModelArrangement.TryArrange(Source);
     }
 
-    private static RenderFragment Element(DomainModelClass element) => __builder =>
+    private RenderFragment Element(DomainModelClass element) => __builder =>
     {
         var key = DomainModelArrangement.KindKey(element.Kind);
         <span class="@($"domain-model__element domain-model__element--{key}")" data-testid="domain-model-element" data-kind="@key" data-name="@element.Name">
@@ -141,6 +153,7 @@ else
                 <span class="domain-model__element-glyph" aria-hidden="true">@DomainModelArrangement.KindGlyph(element.Kind)</span>
                 @(element.Kind == DomainModelKind.Other && element.Stereotype is { } stereotype ? stereotype : DomainModelArrangement.KindLabel(element.Kind))
             </span>
+            <BrainNotesBadge Notes="@NotesOf(element)" OnOpen="@(Links?.OnOpenNote ?? default)" TestId="domain-model-notes" />
         </span>
     };
 }

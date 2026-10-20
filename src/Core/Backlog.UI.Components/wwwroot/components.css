@@ -3110,6 +3110,42 @@ button.devbook-chip__label:focus-visible {
     background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
 }
 
+/* The Domain view's Brain and task links (local ADR 0026 §3, ADR 0027 §6). The
+   notes badge on a model part or a glossary term and the From your Brain box
+   under a unit, feature or term are the Brain's own teal; the task chips on a
+   feature or requirement are gold (TaskLinkChip, the `live` tone), dashed when
+   this backlog does not hold the task. Nothing else on the view is teal — see
+   color-scheme.md#the-brains-accent. */
+.domain-model__element .brain-notes-badge {
+    align-self: flex-start;
+}
+
+.domain-chapter-notes {
+    margin-block-start: var(--spacing-sm);
+}
+
+.domain-chapter-tasks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    margin-block: var(--spacing-xs);
+}
+
+.domain-chapter-tasks__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-chapter-tasks__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
 /* A plain string field — an alias, a kind, a version, an issue shorthand. It
    names something with no chapter to point at, so it borrows neither the pill
    nor the link: it is simply the value, set in the same mono face as the

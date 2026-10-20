@@ -79,6 +79,7 @@
                                 <span class="domain-glossary__name">@entry.Title</span>
                             }
                             <span class="domain-glossary__kind" data-testid="domain-glossary-kind">@entry.KindLabel</span>
+                            <BrainNotesBadge Notes="@Links.NotesOn(entry.Reference)" OnOpen="Links.OnOpenNote" TestId="domain-glossary-notes" />
                         </dt>
                         <dd class="domain-glossary__body">
                             @if (entry.Aliases.Count > 0)
@@ -94,6 +95,7 @@
                             {
                                 <p class="domain-glossary__summary">@entry.Summary</p>
                             }
+                            <DomainChapterNotes References="@([entry.Reference])" />
                         </dd>
                     </div>
                 }
@@ -119,6 +121,13 @@
 </div>
 
 @code {
+    /// <summary>The Brain notes linking to each term, which its badge counts and
+    /// its box lists.</summary>
+    [CascadingParameter]
+    public DomainChapterLinks? Cascaded { get; set; }
+
+    private DomainChapterLinks Links => Cascaded ?? DomainChapterLinks.None;
+
     /// <summary>The ubiquitous-language chapter, whose prose leads the page.</summary>
     [Parameter, EditorRequired]
     public DomainChapter Chapter { get; set; } = default!;

@@ -284,5 +284,9 @@
                     <DomainGlossary Chapter="@unit.Chapter" Files="@EventFiles" DocumentPath="@File.Path" OnNavigate="NavigateAsync" />
                     break;
             }
+            @* The notes linking to the unit or to a chapter inside it. The
+               Glossary's own terms each carry theirs, so its box is the
+               grouping's alone. *@
+            <DomainChapterNotes References="@(unit.Kind == DomainUnitKind.Glossary ? [unit.Reference] : DomainChapterLinks.Covering(unit.Reference, unit.Chapter))" />
         </section>;
 }

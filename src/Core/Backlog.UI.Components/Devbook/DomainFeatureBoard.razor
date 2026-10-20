@@ -126,6 +126,9 @@
                         </dd>
                     </div>
                 </dl>
+                @{ var covering = DomainChapterLinks.Covering(active.Reference, active.Chapter); }
+                <DomainChapterTasks References="@covering" TestId="domain-feature-tasks" />
+                <DomainChapterNotes References="@covering" />
             </section>
         }
     }

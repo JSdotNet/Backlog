@@ -26,6 +26,16 @@
            Source="@SplitFeatures">
         <DomainFeatureBoard Columns="@DomainFeatures.Columns(SplitFile, [.. Files, SplitFile])" TestId="story-domain-features-split" />
     </Story>
+
+    <Story Name="Tasks and Brain notes"
+           Description="The host cascades a DomainChapterLinks: the tasks whose Devbook references name each chapter, and the owner's Brain notes linking to it. Checkout's detail lists its tasks as chips — gold when this backlog holds the task, dashed and reading not in this backlog when it does not — and, under them, the host's From your Brain box; here a plain stand-in shows where it goes. Below the board, the two pieces stand alone for Ordering. A chapter no task names and no note links to carries neither."
+           Code="@LinksCode">
+        <CascadingValue Value="@Links">
+            <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ActiveFeature="checkout" TestId="story-domain-features-links" />
+            <DomainChapterTasks References="@([$"{Path}#ordering"])" TestId="story-domain-chapter-tasks" />
+            <DomainChapterNotes References="@([$"{Path}#ordering"])" />
+        </CascadingValue>
+    </Story>
 </StoryPage>
 
 @code {
@@ -229,6 +239,42 @@
 
     private const string DetailCode = """
         <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ActiveFeature="checkout" />
+        """;
+
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<BrainNoteLink>> SampleNotes = new Dictionary<string, IReadOnlyList<BrainNoteLink>>
+    {
+        [DomainChapterLinks.Key($"{Path}#checkout")] = [new("projects/checkout.md", "Checkout ideas")],
+        [DomainChapterLinks.Key($"{Path}#ordering")] = [new("work/standup.md", "Standup")]
+    };
+
+    private static readonly DomainChapterLinks Links = new()
+    {
+        Tasks = new Dictionary<string, IReadOnlyList<DomainTaskLink>>
+        {
+            [DomainChapterLinks.Key($"{Path}#checkout")] =
+            [
+                new("6b1f2c1e-0d3a-4c55-9a51-2f4a1c0e7b10", "Take card payments at checkout"),
+                new("0c9e5d7a-4b2f-4e61-8d3c-7a1b9e2f6c40", null)
+            ],
+            [DomainChapterLinks.Key($"{Path}#ordering")] = [new("5a2d8e3f-1c4b-4a7e-9f60-3b8c2d1e0a99", "Show the order history")]
+        },
+        Notes = SampleNotes,
+        NotesBox = references => @<p data-testid="story-domain-chapter-notes">From your Brain: the host's box lists @string.Join(", ", references.SelectMany(reference => SampleNotes.GetValueOrDefault(DomainChapterLinks.Key(reference)) ?? []).Select(note => note.Title)).</p>
+    };
+
+    private const string LinksCode = """
+        <CascadingValue Value="@links">
+            <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ActiveFeature="checkout" />
+            <DomainChapterTasks References="@([$"{path}#ordering"])" />
+            <DomainChapterNotes References="@([$"{path}#ordering"])" />
+        </CascadingValue>
+
+        links = new DomainChapterLinks
+        {
+            Tasks = tasksByChapter,   // DomainChapterLinks.Key(reference) → DomainTaskLink(id, title or null)
+            Notes = notesByChapter,   // DomainChapterLinks.Key(reference) → BrainNoteLink(path, title)
+            NotesBox = references => @<p>From your Brain: the host's box lists …</p>
+        };
         """;
 
     private const string SplitCode = """
