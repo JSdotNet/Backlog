@@ -20553,7 +20553,7 @@ select.field__input {
 
 .domain-about__cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
     gap: var(--spacing-sm);
     margin: 0;
     padding: 0;
@@ -23295,9 +23295,11 @@ select.field__input {
     min-width: 0;
 }
 
-/* The Domain view's context page (local ADR 0037): Overview is the boundary,
-   what the context holds, how much of it is proved and settled, and its flags
-   and settings; Neighbours is its dependency tables drawn as a board. */
+/* The Domain view's context page (local ADR 0037): Overview after its board —
+   the context's badges, name and lead, the boundary as an Inside and an Outside
+   card, what it holds as tiles, how well it is proved as two cards, how settled
+   it is as one stacked bar, its switches, and its pages read through a
+   question; Neighbours is its dependency tables drawn as a board. */
 .domain-context-page {
     display: flex;
     flex-direction: column;
@@ -23306,14 +23308,14 @@ select.field__input {
 
 .domain-context-page__overview {
     display: grid;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-md) 0;
+    gap: var(--spacing-xl);
+    padding: var(--spacing-lg) 0;
     min-width: 0;
 }
 
 .domain-context-page__section {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-md);
     min-width: 0;
 }
 
@@ -23325,6 +23327,13 @@ select.field__input {
     font-weight: var(--font-weight-semibold);
 }
 
+/* The Overview's section headings are the board's: a heading face, not a label. */
+.domain-context-page__overview .domain-context-page__heading {
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+}
+
 .domain-context-page__none,
 .domain-neighbours__none {
     margin: 0;
@@ -23332,98 +23341,390 @@ select.field__input {
     font-size: var(--font-size-sm);
 }
 
-.domain-context-page__counts {
+.domain-context-page__intro {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-context-page__badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* Information about the context, not something the product acts on: a neutral
+   outline (color-scheme.md#domain-view-element-tones). The word says Core. */
+.domain-context-page__badge {
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-context-page__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-4xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-context-page__lead {
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.domain-context-page__lead > :first-child p:first-child,
+.domain-context-page__lead > :first-child > p:first-of-type {
+    font-size: var(--font-size-lg);
+}
+
+.domain-context-page__intro .domain-chapter-notes {
+    max-width: 48rem;
+}
+
+.domain-context-page__boundary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+    gap: var(--spacing-md);
+}
+
+.domain-context-page__card {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-context-page__card-label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.domain-context-page__questions {
+    display: grid;
     gap: var(--spacing-sm);
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
+.domain-context-page__question {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--spacing-md);
+}
+
+.domain-context-page__question-text p,
+.domain-context-page__outside-note p {
+    margin: 0;
+}
+
+/* A clause is written mid-sentence; the card raises its first letter without
+   rewriting the chapter's words. */
+.domain-context-page__question-text p::first-letter,
+.domain-context-page__outside-note > :first-child p:first-child::first-letter,
+.domain-context-page__card > .domain-context-page__card-label + * p:first-child::first-letter {
+    text-transform: uppercase;
+}
+
+.domain-context-page__more {
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.domain-context-page__answers {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+/* A link drawn as a button: the Outside card's answers are bold, the
+   Switches table's gates are underlined, like a link in prose. */
+.domain-context-page__answer {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-weight: var(--font-weight-semibold);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__gate {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    text-align: left;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.domain-context-page__answer:hover,
+.domain-context-page__gate:hover {
+    color: var(--color-primary-light);
+}
+
+.domain-context-page__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(7.5rem, 100%), 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* A tile's top edge is its kind's tone where the view already gives the kind
+   one — the aggregate root's gold on Model, the value object's own tone
+   (color-scheme.md#domain-view-element-tones) — and the strong border
+   otherwise; its label says the kind, so the tone is never the only thing that
+   does. */
 .domain-context-page__count {
+    --domain-context-tone: var(--color-border-strong);
     display: grid;
     gap: var(--spacing-2xs);
-    padding: var(--spacing-sm) var(--spacing-md);
+    width: 100%;
+    height: 100%;
+    padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
+    border-top: 3px solid var(--domain-context-tone);
     border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__count[data-type="aggregate"] { --domain-context-tone: var(--color-primary); }
+.domain-context-page__count[data-type="value-object"] { --domain-context-tone: var(--color-domain-value-object); }
+
+.domain-context-page__count:hover:not([aria-disabled="true"]),
+.domain-context-page__proof-card:hover:not([aria-disabled="true"]),
+.domain-context-page__lens:hover {
+    border-color: var(--color-border-strong);
     background: var(--color-background-raised);
 }
 
+.domain-context-page__count[aria-disabled="true"],
+.domain-context-page__proof-card[aria-disabled="true"] {
+    cursor: default;
+}
+
 .domain-context-page__count-value {
-    font-size: var(--font-size-xl);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
     font-weight: var(--font-weight-semibold);
     font-variant-numeric: tabular-nums;
 }
 
 .domain-context-page__count-label {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.domain-context-page__measures {
+.domain-context-page__proof {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+    gap: var(--spacing-md);
 }
+
+.domain-context-page__proof-card {
+    --domain-context-tone: var(--color-domain-requirement);
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__proof-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-md);
+}
+
+.domain-context-page__proof-facts {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__proof-bar,
+.domain-context-page__bar {
+    display: flex;
+    height: 0.625rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+}
+
+.domain-context-page__proof-fill {
+    background: var(--domain-context-tone);
+}
+
+.domain-context-page__proof-caption {
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__settled {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md) var(--spacing-xl);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-context-page__settled .domain-context-page__bar {
+    flex: 1 1 20rem;
+}
+
+/* Each part wears the fill of the status badge its status wears
+   (color-scheme.md#badge-and-chip-tones), so a part and the pill under the bar
+   read as one; a strong edge keeps the dark fills apart, and the pill's word
+   says the status, so the tone is never the only thing that does. */
+.domain-context-page__bar-part {
+    flex-basis: 0;
+    min-width: 4px;
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.domain-context-page__tone--draft { background: var(--color-background-raised); }
+.domain-context-page__tone--ready { background: var(--color-info); }
+.domain-context-page__tone--active { background: var(--color-primary); }
+.domain-context-page__tone--done { background: var(--color-success); }
+.domain-context-page__tone--blocked { background: var(--color-error); }
+.domain-context-page__tone--archived { background: transparent; }
 
 .domain-context-page__statuses {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-sm) var(--spacing-md);
     margin: 0;
     padding: 0;
     list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 .domain-context-page__status {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-2xs);
+    gap: var(--spacing-xs);
 }
 
 .domain-context-page__status-count {
+    color: var(--color-text-primary);
     font-variant-numeric: tabular-nums;
 }
 
 .domain-context-page__table-scroll {
     overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
 }
 
 .domain-context-page__table {
     width: 100%;
+    min-width: 40rem;
     border-collapse: collapse;
     font-size: var(--font-size-sm);
 }
 
 .domain-context-page__table th,
 .domain-context-page__table td {
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-bottom: var(--border-width) solid var(--color-border);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
     text-align: left;
     vertical-align: top;
 }
 
-/* What a flag does is prose: it keeps a readable measure and the table
-   scrolls inside its own box on a narrow pane. */
-.domain-context-page__table td:last-child {
-    min-width: 16rem;
+.domain-context-page__table thead th {
+    border-top: 0;
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
-.domain-context-page__table thead th {
-    color: var(--color-text-secondary);
+.domain-context-page__table tbody th {
+    font-weight: normal;
+}
+
+.domain-context-page__switch-name {
+    display: block;
     font-weight: var(--font-weight-semibold);
 }
 
-/* Information about the chapter, not something the product acts on: a neutral
-   outline (color-scheme.md#domain-view-element-tones). */
-.badge--tone.domain-context-page__kind {
-    background: transparent;
-    border-color: var(--color-border-strong);
+.domain-context-page__switch-summary {
+    display: block;
+    max-width: 28rem;
     color: var(--color-text-secondary);
+}
+
+.domain-context-page__lenses {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-context-page__lens {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-xs);
+    width: 100%;
+    height: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__lens-title {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
 }
 
 .domain-neighbours {

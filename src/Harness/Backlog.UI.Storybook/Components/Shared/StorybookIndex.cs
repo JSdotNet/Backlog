@@ -377,7 +377,7 @@ internal static class StorybookIndex
             // The board a context's Neighbours tab draws, then
             // the context page that holds it beside Overview (local ADR 0037).
             new("devbook/domain-neighbours", "Domain neighbours", "DomainNeighboursView: a context's dependency tables as a board — listens to, listen to, hand in hand — with outside systems as dashed cards."),
-            new("devbook/domain-context", "Domain context", "DomainContextView: a bounded context's Overview — its boundary, what it holds, how much is proved and settled, its flags and settings — beside Neighbours."),
+            new("devbook/domain-context", "Domain context", "DomainContextView: a bounded context's Overview — its badges and lead, its boundary inside and outside, what it holds, how well it is proved and how settled, its switches and the questions its pages answer — beside Neighbours."),
 
             // After the context page, which a card on the map opens on its
             // Neighbours tab: the Domain view's Context map page (local ADR 0037).
