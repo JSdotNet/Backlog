@@ -1,0 +1,82 @@
+@*
+    The Flow page of the Domain view (local ADR 0036): a context's flow.md, one
+    section per chapter. A chapter holding a stateDiagram-v2 reads as that
+    lifecycle drawn as one row of states (DomainFlowRow), with the chapter's prose
+    beneath it. Every other Mermaid diagram — a sequence, a flowchart, a state
+    diagram the row cannot hold — stays in the prose and keeps the rendering it has
+    everywhere else.
+
+    Pure: the host hands over the file it read, so the storybook draws the same
+    page from a sample string.
+*@
+
+<article class="domain-flows" data-testid="@TestId" aria-label="@AriaLabel">
+    @if (_sections.Count == 0)
+    {
+        <EmptyState Title="No flows"
+                    Description="This file holds no chapter to show."
+                    TestId="domain-flows-empty"
+                    role="status" />
+    }
+    else
+    {
+        @for (var i = 0; i < _sections.Count; i++)
+        {
+            var section = _sections[i];
+            @* Keyed by place: two headings of one text share an anchor. *@
+            <section @key="i"
+                     class="domain-flows__section"
+                     data-testid="domain-flow-section"
+                     data-flow="@section.Chapter.Anchor"
+                     aria-label="@section.Chapter.Title">
+                <h2 class="domain-unit__title">@section.Chapter.Title</h2>
+                @foreach (var diagram in section.Diagrams)
+                {
+                    <DomainFlowRow Diagram="@diagram" AriaLabel="@($"{section.Chapter.Title}, drawn as one row of states")" />
+                }
+                @if (section.Prose.Length > 0)
+                {
+                    <MarkdownView Blocks="@ProseOf(section)"
+                                  Source="@section.Prose"
+                                  DevbookDocumentPath="@File.Path"
+                                  DevbookFolder="DevbookFolder.Domain"
+                                  OnDevbookNavigate="OnNavigate" />
+                }
+            </section>
+        }
+    }
+</article>
+
+@code {
+    /// <summary>The flow file the menu row opened.</summary>
+    [Parameter, EditorRequired]
+    public DomainChapterFile File { get; set; } = default!;
+
+    /// <summary>A link in a flow's prose the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Flow";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-flows";
+
+    private IReadOnlyList<DomainFlowSection> _sections = [];
+    private readonly Dictionary<DomainFlowSection, IReadOnlyList<MdBlock>> _prose = [];
+    private DomainChapterFile? _read;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_read, File)) return;
+        _read = File;
+        _prose.Clear();
+        _sections = [.. File.Chapters.Select(DomainFlows.Section)];
+    }
+
+    private IReadOnlyList<MdBlock> ProseOf(DomainFlowSection section)
+    {
+        if (!_prose.TryGetValue(section, out var blocks)) _prose[section] = blocks = MarkdownPreview.ParseDocument(section.Prose);
+        return blocks;
+    }
+}

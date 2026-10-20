@@ -1,10 +1,17 @@
 @*
-    The Glossary of a bounded context in the Domain view (local ADR 0036): the
-    ubiquitous-language chapter's own prose, then each term with its first
-    sentence — the context's words in the context's language.
+    The Glossary of a bounded context in the Domain view (local ADR 0036), the
+    unit the Domain chapter bar offers for the ubiquitous-language grouping. It
+    reads the grouping's own prose, then lists every term chapter beside every
+    model chapter of the context's domain files, A–Z: each with its kind, its
+    aliases as code chips and its first sentence. A deprecated chapter is struck
+    through.
+
+    A filter box matches a heading or an alias; the kind filters beside it narrow
+    to the kinds pressed, and none pressed is every kind. "Easily confused" sets
+    side by side every two terms that name each other in `related`.
 *@
 
-<div class="domain-about" data-testid="domain-glossary">
+<div class="domain-about domain-glossary" data-testid="domain-glossary">
     @if (Chapter.Prose.Length > 0)
     {
         <MarkdownView Blocks="@_prose"
@@ -14,24 +21,112 @@
                       OnDevbookNavigate="OnNavigate" />
     }
 
-    @if (_terms.Count > 0)
+    @if (_entries.Count > 0)
     {
-        <dl class="domain-about__terms">
-            @foreach (var term in _terms)
+        <div class="domain-glossary__filters" data-testid="domain-glossary-filters">
+            <SearchBox Value="@_filter"
+                       ValueChanged="FilterChanged"
+                       Placeholder="Filter terms and aliases"
+                       AriaLabel="Filter the glossary"
+                       ClearLabel="Clear the filter"
+                       DebounceMilliseconds="@DebounceMilliseconds"
+                       CssClass="domain-glossary__search"
+                       TestId="domain-glossary-filter" />
+            @if (_kinds.Count > 1)
             {
-                <div class="domain-about__term" data-testid="domain-glossary-term" data-term="@term.Title">
-                    <dt class="domain-about__term-title"><DevbookTypeMarker Value="term" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@term.Title</dt>
-                    <dd class="domain-about__term-summary">@term.Summary</dd>
-                </div>
+                <ButtonGroup AriaLabel="Kinds" CssClass="domain-glossary__kinds" TestId="domain-glossary-kinds">
+                    @foreach (var kind in _kinds)
+                    {
+                        <ToggleButton @key="kind"
+                                      Pressed="@_pressed.Contains(kind)"
+                                      PressedChanged="@(pressed => Toggle(kind, pressed))"
+                                      TestId="@($"domain-glossary-kind-{kind}")"
+                                      data-kind="@kind">
+                            <DevbookTypeMarker Value="@kind" CssClass="devbook-type-marker--leads" ShowTooltip="false" />@DomainGlossaryIndex.KindLabel(kind)
+                        </ToggleButton>
+                    }
+                </ButtonGroup>
             }
-        </dl>
+        </div>
+
+        @if (_shown.Count == 0)
+        {
+            <EmptyState Title="No match"
+                        Description="No term or model chapter matches the filter."
+                        TestId="domain-glossary-no-match"
+                        role="status" />
+        }
+        else
+        {
+            <dl class="domain-glossary__entries" data-testid="domain-glossary-entries">
+                @foreach (var entry in _shown)
+                {
+                    <div @key="entry"
+                         class="@EntryClass(entry)"
+                         data-testid="domain-glossary-term"
+                         data-term="@entry.Title"
+                         data-kind="@entry.Kind"
+                         data-deprecated="@(entry.Deprecated ? "true" : null)">
+                        <dt class="domain-glossary__title">
+                            @* Decorative: the kind is said in words beside it. *@
+                            <DevbookTypeMarker Value="@entry.Kind" CssClass="devbook-type-marker--leads" ShowTooltip="false" />
+                            @if (entry.Deprecated)
+                            {
+                                <s class="domain-glossary__name">@entry.Title</s><span class="sr-only"> (deprecated)</span>
+                            }
+                            else
+                            {
+                                <span class="domain-glossary__name">@entry.Title</span>
+                            }
+                            <span class="domain-glossary__kind" data-testid="domain-glossary-kind">@entry.KindLabel</span>
+                        </dt>
+                        <dd class="domain-glossary__body">
+                            @if (entry.Aliases.Count > 0)
+                            {
+                                <ul class="domain-glossary__aliases" aria-label="Aliases">
+                                    @foreach (var alias in entry.Aliases)
+                                    {
+                                        <li><code class="domain-glossary__alias" data-testid="domain-glossary-alias">@alias</code></li>
+                                    }
+                                </ul>
+                            }
+                            @if (entry.Summary.Length > 0)
+                            {
+                                <p class="domain-glossary__summary">@entry.Summary</p>
+                            }
+                        </dd>
+                    </div>
+                }
+            </dl>
+        }
+    }
+
+    @if (_confused.Count > 0)
+    {
+        <section class="domain-about__section domain-glossary__confused" data-testid="domain-glossary-confused" aria-label="Easily confused">
+            <h3 class="domain-about__heading">Easily confused</h3>
+            <ul class="domain-glossary__pairs">
+                @foreach (var pair in _confused)
+                {
+                    <li class="domain-glossary__pair" data-testid="domain-glossary-pair" data-pair="@($"{pair.First.Title} | {pair.Second.Title}")">
+                        @Side(pair.First)
+                        @Side(pair.Second)
+                    </li>
+                }
+            </ul>
+        </section>
     }
 </div>
 
 @code {
-    /// <summary>The ubiquitous-language chapter.</summary>
+    /// <summary>The ubiquitous-language chapter, whose prose leads the page.</summary>
     [Parameter, EditorRequired]
     public DomainChapter Chapter { get; set; } = default!;
+
+    /// <summary>The context's domain files, which the terms and model chapters are
+    /// read from. Empty means the grouping's own terms alone.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainChapterFile> Files { get; set; } = [];
 
     [Parameter]
     public string? DocumentPath { get; set; }
@@ -39,12 +134,79 @@
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
 
-    private IReadOnlyList<DomainTerm> _terms = [];
+    /// <summary>What the filter box opens with; blank is every row.</summary>
+    [Parameter]
+    public string? Filter { get; set; }
+
+    /// <summary>How long the filter waits after a keystroke; a test passes 0.</summary>
+    [Parameter]
+    public int DebounceMilliseconds { get; set; } = 150;
+
     private IReadOnlyList<MdBlock> _prose = [];
+    private IReadOnlyList<DomainGlossaryEntry> _entries = [];
+    private IReadOnlyList<DomainGlossaryEntry> _shown = [];
+    private IReadOnlyList<string> _kinds = [];
+    private IReadOnlyList<DomainConfusedPair> _confused = [];
+    private readonly HashSet<string> _pressed = new(StringComparer.Ordinal);
+    private string _filter = string.Empty;
+    private (DomainChapter?, IReadOnlyList<DomainChapterFile>?) _read;
+    private string? _filterParameter;
 
     protected override void OnParametersSet()
     {
+        // Taken from the host only when the host changed it, so the reader's
+        // typing survives the host's own re-renders.
+        if (!string.Equals(_filterParameter, Filter, StringComparison.Ordinal))
+        {
+            _filterParameter = Filter;
+            _filter = Filter ?? string.Empty;
+            Refilter();
+        }
+
+        if (_read == (Chapter, Files)) return;
+        _read = (Chapter, Files);
+
         _prose = MarkdownPreview.ParseDocument(Chapter.Prose);
-        _terms = DomainUnits.Terms(Chapter);
+        var files = Files.Count > 0 ? Files : [new DomainChapterFile(DocumentPath ?? string.Empty, string.Empty, [Chapter])];
+        _entries = DomainGlossaryIndex.Entries(files);
+        _kinds = DomainGlossaryIndex.Kinds(_entries);
+        _confused = DomainGlossaryIndex.Confused(files);
+        _pressed.IntersectWith(_kinds);
+        Refilter();
     }
+
+    private void FilterChanged(string value)
+    {
+        _filter = value ?? string.Empty;
+        Refilter();
+    }
+
+    private void Toggle(string kind, bool pressed)
+    {
+        if (pressed) _pressed.Add(kind);
+        else _pressed.Remove(kind);
+        Refilter();
+    }
+
+    private void Refilter() =>
+        _shown = [.. _entries.Where(entry => (_pressed.Count == 0 || _pressed.Contains(entry.Kind)) && entry.Matches(_filter))];
+
+    private static string EntryClass(DomainGlossaryEntry entry) =>
+        entry.Deprecated ? "domain-glossary__entry domain-glossary__entry--deprecated" : "domain-glossary__entry";
+
+    private static RenderFragment Side(DomainGlossaryEntry entry) =>
+        @<div class="domain-glossary__side" data-testid="domain-glossary-pair-term" data-term="@entry.Title">
+            @if (entry.Deprecated)
+            {
+                <s class="domain-glossary__name">@entry.Title</s><span class="sr-only"> (deprecated)</span>
+            }
+            else
+            {
+                <span class="domain-glossary__name">@entry.Title</span>
+            }
+            @if (entry.Summary.Length > 0)
+            {
+                <p class="domain-glossary__summary">@entry.Summary</p>
+            }
+        </div>;
 }

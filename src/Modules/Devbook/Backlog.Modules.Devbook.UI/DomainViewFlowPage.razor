@@ -1,0 +1,132 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The Domain view's Flow page for one flow file — flow.md or a flow.<name>.md
+    split (local ADR 0036). It reads the file through the domain store and hands
+    it to the library's DomainFlowPage: each lifecycle drawn as one row of states
+    with its prose beneath, every other diagram as it renders everywhere else.
+*@
+
+@if (_page is { } opened)
+{
+    <DomainFlowPage File="@opened" OnNavigate="NavigateAsync" AriaLabel="@($"Flow of {_contextName}")" />
+}
+else if (_problem is not null)
+{
+    <EmptyState BaseClass="devbook-empty"
+                TitleCssClass="devbook-empty__title"
+                DescriptionCssClass="@(null)"
+                Title="Flow"
+                Description="@_problem"
+                TestId="domain-view-flow-problem"
+                role="status" />
+}
+
+@code {
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The flow file, relative to the Domain folder: <c>tasks/flow.md</c>.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    /// <summary>A link in a flow's prose the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    private DomainDevbookStore? _store;
+    private DomainChapterFile? _page;
+    private string _contextName = "the context";
+    private string? _problem;
+    private (string? Alias, string? Path)? _loaded;
+    private bool _disposed;
+    private int _version;
+
+    protected override void OnInitialized()
+    {
+        // Resolved rather than injected, as the pane resolves its stores: a host
+        // composing no domain store gets a sentence, not a render failure.
+        _store = Services.GetService<DomainDevbookStore>();
+        if (_store is not null) _store.Changed += OnStoreChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded == (RepositoryAlias, SelectedPath)) return;
+        _loaded = (RepositoryAlias, SelectedPath);
+        await LoadAsync(clear: true);
+    }
+
+    /// <param name="clear">Whether the page on screen goes while the read runs: yes
+    /// for another file, no for the same file read again after a folder change.</param>
+    private async Task LoadAsync(bool clear)
+    {
+        var version = ++_version;
+        var alias = RepositoryAlias;
+        var path = SelectedPath;
+        if (_store is null)
+        {
+            (_page, _problem) = (null, "This host has no domain folder to read the flow from.");
+            return;
+        }
+
+        if (clear) (_page, _problem) = (null, null);
+
+        (DomainChapterFile? Page, string ContextName, string? Problem) read;
+        try
+        {
+            var view = await _store.LoadAsync(alias);
+            if (_disposed || version != _version) return;
+
+            // On the pool: a context's documents are read on first access, and
+            // the desktop host's dispatcher is the UI thread.
+            read = await Task.Run(() => Read(view, path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            read = (null, "the context", $"The flow could not be read: {ex.Message}");
+        }
+
+        if (_disposed || version != _version) return;
+        (_page, _contextName, _problem) = read;
+    }
+
+    /// <summary>The flow file the menu path names, read into chapters, or why
+    /// there is nothing to show.</summary>
+    internal static (DomainChapterFile? Page, string ContextName, string? Problem) Read(DomainDevbookView view, string? selectedPath)
+    {
+        if (view.Error is { } error) return (null, "the context", error);
+
+        var relative = (selectedPath ?? string.Empty).Replace('\\', '/').Trim('/');
+        var slug = relative.Split('/')[0];
+        var context = view.Contexts.FirstOrDefault(c => string.Equals(c.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        var document = context?.Documents.FirstOrDefault(d =>
+            string.Equals(d.Path, ".domain/" + relative, StringComparison.OrdinalIgnoreCase));
+
+        if (context is null || document is null) return (null, "the context", $"No flow file at {relative}.");
+
+        return (DomainUnits.Parse(DomainDevbookStore.ReadText(view, document), document.Path), context.DisplayName, null);
+    }
+
+    private Task NavigateAsync(DevbookReference reference) =>
+        DevbookChapterLink.From(reference) is { } target
+            ? OnNavigateToChapter.InvokeAsync(target)
+            : Task.CompletedTask;
+
+    private void OnStoreChanged()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync(clear: false);
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_store is not null) _store.Changed -= OnStoreChanged;
+    }
+}

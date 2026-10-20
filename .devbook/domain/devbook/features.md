@@ -827,6 +827,20 @@ Requirements, and the events it raises. A unit's events are the domain-event
 chapters whose `related` names it, and a service's requirements are those whose
 `related` names it or that its own `related` names.
 
+**Flow draws each lifecycle as one row.** A `stateDiagram-v2` in a flow file is
+drawn as one row of states. The forward transitions run above the row, the ways
+back run below it, and the way from the last state back to the first loops round
+the outside. The chapter's prose follows the row. Every other Mermaid diagram in
+the file renders as it does elsewhere, and so does a state diagram the row cannot
+hold, such as one with composite states.
+
+**The Glossary is the context's words, A to Z.** The chapter bar's Glossary lists
+every term under `## Ubiquitous Language` and every model chapter of the
+context's domain files. Each row shows its kind, its aliases as code chips and its
+first sentence. A filter box matches a heading or an alias, kind filters sit
+beside it, and a `deprecated` chapter is struck through. **Easily confused** sets
+two terms side by side when each names the other in `related`.
+
 The view is built behind the [New domain view](context.md#new-domain-view)
 switch. Until the switch is on, the Domain area reads as it always has.
 
