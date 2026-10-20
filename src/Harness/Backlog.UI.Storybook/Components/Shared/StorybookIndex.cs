@@ -363,7 +363,7 @@ internal static class StorybookIndex
             // Always true tab is this page's DomainAlwaysTrue, before this page
             // introduces it. It bends that way because the tab is a part of the unit
             // page — read the page first, then the tab — as Model's tabs follow it.
-            new("devbook/domain-always-true", "Always true", "DomainAlwaysTrue: an aggregate's Always true tab — each rule's claim marked by its proof, grouped by the concept it is enforced at, where each is enforced folded until asked for."),
+            new("devbook/domain-always-true", "Always true", "DomainAlwaysTrue: an aggregate's Always true tab — each rule's claim marked by its proof and counted, in a card per group the chapter writes or else per concept it is enforced at, where each is enforced folded until asked for."),
 
             // After Domain units, whose chapter bar offers it: the Glossary unit read
             // whole, with its filters and its Easily confused pairs.

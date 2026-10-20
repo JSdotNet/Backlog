@@ -23,13 +23,29 @@ public enum DomainRuleProof
 /// or <see langword="null"/> when it has none.</param>
 public sealed record DomainRule(string Title, string Claim, string? EnforcedAt, DomainRuleProof Proof);
 
-/// <summary>The rules about one concept: the type their <c>Enforced at:</c> line
-/// names, or the unit itself.</summary>
-/// <param name="Title">The concept's heading.</param>
-/// <param name="Type">The concept's <c>type</c>, which its marker draws.</param>
-/// <param name="Reference">The path and anchor of the concept's chapter, which
-/// the group's heading opens.</param>
-public sealed record DomainRuleGroup(string Title, string Type, string Reference, IReadOnlyList<DomainRule> Rules);
+/// <summary>The rules about one concept. Either a group the invariants chapter
+/// writes itself — a <c>type: invariants</c> heading inside the aggregate's
+/// chapter, its rules beneath it — or, for a rule outside every such group, the
+/// type its <c>Enforced at:</c> line names, else the unit itself.</summary>
+/// <param name="Title">The group's heading as written, or the concept's.</param>
+/// <param name="Type">The concept's <c>type</c>, which its marker draws, or
+/// <see langword="null"/> for a written group, which is no model element.</param>
+/// <param name="Reference">The path and anchor of the chapter the group stands
+/// for: the concept's, which its heading opens, or the written group's own.</param>
+public sealed record DomainRuleGroup(string Title, string? Type, string Reference, IReadOnlyList<DomainRule> Rules)
+{
+    /// <summary>What a written group is about, from its <c>related</c>, each
+    /// shown beside its heading. Empty for a concept's group, whose heading is
+    /// the concept.</summary>
+    public IReadOnlyList<DomainRuleLink> Links { get; init; } = [];
+}
+
+/// <summary>One thing a written group of rules is about.</summary>
+/// <param name="Text">The chapter's heading where the files read name it, else
+/// its anchor or file name read back as words.</param>
+/// <param name="Reference">The reference the group's <c>related</c> names, made
+/// repository-relative.</param>
+public sealed record DomainRuleLink(string Text, string Reference);
 
 public static partial class DomainUnits
 {
@@ -98,12 +114,12 @@ public static partial class DomainUnits
         var concepts = Concepts([page, .. domainFiles]);
         var unitConcept = new Concept(unit.Chapter.Title, unit.Type, unit.Reference);
 
-        IEnumerable<(DomainChapter Rule, Concept Fallback)> written;
+        IEnumerable<(DomainChapter Rule, DomainChapter? Written, Concept Fallback)> found;
         if (unit.Kind == DomainUnitKind.Shared)
         {
-            written = SharedChapters(unit.Chapter, page, rules)
-                .SelectMany(chapter => chapter.Descendants().Where(IsInvariant)
-                    .Select(rule => (rule, SharedConcept(unit, chapter, page, rules))));
+            found = SharedChapters(unit.Chapter, page, rules)
+                .SelectMany(chapter => InvariantsUnder(chapter)
+                    .Select(rule => (rule.Rule, rule.Group, SharedConcept(unit, chapter, page, rules))));
         }
         else
         {
@@ -114,34 +130,137 @@ public static partial class DomainUnits
                 .ToList();
 
             // A split page's invariants file is the one aggregate's, whatever its
-            // chapters are called.
+            // chapters are called, and a rule written straight under its title is
+            // one of them too.
             var invariants = chapters.Count > 0
-                ? chapters.SelectMany(chapter => chapter.Descendants().Where(IsInvariant))
-                : IsSplit(page) ? rules.AllChapters().Where(IsInvariant) : [];
-            written = invariants.Select(rule => (rule, unitConcept));
+                ? chapters.SelectMany(InvariantsUnder)
+                : IsSplit(page)
+                    ? rules.Chapters.SelectMany(chapter => IsInvariant(chapter) ? [(chapter, null)] : InvariantsUnder(chapter))
+                    : [];
+            found = invariants.Select(rule => (rule.Rule, rule.Group, unitConcept));
         }
 
-        var groups = new List<(Concept Concept, List<DomainRule> Rules)>();
-        foreach (var (chapter, fallback) in written)
+        var titles = Titles([page, .. domainFiles, rules]);
+        var groups = new List<(Concept Concept, IReadOnlyList<DomainRuleLink> Links, List<DomainRule> Rules)>();
+        foreach (var (chapter, written, fallback) in found)
         {
             var rule = Rule(chapter);
-            var concept = NamedConcept(rule.EnforcedAt, concepts) ?? fallback;
+            var concept = written is null
+                ? NamedConcept(rule.EnforcedAt, concepts) ?? fallback
+                : new Concept(written.Title, null, rules.ReferenceTo(written));
             var group = groups.FirstOrDefault(g => g.Concept.Reference == concept.Reference);
             if (group.Rules is null)
             {
-                group = (concept, []);
+                group = (concept, written is null ? [] : LinksOf(written, rules.Path, titles, Normalize(unit.Reference)), []);
                 groups.Add(group);
             }
             group.Rules.Add(rule);
         }
 
+        // Written groups read in the chapter's order. Where the chapter writes
+        // none, the unit's own group leads.
+        var anyWritten = groups.Any(group => group.Concept.Type is null);
         var ordered = groups
-            .OrderBy(group => group.Concept.Reference == unitConcept.Reference ? 0 : 1)
-            .Select(group => new DomainRuleGroup(group.Concept.Title, group.Concept.Type, group.Concept.Reference, group.Rules));
+            .OrderBy(group => !anyWritten && group.Concept.Reference == unitConcept.Reference ? 0 : 1)
+            .Select(group => new DomainRuleGroup(group.Concept.Title, group.Concept.Type, group.Concept.Reference, group.Rules) { Links = group.Links });
         return [.. ordered];
     }
 
-    private sealed record Concept(string Title, string Type, string Reference);
+    private sealed record Concept(string Title, string? Type, string Reference);
+
+    /// <summary>The rules under <paramref name="chapter"/> in file order, each
+    /// with the written group it sits in: the nearest <c>type: invariants</c>
+    /// heading between the chapter and the rule, or none.</summary>
+    private static IEnumerable<(DomainChapter Rule, DomainChapter? Group)> InvariantsUnder(DomainChapter chapter)
+    {
+        return Walk(chapter, null);
+
+        static IEnumerable<(DomainChapter, DomainChapter?)> Walk(DomainChapter parent, DomainChapter? group)
+        {
+            foreach (var child in parent.Children)
+            {
+                if (IsInvariant(child))
+                {
+                    yield return (child, group);
+                    continue;
+                }
+                foreach (var found in Walk(child, child.Type == "invariants" ? child : group)) yield return found;
+            }
+        }
+    }
+
+    /// <summary>Every chapter's heading in <paramref name="files"/>, by the
+    /// normalized reference that names it; the first file wins.</summary>
+    private static Dictionary<string, string> Titles(IEnumerable<DomainChapterFile> files)
+    {
+        var titles = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var file in files)
+        {
+            foreach (var chapter in file.AllChapters().Where(chapter => chapter.Anchor.Length > 0))
+            {
+                titles.TryAdd(Normalize(file.ReferenceTo(chapter)), chapter.Title);
+            }
+        }
+        return titles;
+    }
+
+    /// <summary>A written group's <c>related</c>, as links: each reference made
+    /// repository-relative against the invariants file, and named by the
+    /// heading it opens where <paramref name="titles"/> holds it. The
+    /// <paramref name="unit"/> it also names, which pairs the group with its
+    /// aggregate, is left out.</summary>
+    private static IReadOnlyList<DomainRuleLink> LinksOf(DomainChapter group, string fromDocument, Dictionary<string, string> titles, string unit)
+    {
+        var links = new List<DomainRuleLink>();
+        var seen = new HashSet<string>(StringComparer.Ordinal) { unit };
+        foreach (var related in group.Related)
+        {
+            var reference = RepositoryRelative(related, fromDocument);
+            // The unit is what every group on its tab is about, so it is no link,
+            // and a concept named twice is linked once.
+            if (reference.Length == 0 || !seen.Add(Normalize(reference))) continue;
+            var text = titles.TryGetValue(Normalize(reference), out var title) ? title : ReadBack(reference);
+            links.Add(new DomainRuleLink(text, reference));
+        }
+        return links;
+    }
+
+    /// <summary>A <c>related</c> entry as a repository-relative reference: a
+    /// rooted one as written, an anchor against the document, and a relative one
+    /// against the document's folder, as a Markdown viewer reads it.</summary>
+    private static string RepositoryRelative(string related, string fromDocument)
+    {
+        var text = related.Trim().Trim('"', '\'');
+        if (text.Length == 0) return string.Empty;
+        if (text.StartsWith('#')) return PathOf(fromDocument) + text;
+        if (IsRooted(text)) return text.TrimStart('/');
+
+        var folder = PathOf(fromDocument).Replace('\\', '/');
+        var slash = folder.LastIndexOf('/');
+        var parts = (slash < 0 ? [] : folder[..slash].Split('/')).ToList();
+        foreach (var segment in text.Split('/'))
+        {
+            if (segment is "." or "") continue;
+            if (segment == "..")
+            {
+                if (parts.Count > 0) parts.RemoveAt(parts.Count - 1);
+                continue;
+            }
+            parts.Add(segment);
+        }
+        return string.Join('/', parts);
+    }
+
+    /// <summary>A reference read back as words: its anchor, else its file's name
+    /// without the extension, the first letter raised.</summary>
+    private static string ReadBack(string reference)
+    {
+        var hash = reference.IndexOf('#');
+        var name = hash >= 0 ? reference[(hash + 1)..] : reference[(reference.LastIndexOf('/') + 1)..];
+        if (hash < 0 && name.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) name = name[..^3];
+        name = name.Replace('-', ' ').Trim();
+        return name.Length == 0 ? reference : char.ToUpperInvariant(name[0]) + name[1..];
+    }
 
     /// <summary>The page's own invariants file, or <see langword="null"/>: the
     /// one <see cref="InvariantsPathFor"/> names, else the older spelling the

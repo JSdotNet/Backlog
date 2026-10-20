@@ -229,6 +229,13 @@
         return guarantees;
     }
 
+    /// <summary>The Always true tab's title, with how many rules it holds.</summary>
+    private string AlwaysTrueTitle(DomainUnit unit)
+    {
+        var count = RulesOf(unit).Sum(group => group.Rules.Count);
+        return count == 0 ? "Always true" : $"Always true · {count}";
+    }
+
     private IReadOnlyList<DomainRuleGroup> RulesOf(DomainUnit unit)
     {
         Reset();
@@ -265,13 +272,13 @@
                                                   Events="@EventsOf(unit)"
                                                   OnNavigate="NavigateAsync" />
                         </TabPanel>
-                        <TabPanel Id="@($"domain-unit-{unit.Key}-always-true")" Title="Always true" TabTestId="domain-unit-always-true-tab">
+                        <TabPanel Id="@($"domain-unit-{unit.Key}-always-true")" Title="@AlwaysTrueTitle(unit)" TabTestId="domain-unit-always-true-tab">
                             <DomainAlwaysTrue Groups="@RulesOf(unit)" UnitTitle="@unit.Label" OnNavigate="NavigateAsync" />
                         </TabPanel>
                     </Tabs>
                     break;
                 case DomainUnitKind.Shared:
-                    <DomainAlwaysTrue Groups="@RulesOf(unit)" UnitTitle="@unit.Label" OnNavigate="NavigateAsync" />
+                    <DomainAlwaysTrue Groups="@RulesOf(unit)" UnitTitle="@unit.Label" Shared="true" OnNavigate="NavigateAsync" />
                     break;
                 case DomainUnitKind.DomainService:
                     <DomainServiceAbout Chapter="@unit.Chapter"

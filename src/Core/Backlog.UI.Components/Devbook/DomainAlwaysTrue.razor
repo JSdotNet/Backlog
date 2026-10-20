@@ -1,14 +1,19 @@
 @*
     A unit's Always true tab in the Domain view (local ADR 0036): the rules its
-    invariants subpage writes, one claim each, grouped by the concept each rule's
-    `Enforced at:` line names, the unit's own group first.
+    invariants subpage writes, one claim each, as a card per group. A group is
+    one the chapter writes itself — a `type: invariants` heading inside the
+    aggregate's chapter, its words the card's heading and what its `related`
+    names linked beside them — or, for a rule outside every such group, the
+    concept its `Enforced at:` line names, else the unit.
 
     Each claim is marked by what stands behind it: ✓ a test the chapter names, ○
-    no test yet, ? nothing enforces it yet (`Enforced at: open`). The mark is a
-    glyph for the eye and words for a listener, never colour alone.
+    no test yet, ? nothing enforces it yet (`Enforced at: open`), and the bar
+    counts each. The mark is a glyph for the eye and words for a listener, never
+    colour alone; an open rule also says so in words on its row.
 
-    Where each rule is enforced names code, so it stays folded until "Show where
-    each is enforced" is pressed.
+    A row reads as the rule's heading, the short claim. Its first sentence and
+    where it is enforced name fields and code, so they stay folded until "Show
+    where each is enforced" is pressed.
 *@
 
 <div class="domain-rules" data-testid="domain-always-true">
@@ -21,53 +26,91 @@
     }
     else
     {
+        <p class="domain-rules__intro" data-testid="domain-rules-intro">@Intro</p>
+
         <div class="domain-rules__bar">
-            @* Each rule reads its own mark out in words, so the key is for the eye only. *@
-            <p class="domain-rules__legend" data-testid="domain-rules-legend" aria-hidden="true">
-                <span><span class="domain-rules__mark" aria-hidden="true">✓</span> proved by a test</span>
-                <span><span class="domain-rules__mark" aria-hidden="true">○</span> no test yet</span>
-                <span><span class="domain-rules__mark" aria-hidden="true">?</span> not enforced yet</span>
-            </p>
+            @* A mark no rule carries is left out of the bar. *@
+            @foreach (var proof in Proofs.Where(proof => Count(proof) > 0))
+            {
+                <span class="domain-rules__count" data-testid="domain-rules-count" data-proof="@ProofName(proof)"><span class="domain-rules__mark domain-rules__mark--@ProofName(proof)" aria-hidden="true">@Glyph(proof)</span> @CountText(proof) · @Count(proof)</span>
+            }
             <ToggleButton Pressed="@_showEnforced"
                           PressedChanged="value => _showEnforced = value"
+                          CssClass="domain-rules__toggle"
                           TestId="domain-rules-show-enforced">
                 Show where each is enforced
             </ToggleButton>
         </div>
 
-        @foreach (var group in Groups)
-        {
-            <section @key="group.Reference" class="domain-rules__group" data-testid="domain-rule-group" data-concept="@group.Title" aria-labelledby="@HeadingId(group)">
-                <h3 class="domain-rules__heading" id="@HeadingId(group)">
-                    <DevbookTypeMarker Value="@group.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />
-                    @if (DevbookReference.Parse(group.Reference) is { } reference)
-                    {
-                        <DevbookReferenceLink Reference="@reference"
-                                              Text="@group.Title"
-                                              OnNavigate="OnNavigate"
-                                              TestId="domain-rule-group-link" />
-                    }
-                    else
-                    {
-                        @group.Title
-                    }
-                </h3>
-                <ul class="domain-rules__list">
-                    @foreach (var rule in group.Rules)
-                    {
-                        <li class="domain-rules__rule" data-testid="domain-rule" data-proof="@ProofName(rule.Proof)">
-                            <span class="domain-rules__mark" aria-hidden="true">@Glyph(rule.Proof)</span>
-                            <span class="sr-only">@ProofText(rule.Proof): </span>
-                            <span class="domain-rules__claim">@rule.Claim</span>
-                            @if (_showEnforced && rule.EnforcedAt is { } enforcedAt)
+        <div class="domain-rules__groups">
+            @foreach (var group in Groups)
+            {
+                <section @key="group.Reference" class="domain-rules__group" data-testid="domain-rule-group" data-concept="@group.Title" aria-labelledby="@HeadingId(group)">
+                    <div class="domain-rules__header">
+                        <h3 class="domain-rules__heading" id="@HeadingId(group)">
+                            @if (group.Type is { } type)
                             {
-                                <span class="domain-rules__enforced" data-testid="domain-rule-enforced">Enforced at: @Inline(enforcedAt)</span>
+                                <DevbookTypeMarker Value="@type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />
+                                @if (DevbookReference.Parse(group.Reference) is { } reference)
+                                {
+                                    <DevbookReferenceLink Reference="@reference"
+                                                          Text="@group.Title"
+                                                          OnNavigate="OnNavigate"
+                                                          TestId="domain-rule-group-link" />
+                                }
+                                else
+                                {
+                                    @group.Title
+                                }
                             }
-                        </li>
-                    }
-                </ul>
-            </section>
-        }
+                            else
+                            {
+                                @group.Title
+                            }
+                        </h3>
+                        @if (group.Links.Count > 0)
+                        {
+                            <span class="domain-rules__about">
+                                @foreach (var link in group.Links)
+                                {
+                                    @if (DevbookReference.Parse(link.Reference) is { } about)
+                                    {
+                                        <DevbookReferenceLink Reference="@about"
+                                                              Text="@link.Text"
+                                                              OnNavigate="OnNavigate"
+                                                              TestId="domain-rule-group-about" />
+                                    }
+                                }
+                            </span>
+                        }
+                    </div>
+                    <ul class="domain-rules__list">
+                        @foreach (var rule in group.Rules)
+                        {
+                            <li class="domain-rules__rule@(rule.Proof == DomainRuleProof.Open ? " domain-rules__rule--open" : string.Empty)" data-testid="domain-rule" data-proof="@ProofName(rule.Proof)">
+                                <span class="domain-rules__mark domain-rules__mark--@ProofName(rule.Proof)" aria-hidden="true">@Glyph(rule.Proof)</span>
+                                <span class="sr-only">@ProofText(rule.Proof): </span>
+                                <span class="domain-rules__line"><span class="domain-rules__claim">@Headline(rule)</span>@if (rule.Proof == DomainRuleProof.Open)
+                                {
+                                    @(" ")<span class="domain-rules__unsettled">Open — not built until someone decides.</span>
+                                }</span>
+                                @if (_showEnforced)
+                                {
+                                    @if (!string.Equals(rule.Claim, Headline(rule), StringComparison.Ordinal))
+                                    {
+                                        <span class="domain-rules__sentence" data-testid="domain-rule-sentence">@rule.Claim</span>
+                                    }
+                                    @if (rule.EnforcedAt is { } enforcedAt)
+                                    {
+                                        <span class="domain-rules__enforced" data-testid="domain-rule-enforced">Enforced at: @Inline(enforcedAt)</span>
+                                    }
+                                }
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+        </div>
     }
 </div>
 
@@ -76,18 +119,54 @@
     [Parameter]
     public IReadOnlyList<DomainRuleGroup> Groups { get; set; } = [];
 
-    /// <summary>The unit's heading, which the empty state names.</summary>
+    /// <summary>The unit's heading, which the intro and the empty state name.</summary>
     [Parameter]
     public string UnitTitle { get; set; } = "this unit";
 
-    /// <summary>A group's heading the reader followed to its concept.</summary>
+    /// <summary>Whether the unit is a shared grouping — Shared Value Objects —
+    /// whose rules several values keep, rather than one aggregate.</summary>
+    [Parameter]
+    public bool Shared { get; set; }
+
+    /// <summary>A group's heading or link the reader followed to its concept.</summary>
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    private static readonly DomainRuleProof[] Proofs = [DomainRuleProof.Proved, DomainRuleProof.Unproved, DomainRuleProof.Open];
 
     private bool _showEnforced;
     private readonly string _id = $"domain-rules-{Guid.NewGuid():N}";
 
+    private int Total => Groups.Sum(group => group.Rules.Count);
+
+    private int Count(DomainRuleProof proof) => Groups.Sum(group => group.Rules.Count(rule => rule.Proof == proof));
+
+    /// <summary>What the tab is, in the words the design gives it.</summary>
+    private string Intro
+    {
+        get
+        {
+            var rules = Total == 1 ? "rule" : "rules";
+            var who = Shared ? $"the {UnitTitle} keep, whoever changes them" : $"{Article(UnitTitle)} {UnitTitle} keeps, whoever changes it";
+            return $"The {Total} {rules} {who}, grouped by the concept they are about. "
+                + "Each is one claim that is either true or false. "
+                + "A requirement is a promise to a person; these are what the model makes impossible to break.";
+        }
+    }
+
+    private static string Article(string word) =>
+        word.Length > 0 && "AEIOUaeiou".Contains(word[0], StringComparison.Ordinal) ? "an" : "a";
+
     private string HeadingId(DomainRuleGroup group) => $"{_id}-{Groups.ToList().IndexOf(group)}";
+
+    /// <summary>What a row reads as: the rule's heading, the short claim the
+    /// board shows, as a sentence. Its first sentence, which names the fields and
+    /// calls, waits behind the toggle with where it is enforced.</summary>
+    private static string Headline(DomainRule rule)
+    {
+        var title = rule.Title.Trim();
+        return title.Length == 0 || ".!?".Contains(title[^1], StringComparison.Ordinal) ? title : title + ".";
+    }
 
     private static string Glyph(DomainRuleProof proof) => proof switch
     {
@@ -101,6 +180,13 @@
         DomainRuleProof.Proved => "Proved by a test",
         DomainRuleProof.Open => "Not enforced yet",
         _ => "No test yet"
+    };
+
+    private static string CountText(DomainRuleProof proof) => proof switch
+    {
+        DomainRuleProof.Proved => "proved by a unit test",
+        DomainRuleProof.Open => "open, nobody settled it",
+        _ => "no test linked"
     };
 
     private static string ProofName(DomainRuleProof proof) => proof switch

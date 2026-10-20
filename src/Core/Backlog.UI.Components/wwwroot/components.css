@@ -20476,8 +20476,15 @@ select.field__input {
 
 .domain-units {
     display: grid;
+    /* One column no wider than the pane: a chapter bar of many units wraps
+       rather than stretching the page, and the cards below with it. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-md);
     min-width: 0;
+}
+
+.domain-units__bar > .tabs__list {
+    flex-wrap: wrap;
 }
 
 .domain-units__tab {
@@ -20488,6 +20495,7 @@ select.field__input {
 
 .domain-unit {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-sm);
     min-width: 0;
 }
@@ -20652,10 +20660,11 @@ select.field__input {
 }
 
 /*
-  Always true: a unit's rules, one claim per line behind its mark (✓ proved by
-  a test, ○ no test yet, ? not enforced yet), grouped under the concept each is
-  enforced at. Monochrome like the rest of the page: the glyph and the words
-  carry the meaning, so the mark takes the secondary ink and no tone.
+  Always true: a unit's rules as a card per group (a group the invariants
+  chapter writes, or the concept a rule is enforced at), one claim per row
+  behind its mark: ✓ proved by a test, ○ no test yet, ? not enforced yet. The
+  glyph and the words carry the meaning; the tone only helps the eye — ✓ takes
+  the success ink, and an open rule sits on the warning surface and says so.
 */
 
 .domain-rules {
@@ -20664,26 +20673,48 @@ select.field__input {
     min-width: 0;
 }
 
+.domain-rules__intro {
+    max-width: 50rem;
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
 .domain-rules__bar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-}
-
-.domain-rules__legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-md);
-    margin: 0;
+    gap: var(--spacing-sm) var(--spacing-lg);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.domain-rules__group {
+.domain-rules__toggle {
+    margin-left: auto;
+}
+
+.domain-rules__groups {
     display: grid;
-    gap: var(--spacing-xs);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 27.5rem), 1fr));
+    gap: var(--spacing-md);
+    align-items: start;
+}
+
+.domain-rules__group {
+    min-width: 0;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-rules__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .domain-rules__heading {
@@ -20697,14 +20728,25 @@ select.field__input {
 
 /* A concept is named in words, so its link reads as a heading rather than as
    the path a reference otherwise shows. */
-.domain-rules__heading .devbook-ref {
+.domain-rules__heading .devbook-ref,
+.domain-rules__about .devbook-ref {
     font-family: inherit;
     font-size: inherit;
 }
 
+.domain-rules__about {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.domain-rules__about .devbook-ref::after {
+    content: " \2192";
+}
+
 .domain-rules__list {
     display: grid;
-    gap: var(--spacing-xs);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -20713,8 +20755,18 @@ select.field__input {
 .domain-rules__rule {
     display: grid;
     grid-template-columns: 1.25rem 1fr;
-    column-gap: var(--spacing-xs);
+    column-gap: var(--spacing-sm);
     align-items: baseline;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-sm);
+}
+
+.domain-rules__rule + .domain-rules__rule {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-rules__rule--open {
+    background: color-mix(in srgb, var(--color-warning) 65%, var(--color-background-alt));
 }
 
 .domain-rules__mark {
@@ -20723,15 +20775,34 @@ select.field__input {
     text-align: center;
 }
 
-.domain-rules__claim {
+.domain-rules__mark--proved {
+    color: var(--color-success-text);
+}
+
+.domain-rules__mark--open {
+    color: var(--color-primary);
+}
+
+.domain-rules__line {
+    grid-column: 2;
     min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.domain-rules__unsettled {
+    color: var(--color-primary);
+}
+
+.domain-rules__sentence {
+    grid-column: 2;
+    color: var(--color-text-secondary);
     overflow-wrap: anywhere;
 }
 
 .domain-rules__enforced {
     grid-column: 2;
     color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     overflow-wrap: anywhere;
 }
 

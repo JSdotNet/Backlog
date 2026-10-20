@@ -822,11 +822,16 @@ aggregate's **About** is its prose, a card per entity or value object it owns,
 its enums as rows of values, and the events it raises with who hears them.
 **Always true** sits beside it, read from the invariants file beside the page
 (`domain.invariants.md`, or `domain.<name>.invariants.md` beside a split). Each
-rule is its first sentence, marked ✓ when its chapter names a test, ○ when it
-names none, and ? when its `Enforced at:` line is `open`. The rules group under
-the entity, value object or enum that line names, else under the aggregate, and
-each group's heading opens that concept on About. Where each rule is enforced
-names code, so it shows only once **Show where each is enforced** is pressed. A
+rule reads as its heading, marked ✓ when its chapter names a test, ○ when it
+names none, and ? when its `Enforced at:` line is `open`; the tab's title counts
+the rules and the bar counts each mark. The rules sit in a card per group. A
+group is one the chapter writes itself, a `type: invariants` heading inside the
+aggregate's chapter with its rules beneath it, headed by its words with what its
+`related` names linked beside them. A rule outside every such group sits under
+the entity, value object or enum its `Enforced at:` line names, else under the
+aggregate, and that card's heading opens the concept on About. A rule's first
+sentence and where it is enforced name fields and code, so they show only once
+**Show where each is enforced** is pressed. A
 shared value object's or enum's rules show on the base page, as a **Shared Value
 Objects** or **Shared Enums** unit in its chapter bar. A domain service's page is its prose, the
 requirements it is held to under **You can count on**, each opening on

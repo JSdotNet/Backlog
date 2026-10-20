@@ -38,7 +38,10 @@ public sealed class DomainAlwaysTrueTests
         Assert.Equal(["proved", "open", "unproved", "unproved", "proved"], rules.Select(rule => rule.GetAttribute("data-proof")));
         Assert.Equal(["✓", "?", "○", "○", "✓"], rules.Select(rule => rule.QuerySelector(".domain-rules__mark")!.TextContent));
         Assert.Contains("Proved by a test", rules[0].QuerySelector(".sr-only")!.TextContent, StringComparison.Ordinal);
-        Assert.Equal("A placed order cannot be placed again.", rules[0].QuerySelector(".domain-rules__claim")!.TextContent);
+        // A row is the rule's heading, the short claim; its first sentence waits
+        // behind the toggle.
+        Assert.Equal("An order is placed once.", rules[0].QuerySelector(".domain-rules__claim")!.TextContent);
+        Assert.Empty(page.FindAll("[data-testid='domain-rule-sentence']"));
     }
 
     [Fact]
@@ -58,6 +61,7 @@ public sealed class DomainAlwaysTrueTests
 
         var shown = page.FindAll("[data-testid='domain-rule-enforced']");
         Assert.Equal(5, shown.Count);
+        Assert.Equal("A placed order cannot be placed again.", page.FindAll("[data-testid='domain-rule-sentence']")[0].TextContent);
         Assert.Equal("Enforced at: Place()", shown[0].TextContent);
         Assert.Equal("Place()", shown[0].QuerySelector("code")!.TextContent);
         Assert.Equal("true", page.Find("[data-testid='domain-rules-show-enforced']").GetAttribute("aria-pressed"));
@@ -95,8 +99,60 @@ public sealed class DomainAlwaysTrueTests
 
         var group = Assert.Single(page.FindAll("[data-testid='domain-rule-group']"));
         Assert.Equal("Money", group.GetAttribute("data-concept"));
-        Assert.Equal("An amount names exactly one currency.", group.QuerySelector(".domain-rules__claim")!.TextContent);
+        Assert.Equal("An amount has one currency.", group.QuerySelector(".domain-rules__claim")!.TextContent);
     }
+
+    [Fact]
+    public void The_tab_counts_the_rules_and_each_mark()
+    {
+        using var context = new BunitContext();
+        var page = Render(context);
+
+        Assert.Equal("Always true · 5", page.Find("[data-testid='domain-unit-always-true-tab']").TextContent.Trim());
+        page.Find("[data-testid='domain-unit-always-true-tab']").Click();
+
+        Assert.StartsWith("The 5 rules an Order keeps, whoever changes it,", page.Find("[data-testid='domain-rules-intro']").TextContent, StringComparison.Ordinal);
+        var counts = page.FindAll("[data-testid='domain-rules-count']");
+        Assert.Equal(["proved", "unproved", "open"], counts.Select(count => count.GetAttribute("data-proof")));
+        Assert.Equal(["✓ proved by a unit test · 2", "○ no test linked · 2", "? open, nobody settled it · 1"], counts.Select(count => count.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void An_open_rule_says_nobody_has_settled_it()
+    {
+        using var context = new BunitContext();
+        var page = Render(context);
+        page.Find("[data-testid='domain-unit-always-true-tab']").Click();
+
+        var open = page.Find("[data-testid='domain-rule'][data-proof='open']");
+        Assert.Contains("Open — not built until someone decides.", open.TextContent, StringComparison.Ordinal);
+        Assert.Empty(page.FindAll("[data-testid='domain-rule'][data-proof='proved'] .domain-rules__unsettled"));
+    }
+
+    [Fact]
+    public void A_written_group_is_a_card_headed_by_its_words_with_what_it_is_about_beside_it()
+    {
+        using var context = new BunitContext();
+        DevbookReference? left = null;
+        var page = context.Render<DomainAlwaysTrue>(parameters => parameters
+            .Add(p => p.Groups, DomainUnits.RulesOf(
+                DomainUnits.Of(Page, [Grouped])[0], Page, [Grouped], [Page]))
+            .Add(p => p.UnitTitle, "Order")
+            .Add(p => p.OnNavigate, (DevbookReference reference) => left = reference));
+
+        var groups = page.FindAll("[data-testid='domain-rule-group']");
+        Assert.Equal(["How an order moves", "Lines and money", "Order"], groups.Select(group => group.QuerySelector("h3")!.TextContent.Trim()));
+        // Its heading is words, not a link and no type marker.
+        Assert.Null(groups[0].QuerySelector("h3 [data-testid='domain-rule-group-link']"));
+        Assert.Null(groups[0].QuerySelector("h3 .devbook-type-marker"));
+        var about = groups[1].QuerySelectorAll("[data-testid='domain-rule-group-about']");
+        Assert.Equal(["Order Line", "Money"], about.Select(link => link.TextContent.Trim()));
+
+        page.FindAll("[data-testid='domain-rule-group-about']")[0].Click();
+        Assert.Equal("order-lifecycle", left?.Slug);
+    }
+
+    private static DomainChapterFile Grouped => DomainUnits.Parse(DomainRulesTests.GroupedInvariants, DomainRulesTests.InvariantsPath);
 
     [Fact]
     public void An_aggregate_with_no_rules_says_so()
