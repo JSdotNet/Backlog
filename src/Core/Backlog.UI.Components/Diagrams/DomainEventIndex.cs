@@ -74,13 +74,20 @@ public static partial class DomainEventIndex
     {
         if (contract.Payload is null) return null;
 
-        var result = new List<DomainEventField>();
+        // A bullet's wrapped lines are part of it.
+        var bullets = new List<string>();
         foreach (var raw in contract.Payload.Split('\n'))
         {
             var line = raw.Trim();
             if (line.Length == 0) continue;
+            if (line.StartsWith("- ", StringComparison.Ordinal) || line.StartsWith("* ", StringComparison.Ordinal) || bullets.Count == 0) bullets.Add(line);
+            else bullets[^1] += " " + line;
+        }
 
-            var match = PayloadLine().Match(line);
+        var result = new List<DomainEventField>();
+        foreach (var bullet in bullets)
+        {
+            var match = PayloadLine().Match(bullet);
             if (!match.Success) return null;
             result.Add(new DomainEventField(match.Groups["name"].Value, match.Groups["meaning"].Value.Trim()));
         }
@@ -157,7 +164,7 @@ public static partial class DomainEventIndex
         return [.. inner.Split('|').Select(c => c.Trim())];
     }
 
-    [GeneratedRegex(@"^(Published|Raised|Emitted)\s+(when|after|once)\s+", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(Published|Raised|Emitted)(\s+by\s+\S+)?\s+(when|after|once)\s+", RegexOptions.IgnoreCase)]
     private static partial Regex WhenLead();
 
     [GeneratedRegex(@"\s+[—–-](?:\s+|$)|,\s+(?=[a-z])")]

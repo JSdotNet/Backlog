@@ -73,5 +73,10 @@ public sealed class DomainEventIndexTests
         Assert.Equal("which turns work-state changes into progress signals", consumer.What);
         Assert.Equal(["task_id", "new_status"], DomainEventIndex.Payload(contract)!.Select(f => f.Name));
         Assert.Null(DomainEventIndex.Payload(contract with { Payload = "Free prose about the payload." }));
+
+        // A bullet that wraps is still one row.
+        var wrapped = DomainEventIndex.Payload(contract with { Payload = "- `projection_target` - the target type:\n  `issue` or `cli-task`.\n- `external_id` - the id." })!;
+        Assert.Equal(["projection_target", "external_id"], wrapped.Select(f => f.Name));
+        Assert.Equal("the target type: `issue` or `cli-task`.", wrapped[0].Meaning);
     }
 }

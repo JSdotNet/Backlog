@@ -25099,7 +25099,7 @@ select.field__input {
 
 .domain-model-view__lead {
     max-width: 48rem;
-    margin: var(--spacing-md) 0 var(--spacing-sm);
+    margin: var(--spacing-xs) 0 var(--spacing-sm);
     color: var(--color-text-secondary);
     font-size: var(--font-size-lg);
     line-height: 1.55;
@@ -25322,7 +25322,8 @@ select.field__input {
     color: var(--color-text-secondary);
 }
 
-.domain-fields-owned__many {
+.domain-fields-owned__many,
+.domain-fields-owned__enum > .domain-fields-owned__note {
     margin-left: var(--spacing-xs);
 }
 
@@ -25375,6 +25376,7 @@ select.field__input {
 
 .domain-events__table {
     width: 100%;
+    min-width: 40rem;
     border-collapse: collapse;
     font-size: var(--font-size-sm);
 }
@@ -25424,6 +25426,7 @@ select.field__input {
 }
 
 .domain-event {
+    container-type: inline-size;
     gap: 0;
     padding: 0;
     overflow: hidden;
@@ -25480,6 +25483,18 @@ select.field__input {
     left: calc(var(--spacing-xl) / -2);
     transform: translate(-50%, -50%);
     color: var(--color-text-secondary);
+}
+
+/* Narrow: the steps stack, and the arrows that joined them side by side go. */
+@container (max-width: 36rem) {
+    .domain-event__flow {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .domain-event__step + .domain-event__step::before {
+        content: none;
+    }
 }
 
 .domain-event__step--event {

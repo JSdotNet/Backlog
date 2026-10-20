@@ -166,7 +166,14 @@ else
                             {
                                 <code class="domain-events__feed-name">@name</code>
                             }
-                            <p class="domain-events__feed-text">from <strong>@feed.Context</strong> — @feed.How</p>
+                            @if (feed.Name is null)
+                            {
+                                <p class="domain-events__feed-text">from <strong>@feed.Context</strong> — @feed.How</p>
+                            }
+                            else
+                            {
+                                <p class="domain-events__feed-text">from <strong>@feed.Context</strong></p>
+                            }
                             @if (feed.Why.Length > 0)
                             {
                                 <p class="domain-events__feed-why">@feed.Why</p>

@@ -200,15 +200,18 @@ public static partial class DomainFieldBoards
     /// titles and sentences from.</summary>
     public static IReadOnlyDictionary<string, DomainModelProfile> Profiles(IEnumerable<DomainChapterFile> domainFiles)
     {
+        // Headings first, then aliases: Recurrence Unit's own chapter claims
+        // RecurrenceUnit before Recurrence's alias for it can.
+        var chapters = domainFiles
+            .SelectMany(file => file.AllChapters())
+            .Where(c => c.Type is not null and not "term" and not "ubiquitous-language" && c.Anchor.Length > 0)
+            .Select(c => (Chapter: c, Profile: new DomainModelProfile(c.Title, c.Summary, c.Aliases, c.Status)))
+            .ToList();
         var profiles = new Dictionary<string, DomainModelProfile>(StringComparer.Ordinal);
-        foreach (var file in domainFiles)
+        foreach (var (chapter, profile) in chapters) profiles.TryAdd(Squash(chapter.Title), profile);
+        foreach (var (chapter, profile) in chapters)
         {
-            foreach (var chapter in file.AllChapters().Where(c => c.Type is not null and not "term" and not "ubiquitous-language" && c.Anchor.Length > 0))
-            {
-                var profile = new DomainModelProfile(chapter.Title, chapter.Summary, chapter.Aliases, chapter.Status);
-                profiles.TryAdd(Squash(chapter.Title), profile);
-                foreach (var alias in chapter.Aliases.Where(a => Identifier().IsMatch(a))) profiles.TryAdd(alias, profile);
-            }
+            foreach (var alias in chapter.Aliases.Where(a => Identifier().IsMatch(a))) profiles.TryAdd(alias, profile);
         }
 
         return profiles;
