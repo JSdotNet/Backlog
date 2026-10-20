@@ -1,0 +1,93 @@
+@*
+    A bounded context's class diagram read as fields, as the Domain view's Model
+    page shows it on Fields (local ADR 0036): every class that holds state, with its
+    attributes grouped by what their types say — dates and times, ids pointing
+    elsewhere, owned parts, vocabularies, and other values. An enumeration is not a
+    class here; its values sit beside the attribute that takes one.
+
+    A fence the reader cannot read in full says so rather than listing part of it:
+    Diagram still draws it with mermaid.
+*@
+
+@if (_classes is null)
+{
+    <p class="domain-fields__unread" data-testid="domain-fields-unread" role="status">
+        @Title could not be read into fields. Diagram draws it as it is written.
+    </p>
+}
+else if (_classes.Count == 0)
+{
+    <p class="domain-fields__unread" data-testid="domain-fields-none" role="status">
+        @Title holds no class with fields.
+    </p>
+}
+else
+{
+    <h3 class="domain-model-view__section-title domain-fields__title">@Title</h3>
+    <div class="domain-fields" data-testid="@TestId" aria-label="@($"Fields of {Title}")" role="group">
+        @foreach (var element in _classes)
+        {
+            var key = DomainModelArrangement.KindKey(element.Kind);
+            <article class="@($"domain-fields__class domain-fields__class--{key}")" data-testid="domain-fields-class" data-name="@element.Name" data-kind="@key">
+                <header class="domain-fields__class-header">
+                    <h4 class="domain-fields__class-name">@element.Name</h4>
+                    <span class="@($"domain-fields__class-kind domain-model__element--{key}")">
+                        <span class="domain-model__element-glyph" aria-hidden="true">@DomainModelArrangement.KindGlyph(element.Kind)</span>
+                        @(element.Kind == DomainModelKind.Other && element.Stereotype is { } stereotype ? stereotype : DomainModelArrangement.KindLabel(element.Kind))
+                    </span>
+                </header>
+                @if (element.Groups.Count == 0)
+                {
+                    <p class="domain-fields__empty">No fields in the diagram.</p>
+                }
+                @foreach (var group in element.Groups)
+                {
+                    <div class="@($"domain-fields__group domain-fields__group--{DomainModelFields.Key(group.Kind)}")" data-testid="domain-fields-group" data-kind="@DomainModelFields.Key(group.Kind)">
+                        <h5 class="domain-fields__group-label">@DomainModelFields.Label(group.Kind)</h5>
+                        <dl class="domain-fields__list">
+                            @foreach (var field in group.Fields)
+                            {
+                                <div class="domain-fields__field" data-testid="domain-field" data-name="@field.Name">
+                                    <dt class="domain-fields__name">@field.Name</dt>
+                                    <dd class="domain-fields__type">
+                                        @if (field.Type is not null)
+                                        {
+                                            <code class="domain-fields__type-name">@field.Type</code>
+                                        }
+                                        @if (field.Detail is not null)
+                                        {
+                                            <span class="domain-fields__detail" data-testid="domain-field-detail">@field.Detail</span>
+                                        }
+                                    </dd>
+                                </div>
+                            }
+                        </dl>
+                    </div>
+                }
+            </article>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>The <c>classDiagram</c> fence's body, without the backtick lines.</summary>
+    [Parameter, EditorRequired]
+    public string Source { get; set; } = string.Empty;
+
+    /// <summary>The diagram's name — the heading its fence sits under.</summary>
+    [Parameter]
+    public string Title { get; set; } = "Model diagram";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-fields";
+
+    private string? _read;
+    private IReadOnlyList<DomainFieldsClass>? _classes;
+
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(_read, Source, StringComparison.Ordinal)) return;
+        _read = Source;
+        _classes = DomainModelFields.TryRead(Source);
+    }
+}

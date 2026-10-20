@@ -5,12 +5,17 @@
     The Domain view's Model page for one model file — model.md or a model.<name>.md
     split (local ADR 0036). It reads the file's classDiagram fences through the
     domain store and hands them to the library's DomainModelView, which opens on
-    Diagram with the Fields and Events tabs beside it.
+    Diagram with the Fields and Events tabs beside it. Fields also takes the file's
+    relationship notes, and Fields and Events the domain services and events of
+    the context's domain.md and its splits, read from the files as written.
 *@
 
 @if (_fences is { } fences)
 {
-    <DomainModelView Fences="@fences" AriaLabel="@($"Model of {_title}")" />
+    <DomainModelView Fences="@fences"
+                     RelationshipNotes="@_notes"
+                     Chapters="@_chapters"
+                     AriaLabel="@($"Model of {_title}")" />
 }
 else if (_problem is not null)
 {
@@ -33,6 +38,8 @@ else if (_problem is not null)
 
     private DomainDevbookStore? _store;
     private IReadOnlyList<DomainModelFence>? _fences;
+    private string? _notes;
+    private DomainChapterReading _chapters = DomainChapterReading.Empty;
     private string? _problem;
     private string _title = "Model";
     private (string? Alias, string? Path)? _loaded;
@@ -66,7 +73,7 @@ else if (_problem is not null)
         // Nothing of the previous file stays on screen while the next one is read.
         (_fences, _problem) = (null, null);
 
-        (IReadOnlyList<DomainModelFence>? Fences, string Title, string? Problem) read;
+        ModelReading read;
         try
         {
             var view = await _store.LoadAsync(alias);
@@ -78,18 +85,26 @@ else if (_problem is not null)
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            read = (null, "Model", $"The model could not be read: {ex.Message}");
+            read = ModelReading.Failed($"The model could not be read: {ex.Message}");
         }
 
         if (_disposed || _loaded != (alias, path)) return;
-        (_fences, _title, _problem) = read;
+        (_fences, _title, _problem, _notes, _chapters) = (read.Fences, read.Title, read.Problem, read.Notes, read.Chapters);
+    }
+
+    /// <summary>What the Model page shows of one model file: its class diagrams,
+    /// its relationship notes, and the context's domain services and events — or
+    /// why there is nothing to show.</summary>
+    internal sealed record ModelReading(IReadOnlyList<DomainModelFence>? Fences, string Title, string? Problem, string? Notes, DomainChapterReading Chapters)
+    {
+        public static ModelReading Failed(string problem) => new(null, "Model", problem, null, DomainChapterReading.Empty);
     }
 
     /// <summary>The model file's class diagrams, found by the menu path the pane
     /// holds, or why there are none to show.</summary>
-    internal static (IReadOnlyList<DomainModelFence>? Fences, string Title, string? Problem) Read(DomainDevbookView view, string? selectedPath)
+    internal static ModelReading Read(DomainDevbookView view, string? selectedPath)
     {
-        if (view.Error is { } error) return (null, "Model", error);
+        if (view.Error is { } error) return ModelReading.Failed(error);
 
         var relative = (selectedPath ?? string.Empty).Replace('\\', '/').Trim('/');
         var slug = relative.Split('/')[0];
@@ -97,7 +112,7 @@ else if (_problem is not null)
         var document = context?.Documents.FirstOrDefault(d =>
             string.Equals(d.Path, ".domain/" + relative, StringComparison.OrdinalIgnoreCase));
 
-        if (document is null) return (null, "Model", $"No model file at {relative}.");
+        if (document is null) return ModelReading.Failed($"No model file at {relative}.");
 
         IReadOnlyList<DomainModelFence> fences =
         [
@@ -106,8 +121,32 @@ else if (_problem is not null)
                 .Select(d => new DomainModelFence(d.Title, d.Source))
         ];
 
-        return (fences, document.Title, null);
+        // The prose the store keeps is an excerpt, so the notes and the domain
+        // chapters are read from the files as written, through the store.
+        var notes = RelationshipNotes(ReadText(view, document.Path));
+        var chapters = DomainChapterContracts.Read(
+            context!.Documents
+                .Where(d => d.Kind == DomainDevbookDocumentKind.Domain)
+                .Select(d => ReadText(view, d.Path) is { } text ? new DomainChapterSource(d.Path, text) : null)
+                .OfType<DomainChapterSource>());
+
+        return new(fences, document.Title, null, notes, chapters);
     }
+
+    /// <summary>The body of the model file's <em>Relationship notes</em> chapter,
+    /// without its heading, or null when it has none.</summary>
+    internal static string? RelationshipNotes(string? markdown)
+    {
+        var chapter = MarkdownChapters.Split(markdown)
+            .FirstOrDefault(c => c.Level >= 2 && c.Title.Contains("relationship notes", StringComparison.OrdinalIgnoreCase));
+        if (chapter is null) return null;
+
+        var body = string.Join('\n', chapter.Text.Split('\n').Skip(1)).Trim();
+        return body.Length == 0 ? null : body;
+    }
+
+    private static string? ReadText(DomainDevbookView view, string documentPath) =>
+        DomainDevbookStore.ReadText(view, documentPath);
 
     private void OnStoreChanged()
     {
