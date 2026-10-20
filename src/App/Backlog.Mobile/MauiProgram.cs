@@ -53,13 +53,18 @@ public static class MauiProgram
 		// it anyway is not a dormant feature, it is a head that cannot start.
 		builder.Services.AddSyncClient(syncBaseAddress);
 
+		// The version compared with the sync service's: the APK's, the one the
+		// update window shows. A service newer than it stops every sync client.
+		builder.Services.AddSyncAppVersion(services => services.GetRequiredService<IAppUpdateService>().CurrentVersion);
+
 		// The inbox endpoints are bearer-only, so the data client leaves carrying
-		// the same short-lived token the pairing client mints. The handler is
-		// chained here rather than inside AddSyncClient because which of a host's
-		// clients are sync clients is the host's to know.
+		// the same short-lived token the pairing client mints, and stops with the
+		// rest when the service is newer than the app. The pipeline is chained here
+		// rather than inside AddSyncClient because which of a host's clients are
+		// sync clients is the host's to know.
 		builder.Services.AddHttpClient<CloudSyncClient>(client =>
 			client.BaseAddress = syncBaseAddress)
-			.AddHttpMessageHandler<SyncAuthenticationHandler>();
+			.AddSyncPipeline();
 
 		// The Android recogniser, not the Web Speech one: the System WebView
 		// generally has no webkitSpeechRecognition, so the browser implementation

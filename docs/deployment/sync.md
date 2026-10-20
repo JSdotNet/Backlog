@@ -458,6 +458,32 @@ on whatever Azure context the AppHost is pointed at, bypassing `infra/sync/` and
 through the `Deploy Sync` workflow or `azd` as described above, and leave that
 resource alone.
 
+## The service version stops older clients
+
+The service reports its version from the anonymous root (`GET /`, the `version` field),
+and that number is the `<Version>` in `Backlog.Modules.Sync.Api.csproj`, not the SDK
+default. Every desktop and phone compares it with its own app version, numerically, a
+missing part counting as zero. When the service's is higher, the app stops syncing:
+it sends no sync request, the desktop footer and Devices settings and the phone's
+shell say "The sync service is newer than this version of Backlog. Update Backlog to
+keep syncing.", and each offers the update window. Nothing waiting is lost — desktop
+watermarks do not move and the phone outbox holds its captures — and the app asks the
+service again every ten minutes, so rolling the service back lets it sync again. A
+root that does not answer, or reports a version the app cannot read, stops nothing.
+
+So bump `<Version>` deliberately, and only in the change that breaks older clients: a
+version above what the released clients carry (desktop `0.1.x`, phone `0.1.x`)
+stops all of them the moment it is deployed. An ordinary deploy leaves it as it is.
+
+**Deploy the service before the first client that carries the check ships.** A
+service built before `<Version>` was set reports the SDK default `1.0.0`, which is
+higher than every released desktop (`0.1.N.0`) and phone (`0.1.N`). So the first
+desktop or phone release that carries this check pauses sync on every device that
+installs it, until the service is redeployed. Deploy the service at `0.1.0` first,
+or later at any version no higher than every released client, and only then release
+the desktop and the phone. After that, deploy order does not matter until
+`<Version>` is raised.
+
 ## Run from GitHub Actions
 
 **Manual only, for now.** Nothing on `main` triggers this workflow; a person starts every
