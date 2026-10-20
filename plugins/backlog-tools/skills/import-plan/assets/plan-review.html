@@ -150,6 +150,8 @@
   .meta a:hover { text-decoration: underline; }
   .meta .missing { color: var(--fail); }
   .body { margin-top: 10px; max-width: 70ch; }
+  .read-first { margin-top: 8px; font-size: 0.85rem; color: var(--ink-2); overflow-wrap: anywhere; }
+  .read-first .sub-kind { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em; color: var(--ink-3); margin-right: 8px; text-transform: uppercase; }
   .body p { margin: 0 0 8px; }
   .body ul { margin: 0 0 8px; padding-left: 22px; }
   .body li.todo { list-style: none; margin-left: -22px; }
@@ -237,6 +239,7 @@
   const SESSION_RE = /^Title this session `([^`]+)` before you start\.?\s*$/;
   // The line plans carried before steps were numbered: it names the tag alone.
   const LEGACY_SESSION_RE = /^Add the plan name `([^`]+)` to this session['’]s title before you start\.?\s*$/;
+  const READ_FIRST_RE = /^Read first:\s*(.*?)\s*$/i;
   const NUMBERED_RE = /^(\d+) - \S/;
   const META_RE = /^\s*(?:`[^`]+`\s*)+$/;
 
@@ -257,7 +260,7 @@
   function parseEntry(e, index) {
     e.index = index;
     e.type = null; e.status = null; e.priority = null; e.area = null; e.tag = null; e.tagSigil = null;
-    e.id = null; e.after = []; e.repo = []; e.due = null; e.effort = null; e.unknownTokens = []; e.tags = [];
+    e.id = null; e.after = []; e.repo = []; e.due = null; e.effort = null; e.devbook = []; e.unknownTokens = []; e.tags = [];
     e.metaLine = null; e.bodyLines = []; e.subs = []; e.findings = [];
 
     let i = 0;
@@ -283,11 +286,27 @@
     e.legacySession = !e.session && nonBlank[e.marker ? 1 : 0] && LEGACY_SESSION_RE.exec(nonBlank[e.marker ? 1 : 0].trim());
     if (e.legacySession) e.sessionText = nonBlank[e.marker ? 1 : 0].trim();
     e.hasSessionAnywhere = nonBlank.some(l => SESSION_RE.test(l.trim()) || LEGACY_SESSION_RE.test(l.trim()));
+    // Third line of a prompt (after the marker and session line), first of a task or test.
+    const rfWant = (e.marker ? 1 : 0) + (e.session || e.legacySession ? 1 : 0);
+    const rfAt = nonBlank[rfWant] && READ_FIRST_RE.test(nonBlank[rfWant].trim()) ? rfWant : nonBlank.findIndex(l => READ_FIRST_RE.test(l.trim()));
+    e.readFirstText = rfAt >= 0 ? nonBlank[rfAt].trim() : null;
+    e.readFirstMisplaced = rfAt >= 0 && rfAt !== rfWant;
+    e.readFirst = e.readFirstText ? parseReadFirst(READ_FIRST_RE.exec(e.readFirstText)[1]) : [];
     const num = NUMBERED_RE.exec(e.title);
     e.number = num ? Number(num[1]) : null;
-    e.instructions = e.bodyLines.filter(l => l.trim() !== e.markerText && l.trim() !== e.sessionText);
+    e.instructions = e.bodyLines.filter(l => l.trim() !== e.markerText && l.trim() !== e.sessionText && l.trim() !== e.readFirstText);
     e.subs.forEach(s => {
       s.kind = /^setup:/i.test(s.title) ? 'setup' : /knowledge|devbook/i.test(s.title) ? 'knowledge' : /^manual:/i.test(s.title) ? 'manual' : 'other';
+    });
+  }
+
+  // The read-first line's references: backticked paths and bare URLs, comma-separated.
+  function parseReadFirst(text) {
+    return text.replace(/\.$/, '').split(/,\s+/).map(p => p.trim()).filter(Boolean).map(p => {
+      const code = /^`([^`]+)`$/.exec(p);
+      if (code) return { kind: 'path', value: code[1] };
+      if (/^https?:\/\/\S+$/.test(p)) return { kind: 'url', value: p };
+      return { kind: 'other', value: p };
     });
   }
 
@@ -311,6 +330,7 @@
       else if (k === 'repo') e.repo.push(v);
       else if (k === 'due') e.due = v;
       else if (k === 'effort') e.effort = v;
+      else if (k === 'devbook') e.devbook.push(v);
       else e.unknownTokens.push(t);
       return;
     }
@@ -458,7 +478,17 @@
       const want = `${e.tag}:${e.title}`;
       return e.session[1] !== want && { text: `it names ${e.session[1]}, not ${want}` };
     });
-    onPrompts('Every prompt has instructions beyond the marker and session line', e => !e.instructions.some(l => l.trim()) && { text: 'the body is only boilerplate' });
+    const readFirstShape = e => {
+      if (e.readFirstMisplaced) return { level: 'warn', text: e.type === 'prompt' ? 'the Read first: line is not the line after the session-name line' : `the Read first: line is not the ${e.type}'s first body line` };
+      if (!e.readFirst.length) return { text: 'the Read first: line names nothing' };
+      const odd = e.readFirst.filter(r => r.kind === 'other');
+      return odd.length && { level: 'warn', text: `${odd.map(r => r.value).join(', ')} is neither a \`path\` nor a URL` };
+    };
+    onPrompts('Every prompt names the material it was planned from (Read first:) — expected missing only for a plan written from inline notes', e => {
+      if (!e.readFirstText) return { level: 'warn', text: 'no Read first: line — a pasted prompt reaches none of the material the plan was written from' };
+      return readFirstShape(e);
+    });
+    onPrompts('Every prompt has instructions beyond the marker, session and Read first lines', e => !e.instructions.some(l => l.trim()) && { text: 'the body is only boilerplate' });
     onPrompts('Setup: sub-items come before every other sub-item', e => {
       const firstOther = e.subs.findIndex(s => s.kind !== 'setup');
       const lateSetup = firstOther >= 0 && e.subs.slice(firstOther).some(s => s.kind === 'setup');
@@ -489,6 +519,7 @@
     const onTasks = (label, fn) => over(manual, label, fn);
     onTasks('No task or test carries a marker or session-name line', e => (e.hasMarkerAnywhere || e.hasSessionAnywhere) && { text: `those direct an AI session; a ${e.type} has none` });
     onTasks('No task or test carries Setup: or knowledge sub-items', e => e.subs.some(s => s.kind === 'setup' || s.kind === 'knowledge') && { text: `those direct an AI session; a ${e.type} has none` });
+    over(manual.filter(e => e.readFirstText), 'A task or test that names its sources does so in its first line', readFirstShape);
     onTasks('Every task or test says what to do', e => !e.instructions.some(l => l.trim()) && { text: 'empty body' });
     over(manual.filter(e => e.id !== 'sign-off-plan'), 'Every task or test the user kept says why (Kept manual:)', e => !e.instructions.some(l => /^kept manual:\s*\S/i.test(l.trim())) && { text: `no "Kept manual:" line — prompts are the default, so offer this ${e.type} to an AI session or record why the user kept it` });
 
@@ -614,8 +645,10 @@
           ${e.priority ? `<span data-k="*">${esc(e.priority)}</span>` : ''}
           ${e.area ? `<span data-k="@">${esc(e.area)}</span>` : ''}
           ${e.due ? `<span data-k="due:">${esc(e.due)}</span>` : ''}
+          ${e.devbook.length ? `<span data-k="devbook:">${e.devbook.map(esc).join(', ')}</span>` : ''}
         </div>
         ${e.type === 'prompt' ? `<details class="boiler"><summary>${e.marker && e.session ? 'Opens with the plan item marker and the session-name line' : 'Opening lines'}</summary><pre>${esc([e.markerText, e.sessionText].filter(Boolean).join('\n') || '(none)')}</pre></details>` : ''}
+        ${e.readFirst.length ? `<div class="read-first"><span class="sub-kind">read first</span>${e.readFirst.map(r => r.kind === 'url' ? `<a href="${esc(r.value)}" target="_blank" rel="noopener">${esc(r.value)}</a>` : `<code>${esc(r.value)}</code>`).join(', ')}</div>` : ''}
         <div class="body">${renderProse(e.instructions) || '<p class="missing">(empty)</p>'}</div>
         ${e.subs.length ? `<ul class="subs">${e.subs.map(s => `<li class="sub"><span class="sub-kind">${s.kind === 'other' ? '##' : s.kind}</span>${inline(s.title)}${s.lines.some(l => l.trim()) ? `<div class="body">${renderProse(s.lines)}</div>` : ''}</li>`).join('')}</ul>` : ''}
         ${e.findings.length ? `<ul class="findings">${e.findings.map(f => `<li class="${f.level}">${esc(f.text)}</li>`).join('')}</ul>` : ''}
