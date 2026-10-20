@@ -4,7 +4,7 @@ import type { On } from 'claude-code'
 import type { Worker } from '../types'
 
 import { asId, asIndex, kindOf, parseBrief, parsePlan, parseReturn, parseRunId, parseStages, surfaceOp, tally } from '../hooks/parse'
-import { abbrev, alsoLine, bandRows, columnsOf, liveRows, matrixLayout, rowsOf } from '../hooks/view'
+import { BLOCK, CELL, abbrev, alsoLine, bandRows, cellsOf, columnsOf, currentStage, liveRows, matrixLayout, matrixSvg, rowsOf, stageStatesOf } from '../hooks/view'
 import { demoAt } from './demo'
 
 const PLAN = JSON.stringify({
@@ -167,6 +167,30 @@ test('lays out the matrix and the band from the rows', () => {
   expect(bandRows(many, 5)).toEqual({ shown: many.slice(0, 3), more: 6 })
   expect(bandRows(many.slice(0, 4), 5).more).toBe(0)
   expect(columnsOf(rows)).toEqual(['Scope', 'Implement'])
+})
+
+test('a block the run moved past is parked, and only a block it stopped at is a failure', () => {
+  const stages = ['Ready', 'Personal Validation', 'Create Pull Request', 'Summary']
+  const base = { agentId: 'ag', entryId: 'b2', n: 2, title: 'Second prompt', note: '', flow: 'flow-code', runIds: ['r'], stages, runStatus: '' }
+  // Unattended: Personal Validation moved onto the draft, reported as blocked, and the flow went on.
+  const movedOn = { ...base, state: 'running' as const, stageStatus: ['done', 'blocked', 'in_progress', 'pending'] }
+  expect(stageStatesOf(movedOn)).toEqual(['done', 'parked', 'in_progress', 'pending'])
+  expect(currentStage(movedOn)).toBe('Create Pull Request')
+  expect(cellsOf(movedOn)[1]).toEqual(CELL.parked!)
+  // Returned with its draft before the later stages were reported.
+  const drafted = { ...base, state: 'pr' as const, stageStatus: ['done', 'blocked', 'pending', 'pending'] }
+  expect(stageStatesOf(drafted)[1]).toBe('parked')
+  expect(stageStatesOf({ ...drafted, state: 'running', runStatus: 'parked' })[1]).toBe('parked')
+  // A block the run stopped at stays the red cross.
+  const failed = { ...base, state: 'blocked' as const, stageStatus: ['blocked', 'pending', 'pending', 'pending'] }
+  expect(stageStatesOf(failed)[0]).toBe('blocked')
+  expect(currentStage(failed)).toBe('Ready')
+  // A run that failed still closes Summary, and a red stage skips the next on its way back.
+  expect(stageStatesOf({ ...failed, stageStatus: ['done', 'blocked', 'skipped', 'done'] })[1]).toBe('blocked')
+  expect(stageStatesOf({ ...movedOn, stageStatus: ['blocked', 'skipped', 'pending', 'pending'] })[0]).toBe('blocked')
+  const svg = matrixSvg('+demo', '0/2 done', rowsOf(null, [movedOn, { ...failed, entryId: 'c3' }]), stages)
+  const blocks = (bg: string) => svg.split(`height="18" rx="3" fill="${bg}"`).length - 1
+  expect([blocks(BLOCK.parked!.bg), blocks(BLOCK.blocked!.bg)]).toEqual([1, 1])
 })
 
 test('a brief for another plan starts the pane over', async ($, on) => {

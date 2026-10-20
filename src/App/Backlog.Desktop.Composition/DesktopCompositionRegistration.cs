@@ -37,6 +37,7 @@ using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.SharedKernel;
+using Backlog.UI.Components.AppUpdate;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -217,6 +218,10 @@ public static class DesktopCompositionRegistration
         services.AddSingleton<SyncServiceEndpoint>();
         services.AddSyncClient(SyncServiceAddress);
         services.AddTaskSyncClient(SyncServiceAddress);
+        // The version compared with the sync service's: the one the update window
+        // shows, the MSIX package's on a packaged desktop. A service newer than it
+        // stops every sync client and the footer asks for an update.
+        services.AddSyncAppVersion(sp => sp.GetRequiredService<IAppUpdateService>().CurrentVersion);
 
         services.AddSingleton(options.AzureFoundrySettings);
         // The chat client's pipeline is the adapter's own, sized for a completion
@@ -323,6 +328,10 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(_ => new BrainFolderSetup());
 
         services.AddSingleton(options.AppUpdateService);
+        // How a page asks the footer's update window to open — the Devices page,
+        // when the sync service is newer than this app. One per window, like the
+        // footer that listens.
+        services.Add(new ServiceDescriptor(typeof(AppUpdateWindowRequests), typeof(AppUpdateWindowRequests), options.WindowStateLifetime));
         services.AddSingleton(options.DevToolService);
         // The tools pane's tab and host filter, kept per device in the shell's own
         // navigation file beside the surface it reopens on.

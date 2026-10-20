@@ -50,7 +50,7 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its five skills, nor its hooks,
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its six skills, nor its hooks,
 changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
 calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
@@ -61,6 +61,8 @@ the gate — the matching flow — rather than adding an execution path beside i
 entry of a plan to a sub-agent that runs it through `run-plan-item`, so every entry
 still passes the gate and its own Personal Validation — relayed to the person when attended,
 moved onto a draft pull request when unattended.
+`close-merged` is model-invoked when asked to close the merged items; it only moves the entries
+whose pull request merged into the default branch or a `plan/` branch to Done, so it is no flow.
 `handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it writes
 only `annotation` fences, through `.devbook/_tools/devbook-meta/annotations.mjs`, offers the
 commit and never pushes.
@@ -169,3 +171,5 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
 - `plugins/backlog-tools/skills/handle-remarks/SKILL.md` — handles the reading notes left
   on Devbook chapters in the Backlog app as `annotation` fences and resolves each note.
+- `plugins/backlog-tools/skills/close-merged/SKILL.md` — moves the Backlog entries whose
+  pull request merged into the default branch or a `plan/` branch to Done.

@@ -17,7 +17,7 @@ import {
   surfaceOp,
   tally,
 } from './parse'
-import { GLYPH, KIND, abbrev, alsoLine, bandRows, cellsOf, columnsOf, currentStage, matrixLayout, matrixSvg, rowsOf } from './view'
+import { GLYPH, KIND, abbrev, alsoLine, bandRows, cellsOf, columnsOf, currentStage, matrixLayout, matrixSvg, rowsOf, stageStatesOf } from './view'
 
 // The execute-plan view: a band above the prompt with the entries still in flow, and a pane —
 // the band's details — with the whole plan as a matrix of entries by delivery-flow stage. Both
@@ -257,8 +257,8 @@ export const register: Register = on => {
             <Box width={layout.titleWidth} marginRight={1}>
               <Text wrap="truncate-end">{`${r.n} ${r.title}`}</Text>
             </Box>
-            {(r.w?.stages ?? []).map((_, i) => {
-              const cell = GLYPH[r.w?.stageStatus[i] ?? 'pending'] ?? GLYPH.pending!
+            {(r.w ? stageStatesOf(r.w) : []).map((s, i) => {
+              const cell = GLYPH[s] ?? GLYPH.pending!
               return (
                 <Box key={`c${i}`} width={layout.cell} marginRight={layout.gap} justifyContent="center">
                   <Text color={cell.color} dimColor={cell.dim}>{cell.g}</Text>

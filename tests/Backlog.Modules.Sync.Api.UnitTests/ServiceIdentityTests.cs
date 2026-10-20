@@ -37,6 +37,20 @@ public class ServiceIdentityTests : IDisposable
         Assert.Equal(BuildInformation.Commit, body.GetProperty("commit").GetString());
     }
 
+    /// <summary>
+    /// The version a client compares its own against: a client older than this
+    /// stops syncing and asks to be updated. Set in the project rather than left
+    /// to the SDK's <c>1.0.0</c>, which every released client is below.
+    /// </summary>
+    [Fact]
+    public async Task The_root_reports_the_version_the_project_declares()
+    {
+        var response = await _service.CreateClient().GetAsync("/", Cancellation);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(Cancellation);
+        Assert.Equal("0.1.0", body.GetProperty("version").GetString());
+    }
+
     /// <summary>The SDK stamps <c>&lt;version&gt;+&lt;sha&gt;</c> when it built
     /// from a git checkout, and a bare version when it did not; both are real
     /// contents of the attribute, and only the second half is the commit.</summary>

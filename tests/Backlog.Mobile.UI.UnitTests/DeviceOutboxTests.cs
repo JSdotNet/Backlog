@@ -228,6 +228,81 @@ public sealed class DeviceOutboxTests
         Assert.Equal(1, service.Created);
     }
 
+    /// <summary>
+    /// The sync service is newer than this app. Nothing is posted, and nothing is
+    /// set aside either: every capture stays waiting, in order, with the reason
+    /// on it, for as long as the app goes without an update. A refusal would have
+    /// let the next capture overtake it and asked the person to tap each one.
+    /// </summary>
+    [Fact]
+    public async Task Entries_for_a_service_newer_than_the_app_wait_rather_than_being_refused()
+    {
+        var clock = new FakeTimeProvider(Start);
+        var service = new ScriptedInboxService { State = InboxServiceState.Answering };
+        using var http = OutdatedPipeline(clock, service, serviceVersion: () => "0.2.0");
+        using var outbox = new DeviceOutbox(new InMemoryDeviceStore(), [new CaptureOutboxKind(new CloudSyncClient(http))], clock);
+
+        var first = await EnqueueCaptureAsync(outbox, "Ask about the offsite");
+        var second = await EnqueueCaptureAsync(outbox, "Book the room");
+        clock.Advance(TimeSpan.FromHours(1));
+        await outbox.WhenIdleAsync();
+
+        Assert.Empty(service.Received);
+        Assert.Equal([first, second], outbox.Entries.Select(entry => entry.Id));
+        Assert.All(outbox.Entries, entry =>
+        {
+            Assert.False(entry.Refused);
+            Assert.False(entry.IsParked);
+        });
+        Assert.Equal(Backlog.Infrastructure.Sync.SyncCompatibility.UpdateRequiredMessage, outbox.Entries[0].LastError);
+    }
+
+    /// <summary>A service rolled back to a version this app matches gets what was
+    /// waiting, in order, without a tap.</summary>
+    [Fact]
+    public async Task Waiting_entries_go_once_the_service_is_no_newer_than_the_app()
+    {
+        var clock = new FakeTimeProvider(Start);
+        var service = new ScriptedInboxService { State = InboxServiceState.Answering };
+        var deployed = "0.2.0";
+        using var http = OutdatedPipeline(clock, service, serviceVersion: () => deployed);
+        using var outbox = new DeviceOutbox(new InMemoryDeviceStore(), [new CaptureOutboxKind(new CloudSyncClient(http))], clock);
+
+        await EnqueueCaptureAsync(outbox, "Ask about the offsite");
+        await EnqueueCaptureAsync(outbox, "Book the room");
+
+        deployed = "0.1.0";
+        clock.Advance(Backlog.Infrastructure.Sync.SyncCompatibility.VerdictWindow);
+        await outbox.WhenIdleAsync();
+
+        Assert.Empty(outbox.Entries);
+        Assert.Equal(["Ask about the offsite", "Book the room"], service.Received.Select(sent => sent.Title));
+    }
+
+    /// <summary>The phone's data client the way a head composes it: the
+    /// compatibility check in front of the service, whose root reports
+    /// <paramref name="serviceVersion"/>, for an app at 0.1.63.</summary>
+    private static HttpClient OutdatedPipeline(FakeTimeProvider clock, ScriptedInboxService service, Func<string> serviceVersion)
+    {
+        var compatibility = new Backlog.Infrastructure.Sync.SyncCompatibility(new Backlog.Infrastructure.Sync.SyncAppVersion("0.1.63"), clock);
+
+        return new HttpClient(new Backlog.Infrastructure.Sync.SyncCompatibilityHandler(compatibility)
+        {
+            InnerHandler = new VersionedServiceHandler(service, serviceVersion)
+        })
+        {
+            BaseAddress = new Uri("https://sync.test")
+        };
+    }
+
+    private static async Task<Guid> EnqueueCaptureAsync(DeviceOutbox outbox, string title)
+    {
+        var capture = CaptureOutboxKind.Create(title);
+        await outbox.EnqueueAsync(CaptureOutboxKind.Token, capture.Id!.Value, CaptureOutboxKind.Write(capture), Cancellation);
+        await outbox.WhenIdleAsync();
+        return capture.Id.Value;
+    }
+
     /// <summary>A queue survives the app being killed: a new outbox over the same
     /// store picks up where the old one stopped.</summary>
     [Fact]
@@ -284,6 +359,18 @@ public sealed class DeviceOutboxTests
             Delivered.Add(entry.Id);
             return Task.FromResult(OutboxDelivery.Delivered);
         }
+    }
+
+    /// <summary>The scripted service behind a root that reports a version.</summary>
+    private sealed class VersionedServiceHandler(ScriptedInboxService service, Func<string> version) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            request.RequestUri?.AbsolutePath == "/"
+                ? Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent($$"""{"service":"Backlog Sync","version":"{{version()}}"}""", System.Text.Encoding.UTF8, "application/json")
+                })
+                : service.AnswerAsync(request, cancellationToken);
     }
 
     private sealed class ServiceHandler(ScriptedInboxService service) : HttpMessageHandler

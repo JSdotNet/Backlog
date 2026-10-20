@@ -51,7 +51,7 @@ You run one entry of the Backlog plan `<tag>`: `<n> - <Title>` (id `<id>`) in `<
    worktree, before every return except `gate`.
 6. **Return** one line: `done-before` with the evidence, `gate` with the handoff, `pr <url>`,
    or `blocked <stage>: <reason>`. Leave the worktree in place; the orchestrator removes it
-   once the entry reaches `<base>`.
+   once the entry reaches `<base>`, or `plan/<slug>` in branch mode.
 
 Entry:
 

@@ -175,4 +175,11 @@ public static class SyncErrorCodes
     /// Cosmos emulator still starting, and nothing in the app model waits on
     /// it.</summary>
     public const string ReplicaUnavailable = "sync.replica_unavailable";
+
+    /// <summary>The sync service reports a newer version than this app, so the
+    /// app sends nothing and asks the person to update. The service never answers
+    /// it: the client's own compatibility check does, as a 426, before a request
+    /// leaves the device, so every screen that reads a sync failure reads this one
+    /// the same way.</summary>
+    public const string ClientOutdated = "sync.client_outdated";
 }

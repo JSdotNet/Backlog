@@ -73,13 +73,18 @@ What Sync guarantees is the same for all of them: a push never moves a document
 backwards ([Change Precedence](domain.md#change-precedence)), and a device only
 ever reads and writes its own owner's feeds.
 
+The service and the apps are released apart, so a service can be newer than an
+app still installed somewhere. Then that app stops syncing and asks the person to
+update Backlog, and keeps everything it had waiting
+([A device sends nothing to a newer sync service](requirements.md#requirement-a-device-sends-nothing-to-a-newer-sync-service)).
+
 ## Carrying captures to the Inbox
 
 ```meta
 status: draft
 type: feature
 feature-flag: .devbook/domain/sync/context.md#taking-part-in-sync
-related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/dependencies.md]
+related: [.devbook/domain/sync/requirements.md#syncing-between-devices, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/domain/inbox/dependencies.md]
 depends-on: [.devbook/domain/sync/features.md#pairing-a-device]
 ```
 
@@ -89,3 +94,7 @@ blob store first, through the sync service, so a capture never names a file that
 is not there. When the desktop routes or archives the item, it pushes a tombstone
 for the capture, and the phone learns it was dealt with. There is no second sync
 path for any of it.
+
+A capture made while the service is newer than the phone's app is not lost and
+not refused: it waits in the outbox until the app is updated or the service rolled
+back ([A phone holds its outbox for a newer sync service](requirements.md#requirement-a-phone-holds-its-outbox-for-a-newer-sync-service)).

@@ -402,15 +402,13 @@
         {
             _items ??= [];
             _pullNotice = PullNotice(ex);
-            Status.RecordUnreachable();
+            if (SyncPullFailure.IsUnreachable(ex)) Status.RecordUnreachable();
         }
     }
 
     private string PullNotice(Exception failure)
     {
-        var reason = failure is SyncUnavailableException { Code: "sync.replica_unavailable" }
-            ? "Cloud sync is still starting up."
-            : "Cloud sync can't be reached.";
+        var reason = SyncPullFailure.Reason(failure);
 
         var showing = _pulledAt is { } at
             ? $"Showing the inbox as it was {Ago(at)}."

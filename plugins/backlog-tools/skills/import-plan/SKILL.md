@@ -20,7 +20,8 @@ mechanics; use only the syntax it defines.
 ## Inputs
 
 - **Source material.** Path(s) to the agreed `.devbook/domain` feature chapter, an
-  ADR, or — if nothing is written down yet — the planning notes given inline.
+  ADR, a design — an artifact, prototype or mockup, by URL or path — or, if nothing is
+  written down yet, the planning notes given inline.
 - **Plan subject.** What the batch delivers; derives the shared `+tag`.
 - **Target repositories.** One or more repository names the prompts target. Do not check
   whether a name is already registered in Backlog — Import auto-registers an unknown one.
@@ -46,7 +47,9 @@ decision, not the plan's.
 1. Read the source material in full, following any `depends-on`/prerequisite references it
    names, so ordering is grounded in what is agreed rather than guessed. Note each open
    question as you read: an unresolved decision, an alternative left open, a `TBD`, an
-   `annotation` fence, a value the work needs but the source does not give.
+   `annotation` fence, a value the work needs but the source does not give. Note each
+   source's address too — the repository-relative path and `#anchor` of every section, the
+   URL of every artifact or design — since the steps' `Read first:` lines are built from them.
    Then run the [interview](#interview)'s first round, before drafting any entry.
 2. Derive the plan's `+tag`: one slug from the plan subject, written with the `+` sigil
    Backlog stores plan tags under (a `#slug` is a general tag and a different plan from
@@ -85,6 +88,17 @@ decision, not the plan's.
      it is: ``Title this session `<tag>:<n> - <Title>` before you start.`` — the bare tag,
      a colon, then the entry's numbered title exactly as written (grammar's
      `## Step numbers`). Every prompt carries it, worded the same way.
+   - **Sources third.** One `Read first:` line in the shape of the grammar's
+     `## Read-first line`, naming what the session must read before working: the exact
+     sections of the source this step implements, shows or depends on, by
+     repository-relative path and `#anchor` — never the whole source when a section answers
+     — and every design, prototype or artifact the plan was made from that the step's work
+     must match, by its URL. A session runs a pasted prompt with nothing but its text, so
+     this line is how it reaches the context the plan was written from. Leave it out only
+     when the source has no address — notes given inline — and then write what the step
+     needs from them into the instructions. Write `devbook:` tokens for the same chapters
+     too: Import moves those into the task's Devbook references and out of its text, so
+     the line is what survives a copy.
    - **Instructions next.** The rest of the body — concise, no padding — is the entry's
      primary content. Write every interview answer the step depends on into it as a
      settled fact — the chosen option, the exact name, value or wording — never as
@@ -103,7 +117,9 @@ decision, not the plan's.
    For each **`task`** entry: a title naming what the user does, then a body addressed to
    the user — what to do and what "done" looks like, concise. No marker, no session-name
    line, no `Setup:` or knowledge sub-item: those direct an AI session, and a task has
-   none. `- [ ]` checklist lines are fine for the user's own steps. Every task or test but
+   none. `- [ ]` checklist lines are fine for the user's own steps. A task or test that
+   checks or acts on something the source describes — a test against the design above all —
+   carries the same `Read first:` line, as the body's first line. Every task or test but
    the sign-off closes its body with one line, `Kept manual: <reason>`, in the user's
    words from the interview.
 
@@ -135,7 +151,9 @@ decision, not the plan's.
      against what actually landed: every entry done, and nothing dropped, deferred or left
      half-finished along the way; anything still outstanding is written up as a new entry
      rather than noted and forgotten. It opens with the marker and session-name line like
-     every other prompt, but carries no knowledge/devbook reminder — it changes no
+     every other prompt, then — when the source has an address — a `Read first:` line
+     naming all of it, and
+     carries no knowledge/devbook reminder — it changes no
      repository of its own.
    - The **sign-off task**, titled `Sign off the <plan subject> plan`. It carries
      `id:sign-off-plan`, `after:review-plan`, `effort:1` and, like the review, `repo:` once
@@ -235,6 +253,9 @@ under the same tag. Steps 5–8 apply unchanged.
   1, 2, 3… in document order, and states `!ready`, an `effort:`, an `id:`, at least one
   `repo:`, and the plan's shared `+tag`; every prompt also opens with the marker line, then the
   session-name line naming `<tag>:<its title>`.
+- Every prompt whose source has an address carries a `Read first:` line third — the review
+  naming all of it, every other prompt the sections and designs its own work needs — and so
+  does every task or test that checks or acts on what the source describes.
 - No prompt contains a manual step in any form — no `Manual:` sub-item, no "ask the user
   to…" instruction — or an open decision: no "confirm with", "decide whether", `TBD`, or
   choice left between options. No task or test contains instructions for an AI.

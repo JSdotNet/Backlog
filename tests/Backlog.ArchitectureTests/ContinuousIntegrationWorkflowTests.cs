@@ -661,12 +661,15 @@ public class ContinuousIntegrationWorkflowTests
     /// one of them waits on the detection job and is skipped only on its explicit
     /// <c>'false'</c>, so a detection that fails or answers nothing still builds: a
     /// skipped required check reports success, and a gate that skipped on failure
-    /// would merge untested code green.
+    /// would merge untested code green. A change only to the plugin skips them too,
+    /// except the .NET job: it is the plugin's check, running just the tests that
+    /// read the plugin, so it runs on <c>scope == 'plugin'</c> as well.
     /// </summary>
     [Fact]
-    public void The_pull_request_build_jobs_skip_only_on_a_devbook_only_change()
+    public void The_pull_request_build_jobs_skip_only_on_a_devbook_or_plugin_only_change()
     {
         const string Gate = "${{ !cancelled() && needs.changes.outputs.code != 'false' }}";
+        const string DotnetGate = "${{ !cancelled() && (needs.changes.outputs.code != 'false' || needs.changes.outputs.scope == 'plugin') }}";
         var jobs = Jobs(File.ReadAllLines(WorkflowPath(PullRequestWorkflow)));
 
         var detect = Assert.Single(jobs, job => job.Name == "changes");
@@ -676,12 +679,14 @@ public class ContinuousIntegrationWorkflowTests
         Assert.All(builds, job =>
         {
             Assert.Equal("changes", JobKey(job, "needs"));
-            Assert.Equal(Gate, JobKey(job, "if"));
+            Assert.Equal(job.Name == "dotnet" ? DotnetGate : Gate, JobKey(job, "if"));
         });
 
         var detection = string.Join('\n', detect.Lines);
         Assert.Contains("grep -v '^\\.devbook/'", detection, StringComparison.Ordinal);
         Assert.Contains("code=false", detection, StringComparison.Ordinal);
+        Assert.Contains("'^(\\.devbook/|plugins/|\\.claude-plugin/|CLAUDE\\.md$)'", detection, StringComparison.Ordinal);
+        Assert.Contains("scope=plugin", detection, StringComparison.Ordinal);
     }
 
     [Fact]

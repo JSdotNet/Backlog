@@ -253,6 +253,33 @@ public sealed class TaskSyncWorkerTests
         Assert.Equal(2, fixture.SessionsResolved);
     }
 
+    // --- A service newer than the app -----------------------------------------
+
+    /// <summary>
+    /// The service has moved past this app. The cycle sends nothing, the person
+    /// reads why, and the watermarks stay where they were, so everything waiting
+    /// here goes once the app is updated.
+    /// </summary>
+    [Fact]
+    public async Task A_service_newer_than_the_app_is_sent_nothing_and_the_progress_stays()
+    {
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            seed: tasks => tasks.Seed(TaskChanges.Task("Waiting to go", Noon)),
+            initialState: Mine(Noon.AddDays(-1), "cursor-0"),
+            serviceVersion: "0.2.0");
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(SyncCompatibility.UpdateRequiredMessage, fixture.Worker.LastError);
+        Assert.All(fixture.Handler.Requests, request => Assert.Equal("/", request.Path));
+        Assert.Equal("cursor-0", fixture.State.Current.PullCursor);
+        Assert.Equal(Noon.AddDays(-1), fixture.State.Current.PushWatermark);
+    }
+
     // --- A token refused mid-cycle --------------------------------------------
 
     /// <summary>
@@ -1450,7 +1477,8 @@ public sealed class TaskSyncWorkerTests
             RecordingMyDayPreferencesReplication? myDay = null,
             RecordingGoalReplication? goals = null,
             RecordingImpedimentReplication? impediments = null,
-            RecordingIterationSettingsReplication? iteration = null)
+            RecordingIterationSettingsReplication? iteration = null,
+            string? serviceVersion = null)
         {
             var tasks = new InMemoryTaskStore();
             seed?.Invoke(tasks);
@@ -1460,6 +1488,13 @@ public sealed class TaskSyncWorkerTests
 
             var handler = new StubHttpMessageHandler((request, index) =>
             {
+                // The service root the compatibility check asks, when one is in
+                // front of the wire.
+                if (serviceVersion is not null && request.RequestUri?.AbsolutePath == "/")
+                {
+                    return StubHttpMessageHandler.Json(HttpStatusCode.OK, $$"""{"version":"{{serviceVersion}}"}""");
+                }
+
                 var body = request.Method == HttpMethod.Post && request.Content is not null
                     ? request.Content.ReadAsStringAsync(TestContext.Current.CancellationToken).GetAwaiter().GetResult()
                     : null;
@@ -1488,7 +1523,13 @@ public sealed class TaskSyncWorkerTests
             // handler in front of the scripted service, and the real provider
             // minting a token per request to the scripted token endpoint.
             var tokens = authenticated ? TokenPipeline.Create(credentials, clock) : null;
-            var http = new HttpClient(tokens?.InFrontOf(handler) ?? handler)
+
+            // With a service version, the check a host composes sits after the
+            // token, as AddSyncPipeline puts it, against an app at 0.1.122.
+            HttpMessageHandler service = serviceVersion is null
+                ? handler
+                : new SyncCompatibilityHandler(new SyncCompatibility(new SyncAppVersion("0.1.122"), clock)) { InnerHandler = handler };
+            var http = new HttpClient(tokens?.InFrontOf(service) ?? service)
             {
                 BaseAddress = new Uri("https://sync.test")
             };
