@@ -1,32 +1,34 @@
-// report.mjs — the run reporter. After a run it writes, per scenario page the
-// run covered whole, `<scenario folder>/<stem>/run.json` (version 2) and one
-// PNG per screenshot label, into the working tree: runs are committed to the
-// target branch, so every reader sees the same one.
+// report.mjs — the run reporter. After a run it writes, per journey the run
+// covered whole, `run.json` (version 3) and one PNG per screenshot label into
+// the journey's run folder — its scenarios file without `.md`, then the
+// journey's anchor, so `scenarios.returns.md#return-a-parcel` runs into
+// `scenarios.returns/return-a-parcel/`. Runs are committed to the target
+// branch, so every reader sees the same one.
 //
-//   - A filtered run writes nothing: a page counts only when every part its
+//   - A filtered run writes nothing: a journey counts only when every part its
 //     spec declares was scheduled — a grep, `.only`, or a line filter each
 //     leave one out. A spec run in several projects records one of them.
-//   - A run that executed none of a page's parts writes nothing for it:
+//   - A run that executed none of a journey's parts writes nothing for it:
 //     `playwright test --list` schedules every part and runs none.
 //   - A failed part records the step that threw and its message.
 //   - A label the run did not reach keeps its file and its earlier entry,
 //     signature included: each shot names the signature of the run that took it.
-//   - A file whose label the page no longer has is pruned, and so is a failure
+//   - A file whose label the journey no longer has is pruned, and so is a failure
 //     screenshot of a part that did not fail this time.
 //
 // Use it from the Playwright config, beside any other reporter:
 //
-//   reporter: [['list'], ['../.devbook/_tools/scenarios/report.mjs', { scenarioFolder: '.devbook/scenarios' }]]
+//   reporter: [['list'], ['../.devbook/_tools/scenarios/report.mjs']]
 //
 // Plain ESM with no Playwright import: the class only receives Playwright's
 // objects, so `writeRun` and the class are both testable with `node --test`.
 
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { collapse, FAILURE_ATTACHMENT, labelsOf, normalizePath, parseScenarioPage, parseSpecHeader, readProfiles, resolveInside, SCENARIO_FOLDER, SHOT_ATTACHMENT, specParts } from "./parse.mjs";
+import { collapse, FAILURE_ATTACHMENT, labelsOf, parseScenariosFile, parseSpecHeader, readProfiles, resolveInside, runFolderOf, SCENARIO_FOLDER, SHOT_ATTACHMENT, specParts, splitAddress } from "./parse.mjs";
 import { effectiveConfig, findRepoRoot, recordedConfig } from "./setup.mjs";
 
-export const RUN_VERSION = 2;
+export const RUN_VERSION = 3;
 export const RUN_FILE = "run.json";
 
 /** The failure screenshot's file name for a part: the dot keeps it apart from every label. */
@@ -70,8 +72,8 @@ export function plainMessage(message) {
 
 /**
  * Where a failed part failed: `{ step, message }`, `step` the 1-based number
- * of the page step whose `step()` threw — numbered across the part, as the
- * page lists them — or null when the error was thrown outside every page
+ * of the journey step whose `step()` threw — numbered across the part, as
+ * the journey lists them — or null when the error was thrown outside every
  * step, such as in the setup. `steps` is Playwright's result step tree;
  * `error` the result's error.
  */
@@ -101,9 +103,10 @@ export function failureOf(part, steps = [], error) {
     return { step: found?.number ?? null, message: plainMessage(error?.message ?? found?.step.error?.message ?? "") };
 }
 
-async function readJson(file) {
+/** `rel` under `root` parsed as JSON, or null when it is missing, unreadable, or outside `root`. */
+async function readJson(root, rel) {
     try {
-        return JSON.parse(await readFile(file, "utf8"));
+        return JSON.parse(await readFile(resolveInside(root, rel), "utf8"));
     } catch {
         return null;
     }
@@ -118,21 +121,20 @@ async function putImage(image, target) {
 const isImage = (image) => Boolean(image?.body || image?.path);
 
 /**
- * Write one page's run.
+ * Write one journey's run.
  *
- * `page` is the parsed page; `parts` maps a part's anchor to `{ outcome,
+ * `journey` is the parsed journey; `parts` maps a part's anchor to `{ outcome,
  * durationMs, failure }` (a part absent from it is `not-run`; `failure` is
  * `{ step, message }` and kept on a failed part only); `captured` maps a label
  * to the PNG this run took for it and `failures` a part's anchor to its
  * failure screenshot, each an image: `{ body }` holding the bytes, or
  * `{ path }` naming a file. Returns `{ folder, written, pruned }`, file names
- * relative to the page's run folder.
+ * relative to the journey's run folder.
  */
-export async function writeRun({ repoRoot, scenarioFolder = SCENARIO_FOLDER, page, signature, ranAt, profile, effectiveConfig: config, parts = {}, captured = {}, failures = {} }) {
-    const folder = resolveInside(resolveInside(repoRoot, scenarioFolder), page.stem);
-    const runFile = resolveInside(folder, RUN_FILE);
+export async function writeRun({ repoRoot, journey, signature, ranAt, profile, effectiveConfig: config, parts = {}, captured = {}, failures = {} }) {
+    const folder = resolveInside(repoRoot, runFolderOf(journey));
     await mkdir(folder, { recursive: true });
-    const previous = await readJson(runFile);
+    const previous = await readJson(folder, RUN_FILE);
     let existing = [];
     try {
         existing = await readdir(folder);
@@ -142,7 +144,7 @@ export async function writeRun({ repoRoot, scenarioFolder = SCENARIO_FOLDER, pag
 
     const written = [];
     const keep = new Set([RUN_FILE]);
-    const runParts = page.parts.map((part) => {
+    const runParts = journey.parts.map((part) => {
         const result = parts[part.anchor] ?? { outcome: "not-run" };
         const entry = { title: part.title, anchor: part.anchor, outcome: result.outcome };
         if (typeof result.durationMs === "number") entry.durationMs = result.durationMs;
@@ -159,8 +161,8 @@ export async function writeRun({ repoRoot, scenarioFolder = SCENARIO_FOLDER, pag
     }
 
     const shots = {};
-    const partOf = new Map(page.shots.map((shot) => [shot.label, shot.part]));
-    for (const label of labelsOf(page)) {
+    const partOf = new Map(journey.shots.map((shot) => [shot.label, shot.part]));
+    for (const label of labelsOf(journey)) {
         const file = `${label}.png`;
         if (isImage(captured[label])) {
             await putImage(captured[label], resolveInside(folder, file));
@@ -181,15 +183,15 @@ export async function writeRun({ repoRoot, scenarioFolder = SCENARIO_FOLDER, pag
         pruned.push(name);
     }
 
-    const run = { version: RUN_VERSION, page: page.path, signature, ranAt, profile, effectiveConfig: config, parts: runParts, shots };
-    await writeFile(runFile, `${JSON.stringify(run, null, 2)}\n`, "utf8");
+    const run = { version: RUN_VERSION, journey: journey.id, signature, ranAt, profile, effectiveConfig: config, parts: runParts, shots };
+    await writeFile(resolveInside(folder, RUN_FILE), `${JSON.stringify(run, null, 2)}\n`, "utf8");
     written.push(RUN_FILE);
     return { folder, written, pruned };
 }
 
 /**
  * The Playwright reporter. Options: `repoRoot` (default: found upward from the
- * working folder), `scenarioFolder`, and `project` — the one project whose
+ * working folder), `scenarioFolder` — where `profiles.json` lives — and `project` — the one project whose
  * results a run records when a spec runs in several; by default the first in
  * the config that ran it, so two browsers never blend into one run.
  */
@@ -241,19 +243,18 @@ export default class ScenarioReporter {
 
     async onEnd() {
         const repoRoot = this.options.repoRoot ?? findRepoRoot(process.cwd());
-        const scenarioFolder = this.options.scenarioFolder ?? SCENARIO_FOLDER;
-        const profiles = await readProfiles(repoRoot, scenarioFolder);
+        const profiles = await readProfiles(repoRoot, this.options.scenarioFolder ?? SCENARIO_FOLDER);
 
         for (const [file, byProject] of this.scheduled) {
             try {
-                await this.writePage({ repoRoot, scenarioFolder, profiles, file, byProject });
+                await this.writeJourney({ repoRoot, profiles, file, byProject });
             } catch (error) {
                 console.error(`scenario reporter: no run written for ${file}: ${error.message}`);
             }
         }
     }
 
-    async writePage({ repoRoot, scenarioFolder, profiles, file, byProject }) {
+    async writeJourney({ repoRoot, profiles, file, byProject }) {
         const project = this.projectFor(byProject);
         if (project === null) return;
         const titles = byProject.get(project);
@@ -265,40 +266,41 @@ export default class ScenarioReporter {
         }
         const header = parseSpecHeader(source);
         if (!header.page) return;
-        const pagePath = normalizePath(header.page);
-        let page;
+        const { path: filePath, anchor } = splitAddress(header.page);
+        let journey;
         try {
-            page = parseScenarioPage(await readFile(resolveInside(repoRoot, pagePath), "utf8"), pagePath);
+            const scenarios = parseScenariosFile(await readFile(resolveInside(repoRoot, filePath), "utf8"), filePath);
+            journey = scenarios.isScenarios ? scenarios.journeys.find((journey) => journey.isScenario && journey.slug === anchor) : null;
         } catch {
             return;
         }
-        if (!page.isScenario) return;
+        if (!journey) return;
 
-        // Filtered: a part the spec declares — by its call, or by the page's title in its
-        // source — that this run did not schedule. Then the run says nothing about the page.
+        // Filtered: a part the spec declares — by its call, or by the journey's title in its
+        // source — that this run did not schedule. Then the run says nothing about the journey.
         const declared = new Set(specParts(source));
-        for (const part of page.parts) if (source.includes(part.title)) declared.add(part.title);
+        for (const part of journey.parts) if (source.includes(part.title)) declared.add(part.title);
         if ([...declared].some((title) => !titles.has(title))) return;
 
         let config = null;
-        let profile = process.env.SCENARIO_PROFILE || page.setup.profile || "default";
+        let profile = process.env.SCENARIO_PROFILE || journey.setup.profile || "default";
         try {
-            const resolved = effectiveConfig(page, profiles.map, { override: process.env.SCENARIO_PROFILE });
+            const resolved = effectiveConfig(journey, profiles.map, { override: process.env.SCENARIO_PROFILE });
             profile = resolved.profile;
             config = recordedConfig(resolved);
         } catch {
             config = null;
         }
 
-        // A run that executed none of the page's parts — a listing, or a run that
-        // stopped before the page — says nothing about it.
+        // A run that executed none of the journey's parts — a listing, or a run
+        // that stopped before the journey — says nothing about it.
         const byTitle = this.results.get(`${project}\u0000${file}`) ?? new Map();
-        if (!page.parts.some((part) => byTitle.has(part.title))) return;
+        if (!journey.parts.some((part) => byTitle.has(part.title))) return;
 
         const parts = {};
         const captured = {};
         const failures = {};
-        for (const part of page.parts) {
+        for (const part of journey.parts) {
             const attempts = byTitle.get(part.title) ?? [];
             const outcome = outcomeOf(attempts.map((attempt) => attempt.status));
             parts[part.anchor] = { outcome, durationMs: attempts.reduce((sum, attempt) => sum + (attempt.duration ?? 0), 0) };
@@ -313,7 +315,7 @@ export default class ScenarioReporter {
             }
         }
 
-        await writeRun({ repoRoot, scenarioFolder, page, signature: header.signature, ranAt: this.ranAt, profile, effectiveConfig: config, parts, captured, failures });
+        await writeRun({ repoRoot, journey, signature: header.signature, ranAt: this.ranAt, profile, effectiveConfig: config, parts, captured, failures });
     }
 }
 

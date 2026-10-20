@@ -371,24 +371,24 @@ const dump = (issues) => JSON.stringify(issues, null, 2);
     );
 }
 
-// --- scenario page field scope -----------------------------------------
+// --- journey field scope ---------------------------------------------
 
-// A scenario page is the one file whose block carries the six setup fields and
-// `aliases`, and the one block that may not carry `tests`: the page is the test.
+// A journey is the one block that carries the six setup fields, and the one
+// block that may not carry `tests`: the journey is the test.
 {
     const page = (meta) =>
-        `# Set up\n\n${fence("type: scenario\n" + meta)}\nLead.\n\n## Done\n\n- **Then** it is done\n`;
+        `# Scenarios\n\n${fence("type: scenarios\n")}\nLead.\n\n## Set up\n\n${fence("type: scenario\n" + meta)}\nLead.\n\n### Done\n\n- **Then** it is done\n`;
     const legal = validateDocument(
-        ".devbook/domain/work/set-up.md",
+        ".devbook/domain/work/scenarios.md",
         page("aliases: [Backlog setup]\nstart: /backlog\nactor: actors.md#po\ndata: [empty]\nprofile: default\nflags: [context.md#a]\nsettings: [context.md#b=1]\n")
     );
-    check(legal.length === 0, "aliases and the setup fields are legal on a scenario page", dump(legal));
+    check(legal.length === 0, "aliases and the setup fields are legal on a journey", dump(legal));
 
-    const tests = validateDocument(".devbook/domain/work/set-up.md", page("tests: [e2e:playwright:x.spec.ts]\n"));
-    check(Boolean(find(tests, "error", "`tests` on a scenario page")), "`tests` on a scenario page is an error", dump(tests));
+    const tests = validateDocument(".devbook/domain/work/scenarios.md", page("tests: [e2e:playwright:x.spec.ts]\n"));
+    check(Boolean(find(tests, "error", "`tests` on a journey")), "`tests` on a journey is an error", dump(tests));
 
-    const depends = validateDocument(".devbook/domain/work/set-up.md", page("depends-on: [.devbook/domain/work/features.md#a]\n"));
-    check(Boolean(find(depends, "error", "`depends-on` on the file-level block")), "a chapter-only field stays refused on a scenario page", dump(depends));
+    const fileLevel = validateDocument(".devbook/domain/work/scenarios.md", page("").replace("type: scenarios\n", "type: scenarios\naliases: [x]\n"));
+    check(Boolean(find(fileLevel, "error", "`aliases` on the file-level block")), "a chapter-only field stays refused on the scenarios file's own block", dump(fileLevel));
 
     for (const field of ["start: /x", "actor: actors.md#po", "data: [empty]", "profile: default", "flags: [context.md#a]", "settings: [context.md#b=1]"]) {
         const key = field.split(":")[0];
@@ -396,7 +396,7 @@ const dump = (issues) => JSON.stringify(issues, null, 2);
             ".devbook/domain/work/features.md",
             `# Features\n\n${fence("type: features\n")}\n## Board\n\n${fence("type: feature\n" + field + "\n")}\nProse.\n`
         );
-        check(Boolean(find(elsewhere, "error", "`" + key + "`, a setup field")), `\`${key}\` off a scenario page is an error`, dump(elsewhere));
+        check(Boolean(find(elsewhere, "error", "`" + key + "`, a setup field")), `\`${key}\` off a journey is an error`, dump(elsewhere));
     }
 }
 

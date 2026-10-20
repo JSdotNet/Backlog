@@ -19,7 +19,7 @@
 //   .devbook/_meta/index.json          the ordered reading outline
 //   .devbook/_meta/annotations.json    the open-note index, from the annotation fences
 //   .devbook/_meta/naming.json         the term register, from domain/'s terms and aliases
-//   .devbook/_meta/scenarios.json      the scenario register, from domain/'s scenario pages
+//   .devbook/_meta/scenarios.json      the journey register, from domain/'s scenarios files
 //   .devbook/tech/_meta/graph.json     the same set, scoped to .tech
 //   ...one set per devbook folder the repository actually has
 //
@@ -171,7 +171,7 @@ for (const scope of scopes) {
     await emit(
         scenariosPathFor(scope),
         scenariosDocument,
-        `${String(scenariosDocument.stats.pages).padStart(4)} pages, ` +
+        `${String(scenariosDocument.stats.journeys).padStart(4)} journeys, ` +
             `${String(scenariosDocument.stats.parts).padStart(4)} parts`
     );
 

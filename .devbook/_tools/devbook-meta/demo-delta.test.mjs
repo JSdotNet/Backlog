@@ -69,7 +69,7 @@ const FEATURES = ".devbook/domain/ordering/features.md";
 const BASE = `${CHANGES_ROOT}/show-checkout`;
 const proposal =
     `# Show checkout\n\n${fence("type: change\nstatus: proposed\ncategory: feature\n")}\n` +
-    `## Why\n\nCheckout was agreed on a screen.\n\n## Scope\n\nThe checkout screen.\n\n## Chapters touched\n\n- ${FEATURES}\n`;
+    `## Why\n\nCheckout was agreed on a screen.\n\n## Scope\n\nThe checkout screen.\n`;
 const placeholder = fence("change: show-checkout\ndelta: modified\n");
 
 async function fixture(extra = {}) {

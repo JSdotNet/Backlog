@@ -3,6 +3,7 @@
 ```meta
 date: 2026-10-05
 related: [".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/arc42/adr/guidelines/README.md", ".devbook/domain/inbox/requirements.md"]
+severity: low
 ```
 
 ## Status

@@ -48,14 +48,15 @@ A name should not repeat what its location already says.
 - Files within a bounded context are named after their role, not the context:
   `.devbook/domain/ordering/features.md`, not `.devbook/domain/ordering/ordering-features.md`.
 
-## A scenario page's stem is its name
+## A journey's address is its name
 
-A scenario page is named after its journey, in kebab-case:
-`.devbook/domain/work/set-up-and-fill-the-backlog.md`. The file name without
-`.md` is its **stem**, the scenario's identity for every tool: its run folder,
-its derived spec, and every `scenario:<stem>#<label>` reference use it. A stem
-is unique across every bounded context, so renaming the file renames the
-scenario. See `devbook-chapter-metadata.md` under "Scenario pages".
+A journey is a `##` of a scenarios file, `scenarios.md` or `scenarios.<name>.md`,
+headed by what the actor does: `## Set up and fill the backlog`. Its address,
+`.devbook/domain/work/scenarios.md#set-up-and-fill-the-backlog`, is its identity for
+every tool: its run folder `scenarios/set-up-and-fill-the-backlog/`, its derived
+spec's header, and every `Proved by:` and `related` entry use it. The anchor is
+unique in its file, so retitling the heading renames the journey. See
+`devbook-chapter-metadata.md` under "Journeys".
 
 ## Casing
 
