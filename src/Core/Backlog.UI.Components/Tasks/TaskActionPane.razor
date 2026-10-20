@@ -41,9 +41,8 @@
     component in this folder.
 
     The rows line up across the gap, which is a rule about height rather than about
-    layout: every row reserves the line its value would take whether or not it has
-    one, and the groups sit on one rhythm rather than being spaced apart from each
-    other. Without both, "Priority" in the second column lands between "Remind me"
+    layout: every row is one line, its value inline after its label, and the groups
+    sit on one rhythm rather than being spaced apart from each other. Without both, "Priority" in the second column lands between "Remind me"
     and "Add due date" in the first, and a pane whose rows are at eleven different
     heights reads as a pile rather than as two columns.
 *@
@@ -113,7 +112,7 @@
     /// <para>
     /// So the band flows the groups left to right and wraps only when the width
     /// runs out, and a group flows its own rows the same way. Two consequences are
-    /// deliberate. A row is as tall as its label — the reserved line that keeps
+    /// deliberate. A row is as tall as its label — the 2rem floor that keeps
     /// two columns level is a rule about columns, and there are none here. And a
     /// narrow container still stacks, because wrapping is the whole mechanism: the
     /// mobile channel gets the single column it needs without being told about it.

@@ -1436,11 +1436,12 @@ public sealed class TasksDetailPaneTests
 
     /// <summary>"Waiting for" and "Create follow-up" are the two ends of one
     /// relationship — one reads the chain backwards, the other writes it forwards —
-    /// so they share a row inside "Dependencies" rather than stacking. The picker
-    /// they can open belongs to "Waiting for" alone and needs the full width for its
-    /// chips, so it stays outside the row that holds the two actions.</summary>
+    /// so they share a row inside "Dependencies" rather than stacking, with "Mark
+    /// as blocked" beside them so the group costs one line of the panel. The picker
+    /// "Waiting for" opens needs the full width for its chips, so it stays outside
+    /// the row that holds the actions.</summary>
     [Fact]
-    public async Task Waiting_for_and_create_follow_up_share_a_row_and_the_picker_sits_outside_it()
+    public async Task Waiting_for_follow_up_and_blocked_share_a_row_and_the_picker_sits_outside_it()
     {
         using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync("# Ship it\n`task`\n");
@@ -1454,7 +1455,7 @@ public sealed class TasksDetailPaneTests
         Assert.NotEqual(group, chainRow);
 
         Assert.Equal(
-            ["entry-action-depends", "entry-action-followup"],
+            ["entry-action-depends", "entry-action-followup", "entry-action-blocked"],
             chainRow!.Children.Select(child => child.GetAttribute("data-testid")));
 
         await pane.Find("[data-testid='entry-action-depends-set']").ClickAsync(new());
