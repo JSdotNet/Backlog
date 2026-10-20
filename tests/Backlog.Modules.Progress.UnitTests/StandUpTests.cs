@@ -111,13 +111,11 @@ public sealed class StandUpTests : IDisposable
     {
         var doing1 = Add(Make.Task("Customer search by IBAN", ProgressTaskStatus.InProgress));
         var doing2 = Add(Make.Task("Index the chapters", ProgressTaskStatus.InProgress));
-        var done = Enumerable.Range(0, 5).Select(i => Add(Make.Task($"Done {i}", ProgressTaskStatus.Done, completedOn: Oct(12 + i)))).ToList();
-        await GoalAsync("Customers get paid faster", [MakeGoal.Task(doing1.Id), .. done.Take(3).Select(task => MakeGoal.Task(task.Id))]);
-        await GoalAsync("Devbook search ships", [MakeGoal.Task(doing2.Id), .. done.Skip(3).Select(task => MakeGoal.Task(task.Id))]);
+        var done = Enumerable.Range(0, 7).Select(i => Add(Make.Task($"Done {i}", ProgressTaskStatus.Done, completedOn: Oct(12 + (i % 5))))).ToList();
+        await GoalAsync("Customers get paid faster", [MakeGoal.Task(doing1.Id), .. done.Take(4).Select(task => MakeGoal.Task(task.Id))]);
+        await GoalAsync("Devbook search ships", [MakeGoal.Task(doing2.Id), .. done.Skip(4).Select(task => MakeGoal.Task(task.Id))]);
         await GoalAsync("Phone capture in daily use", MakeGoal.PullRequest("JSdotNet/Backlog", 77));
         _pulls.Known.Add(new GoalPullRequestDto("JSdotNet/Backlog", "77", LinkedPullRequestState.Open, null, null, null));
-        Add(Make.Task("VAT rate per line item", ProgressTaskStatus.Done, completedOn: Oct(14)));
-        Add(Make.Task("Credit note layout", ProgressTaskStatus.Done, completedOn: Oct(15)));
         Add(Make.Task("Due Tuesday") with { DueOn = Oct(20) });
         Add(Make.Task("Due Thursday") with { DueOn = Oct(22) });
         foreach (var title in new[] { "Bank sample files missing", "Credit note numbering unclear", "Phone build signing" })
@@ -135,7 +133,7 @@ public sealed class StandUpTests : IDisposable
 
     /// <summary>Scenario "A task done outside every goal".</summary>
     [Fact]
-    public async Task Finished_is_grouped_by_goal_with_no_goal_last()
+    public async Task Finished_lists_only_what_a_goal_counts()
     {
         var invoice = Add(Make.Task("Invoice PDF export", ProgressTaskStatus.Done, completedOn: Oct(14)));
         Add(Make.Task("VAT rate per line item", ProgressTaskStatus.Done, completedOn: Oct(14)));
@@ -146,9 +144,8 @@ public sealed class StandUpTests : IDisposable
 
         var standUp = await ReadAsync();
 
-        Assert.Equal(["Customers get paid faster", null], standUp.Finished.Select(group => group.GoalTitle));
+        Assert.Equal(["Customers get paid faster"], standUp.Finished.Select(group => group.GoalTitle));
         Assert.Equal(["Invoice PDF export"], Titles(standUp.Finished, "Customers get paid faster"));
-        Assert.Equal(["VAT rate per line item"], Titles(standUp.Finished, null));
         Assert.Equal(Oct(14), standUp.Finished[0].Items[0].DoneOn);
     }
 

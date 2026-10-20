@@ -19,8 +19,8 @@ public sealed record ReadStandUpQuery(DateOnly Today, IterationLength Length);
 /// <item><b>Goals</b>: every goal with its progress — the items done inside last as its
 /// <c>+n</c> — and its <see cref="GoalForecasting">forecast</see> from the four windows
 /// ending with last.</item>
-/// <item><b>Finished</b>: each goal's counted items done inside last, then under No goal every
-/// task no goal counts whose status is Done and that was completed inside last.</item>
+/// <item><b>Finished</b>: each goal's counted items done inside last. Work no goal counts is
+/// not listed: the stand-up reports what the goals track.</item>
 /// <item><b>Planned</b>: for each goal, its items in progress (a blocked one is not), its open
 /// items due inside next, and for each plan it holds the first entry in plan order that is
 /// open, not in progress, not blocked, not archived and waits on no open work; then under No
@@ -29,8 +29,7 @@ public sealed record ReadStandUpQuery(DateOnly Today, IterationLength Length);
 /// days and the first goal counting a task it holds back, and how many were resolved
 /// inside last.</item>
 /// </list>
-/// A group with no item is left out. The pull requests of tasks no goal counts are not read:
-/// such a task is finished by its status alone.
+/// A group with no item is left out. The pull requests of tasks no goal counts are not read.
 /// </summary>
 public sealed class ReadStandUpQueryHandler(
     IGoalRepository goals,

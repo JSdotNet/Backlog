@@ -7,7 +7,7 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// <param name="Last">The window before next, that Finished and the goals' <c>+n</c> read.</param>
 /// <param name="Next">The window holding today, or the first after it, that Planned reads.</param>
 /// <param name="Goals">Every goal, in the order they were set.</param>
-/// <param name="Finished">The items done inside last, grouped by goal, No goal last.</param>
+/// <param name="Finished">The items the goals count that were done inside last, grouped by goal.</param>
 /// <param name="Planned">The items expected in next, grouped by goal, No goal last.</param>
 /// <param name="PlannedEffort">The planned items' <c>effort:</c> added up; an item without one adds 0.</param>
 /// <param name="Capacity">The person's pace scaled to next's worked days, in whole points;

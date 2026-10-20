@@ -404,20 +404,20 @@ The system SHALL show the stand-up as four blocks in this order: Goals, Finished
 - **When** the stand-up is read
 - **Then** it shows Goals, Finished 7, Planned 5 and Impediments 3, in that order
 
-### Requirement: Finished is grouped by goal, then No goal
+### Requirement: Finished lists only what a goal counts
 
 ```meta
 type: requirement
 status: draft
 ```
 
-The system SHALL list under Finished every item done in the last window, grouped by the goal that counts it, with the items no goal counts last under "No goal".
+The system SHALL list under Finished every item done in the last window that a goal counts, grouped by that goal, and no item that no goal counts.
 
 #### Scenario: A task done outside every goal
 
 - **Given** "Invoice PDF export" of "Customers get paid faster" and "VAT rate per line item" of no goal were both done on 14 October
 - **When** the stand-up is read
-- **Then** "Invoice PDF export" is under "Customers get paid faster" and "VAT rate per line item" is under "No goal", last
+- **Then** "Invoice PDF export" is under "Customers get paid faster" and "VAT rate per line item" is not listed
 
 ### Requirement: Planned is derived from three sources
 

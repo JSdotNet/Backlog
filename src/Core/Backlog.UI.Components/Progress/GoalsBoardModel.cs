@@ -162,7 +162,7 @@ public sealed record StandUpImpediment(
 /// <summary>
 /// The stand-up beside the goals (<c>.devbook/domain/progress/features.md#the-stand-up</c>).
 /// </summary>
-/// <param name="Finished">The items done in the last window, by goal, No goal last.</param>
+/// <param name="Finished">The items the goals count that were done in the last window, by goal.</param>
 /// <param name="Planned">The planned items for the next window, by goal, No goal last.</param>
 /// <param name="PlannedEffort">The planned items' effort, added up.</param>
 /// <param name="Capacity">The pace scaled to the next window; null without a pace.</param>

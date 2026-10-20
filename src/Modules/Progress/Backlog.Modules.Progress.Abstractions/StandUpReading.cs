@@ -40,8 +40,8 @@ public sealed record StandUpInputs(
 /// <item><b>Goals</b>: every goal with its progress — the items done inside last as its
 /// <c>+n</c> — and its <see cref="GoalForecasting">forecast</see> from the four windows
 /// ending with last.</item>
-/// <item><b>Finished</b>: each goal's counted items done inside last, then under No goal every
-/// task no goal counts whose status is Done and that was completed inside last.</item>
+/// <item><b>Finished</b>: each goal's counted items done inside last. Work no goal counts is
+/// not listed: the stand-up reports what the goals track.</item>
 /// <item><b>Planned</b>: for each goal, its items in progress (a blocked one is not), its open
 /// items due inside next, and for each plan it holds the first entry in plan order that is
 /// open, not in progress, not blocked, not archived and waits on no open work; then under No
@@ -102,7 +102,7 @@ public static class StandUpReading
             IterationWindowDto.From(last),
             IterationWindowDto.From(next),
             [.. all.Select(goal => GoalOf(goal, items[goal.Id], counted[goal.Id], heldBack, last, next, week))],
-            Finished(all, items, noGoal, last),
+            Finished(all, items, last),
             planned,
             planned.SelectMany(group => group.Items).Sum(item => item.Effort ?? 0),
             inputs.PointsPerWeek is { } points ? Iterations.Capacity(points, next, week) : null,
@@ -143,7 +143,6 @@ public static class StandUpReading
     private static List<StandUpGroupDto> Finished(
         IReadOnlyList<GoalDto> all,
         Dictionary<Guid, IReadOnlyList<GoalItem>> items,
-        List<ProgressTaskDto> noGoal,
         IterationWindow last)
     {
         var listed = new Listed();
@@ -156,12 +155,6 @@ public static class StandUpReading
                 .Where(listed.First)
                 .Select(ItemOf));
         }
-
-        Add(groups, null, noGoal
-            .Where(task => task.Status == ProgressTaskStatus.Done && task.CompletedOn is { } on && last.Contains(on))
-            .Select(task => new GoalItem(task, null, GoalItemState.Done, task.CompletedOn))
-            .Where(listed.First)
-            .Select(ItemOf));
 
         return groups;
     }

@@ -98,7 +98,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     </Story>
 
     <Story Name="Stand-up"
-           Description="The aside on its own: Finished with the item no goal holds last as title · no goal, Planned with each item's effort in points at the row's end — Payment terms on quotes carries none, so it shows none — a pull request's status line, and the points tag titled in words, and Impediments followed by how many the last window resolved."
+           Description="The aside on its own: Finished with only what the goals count, Planned with each item's effort in points at the row's end — Payment terms on quotes carries none, so it shows none — a pull request's status line, and the points tag titled in words, and Impediments followed by how many the last window resolved."
            Code="@StandUpCode">
         <div class="sb-menu">
             <StandUpPanel StandUp="@Board.StandUp" Iteration="GoalsIteration.Week" TestId="goals-view-stand-up" />
@@ -282,8 +282,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         Finished:
         [
             new StandUpGroup("Customers get paid faster", [new StandUpEntry("Invoice PDF export"), new StandUpEntry("Reminder emails")]),
-            new StandUpGroup("Devbook search ships", [new StandUpEntry("Rank results by heading")]),
-            new StandUpGroup(null, [new StandUpEntry("VAT rate per line item")])
+            new StandUpGroup("Devbook search ships", [new StandUpEntry("Rank results by heading")])
         ],
         Planned:
         [
