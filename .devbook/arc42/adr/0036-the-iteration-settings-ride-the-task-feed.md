@@ -2,7 +2,6 @@
 
 ```meta
 date: 2026-10-20
-status: proposed
 related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/domain/progress/context.md#iteration-length", ".devbook/domain/progress/context.md#two-week-start", ".devbook/domain/progress/domain.md#iteration"]
 ```
 
@@ -18,9 +17,9 @@ Only a desktop writes it. The phone keeps reading the iteration from the
 ```meta
 ```
 
-Proposed, 2026-10-20, drafted by the flow-spec run `run-mvghvg4z-6jl2mm`. Not yet
-built; the flow-code run that follows its acceptance builds it. It awaits
-acceptance at that run's Personal Validation gate.
+Accepted, 2026-10-20, by the repository owner at the Personal Validation gate of
+the flow-spec run `run-mvghvg4z-6jl2mm` that drafted it. Not yet built; the
+flow-code run that follows it builds it.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
