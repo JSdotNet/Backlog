@@ -162,8 +162,8 @@ documented.
 
 Domain is the second. An unsplit `domain.md` offers its units in a chapter bar,
 a split file opens on its one aggregate, and an aggregate reads as **About**
-beside **Always true**, which is still a placeholder; see
-[Domain view by unit](features.md#domain-view-by-unit).
+beside **Always true**, its rules read from the invariants file beside the page;
+see [Domain view by unit](features.md#domain-view-by-unit).
 
 Flow and the Glossary follow. Flow draws each lifecycle as one row of states,
 and the Domain page's Glossary lists the context's terms and model chapters A to

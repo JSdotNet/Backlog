@@ -1,0 +1,177 @@
+@page "/devbook/domain-always-true"
+
+<PageTitle>Always true — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Always true"
+           Summary="A subpage of Devbook: an aggregate's Always true tab on the Domain page of the Domain view (local ADR 0036). It reads the invariants file beside the domain file — `domain.invariants.md`, or `domain.<name>.invariants.md` beside a split — and shows each rule as its one-sentence claim, marked ✓ when its chapter names a test, ○ when it names none, and ? when its `Enforced at:` line is `open`. Rules group under the concept that line names, falling back to the aggregate, and each heading opens that concept. Where each rule is enforced names code, so it stays folded until asked for."
+           Guidelines="@Rules">
+
+    <Story Name="Always true"
+           Description="An aggregate's rules, grouped: the ones enforced on the aggregate itself first, then those its `Enforced at:` line places on an entity it owns. A method of the aggregate, a type the domain does not name and an `open` line all keep the rule with the aggregate. Press Show where each is enforced to read each rule's line beneath its claim."
+           Code="@AlwaysTrueCode"
+           Source="@Invariants">
+        <DomainAlwaysTrue Groups="@DomainUnits.RulesOf(Order, Page, InvariantFiles, [Page])" UnitTitle="Order" />
+    </Story>
+
+    <Story Name="On the unit page"
+           Description="The same rules as the aggregate's second tab, beside About. A shared grouping with rules of its own — Shared Value Objects here — joins the chapter bar of the base page, and is its Always true alone."
+           Code="@PageCode"
+           Source="@Domain">
+        <DomainUnitPage File="@Page" InvariantFiles="@InvariantFiles" TestId="story-domain-rules-page" />
+    </Story>
+
+    <Story Name="No rules written"
+           Description="An aggregate no invariants chapter is about says so, in a sentence, instead of drawing an empty list."
+           Code="@EmptyCode">
+        <DomainAlwaysTrue Groups="@([])" UnitTitle="Invoice" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why the marks take no tone: the glyph and the words say what stands behind a rule."),
+        new("accessibility.md#iconography-accessibility", "Why each mark is read out in words and not left to its glyph.")
+    ];
+
+    private const string DomainPath = ".devbook/domain/ordering/domain.md";
+    private const string InvariantsPath = ".devbook/domain/ordering/domain.invariants.md";
+
+    private const string Domain = """
+        # Ordering
+
+        ```meta
+        type: domain
+        ```
+
+        ## Order
+
+        ```meta
+        type: aggregate
+        ```
+
+        A customer's request for goods, and the consistency boundary for its lines.
+
+        ### Order Line
+
+        ```meta
+        type: entity
+        aliases: [OrderLine]
+        ```
+
+        One product and its quantity on the order.
+
+        ## Shared Value Objects
+
+        ```meta
+        type: shared-value-objects
+        ```
+
+        ### Money
+
+        ```meta
+        type: value-object
+        ```
+
+        An amount in one currency, compared by value.
+        """;
+
+    private const string Invariants = """
+        # Invariants
+
+        ```meta
+        type: invariants
+        ```
+
+        What each aggregate enforces, one chapter per aggregate.
+
+        ## Order
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        ### Invariant: An order is placed once
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Placing_twice_is_refused]
+        ```
+
+        A placed order cannot be placed again. Placing it twice would bill twice.
+
+        Enforced at: `Place()`
+
+        ### Invariant: A cancelled order stays on record
+
+        ```meta
+        type: invariant
+        ```
+
+        Cancelling an order keeps it, marked cancelled.
+
+        Enforced at: open
+
+        ### Invariant: A line has a quantity
+
+        ```meta
+        type: invariant
+        ```
+
+        Every order line holds one or more of its product.
+
+        Enforced at: `OrderLine.SetQuantity()`
+
+        ### Invariant: Lines change through the order
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Lines_are_read_only]
+        ```
+
+        A line changes only through its order.
+
+        Enforced at: all mutations (`OrderLine`'s setters are internal)
+
+        ## Money
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#money]
+        ```
+
+        ### Invariant: An amount has one currency
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.MoneyTests.Adding_across_currencies_is_refused]
+        ```
+
+        An amount names exactly one currency, and two currencies never add.
+
+        Enforced at: `Money`
+        """;
+
+    private static readonly DomainChapterFile Page = DomainUnits.Parse(Domain, DomainPath);
+    private static readonly IReadOnlyList<DomainChapterFile> InvariantFiles = [DomainUnits.Parse(Invariants, InvariantsPath)];
+
+    private static DomainUnit Order => DomainUnits.Of(Page, InvariantFiles)[0];
+
+    private const string AlwaysTrueCode = """
+        <DomainAlwaysTrue Groups="@DomainUnits.RulesOf(order, page, invariantFiles, domainFiles)"
+                          UnitTitle="@order.Label"
+                          OnNavigate="OpenAsync" />
+        """;
+
+    private const string PageCode = """
+        <DomainUnitPage File="@page"
+                        DomainFiles="@domainFiles"
+                        InvariantFiles="@invariantFiles"
+                        OnNavigate="OpenAsync" />
+        """;
+
+    private const string EmptyCode = """
+        <DomainAlwaysTrue Groups="@([])" UnitTitle="Invoice" />
+        """;
+}

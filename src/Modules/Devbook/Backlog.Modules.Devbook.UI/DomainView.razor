@@ -1,7 +1,7 @@
 @*
     The Domain area read by unit (local ADR 0036), behind the New domain view
     switch. It names the page the selected menu row opens and draws it: Domain,
-    Features, Requirements, Model and Flow so far, and a placeholder for each other
+    Context, Features, Requirements, Model and Flow so far, and a placeholder for each other
     kind of file, which the plan +devbook-domain-view's later steps replace one page
     at a time. With the switch off the pane renders DomainDevbookPanel and never this.
 *@
@@ -15,17 +15,17 @@
     }
     else if (Page == DomainViewPage.Features)
     {
-        <DomainViewContextPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Features">
+        <DomainViewContextFilesPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Features">
             <DomainFeatureBoard Columns="@Columns(context)"
                                 ActiveFeature="@Asked?.Anchor"
                                 ActiveFeatureChanged="Picked"
                                 OnNavigate="NavigateAsync"
                                 AriaLabel="@($"Features of {context.ContextName}")" />
-        </DomainViewContextPage>
+        </DomainViewContextFilesPage>
     }
     else if (Page == DomainViewPage.Requirements)
     {
-        <DomainViewContextPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Requirements">
+        <DomainViewContextFilesPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Requirements">
             <DomainRequirementsView Groups="@Groups(context)"
                                     DocumentPath="@context.Page!.Path"
                                     ActiveGroup="@Asked?.Anchor"
@@ -33,7 +33,11 @@
                                     OnNavigate="NavigateAsync"
                                     OnOpenAlwaysTrue="OpenAlwaysTrueAsync"
                                     AriaLabel="@($"Requirements of {context.ContextName}")" />
-        </DomainViewContextPage>
+        </DomainViewContextFilesPage>
+    }
+    else if (Page == DomainViewPage.Context)
+    {
+        <DomainViewContextPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" />
     }
     else if (Page == DomainViewPage.Model)
     {

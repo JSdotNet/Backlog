@@ -9,7 +9,9 @@
     bar: the menu row was the picking.
 
     What a unit shows is the unit's kind. An aggregate opens on About with Always
-    true beside it; a domain service is one page; Glossary is its terms. Nothing
+    true beside it, its rules read from the invariants file beside the page; a
+    domain service is one page; Glossary is its terms; a shared grouping with rules
+    — Shared Value Objects, Shared Enums — is its Always true alone. Nothing
     here names a field type, an invocation detail or an event payload — those are
     Model's (§6). The Glossary reads every domain file of the context, so a split
     context's aggregates are listed beside its terms.
@@ -68,6 +70,12 @@
     [Parameter]
     public IReadOnlyList<DomainChapterFile> RequirementFiles { get; set; } = [];
 
+    /// <summary>The context's invariants files. The one beside <see cref="File"/>
+    /// — <c>domain.invariants.md</c>, or <c>domain.&lt;name&gt;.invariants.md</c>
+    /// beside a split — is where Always true reads its rules.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainChapterFile> InvariantFiles { get; set; } = [];
+
     /// <summary>The unit the chapter bar has picked, by its anchor. Unset, or an
     /// anchor the file does not hold, is the first unit.</summary>
     [Parameter]
@@ -101,32 +109,40 @@
 
     private IReadOnlyList<DomainUnit> _units = [];
     private DomainChapterFile? _read;
+    private IReadOnlyList<DomainChapterFile>? _readRules;
     private string? _active;
     private string? _activeParameter;
-    private string? _unitPage;
     private string? _unitPageParameter;
 
     protected override void OnParametersSet()
     {
-        if (!ReferenceEquals(_read, File))
+        if (!ReferenceEquals(_read, File) || !ReferenceEquals(_readRules, InvariantFiles))
         {
             _read = File;
-            _units = DomainUnits.Of(File);
+            _readRules = InvariantFiles;
+            _units = DomainUnits.Of(File, InvariantFiles);
         }
 
         // Taken from the host only when the host changed it: a host that does not
         // bind the pick keeps the reader's across its own re-renders.
+        var asked = false;
         if (!string.Equals(_activeParameter, ActiveUnit, StringComparison.Ordinal))
         {
             _activeParameter = ActiveUnit;
             _active = ActiveUnit;
+            asked = true;
         }
 
         if (!string.Equals(_unitPageParameter, ActiveUnitPage, StringComparison.Ordinal))
         {
             _unitPageParameter = ActiveUnitPage;
-            _unitPage = ActiveUnitPage;
+            asked = true;
         }
+
+        // The host asked for a page of the unit it opened: that aggregate turns to
+        // it, and the reader's own pick wins again from there.
+        if (asked && ActiveUnitPage is { } page && OpenUnit is { Kind: DomainUnitKind.Aggregate } open)
+            _pageOf[open.Key] = $"{TabId(open)}-{page}";
     }
 
     private string? ActiveTabId =>
@@ -136,14 +152,45 @@
 
     private static string TabId(DomainUnit unit) => $"domain-unit-{unit.Key}";
 
+    // The unit the page shows: the one picked, else the first.
+    private DomainUnit? OpenUnit =>
+        _units.FirstOrDefault(unit => string.Equals(unit.Key, _active, StringComparison.Ordinal)) ?? _units.FirstOrDefault();
+
+    private static string AboutId(DomainUnit unit) => $"domain-unit-{unit.Key}-about";
+
+    // The aggregate page each unit has open — About or Always true — kept so a
+    // link into the unit can turn it back to About.
+    private readonly Dictionary<string, string> _pageOf = [];
+
+    /// <summary>
+    /// A reference the reader followed. One into this file opens the unit that
+    /// holds the chapter it names — an aggregate on About, where the chapter's
+    /// card is — rather than leaving the page; any other goes to the host.
+    /// </summary>
+    private async Task NavigateAsync(DevbookReference reference)
+    {
+        if (reference.Slug is { } slug
+            && DomainUnits.Normalize(reference.Path) == DomainUnits.Normalize(File.Path)
+            && _units.FirstOrDefault(unit => unit.Chapter.Anchor == slug || unit.Chapter.Descendants().Any(chapter => chapter.Anchor == slug)) is { } target)
+        {
+            if (target.Kind == DomainUnitKind.Aggregate) _pageOf[target.Key] = AboutId(target);
+            if (!string.Equals(_active, target.Key, StringComparison.Ordinal))
+            {
+                _active = target.Key;
+                await ActiveUnitChanged.InvokeAsync(target.Key);
+            }
+            return;
+        }
+
+        await OnNavigate.InvokeAsync(reference);
+    }
+
     private async Task SelectAsync(string tabId)
     {
         var unit = _units.FirstOrDefault(candidate => TabId(candidate) == tabId);
         if (unit is null) return;
 
         _active = unit.Key;
-        // Another unit opens on About: the page asked for was the previous unit's.
-        _unitPage = null;
         await ActiveUnitChanged.InvokeAsync(unit.Key);
     }
 
@@ -165,7 +212,8 @@
     // unit's renderers do not read their chapters again.
     private readonly Dictionary<string, IReadOnlyList<DomainEventLine>> _events = [];
     private readonly Dictionary<string, IReadOnlyList<DomainGuarantee>> _guarantees = [];
-    private (DomainChapterFile?, IReadOnlyList<DomainChapterFile>?, IReadOnlyList<DomainChapterFile>?) _readFrom;
+    private readonly Dictionary<string, IReadOnlyList<DomainRuleGroup>> _rules = [];
+    private (DomainChapterFile?, IReadOnlyList<DomainChapterFile>?, IReadOnlyList<DomainChapterFile>?, IReadOnlyList<DomainChapterFile>?) _readFrom;
 
     private IReadOnlyList<DomainEventLine> EventsOf(DomainUnit unit)
     {
@@ -181,12 +229,20 @@
         return guarantees;
     }
 
+    private IReadOnlyList<DomainRuleGroup> RulesOf(DomainUnit unit)
+    {
+        Reset();
+        if (!_rules.TryGetValue(unit.Key, out var rules)) _rules[unit.Key] = rules = DomainUnits.RulesOf(unit, File, InvariantFiles, EventFiles);
+        return rules;
+    }
+
     private void Reset()
     {
-        if (_readFrom.Item1 == File && _readFrom.Item2 == DomainFiles && _readFrom.Item3 == RequirementFiles) return;
-        _readFrom = (File, DomainFiles, RequirementFiles);
+        if (_readFrom.Item1 == File && _readFrom.Item2 == DomainFiles && _readFrom.Item3 == RequirementFiles && _readFrom.Item4 == InvariantFiles) return;
+        _readFrom = (File, DomainFiles, RequirementFiles, InvariantFiles);
         _events.Clear();
         _guarantees.Clear();
+        _rules.Clear();
     }
 
     private static RenderFragment BarLabel(DomainUnit unit) =>
@@ -198,32 +254,34 @@
             @switch (unit.Kind)
             {
                 case DomainUnitKind.Aggregate:
-                    <Tabs AriaLabel="@($"{unit.Label} pages")" CssClass="domain-unit__tabs" ListTestId="domain-unit-tabs"
-                          ActiveId="@(_unitPage is null ? null : $"domain-unit-{unit.Key}-{_unitPage}")"
-                          ActiveIdChanged="@(id => _unitPage = id.EndsWith($"-{AlwaysTruePage}", StringComparison.Ordinal) ? AlwaysTruePage : AboutPage)">
-                        <TabPanel Id="@($"domain-unit-{unit.Key}-about")" Title="About" TabTestId="domain-unit-about-tab">
+                    <Tabs AriaLabel="@($"{unit.Label} pages")"
+                          ActiveId="@_pageOf.GetValueOrDefault(unit.Key)"
+                          ActiveIdChanged="@(id => _pageOf[unit.Key] = id)"
+                          CssClass="domain-unit__tabs"
+                          ListTestId="domain-unit-tabs">
+                        <TabPanel Id="@AboutId(unit)" Title="About" TabTestId="domain-unit-about-tab">
                             <DomainAggregateAbout Chapter="@unit.Chapter"
                                                   DocumentPath="@File.Path"
                                                   Events="@EventsOf(unit)"
-                                                  OnNavigate="OnNavigate" />
+                                                  OnNavigate="NavigateAsync" />
                         </TabPanel>
                         <TabPanel Id="@($"domain-unit-{unit.Key}-always-true")" Title="Always true" TabTestId="domain-unit-always-true-tab">
-                            <EmptyState Title="Always true"
-                                        Description="@($"The rules {unit.Label} always keeps will show here.")"
-                                        TestId="domain-unit-always-true"
-                                        role="status" />
+                            <DomainAlwaysTrue Groups="@RulesOf(unit)" UnitTitle="@unit.Label" OnNavigate="NavigateAsync" />
                         </TabPanel>
                     </Tabs>
+                    break;
+                case DomainUnitKind.Shared:
+                    <DomainAlwaysTrue Groups="@RulesOf(unit)" UnitTitle="@unit.Label" OnNavigate="NavigateAsync" />
                     break;
                 case DomainUnitKind.DomainService:
                     <DomainServiceAbout Chapter="@unit.Chapter"
                                         DocumentPath="@File.Path"
                                         Guarantees="@GuaranteesOf(unit)"
                                         Events="@EventsOf(unit)"
-                                        OnNavigate="OnNavigate" />
+                                        OnNavigate="NavigateAsync" />
                     break;
                 default:
-                    <DomainGlossary Chapter="@unit.Chapter" Files="@EventFiles" DocumentPath="@File.Path" OnNavigate="OnNavigate" />
+                    <DomainGlossary Chapter="@unit.Chapter" Files="@EventFiles" DocumentPath="@File.Path" OnNavigate="NavigateAsync" />
                     break;
             }
         </section>;

@@ -1,0 +1,134 @@
+@*
+    A unit's Always true tab in the Domain view (local ADR 0036): the rules its
+    invariants subpage writes, one claim each, grouped by the concept each rule's
+    `Enforced at:` line names, the unit's own group first.
+
+    Each claim is marked by what stands behind it: ✓ a test the chapter names, ○
+    no test yet, ? nothing enforces it yet (`Enforced at: open`). The mark is a
+    glyph for the eye and words for a listener, never colour alone.
+
+    Where each rule is enforced names code, so it stays folded until "Show where
+    each is enforced" is pressed.
+*@
+
+<div class="domain-rules" data-testid="domain-always-true">
+    @if (Groups.Count == 0)
+    {
+        <EmptyState Title="No rules written"
+                    Description="@($"No invariants chapter says what {UnitTitle} always keeps.")"
+                    TestId="domain-always-true-empty"
+                    role="status" />
+    }
+    else
+    {
+        <div class="domain-rules__bar">
+            @* Each rule reads its own mark out in words, so the key is for the eye only. *@
+            <p class="domain-rules__legend" data-testid="domain-rules-legend" aria-hidden="true">
+                <span><span class="domain-rules__mark" aria-hidden="true">✓</span> proved by a test</span>
+                <span><span class="domain-rules__mark" aria-hidden="true">○</span> no test yet</span>
+                <span><span class="domain-rules__mark" aria-hidden="true">?</span> not enforced yet</span>
+            </p>
+            <ToggleButton Pressed="@_showEnforced"
+                          PressedChanged="value => _showEnforced = value"
+                          TestId="domain-rules-show-enforced">
+                Show where each is enforced
+            </ToggleButton>
+        </div>
+
+        @foreach (var group in Groups)
+        {
+            <section @key="group.Reference" class="domain-rules__group" data-testid="domain-rule-group" data-concept="@group.Title" aria-labelledby="@HeadingId(group)">
+                <h3 class="domain-rules__heading" id="@HeadingId(group)">
+                    <DevbookTypeMarker Value="@group.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />
+                    @if (DevbookReference.Parse(group.Reference) is { } reference)
+                    {
+                        <DevbookReferenceLink Reference="@reference"
+                                              Text="@group.Title"
+                                              OnNavigate="OnNavigate"
+                                              TestId="domain-rule-group-link" />
+                    }
+                    else
+                    {
+                        @group.Title
+                    }
+                </h3>
+                <ul class="domain-rules__list">
+                    @foreach (var rule in group.Rules)
+                    {
+                        <li class="domain-rules__rule" data-testid="domain-rule" data-proof="@ProofName(rule.Proof)">
+                            <span class="domain-rules__mark" aria-hidden="true">@Glyph(rule.Proof)</span>
+                            <span class="sr-only">@ProofText(rule.Proof): </span>
+                            <span class="domain-rules__claim">@rule.Claim</span>
+                            @if (_showEnforced && rule.EnforcedAt is { } enforcedAt)
+                            {
+                                <span class="domain-rules__enforced" data-testid="domain-rule-enforced">Enforced at: @Inline(enforcedAt)</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    /// <summary>The unit's rules, grouped — <see cref="DomainUnits.RulesOf"/>.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainRuleGroup> Groups { get; set; } = [];
+
+    /// <summary>The unit's heading, which the empty state names.</summary>
+    [Parameter]
+    public string UnitTitle { get; set; } = "this unit";
+
+    /// <summary>A group's heading the reader followed to its concept.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    private bool _showEnforced;
+    private readonly string _id = $"domain-rules-{Guid.NewGuid():N}";
+
+    private string HeadingId(DomainRuleGroup group) => $"{_id}-{Groups.ToList().IndexOf(group)}";
+
+    private static string Glyph(DomainRuleProof proof) => proof switch
+    {
+        DomainRuleProof.Proved => "✓",
+        DomainRuleProof.Open => "?",
+        _ => "○"
+    };
+
+    private static string ProofText(DomainRuleProof proof) => proof switch
+    {
+        DomainRuleProof.Proved => "Proved by a test",
+        DomainRuleProof.Open => "Not enforced yet",
+        _ => "No test yet"
+    };
+
+    private static string ProofName(DomainRuleProof proof) => proof switch
+    {
+        DomainRuleProof.Proved => "proved",
+        DomainRuleProof.Open => "open",
+        _ => "unproved"
+    };
+
+    /// <summary>The line as written, its code spans drawn as code.</summary>
+    private static RenderFragment Inline(string text) => builder =>
+    {
+        var parts = text.Split('`');
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (parts[i].Length == 0) continue;
+            // An odd part sits between two backticks, unless the last tick is unpaired.
+            var code = i % 2 == 1 && !(parts.Length % 2 == 0 && i == parts.Length - 1);
+            if (code)
+            {
+                builder.OpenElement(0, "code");
+                builder.AddContent(1, parts[i]);
+                builder.CloseElement();
+            }
+            else
+            {
+                builder.AddContent(2, (i % 2 == 1 ? "`" : string.Empty) + parts[i]);
+            }
+        }
+    };
+}

@@ -52,6 +52,10 @@ public sealed record DomainChapter(
     /// <summary>One list-valued <c>meta</c> field's entries as written.</summary>
     public IReadOnlyList<string> ListField(string name) => DomainUnits.List(Field(name));
 
+    /// <summary>The block's <c>tests</c> entries as written: the tests that prove
+    /// the rule a chapter states, which the Always true tab marks it by.</summary>
+    public IReadOnlyList<string> Tests => ListField("tests");
+
     /// <summary>The block's <c>status</c>, or <see langword="null"/> when it
     /// states none — <c>deprecated</c> is what the Glossary strikes through.</summary>
     public string? Status { get; init; }
@@ -89,7 +93,11 @@ public enum DomainUnitKind
     DomainService,
 
     /// <summary>The <c>ubiquitous-language</c> grouping, read as Glossary.</summary>
-    Glossary
+    Glossary,
+
+    /// <summary>A <c>shared-value-objects</c> or <c>shared-enums</c> grouping that
+    /// has rules: its Always true, on the base page.</summary>
+    Shared
 }
 
 /// <summary>A unit the Domain page offers: an aggregate, a domain service, or

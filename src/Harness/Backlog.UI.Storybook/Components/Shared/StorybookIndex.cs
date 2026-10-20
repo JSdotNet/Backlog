@@ -358,6 +358,13 @@ internal static class StorybookIndex
             new("devbook/domain-features", "Domain features", "DomainFeatureBoard: a context's features in columns by what they build on, each card with its sub-features, flag or setting and proved requirements, and the detail picking one opens."),
             new("devbook/domain-requirements", "Domain requirements", "DomainRequirementsView: per feature, each requirement's SHALL sentence and proof, each scenario as Given / When / Then rows, and the link to a unit's Always true tab."),
 
+            // After Domain units, whose aggregate page this is the second tab of. The
+            // order bends one way here: Domain units draws DomainUnitPage, whose
+            // Always true tab is this page's DomainAlwaysTrue, before this page
+            // introduces it. It bends that way because the tab is a part of the unit
+            // page — read the page first, then the tab — as Model's tabs follow it.
+            new("devbook/domain-always-true", "Always true", "DomainAlwaysTrue: an aggregate's Always true tab — each rule's claim marked by its proof, grouped by the concept it is enforced at, where each is enforced folded until asked for."),
+
             // After Domain units, whose chapter bar offers it: the Glossary unit read
             // whole, with its filters and its Easily confused pairs.
             new("devbook/domain-glossary", "Domain glossary", "DomainGlossary: every term and model chapter of a context, A–Z, with its kind, its aliases as code chips and its first sentence — a filter box that matches aliases too, kind filters, deprecated terms struck through, and Easily confused for two terms that name each other."),
@@ -365,6 +372,11 @@ internal static class StorybookIndex
             // The Domain view's Flow page (local ADR 0036): a lifecycle drawn as one
             // row of states; every other diagram keeps DiagramView's rendering.
             new("devbook/domain-flows", "Domain flows", "DomainFlowPage and DomainFlowRow: a `flow.md` whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — with its prose beneath."),
+
+            // The board a context's Neighbours tab draws, then
+            // the context page that holds it beside Overview (local ADR 0036).
+            new("devbook/domain-neighbours", "Domain neighbours", "DomainNeighboursView: a context's dependency tables as a board — listens to, listen to, hand in hand — with outside systems as dashed cards."),
+            new("devbook/domain-context", "Domain context", "DomainContextView: a bounded context's Overview — its boundary, what it holds, how much is proved and settled, its flags and settings — beside Neighbours."),
 
             // Last, because it is the one page of the group that is not about the
             // meta block: a review note is the convention's second fence, and the

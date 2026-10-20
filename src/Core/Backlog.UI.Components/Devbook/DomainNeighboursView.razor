@@ -1,0 +1,129 @@
+@*
+    A context's Neighbours tab in the Domain view (local ADR 0036): the contexts it
+    listens to on the left, the context in the middle, the contexts that listen to
+    it on the right, and the ones it works hand in hand with below. Each card is a
+    neighbour's name and the first sentence of its row's reason; the relationship
+    pattern is the table's, never the card's. A system outside the domain is a
+    dashed card. A short legend says all of that in plain words.
+*@
+
+<section class="domain-neighbours" data-testid="@TestId" aria-label="@($"Neighbours of {ContextName}")">
+    @if (Neighbours.IsEmpty)
+    {
+        <EmptyState Title="No neighbours"
+                    Description="This context's dependency tables name no other context or system."
+                    TestId="domain-neighbours-empty" />
+    }
+    else
+    {
+        <div class="domain-neighbours__board">
+            <section class="domain-neighbours__side domain-neighbours__side--listens-to" data-testid="domain-neighbours-listens-to" aria-labelledby="@($"{_id}-listens-to")">
+                <h3 class="domain-neighbours__heading" id="@($"{_id}-listens-to")">@ContextName listens to</h3>
+                @Cards(Neighbours.ListensTo, "listens-to")
+            </section>
+
+            <div class="domain-neighbours__centre" aria-hidden="true">
+                <span class="domain-neighbours__self" data-testid="domain-neighbours-self">@ContextName</span>
+            </div>
+
+            <section class="domain-neighbours__side domain-neighbours__side--listen-to" data-testid="domain-neighbours-listen-to" aria-labelledby="@($"{_id}-listen-to")">
+                <h3 class="domain-neighbours__heading" id="@($"{_id}-listen-to")">Listen to @ContextName</h3>
+                @Cards(Neighbours.ListenTo, "listen-to")
+            </section>
+        </div>
+
+        @if (Neighbours.HandInHand.Count > 0)
+        {
+            <section class="domain-neighbours__side domain-neighbours__side--hand-in-hand" data-testid="domain-neighbours-hand-in-hand" aria-labelledby="@($"{_id}-hand-in-hand")">
+                <h3 class="domain-neighbours__heading" id="@($"{_id}-hand-in-hand")">Hand in hand with @ContextName</h3>
+                @Cards(Neighbours.HandInHand, "hand-in-hand")
+            </section>
+        }
+
+        <dl class="domain-neighbours__legend" data-testid="domain-neighbours-legend">
+            <div class="domain-neighbours__legend-item">
+                <dt>Listens to</dt>
+                <dd>What @ContextName relies on to do its work.</dd>
+            </div>
+            <div class="domain-neighbours__legend-item">
+                <dt>Listen to</dt>
+                <dd>Who relies on @ContextName.</dd>
+            </div>
+            @if (Neighbours.HandInHand.Count > 0)
+            {
+                <div class="domain-neighbours__legend-item">
+                    <dt>Hand in hand</dt>
+                    <dd>Contexts that change together with @ContextName, each keeping its own records.</dd>
+                </div>
+            }
+            <div class="domain-neighbours__legend-item">
+                <dt><span class="domain-neighbours__legend-dashed" aria-hidden="true"></span>Dashed card</dt>
+                <dd>Not one of this domain's contexts: an outside system, or shared code.</dd>
+            </div>
+        </dl>
+    }
+</section>
+
+@code {
+    /// <summary>The context's neighbours, read from its dependency tables.</summary>
+    [Parameter]
+    public DomainNeighbourhood Neighbours { get; set; } = DomainNeighbourhood.Empty;
+
+    /// <summary>The context's name as its <c>context.md</c> heads it.</summary>
+    [Parameter]
+    public string ContextName { get; set; } = "This context";
+
+    /// <summary>A neighbour's name the reader followed to its own context page.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-neighbours";
+
+    private readonly string _id = $"domain-neighbours-{Guid.NewGuid():N}";
+
+    private RenderFragment Cards(IReadOnlyList<DomainNeighbour> neighbours, string side) => __builder =>
+    {
+        if (neighbours.Count == 0)
+        {
+            <p class="domain-neighbours__none" data-testid="domain-neighbours-none">None.</p>
+            return;
+        }
+
+        <ul class="domain-neighbours__cards">
+            @foreach (var neighbour in neighbours)
+            {
+                <li class="domain-neighbours__card-item">
+                    <Card Compact="true"
+                          CssClass="@(neighbour.External ? "domain-neighbours__card domain-neighbours__card--external" : "domain-neighbours__card")"
+                          TestId="domain-neighbour"
+                          data-name="@neighbour.Name"
+                          data-side="@side"
+                          data-external="@(neighbour.External ? "true" : "false")">
+                        <h4 class="domain-neighbours__card-title">
+                            @if (OnNavigate.HasDelegate && neighbour.Reference is { } target && DevbookReference.Parse(target) is { } reference)
+                            {
+                                <DevbookReferenceLink Reference="@reference"
+                                                      Text="@neighbour.Name"
+                                                      OnNavigate="OnNavigate"
+                                                      TestId="domain-neighbour-link" />
+                            }
+                            else
+                            {
+                                @neighbour.Name
+                            }
+                        </h4>
+                        @if (neighbour.External)
+                        {
+                            <p class="domain-neighbours__card-outside">Not a context of this domain</p>
+                        }
+                        @if (neighbour.Line.Length > 0)
+                        {
+                            <p class="domain-neighbours__card-line" data-testid="domain-neighbour-line">@neighbour.Line</p>
+                        }
+                    </Card>
+                </li>
+            }
+        </ul>
+    };
+}
