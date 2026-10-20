@@ -849,6 +849,22 @@ first sentence. A filter box matches a heading or an alias, kind filters sit
 beside it, and a `deprecated` chapter is struck through. **Easily confused** sets
 two terms side by side when each names the other in `related`.
 
+**Features stand by what they build on.** The Features page sets a context's
+features in columns by how many of its features each builds on through
+`depends-on`. A card shows the feature's first sentence, its sub-feature count,
+its flag or setting, and how many requirements it has with how many a linked test
+proves. A proposed feature is dashed and a deprecated one is struck through at the
+end of its column. Picking a card shows what it builds on, its flag or setting,
+the model chapters its `related` names and its requirements.
+
+**Requirements read per feature.** The Requirements page shows each requirement
+with its SHALL sentence set apart and whether it is proved, and each scenario as
+Given, When and Then rows, a row that joins clauses with ", and" read as one
+bullet each. Where a feature's requirements rest on an aggregate's rules, a link
+opens that aggregate's **Always true** tab instead of a sentence explaining them.
+A split `features.<name>.md` or `requirements.<name>.md` reads the same way for
+its one feature.
+
 The view is built behind the [New domain view](context.md#new-domain-view)
 switch. Until the switch is on, the Domain area reads as it always has.
 

@@ -1,0 +1,213 @@
+@*
+    The Features page of the Domain view (local ADR 0036): a context's features in
+    columns by what they build on, the `depends-on` chain counted end to end.
+
+    Each card is the feature's heading and first sentence, how many sub-features
+    it has, the flag or setting it hangs on, and how many requirements it has
+    with how many of them a test proves. A proposed feature is dashed; a
+    deprecated one is struck through and sits at the end of its column. Picking a
+    card opens its detail beside the board: what it builds on, its flag or
+    setting, the model chapters its `related` names, its sub-features and its
+    requirements.
+
+    Pure: the host hands over the columns DomainFeatures read, so the storybook
+    draws the same board from a sample string.
+*@
+
+<article class="domain-features" data-testid="@TestId" aria-label="@AriaLabel">
+    @if (_features.Count == 0)
+    {
+        <EmptyState Title="No features"
+                    Description="This file holds no feature chapter to show."
+                    TestId="domain-features-empty"
+                    role="status" />
+    }
+    else
+    {
+        <div class="domain-features__board" data-testid="domain-features-board">
+            @foreach (var column in Columns)
+            {
+                <section class="domain-features__column" data-testid="domain-features-column" data-depth="@column.Depth" aria-label="@column.Title">
+                    <h3 class="domain-features__column-title">@column.Title</h3>
+                    <ul class="domain-features__cards">
+                        @foreach (var feature in column.Features)
+                        {
+                            var selected = feature.Key == Active?.Key;
+                            <li class="domain-features__card-item">
+                                <button type="button"
+                                        class="@CardClass(feature, selected)"
+                                        data-testid="domain-feature-card"
+                                        data-key="@feature.Key"
+                                        data-status="@feature.Status"
+                                        aria-pressed="@(selected ? "true" : "false")"
+                                        @onclick="() => SelectAsync(feature)">
+                                    <span class="domain-feature-card__title">
+                                        <DevbookTypeMarker Value="feature" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />
+                                        <span class="domain-feature-card__name">@feature.Title</span>
+                                    </span>
+                                    @if (feature.Summary.Length > 0)
+                                    {
+                                        <span class="domain-feature-card__summary" data-testid="domain-feature-summary">@feature.Summary</span>
+                                    }
+                                    <span class="domain-feature-card__facts">
+                                        @if (feature.SubFeatures.Count > 0)
+                                        {
+                                            <span class="domain-feature-card__fact" data-testid="domain-feature-sub-features">@Count(feature.SubFeatures.Count, "sub-feature")</span>
+                                        }
+                                        @if (feature.Gate is { } gate)
+                                        {
+                                            <Badge Kind="tone" CssClass="domain-feature-card__mark" TestId="domain-feature-gate" data-kind="@gate.Word.ToLowerInvariant()">@gate.Word · @gate.Chapter.Title</Badge>
+                                        }
+                                        <span class="domain-feature-card__fact" data-testid="domain-feature-requirements">@Tally(feature.Requirements)</span>
+                                        @if (feature.IsProposed || feature.IsDeprecated)
+                                        {
+                                            <Badge Kind="tone" CssClass="domain-feature-card__mark" TestId="domain-feature-status">@(feature.IsProposed ? "Proposed" : "Deprecated")</Badge>
+                                        }
+                                    </span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+        </div>
+
+        @if (Active is { } active)
+        {
+            <section class="domain-feature-detail" data-testid="domain-feature-detail" data-key="@active.Key" aria-label="@active.Title">
+                <h2 class="domain-feature-detail__title">
+                    <DevbookTypeMarker Value="feature" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@active.Title
+                </h2>
+                @if (active.Summary.Length > 0)
+                {
+                    <p class="domain-feature-detail__summary">@active.Summary</p>
+                }
+                <dl class="domain-feature-detail__facts">
+                    <div class="domain-feature-detail__fact" data-testid="domain-feature-builds-on">
+                        <dt class="domain-feature-detail__label">Builds on</dt>
+                        <dd class="domain-feature-detail__value">@Chapters(active.BuildsOn, "Nothing")</dd>
+                    </div>
+                    <div class="domain-feature-detail__fact" data-testid="domain-feature-detail-gate">
+                        <dt class="domain-feature-detail__label">Flag or setting</dt>
+                        <dd class="domain-feature-detail__value">
+                            @if (active.Gate is { } gate)
+                            {
+                                <span class="domain-feature-detail__gate-word">@gate.Word</span>
+                                @Link(gate.Chapter)
+                            }
+                            else
+                            {
+                                <span class="domain-feature-detail__unsaid">Always on</span>
+                            }
+                        </dd>
+                    </div>
+                    <div class="domain-feature-detail__fact" data-testid="domain-feature-model">
+                        <dt class="domain-feature-detail__label">Model</dt>
+                        <dd class="domain-feature-detail__value">@Chapters(active.ModelChapters, "None named")</dd>
+                    </div>
+                    @if (active.SubFeatures.Count > 0)
+                    {
+                        <div class="domain-feature-detail__fact" data-testid="domain-feature-detail-sub-features">
+                            <dt class="domain-feature-detail__label">Sub-features</dt>
+                            <dd class="domain-feature-detail__value">@Chapters(active.SubFeatures, string.Empty)</dd>
+                        </div>
+                    }
+                    <div class="domain-feature-detail__fact" data-testid="domain-feature-detail-requirements">
+                        <dt class="domain-feature-detail__label">Requirements</dt>
+                        <dd class="domain-feature-detail__value">
+                            @if (active.RequirementsGroup is { } group)
+                            {
+                                @Link(group with { Title = Tally(active.Requirements) })
+                            }
+                            else
+                            {
+                                @Tally(active.Requirements)
+                            }
+                        </dd>
+                    </div>
+                </dl>
+            </section>
+        }
+    }
+</article>
+
+@code {
+    /// <summary>The columns <see cref="DomainFeatures.Columns"/> read.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DomainFeatureColumn> Columns { get; set; } = [];
+
+    /// <summary>The feature picked, by its key. Unset, or a key the board does not
+    /// hold, is the first feature — the one feature of a split file.</summary>
+    [Parameter]
+    public string? ActiveFeature { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ActiveFeatureChanged { get; set; }
+
+    /// <summary>A chapter the detail names that the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Features";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-features";
+
+    private IReadOnlyList<DomainFeature> _features = [];
+    private string? _active;
+    private string? _activeParameter;
+
+    protected override void OnParametersSet()
+    {
+        _features = [.. Columns.SelectMany(column => column.Features)];
+
+        // Taken from the host only when the host changed it, as DomainUnitPage does.
+        if (!string.Equals(_activeParameter, ActiveFeature, StringComparison.Ordinal))
+        {
+            _activeParameter = ActiveFeature;
+            _active = ActiveFeature;
+        }
+    }
+
+    private DomainFeature? Active =>
+        _features.FirstOrDefault(feature => feature.Key == _active) ?? _features.FirstOrDefault();
+
+    private async Task SelectAsync(DomainFeature feature)
+    {
+        _active = feature.Key;
+        await ActiveFeatureChanged.InvokeAsync(feature.Key);
+    }
+
+    private static string CardClass(DomainFeature feature, bool selected) =>
+        "domain-feature-card"
+        + (feature.IsProposed ? " domain-feature-card--proposed" : string.Empty)
+        + (feature.IsDeprecated ? " domain-feature-card--deprecated" : string.Empty)
+        + (selected ? " domain-feature-card--selected" : string.Empty);
+
+    private static string Count(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
+
+    /// <summary>A requirement count and how many are proved, in words.</summary>
+    internal static string Tally(DomainProofTally tally) =>
+        tally.Count == 0 ? "No requirements" : $"{Count(tally.Count, "requirement")} · {tally.Proved} proved";
+
+    private RenderFragment Chapters(IReadOnlyList<DomainNamedChapter> chapters, string none) =>
+        @<span class="domain-feature-detail__chapters">
+            @if (chapters.Count == 0)
+            {
+                <span class="domain-feature-detail__unsaid">@none</span>
+            }
+            else
+            {
+                @foreach (var chapter in chapters)
+                {
+                    <span class="domain-feature-detail__chapter" data-testid="domain-feature-chapter">@Link(chapter)</span>
+                }
+            }
+        </span>;
+
+    private RenderFragment Link(DomainNamedChapter chapter) =>
+        DevbookReference.Parse(chapter.Reference) is { } reference
+            ? @<DevbookReferenceLink Reference="@reference" Text="@chapter.Title" OnNavigate="OnNavigate" TestId="domain-feature-link" />
+            : @<span>@chapter.Title</span>;
+}

@@ -1,0 +1,237 @@
+@page "/devbook/domain-features"
+
+<PageTitle>Domain features — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain features"
+           Summary="A subpage of Devbook: the Features page of the Domain view (local ADR 0036). A context's features stand in columns by what they build on — the `depends-on` chain counted end to end — each card its heading and first sentence, its sub-feature count, the flag or setting it hangs on, and how many requirements it has with how many a test proves. A proposed feature is dashed; a deprecated one is struck through at the end of its column. Picking a card opens its detail. A split `features.<name>.md` reads the same way for its one feature."
+           Guidelines="@Rules">
+
+    <Story Name="Board"
+           Description="An unsplit `features.md`: Ordering, Quotes and Fax orders build on nothing and Checkout builds on Ordering, so they stand in two columns. Checkout hangs on a flag and has two sub-features; Quotes is proposed, so its card is dashed; Fax orders is deprecated, struck through at the end of its column. Pick a card to read its detail."
+           Code="@BoardCode"
+           Source="@Features">
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" @bind-ActiveFeature="_active" TestId="story-domain-features-board" />
+    </Story>
+
+    <Story Name="Detail"
+           Description="Checkout picked: what it builds on, its flag in words, the model chapters its `related` names, its sub-features, and its requirements with how many are proved — the requirements a link onto the Requirements page."
+           Code="@DetailCode"
+           Source="@Requirements">
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ActiveFeature="checkout" TestId="story-domain-features-detail" />
+    </Story>
+
+    <Story Name="Split file"
+           Description="A split `features.gift-cards.md` holds one feature, so the board is that one card with its detail open. Its column still counts what it builds on in the base file."
+           Code="@SplitCode"
+           Source="@SplitFeatures">
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(SplitFile, [.. Files, SplitFile])" TestId="story-domain-features-split" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why the flag, the status and the proof are neutral outlines: they are information about the chapter, not something the product acts on."),
+        new("accessibility.md#iconography-accessibility", "Why dashed and struck-through cards also say Proposed and Deprecated in words.")
+    ];
+
+    private string? _active;
+
+    private const string Path = ".devbook/domain/ordering/features.md";
+
+    internal const string Features = """
+        # Features
+
+        ```meta
+        type: features
+        ```
+
+        ## Ordering
+
+        ```meta
+        type: feature
+        status: draft
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        Place an order for goods and follow it until it is paid.
+
+        ## Checkout
+
+        ```meta
+        type: feature
+        status: draft
+        feature-flag: .devbook/domain/ordering/context.md#new-checkout
+        depends-on: [.devbook/domain/ordering/features.md#ordering]
+        related: [.devbook/domain/ordering/domain.md#order, .devbook/domain/ordering/model.md#order]
+        ```
+
+        Pay for an order in one step.
+
+        ### Card payment
+
+        ```meta
+        type: sub-feature
+        ```
+
+        Pay by card.
+
+        ### Invoice
+
+        ```meta
+        type: sub-feature
+        ```
+
+        Pay later on invoice.
+
+        ## Quotes
+
+        ```meta
+        type: feature
+        status: proposed
+        ```
+
+        Ask for a price before ordering.
+
+        ## Fax orders
+
+        ```meta
+        type: feature
+        status: deprecated
+        ```
+
+        Send an order by fax.
+        """;
+
+    internal const string SplitFeatures = """
+        # Gift cards
+
+        ```meta
+        type: features
+        ```
+
+        ## Gift cards
+
+        ```meta
+        type: feature
+        status: draft
+        setting: .devbook/domain/ordering/context.md#gift-card-limit
+        depends-on: [.devbook/domain/ordering/features.md#checkout]
+        ```
+
+        Pay with a gift card.
+        """;
+
+    internal const string Context = """
+        # Ordering
+
+        ```meta
+        type: context
+        ```
+
+        ## New checkout
+
+        ```meta
+        type: feature-flag
+        ```
+
+        Turns the one-step checkout on.
+
+        ## Gift card limit
+
+        ```meta
+        type: setting
+        ```
+
+        The most a gift card may hold.
+        """;
+
+    internal const string Domain = """
+        # Ordering
+
+        ```meta
+        type: domain
+        ```
+
+        ## Order
+
+        ```meta
+        type: aggregate
+        ```
+
+        A customer's request for goods.
+        """;
+
+    internal const string Requirements = """
+        # Requirements
+
+        ```meta
+        type: requirements
+        ```
+
+        ## Checkout
+
+        ```meta
+        type: requirements
+        related: [.devbook/domain/ordering/features.md#checkout, .devbook/domain/ordering/domain.md#order]
+        ```
+
+        > The requirements of paying in one step. The rules an order always keeps are
+        > its [invariants](domain.invariants.md#order).
+
+        ### Requirement: A paid order cannot be paid again
+
+        ```meta
+        type: requirement
+        tests: [unit:dotnet:Ordering.Tests.CheckoutTests.A_paid_order_is_refused]
+        ```
+
+        The system SHALL refuse to take a second payment for an order that is paid.
+
+        #### Scenario: Paying twice
+
+        - **Given** an order that is paid and a card that is valid
+        - **When** the customer pays again
+        - **Then** the payment is refused, and the order stays paid
+
+        ### Requirement: Checkout says what it costs
+
+        ```meta
+        type: requirement
+        ```
+
+        The system SHALL show the total, tax included, before the customer pays.
+
+        #### Scenario: The total
+
+        - **Given** an order of two items
+        - **When** the customer opens checkout
+        - **Then** the total names the tax
+        """;
+
+    private static DomainChapterFile FeaturesFile => DomainUnits.Parse(Features, Path);
+
+    private static DomainChapterFile SplitFile => DomainUnits.Parse(SplitFeatures, ".devbook/domain/ordering/features.gift-cards.md");
+
+    internal static IReadOnlyList<DomainChapterFile> Files =>
+    [
+        DomainUnits.Parse(Context, ".devbook/domain/ordering/context.md"),
+        DomainUnits.Parse(Domain, ".devbook/domain/ordering/domain.md"),
+        FeaturesFile,
+        DomainUnits.Parse(Requirements, ".devbook/domain/ordering/requirements.md")
+    ];
+
+    private const string BoardCode = """
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)"
+                            @bind-ActiveFeature="active"
+                            OnNavigate="OpenAsync" />
+        """;
+
+    private const string DetailCode = """
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ActiveFeature="checkout" />
+        """;
+
+    private const string SplitCode = """
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(splitFile, contextFiles)" />
+        """;
+}

@@ -20917,6 +20917,374 @@ select.field__input {
     stroke-linejoin: round;
 }
 
+/* --- Domain view: Features and Requirements -------------------------------- */
+/*
+  The Features page reads a context's features in columns by what they build
+  on, one card each; the Requirements page reads one feature's requirements
+  with their scenarios as Given / When / Then rows (local ADR 0036). Monochrome,
+  as the Domain page is: a proposed card is dashed and a deprecated one struck
+  through, and each also says so in words. The flag, the status and the proof
+  are information about the chapter, so each is a neutral outline
+  (color-scheme.md#domain-view-element-tones).
+*/
+
+.domain-features {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-features__board {
+    display: grid;
+    grid-auto-columns: minmax(14rem, 1fr);
+    grid-auto-flow: column;
+    gap: var(--spacing-md);
+    overflow-x: auto;
+    padding-bottom: var(--spacing-2xs);
+}
+
+.domain-features__column {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.domain-features__column-title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-features__cards,
+.domain-requirements__feature-list,
+.domain-requirements__list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-features__card-item {
+    display: grid;
+}
+
+.domain-feature-card {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-height: 2.75rem;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-feature-card:hover {
+    border-color: var(--color-border-strong);
+}
+
+.domain-feature-card:focus-visible,
+.domain-requirements__feature:focus-visible,
+.domain-requirements__always-true-link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.domain-feature-card--selected {
+    border-color: var(--color-primary);
+}
+
+.domain-feature-card--proposed {
+    border-style: dashed;
+}
+
+.domain-feature-card--deprecated .domain-feature-card__name {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+.domain-feature-card__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-feature-card__summary {
+    font-size: var(--font-size-sm);
+}
+
+.domain-feature-card__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.badge--tone.domain-feature-card__mark {
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+.domain-feature-detail {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-feature-detail__title,
+.domain-requirements__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.domain-feature-detail__summary {
+    margin: 0;
+}
+
+.domain-feature-detail__facts {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.domain-feature-detail__fact {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    gap: var(--spacing-sm);
+}
+
+.domain-feature-detail__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-feature-detail__value {
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-feature-detail__chapters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+}
+
+.domain-feature-detail__gate-word {
+    margin-right: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+}
+
+.domain-feature-detail__unsaid {
+    color: var(--color-text-secondary);
+}
+
+/* A chapter is named in words, so its link reads as prose. */
+.domain-feature-detail .devbook-ref,
+.domain-requirements__feature-link .devbook-ref {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.domain-requirements {
+    display: grid;
+    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-requirements > :only-child,
+.domain-requirements > .empty-state {
+    grid-column: 1 / -1;
+}
+
+.domain-requirements__feature {
+    display: grid;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    min-height: 2.75rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-requirements__feature:hover {
+    background: var(--color-background-alt);
+}
+
+.domain-requirements__feature--selected {
+    border-color: var(--color-border-strong);
+    background: var(--color-background-alt);
+}
+
+.domain-requirements__feature-tally,
+.domain-requirements__tally {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-requirements__group {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-requirements__header,
+.domain-requirement__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.domain-requirements__feature-link {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.domain-requirements__always-true {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.domain-requirements__always-true-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    min-height: 2.75rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-link);
+    font: inherit;
+    cursor: pointer;
+}
+
+.domain-requirement {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.domain-requirement__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+/* Information about the chapter, so a neutral outline; a proved requirement
+   says so in its word and its tick, never in a tone. */
+.badge--tone.domain-requirement__proof {
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+/* The SHALL sentence is the requirement: it reads first and larger, set off by
+   a rule in the brand's highlight. */
+.domain-requirement__shall {
+    padding-left: var(--spacing-sm);
+    border-left: var(--border-width-2) solid var(--color-primary);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-requirement__prose,
+.domain-requirements__intro {
+    color: var(--color-text-secondary);
+}
+
+.domain-scenario {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.domain-scenario__title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-scenario__word {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-normal);
+}
+
+.domain-scenario__steps {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+}
+
+.domain-scenario__step {
+    display: grid;
+    grid-template-columns: 4rem 1fr;
+    gap: var(--spacing-sm);
+}
+
+.domain-scenario__keyword {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-scenario__clauses {
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-scenario__bullets {
+    margin: 0;
+    padding-left: var(--spacing-md);
+}
+
+@media (max-width: 40rem) {
+    .domain-requirements {
+        grid-template-columns: 1fr;
+    }
+
+    .domain-feature-detail__fact {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-2xs);
+    }
+}
+
 /* --- Notes ----------------------------------------------------------------- */
 /*
   A note row is one link: the title and its time on the first line, the

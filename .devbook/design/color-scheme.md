@@ -589,8 +589,10 @@ is argued here. Teal, the value the code theme spends as `code-type`, is not
 available to it, because teal is reserved for [the Brain](#the-brains-accent).
 
 **Information badges are neutral outlines.** On the Domain view's pages, the
-`DEV` mark, a chapter's date, a chapter's feature switch and an event's
-*Documented* or *Emitted* mark on Model's Events tab are information about the
+`DEV` mark, a chapter's date, a chapter's feature switch, a feature's
+*Proposed* or *Deprecated* mark on Features, a requirement's *Proved* or *Not
+proved* mark on Requirements and an event's *Documented* or *Emitted* mark on
+Model's Events tab are information about the
 chapter, not something the product acts on. Each is drawn as a neutral
 outline: a transparent surface inside a 1px `color-border-strong` edge, with
 `color-text-secondary` ink. The rule that filled means the product acts on it

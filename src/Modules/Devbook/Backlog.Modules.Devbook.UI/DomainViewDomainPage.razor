@@ -18,6 +18,7 @@
                     RequirementFiles="@_requirementFiles"
                     InvariantFiles="@_invariantFiles"
                     @bind-ActiveUnit="_activeUnit"
+                    ActiveUnitPage="@OpenUnitPage"
                     OnNavigate="NavigateAsync"
                     AriaLabel="@($"Domain of {_contextName}")" />
 }
@@ -44,6 +45,16 @@ else if (_problem is not null)
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
+    /// <summary>The unit to open the file on, by its anchor — the one an Always
+    /// true link on Requirements named. Unset is the file's first unit.</summary>
+    [Parameter]
+    public string? OpenUnit { get; set; }
+
+    /// <summary>The aggregate page to open the unit on: <see cref="DomainUnitPage.AlwaysTruePage"/>
+    /// for Always true. Unset is About.</summary>
+    [Parameter]
+    public string? OpenUnitPage { get; set; }
+
     private DomainDevbookStore? _store;
     private DomainChapterFile? _page;
     private IReadOnlyList<DomainChapterFile> _domainFiles = [];
@@ -68,7 +79,7 @@ else if (_problem is not null)
     {
         if (_loaded == (RepositoryAlias, SelectedPath)) return;
         _loaded = (RepositoryAlias, SelectedPath);
-        _activeUnit = null;
+        _activeUnit = OpenUnit;
         await LoadAsync(clear: true);
     }
 

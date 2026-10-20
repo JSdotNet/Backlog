@@ -1,0 +1,217 @@
+@*
+    The Requirements page of the Domain view (local ADR 0036): per feature, each
+    requirement with its SHALL sentence set apart and whether a test proves it,
+    and each scenario as Given / When / Then rows — a row that joins its clauses
+    with ", and" reads as one bullet per clause.
+
+    An unsplit requirements.md lists its features beside the page, each with how
+    many of its requirements are proved; a split requirements.<name>.md holds one
+    feature and opens on it with no list. Where a feature's requirements rest on
+    an aggregate's rules, a link opens that unit's Always true tab instead of the
+    sentence that explained them.
+
+    Pure: the host hands over the groups DomainRequirements read.
+*@
+
+<article class="domain-requirements" data-testid="@TestId" aria-label="@AriaLabel">
+    @if (Groups.Count == 0)
+    {
+        <EmptyState Title="No requirements"
+                    Description="This file holds no requirement to show."
+                    TestId="domain-requirements-empty"
+                    role="status" />
+    }
+    else
+    {
+        @if (Groups.Count > 1)
+        {
+            <nav class="domain-requirements__features" aria-label="Features" data-testid="domain-requirements-features">
+                <ul class="domain-requirements__feature-list">
+                    @foreach (var group in Groups)
+                    {
+                        var selected = group.Key == Active!.Key;
+                        <li>
+                            <button type="button"
+                                    class="@(selected ? "domain-requirements__feature domain-requirements__feature--selected" : "domain-requirements__feature")"
+                                    data-testid="domain-requirements-feature"
+                                    data-key="@group.Key"
+                                    aria-current="@(selected ? "true" : null)"
+                                    @onclick="() => SelectAsync(group)">
+                                <span class="domain-requirements__feature-name">@group.Title</span>
+                                <span class="domain-requirements__feature-tally">@group.Tally.Proved / @group.Tally.Count proved</span>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+
+        @if (Active is { } active)
+        {
+            <section class="domain-requirements__group" data-testid="domain-requirements-group" data-key="@active.Key" aria-label="@active.Title">
+                <header class="domain-requirements__header">
+                    <h2 class="domain-requirements__title">
+                        <DevbookTypeMarker Value="requirements" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@active.Title
+                    </h2>
+                    <span class="domain-requirements__tally" data-testid="domain-requirements-tally">@DomainFeatureBoard.Tally(active.Tally)</span>
+                </header>
+                @if (active.Feature is { } feature && DevbookReference.Parse(feature.Reference) is { } featureReference)
+                {
+                    <p class="domain-requirements__feature-link" data-testid="domain-requirements-feature-link">
+                        Feature:
+                        <DevbookReferenceLink Reference="@featureReference" Text="@feature.Title" OnNavigate="OnNavigate" />
+                    </p>
+                }
+                @if (active.Intro.Length > 0)
+                {
+                    <div class="domain-requirements__intro" data-testid="domain-requirements-intro">
+                        <MarkdownView Blocks="@MarkdownPreview.ParseDocument(active.Intro)"
+                                      Source="@active.Intro"
+                                      DevbookDocumentPath="@DocumentPath"
+                                      DevbookFolder="DevbookFolder.Domain"
+                                      OnDevbookNavigate="OnNavigate" />
+                    </div>
+                }
+                @if (active.AlwaysTrue.Count > 0)
+                {
+                    <p class="domain-requirements__always-true" data-testid="domain-requirements-always-true">
+                        @foreach (var unit in active.AlwaysTrue)
+                        {
+                            <button type="button"
+                                    class="domain-requirements__always-true-link"
+                                    data-testid="domain-requirements-always-true-link"
+                                    data-unit="@unit.UnitKey"
+                                    @onclick="() => OnOpenAlwaysTrue.InvokeAsync(unit)">
+                                <DevbookTypeMarker Value="aggregate" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Always true for @unit.Title
+                            </button>
+                        }
+                    </p>
+                }
+
+                <ol class="domain-requirements__list">
+                    @foreach (var requirement in active.Requirements)
+                    {
+                        <li class="domain-requirement" data-testid="domain-requirement" data-key="@requirement.Key" data-proved="@(requirement.Proved ? "true" : "false")">
+                            <header class="domain-requirement__header">
+                                <h3 class="domain-requirement__title">
+                                    <DevbookTypeMarker Value="requirement" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@requirement.Title
+                                </h3>
+                                <Badge Kind="tone"
+                                       CssClass="domain-requirement__proof"
+                                       TestId="domain-requirement-proof"
+                                       Title="@ProofTitle(requirement)">@(requirement.Proved ? "✓ Proved" : "Not proved")</Badge>
+                            </header>
+                            @if (requirement.Shall.Length > 0)
+                            {
+                                <div class="domain-requirement__shall" data-testid="domain-requirement-shall">
+                                    <MarkdownView Blocks="@MarkdownPreview.ParseDocument(requirement.Shall)" Source="@requirement.Shall" DevbookDocumentPath="@DocumentPath" DevbookFolder="DevbookFolder.Domain" OnDevbookNavigate="OnNavigate" />
+                                </div>
+                            }
+                            @if (requirement.Prose.Length > 0)
+                            {
+                                <div class="domain-requirement__prose">
+                                    <MarkdownView Blocks="@MarkdownPreview.ParseDocument(requirement.Prose)" Source="@requirement.Prose" DevbookDocumentPath="@DocumentPath" DevbookFolder="DevbookFolder.Domain" OnDevbookNavigate="OnNavigate" />
+                                </div>
+                            }
+                            @foreach (var scenario in requirement.Scenarios)
+                            {
+                                <section class="domain-scenario" data-testid="domain-scenario" aria-label="@($"Scenario: {scenario.Title}")">
+                                    <h4 class="domain-scenario__title"><span class="domain-scenario__word">Scenario</span> @scenario.Title</h4>
+                                    <dl class="domain-scenario__steps">
+                                        @foreach (var step in scenario.Steps)
+                                        {
+                                            <div class="domain-scenario__step" data-testid="domain-scenario-step" data-keyword="@step.Keyword">
+                                                <dt class="domain-scenario__keyword">@step.Keyword</dt>
+                                                <dd class="domain-scenario__clauses">
+                                                    @if (step.Clauses.Count == 1)
+                                                    {
+                                                        <span class="domain-scenario__clause" data-testid="domain-scenario-clause">@MarkdownRender.Inlines(MarkdownPreview.ParseInlines(step.Clauses[0]))</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <ul class="domain-scenario__bullets">
+                                                            @foreach (var clause in step.Clauses)
+                                                            {
+                                                                <li class="domain-scenario__clause" data-testid="domain-scenario-clause">@MarkdownRender.Inlines(MarkdownPreview.ParseInlines(clause))</li>
+                                                            }
+                                                        </ul>
+                                                    }
+                                                </dd>
+                                            </div>
+                                        }
+                                    </dl>
+                                    @if (scenario.Prose.Length > 0)
+                                    {
+                                        <div class="domain-scenario__prose">
+                                            <MarkdownView Blocks="@MarkdownPreview.ParseDocument(scenario.Prose)" Source="@scenario.Prose" DevbookDocumentPath="@DocumentPath" DevbookFolder="DevbookFolder.Domain" OnDevbookNavigate="OnNavigate" />
+                                        </div>
+                                    }
+                                </section>
+                            }
+                        </li>
+                    }
+                </ol>
+            </section>
+        }
+    }
+</article>
+
+@code {
+    /// <summary>The groups <see cref="DomainRequirements.Groups"/> read.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DomainRequirementGroup> Groups { get; set; } = [];
+
+    /// <summary>The requirements file, which a relative link in a chapter's prose
+    /// resolves against.</summary>
+    [Parameter]
+    public string? DocumentPath { get; set; }
+
+    /// <summary>The feature picked, by its group's key. Unset, or a key the file
+    /// does not hold, is the first.</summary>
+    [Parameter]
+    public string? ActiveGroup { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ActiveGroupChanged { get; set; }
+
+    /// <summary>A link in the prose, or the feature, the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    /// <summary>An Always true link the reader pressed: the host opens that unit
+    /// on its Always true tab.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Requirements";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-requirements";
+
+    private string? _active;
+    private string? _activeParameter;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.Equals(_activeParameter, ActiveGroup, StringComparison.Ordinal))
+        {
+            _activeParameter = ActiveGroup;
+            _active = ActiveGroup;
+        }
+    }
+
+    private DomainRequirementGroup? Active =>
+        Groups.FirstOrDefault(group => group.Key == _active) ?? Groups.FirstOrDefault();
+
+    private async Task SelectAsync(DomainRequirementGroup group)
+    {
+        _active = group.Key;
+        await ActiveGroupChanged.InvokeAsync(group.Key);
+    }
+
+    private static string ProofTitle(DomainRequirement requirement) =>
+        requirement.Proved
+            ? $"Linked to {requirement.Tests.Count} test{(requirement.Tests.Count == 1 ? string.Empty : "s")}: {string.Join(", ", requirement.Tests)}"
+            : "No test is linked to this requirement yet.";
+}

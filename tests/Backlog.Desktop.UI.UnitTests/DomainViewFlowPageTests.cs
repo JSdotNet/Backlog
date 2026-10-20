@@ -60,6 +60,7 @@ public sealed class DomainViewFlowPageTests : IDisposable
 
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-view']")), Patience);
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Tasks")), Patience);
         await ClickMenuItemAsync(component, "Tasks");
         component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Flow")), Patience);
         await ClickMenuItemAsync(component, "Flow");
