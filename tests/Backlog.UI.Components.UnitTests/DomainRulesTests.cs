@@ -347,6 +347,106 @@ public sealed class DomainRulesTests
         Assert.Equal("enum", enums.Type);
     }
 
+    /// <summary>An Order whose rules the chapter groups itself: two groups, each
+    /// pointing at the concept it is about, and one rule left outside them.</summary>
+    internal const string GroupedInvariants = """
+        # Invariants
+
+        ```meta
+        type: invariants
+        ```
+
+        ## Order
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        ### How an order moves
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order, .devbook/domain/ordering/flow.md#order-lifecycle]
+        ```
+
+        #### Invariant: An order is placed once
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Placing_twice_is_refused]
+        ```
+
+        A placed order cannot be placed again.
+
+        Enforced at: `Place()`
+
+        #### Invariant: A cancelled order stays on record
+
+        ```meta
+        type: invariant
+        ```
+
+        Cancelling an order keeps it.
+
+        Enforced at: open
+
+        ### Lines and money
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order, .devbook/domain/ordering/domain.md#order-line, .devbook/domain/ordering/domain.md#money]
+        ```
+
+        #### Invariant: A line has a quantity
+
+        ```meta
+        type: invariant
+        ```
+
+        Every order line holds one or more of its product.
+
+        Enforced at: `OrderLine.SetQuantity()`
+
+        ### Invariant: The total is worked out
+
+        ```meta
+        type: invariant
+        ```
+
+        The total is the sum of the lines.
+
+        Enforced at: `PriceCalculator.Total()`
+        """;
+
+    [Fact]
+    public void Rules_under_a_group_heading_read_as_that_group_and_link_what_it_is_about()
+    {
+        var grouped = DomainUnits.Parse(GroupedInvariants, InvariantsPath);
+        var groups = RulesOf("order", null, grouped);
+
+        // The groups the chapter wrote come in its order; a rule outside every
+        // group keeps the concept its Enforced at: line names, the aggregate here.
+        Assert.Equal(["How an order moves", "Lines and money", "Order"], groups.Select(group => group.Title));
+        Assert.Equal(["An order is placed once", "A cancelled order stays on record"], groups[0].Rules.Select(rule => rule.Title));
+        Assert.Equal(["A line has a quantity"], groups[1].Rules.Select(rule => rule.Title));
+        Assert.Equal(["The total is worked out"], groups[2].Rules.Select(rule => rule.Title));
+
+        // A written group is no model element: it has no marker, and its heading is
+        // its words. What it is about is linked beside it, the aggregate every
+        // group names left out, by the chapter's own
+        // heading where the domain names it and by its anchor where it does not.
+        Assert.Null(groups[0].Type);
+        Assert.Equal(
+            [("Order lifecycle", ".devbook/domain/ordering/flow.md#order-lifecycle")],
+            groups[0].Links.Select(link => (link.Text, link.Reference)));
+        Assert.Equal(
+            [("Order Line", ".devbook/domain/ordering/domain.md#order-line"), ("Money", ".devbook/domain/ordering/domain.md#money")],
+            groups[1].Links.Select(link => (link.Text, link.Reference)));
+        Assert.Equal("aggregate", groups[2].Type);
+        Assert.Empty(groups[2].Links);
+    }
+
     [Fact]
     public void A_rule_with_no_claim_reads_its_heading()
     {

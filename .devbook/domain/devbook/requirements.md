@@ -1418,10 +1418,17 @@ The system SHALL show `domain.<name>.invariants.md` as the Always true tab of th
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesTests.Each_rule_is_its_claim_marked_by_its_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesTests.Rules_group_by_the_concept_their_enforced_at_names_falling_back_to_the_aggregate, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.The_aggregate_s_always_true_tab_lists_its_rules_by_concept_with_their_marks, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.Where_each_rule_is_enforced_shows_only_when_asked, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.A_shared_grouping_s_rules_show_on_the_base_page]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesTests.Each_rule_is_its_claim_marked_by_its_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesTests.Rules_group_by_the_concept_their_enforced_at_names_falling_back_to_the_aggregate, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesTests.Rules_under_a_group_heading_read_as_that_group_and_link_what_it_is_about, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.The_aggregate_s_always_true_tab_lists_its_rules_by_concept_with_their_marks, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.A_written_group_is_a_card_headed_by_its_words_with_what_it_is_about_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.The_tab_counts_the_rules_and_each_mark, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.An_open_rule_says_nobody_has_settled_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.Where_each_rule_is_enforced_shows_only_when_asked, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.A_shared_grouping_s_rules_show_on_the_base_page]
 ```
 
-The system SHALL show each rule on Always true as its first sentence, marked ✓ when its chapter names a test, ○ when it names none and ? when its `Enforced at:` line is `open`, grouped under the domain concept that line names or else under the aggregate, with where it is enforced hidden until the reader asks for it.
+The system SHALL show each rule on Always true as its heading, marked ✓ when its chapter names a test, ○ when it names none and ? when its `Enforced at:` line is `open`, with the rules and each mark counted, in a card per group the invariants chapter writes — headed by its words, with what its `related` names beside them — and, for a rule outside every such group, under the domain concept its `Enforced at:` line names or else under the aggregate, with its first sentence and where it is enforced hidden until the reader asks for them.
+
+#### Scenario: Rules in the groups the chapter writes
+
+- **Given** an *Order* invariants chapter holding a `### How an order moves` heading of `type: invariants`, whose `related` names *Order* and the order lifecycle, with two rules beneath it, one of them `open`
+- **When** the reader opens Always true
+- **Then** the tab reads *Always true · 2*, the bar counts one rule proved and one open, and both rules sit in one card headed *How an order moves* with *Order lifecycle* linked beside it and *Order* not linked
+- **And** the open rule says it is not built until someone decides
 
 #### Scenario: Rules by concept
 
@@ -1433,7 +1440,7 @@ The system SHALL show each rule on Always true as its first sentence, marked ✓
 
 - **Given** Always true open on *Order*
 - **When** the reader presses *Show where each is enforced*
-- **Then** each rule shows its `Enforced at:` line, and pressing it again hides them
+- **Then** each rule shows its first sentence and its `Enforced at:` line, and pressing it again hides them
 
 #### Scenario: Shared rules on the base page
 
