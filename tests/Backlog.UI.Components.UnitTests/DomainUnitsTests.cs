@@ -54,6 +54,7 @@ public sealed class DomainUnitsTests
 
         ```meta
         type: value-object
+        status: proposed
         ```
 
         An amount in a [currency](#currency), compared by value.
@@ -70,11 +71,14 @@ public sealed class DomainUnitsTests
 
         ```meta
         type: domain-service
-        related: [.devbook/domain/ordering/requirements.md#pricing]
+        related: [.devbook/domain/ordering/requirements.md#pricing, .devbook/domain/ordering/domain.md#order]
         ```
 
         Works out what an order costs. It is a service because it reads the price
         list as well as the order.
+
+        Invocation semantics: called synchronously by the use case that places the
+        order, with its `order_id`.
 
         ## OrderPlaced
 
@@ -208,8 +212,8 @@ public sealed class DomainUnitsTests
 
         Assert.Equal(
             [
-                new DomainMember("Order Line", "entity", "One product and its quantity on the order.", "OrderLine"),
-                new DomainMember("Money", "value-object", "An amount in a currency, compared by value.", "Money")
+                new DomainMember("Order Line", "entity", "One product and its quantity on the order.", "OrderLine") { Anchor = "order-line" },
+                new DomainMember("Money", "value-object", "An amount in a currency, compared by value.", "Money") { Anchor = "money", Status = "proposed" }
             ],
             members);
     }

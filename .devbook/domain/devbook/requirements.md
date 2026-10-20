@@ -1522,7 +1522,7 @@ The system SHALL list no file or folder whose name starts with `_`.
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.An_unsplit_file_offers_its_units_in_a_chapter_bar_with_their_marks, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.A_split_file_opens_on_its_one_unit_without_a_bar, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitsTests.The_chapter_bar_offers_aggregates_services_and_the_glossary_in_file_order]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.An_unsplit_file_offers_its_units_in_a_chapter_bar_led_by_their_kind, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.A_split_file_opens_on_its_one_unit_without_a_bar, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitsTests.The_chapter_bar_offers_aggregates_services_and_the_glossary_in_file_order]
 ```
 
 The system SHALL offer an unsplit `domain.md`'s aggregates, domain services and Glossary as a chapter bar inside the Domain page.
@@ -1538,10 +1538,10 @@ The system SHALL offer an unsplit `domain.md`'s aggregates, domain services and 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_summary_is_the_features_first_sentence]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_summary_is_the_features_first_sentence, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.About_is_a_summary_of_the_chapter_not_its_prose, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitSummaryTests.A_summary_leaves_a_closing_list_of_fields_to_model]
 ```
 
-The system SHALL title each row and page with the heading as written, and summarize a unit with its chapter's first sentence.
+The system SHALL title each row and page with the heading as written, and summarize a unit with its chapter's first sentence, read as far as the colon when it closes on a list of fields.
 
 #### Scenario: A summary
 
@@ -1554,7 +1554,7 @@ The system SHALL title each row and page with the heading as written, and summar
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.About_reads_prose_cards_values_and_events_and_no_field_type, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_groups_each_class_and_carries_the_notes_and_how_the_services_run]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.About_reads_cards_values_and_events_in_words_and_no_field, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.A_service_page_is_its_summary_and_never_how_it_is_invoked, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_groups_each_class_and_carries_the_notes_and_how_the_services_run]
 ```
 
 The system SHALL show field types, invocation semantics and event payloads on the Model page only.
@@ -1564,6 +1564,12 @@ The system SHALL show field types, invocation semantics and event payloads on th
 - **Given** an aggregate whose `model.md` lists its fields with their types
 - **When** the reader opens the aggregate's About tab
 - **Then** the tab names no field type, and the Model page's Fields tab does
+
+#### Scenario: A domain service's page
+
+- **Given** a domain service whose chapter says it is called synchronously by the use case that completes the task
+- **When** the reader opens the service in the chapter bar
+- **Then** the page shows its first sentence and what it is held to, and says nothing of how it is invoked
 
 ### Requirement: Model draws the aggregate's boundary
 
