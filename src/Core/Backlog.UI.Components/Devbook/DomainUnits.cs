@@ -112,12 +112,26 @@ public sealed record DomainUnit(DomainUnitKind Kind, string Key, string Label, s
 /// <summary>An entity or value object an aggregate owns, as its card reads.</summary>
 /// <param name="ModelName">The name the model gives it — its first alias that is
 /// an identifier, else its heading run together.</param>
-public sealed record DomainMember(string Title, string Type, string Summary, string ModelName);
+public sealed record DomainMember(string Title, string Type, string Summary, string ModelName)
+{
+    /// <summary>The member chapter's anchor, which a written group of rules names
+    /// in its <c>related</c>.</summary>
+    public string Anchor { get; init; } = string.Empty;
+
+    /// <summary>The member chapter's <c>status</c>, or <see langword="null"/> when
+    /// it states none — <c>proposed</c> is what its card marks.</summary>
+    public string? Status { get; init; }
+}
 
 /// <summary>An enum an aggregate owns, and the values it names.</summary>
 /// <param name="Summary">Its first sentence, shown when no value could be read
 /// out of it.</param>
-public sealed record DomainEnum(string Title, IReadOnlyList<string> Values, string Summary);
+public sealed record DomainEnum(string Title, IReadOnlyList<string> Values, string Summary)
+{
+    /// <summary>The sentence after the one naming the values, as plain text, when
+    /// it names no field: what the row says beside its values. Empty otherwise.</summary>
+    public string Note { get; init; } = string.Empty;
+}
 
 /// <summary>A domain event a unit raises, as one line: what it is and who listens.
 /// Never its payload, which is Model's (ADR 0037 §6).</summary>
@@ -202,7 +216,11 @@ public static partial class DomainUnits
     [
         .. Owned(aggregate)
             .Where(child => child.Type is "entity" or "value-object")
-            .Select(child => new DomainMember(child.Title, child.Type!, child.Summary, ModelName(child)))
+            .Select(child => new DomainMember(child.Title, child.Type!, FunctionalSummary(child.Prose), ModelName(child))
+            {
+                Anchor = child.Anchor,
+                Status = child.Status
+            })
     ];
 
     /// <summary>The enums <paramref name="aggregate"/> owns, each with the values
@@ -211,7 +229,7 @@ public static partial class DomainUnits
     [
         .. Owned(aggregate)
             .Where(child => child.Type == "enum")
-            .Select(child => new DomainEnum(child.Title, EnumValues(child.Prose), child.Summary))
+            .Select(child => new DomainEnum(child.Title, EnumValues(child.Prose), child.Summary) { Note = EnumNote(child.Prose) })
     ];
 
     /// <summary>The typed chapters an aggregate owns: its direct sub-chapters, and
@@ -243,7 +261,7 @@ public static partial class DomainUnits
             .. files.SelectMany(file => file.AllChapters()
                 .Where(chapter => chapter.Type == "domain-event")
                 .Where(chapter => chapter.Related.Any(related => Resolve(related, file.Path) == target))
-                .Select(chapter => new DomainEventLine(chapter.Title, chapter.Summary, Consumers(chapter))))
+                .Select(chapter => new DomainEventLine(chapter.Title, FunctionalSummary(chapter.Prose), Consumers(chapter))))
         ];
     }
 

@@ -578,10 +578,11 @@ related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/a
 
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
 marks a model element by its kind on the Model page's diagram and beside its
-name, a relation between two core contexts on the Context map, and the
-requirement kind on the Requirements page, an enumeration's name on Model's
-Fields tab, and a domain event's name on Model's Events tab. These are the six
-values this file adds outside the palette. The kind's glyph and word
+name, a relation between two core contexts on the Context map, the requirement
+kind on the Requirements page, a domain service in the Domain page's chapter
+bar, an enumeration's name on Model's Fields tab, and a domain event's name on
+Model's Events tab. These are the seven values this file adds outside the
+palette. The kind's glyph and word
 always say what the element is, and the tone only helps the eye group the same
 kind across a diagram.
 
@@ -593,6 +594,7 @@ kind across a diagram.
 | `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar | 8.87:1 / 7.70:1 / 5.79:1 |
 | `color-domain-enumeration` | `#B39DDB` | An enumeration where a field takes one on Fields, and the Enums card's label | 7.81:1 / 6.78:1 / 5.10:1 |
 | `color-domain-event` | `#EC8E97` | A domain event's name on Events: the index's Event column, the open contract's heading, the dashed *event* step and the picked row's edge | 7.91:1 / 6.87:1 / 5.17:1 |
+| `color-domain-service` | `#86C98F` | A domain service's outlined square in the Domain page's chapter bar | 9.59:1 / 8.33:1 / 6.26:1 |
 
 Value objects take `#C3D96B`, a yellow-green between `color-band-3` and
 `color-primary`. Teal, the value the code theme spends as `code-type`, is not
@@ -615,6 +617,13 @@ feature list and the tested part of each feature's bar. It is not gold, because
 none of these is followable, and not teal, which is the Brain's. Each sits beside
 the words *Requirement*, *SHALL* or *n / m* tested, so the blue is never the only
 thing that says it.
+
+The Domain page's chapter bar leads each aggregate with a square filled in
+`color-primary`, the gold the Model diagram already gives an aggregate root, and
+each domain service with a square outlined in `#86C98F`, a green of its own. It is
+not `color-success-text`, which says something went well, and not teal, the
+Brain's. The square sits beside the unit's name, which says what it is, so a
+listener is not told the colour at all.
 
 Model's Fields tab names an enumeration in `#B39DDB`, a lavender apart from the
 entity clay, the value-object yellow-green and the gold. The Enums card beside it

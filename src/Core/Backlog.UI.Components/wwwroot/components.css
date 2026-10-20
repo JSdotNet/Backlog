@@ -157,6 +157,11 @@
        surface, so it does not read as color-error-text's alarm. */
     --color-domain-event: #EC8E97;
 
+    /* A domain service's square in the Domain page's chapter bar, an outline
+       beside the service's name, never alone. A green of its own: not the
+       success ink, which says a thing went well, and not teal, the Brain's. */
+    --color-domain-service: #86C98F;
+
     /* Chart roles.
        A chart needs role names the twenty-two palette tokens do not provide: a
        series colour, a track, a gridline, a baseline. Like the code theme this
@@ -20520,14 +20525,83 @@ select.field__input {
     min-width: 0;
 }
 
-.domain-units__bar > .tabs__list {
+/* The chapter bar of an unsplit domain.md (local ADR 0037 §4): a caption that
+   names the file, over a segmented bar — the open unit filled and bold — with
+   each aggregate or domain service led by a square in its kind's tone
+   (color-scheme.md#domain-view-element-tones). The name says the kind; the
+   square only helps the eye. */
+.domain-units__caption {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-units__caption code {
+    font-family: var(--font-family-mono);
+    font-size: inherit;
+}
+
+.domain-units__bar-list {
+    display: flex;
     flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    width: fit-content;
+    max-width: 100%;
+    padding: var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-units__bar-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: none;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.domain-units__bar-tab:hover {
+    color: var(--color-text-primary);
+}
+
+.domain-units__bar-tab--active {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-units__bar-tab:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
 }
 
 .domain-units__tab {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-2xs);
+    gap: var(--spacing-sm);
+}
+
+.domain-units__kind {
+    flex: none;
+    box-sizing: border-box;
+    width: var(--spacing-sm);
+    height: var(--spacing-sm);
+    border-radius: var(--spacing-2xs);
+}
+
+.domain-units__kind--aggregate {
+    background: var(--color-primary);
+}
+
+.domain-units__kind--domain-service {
+    border: var(--border-width-2) solid var(--color-domain-service);
 }
 
 .domain-unit {
@@ -20547,10 +20621,142 @@ select.field__input {
     line-height: var(--line-height-tight);
 }
 
+/* Always true's own title, under the About / Always true tabs. */
+.domain-unit__title--page {
+    margin-bottom: var(--spacing-md);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* About / Always true sit straight under the chapter bar, the open one bold,
+   with no rule across the page. */
+.domain-unit__tabs > .tabs__list {
+    gap: var(--spacing-md);
+    border-bottom: none;
+}
+
+.domain-unit__tabs > .tabs__list > .tabs__tab {
+    padding: var(--spacing-xs) var(--spacing-2xs);
+}
+
+.domain-unit__tabs > .tabs__list > .tabs__tab--active {
+    font-weight: var(--font-weight-semibold);
+}
+
 .domain-about {
     display: grid;
     gap: var(--spacing-md);
     min-width: 0;
+}
+
+/* About and a domain service's page: a composed summary of the chapter. */
+.domain-about--summary {
+    gap: var(--spacing-lg);
+}
+
+.domain-about__hero {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-about__intro {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-about__headline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.domain-about__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-about__kicker {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* On a service's page the kicker sits above the title, close to it. */
+.domain-about__intro > .domain-about__kicker {
+    margin-bottom: calc(var(--spacing-sm) - var(--spacing-md));
+}
+
+.domain-about__lead {
+    max-width: 48rem;
+    margin: 0;
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-normal);
+}
+
+.domain-about__tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-about__tile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-sm);
+}
+
+.domain-about__tile-title {
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-about__tile-body {
+    color: var(--color-text-secondary);
+}
+
+.domain-about__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-lg);
+}
+
+/* A link out of the page is a button — it turns a tab or opens another page of
+   the view — drawn as the product's links are: gold and underlined. */
+.domain-about__link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.domain-about__link:hover {
+    color: var(--color-primary-light);
+}
+
+.domain-about__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .domain-about__section {
@@ -20565,9 +20771,32 @@ select.field__input {
     font-weight: var(--font-weight-semibold);
 }
 
+.domain-about__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-md);
+}
+
+.domain-about__section-title {
+    margin: 0 0 var(--spacing-xs);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-about__subheading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
 .domain-about__cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
     gap: var(--spacing-sm);
     margin: 0;
     padding: 0;
@@ -20578,10 +20807,27 @@ select.field__input {
     display: grid;
 }
 
-.domain-about__card-title {
+/* The library's Card, its body a column so the foot sits at the bottom. */
+.domain-about__card.card--compact {
+    padding: var(--spacing-md);
+}
+
+.domain-about__card > .card__body {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    height: 100%;
+}
+
+/* A proposed member is not built yet: information about the chapter, so a
+   neutral dashed outline and the word on its foot
+   (color-scheme.md#domain-view-element-tones), never gold. */
+.domain-about__card--proposed {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+}
+
+.domain-about__card-title {
     margin: 0;
     font-size: var(--font-size-base);
     font-weight: var(--font-weight-semibold);
@@ -20589,26 +20835,64 @@ select.field__input {
 }
 
 .domain-about__card-summary {
-    margin: var(--spacing-2xs) 0 0;
-    color: var(--color-text-primary);
+    margin: 0;
+    color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.domain-about__card-model {
-    margin: var(--spacing-2xs) 0 0;
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
+.domain-about__card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin: auto 0 0;
+    padding-top: var(--spacing-xs);
     font-size: var(--font-size-xs);
 }
 
-.domain-about__enums,
+.domain-about__card-model {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+}
+
+.domain-about__card-status {
+    color: var(--color-text-secondary);
+}
+
+.domain-about__card-foot .domain-about__link {
+    font-size: var(--font-size-xs);
+}
+
+/* Enums: a bordered list, a row each — the enum's heading, its values as words,
+   and the sentence after them at the right. */
+.domain-about__enums {
+    display: grid;
+    margin: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
 .domain-about__terms {
     display: grid;
     gap: var(--spacing-xs);
     margin: 0;
 }
 
-.domain-about__enum,
+.domain-about__enum {
+    display: grid;
+    grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr) minmax(0, 18rem);
+    gap: var(--spacing-md);
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.domain-about__enum + .domain-about__enum {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
 .domain-about__term {
     display: grid;
     grid-template-columns: minmax(8rem, 14rem) 1fr;
@@ -20630,6 +20914,13 @@ select.field__input {
     min-width: 0;
 }
 
+.domain-about__enum-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: right;
+}
+
 .domain-about__values {
     display: flex;
     flex-wrap: wrap;
@@ -20642,34 +20933,55 @@ select.field__input {
 /* A value is information about the enum, so it is a neutral outline
    (color-scheme.md#domain-view-element-tones), never a filled chip. */
 .domain-about__value {
-    padding: 0 var(--spacing-xs);
+    padding: var(--spacing-2xs) var(--spacing-sm);
     border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-sm);
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-primary);
     font-size: var(--font-size-sm);
 }
 
-.domain-about__value code {
-    color: inherit;
-    font: inherit;
-}
-
-.domain-about__events,
-.domain-about__guarantees {
+/* Events: a bordered table of what happened and who hears it. */
+.domain-about__events {
     display: grid;
-    gap: var(--spacing-2xs);
     margin: 0;
     padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
     list-style: none;
 }
 
-.domain-about__event,
-.domain-about__guarantee {
-    display: flex;
-    flex-wrap: wrap;
+.domain-about__event {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 16rem);
+    gap: var(--spacing-md);
     align-items: baseline;
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.domain-about__event + .domain-about__event {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-about__event-consumers {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-about__promises {
+    display: grid;
     gap: var(--spacing-xs);
+}
+
+.domain-about__guarantees {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.domain-about__guarantee {
+    font-size: var(--font-size-sm);
 }
 
 /* A requirement is named in words, so its link reads as prose rather than as
@@ -20679,20 +20991,16 @@ select.field__input {
     font-size: inherit;
 }
 
-.domain-about__event-name {
-    font-weight: var(--font-weight-semibold);
-}
-
-.domain-about__event-consumers {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
 @media (max-width: 40rem) {
     .domain-about__enum,
-    .domain-about__term {
+    .domain-about__term,
+    .domain-about__event {
         grid-template-columns: 1fr;
         gap: var(--spacing-2xs);
+    }
+
+    .domain-about__enum-note {
+        text-align: left;
     }
 }
 
@@ -23790,18 +24098,67 @@ select.field__input {
    the same as an outside system's name beside it. */
 .domain-neighbours__card-title .devbook-ref {
     font: inherit;
+    color: inherit;
     text-align: left;
+    text-decoration: none;
 }
 
-.domain-neighbours__card-outside {
-    margin: var(--spacing-2xs) 0 0;
+.domain-neighbours__card-title .devbook-ref:hover,
+.domain-neighbours__card-title .devbook-ref:focus-visible {
+    text-decoration: underline;
+}
+
+/* Core and external after the name, as small words rather than badges. */
+.domain-neighbours__tag {
+    margin-left: var(--spacing-xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
 }
 
+.domain-neighbours__tag--core {
+    color: var(--color-primary);
+}
+
+/* The relation as a short phrase: two lines at most, the whole sentence on hover. */
 .domain-neighbours__card-line {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
     margin: var(--spacing-2xs) 0 0;
     color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-tight);
+}
+
+.domain-neighbours__side--hand-in-hand .domain-neighbours__card {
+    border-color: var(--domain-neighbours-partner-line);
+}
+
+.domain-neighbours__intro {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.domain-neighbours__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-neighbours__lede {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-neighbours__self-summary {
+    color: var(--color-primary);
     font-size: var(--font-size-sm);
 }
 
@@ -23819,53 +24176,20 @@ select.field__input {
 }
 
 .domain-neighbours__legend-item {
-    display: flex;
-    gap: var(--spacing-2xs);
+    margin: 0;
 }
 
-.domain-neighbours__legend dt {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
+.domain-neighbours__legend-item strong {
     color: var(--color-text-primary);
     font-weight: var(--font-weight-semibold);
 }
 
-.domain-neighbours__legend dd {
-    margin: 0;
+.domain-neighbours__legend-item--wide {
+    flex-basis: 100%;
 }
 
-.domain-neighbours__legend-dashed {
-    display: inline-block;
-    width: 1.25rem;
-    height: 0.75rem;
-    border: var(--border-width) dashed var(--color-border-strong);
-    border-radius: var(--border-radius-sm);
-}
-
-.domain-neighbours__legend-arrow {
-    position: relative;
-    display: inline-block;
-    width: 1.25rem;
-    height: var(--domain-neighbours-line-width);
-    background: var(--domain-neighbours-line);
-}
-
-.domain-neighbours__legend-arrow::after {
-    content: "";
-    position: absolute;
-    right: -2px;
-    top: 50%;
-    transform: translateY(-50%);
-    border-left: 6px solid var(--domain-neighbours-line);
-    border-block: 4px solid transparent;
-}
-
-.domain-neighbours__legend-amber {
-    display: inline-block;
-    width: 1.25rem;
-    height: var(--domain-neighbours-line-width);
-    background: var(--domain-neighbours-partner-line);
+.domain-neighbours__legend .domain-neighbours__legend-amber {
+    color: var(--domain-neighbours-partner-line);
 }
 
 /* One column on a narrow pane: listens to, the context, then listen to, then

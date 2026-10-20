@@ -42,16 +42,19 @@ public sealed class DomainUnitPageTests
     }
 
     [Fact]
-    public void An_unsplit_file_offers_its_units_in_a_chapter_bar_with_their_marks()
+    public void An_unsplit_file_offers_its_units_in_a_chapter_bar_led_by_their_kind()
     {
         using var context = new BunitContext();
         var page = Render(context, Unsplit);
 
+        Assert.Equal("Chapters in domain.md · each one is a page of its own once split out", page.Find("[data-testid='domain-units-caption']").TextContent);
+
         var tabs = page.FindAll("[data-testid='domain-units-bar'] [role='tab']");
         Assert.Equal(["Order", "Pricing", "Glossary"], tabs.Select(tab => tab.TextContent.Trim()));
         Assert.Equal(
-            ["type: aggregate", "type: domain-service", "type: ubiquitous-language"],
-            tabs.Select(tab => tab.QuerySelector("svg")!.GetAttribute("aria-label")));
+            ["aggregate", "domain-service", null],
+            tabs.Select(tab => tab.QuerySelector(".domain-units__kind")?.GetAttribute("data-kind")));
+        Assert.Contains("domain-units__bar-tab--active", tabs[0].ClassName);
     }
 
     [Fact]
@@ -93,27 +96,74 @@ public sealed class DomainUnitPageTests
     }
 
     [Fact]
-    public void About_reads_prose_cards_values_and_events_and_no_field_type()
+    public void About_is_a_summary_of_the_chapter_not_its_prose()
     {
         using var context = new BunitContext();
         var about = Render(context, Unsplit).Find("[data-testid='domain-aggregate-about']");
 
-        Assert.Contains("A customer's request for goods", about.TextContent);
+        Assert.Equal("Order", about.QuerySelector("[data-testid='domain-unit-title']")!.TextContent);
+        Assert.Equal("aggregate", about.QuerySelector("[data-testid='domain-unit-kicker']")!.TextContent);
+        Assert.Equal("A customer's request for goods, and the boundary for its lines.", about.QuerySelector("[data-testid='domain-unit-lead']")!.TextContent);
 
+        // The rest of the chapter's prose stays in the chapter.
+        Assert.DoesNotContain("placed once and paid once", about.TextContent);
+        Assert.DoesNotContain("never deleted", about.TextContent);
+    }
+
+    [Fact]
+    public void About_reads_cards_values_and_events_in_words_and_no_field()
+    {
+        using var context = new BunitContext();
+        var about = Render(context, Unsplit).Find("[data-testid='domain-aggregate-about']");
+
+        Assert.Contains("What an order can hold", about.TextContent);
         var cards = about.QuerySelectorAll("[data-testid='domain-unit-member']");
         Assert.Equal(["entity", "value-object"], cards.Select(card => card.GetAttribute("data-type")));
         Assert.Contains("One product and its quantity on the order.", cards[0].TextContent);
         Assert.Equal("OrderLine", cards[0].QuerySelector("[data-testid='domain-unit-member-model']")!.TextContent);
+        Assert.Null(cards[0].QuerySelector("[data-testid='domain-unit-member-proposed']"));
+        Assert.NotNull(cards[1].QuerySelector("[data-testid='domain-unit-member-proposed']"));
 
-        var values = about.QuerySelectorAll("[data-testid='domain-unit-enum'] code");
-        Assert.Equal(["draft", "placed", "paid", "cancelled"], values.Select(value => value.TextContent));
+        var values = about.QuerySelectorAll("[data-testid='domain-unit-enum'] .domain-about__value");
+        Assert.Equal(["Draft", "Placed", "Paid", "Cancelled"], values.Select(value => value.TextContent));
 
         var raised = about.QuerySelector("[data-testid='domain-unit-event']")!;
         Assert.Equal("OrderPlaced", raised.GetAttribute("data-event"));
+        Assert.Contains("Published when an Order is placed.", raised.TextContent);
+        Assert.DoesNotContain("OrderPlaced", raised.TextContent);
         Assert.Equal("Heard by Billing, Shipping", raised.QuerySelector("[data-testid='domain-unit-event-consumers']")!.TextContent);
 
         // The event's payload is Model's.
         Assert.DoesNotContain("order_id", about.TextContent);
+    }
+
+    [Fact]
+    public void About_links_to_always_true_the_glossary_and_model()
+    {
+        using var context = new BunitContext();
+        DevbookReference? followed = null;
+        string? picked = null;
+        var page = Render(context, Unsplit, parameters =>
+        {
+            parameters.Add(p => p.InvariantFiles, [DomainUnits.Parse(DomainRulesTests.Invariants, DomainRulesTests.InvariantsPath)]);
+            parameters.Add(p => p.ModelPath, ".devbook/domain/ordering/model.md");
+            parameters.Add(p => p.OnNavigate, (DevbookReference reference) => followed = reference);
+            parameters.Add(p => p.ActiveUnitChanged, (string key) => picked = key);
+        });
+
+        Assert.NotEmpty(page.FindAll("[data-testid='domain-unit-tile']"));
+
+        page.Find("[data-testid='domain-unit-link-model-events']").Click();
+        Assert.Equal(".devbook/domain/ordering/model.md", followed!.Path);
+
+        page.Find("[data-testid='domain-unit-link-always-true']").Click();
+        Assert.Equal("true", page.Find("[data-testid='domain-unit-always-true-tab']").GetAttribute("aria-selected"));
+        Assert.Equal("Order · always true", page.Find("[data-testid='domain-unit-title']").TextContent);
+
+        page.Find("[data-testid='domain-unit-about-tab']").Click();
+        page.Find("[data-testid='domain-unit-link-glossary']").Click();
+        Assert.Equal("ubiquitous-language", picked);
+        Assert.Equal("ubiquitous-language", page.Find("[data-testid='domain-unit']").GetAttribute("data-unit"));
     }
 
     [Fact]
@@ -137,6 +187,45 @@ public sealed class DomainUnitPageTests
         Assert.Equal("requirement-a-price-is-never-negative", followed.Slug);
 
         Assert.Equal("PriceChanged", page.Find("[data-testid='domain-unit-event']").GetAttribute("data-event"));
+    }
+
+    [Fact]
+    public void A_service_page_is_its_summary_and_never_how_it_is_invoked()
+    {
+        using var context = new BunitContext();
+        var service = Render(context, Unsplit, parameters => parameters.Add(p => p.ActiveUnit, "pricing"))
+            .Find("[data-testid='domain-service-about']");
+
+        Assert.Equal("domain service", service.QuerySelector("[data-testid='domain-unit-kicker']")!.TextContent);
+        Assert.Equal("Pricing", service.QuerySelector("[data-testid='domain-unit-title']")!.TextContent);
+        Assert.Equal("Works out what an order costs.", service.QuerySelector("[data-testid='domain-unit-lead']")!.TextContent);
+
+        Assert.DoesNotContain("Invocation", service.TextContent);
+        Assert.DoesNotContain("synchronously", service.TextContent);
+        Assert.DoesNotContain("order_id", service.TextContent);
+    }
+
+    [Fact]
+    public void A_service_page_links_to_its_promises_its_aggregate_and_model()
+    {
+        using var context = new BunitContext();
+        DevbookReference? followed = null;
+        var page = Render(context, Unsplit, parameters =>
+        {
+            parameters.Add(p => p.ActiveUnit, "pricing");
+            parameters.Add(p => p.ModelPath, ".devbook/domain/ordering/model.md");
+            parameters.Add(p => p.OnNavigate, (DevbookReference reference) => followed = reference);
+        });
+
+        var row = page.FindAll("[data-testid='domain-unit-links'] button");
+        Assert.Equal(["3 promises →", "Order →", "How it runs, on Model →"], row.Select(link => link.TextContent));
+
+        page.Find("[data-testid='domain-unit-link-promises']").Click();
+        Assert.Equal(".devbook/domain/ordering/requirements.md", followed!.Path);
+        Assert.Equal("pricing", followed.Slug);
+
+        page.Find("[data-testid='domain-unit-link-unit-order']").Click();
+        Assert.Equal("order", page.Find("[data-testid='domain-unit']").GetAttribute("data-unit"));
     }
 
     [Fact]

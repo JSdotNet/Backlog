@@ -833,10 +833,17 @@ beneath. *What ‹context› listens to* reads the dependency tables' rows in wh
 another context supplies a published language.
 
 **The Domain page reads one unit at a time.** An unsplit `domain.md` offers its
-aggregates, domain services and Glossary in a chapter bar inside the page, each
-led by its type mark; a split `domain.<name>.md` opens on its one aggregate. An
-aggregate's **About** is its prose, a card per entity or value object it owns,
-its enums as rows of values, and the events it raises with who hears them.
+aggregates, domain services and Glossary in a chapter bar inside the page, under
+a caption naming the file: a segmented bar, the open unit filled, each aggregate
+led by a filled square and each domain service by an outlined one; a split
+`domain.<name>.md` opens on its one aggregate. An aggregate's **About** is a
+summary of its chapter, not its prose. A card at the top holds the kind and
+status, the heading, the chapter's first sentence, a tile per group of its rules,
+and links to **Always true**, the lifecycle on Flow and the Glossary. Below it
+sit a card per entity or value object it owns, with its first sentence and how
+many rules are about it, its enums as rows of values read as words, and the
+events it raises with who hears them. A summary that closes on a list of fields
+reads as far as the colon, so no field shows.
 **Always true** sits beside it, read from the invariants file beside the page
 (`domain.invariants.md`, or `domain.<name>.invariants.md` beside a split). Each
 rule reads as its heading, marked ✓ when its chapter names a test, ○ when it
@@ -850,9 +857,11 @@ aggregate, and that card's heading opens the concept on About. A rule's first
 sentence and where it is enforced name fields and code, so they show only once
 **Show where each is enforced** is pressed. A
 shared value object's or enum's rules show on the base page, as a **Shared Value
-Objects** or **Shared Enums** unit in its chapter bar. A domain service's page is its prose, the
-requirements it is held to under **You can count on**, each opening on
-Requirements, and the events it raises. A unit's events are the domain-event
+Objects** or **Shared Enums** unit in its chapter bar. A domain service's page is its kind and status, its
+heading and first sentence, the requirements it is held to under **You can count
+on**, each opening on Requirements, links to its promises, the aggregate it names
+and how it runs on Model, and the events it raises. The rest of its prose says how
+it is invoked, which is Model's. A unit's events are the domain-event
 chapters whose `related` names it, and a service's requirements are those whose
 `related` names it or that its own `related` names.
 
