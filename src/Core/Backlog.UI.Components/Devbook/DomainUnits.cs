@@ -37,6 +37,10 @@ public sealed record DomainChapter(
     /// summary.</summary>
     public string Summary => DomainUnits.FirstSentence(Prose);
 
+    /// <summary>The block's <c>tests</c> entries as written: the tests that prove
+    /// the rule a chapter states, which the Always true tab marks it by.</summary>
+    public IReadOnlyList<string> Tests { get; init; } = [];
+
     /// <summary>Every chapter under this one, depth first.</summary>
     public IEnumerable<DomainChapter> Descendants() =>
         Children.SelectMany(child => child.Descendants().Prepend(child));
@@ -70,7 +74,11 @@ public enum DomainUnitKind
     DomainService,
 
     /// <summary>The <c>ubiquitous-language</c> grouping, read as Glossary.</summary>
-    Glossary
+    Glossary,
+
+    /// <summary>A <c>shared-value-objects</c> or <c>shared-enums</c> grouping that
+    /// has rules: its Always true, on the base page.</summary>
+    Shared
 }
 
 /// <summary>A unit the Domain page offers: an aggregate, a domain service, or
@@ -340,7 +348,10 @@ public static partial class DomainUnits
             List(meta.GetValueOrDefault("related")),
             List(meta.GetValueOrDefault("aliases")),
             WithoutFences(prose.ToString(), "annotation", "meta").Trim(),
-            children);
+            children)
+        {
+            Tests = List(meta.GetValueOrDefault("tests"))
+        };
     }
 
     private static void Append(StringBuilder builder, string[] lines, int from, int to)

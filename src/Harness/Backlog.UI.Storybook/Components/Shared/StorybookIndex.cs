@@ -356,6 +356,13 @@ internal static class StorybookIndex
             // renderers.
             new("devbook/domain-units", "Domain units", "DomainUnitPage, DomainAggregateAbout, DomainServiceAbout, DomainEventList and DomainGlossary: a `domain.md` read one unit at a time — a chapter bar over an unsplit file, About for an aggregate, You can count on for a domain service."),
 
+            // After Domain units, whose aggregate page this is the second tab of. The
+            // order bends one way here: Domain units draws DomainUnitPage, whose
+            // Always true tab is this page's DomainAlwaysTrue, before this page
+            // introduces it. It bends that way because the tab is a part of the unit
+            // page — read the page first, then the tab — as Model's tabs follow it.
+            new("devbook/domain-always-true", "Always true", "DomainAlwaysTrue: an aggregate's Always true tab — each rule's claim marked by its proof, grouped by the concept it is enforced at, where each is enforced folded until asked for."),
+
             // Last, because it is the one page of the group that is not about the
             // meta block: a review note is the convention's second fence, and the
             // chapter it sits in — heading, record, prose — is everything the pages

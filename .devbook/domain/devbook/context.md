@@ -162,8 +162,8 @@ documented.
 
 Domain is the second. An unsplit `domain.md` offers its units in a chapter bar,
 a split file opens on its one aggregate, and an aggregate reads as **About**
-beside **Always true**, which is still a placeholder; see
-[Domain view by unit](features.md#domain-view-by-unit).
+beside **Always true**, its rules read from the invariants file beside the page;
+see [Domain view by unit](features.md#domain-view-by-unit).
 
 The flag is retired when the old Domain view is removed, which a later plan does.
 The new view then always shows.
