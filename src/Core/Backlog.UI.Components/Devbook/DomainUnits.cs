@@ -554,6 +554,29 @@ public static partial class DomainUnits
         return references;
     }
 
+    /// <summary>
+    /// Every aggregate and entity chapter an id can point at, for the Model page's
+    /// "outside by id" column: the chapters an aggregate of <paramref name="own"/>
+    /// names in <c>related</c> first, then the rest of <paramref name="own"/>, then
+    /// <paramref name="others"/> — the order
+    /// <see cref="Diagrams.DomainModelArrangement.IdentityOf"/> prefers them in.
+    /// </summary>
+    public static IReadOnlyList<Diagrams.DomainModelIdentity> ModelIdentities(IEnumerable<DomainChapterFile> own, IEnumerable<DomainChapterFile> others)
+    {
+        var ownFiles = own.ToList();
+        var related = ownFiles
+            .SelectMany(file => file.AllChapters().Where(chapter => chapter.Type == "aggregate").SelectMany(chapter => chapter.Related.Select(r => Resolve(r, file.Path))))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var all = ownFiles.Concat(others)
+            .SelectMany(file => file.AllChapters()
+                .Where(chapter => chapter.Type is "aggregate" or "entity" && chapter.Anchor.Length > 0)
+                .Select(chapter => new Diagrams.DomainModelIdentity(chapter.Title, chapter.Type!, chapter.Aliases, file.ReferenceTo(chapter))))
+            .ToList();
+
+        return [.. all.Where(i => related.Contains(Normalize(i.Reference))), .. all.Where(i => !related.Contains(Normalize(i.Reference)))];
+    }
+
     /// <summary>The heading run together, when an alias spells it that way in any
     /// case — <c>Recurrence</c> over an earlier <c>Repeat</c> — else the first alias
     /// that is an identifier, else the heading run together.</summary>

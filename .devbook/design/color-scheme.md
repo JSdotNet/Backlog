@@ -39,7 +39,7 @@ related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
 All tokens below are the **dark-mode** values. These are the only color values
-the product uses, beside the two values
+the product uses, beside the four values
 [Domain View Element Tones](#domain-view-element-tones) adds.
 
 ### Brand
@@ -579,20 +579,25 @@ related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/a
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
 marks a model element by its kind on the Model page's diagram and beside its
 name, a relation between two core contexts on the Context map, and the
-requirement kind on the Requirements page. These are the three values this file
+requirement kind on the Requirements page. These are the four values this file
 adds outside the palette. The kind's glyph and word
 always say what the element is, and the tone only helps the eye group the same
 kind across a diagram.
 
 | Token | Value | Element | Against `color-background` / `-alt` / `-raised` |
 | --- | --- | --- | --- |
-| `color-domain-value-object` | `#C3D96B` | Value object | 11.99:1 / 10.41:1 / 7.83:1 |
+| `color-domain-entity` | `#E5A15F` | Entity: its kind line and its card's top edge | 8.55:1 / 7.42:1 / 5.58:1 |
+| `color-domain-value-object` | `#C3D96B` | Value object: its kind line and its card's top edge | 11.99:1 / 10.41:1 / 7.83:1 |
 | `color-domain-core-line` | `#F0A33A` | A Context map line between two core contexts, and a core context's card edge | 8.91:1 / 7.74:1 / 5.82:1 |
 | `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar | 8.87:1 / 7.70:1 / 5.79:1 |
 
 Value objects take `#C3D96B`, a yellow-green between `color-band-3` and
 `color-primary`. Teal, the value the code theme spends as `code-type`, is not
 available to it, because teal is reserved for [the Brain](#the-brains-accent).
+Entities take `#E5A15F`, a clay that sits apart from the value objects'
+yellow-green and from the root's `color-primary` gold, which the root card's
+edge and the gold *owns* diamond keep. Every other model element keeps the
+neutral `color-border-strong` edge.
 
 The Context map's lines between two core contexts take `#F0A33A`, an amber of
 their own. `color-primary` is the gold that says a thing is followable, and a
