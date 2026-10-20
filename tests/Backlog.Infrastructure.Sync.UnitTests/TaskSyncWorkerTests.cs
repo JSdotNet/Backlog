@@ -745,6 +745,151 @@ public sealed class TaskSyncWorkerTests
         Assert.False(fixture.State.Current.HasReplayedFeedFor(MyDayReplicaDocuments.PreferencesType));
     }
 
+    // --- Goals and impediments (local ADR 0035 §9) ----------------------------
+
+    /// <summary>
+    /// A build from before goals rode the feed skipped a <c>goal</c> document and saved
+    /// its cursor past it. Upgraded — with its My Day replay already taken — the device
+    /// reads the feed from the start once more, so the goal set on the other desktop
+    /// reaches this one (<c>.devbook/domain/progress/requirements.md#syncing-goals-and-impediments</c>).
+    /// </summary>
+    [Fact]
+    public async Task An_upgraded_device_replays_the_feed_once_and_takes_goals_its_cursor_had_passed()
+    {
+        var goal = new GoalReplicaCopyDto(Guid.NewGuid(), "Customers get paid faster", "{}", Noon.AddHours(-1));
+        var goals = new RecordingGoalReplication();
+
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon, "cursor-1").WithFeedReplay(MyDayReplicaDocuments.PreferencesType),
+            respond: ReplayingFeed(FeedPage(GoalReplicaDocuments.ToChange(goal))),
+            goals: goals);
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(goal, Assert.Single(goals.Offered));
+        Assert.Equal("cursor-2", fixture.State.Current.PullCursor);
+        Assert.True(fixture.State.Current.HasReplayedFeedFor(GoalReplicaDocuments.GoalType));
+
+        // The next cycle resumes from the cursor: nothing is replayed again.
+        var second = fixture.NextCycle();
+        fixture.Worker.RequestSync();
+        await second.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Single(goals.Offered);
+    }
+
+    /// <summary>The same catch-up for an impediment, on the goals' terms.</summary>
+    [Fact]
+    public async Task An_upgraded_device_replays_the_feed_once_and_takes_impediments_its_cursor_had_passed()
+    {
+        var impediment = new ImpedimentReplicaCopyDto(Guid.NewGuid(), "Bank sample files missing", "{}", Noon.AddHours(-1));
+        var impediments = new RecordingImpedimentReplication();
+
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon, "cursor-1").WithFeedReplay(MyDayReplicaDocuments.PreferencesType),
+            respond: ReplayingFeed(FeedPage(ImpedimentReplicaDocuments.ToChange(impediment))),
+            impediments: impediments);
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(impediment, Assert.Single(impediments.Offered));
+        Assert.Equal("cursor-2", fixture.State.Current.PullCursor);
+        Assert.True(fixture.State.Current.HasReplayedFeedFor(ImpedimentReplicaDocuments.ImpedimentType));
+
+        var second = fixture.NextCycle();
+        fixture.Worker.RequestSync();
+        await second.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Single(impediments.Offered);
+    }
+
+    /// <summary>A device that learned several kinds at once forgets its cursor once, not
+    /// once per kind: every missing replay is recorded in the same save.</summary>
+    [Fact]
+    public async Task A_device_missing_several_replays_reads_the_feed_again_once_for_all_of_them()
+    {
+        var goal = new GoalReplicaCopyDto(Guid.NewGuid(), "Customers get paid faster", "{}", Noon.AddHours(-1));
+        var impediment = new ImpedimentReplicaCopyDto(Guid.NewGuid(), "Bank sample files missing", "{}", Noon.AddHours(-1));
+        var preferences = new MyDayPreferencesCopyDto("""{"clearsOvernight":false}""", Noon.AddHours(-1));
+        var myDay = new RecordingMyDayPreferencesReplication();
+        var goals = new RecordingGoalReplication();
+        var impediments = new RecordingImpedimentReplication();
+
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon, "cursor-1"),
+            respond: ReplayingFeed(FeedPage(
+                MyDayReplicaDocuments.ToChange(preferences),
+                GoalReplicaDocuments.ToChange(goal),
+                ImpedimentReplicaDocuments.ToChange(impediment))),
+            myDay: myDay,
+            goals: goals,
+            impediments: impediments);
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Single(fixture.State.Saved, saved => saved.PullCursor is null);
+        Assert.Single(myDay.Offered);
+        Assert.Single(goals.Offered);
+        Assert.Single(impediments.Offered);
+        Assert.True(fixture.State.Current.HasReplayedFeedFor(MyDayReplicaDocuments.PreferencesType));
+        Assert.True(fixture.State.Current.HasReplayedFeedFor(GoalReplicaDocuments.GoalType));
+        Assert.True(fixture.State.Current.HasReplayedFeedFor(ImpedimentReplicaDocuments.ImpedimentType));
+        Assert.Equal("cursor-2", fixture.State.Current.PullCursor);
+
+        var second = fixture.NextCycle();
+        fixture.Worker.RequestSync();
+        await second.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        // Resumed from its cursor: no second reset, nothing offered again.
+        Assert.Single(fixture.State.Saved, saved => saved.PullCursor is null);
+        Assert.Single(myDay.Offered);
+        Assert.Single(goals.Offered);
+        Assert.Single(impediments.Offered);
+    }
+
+    /// <summary>A head that keeps no goals and no impediments — the phone, or one without
+    /// Progress — has nothing to catch up on and keeps its cursor.</summary>
+    [Fact]
+    public async Task A_head_without_the_goal_and_impediment_ports_does_not_replay_the_feed_for_them()
+    {
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon, "cursor-1").WithFeedReplay(MyDayReplicaDocuments.PreferencesType),
+            respond: ReplayingFeed("""{"tasks":[],"since":"cursor-2","hasMore":false}"""),
+            myDay: new RecordingMyDayPreferencesReplication());
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal("cursor-1", fixture.State.Current.PullCursor);
+        Assert.False(fixture.State.Current.HasReplayedFeedFor(GoalReplicaDocuments.GoalType));
+        Assert.False(fixture.State.Current.HasReplayedFeedFor(ImpedimentReplicaDocuments.ImpedimentType));
+    }
+
+    /// <summary>One page of the feed holding <paramref name="changes"/>, from another
+    /// device, ending at <c>cursor-2</c>.</summary>
+    private static string FeedPage(params TaskChange[] changes) =>
+        JsonSerializer.Serialize(new
+        {
+            tasks = changes.Select((change, index) => new { change, deviceId = Guid.NewGuid(), serverTimestamp = 100L + index }),
+            since = "cursor-2",
+            hasMore = false
+        });
+
     /// <summary>A replica whose feed is caught up for a pull that carries a cursor and
     /// answers <paramref name="fromTheStart"/> to one that carries none — the shape the
     /// rehydrate test uses.</summary>
@@ -1033,7 +1178,8 @@ public sealed class TaskSyncWorkerTests
             RecordingGitHubSettingsReplication? github,
             TokenPipeline? tokens,
             RecordingMyDayPreferencesReplication? myDay,
-            RecordingGoalReplication? goals)
+            RecordingGoalReplication? goals,
+            RecordingImpedimentReplication? impediments)
         {
             _http = http;
             _repository = repository;
@@ -1042,6 +1188,7 @@ public sealed class TaskSyncWorkerTests
             GitHub = github;
             MyDay = myDay;
             Goals = goals;
+            Impediments = impediments;
 
             Handler = handler;
             Tasks = tasks;
@@ -1062,7 +1209,8 @@ public sealed class TaskSyncWorkerTests
                 roadmap: roadmap,
                 github: github,
                 myDay: myDay,
-                goals: goals);
+                goals: goals,
+                impediments: impediments);
         }
 
         public TaskSyncWorker Worker { get; }
@@ -1070,6 +1218,10 @@ public sealed class TaskSyncWorkerTests
         /// <summary>Progress's goal replication port, where a test composed one, handed to
         /// the merge, the session and the worker alike.</summary>
         public RecordingGoalReplication? Goals { get; }
+
+        /// <summary>Progress's impediment replication port, where a test composed one, on
+        /// the goals' terms.</summary>
+        public RecordingImpedimentReplication? Impediments { get; }
 
         /// <summary>The My Day preferences port, where a test composed one, handed to the
         /// merge, the session and the worker alike.</summary>
@@ -1129,7 +1281,8 @@ public sealed class TaskSyncWorkerTests
             bool authenticated = false,
             RecordingGitHubSettingsReplication? github = null,
             RecordingMyDayPreferencesReplication? myDay = null,
-            RecordingGoalReplication? goals = null)
+            RecordingGoalReplication? goals = null,
+            RecordingImpedimentReplication? impediments = null)
         {
             var tasks = new InMemoryTaskStore();
             seed?.Invoke(tasks);
@@ -1196,7 +1349,8 @@ public sealed class TaskSyncWorkerTests
                 github,
                 tokens,
                 myDay,
-                goals);
+                goals,
+                impediments);
         }
 
         /// <summary>
@@ -1255,7 +1409,7 @@ public sealed class TaskSyncWorkerTests
 
             return new TaskSyncSession(
                 new TaskSyncClient(_http),
-                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap, github: GitHub, myDay: MyDay, goals: Goals),
+                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap, github: GitHub, myDay: MyDay, goals: Goals, impediments: Impediments),
                 _repository,
                 State,
                 Credentials,
@@ -1263,7 +1417,8 @@ public sealed class TaskSyncWorkerTests
                 roadmap: Roadmap,
                 github: GitHub,
                 myDay: MyDay,
-                goals: Goals);
+                goals: Goals,
+                impediments: Impediments);
         }
     }
 
