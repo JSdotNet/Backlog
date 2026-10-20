@@ -1,0 +1,134 @@
+@page "/diagrams/domain-model-fields"
+
+<PageTitle>Domain model fields — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain model fields"
+           Summary="The Model page's Fields tab: DomainModelFieldsView lists every class of a context's classDiagram that holds state with its attributes grouped by what their types say, and DomainServiceInvocations says how each domain service runs, from its chapter's Invocation semantics."
+           Guidelines="@Rules">
+
+    <Story Name="Fields grouped by kind"
+           Description="Each class with its attributes under Dates and times, Ids pointing elsewhere, Owned parts, Vocabularies and Other values, in that order. A vocabulary names its values beside the attribute; an owned part its multiplicity; a part composed in with no attribute is listed by its line's label. Enumerations and services are not classes here."
+           Code="@FieldsCode"
+           Source="@Tasks"
+           SourceLabel="classDiagram"
+           SourceLanguage="mermaid">
+        <DomainModelFieldsView Source="@Tasks" Title="Model diagram" TestId="story-domain-fields" />
+    </Story>
+
+    <Story Name="A fence that cannot be read"
+           Description="A fence the reader cannot read in full says so rather than listing part of it. Diagram still draws it with mermaid."
+           Code="@FieldsCode"
+           Source="@Broken"
+           SourceLabel="classDiagram"
+           SourceLanguage="mermaid">
+        <DomainModelFieldsView Source="@Broken" Title="Model diagram" TestId="story-domain-fields-unread" />
+    </Story>
+
+    <Story Name="Domain services · how they run"
+           Description="Each domain-service chapter's first sentence and its Invocation semantics prose — the paragraph after the label, or the list beneath a label that ends its line. A chapter that says nothing about how it runs is named as such."
+           Code="@ServicesCode">
+        <DomainServiceInvocations Services="@Services" TestId="story-domain-services" />
+    </Story>
+
+    <Story Name="On the Model page"
+           Description="Fields as the Model page lays it out: the fields of each fence, the model file's relationship notes beneath, then how the services run."
+           Code="@PageCode">
+        <DomainModelView Fences="@Fences" RelationshipNotes="@Notes" Chapters="@Chapters" AriaLabel="Model of Tasks" TestId="story-domain-model-fields-view" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Which tone a model element takes beside its glyph and its kind in words."),
+        new("typography-and-layout.md#font-families", "Why names and types are set in the mono face.")
+    ];
+
+    private const string Tasks = """
+        classDiagram
+            class Task {
+                <<aggregate root>>
+                +Id id
+                +String title
+                +TaskStatus status
+                +Timestamp created_at
+                +Date due_on
+                +List~Id~ depends_on
+                +String source_inbox_id
+                +Recurrence recurrence
+                +Integer effort
+            }
+            class SubItem {
+                <<entity>>
+                +Id id
+                +String title
+                +SubItemStatus status
+            }
+            class Recurrence {
+                <<value object>>
+                +Integer interval
+                +List~Weekday~ weekdays
+            }
+            class TaskStatus {
+                <<enumeration>>
+                draft
+                ready
+                in_progress
+                done
+            }
+            class SubItemStatus {
+                <<enumeration>>
+                pending
+                done
+            }
+            class Weekday {
+                <<enumeration>>
+                monday
+                friday
+            }
+            Task "1" *-- "0..*" SubItem : contains
+            Task "1" *-- "0..1" Recurrence : repeats by
+            Task "0..*" ..> "0..*" Task : depends on
+        """;
+
+    private const string Broken = """
+        classDiagram
+            Task <--> Other
+        """;
+
+    private const string Notes = """
+        - `Task` is the aggregate root and the only consistency boundary.
+        - `repo_ids` is a plain list of repository identifiers, not object references.
+        """;
+
+    private static readonly IReadOnlyList<DomainServiceInvocation> Services =
+    [
+        new("Occurrence Spawning", "#occurrence-spawning", "Creates the next occurrence of a repeating task.",
+            "Called synchronously by the use case that completes the task. It is deliberately not an event-triggered policy."),
+        new("Classification", "#classification", "Proposes where an inbox item belongs.",
+            "- On intake, it is called by the intake and capture commands.\n- Otherwise it is a query the pane asks for whenever the item on screen changes."),
+        new("Projection", "#projection", "Creates and closes downstream artifacts for a multi-repo task.", null)
+    ];
+
+    private static readonly IReadOnlyList<DomainModelFence> Fences = [new DomainModelFence("Model diagram", Tasks)];
+
+    private static readonly DomainChapterReading Chapters = new(Services, []);
+
+    private const string FieldsCode = """
+        <DomainModelFieldsView Source="@classDiagramFenceBody" Title="Model diagram" />
+        """;
+
+    private const string ServicesCode = """
+        <DomainServiceInvocations Services="@reading.Services" />
+
+        @code {
+            // Read from the context's domain.md and its splits.
+            private DomainChapterReading reading = DomainChapterContracts.Read(sources);
+        }
+        """;
+
+    private const string PageCode = """
+        <DomainModelView Fences="@fences" RelationshipNotes="@notes" Chapters="@reading" AriaLabel="Model of Tasks" />
+        """;
+}

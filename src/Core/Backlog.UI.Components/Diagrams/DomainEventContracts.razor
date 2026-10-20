@@ -1,0 +1,82 @@
+@*
+    The Model page's Events tab (local ADR 0036): each domain-event chapter of the
+    bounded context read as a contract — who raises it, who consumes it, what it
+    carries, the published-language rules consumers conform to, and whether the
+    chapters say it is emitted or only documented. The words are the chapters';
+    a section the chapter does not write is named as missing rather than left out.
+*@
+
+@if (Events.Count == 0)
+{
+    <EmptyState Title="No domain events"
+                Description="This context's domain chapters hold no domain-event chapter."
+                TestId="domain-events-empty"
+                role="status" />
+}
+else
+{
+    <div class="domain-events" data-testid="@TestId">
+        @foreach (var contract in Events)
+        {
+            var delivery = contract.Delivery == DomainEventDelivery.Emitted ? "emitted" : "documented";
+            <article class="domain-event" data-testid="domain-event" data-name="@contract.Title" data-delivery="@delivery" aria-label="@contract.Title">
+                <header class="domain-event__header">
+                    <h3 class="domain-event__name">@contract.Title</h3>
+                    <Badge Kind="tone"
+                           CssClass="domain-event__delivery"
+                           TestId="domain-event-delivery"
+                           Title="@DeliveryTitle(contract.Delivery)">@(contract.Delivery == DomainEventDelivery.Emitted ? "Emitted" : "Documented")</Badge>
+                </header>
+                @if (contract.Summary.Length > 0)
+                {
+                    <div class="domain-event__summary"><MarkdownView Blocks="@MarkdownPreview.ParseDocument(contract.Summary)" /></div>
+                }
+                <dl class="domain-event__facts">
+                    <div class="domain-event__fact" data-testid="domain-event-raised-by">
+                        <dt class="domain-event__label">Raised by</dt>
+                        <dd class="domain-event__value">
+                            @if (contract.RaisedBy.Count == 0)
+                            {
+                                <span class="domain-event__unsaid">Not named</span>
+                            }
+                            else
+                            {
+                                @string.Join(", ", contract.RaisedBy)
+                            }
+                        </dd>
+                    </div>
+                </dl>
+                @Part("Consumers", "consumers", contract.Consumers)
+                @Part("Payload", "payload", contract.Payload)
+                @Part("Published language rules", "rules", contract.Rules)
+            </article>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<DomainEventContract> Events { get; set; } = [];
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-events";
+
+    private static string DeliveryTitle(DomainEventDelivery delivery) => delivery == DomainEventDelivery.Emitted
+        ? "The chapter that raises it says it emits it."
+        : "Described as a contract; no chapter says it is emitted yet.";
+
+    private static RenderFragment Part(string label, string key, string? markdown) => __builder =>
+    {
+        <section class="@($"domain-event__part domain-event__part--{key}")" data-testid="@($"domain-event-{key}")">
+            <h4 class="domain-event__label">@label</h4>
+            @if (markdown is null)
+            {
+                <p class="domain-event__unsaid">The chapter does not say.</p>
+            }
+            else
+            {
+                <MarkdownView Blocks="@MarkdownPreview.ParseDocument(markdown)" />
+            }
+        </section>
+    };
+}

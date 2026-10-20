@@ -153,7 +153,12 @@ Model is the first page built. It opens on **Diagram**, which draws each
 root and its composed parts inside the band, what it holds by identity outside
 it, and the domain services below. A diagram that cannot be read that way, has
 no aggregate root, or holds structure no boundary shows is drawn with mermaid as
-before. **Fields** and **Events** are still placeholders.
+before. **Fields** lists each class's attributes grouped by kind, with the
+model's relationship notes beneath and how each domain service runs, read from
+its chapter's invocation semantics. **Events** reads each `domain-event` chapter
+as a contract: what raises it, who consumes it, its payload and its
+published-language rules, and whether the chapters say it is emitted or only
+documented.
 
 Domain is the second. An unsplit `domain.md` offers its units in a chapter bar,
 a split file opens on its one aggregate, and an aggregate reads as **About**

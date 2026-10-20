@@ -1,0 +1,48 @@
+@*
+    "Domain services · how they run", on the Model page's Fields tab (local ADR
+    0036 §6): each domain-service chapter of the context with its first sentence
+    and its Invocation semantics prose. How a service is called is technical
+    detail, so it is shown here and not on the service's own Domain page.
+*@
+
+@if (Services.Count > 0)
+{
+    <section class="domain-services" data-testid="@TestId" aria-labelledby="@_headingId">
+        <h3 class="domain-model-view__section-title" id="@_headingId">Domain services · how they run</h3>
+        <ul class="domain-services__list">
+            @foreach (var service in Services)
+            {
+                <li class="domain-services__item" data-testid="domain-service-invocation" data-name="@service.Title">
+                    <h4 class="domain-services__name">
+                        <span class="domain-model__element-glyph" aria-hidden="true">@DomainModelArrangement.KindGlyph(DomainModelKind.Service)</span>
+                        @service.Title
+                    </h4>
+                    @if (service.Summary.Length > 0)
+                    {
+                        <div class="domain-services__summary"><MarkdownView Blocks="@MarkdownPreview.ParseDocument(service.Summary)" /></div>
+                    }
+                    @if (service.Invocation is { } invocation)
+                    {
+                        <div class="domain-services__invocation" data-testid="domain-service-runs">
+                            <MarkdownView Blocks="@MarkdownPreview.ParseDocument(invocation)" />
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="domain-services__unsaid" data-testid="domain-service-unsaid">The chapter does not say how it runs.</p>
+                    }
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<DomainServiceInvocation> Services { get; set; } = [];
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-services";
+
+    private readonly string _headingId = $"domain-services-{Guid.NewGuid():N}";
+}
