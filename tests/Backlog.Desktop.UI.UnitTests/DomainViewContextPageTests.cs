@@ -163,11 +163,21 @@ public sealed class DomainViewContextPageTests : IDisposable
         var gitHub = view.Find("[data-testid='domain-neighbours-listens-to'] [data-testid='domain-neighbour']");
         Assert.Equal("GitHub", gitHub.GetAttribute("data-name"));
         Assert.Equal("true", gitHub.GetAttribute("data-external"));
-        Assert.Equal("Tasks project to GitHub issues.", gitHub.QuerySelector("[data-testid='domain-neighbour-line']")!.TextContent.Trim());
+        Assert.Equal("Tasks project to GitHub issues", gitHub.QuerySelector("[data-testid='domain-neighbour-line']")!.TextContent.Trim());
         Assert.Equal("Sync", view.Find("[data-testid='domain-neighbours-listen-to'] [data-testid='domain-neighbour']").GetAttribute("data-name"));
         Assert.Equal("Devbook", view.Find("[data-testid='domain-neighbours-hand-in-hand'] [data-testid='domain-neighbour']").GetAttribute("data-name"));
         Assert.DoesNotContain("Partnership", view.Find("[data-testid='domain-neighbours']").TextContent);
         Assert.DoesNotContain("OHS", view.Find("[data-testid='domain-neighbours']").TextContent);
+    }
+
+    [Theory]
+    [InlineData("core", "draft", "Core · draft")]
+    [InlineData("supporting", "none", "Supporting")]
+    [InlineData(null, "accepted", "accepted")]
+    [InlineData(null, "none", null)]
+    public void The_middle_cards_summary_is_the_subdomain_type_and_the_status(string? kind, string? status, string? summary)
+    {
+        Assert.Equal(summary, DomainViewContextPage.Summary(kind, status));
     }
 
     [Fact]

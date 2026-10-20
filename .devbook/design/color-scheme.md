@@ -39,7 +39,7 @@ related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
 All tokens below are the **dark-mode** values. These are the only color values
-the product uses, beside the four values
+the product uses, beside the five values
 [Domain View Element Tones](#domain-view-element-tones) adds.
 
 ### Brand
@@ -578,9 +578,9 @@ related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/a
 
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
 marks a model element by its kind on the Model page's diagram and beside its
-name, a relation between two core contexts on the Context map, and the
-requirement kind on the Requirements page. These are the four values this file
-adds outside the palette. The kind's glyph and word
+name, a relation between two core contexts on the Context map, the requirement
+kind on the Requirements page, and a domain service in the Domain page's chapter
+bar. These are the five values this file adds outside the palette. The kind's glyph and word
 always say what the element is, and the tone only helps the eye group the same
 kind across a diagram.
 
@@ -590,6 +590,7 @@ kind across a diagram.
 | `color-domain-value-object` | `#C3D96B` | Value object: its kind line and its card's top edge | 11.99:1 / 10.41:1 / 7.83:1 |
 | `color-domain-core-line` | `#F0A33A` | A Context map line between two core contexts, and a core context's card edge | 8.91:1 / 7.74:1 / 5.82:1 |
 | `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar | 8.87:1 / 7.70:1 / 5.79:1 |
+| `color-domain-service` | `#86C98F` | A domain service's outlined square in the Domain page's chapter bar | 9.59:1 / 8.33:1 / 6.26:1 |
 
 Value objects take `#C3D96B`, a yellow-green between `color-band-3` and
 `color-primary`. Teal, the value the code theme spends as `code-type`, is not
@@ -612,6 +613,13 @@ feature list and the tested part of each feature's bar. It is not gold, because
 none of these is followable, and not teal, which is the Brain's. Each sits beside
 the words *Requirement*, *SHALL* or *n / m* tested, so the blue is never the only
 thing that says it.
+
+The Domain page's chapter bar leads each aggregate with a square filled in
+`color-primary`, the gold the Model diagram already gives an aggregate root, and
+each domain service with a square outlined in `#86C98F`, a green of its own. It is
+not `color-success-text`, which says something went well, and not teal, the
+Brain's. The square sits beside the unit's name, which says what it is, so a
+listener is not told the colour at all.
 
 **Information badges are neutral outlines.** On the Domain view's pages, the
 `DEV` mark, a chapter's date, a chapter's feature switch, a feature's

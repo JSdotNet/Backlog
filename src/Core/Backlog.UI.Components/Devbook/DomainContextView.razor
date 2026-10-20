@@ -130,7 +130,7 @@
             </div>
         </TabPanel>
         <TabPanel Id="neighbours" Title="Neighbours" TabTestId="domain-context-page-tab-neighbours" TestId="domain-context-page-neighbours-panel">
-            <DomainNeighboursView Neighbours="@Neighbours" ContextName="@ContextName" OnNavigate="OnNavigate" OnOverview="@(() => _tab = "overview")" />
+            <DomainNeighboursView Neighbours="@Neighbours" ContextName="@ContextName" ContextSummary="@ContextSummary" OnNavigate="OnNavigate" OnOverview="@(() => _tab = "overview")" />
         </TabPanel>
     </Tabs>
 </section>
@@ -139,6 +139,10 @@
     /// <summary>The context's name as its <c>context.md</c> heads it.</summary>
     [Parameter]
     public string ContextName { get; set; } = "This context";
+
+    /// <summary>The Neighbours middle card's line under the name: <c>Core · draft</c>.</summary>
+    [Parameter]
+    public string? ContextSummary { get; set; }
 
     /// <summary>What the Overview tab shows.</summary>
     [Parameter]
