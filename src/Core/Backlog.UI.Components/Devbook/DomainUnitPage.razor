@@ -11,7 +11,8 @@
     What a unit shows is the unit's kind. An aggregate opens on About with Always
     true beside it; a domain service is one page; Glossary is its terms. Nothing
     here names a field type, an invocation detail or an event payload — those are
-    Model's (§6).
+    Model's (§6). The Glossary reads every domain file of the context, so a split
+    context's aggregates are listed beside its terms.
 
     Pure: the host hands over the files it read, so the storybook draws the same
     page from a sample string.
@@ -146,7 +147,19 @@
         await ActiveUnitChanged.InvokeAsync(unit.Key);
     }
 
-    private IReadOnlyList<DomainChapterFile> EventFiles => DomainFiles.Count > 0 ? DomainFiles : [File];
+    // One list per opened file, so a unit's renderers see the same list on every
+    // render and their caches hold.
+    private (DomainChapterFile? File, IReadOnlyList<DomainChapterFile> Files) _alone = (null, []);
+
+    private IReadOnlyList<DomainChapterFile> EventFiles
+    {
+        get
+        {
+            if (DomainFiles.Count > 0) return DomainFiles;
+            if (!ReferenceEquals(_alone.File, File)) _alone = (File, [File]);
+            return _alone.Files;
+        }
+    }
 
     // Read once per set of files, so a re-render hands the same lists down and the
     // unit's renderers do not read their chapters again.
@@ -210,7 +223,7 @@
                                         OnNavigate="OnNavigate" />
                     break;
                 default:
-                    <DomainGlossary Chapter="@unit.Chapter" DocumentPath="@File.Path" OnNavigate="OnNavigate" />
+                    <DomainGlossary Chapter="@unit.Chapter" Files="@EventFiles" DocumentPath="@File.Path" OnNavigate="OnNavigate" />
                     break;
             }
         </section>;

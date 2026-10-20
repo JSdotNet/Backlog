@@ -1339,8 +1339,8 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 
 > The requirements of the Domain area read by unit, behind the
 > [New domain view](context.md#new-domain-view) switch (local ADR 0036). The plan
-> `+devbook-domain-view` builds them page by page; Domain, Features, Requirements
-> and Model are built.
+> `+devbook-domain-view` builds them page by page; Domain, Features,
+> Requirements, Model, Flow and the Glossary are built.
 
 ### Requirement: The flag off keeps today's Domain view
 
@@ -1644,3 +1644,47 @@ The system SHALL offer the context map as a Map tab that draws the contexts and 
 - **Given** a domain folder with three bounded contexts
 - **When** the reader opens Context map and picks List
 - **Then** the three contexts are listed in reading order
+
+### Requirement: Flow draws a lifecycle as one row of states
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Forward_arcs_are_drawn_above_the_row_the_ways_back_below_and_the_restore_loop_outermost, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_flow_page_draws_the_row_with_the_prose_beneath_and_mermaid_for_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_diagram_the_row_cannot_hold_is_left_to_mermaid, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlowPageTests.The_Flow_row_draws_the_lifecycle_as_one_row_and_keeps_every_other_diagram]
+```
+
+The system SHALL draw each `stateDiagram-v2` of a `flow.md` or `flow.<name>.md` row as one row of states, with the forward transitions above the row, the ways back below it, the way from the last state back to the first as a loop round the outside, and the chapter's prose beneath, and SHALL render every other Mermaid diagram of the file as it renders elsewhere.
+
+#### Scenario: A lifecycle with a restore
+
+- **Given** a `flow.md` chapter whose `stateDiagram-v2` runs *Draft* to *Ready* to *Done* and back from *Done* to *Draft* as *Restored*
+- **When** the reader opens Flow
+- **Then** *Draft*, *Ready* and *Done* stand in one row, *Restored* loops round the outside below it, and the chapter's prose follows the row
+
+#### Scenario: A sequence diagram beside it
+
+- **Given** the same `flow.md` holds a chapter with a `sequenceDiagram`
+- **When** the reader opens Flow
+- **Then** that chapter's diagram renders as Mermaid, as it does on every other page
+
+### Requirement: The Glossary lists terms and model chapters A to Z
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Lists_every_term_and_model_chapter_of_the_context_a_to_z, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Each_row_shows_its_kind_its_aliases_as_code_chips_and_its_first_sentence, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_deprecated_term_is_struck_through_and_says_so_in_words, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_filter_matches_a_heading_or_an_alias, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_kind_filters_narrow_to_the_kinds_pressed_beside_the_filter, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Two_terms_that_name_each_other_are_easily_confused_and_a_one_way_pointer_is_not, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Reached_from_the_domain_chapter_bar_it_lists_the_split_files_too]
+```
+
+The system SHALL offer, from the Domain page's chapter bar, a Glossary that lists every term chapter under `## Ubiquitous Language` and every model chapter of the context's domain files A to Z, each with its kind, its aliases as code chips and its first sentence; that filters by heading or alias and by kind; that strikes a deprecated chapter through; and that lists as easily confused every two term chapters that name each other in `related`.
+
+#### Scenario: Filtering by an alias
+
+- **Given** a term *Customer* with the alias `Client`
+- **When** the reader types `client` into the Glossary's filter
+- **Then** *Customer* is listed
+
+#### Scenario: Two terms that name each other
+
+- **Given** a term *Basket* whose `related` names *Draft Order*, and *Draft Order*'s names *Basket*
+- **When** the reader opens the Glossary
+- **Then** Easily confused sets *Basket* beside *Draft Order*, each with its first sentence
