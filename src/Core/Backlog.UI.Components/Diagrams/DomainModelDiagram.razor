@@ -1,0 +1,146 @@
+@*
+    A bounded context's class diagram, drawn as the Domain view's Model page reads
+    it (local ADR 0036): each aggregate root inside its consistency-boundary band
+    with the parts composed into it, what the band holds only by identity outside
+    it, and the context's domain services below.
+
+    Drawn as markup rather than as an SVG with lines. The band, the parts and the
+    references are boxes in a reading order, and each part says its relation and
+    multiplicity in words beside it — which a screen reader reads and a line between
+    two boxes never was. A fence this cannot arrange in full (DomainModelArrangement
+    returns null) is handed to DiagramView, which draws it with mermaid as before.
+*@
+
+@if (_arrangement is null)
+{
+    <div class="domain-model domain-model--fallback" data-testid="@TestId" data-rendered="mermaid">
+        <DiagramView Source="@Source" Language="mermaid" Title="@Title" />
+    </div>
+}
+else
+{
+    <figure class="domain-model" data-testid="@TestId" data-rendered="domain-model" aria-label="@Title">
+        @foreach (var boundary in _arrangement.Boundaries)
+        {
+            <div class="domain-model__aggregate" data-testid="domain-model-aggregate" data-root="@boundary.Root.Name">
+                <section class="domain-model__band" data-testid="domain-model-band" aria-label="@($"Consistency boundary of {boundary.Root.Name}")">
+                    <span class="domain-model__band-label">Consistency boundary</span>
+                    <div class="domain-model__root">
+                        @Element(boundary.Root)
+                    </div>
+                    @if (boundary.Parts.Count > 0)
+                    {
+                        <ul class="domain-model__parts" aria-label="@($"Composed into {boundary.Root.Name}")">
+                            @foreach (var part in boundary.Parts)
+                            {
+                                <li class="domain-model__part" data-testid="domain-model-part" data-part="@part.Class.Name" data-depth="@part.Depth">
+                                    <span class="domain-model__edge" data-testid="domain-model-edge">
+                                        <span class="domain-model__edge-glyph" aria-hidden="true">◆</span>
+                                        @if (part.Depth > 1)
+                                        {
+                                            <span class="domain-model__edge-owner">@part.Owner</span>
+                                        }
+                                        @if (part.Label is not null)
+                                        {
+                                            <span class="domain-model__edge-label">@part.Label</span>
+                                        }
+                                        @if (part.Multiplicity is not null)
+                                        {
+                                            <span class="domain-model__multiplicity" data-testid="domain-model-multiplicity">@part.Multiplicity</span>
+                                        }
+                                    </span>
+                                    @Element(part.Class)
+                                </li>
+                            }
+                        </ul>
+                    }
+                </section>
+                @if (boundary.References.Count > 0)
+                {
+                    <section class="domain-model__references" data-testid="domain-model-references" aria-label="@($"Held by {boundary.Root.Name} by identity")">
+                        <span class="domain-model__group-label">By identity, outside the boundary</span>
+                        <ul class="domain-model__reference-list">
+                            @foreach (var reference in boundary.References)
+                            {
+                                <li class="domain-model__reference" data-testid="domain-model-reference" data-target="@reference.Target" data-source="@reference.Source.ToString().ToLowerInvariant()">
+                                    <span class="domain-model__edge domain-model__edge--dashed">
+                                        @if (reference.Owner != boundary.Root.Name)
+                                        {
+                                            <span class="domain-model__edge-owner">@reference.Owner</span>
+                                        }
+                                        @if (reference.Label is not null)
+                                        {
+                                            <span class="domain-model__edge-label">@reference.Label</span>
+                                        }
+                                        @if (reference.Multiplicity is not null)
+                                        {
+                                            <span class="domain-model__multiplicity" data-testid="domain-model-multiplicity">@reference.Multiplicity</span>
+                                        }
+                                    </span>
+                                    <span class="domain-model__reference-name">@reference.Target</span>
+                                    @if (reference.Type is not null)
+                                    {
+                                        <span class="domain-model__reference-type">@DomainModelArrangement.TypeLabel(reference.Type)</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                }
+            </div>
+        }
+        @if (_arrangement.Services.Count > 0)
+        {
+            <section class="domain-model__services" data-testid="domain-model-services" aria-label="Domain services">
+                <span class="domain-model__group-label">Domain services</span>
+                <ul class="domain-model__service-list">
+                    @foreach (var service in _arrangement.Services)
+                    {
+                        <li class="domain-model__service">@Element(service)</li>
+                    }
+                </ul>
+            </section>
+        }
+        @if (_arrangement.Unplaced.Count > 0)
+        {
+            <figcaption class="domain-model__unplaced" data-testid="domain-model-unplaced">
+                Also in the model, not drawn here: @string.Join(", ", _arrangement.Unplaced.Select(c => c.Name))
+            </figcaption>
+        }
+    </figure>
+}
+
+@code {
+    /// <summary>The <c>classDiagram</c> fence's body, without the backtick lines.</summary>
+    [Parameter, EditorRequired]
+    public string Source { get; set; } = string.Empty;
+
+    /// <summary>The diagram's name — the heading its fence sits under.</summary>
+    [Parameter]
+    public string Title { get; set; } = "Model diagram";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-model-diagram";
+
+    private string? _arranged;
+    private DomainModelArrangement? _arrangement;
+
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(_arranged, Source, StringComparison.Ordinal)) return;
+        _arranged = Source;
+        _arrangement = DomainModelArrangement.TryArrange(Source);
+    }
+
+    private static RenderFragment Element(DomainModelClass element) => __builder =>
+    {
+        var key = DomainModelArrangement.KindKey(element.Kind);
+        <span class="@($"domain-model__element domain-model__element--{key}")" data-testid="domain-model-element" data-kind="@key" data-name="@element.Name">
+            <span class="domain-model__element-name">@element.Name</span>
+            <span class="domain-model__element-kind">
+                <span class="domain-model__element-glyph" aria-hidden="true">@DomainModelArrangement.KindGlyph(element.Kind)</span>
+                @(element.Kind == DomainModelKind.Other && element.Stereotype is { } stereotype ? stereotype : DomainModelArrangement.KindLabel(element.Kind))
+            </span>
+        </span>
+    };
+}

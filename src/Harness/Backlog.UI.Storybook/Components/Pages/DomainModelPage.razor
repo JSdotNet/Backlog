@@ -1,0 +1,152 @@
+@page "/diagrams/domain-model"
+
+<PageTitle>Domain model — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain model"
+           Summary="DomainModelView is the Domain view's Model page: a Diagram | Fields | Events bar that opens on Diagram. DomainModelDiagram draws a bounded context's classDiagram as each aggregate root's consistency-boundary band, what the band holds only by identity beside it, and the domain services below — and hands a fence it cannot arrange back to mermaid."
+           Guidelines="@Rules">
+
+    <Story Name="Model page"
+           Description="The page a Model row opens. Diagram is first and open; Fields and Events are placeholders until the next step of the domain view fills them."
+           Code="@PageCode"
+           Source="@Tasks"
+           SourceLabel="classDiagram"
+           SourceLanguage="mermaid">
+        <DomainModelView Fences="@TaskFences" AriaLabel="Model of Tasks" TestId="story-domain-model-view" />
+    </Story>
+
+    <Story Name="One aggregate"
+           Description="The root sits in the band with the parts composed into it, each with its relation and multiplicity. A dashed line, a List~Id~ attribute and an attribute named *_id are held by identity, so they sit outside the band. Enumerations have no place on the picture and are named under it, for Fields."
+           Code="@DiagramCode"
+           Source="@Tasks"
+           SourceLabel="classDiagram"
+           SourceLanguage="mermaid">
+        <DomainModelDiagram Source="@Tasks" Title="Tasks" TestId="story-domain-model-tasks" />
+    </Story>
+
+    <Story Name="Several aggregates and their services"
+           Description="Each aggregate root gets a band of its own — a root is never a part of another root, whatever line joins them. The context's domain services sit below every band."
+           Code="@DiagramCode"
+           Source="@Inbox"
+           SourceLabel="classDiagram"
+           SourceLanguage="mermaid">
+        <DomainModelDiagram Source="@Inbox" Title="Inbox" TestId="story-domain-model-inbox" />
+    </Story>
+
+    <Story Name="Falls back to mermaid"
+           Description="A fence with a line the reader does not know, or with no aggregate root to draw a boundary round, is drawn with mermaid as before rather than as a picture with something missing."
+           Code="@DiagramCode"
+           Source="@NoRoot"
+           SourceLabel="classDiagram"
+           SourceLanguage="mermaid">
+        <DomainModelDiagram Source="@NoRoot" Title="Roadmap" TestId="story-domain-model-fallback" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Which tone a model element takes, and that the glyph and the word always say its kind."),
+        new("component-libraries.md#diagram-and-graph-strategy", "Why some diagrams are drawn by the product rather than by mermaid.")
+    ];
+
+    private const string Tasks = """
+        classDiagram
+            class Task {
+                <<aggregate root>>
+                +Id id
+                +String title
+                +List~String~ repo_ids
+                +String source_inbox_id
+                +TaskStatus status
+                +List~Id~ depends_on
+            }
+            class SubItem {
+                <<entity>>
+                +Id id
+                +String title
+            }
+            class ProjectionRef {
+                <<value object>>
+                +String external_id
+            }
+            class Recurrence {
+                <<value object>>
+                +Integer interval
+            }
+            class RecurrenceUnit {
+                <<enumeration>>
+                day
+                week
+            }
+            class TaskStatus {
+                <<enumeration>>
+                draft
+                done
+            }
+            Task "1" *-- "0..*" SubItem : contains
+            Task "1" *-- "0..*" ProjectionRef : projects to
+            Task "1" *-- "0..1" Recurrence : repeats by
+            Recurrence --> RecurrenceUnit : counted in
+            Task --> TaskStatus : has status
+            Task "0..*" ..> "0..*" Task : depends on
+        """;
+
+    private const string Inbox = """
+        classDiagram
+            class InboxItem {
+                <<aggregate root>>
+                +Id id
+                +Id list_id
+            }
+            class Source {
+                <<value object>>
+            }
+            class Attachment {
+                <<entity>>
+            }
+            class InboxList {
+                <<aggregate root>>
+                +Id id
+                +String name
+            }
+            class Routing {
+                <<service>>
+                +RoutingTarget route(InboxItem)
+            }
+            class Deduplication {
+                <<domain service>>
+            }
+            InboxItem "1" *-- "1" Source : came from
+            InboxItem "1" *-- "0..*" Attachment : arrived with
+            InboxList "1" ..> "0..*" InboxItem : orders
+        """;
+
+    private const string NoRoot = """
+        classDiagram
+            class PlanSequencing {
+                <<service>>
+            }
+            class RoadmapItem {
+                <<value object>>
+                +String title
+            }
+            PlanSequencing --> RoadmapItem : orders
+        """;
+
+    private static readonly IReadOnlyList<DomainModelFence> TaskFences = [new DomainModelFence("Model diagram", Tasks)];
+
+    private const string PageCode = """
+        <DomainModelView Fences="@fences" AriaLabel="Model of Tasks" />
+
+        @code {
+            // One per classDiagram fence in model.md, with the heading it sits under.
+            private IReadOnlyList<DomainModelFence> fences = [new("Model diagram", source)];
+        }
+        """;
+
+    private const string DiagramCode = """
+        <DomainModelDiagram Source="@classDiagramFenceBody" Title="Tasks" />
+        """;
+}

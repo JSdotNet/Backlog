@@ -1338,8 +1338,8 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 ```
 
 > The requirements of the Domain area read by unit, behind the
-> [New domain view](context.md#new-domain-view) switch (local ADR 0036). Nothing
-> here is built yet: the plan `+devbook-domain-view` builds it.
+> [New domain view](context.md#new-domain-view) switch (local ADR 0036). The plan
+> `+devbook-domain-view` builds them page by page; Model is the first.
 
 ### Requirement: The flag off keeps today's Domain view
 
@@ -1500,6 +1500,27 @@ The system SHALL show field types, invocation semantics and event payloads on th
 - **Given** an aggregate whose `model.md` lists its fields with their types
 - **When** the reader opens the aggregate's About tab
 - **Then** the tab names no field type, and the Model page's Fields tab does
+
+### Requirement: Model draws the aggregate's boundary
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, beside Fields and Events, that draws each aggregate root inside its consistency boundary with its composed parts and their multiplicity, places the references by identity outside the boundary and the domain services below it, and draws the diagram with mermaid when it cannot be read that way.
+
+#### Scenario: An aggregate with parts and references
+
+- **Given** a `model.md` whose `classDiagram` composes *SubItem* into the aggregate root *Task* as `"0..*"` and draws a dashed line from *Task* to *Task*
+- **When** the reader opens Model
+- **Then** Diagram is open, *SubItem* sits inside *Task*'s boundary marked `0..*`, and the dashed reference sits outside it
+
+#### Scenario: A diagram the view cannot read
+
+- **Given** a `model.md` whose `classDiagram` names no aggregate root
+- **When** the reader opens Model
+- **Then** Diagram draws the fence with mermaid
 
 ### Requirement: The context map reads as a map and as a list
 
