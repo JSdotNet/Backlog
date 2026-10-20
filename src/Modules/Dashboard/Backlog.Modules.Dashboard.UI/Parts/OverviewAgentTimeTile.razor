@@ -6,7 +6,9 @@
     It follows the machine filter as the Sessions tab does; it is the one tile that does.
 *@
 @inherits DashboardPartBase<AssistantSessionsInsight>
+@using global::Backlog.SharedKernel
 @inject ISessionInsights Insights
+@inject IUsageResetSettings UsageReset
 
 <OverviewTile OnRetry="RefreshAsync"
               Label="Agent-active time"
@@ -23,6 +25,14 @@
     protected override DashboardSources Sources => DashboardSources.Sessions;
 
     protected override bool FollowsMachine => true;
+
+    /// <summary>Its sparkline is the usage-week series, so a reset picked on the
+    /// Sessions tab re-cuts it too, while the Overview sits hidden.</summary>
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        ReloadOnChange(UsageReset);
+    }
 
     protected override Task<InsightResult<AssistantSessionsInsight>> FetchAsync(CancellationToken cancellationToken) =>
         Insights.GetSessionsAsync(Scope, cancellationToken);

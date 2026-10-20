@@ -130,7 +130,9 @@
     restatement, not a comparison.
 *@
 @inherits DashboardPartBase<AssistantSessionsInsight>
+@using global::Backlog.SharedKernel
 @inject ISessionInsights Insights
+@inject IUsageResetSettings UsageReset
 
 <PartFrame Title="Assistant sessions"
            Note="@Note"
@@ -212,6 +214,27 @@
                     @if (Value!.SessionsPerWeek.Count > 0)
                     {
                         <div class="dashboard-sessions__controls">
+                            @* Which of the person's named resets cuts the weeks, when there
+                               is a choice to make: one reset per assistant account, and each
+                               account's allowance resets on its own clock. Here rather than in
+                               the pane header, because the header's controls scope every tab
+                               and this cut is the sessions part's alone. Only the named
+                               resets are offered: detection comes back when Settings holds
+                               none. *@
+                            @if (UsageReset.Resets.Count >= 2)
+                            {
+                                <SelectField CurrentValue="@UsageReset.Selected?.Id"
+                                             Options="@ResetOptions"
+                                             Label="Which reset cuts the weeks"
+                                             IncludeEmptyOption="false"
+                                             CssClass="badge badge--area"
+                                             TestId="dashboard-sessions-reset"
+                                             OnChanged="ChooseResetAsync" />
+                            }
+                            <Alert Message="@_resetMessage"
+                                   Inline="true"
+                                   Role="status"
+                                   TestId="dashboard-sessions-reset-status" />
                             @* The machine filter's control, for the same reason the pane gives:
                                the library's SelectField wearing the area badge, rather than a
                                wrapper that names what it selects. *@
@@ -693,6 +716,34 @@
     /// good.</summary>
     private Cut CutInForce => _cut == Cut.Model && !ModelCutOffered(Chosen) ? Cut.All : _cut;
 
+    private IReadOnlyList<SelectorOption> ResetOptions =>
+        [.. UsageReset.Resets.Select(reset => new SelectorOption(reset.Id, reset.Name))];
+
+    /// <summary>What the last pick said: the choice could not be saved for next time,
+    /// or the reset had gone in the meantime.</summary>
+    private string? _resetMessage;
+
+    /// <summary>The usage weeks follow the resets, whoever moved them: this picker, or
+    /// Settings re-timing the reset in force.</summary>
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        ReloadOnChange(UsageReset);
+    }
+
+    /// <summary>Picking a reset re-cuts the weeks from the reading already held: the
+    /// store's change re-cuts every part that draws usage weeks, this one included,
+    /// without asking the sources again. A refused pick changes nothing, so the part
+    /// reloads itself to show the list as it now is.</summary>
+    private async Task ChooseResetAsync(string? id)
+    {
+        if (string.IsNullOrEmpty(id) || id == UsageReset.Selected?.Id) return;
+
+        _resetMessage = UsageReset.Select(id);
+
+        if (UsageReset.Selected?.Id != id) await ReloadAsync();
+    }
+
     private void ChooseMeasure(string? key)
     {
         _measure = Measures.FirstOrDefault(measure => Key(measure) == key, Measure.Producing);
@@ -923,7 +974,9 @@
             ? string.Empty
             : Value!.Week.Source switch
             {
-                WeekSource.Configured => $"Weeks run from {Value!.Week.ResetAt} to the next, your configured usage reset",
+                WeekSource.Configured => Value!.Week.ResetName is { } name
+                    ? $"Weeks run from {Value!.Week.ResetAt} to the next, {name}'s usage reset"
+                    : $"Weeks run from {Value!.Week.ResetAt} to the next, your configured usage reset",
                 WeekSource.Detected => $"Weeks run from {Value!.Week.ResetAt} to the next, the usage reset your assistant last reported — set your own in Settings if that is not right",
                 _ => "Calendar weeks from Monday, because no usage reset is known — set yours in Settings to cut by it"
             };
@@ -1091,11 +1144,13 @@
 
     /// <summary>The week the grid is showing, said where it is: which one, and that a
     /// row runs from the reset hour rather than from midnight.</summary>
+    private string ResetPossessive => Value!.Week.ResetName is { } name ? $"{name}'s" : "the";
+
     private string GridWeekSentence =>
         Grid is { } grid
             ? Value!.Week.Source == WeekSource.Calendar
                 ? $"the week of {grid.Label}, picked above, as calendar days"
-                : $"calendar week {GridWeekNumber}, picked above, Monday to Sunday — the columns run from the reset ({Value!.Week.ResetAt}), so the column pressed is the usage week that begins in it"
+                : $"calendar week {GridWeekNumber}, picked above, Monday to Sunday — the columns run from {ResetPossessive} reset ({Value!.Week.ResetAt}), so the column pressed is the usage week that begins in it"
             : string.Empty;
 
     /// <summary>
