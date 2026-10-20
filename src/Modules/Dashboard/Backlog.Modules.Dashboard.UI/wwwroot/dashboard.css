@@ -1468,3 +1468,49 @@
     height: 100%;
     background: var(--dashboard-timeline-tone);
 }
+
+/* One named weekly usage reset on the Dashboard's settings page: the working-day row's
+   rhythm with a fourth column for Remove, which is last. Doubled on the shell's own row
+   class because app.css, linked after this sheet, sets that row's three columns; the
+   phone-width rule there turns both into one stacked column the same way.
+
+   Every column has a floor a value fits in - a weekday, a time with its picker glyph -
+   and the name takes what is left, so a settings card as narrow as the harness's
+   (about 26rem) still shows each field whole. The badge naming the reset in force is
+   not a column: it spans the row on a line of its own above the controls, so the row
+   that carries it is laid out exactly like the row that does not. */
+.dashboard-usage-reset-row.working-day {
+    grid-template-columns: minmax(5rem, 1.4fr) minmax(6.5rem, 1fr) minmax(6.5rem, 0.9fr) auto;
+}
+
+.dashboard-usage-reset-row__badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+    align-self: flex-start;
+}
+
+/* The select's inline shape is a label around the control; as a grid cell it is a
+   block the select fills, like the fields beside it. */
+.dashboard-usage-reset-row__day {
+    display: block;
+    min-width: 0;
+}
+
+/* The rows' column floors - a weekday, a time, Remove and a short name - need about
+   23.5rem, and a settings card shares its page column with a second one at 22rem.
+   The list measures its own card rather than the window, so where the card is that
+   narrow the name takes a line of its own over the day, the time and Remove. Phone
+   width is app.css's stacked column, which this does not reach. */
+.dashboard-usage-reset-list {
+    container-type: inline-size;
+}
+
+@container (max-width: 24rem) {
+    .dashboard-usage-reset-row.working-day {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    }
+
+    .dashboard-usage-reset-row__name {
+        grid-column: 1 / -1;
+    }
+}

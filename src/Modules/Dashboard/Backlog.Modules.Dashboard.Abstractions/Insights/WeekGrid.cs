@@ -25,7 +25,9 @@ public enum WeekSource
 /// <param name="Source">Which boundary is in force.</param>
 /// <param name="ResetAt">The reset as a person would say it on the local clock —
 /// "Monday 14:00" — or null under the calendar fallback.</param>
-public sealed record UsageWeekInfo(WeekSource Source, string? ResetAt);
+/// <param name="ResetName">The name the person gave the configured reset in force —
+/// "Work" — or null when the boundary was detected or is the calendar's.</param>
+public sealed record UsageWeekInfo(WeekSource Source, string? ResetAt, string? ResetName = null);
 
 /// <summary>Refusals inside the window, by allowance.</summary>
 /// <param name="FiveHour">Against the rolling five-hour window.</param>

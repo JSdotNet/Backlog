@@ -295,7 +295,7 @@ public sealed class SessionInsights(
             MostSessionsAtOncePerWeek = PerWeek(buckets, weeks, active, zone, Peak),
             MostAgentsAtOncePerWeek = PerWeek(buckets, weeks, agents, zone, Peak),
             ByRepository = ByRepository(buckets, weeks, scope, bandOf, scoped, scopedActivity, scopedAgents, from, to, zone),
-            Week = new UsageWeekInfo(weeks.Source, weeks.ResetDescription),
+            Week = new UsageWeekInfo(weeks.Source, weeks.ResetDescription, weeks.ResetName),
             Grids = grids,
             LimitHits = LimitHits(hits),
             Tokens = used.Count == 0
@@ -436,16 +436,17 @@ public sealed class SessionInsights(
     }
 
     /// <summary>
-    /// The cut in force: the configured reset, else the last weekly refusal's reset the
-    /// assistant reported, else the local calendar. A configured reset outranks a
-    /// detected one on purpose — the records on a machine may come from an older plan
-    /// — and the surface names which won.
+    /// The cut in force: the chosen configured reset, else the last weekly refusal's
+    /// reset the assistant reported, else the local calendar. A configured reset
+    /// outranks a detected one on purpose — the records on a machine may come from an
+    /// older plan — and the surface names which won. Read on every call rather than
+    /// cached with the reading, so choosing another reset re-cuts without a re-read.
     /// </summary>
     private UsageWeeks Weeks(IReadOnlyList<AssistantLimitHit> limits, DateTimeOffset now, TimeZoneInfo zone)
     {
-        if (usageReset.Current is { } configured)
+        if (usageReset.Selected is { } configured)
         {
-            return UsageWeeks.AnchoredOn(configured.MostRecentBefore(now, zone), zone, WeekSource.Configured);
+            return UsageWeeks.AnchoredOn(configured.Reset.MostRecentBefore(now, zone), zone, WeekSource.Configured, configured.Name);
         }
 
         var detected = limits
