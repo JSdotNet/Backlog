@@ -4142,13 +4142,13 @@
                    balance — and it leaves the columns exactly as "Ranking" describes
                    them: three rows in each, level.
 
-                   "Waiting for" and "Create follow-up" share this group and this row
-                   because they are the two ends of one relationship: one reads the
-                   chain backwards, the other writes it forwards. "Waiting for" gets
-                   the row's width because its value is a list of entry names; the
-                   follow-up action is compact — icon only — because it never has
-                   more than one thing to say and does not need a share of the room
-                   the names are asking for. *@
+                   "Waiting for" and "Create follow-up" sit side by side because they
+                   are the two ends of one relationship: one reads the chain
+                   backwards, the other writes it forwards. The follow-up action is
+                   compact — icon only — because it never has more than one thing to
+                   say. "Mark as blocked" shares the line rather than taking one of
+                   its own: the group costs one line of the panel where it cost
+                   two, and a narrow panel wraps it back to two. *@
                 <TaskActionGroup Label="Dependencies" TestId="entry-schedule-dependencies">
                     <span class="entry-doc__schedule-chain">
                         <TaskAction Icon="⏳"
@@ -4166,6 +4166,22 @@
                                     DisabledReason="@FollowUpReason(row)"
                                     OnSet="() => State.NewFollowUpRow(row)"
                                     TestId="entry-action-followup" />
+
+                        @* The hand-set block, in the group that already answers "why
+                           is this not moving", beside the chain. Waiting for is what
+                           the other entries decide — the derived Blocked — while this
+                           is a person saying something outside the list is in the
+                           way, so it is a toggle they press rather than a list they
+                           edit. Togglable like My Day and for the same reason it has
+                           no ✕: pressing it again is how it comes off. Set, it reads
+                           "Blocked since" and the day, so the row says since when. *@
+                        <TaskAction Icon="⛔"
+                                    Label="@(row.IsPreviewBlocked ? "Blocked since" : "Mark as blocked")"
+                                    Value="@FormatDate(row.PreviewBlockedSince)"
+                                    Set="@row.IsPreviewBlocked"
+                                    Togglable="true"
+                                    OnSet="() => State.ChangeBlockedAsync(row, !row.IsPreviewBlocked, Today)"
+                                    TestId="entry-action-blocked" />
                     </span>
 
                     @if (IsPickerOpen(SchedulePicker.DependsOn))
@@ -4173,7 +4189,8 @@
                         @* The library ships no dependency editor and is not going to:
                            a chain is data the host owns, so the picker is built here
                            out of TagMultiSelect, its options the other entries in view
-                           and its chips this entry's own ids. *@
+                           and its chips this entry's own ids. Under the line rather
+                           than in it, because its chips want the full width. *@
                         <TagMultiSelect Options="@DependencyOptions(row)"
                                         SelectedValues="@State.ResolvedDependsOn(row)"
                                         SelectedValuesChanged="ids => State.ChangeDependsOnAsync(row, ids)"
@@ -4181,22 +4198,6 @@
                                         CssClass="entry-doc__schedule-depends"
                                         TestId="entry-depends-select" />
                     }
-
-                    @* The hand-set block, in the group that already answers "why is
-                       this not moving" and under the chain rather than in it.
-                       Waiting for is what the other entries decide — the derived
-                       Blocked — while this is a person saying something outside the
-                       list is in the way, so it is a toggle they press rather than a
-                       list they edit. Togglable like My Day and for the same reason it
-                       has no ✕: pressing it again is how it comes off. Set, it reads
-                       "Blocked since" and the day, so the row says since when. *@
-                    <TaskAction Icon="⛔"
-                                Label="@(row.IsPreviewBlocked ? "Blocked since" : "Mark as blocked")"
-                                Value="@FormatDate(row.PreviewBlockedSince)"
-                                Set="@row.IsPreviewBlocked"
-                                Togglable="true"
-                                OnSet="() => State.ChangeBlockedAsync(row, !row.IsPreviewBlocked, Today)"
-                                TestId="entry-action-blocked" />
                 </TaskActionGroup>
 
                 @* Under Dependencies and across the full width for the same reason:

@@ -6352,25 +6352,20 @@ button.task-panel__check:focus-visible {
    me" and "Reminder, Monday 09:00" are the same control in two states rather
    than two controls.
 */
-/* One height, set or not, and it is the reason the two columns line up.
+/* One line, set or not, and it is the reason the two columns line up.
 
-   A row that is set carries a second line under its label and a row that is not
-   carries nothing, so left to their contents the rows of one column stand at
-   different heights from the rows of the other and the pane stops being two
-   columns after the first row of it. The value's line is reserved on the row
-   itself: it is part of what a row is, whether or not there is a value on it yet.
+   The value sits after the label on the same line rather than under it, so a row
+   that is set is as tall as one that is not and the rows of one column stay level
+   with the rows of the other without reserving a line nobody may fill. A side
+   panel's height is what everything in it competes for; a reserved second line
+   on every row was a third of the pane spent on blanks.
 
-   The row is the box that gets taller; what is in it stays at the top of it. A
-   row that centred its contents would set the same word lower on a row with
-   nothing under it than on the row beside it, which is the misalignment this rule
-   exists to remove, one line down.
-
-   Stated as the sum rather than as a number so it follows the type ramp — the day
-   font-size-xs changes, this changes with it. */
+   2rem is the floor `.btn--icon` keeps, so the ✕ fits the row and the row is
+   still a comfortable target; the button and the ✕ stretch to it. */
 .task-action {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
+    align-items: stretch;
     /* Positioned because a disabled row carries an `.sr-only` copy of its reason.
        `.sr-only` is absolutely positioned, so without a positioned ancestor its
        containing block is the page: the hidden sentence then lands at page
@@ -6378,10 +6373,7 @@ button.task-panel__check:focus-visible {
        `.devbook-fields` carries the same note for the same reason. Nothing
        moves — the copy has no offsets to resolve against. */
     position: relative;
-    min-height: calc(
-        (var(--font-size-sm) + var(--font-size-xs)) * var(--line-height-normal)
-        + var(--spacing-sm) * 2
-    );
+    min-height: 2rem;
     border-radius: var(--border-radius-md);
 }
 
@@ -6395,7 +6387,7 @@ button.task-panel__check:focus-visible {
     align-items: center;
     gap: var(--spacing-sm);
     width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-xs) var(--spacing-md);
     border: none;
     border-radius: var(--border-radius-md);
     background: transparent;
@@ -6404,6 +6396,24 @@ button.task-panel__check:focus-visible {
     font-size: var(--font-size-sm);
     text-align: left;
     cursor: pointer;
+}
+
+/* Label, then value, on one baseline. Only the value gives way — the label does
+   not shrink, and the value ellipsises with its title carrying the whole of it — so "Waiting for" stays readable while the list of
+   names it waits on is cut. */
+.task-action__label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.task-action__text {
+    flex: 0 0 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .task-action__main:focus-visible {
@@ -6465,7 +6475,7 @@ button.task-panel__check:focus-visible {
 }
 
 .task-action--prominent .task-action__main {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
 }
 
 .task-action--prominent .task-action__icon {
@@ -6483,26 +6493,19 @@ button.task-panel__check:focus-visible {
 }
 
 .task-action__value {
-    display: block;
+    flex: 0 100 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
 }
 
-/* Icon-only, for an act that shares a row with another action instead of owning
-   one of its own — "Create follow-up" beside "Waiting for" is the case this was
-   built for. The two-column grid above exists to line a label up against a value
-   down every row of a group; a compact action carries neither, so there is
-   nothing left for the grid to reserve room for, and it collapses to the one
-   thing still in it — the button, sized to its icon rather than stretched to
-   fill a row it does not have to itself. */
-/* A row that has shrunk to its icon, for an act that shares a line with a row
-   that needs the width. The grid the full-size row uses is a label column and a
-   clear column, and a compact one has neither — no label to lay out and nothing
-   to clear — so it stops being a grid and becomes as wide as its glyph. The
-   2rem below is the same floor `.btn--icon` keeps, because a control the size of
-   its own glyph is smaller than a finger. `.task-action`'s own min-height is
-   sized to a label over a value and would hold this open to two lines it has no
-   text for, which is why it is dropped rather than overridden with a number. */
+/* Icon-only, for an act that shares a line with a row that needs the width —
+   "Create follow-up" beside "Waiting for" is the case this was built for. The
+   grid the full-size row uses is a label column and a clear column, and a compact
+   one has neither, so it stops being a grid and becomes as wide as its glyph. The
+   button keeps the 2rem floor itself, so the row's own min-height is dropped. */
 .task-action--compact {
     display: inline-flex;
     width: auto;
@@ -6573,7 +6576,7 @@ button.task-panel__check:focus-visible {
 .task-action-pane {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     min-width: 0;
 }
 
@@ -6626,9 +6629,9 @@ button.task-panel__check:focus-visible {
    narrow case working with nothing said about it: at a width that holds one row,
    every row wraps and the band is the stack it always was.
 
-   And a row is as tall as its label. The reserved line — every row keeping the
-   height its value would take whether or not it has one — exists so two columns
-   stay level with each other, and in a band there are no columns to level.
+   And a row is as tall as its label. The 2rem floor is there so the column
+   shape's rows make a comfortable target stacked down a panel; a strip is
+   denser than that, and nothing in it has to line up with a column beside it.
 */
 .task-action-pane--band {
     /* Both hosts of a band were declaring these two lines, in the same order and
@@ -6695,7 +6698,7 @@ button.task-panel__check:focus-visible {
 .task-panel {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
     min-width: 0;
     padding: var(--spacing-lg);
     border: var(--border-width) solid var(--color-border);
@@ -20264,11 +20267,20 @@ select.field__input {
 
 .work-links--stacked {
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .work-links--stacked .work-links__column {
     flex: none;
+}
+
+/* An empty column in a stack says so on its heading's line — "SESSIONS None
+   yet" — rather than spending a second line on two words. A column with cards
+   keeps them under the heading. */
+.work-links--stacked .work-links__column:has(> .work-links__none) {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--spacing-sm);
 }
 
 .work-links__heading {
@@ -20302,8 +20314,9 @@ select.field__input {
     flex: none;
 }
 
-/* The side panel section: the heading, the two columns stacked, and the link
-   action under them. */
+/* The side panel section: the heading with the link action at the end of its
+   line, then the two columns stacked. Wrapping, so a panel too narrow for both
+   puts the action under the heading rather than squeezing either. */
 .work-links-panel {
     display: flex;
     flex-direction: column;
@@ -20312,8 +20325,9 @@ select.field__input {
 
 .work-links-panel__header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs) var(--spacing-sm);
 }
 
 .work-links-panel__heading {
@@ -20326,7 +20340,7 @@ select.field__input {
 }
 
 .work-links-panel__link {
-    align-self: flex-start;
+    margin-left: auto;
 }
 
 /* The picker behind "Link to a task…": one full-width button per choice, the

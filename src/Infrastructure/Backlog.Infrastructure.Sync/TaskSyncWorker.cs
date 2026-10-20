@@ -207,10 +207,12 @@ public sealed class TaskSyncWorker : IDisposable
     /// one-time feed replay that catches an upgraded device up on preferences its cursor
     /// had passed (local ADR 0032). Null on a head that keeps none.</param>
     /// <param name="goals">Progress's goal replication port, for its local-change notice
-    /// only: a goal changed here is pushed after the same settle delay (local ADR 0035).
-    /// Null on a head without Progress.</param>
+    /// — a goal changed here is pushed after the same settle delay (local ADR 0035) — and
+    /// for the one-time feed replay that catches an upgraded device up on goals its cursor
+    /// had passed. Null on a head without Progress.</param>
     /// <param name="impediments">Progress's impediment replication port, for its
-    /// local-change notice only, on the goals' terms. Null on a head without Progress.</param>
+    /// local-change notice and its feed replay, on the goals' terms. Null on a head
+    /// without Progress.</param>
     /// <param name="iteration">Progress's iteration settings replication port, for its
     /// local-change notice and its one-time feed replay, on the My Day preferences' terms
     /// (local ADR 0036). Null on a head that keeps none.</param>
@@ -706,13 +708,15 @@ public sealed class TaskSyncWorker : IDisposable
     /// <summary>
     /// Reads the feed from the start once for the kinds this build has learned to take
     /// since the device last pulled (local ADR 0032, Verification 10): the My Day
-    /// preferences and the iteration settings (local ADR 0036, §6), each where this head
+    /// preferences, goals and impediments (local ADR 0035 §9), and the iteration settings
+    /// (local ADR 0036, §6), each where this head
     /// keeps them.
     /// <para>
-    /// An older build skipped the document and moved its cursor past it, so without
-    /// this the device would hold the default until the switch next changed on another
-    /// desktop. Forgetting the cursor is <see cref="RehydrateFromScratch"/>'s step, taken
-    /// once and recorded in the same save, so a restart does not take it again. The rows
+    /// An older build skipped such a document and moved its cursor past it, so without
+    /// this the device would not see it until it next changed on another desktop — a goal
+    /// set there would never arrive. Forgetting the cursor is
+    /// <see cref="RehydrateFromScratch"/>'s step, taken once for every kind still missing
+    /// and recorded in the same save, so a restart does not take it again. The rows
     /// already held fold to the same result, because a replayed page writes nothing. A
     /// head without a kind's port has nothing to catch up on for it and keeps its cursor.
     /// </para>
@@ -732,6 +736,8 @@ public sealed class TaskSyncWorker : IDisposable
     private IEnumerable<string> KindsThisHeadTakes()
     {
         if (_myDay is not null) yield return MyDayReplicaDocuments.PreferencesType;
+        if (_goals is not null) yield return GoalReplicaDocuments.GoalType;
+        if (_impediments is not null) yield return ImpedimentReplicaDocuments.ImpedimentType;
         if (_iteration is not null) yield return IterationReplicaDocuments.SettingsType;
     }
 
