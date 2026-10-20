@@ -13,5 +13,9 @@ internal sealed record DomainViewDomainRead(
     string ContextName,
     string? Problem)
 {
+    /// <summary>The context's Model file, which the unit pages' "on Model" links
+    /// open, or <see langword="null"/> when the context has none.</summary>
+    public string? ModelPath { get; init; }
+
     public static DomainViewDomainRead Failed(string problem) => new(null, [], [], [], "the context", problem);
 }

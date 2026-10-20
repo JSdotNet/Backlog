@@ -1,58 +1,60 @@
 @*
-    A domain service's page in the Domain view (local ADR 0037): the chapter's
-    prose, the requirements it is held to as "You can count on", each opening on
-    the Requirements page, and the events it raises. How the service is invoked is
-    not shown here; that is Model's (§6).
+    A domain service's page in the Domain view (local ADR 0037): a composed
+    summary, not the chapter. The kind and status as a kicker, the heading as
+    written, the chapter's first sentence as its lead (§5), the requirements it
+    is held to as "You can count on" — each opening on the Requirements page —
+    the links out, and the events it raises.
+
+    The chapter's further prose is not drawn. It says how the service is invoked
+    and which fields it carries over, and invocation semantics and fields are
+    Model's (§6); the "How it runs, on Model" link goes there.
 *@
 
-<div class="domain-about" data-testid="domain-service-about">
-    @if (Chapter.Prose.Length > 0)
-    {
-        <MarkdownView Blocks="@_prose"
-                      Source="@Chapter.Prose"
-                      DevbookDocumentPath="@DocumentPath"
-                      DevbookFolder="DevbookFolder.Domain"
-                      OnDevbookNavigate="OnNavigate" />
-    }
+<div class="domain-about domain-about--summary" data-testid="domain-service-about">
+    <section class="domain-about__intro" data-testid="domain-unit-hero" aria-labelledby="@($"{_id}-title")">
+        <span class="domain-about__kicker" data-testid="domain-unit-kicker">@DomainUnits.Kicker(DomainUnitKind.DomainService, Chapter.Status)</span>
+        <h2 class="domain-about__title" id="@($"{_id}-title")" data-testid="domain-unit-title">@Chapter.Title</h2>
+        @if (_lead.Length > 0)
+        {
+            <p class="domain-about__lead" data-testid="domain-unit-lead">@_lead</p>
+        }
 
-    @if (Guarantees.Count > 0)
-    {
-        <section class="domain-about__section" data-testid="domain-unit-guarantees" aria-labelledby="@($"{_id}-guarantees")">
-            <h3 class="domain-about__heading" id="@($"{_id}-guarantees")">You can count on</h3>
-            <ul class="domain-about__guarantees">
-                @foreach (var guarantee in Guarantees)
-                {
-                    <li class="domain-about__guarantee" data-testid="domain-unit-guarantee">
-                        <DevbookTypeMarker Value="requirement" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />
-                        @if (DevbookReference.Parse(guarantee.Reference) is { } reference)
-                        {
-                            <DevbookReferenceLink Reference="@reference"
-                                                  Text="@guarantee.Title"
-                                                  OnNavigate="OnNavigate"
-                                                  TestId="domain-unit-guarantee-link" />
-                        }
-                        else
-                        {
-                            @guarantee.Title
-                        }
-                    </li>
-                }
-            </ul>
-        </section>
-    }
+        @if (Guarantees.Count > 0)
+        {
+            <section class="domain-about__promises" data-testid="domain-unit-guarantees" aria-labelledby="@($"{_id}-guarantees")">
+                <h3 class="domain-about__subheading" id="@($"{_id}-guarantees")">You can count on</h3>
+                <ul class="domain-about__guarantees">
+                    @foreach (var guarantee in Guarantees)
+                    {
+                        <li class="domain-about__guarantee" data-testid="domain-unit-guarantee">
+                            @if (DevbookReference.Parse(guarantee.Reference) is { } reference)
+                            {
+                                <DevbookReferenceLink Reference="@reference"
+                                                      Text="@guarantee.Title"
+                                                      OnNavigate="OnNavigate"
+                                                      TestId="domain-unit-guarantee-link" />
+                            }
+                            else
+                            {
+                                @guarantee.Title
+                            }
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
 
-    <DomainEventList Events="@Events" />
+        <DomainLinkRow Links="@Links" />
+        @HeroFooter
+    </section>
+
+    <DomainEventList Events="@Events" Model="@Model" />
 </div>
 
 @code {
     /// <summary>The service's chapter.</summary>
     [Parameter, EditorRequired]
     public DomainChapter Chapter { get; set; } = default!;
-
-    /// <summary>The file the chapter is in, which a relative link in its prose
-    /// resolves against.</summary>
-    [Parameter]
-    public string? DocumentPath { get; set; }
 
     /// <summary>The requirements the service is held to.</summary>
     [Parameter]
@@ -62,12 +64,24 @@
     [Parameter]
     public IReadOnlyList<DomainEventLine> Events { get; set; } = [];
 
-    /// <summary>A requirement, or a link in the prose, the reader followed.</summary>
+    /// <summary>The link row under the article.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainPageLink> Links { get; set; } = [];
+
+    /// <summary>The link beside the events' heading that opens Model.</summary>
+    [Parameter]
+    public DomainPageLink? Model { get; set; }
+
+    /// <summary>What closes the article: the reader's Brain notes on the unit.</summary>
+    [Parameter]
+    public RenderFragment? HeroFooter { get; set; }
+
+    /// <summary>A requirement the reader followed.</summary>
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
 
     private readonly string _id = $"domain-service-{Guid.NewGuid():N}";
-    private IReadOnlyList<MdBlock> _prose = [];
+    private string _lead = string.Empty;
 
-    protected override void OnParametersSet() => _prose = MarkdownPreview.ParseDocument(Chapter.Prose);
+    protected override void OnParametersSet() => _lead = DomainUnits.FunctionalSummary(Chapter.Prose);
 }
