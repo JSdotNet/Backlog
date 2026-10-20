@@ -816,6 +816,17 @@ and what an event carries are shown on Model only. The functional pages, from th
 context's Overview to its Glossary, say what the domain does in its own
 language.
 
+**The Domain page reads one unit at a time.** An unsplit `domain.md` offers its
+aggregates, domain services and Glossary in a chapter bar inside the page, each
+led by its type mark; a split `domain.<name>.md` opens on its one aggregate. An
+aggregate's **About** is its prose, a card per entity or value object it owns,
+its enums as rows of values, and the events it raises with who hears them.
+**Always true** sits beside it. A domain service's page is its prose, the
+requirements it is held to under **You can count on**, each opening on
+Requirements, and the events it raises. A unit's events are the domain-event
+chapters whose `related` names it, and a service's requirements are those whose
+`related` names it or that its own `related` names.
+
 The view is built behind the [New domain view](context.md#new-domain-view)
 switch. Until the switch is on, the Domain area reads as it always has.
 

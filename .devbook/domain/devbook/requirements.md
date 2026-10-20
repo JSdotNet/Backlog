@@ -1339,7 +1339,7 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 
 > The requirements of the Domain area read by unit, behind the
 > [New domain view](context.md#new-domain-view) switch (local ADR 0036). The plan
-> `+devbook-domain-view` builds them page by page; Model is the first.
+> `+devbook-domain-view` builds them page by page; Model and Domain are built.
 
 ### Requirement: The flag off keeps today's Domain view
 

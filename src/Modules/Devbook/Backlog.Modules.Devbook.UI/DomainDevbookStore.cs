@@ -421,6 +421,20 @@ public sealed class DomainDevbookStore : IDisposable
         return SplittableFiles.TryGetValue(stem[..dot], out var kind) ? kind : null;
     }
 
+    /// <summary>
+    /// The Markdown of a document <paramref name="view"/> listed, as it is on disk
+    /// — for a page that reads its chapters whole rather than as this store's
+    /// excerpts: the Domain view's Domain page (local ADR 0036). Read from the
+    /// folder the view was prepared from, so a branch snapshot reads the branch.
+    /// </summary>
+    public static string ReadText(DomainDevbookView view, DomainDevbookDocument document)
+    {
+        var within = document.Path.StartsWith(".domain/", StringComparison.OrdinalIgnoreCase)
+            ? document.Path[".domain/".Length..]
+            : document.Path;
+        return File.ReadAllText(Path.Combine(view.RootPath, within.Replace('/', Path.DirectorySeparatorChar)));
+    }
+
     private DomainDevbookDocument ReadDocument(string path, string root, DomainDevbookDocumentKind kind) =>
         _documents.GetOrAdd(path, () => ParseDocument(path, root, kind));
 

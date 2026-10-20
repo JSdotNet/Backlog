@@ -20425,6 +20425,191 @@ select.field__input {
     line-height: var(--line-height-normal);
 }
 
+/* --- Domain view: one unit at a time --------------------------------------- */
+/*
+  The Domain page of the Domain view (local ADR 0036). An unsplit domain.md
+  offers its units in a chapter bar, each tab led by its type marker; a unit
+  then reads as prose, cards for what it holds, rows of values, and one plain
+  line per event. Monochrome: the marker and the words say the kind.
+*/
+
+.domain-units {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-units__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+.domain-unit {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-unit__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-tight);
+}
+
+.domain-about {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-about__section {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.domain-about__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-about__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-about__card-item {
+    display: grid;
+}
+
+.domain-about__card-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-about__card-summary {
+    margin: var(--spacing-2xs) 0 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-about__card-model {
+    margin: var(--spacing-2xs) 0 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.domain-about__enums,
+.domain-about__terms {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.domain-about__enum,
+.domain-about__term {
+    display: grid;
+    grid-template-columns: minmax(8rem, 14rem) 1fr;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.domain-about__enum-title,
+.domain-about__term-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-about__enum-values,
+.domain-about__term-summary {
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-about__values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* A value is information about the enum, so it is a neutral outline
+   (color-scheme.md#domain-view-element-tones), never a filled chip. */
+.domain-about__value {
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.domain-about__value code {
+    color: inherit;
+    font: inherit;
+}
+
+.domain-about__events,
+.domain-about__guarantees {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-about__event,
+.domain-about__guarantee {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+/* A requirement is named in words, so its link reads as prose rather than as
+   the path a reference otherwise shows. */
+.domain-about__guarantee .devbook-ref {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.domain-about__event-name {
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-about__event-consumers {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+@media (max-width: 40rem) {
+    .domain-about__enum,
+    .domain-about__term {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-2xs);
+    }
+}
+
 /* --- Notes ----------------------------------------------------------------- */
 /*
   A note row is one link: the title and its time on the first line, the

@@ -140,6 +140,52 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
         Assert.NotNull(MenuItem(component, "Order"));
     }
 
+    /// <summary>The Domain row opens one unit at a time (local ADR 0036 §4): an
+    /// unsplit domain.md offers its units in a chapter bar, and a requirement a
+    /// domain service lists opens the Requirements page.</summary>
+    [Fact]
+    public async Task With_the_switch_on_Domain_picks_a_unit_and_a_requirement_opens_requirements()
+    {
+        await using var harness = CreateHarness(domainView: true);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Tasks")));
+        await ClickMenuItemAsync(component, "Tasks");
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Domain")));
+        await ClickMenuItemAsync(component, "Domain");
+
+        component.WaitForAssertion(() => Assert.Equal(
+            ["Task", "Planning"],
+            component.FindAll("[data-testid='domain-units-bar'] [role='tab']").Select(tab => tab.TextContent.Trim())));
+        Assert.Empty(component.FindAll("[data-testid='domain-view-placeholder']"));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-unit-tab-planning']").Click());
+        component.WaitForAssertion(() => Assert.Equal("A plan is kept", component.Find("[data-testid='domain-unit-guarantee-link']").TextContent.Trim()));
+
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-unit-guarantee-link']").Click());
+        component.WaitForAssertion(() => Assert.Equal("tasks/requirements.md", component.FindComponent<DomainView>().Instance.SelectedPath));
+        Assert.Equal("requirements", component.Find("[data-testid='domain-view']").GetAttribute("data-page"));
+    }
+
+    /// <summary>A split domain file opens on its one unit, with no chapter bar:
+    /// the menu row was the picking.</summary>
+    [Fact]
+    public async Task With_the_switch_on_a_split_domain_file_opens_on_its_unit()
+    {
+        await using var harness = CreateHarness(domainView: true);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Tasks")));
+        await ClickMenuItemAsync(component, "Tasks");
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Domain")));
+        await ClickMenuItemAsync(component, "Domain");
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Order")));
+        await ClickMenuItemAsync(component, "Order");
+
+        component.WaitForAssertion(() => Assert.Equal("order", component.Find("[data-testid='domain-unit']").GetAttribute("data-unit")));
+        Assert.Empty(component.FindAll("[data-testid='domain-units-bar']"));
+    }
+
     /// <summary>One menu row, by the label a reader reads; null while it is not drawn.</summary>
     private static IElement? MenuItem(IRenderedComponent<DevbookPane> component, string label) =>
         component.FindAll(".devbook-menu__item")
@@ -158,8 +204,9 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
         _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts and what joins them.\n");
-        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain: Tasks\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n");
-        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.order.md"), "# Order\n\nOne aggregate of the tasks context.\n");
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain: Tasks\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n\n## Task\n\n```meta\ntype: aggregate\n```\n\nA piece of work.\n\n## Planning\n\n```meta\ntype: domain-service\n```\n\nPlans the work.\n");
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "requirements.md"), "# Requirements: Tasks\n\n## Planning\n\n```meta\ntype: requirements\nrelated: [.domain/tasks/domain.md#planning]\n```\n\n### Requirement: A plan is kept\n\n```meta\ntype: requirement\n```\n\nThe system SHALL keep a plan.\n");
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.order.md"), "# Order\n\nOne aggregate of the tasks context.\n\n## Order\n\n```meta\ntype: aggregate\n```\n\nA request for goods.\n");
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.order.invariants.md"), "# Invariants\n\nWhat an order always keeps.\n");
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");
 

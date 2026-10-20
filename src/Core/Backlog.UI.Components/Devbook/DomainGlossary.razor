@@ -1,0 +1,50 @@
+@*
+    The Glossary of a bounded context in the Domain view (local ADR 0036): the
+    ubiquitous-language chapter's own prose, then each term with its first
+    sentence — the context's words in the context's language.
+*@
+
+<div class="domain-about" data-testid="domain-glossary">
+    @if (Chapter.Prose.Length > 0)
+    {
+        <MarkdownView Blocks="@_prose"
+                      Source="@Chapter.Prose"
+                      DevbookDocumentPath="@DocumentPath"
+                      DevbookFolder="DevbookFolder.Domain"
+                      OnDevbookNavigate="OnNavigate" />
+    }
+
+    @if (_terms.Count > 0)
+    {
+        <dl class="domain-about__terms">
+            @foreach (var term in _terms)
+            {
+                <div class="domain-about__term" data-testid="domain-glossary-term" data-term="@term.Title">
+                    <dt class="domain-about__term-title"><DevbookTypeMarker Value="term" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@term.Title</dt>
+                    <dd class="domain-about__term-summary">@term.Summary</dd>
+                </div>
+            }
+        </dl>
+    }
+</div>
+
+@code {
+    /// <summary>The ubiquitous-language chapter.</summary>
+    [Parameter, EditorRequired]
+    public DomainChapter Chapter { get; set; } = default!;
+
+    [Parameter]
+    public string? DocumentPath { get; set; }
+
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    private IReadOnlyList<DomainTerm> _terms = [];
+    private IReadOnlyList<MdBlock> _prose = [];
+
+    protected override void OnParametersSet()
+    {
+        _prose = MarkdownPreview.ParseDocument(Chapter.Prose);
+        _terms = DomainUnits.Terms(Chapter);
+    }
+}

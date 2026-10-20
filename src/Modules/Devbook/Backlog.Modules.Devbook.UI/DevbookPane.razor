@@ -2423,7 +2423,7 @@
             @* The New domain view switch reads here and nowhere else in the pane:
                on, the Domain area is read by unit (local ADR 0036); off, it is the
                panel below, unchanged. *@
-            "domain" when DomainViewEnabled => @<DomainView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" />,
+            "domain" when DomainViewEnabled => @<DomainView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "domain" => @<DomainDevbookPanel Compact="true" ShowContextTabs="false" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("domain", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,
             "instructions" => @<InstructionsDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,

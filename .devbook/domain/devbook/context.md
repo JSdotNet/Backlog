@@ -155,5 +155,10 @@ it, and the domain services below. A diagram that cannot be read that way, has
 no aggregate root, or holds structure no boundary shows is drawn with mermaid as
 before. **Fields** and **Events** are still placeholders.
 
+Domain is the second. An unsplit `domain.md` offers its units in a chapter bar,
+a split file opens on its one aggregate, and an aggregate reads as **About**
+beside **Always true**, which is still a placeholder; see
+[Domain view by unit](features.md#domain-view-by-unit).
+
 The flag is retired when the old Domain view is removed, which a later plan does.
 The new view then always shows.

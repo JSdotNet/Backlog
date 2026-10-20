@@ -1,13 +1,17 @@
 @*
     The Domain area read by unit (local ADR 0036), behind the New domain view
-    switch. A frame for now: it names the page the selected menu row opens and
-    holds a placeholder per kind of file, which the plan +devbook-domain-view's
-    later steps replace one page at a time. With the switch off the pane renders
-    DomainDevbookPanel and never this.
+    switch. It names the page the selected menu row opens and draws it: Domain and
+    Model so far, and a placeholder for each other kind of file, which the plan
+    +devbook-domain-view's later steps replace one page at a time. With the switch
+    off the pane renders DomainDevbookPanel and never this.
 *@
 
 <section class="domain-view" data-testid="domain-view" data-page="@PageKey" aria-label="Domain view">
-    @if (Page == DomainViewPage.Model)
+    @if (Page == DomainViewPage.Domain)
+    {
+        <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" />
+    }
+    else if (Page == DomainViewPage.Model)
     {
         <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" />
     }
@@ -25,13 +29,18 @@
 
 @code {
     /// <summary>The repository whose Domain area this is. The pages that fill the
-    /// frame — Model so far — read their chapters through it.</summary>
+    /// frame — Domain and Model so far — read their chapters through it.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
     /// <summary>The menu row the reader selected, relative to the Domain folder.</summary>
     [Parameter]
     public string? SelectedPath { get; set; }
+
+    /// <summary>A reference a page's reader followed, handed to the pane that
+    /// holds the selection.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
     private DomainViewPage Page => DomainViewUnit.PageFor(SelectedPath);
 
