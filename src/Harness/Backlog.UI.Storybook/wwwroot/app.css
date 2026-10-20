@@ -1204,3 +1204,21 @@ html, body {
     height: 26rem;
     min-height: 0;
 }
+
+/* The zoom tab sizes its own frame, so its stage takes the height it asks for. */
+.sb-c4-stage--zoom {
+    display: block;
+    height: auto;
+}
+
+/* The three zoom bar moments, each under the name the design's board gives it. */
+.sb-c4-zoom-moments {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.sb-c4-zoom-moments__label {
+    margin: var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}

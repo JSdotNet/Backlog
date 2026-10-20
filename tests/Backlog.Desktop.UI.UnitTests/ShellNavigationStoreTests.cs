@@ -112,6 +112,44 @@ public sealed class ShellNavigationStoreTests
         }
     }
 
+    /// <summary>The C4 zoom tab's hint, once dismissed, stays dismissed on this device —
+    /// and a file written before the hint existed reads as never dismissed, with no key
+    /// written for it until it is.</summary>
+    [Fact]
+    public void A_dismissed_C4_zoom_hint_survives_a_restart_and_writes_its_key_only_then()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            store.SetLastSurface("Sessions");
+
+            Assert.False(store.C4ZoomHintDismissed);
+            Assert.DoesNotContain("c4ZoomHintDismissed", Written(path), StringComparison.Ordinal);
+
+            var preferences = new DevbookViewPreferences(store);
+            preferences.DismissC4ZoomHint();
+
+            Assert.Contains("\"c4ZoomHintDismissed\": true", Written(path), StringComparison.Ordinal);
+            Assert.True(new DevbookViewPreferences(new ShellNavigationStore(path)).C4ZoomHintDismissed);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    [Fact]
+    public void Without_a_store_the_dismissed_hint_is_held_for_the_instance()
+    {
+        var preferences = new DevbookViewPreferences(null);
+
+        Assert.False(preferences.C4ZoomHintDismissed);
+        preferences.DismissC4ZoomHint();
+        Assert.True(preferences.C4ZoomHintDismissed);
+    }
+
     [Fact]
     public void The_last_surface_survives_a_restart()
     {

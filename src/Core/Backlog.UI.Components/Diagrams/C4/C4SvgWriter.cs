@@ -4,6 +4,27 @@ using System.Text;
 namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>
+/// What a host may add to the picture beyond what every C4 view draws.
+/// <para>
+/// Every option is off by default, and a writer handed no options draws exactly
+/// what it drew before options existed. The C4 tab's explorer never passes any; the
+/// C4 zoom tab passes the ones its navigation needs. That is the rule local ADR 0037
+/// sets for the two tabs while they stand side by side: the new one may ask the shared
+/// renderer for more, and the old one must not notice.
+/// </para>
+/// </summary>
+/// <param name="ZoomInAliases">The cards that carry a <c>Zoom in</c> chip: a clickable
+/// mark, <c>g.c4-diagram__zoom-in</c> with <c>data-c4-zoom-in</c>, on the top edge of the
+/// card. Named by the host rather than read off <see cref="C4PlacedNode.Drillable"/>
+/// because where a card zooms to is the host's navigation, not the layout's: on a
+/// landscape the zoom tab opens a system's context view, which no drill offers.</param>
+public sealed record C4SvgOptions(IReadOnlySet<string>? ZoomInAliases = null)
+{
+    /// <summary>No additions: the picture every view drew before options existed.</summary>
+    public static C4SvgOptions None { get; } = new();
+}
+
+/// <summary>
 /// Draws a laid-out C4 view as SVG.
 /// <para>
 /// This replaced mermaid for C4 views. Mermaid could not be made to look like the tool
@@ -28,7 +49,7 @@ namespace Backlog.UI.Components.Diagrams.C4;
 /// </summary>
 public static class C4SvgWriter
 {
-    public static string Write(C4Diagram diagram, string id, string? ariaLabel = null)
+    public static string Write(C4Diagram diagram, string id, string? ariaLabel = null, C4SvgOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(diagram);
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
@@ -63,7 +84,7 @@ public static class C4SvgWriter
         foreach (var boundary in diagram.Boundaries) WriteBoundary(svg, boundary);
         foreach (var edge in diagram.Edges) WriteEdge(svg, id, edge);
         foreach (var edge in diagram.Edges) WriteEdgeLabel(svg, edge);
-        foreach (var node in diagram.Nodes) WriteNode(svg, id, node);
+        foreach (var node in diagram.Nodes) WriteNode(svg, id, node, options ?? C4SvgOptions.None);
 
         svg.Append("</svg>");
         return svg.ToString();
@@ -107,7 +128,7 @@ public static class C4SvgWriter
         svg.Append("</g>");
     }
 
-    private static void WriteNode(StringBuilder svg, string id, C4PlacedNode node)
+    private static void WriteNode(StringBuilder svg, string id, C4PlacedNode node, C4SvgOptions options)
     {
         var person = node.Node.Kind is C4ElementKind.Person;
 
@@ -159,7 +180,32 @@ public static class C4SvgWriter
         // not, and it is the same thing c4hero puts on the card.
         if (node.External) WriteChip(svg, node, "EXTERNAL");
 
+        if (options.ZoomInAliases?.Contains(node.Alias) == true) WriteZoomIn(svg, node);
+
         svg.Append("</g>");
+    }
+
+    /// <summary>
+    /// The <c>Zoom in</c> chip, straddling the card's top edge at the right, clear of the name.
+    /// <para>
+    /// A group of its own carrying <c>data-c4-zoom-in</c>, so the viewer can tell a
+    /// press on the chip from a press on the card: the card selects, the chip zooms.
+    /// The top edge rather than the foot, because the foot is where the
+    /// <c>EXTERNAL</c> chip sits and a card may carry both.
+    /// </para>
+    /// </summary>
+    private static void WriteZoomIn(StringBuilder svg, C4PlacedNode node)
+    {
+        const string label = "Zoom in ›";
+        var width = 12 + label.Length * 5.4;
+        var x = node.X + node.Width - width - 8;
+        var y = node.Y - 7.5;
+
+        svg.Append("<g class=\"c4-diagram__zoom-in\" data-c4-zoom-in=\"true\">")
+            .Append("<title>Zoom in</title>")
+            .Append(Invariant($"<rect x=\"{x:0.##}\" y=\"{y:0.##}\" width=\"{width:0.##}\" height=\"15\" rx=\"7.5\" />"))
+            .Append(Invariant($"<text x=\"{x + width / 2:0.##}\" y=\"{y + 10.5:0.##}\" text-anchor=\"middle\">{Escape(label)}</text>"))
+            .Append("</g>");
     }
 
     private static void WriteChip(StringBuilder svg, C4PlacedNode node, string label)

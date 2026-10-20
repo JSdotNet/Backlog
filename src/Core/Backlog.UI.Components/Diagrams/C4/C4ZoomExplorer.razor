@@ -1,0 +1,398 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    The C4 zoom tab: one model a reader zooms through a level at a time, where the C4
+    tab (C4Explorer) lists views one by one. Both stand side by side behind the c4-zoom
+    switch until the zoom tab is validated (local ADR 0037), so this shares the
+    renderer — C4LayoutEngine, C4SvgWriter, C4Exploration — and changes nothing about
+    how the C4 tab draws: the one addition to the shared writer, the Zoom in chip, is
+    an option only this component sets.
+
+    It holds two things, the open view and the selected element. Everything the zoom
+    bar says and everywhere a move goes is C4ZoomNavigation's, derived from those two.
+
+    The ways to move, and where each is handled:
+
+    - Select: a click on a card, or Tab onto it. The viewer (backlogC4Zoom in
+      components.js) reports it.
+    - Zoom in: a double-click on a card, its Zoom in chip, or Enter on the focused
+      card. The viewer reports all three as one call.
+    - Zoom out: an earlier step on the bar, or Backspace. Backspace and Enter are
+      listened for on the diagram's own frame, never on the document, so typing
+      anywhere else in the app is never taken as a move.
+*@
+
+<div class="c4-zoom-explorer" data-testid="@TestId" role="region" aria-label="C4 zoom">
+    @if (_view is null)
+    {
+        <EmptyState Title="No C4 views here yet" role="status">
+            <DescriptionContent>
+                The workspace declares no views. Add one in c4hero and it appears here.
+            </DescriptionContent>
+        </EmptyState>
+    }
+    else
+    {
+        <C4ZoomBar State="@_bar" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
+
+        @if (!HintDismissed && !_hintClosed)
+        {
+            <Callout Heading="Ways to move"
+                     ActionLabel="Got it"
+                     OnAction="DismissHintAsync"
+                     ActionTestId="c4-zoom-hint-dismiss"
+                     CssClass="c4-zoom-explorer__hint"
+                     TestId="c4-zoom-hint">
+                <ul class="c4-zoom-explorer__moves">
+                    <li><strong>Zoom in:</strong> double-click an element, use its Zoom in chip, or press Enter on it.</li>
+                    <li><strong>Zoom out:</strong> pick an earlier step in the zoom bar, or press Backspace.</li>
+                    <li><strong>Jump:</strong> pick any step whose element is known.</li>
+                    <li><strong>Sideways:</strong> Landscape, Dynamic and Deployment sit beside the bar under Also.</li>
+                </ul>
+            </Callout>
+        }
+
+        <header class="c4-zoom-explorer__head">
+            <p class="c4-zoom-explorer__title" data-testid="c4-zoom-title">@C4Exploration.Label(Workspace, _view)</p>
+            <p class="c4-zoom-explorer__key" data-testid="c4-zoom-key">@_view.Key</p>
+        </header>
+
+        @* Focusable as a whole, so Backspace has somewhere to land on a view with no
+           card focused. Every card is made focusable by the viewer. *@
+        <div class="c4-zoom-explorer__frame"
+             id="@_frameId"
+             tabindex="0"
+             role="group"
+             aria-label="@($"{C4Exploration.Label(Workspace, _view)}. Enter zooms into the focused element, Backspace zooms out.")"
+             data-testid="c4-zoom-frame">
+            <C4DiagramView Diagram="@DiagramFor(_view)"
+                           Id="@_svgId"
+                           AriaLabel="@C4Exploration.Label(Workspace, _view)"
+                           Options="@_options"
+                           TestId="c4-zoom-diagram" />
+        </div>
+
+        <footer class="c4-zoom-explorer__foot">
+            <p class="c4-zoom-explorer__legend" data-testid="c4-zoom-legend">Double-click an element, or its Zoom in chip, to open the next level. Backspace goes back up.</p>
+
+            @if (Problems.Count > 0)
+            {
+                <Alert Message="@($"{Problems.Count} thing{(Problems.Count == 1 ? string.Empty : "s")} in this workspace could not be read, so the pictures may be incomplete.")"
+                       TestId="c4-zoom-problems"
+                       Role="status" />
+            }
+        </footer>
+    }
+</div>
+
+@code {
+    private readonly string _frameId = "c4-zoom-frame-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The svg's own id. Stable for the life of the component, because the
+    /// viewer strips it off a card's id to get the alias.</summary>
+    private readonly string _svgId = "c4-zoom-svg-" + Guid.NewGuid().ToString("N");
+
+    private DotNetObjectReference<C4ZoomExplorer>? _self;
+    private IReadOnlyList<C4Node> _nodes = [];
+    private C4View? _view;
+    private string? _selectedId;
+    private string? _loadedFor;
+    private C4ZoomBarState _bar = C4ZoomBarState.Empty;
+    private C4SvgOptions _options = C4SvgOptions.None;
+    private bool _hintClosed;
+    private bool _attached;
+
+    /// <summary>Set by a move the viewer reported — a zoom from the picture — so the
+    /// next picture takes the keyboard focus back. A move from the bar leaves the focus
+    /// on the bar. Cleared on the attach that honours it.</summary>
+    private bool _refocus;
+
+    private C4Diagram? _diagram;
+    private C4Workspace? _diagramWorkspace;
+    private string? _diagramViewKey;
+    private C4Diagram? _attachedDiagram;
+
+    /// <summary>The selection the viewer was last told about, so a render that
+    /// leaves it alone costs no interop call.</summary>
+    private string? _shownSelection;
+
+    [Parameter, EditorRequired]
+    public C4Workspace Workspace { get; set; } = C4Workspace.Empty;
+
+    /// <summary>Everything the reader could not be shown, counted under the diagram.</summary>
+    [Parameter]
+    public IReadOnlyList<C4Problem> Problems { get; set; } = [];
+
+    /// <summary>Whether this reader already dismissed the ways-to-move hint. The host
+    /// keeps it, per user; this component only reports the dismissal.</summary>
+    [Parameter]
+    public bool HintDismissed { get; set; }
+
+    /// <summary>The hint was dismissed. The host remembers it so the next opening
+    /// shows none.</summary>
+    [Parameter]
+    public EventCallback OnHintDismissed { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-zoom-explorer";
+
+    /// <summary>The element selected now, by its model identifier. For the host and
+    /// for tests; the zoom bar is drawn from it.</summary>
+    public string? SelectedElementId => _selectedId;
+
+    /// <summary>The view open now.</summary>
+    public string? ViewKey => _view?.Key;
+
+    protected override void OnParametersSet()
+    {
+        // Keyed on the workspace's identity, as the C4 tab's explorer is: a reload
+        // hands over a fresh record, and re-deriving is cheaper than diffing it.
+        var key = $"{Workspace.Name}#{Workspace.Views.Count}#{Workspace.Elements.Count}";
+        if (string.Equals(_loadedFor, key, StringComparison.Ordinal) && _view is not null && Workspace.View(_view.Key) is not null)
+        {
+            Refresh();
+            return;
+        }
+
+        _loadedFor = key;
+        _selectedId = null;
+        _view = C4ZoomNavigation.StartView(Workspace);
+        Refresh();
+    }
+
+    /// <summary>Re-reads the open view's cards, the bar and the chips after a move.</summary>
+    private void Refresh()
+    {
+        if (_view is null)
+        {
+            _nodes = [];
+            _bar = C4ZoomBarState.Empty;
+            return;
+        }
+
+        // A reload may hand a fresh record for the same key; the view itself is read
+        // from the workspace that is current now.
+        _view = Workspace.View(_view.Key) ?? _view;
+        _nodes = C4Exploration.Nodes(Workspace, _view);
+        _bar = C4ZoomNavigation.Bar(Workspace, _view, _selectedId);
+
+        var zoomable = _nodes
+            .Where(node => C4ZoomNavigation.ZoomInView(Workspace, _view, node.ElementId) is not null)
+            .Select(node => node.Alias)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (_options.ZoomInAliases is null || !_options.ZoomInAliases.SetEquals(zoomable))
+        {
+            _options = new C4SvgOptions(zoomable);
+        }
+    }
+
+    private C4Diagram DiagramFor(C4View view)
+    {
+        if (_diagram is null
+            || !ReferenceEquals(_diagramWorkspace, Workspace)
+            || !string.Equals(_diagramViewKey, view.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            _diagram = C4LayoutEngine.Build(Workspace, view);
+            _diagramWorkspace = Workspace;
+            _diagramViewKey = view.Key;
+        }
+
+        return _diagram;
+    }
+
+    // ---- moving ----------------------------------------------------------------
+
+    /// <summary>Opens a view and leaves <paramref name="selectId"/> selected on it.</summary>
+    private void Open(string? viewKey, string? selectId)
+    {
+        if (Workspace.View(viewKey) is not { } next) return;
+
+        _view = next;
+        _selectedId = selectId;
+        Refresh();
+    }
+
+    private Task OpenStepAsync(C4ZoomStep step)
+    {
+        if (!step.Enabled) return Task.CompletedTask;
+
+        Open(step.ViewKey, step.SelectId);
+        return Task.CompletedTask;
+    }
+
+    private Task OpenAlsoAsync(C4ZoomAlso also)
+    {
+        if (also.Current) return Task.CompletedTask;
+
+        Open(also.ViewKey, null);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>A card was clicked or focused on the view named.</summary>
+    [JSInvokable]
+    public Task NodeSelected(string alias, string? viewKey)
+    {
+        if (!IsOpen(viewKey) || NodeOf(alias) is not { } node) return Task.CompletedTask;
+        if (string.Equals(_selectedId, node.ElementId, StringComparison.OrdinalIgnoreCase)) return Task.CompletedTask;
+
+        _selectedId = node.ElementId;
+        _shownSelection = node.Alias;
+        Refresh();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// A double-click, a Zoom in chip, or Enter on a focused card.
+    /// <para>
+    /// An element with nothing deeper is selected and nothing opens: the press is
+    /// still about that element, and selecting it is the visible answer.
+    /// </para>
+    /// </summary>
+    [JSInvokable]
+    public Task ZoomIn(string alias, string? viewKey)
+    {
+        if (!IsOpen(viewKey) || _view is null || NodeOf(alias) is not { } node) return Task.CompletedTask;
+
+        if (C4ZoomNavigation.ZoomInView(Workspace, _view, node.ElementId) is { } next)
+        {
+            Open(next, null);
+            _refocus = true;
+        }
+        else
+        {
+            _selectedId = node.ElementId;
+            Refresh();
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Backspace on the diagram: one level up, the view left behind
+    /// selected.</summary>
+    [JSInvokable]
+    public Task ZoomOut(string? viewKey)
+    {
+        if (!IsOpen(viewKey) || _view is null) return Task.CompletedTask;
+        if (C4ZoomNavigation.ZoomOut(Workspace, _view) is not { } target) return Task.CompletedTask;
+
+        Open(target.ViewKey, target.SelectId);
+        _refocus = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Whether a report from the viewer is about the picture on screen now. A
+    /// press on the old picture that lands after a move is dropped, not applied to the
+    /// new one.</summary>
+    private bool IsOpen(string? viewKey) =>
+        _view is not null && (viewKey is null || string.Equals(viewKey, _view.Key, StringComparison.OrdinalIgnoreCase));
+
+    private C4Node? NodeOf(string alias) =>
+        _nodes.FirstOrDefault(candidate => string.Equals(candidate.Alias, alias, StringComparison.Ordinal));
+
+    private string? SelectedAlias =>
+        _selectedId is null
+            ? null
+            : _nodes.FirstOrDefault(node => string.Equals(node.ElementId, _selectedId, StringComparison.OrdinalIgnoreCase))?.Alias;
+
+    private async Task DismissHintAsync()
+    {
+        _hintClosed = true;
+        await OnHintDismissed.InvokeAsync();
+    }
+
+    // ---- the viewer ------------------------------------------------------------
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_view is null || _diagram is null)
+        {
+            _attachedDiagram = null;
+            return;
+        }
+
+        if (!ReferenceEquals(_diagram, _attachedDiagram))
+        {
+            await AttachAsync(_diagram);
+            return;
+        }
+
+        // The same picture with another selection: a step on the bar that stayed on
+        // this view, or an element with nothing deeper.
+        if (!string.Equals(_shownSelection, SelectedAlias, StringComparison.Ordinal))
+        {
+            _shownSelection = SelectedAlias;
+            await InvokeViewerAsync("backlogC4Zoom.select", _frameId, _shownSelection);
+        }
+    }
+
+    private async Task AttachAsync(C4Diagram diagram)
+    {
+        _self ??= DotNetObjectReference.Create(this);
+        _attached = true;
+        _attachedDiagram = diagram;
+        _shownSelection = SelectedAlias;
+
+        var refocus = _refocus;
+        _refocus = false;
+
+        // The full names, because a card's drawn name is cut to fit it and the
+        // accessible name should not be.
+        var names = _nodes
+            .GroupBy(node => node.Alias, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().Name, StringComparer.Ordinal);
+
+        try
+        {
+            var took = await Js.InvokeAsync<bool>(
+                "backlogC4Zoom.attach",
+                _frameId,
+                _self,
+                _view?.Key,
+                _shownSelection,
+                refocus,
+                names);
+
+            if (!took && ReferenceEquals(_attachedDiagram, diagram)) _attachedDiagram = null;
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // No viewer, or no circuit to reach one through. The bar still moves
+            // between levels; only the gestures on the picture are lost.
+            if (ReferenceEquals(_attachedDiagram, diagram)) _attachedDiagram = null;
+        }
+    }
+
+    private async Task InvokeViewerAsync(string identifier, params object?[] arguments)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync(identifier, arguments);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Only after a viewer was asked for: a prerender disposes the component
+        // without ever reaching OnAfterRender.
+        if (_attached)
+        {
+            try
+            {
+                await Js.InvokeVoidAsync("backlogC4Zoom.dispose", _frameId);
+            }
+            catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+            {
+            }
+        }
+
+        _self?.Dispose();
+    }
+}
