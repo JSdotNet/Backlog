@@ -96,6 +96,12 @@ public static class AppFeatures
             "Show a C4 tab beside the architecture chapters: the model kept in .devbook/arc42/_c4/, authored as Structurizr DSL in c4hero, or, without one, a model drawn from the chapters' own mermaid C4 diagrams. A chapter that documents a view links to it and back.",
             EnabledByDefault: false),
         new(
+            DevbookFeatures.C4Zoom,
+            "C4 zoom",
+            "Add a C4 zoom tab beside the C4 tab that walks the model one level at a time, from System context to Containers to Components, with a zoom bar naming the element each level is about. Needs C4 diagrams on; the C4 tab stays as it is.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
+        new(
             DevbookFeatures.Search,
             "Devbook search",
             "Find the chapter that answers a question across every devbook area at once. Results name the chapter they came from, so you can open it. A repository whose devbook database has not been generated says so instead of showing an empty list.",

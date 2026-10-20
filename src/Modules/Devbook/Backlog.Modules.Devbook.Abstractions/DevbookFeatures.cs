@@ -45,6 +45,18 @@ public static class DevbookFeatures
     /// </para></summary>
     public const string C4Diagrams = "c4-diagrams";
 
+    /// <summary>Offer a second C4 tab, <c>C4 zoom</c>, that walks the model one level at
+    /// a time — System context, Containers, Components, Code — beside the C4 tab, which
+    /// stays as it is.
+    /// <para>
+    /// Effective only while <see cref="C4Diagrams"/> is on: the zoom tab is another
+    /// reading of the same model, and with the model off there is nothing to zoom
+    /// through. Its own key rather than a change to the C4 tab, so the new navigation
+    /// can be used beside the current one and replace it only once it is validated
+    /// (local ADR 0037).
+    /// </para></summary>
+    public const string C4Zoom = "c4-zoom";
+
     /// <summary>Search the knowledge areas by the words their chapters use.
     /// <para>
     /// A devbook key by the same rule as its neighbours: what it switches on is

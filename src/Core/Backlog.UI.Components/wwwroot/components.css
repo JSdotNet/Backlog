@@ -17634,6 +17634,243 @@ select.field__input {
     margin-top: var(--spacing-2xs);
 }
 
+/* ---- the C4 zoom tab ------------------------------------------------------
+
+   One model zoomed a level at a time, beside the C4 tab rather than inside it
+   (local ADR 0037). The zoom bar heads it: the current step ringed in the primary
+   colour, a step that jumps drawn plain, a step still waiting on a selection
+   drawn grey. Nothing here is reached by a .c4-explorer rule, so the C4 tab draws
+   exactly as before.                                                           */
+
+/* A column whose frame keeps the height it asks for, so a host that gives the tab
+   less room scrolls the tab rather than squeezing the picture out of its frame. */
+.c4-zoom-explorer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-zoom-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.c4-zoom-bar__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.c4-zoom-bar__steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* The separator is drawn, not written, so a screen reader walking the steps never
+   reads it out. */
+.c4-zoom-bar__item + .c4-zoom-bar__item::before {
+    content: "›";
+    margin-right: var(--spacing-xs);
+    color: var(--color-border-strong);
+}
+
+.c4-zoom-bar__item {
+    display: inline-flex;
+    align-items: center;
+}
+
+.c4-zoom-bar__step {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-full);
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.c4-zoom-bar__step:hover:not([disabled]),
+.c4-zoom-bar__step:focus-visible {
+    background: var(--color-background-raised);
+}
+
+.c4-zoom-bar__number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-zoom-bar__scope {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* Where you are: ringed in the primary colour, number filled. */
+.c4-zoom-bar__step--current,
+.c4-zoom-bar__step--current[disabled] {
+    background: var(--color-background-raised);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+    color: var(--color-text-primary);
+    cursor: default;
+}
+
+.c4-zoom-bar__step--current .c4-zoom-bar__number {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+/* Pick first: grey until a selection fills the scope in. */
+.c4-zoom-bar__step--waiting,
+.c4-zoom-bar__step--unavailable {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
+.c4-zoom-bar__step--waiting .c4-zoom-bar__number,
+.c4-zoom-bar__step--unavailable .c4-zoom-bar__number {
+    border: var(--border-width) solid var(--color-border);
+    background: none;
+}
+
+.c4-zoom-bar__step--waiting .c4-zoom-bar__scope,
+.c4-zoom-bar__step--unavailable .c4-zoom-bar__scope {
+    color: inherit;
+}
+
+.c4-zoom-bar__also {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: auto;
+}
+
+.c4-zoom-bar__also-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.c4-zoom-bar__also-link:hover,
+.c4-zoom-bar__also-link:focus-visible {
+    text-decoration: underline;
+}
+
+.c4-zoom-bar__also-link--current,
+.c4-zoom-bar__also-link--current[disabled] {
+    color: var(--color-text-primary);
+    cursor: default;
+    text-decoration: none;
+}
+
+.c4-zoom-explorer__moves {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.c4-zoom-explorer__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.c4-zoom-explorer__title {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-zoom-explorer__key,
+.c4-zoom-explorer__legend {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-zoom-explorer__frame {
+    flex: 0 0 auto;
+    height: clamp(24rem, 60vh, 44rem);
+    overflow: hidden;
+    min-width: 0;
+    border-radius: var(--border-radius-md);
+}
+
+.c4-zoom-explorer__frame:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-zoom-explorer__frame g.node {
+    cursor: pointer;
+}
+
+/* Focus-visibility exemption: a card's rectangle is drawn in the primary colour
+   at 2.5px while it has keyboard focus (the :focus-visible rule below), which is
+   the ring. The browser's own outline would be a box around the card's bounding
+   box, chip included, rather than around the card. */
+.c4-zoom-explorer__frame g.node:focus {
+    outline: none;
+}
+
+.c4-zoom-explorer__frame g.node:focus-visible > rect,
+.c4-zoom-explorer__frame g.node.c4-selected > rect {
+    stroke: var(--color-primary);
+    stroke-width: 2.5px;
+}
+
+/* The Zoom in chip: drawn only when the zoom tab asks C4SvgWriter for it. */
+.c4-diagram__zoom-in {
+    cursor: pointer;
+}
+
+.c4-diagram__zoom-in rect {
+    fill: var(--color-background-raised);
+    stroke: var(--color-primary);
+    stroke-width: 1;
+    stroke-dasharray: none;
+}
+
+.c4-diagram__zoom-in text {
+    fill: var(--color-primary);
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.c4-diagram__zoom-in:hover rect {
+    fill: var(--color-primary);
+}
+
+.c4-diagram__zoom-in:hover text {
+    fill: var(--color-text-inverse);
+}
+
 /* Narrow: the panels stack above the stage rather than squeezing it. */
 @media (max-width: 60rem) {
     .c4-explorer__body {

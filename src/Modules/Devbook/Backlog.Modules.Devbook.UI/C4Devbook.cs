@@ -108,6 +108,11 @@ public sealed class C4DevbookStore : IDisposable
     /// a panel with the feature off is the panel it was before this existed.</summary>
     public bool Enabled => _features.IsEnabled(DevbookFeatures.C4Diagrams);
 
+    /// <summary>Whether the C4 zoom tab is offered beside the C4 tab. Both switches,
+    /// never the zoom one alone: the zoom tab reads the same model the C4 tab does,
+    /// and with <see cref="Enabled"/> off there is no model to read.</summary>
+    public bool ZoomEnabled => Enabled && _features.IsEnabled(DevbookFeatures.C4Zoom);
+
     /// <summary>
     /// The workspaces beside the architecture chapters of this scope, with every
     /// view already written as mermaid.

@@ -188,6 +188,94 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
     }
 
+    // ---- the C4 zoom tab --------------------------------------------------------
+
+    /// <summary>Both switches on: the zoom tab sits after the C4 tab, and the C4 tab
+    /// is the one it was.</summary>
+    [Fact]
+    public async Task With_both_keys_on_the_tabs_read_chapters_C4_and_C4_zoom()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, c4ZoomEnabled: true);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        var tabs = component.FindAll("[role='tab']").Select(tab => tab.TextContent.Trim()).ToList();
+        Assert.Equal(["Chapters", "C4", "C4 zoom"], tabs);
+
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-zoom-explorer']"));
+    }
+
+    /// <summary>The zoom key alone offers nothing: it is another reading of the model
+    /// the C4 key turns on.</summary>
+    [Fact]
+    public async Task With_only_the_zoom_key_on_neither_C4_tab_is_offered()
+    {
+        await using var harness = CreateHarness(c4Enabled: false, c4ZoomEnabled: true);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-tab']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-zoom-tab']"));
+    }
+
+    [Fact]
+    public async Task With_the_zoom_key_off_there_is_no_C4_zoom_tab()
+    {
+        await using var harness = CreateHarness(c4Enabled: true);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-tab']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-zoom-tab']"));
+    }
+
+    /// <summary>
+    /// First opening: the System context view with the ways-to-move hint. Dismissed,
+    /// it is remembered through the host's view preferences, so the next opening shows
+    /// the view alone.
+    /// </summary>
+    [Fact]
+    public async Task The_zoom_tab_opens_on_the_context_view_and_its_hint_is_dismissed_per_user()
+    {
+        var preferences = new RememberedViewPreferences();
+        await using var harness = CreateHarness(c4Enabled: true, c4ZoomEnabled: true, preferences: preferences);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        await component.Find("[data-testid='arc42-c4-zoom-tab']").ClickAsync(new());
+
+        Assert.Equal("context-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
+        Assert.NotEmpty(component.FindAll("[data-testid='c4-zoom-hint']"));
+
+        await component.Find("[data-testid='c4-zoom-hint-dismiss']").ClickAsync(new());
+
+        Assert.Empty(component.FindAll("[data-testid='c4-zoom-hint']"));
+        Assert.True(preferences.C4ZoomHintDismissed);
+
+        await using var again = CreateHarness(c4Enabled: true, c4ZoomEnabled: true, preferences: preferences);
+        var reopened = again.Render(null);
+        again.Settle(reopened);
+
+        await reopened.Find("[data-testid='arc42-c4-zoom-tab']").ClickAsync(new());
+
+        Assert.Equal("context-backlog", reopened.Find("[data-testid='c4-zoom-key']").TextContent);
+        Assert.Empty(reopened.FindAll("[data-testid='c4-zoom-hint']"));
+    }
+
+    private sealed class RememberedViewPreferences : IDevbookViewPreferences
+    {
+        public bool C4ZoomHintDismissed { get; private set; }
+
+        public void DismissC4ZoomHint() => C4ZoomHintDismissed = true;
+    }
+
     // ---- the references ------------------------------------------------------
 
     /// <summary>
@@ -595,6 +683,8 @@ public sealed class C4DevbookPanelTests : IDisposable
     private Harness CreateHarness(
         bool c4Enabled,
         bool registerStore = true,
+        bool c4ZoomEnabled = false,
+        IDevbookViewPreferences? preferences = null,
         string? workspace = null,
         string? references = null,
         bool writeWorkspace = true,
@@ -638,6 +728,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         var workspaceSettings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         if (c4Enabled) Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
+        if (c4ZoomEnabled) Assert.Null(features.SetEnabled(DevbookFeatures.C4Zoom, true));
 
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
@@ -668,6 +759,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         context.Services.AddSingleton<DevbookChapterWriter>();
 
         if (registerStore) context.Services.AddSingleton<C4DevbookStore>();
+        if (preferences is not null) context.Services.AddSingleton(preferences);
 
         return new Harness(context, repository.Alias, arc42);
     }

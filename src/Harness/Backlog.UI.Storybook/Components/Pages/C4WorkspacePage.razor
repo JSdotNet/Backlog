@@ -34,6 +34,35 @@ Every card is a `g.node` whose id is `<svg id>-<alias>`, which is exactly what t
         </div>
     </Story>
 
+    <Story Name="The zoom bar, three moments"
+           Description="`C4ZoomBar` as the design's Navigation board draws it. **On Context:** step 1 ringed, step 2 already names the system, steps 3 and 4 grey until something is picked. **Desktop selected** on the container view: step 3 now names Desktop App and can be pressed, step 4 still waits for a component. **On Code:** every step behind the reader names its element and works.
+
+A ringed step is where you are, a plain one jumps, and a grey one is a promise that selecting an element fills it in. The Code view is generated from the source and has not landed yet, so the third moment is a hand-set state: it shows what the bar will say, not a view that opens today."
+           Code="@ZoomBarUsage">
+        <div class="sb-c4-zoom-moments">
+            <p class="sb-c4-zoom-moments__label">On Context</p>
+            <C4ZoomBar State="@OnContext" TestId="sb-c4-zoom-bar-context" />
+
+            <p class="sb-c4-zoom-moments__label">Desktop selected</p>
+            <C4ZoomBar State="@DesktopSelected" TestId="sb-c4-zoom-bar-selected" />
+
+            <p class="sb-c4-zoom-moments__label">On Code</p>
+            <C4ZoomBar State="@OnCode" TestId="sb-c4-zoom-bar-code" />
+        </div>
+    </Story>
+
+    <Story Name="The zoom tab"
+           Description="`C4ZoomExplorer`, the tab the `c4-zoom` switch offers beside the C4 tab: the same workspace walked **one level at a time**, where the explorer above lists views one by one. It opens on the System context view, and the first time it opens it names the ways to move.
+
+**Select** a card with a click or by tabbing onto it; the zoom bar fills in the element the next level is about. **Zoom in** with a double-click, the card's *Zoom in* chip, or Enter on the focused card. **Zoom out** with an earlier step on the bar, or Backspace — and the element you came out of stays selected. Enter and Backspace are listened for on the diagram's own frame, never on the page, so a key typed anywhere else is never a move.
+
+The chip is the one thing the zoom tab asks of the shared renderer, and it is an option: `C4SvgWriter` draws it only for the cards named in `C4SvgOptions.ZoomInAliases`, which the C4 tab never passes."
+           Code="@ZoomUsage">
+        <div class="sb-c4-stage sb-c4-stage--zoom">
+            <C4ZoomExplorer Workspace="@Parsed" Problems="@Parsed.Problems" TestId="sb-c4-zoom-explorer" />
+        </div>
+    </Story>
+
     <Story Name="What a level means"
            Description="`include *` does not mean every element in the model — it means the default set for that kind of view, which is what keeps a container view of one system from being a drawing of all of them. All people and top-level systems for a landscape; the scope plus its direct neighbours for a context; the scope's own containers plus the neighbours of those, with other systems left closed, for a container view.
 
@@ -166,6 +195,53 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                     ViewKeyChanged="key => _viewKey = key"
                     ViewFooter="@ViewReferences" />
         """;
+
+    private const string ZoomUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        Problems="@problems"
+                        HintDismissed="@preferences.C4ZoomHintDismissed"
+                        OnHintDismissed="preferences.DismissC4ZoomHint" />
+        """;
+
+    private const string ZoomBarUsage = """
+        <C4ZoomBar State="@C4ZoomNavigation.Bar(workspace, view, selectedElementId)"
+                   OnStep="OpenStep"
+                   OnAlso="OpenAlso" />
+        """;
+
+    /// <summary>The design's first moment: the context view, nothing selected.</summary>
+    private static C4ZoomBarState OnContext =>
+        C4ZoomNavigation.Bar(Parsed, Parsed.View("context-backlog")!, null);
+
+    /// <summary>The second: the container view with Desktop App selected.</summary>
+    private static C4ZoomBarState DesktopSelected =>
+        C4ZoomNavigation.Bar(Parsed, Parsed.View("containers-backlog")!, "backlog.desktop");
+
+    /// <summary>
+    /// The third: on the Code level of the Devbook component. No view of the workspace
+    /// opens Code — it is generated from the source by a later step — so the state is
+    /// the components view's with the ring moved to step 4.
+    /// </summary>
+    private static C4ZoomBarState OnCode
+    {
+        get
+        {
+            var components = C4ZoomNavigation.Bar(Parsed, Parsed.View("components-desktop")!, "backlog.desktop.devbook");
+
+            return components with
+            {
+                Steps =
+                [
+                    .. components.Steps.Select(step => step.Level switch
+                    {
+                        C4ZoomLevel.Components => step with { Current = false, ViewKey = "components-desktop" },
+                        C4ZoomLevel.Code => step with { Current = true },
+                        _ => step
+                    })
+                ]
+            };
+        }
+    }
 
     private const string LevelsCode = """
         // Which view opens an element, or null when there is nothing deeper.

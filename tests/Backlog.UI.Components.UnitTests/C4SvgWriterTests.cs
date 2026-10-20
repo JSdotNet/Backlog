@@ -376,6 +376,43 @@ public sealed class C4SvgWriterTests
         }
     }
 
+    // ---- the zoom tab's option ---------------------------------------------------
+
+    /// <summary>The C4 tab passes no options, and its picture must be the one it was:
+    /// no options and the empty options write the same string, with no chip in it.</summary>
+    [Fact]
+    public void Without_options_the_picture_is_unchanged_and_carries_no_zoom_chip()
+    {
+        foreach (var key in new[] { "landscape", "context", "containers", "components" })
+        {
+            var plain = C4SvgWriter.Write(Layout(key), "diag", "A view");
+
+            Assert.Equal(plain, C4SvgWriter.Write(Layout(key), "diag", "A view", C4SvgOptions.None));
+            Assert.Equal(plain, C4SvgWriter.Write(Layout(key), "diag", "A view", new C4SvgOptions(new HashSet<string>())));
+            Assert.DoesNotContain("data-c4-zoom-in", plain, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>The chip goes on the named cards and only on them, inside the card's own
+    /// group so a press on it still resolves to that card.</summary>
+    [Fact]
+    public void A_zoom_chip_is_drawn_inside_each_named_card_only()
+    {
+        var desktop = C4MermaidWriter.AliasOf("backlog.desktop");
+        var svg = C4SvgWriter.Write(Layout("containers"), "diag", "A view", new C4SvgOptions(new HashSet<string> { desktop }));
+
+        Assert.Equal(1, Occurrences(svg, "data-c4-zoom-in=\"true\""));
+
+        // The card that opened last before the chip is the one it belongs to.
+        var chip = svg.IndexOf("data-c4-zoom-in", StringComparison.Ordinal);
+        var owner = svg.LastIndexOf("<g class=\"node ", chip, StringComparison.Ordinal);
+
+        Assert.True(owner >= 0);
+        Assert.StartsWith($"<g class=\"node ", svg[owner..]);
+        Assert.Contains($"id=\"diag-{desktop}\"", svg[owner..chip], StringComparison.Ordinal);
+        Assert.Contains("<title>Zoom in</title>", svg, StringComparison.Ordinal);
+    }
+
     /// <summary>Walks an emitted <c>M … C …</c> path and hands back points along the
     /// curve.</summary>
     private static IEnumerable<(double X, double Y)> SamplePath(string path) => C4PathSampler.Along(path);

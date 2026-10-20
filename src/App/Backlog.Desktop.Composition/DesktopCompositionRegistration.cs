@@ -337,6 +337,10 @@ public static class DesktopCompositionRegistration
         // navigation file beside the surface it reopens on.
         services.AddSingleton<Backlog.Modules.DevPc.Abstractions.IToolsViewPreferences>(sp =>
             new ToolsViewPreferences(sp.GetService<ShellNavigationStore>()));
+        // The Devbook pane's view choices that outlive it — the C4 zoom tab's dismissed
+        // hint — kept in the same per-device navigation file.
+        services.AddSingleton<Backlog.Modules.Devbook.Abstractions.IDevbookViewPreferences>(sp =>
+            new DevbookViewPreferences(sp.GetService<ShellNavigationStore>()));
         // The iteration the Goals view and the stand-up read in (local ADR 0036, §3): one
         // store behind the screens' port and the replication port the sync client takes
         // as an optional parameter of the merge, the session and the loop.

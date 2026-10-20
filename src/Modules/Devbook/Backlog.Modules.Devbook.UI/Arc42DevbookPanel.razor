@@ -210,35 +210,7 @@
                           TabTestId="arc42-c4-tab"
                           aria-label="C4 model">
 
-                    @* More than one workspace is possible and not expected, so the
-                       picker appears only when there is a choice to make. *@
-                    @if (_c4.Workspaces.Count > 1)
-                    {
-                        <nav class="devbook-chapters" aria-label="C4 workspaces" data-testid="arc42-c4-workspaces">
-                            @foreach (var entry in _c4.Workspaces)
-                            {
-                                <div class="devbook-chapter" data-testid="arc42-c4-workspace">
-                                    <AppButton BaseClass="devbook-chapter__button"
-                                               Variant="ButtonVariant.None"
-                                               aria-current="@(ReferenceEquals(entry, Workspace) ? "page" : null)"
-                                               OnClick="() => SelectWorkspace(entry)">
-                                        <span class="devbook-chapter__title">@entry.Name</span>
-                                    </AppButton>
-                                </div>
-                            }
-                        </nav>
-                    }
-
-                    @* Said, because a model drawn from the fences is only as complete as
-                       the fences are, and nothing else on screen tells it apart from one
-                       somebody authored. A status rather than a warning: nothing is
-                       wrong, there is simply a fuller model to be had. *@
-                    @if (Workspace is { Derived: true })
-                    {
-                        <Alert Message="This model is drawn from the C4 diagrams in the chapters. A workspace in _c4/ gives a fuller model."
-                               TestId="arc42-c4-derived"
-                               Role="status" />
-                    }
+                    @C4WorkspaceChoice
 
                     @if (Workspace is { } workspace)
                     {
@@ -249,6 +221,29 @@
                                     ViewFooter="@ViewReferences"
                                     TestId="arc42-c4-explorer" />
                     }
+                </TabPanel>
+            }
+
+            @* The C4 zoom tab, beside the C4 tab rather than in place of it, while
+               both switches are on (local ADR 0037). The same model, walked one
+               level at a time; it replaces the C4 tab only once it is validated, so
+               until then the C4 tab above is left exactly as it was. *@
+            @if (_c4.Workspaces.Count > 0 && _c4Store is { ZoomEnabled: true } && Workspace is { } zoomWorkspace)
+            {
+                <TabPanel Id="@C4ZoomTab"
+                          Title="C4 zoom"
+                          Element="section"
+                          TestId="arc42-c4-zoom-panel"
+                          TabTestId="arc42-c4-zoom-tab"
+                          KeepAlive="true"
+                          aria-label="C4 zoom">
+                    @C4WorkspaceChoice
+
+                    <C4ZoomExplorer Workspace="@zoomWorkspace.Workspace"
+                                    Problems="@zoomWorkspace.Problems"
+                                    HintDismissed="@C4ZoomHintDismissed"
+                                    OnHintDismissed="DismissC4ZoomHint"
+                                    TestId="arc42-c4-zoom-explorer" />
                 </TabPanel>
             }
         </Tabs>
@@ -313,6 +308,58 @@
 
     private const string ChaptersTab = "chapters";
     private const string C4Tab = "c4";
+    private const string C4ZoomTab = "c4-zoom";
+
+    /// <summary>
+    /// The workspace picker and the derived-model note, the same over both C4 tabs:
+    /// either tab reads the workspace chosen here.
+    /// </summary>
+    private RenderFragment C4WorkspaceChoice => @<text>
+    @* More than one workspace is possible and not expected, so the
+       picker appears only when there is a choice to make. *@
+    @if (_c4.Workspaces.Count > 1)
+    {
+        <nav class="devbook-chapters" aria-label="C4 workspaces" data-testid="arc42-c4-workspaces">
+            @foreach (var entry in _c4.Workspaces)
+            {
+                <div class="devbook-chapter" data-testid="arc42-c4-workspace">
+                    <AppButton BaseClass="devbook-chapter__button"
+                               Variant="ButtonVariant.None"
+                               aria-current="@(ReferenceEquals(entry, Workspace) ? "page" : null)"
+                               OnClick="() => SelectWorkspace(entry)">
+                        <span class="devbook-chapter__title">@entry.Name</span>
+                    </AppButton>
+                </div>
+            }
+        </nav>
+    }
+
+    @* Said, because a model drawn from the fences is only as complete as
+       the fences are, and nothing else on screen tells it apart from one
+       somebody authored. A status rather than a warning: nothing is
+       wrong, there is simply a fuller model to be had. *@
+    @if (Workspace is { Derived: true })
+    {
+        <Alert Message="This model is drawn from the C4 diagrams in the chapters. A workspace in _c4/ gives a fuller model."
+               TestId="arc42-c4-derived"
+               Role="status" />
+    }
+    </text>;
+
+    /// <summary>Where the C4 zoom tab's dismissed hint is remembered: the host's
+    /// per-device preferences, or nowhere when the host composed none — then the
+    /// dismissal holds for the life of the panel.</summary>
+    private IDevbookViewPreferences? _viewPreferences;
+
+    private bool _c4ZoomHintDismissed;
+
+    private bool C4ZoomHintDismissed => _c4ZoomHintDismissed || _viewPreferences?.C4ZoomHintDismissed == true;
+
+    private void DismissC4ZoomHint()
+    {
+        _c4ZoomHintDismissed = true;
+        _viewPreferences?.DismissC4ZoomHint();
+    }
 
     /// <summary>The knowledge area this panel's own chapters belong to. A reference
     /// into another section is the host's to follow and leaves this panel's tab
@@ -397,6 +444,8 @@
 
         _c4Store = Services.GetService<C4DevbookStore>();
         if (_c4Store is not null) _c4Store.Changed += OnDevbookChanged;
+
+        _viewPreferences = Services.GetService<IDevbookViewPreferences>();
 
         _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
         _annotations.Changed += OnAnnotationsChanged;

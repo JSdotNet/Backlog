@@ -84,6 +84,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DevbookFeatures.RepositoryDevbook,
                 DevbookFeatures.ArchifyDiagrams,
                 DevbookFeatures.C4Diagrams,
+                DevbookFeatures.C4Zoom,
                 DevbookFeatures.Search,
                 DevbookFeatures.SemanticSearch,
                 DevPcFeatures.SystemTools,
@@ -129,6 +130,7 @@ public sealed class AppFeatureSettingsStoreTests
     [InlineData(DashboardFeatures.Dashboard, AppFeatureStatus.Released, true)]
     [InlineData(DevbookFeatures.C4Diagrams, AppFeatureStatus.Released, false)]
     [InlineData(DevbookFeatures.ArchifyDiagrams, AppFeatureStatus.Released, false)]
+    [InlineData(DevbookFeatures.C4Zoom, AppFeatureStatus.Dev, false)]
     [InlineData(SyncFeatures.Sync, AppFeatureStatus.Beta, false)]
     public void Graduated_features_keep_their_maturity_and_default_apart(string key, AppFeatureStatus status, bool enabledByDefault)
     {
