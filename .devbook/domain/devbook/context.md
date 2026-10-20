@@ -165,5 +165,9 @@ a split file opens on its one aggregate, and an aggregate reads as **About**
 beside **Always true**, which is still a placeholder; see
 [Domain view by unit](features.md#domain-view-by-unit).
 
+Flow and the Glossary follow. Flow draws each lifecycle as one row of states,
+and the Domain page's Glossary lists the context's terms and model chapters A to
+Z.
+
 The flag is retired when the old Domain view is removed, which a later plan does.
 The new view then always shows.

@@ -1,7 +1,7 @@
 @*
     The Domain area read by unit (local ADR 0036), behind the New domain view
-    switch. It names the page the selected menu row opens and draws it: Domain and
-    Model so far, and a placeholder for each other kind of file, which the plan
+    switch. It names the page the selected menu row opens and draws it: Domain,
+    Model and Flow so far, and a placeholder for each other kind of file, which the plan
     +devbook-domain-view's later steps replace one page at a time. With the switch
     off the pane renders DomainDevbookPanel and never this.
 *@
@@ -19,6 +19,10 @@
     {
         <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" />
     }
+    else if (Page == DomainViewPage.Flow)
+    {
+        <DomainViewFlowPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" />
+    }
     else
     {
     <EmptyState BaseClass="devbook-empty"
@@ -33,7 +37,7 @@
 
 @code {
     /// <summary>The repository whose Domain area this is. The pages that fill the
-    /// frame — Domain and Model so far — read their chapters through it.</summary>
+    /// frame — Domain, Model and Flow so far — read their chapters through it.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
 

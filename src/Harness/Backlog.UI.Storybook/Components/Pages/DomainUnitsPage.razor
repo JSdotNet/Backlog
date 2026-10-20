@@ -41,9 +41,9 @@
     </Story>
 
     <Story Name="Glossary"
-           Description="The Ubiquitous Language grouping as the bar's Glossary: each term and its first sentence."
+           Description="The Ubiquitous Language grouping as the bar's Glossary: its terms beside the file's model chapters, A–Z. Its filters, aliases and Easily confused pairs have their own page, Domain glossary."
            Code="@GlossaryCode">
-        <DomainGlossary Chapter="@Glossary.Chapter" DocumentPath="@DomainPath" />
+        <DomainGlossary Chapter="@Glossary.Chapter" Files="@([UnsplitFile])" DocumentPath="@DomainPath" />
     </Story>
 </StoryPage>
 
@@ -232,6 +232,6 @@
         """;
 
     private const string GlossaryCode = """
-        <DomainGlossary Chapter="@glossary.Chapter" DocumentPath="@path" />
+        <DomainGlossary Chapter="@glossary.Chapter" Files="@domainFiles" DocumentPath="@path" />
         """;
 }
