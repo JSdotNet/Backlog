@@ -20610,6 +20610,224 @@ select.field__input {
     }
 }
 
+/* --- Domain view: Glossary ------------------------------------------------- */
+/*
+  The Glossary unit of the Domain page (local ADR 0036): a filter box and the
+  kind filters over every term and model chapter of the context, A-Z. Each row
+  is its mark, its heading, its kind in words, its aliases as code chips and its
+  first sentence. Monochrome, as the rest of the view: the mark and the word say
+  the kind.
+*/
+
+.domain-glossary__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.domain-glossary__search {
+    flex: 1 1 14rem;
+    max-width: 24rem;
+}
+
+.domain-glossary__kinds {
+    flex-wrap: wrap;
+}
+
+.domain-glossary__kinds .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+}
+
+.domain-glossary__entries {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+}
+
+.domain-glossary__entry {
+    display: grid;
+    grid-template-columns: minmax(10rem, 16rem) 1fr;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.domain-glossary__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-glossary__entry--deprecated .domain-glossary__name {
+    color: var(--color-text-secondary);
+}
+
+.domain-glossary__kind {
+    margin-inline-start: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+}
+
+.domain-glossary__body {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-glossary__aliases {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* An alias is information about the chapter, so it is a neutral outline
+   (color-scheme.md#domain-view-element-tones), never a filled chip. */
+.domain-glossary__alias {
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.domain-glossary__summary {
+    margin: 0;
+}
+
+.domain-glossary__pairs {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-glossary__pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+}
+
+.domain-glossary__side {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.domain-glossary__side .domain-glossary__name {
+    font-weight: var(--font-weight-semibold);
+}
+
+@media (max-width: 40rem) {
+    .domain-glossary__entry,
+    .domain-glossary__pair {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-2xs);
+    }
+}
+
+/* --- Domain view: Flow ----------------------------------------------------- */
+/*
+  The Flow page of the Domain view (local ADR 0036): a stateDiagram-v2 drawn as
+  one row of states. Forward transitions run on the axis or in lanes above, the
+  ways back in lanes below and dashed, the restore loop round the outside. The
+  row scrolls sideways rather than shrinking its words; the prose sits beneath.
+*/
+
+.domain-flows {
+    display: grid;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+.domain-flows__section {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-flow {
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-flow__scroll {
+    overflow-x: auto;
+    padding-bottom: var(--spacing-2xs);
+}
+
+.domain-flow__svg {
+    display: block;
+    max-width: none;
+}
+
+.domain-flow__box {
+    fill: var(--color-background-raised);
+    stroke: var(--color-border-strong);
+    stroke-width: 1;
+}
+
+.domain-flow__name {
+    fill: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-flow__pseudo {
+    fill: var(--color-text-primary);
+}
+
+.domain-flow__pseudo-ring {
+    fill: none;
+    stroke: var(--color-text-primary);
+    stroke-width: 1.5;
+}
+
+.domain-flow__line {
+    fill: none;
+    stroke: var(--color-text-secondary);
+    stroke-width: 1.25;
+}
+
+.domain-flow__transition--back .domain-flow__line {
+    stroke-dasharray: 5 3;
+}
+
+.domain-flow__transition--restore .domain-flow__line {
+    stroke-dasharray: 5 3;
+    stroke-width: 1.75;
+}
+
+.domain-flow__arrow {
+    fill: var(--color-text-secondary);
+}
+
+.domain-flow__label {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    paint-order: stroke;
+    stroke: var(--color-background);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+}
+
 /* --- Notes ----------------------------------------------------------------- */
 /*
   A note row is one link: the title and its time on the first line, the

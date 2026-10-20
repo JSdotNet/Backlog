@@ -356,6 +356,14 @@ internal static class StorybookIndex
             // renderers.
             new("devbook/domain-units", "Domain units", "DomainUnitPage, DomainAggregateAbout, DomainServiceAbout, DomainEventList and DomainGlossary: a `domain.md` read one unit at a time — a chapter bar over an unsplit file, About for an aggregate, You can count on for a domain service."),
 
+            // After Domain units, whose chapter bar offers it: the Glossary unit read
+            // whole, with its filters and its Easily confused pairs.
+            new("devbook/domain-glossary", "Domain glossary", "DomainGlossary: every term and model chapter of a context, A–Z, with its kind, its aliases as code chips and its first sentence — a filter box that matches aliases too, kind filters, deprecated terms struck through, and Easily confused for two terms that name each other."),
+
+            // The Domain view's Flow page (local ADR 0036): a lifecycle drawn as one
+            // row of states; every other diagram keeps DiagramView's rendering.
+            new("devbook/domain-flows", "Domain flows", "DomainFlowPage and DomainFlowRow: a `flow.md` whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — with its prose beneath."),
+
             // Last, because it is the one page of the group that is not about the
             // meta block: a review note is the convention's second fence, and the
             // chapter it sits in — heading, record, prose — is everything the pages
