@@ -41,6 +41,10 @@ public sealed record DomainChapter(
     /// the rule a chapter states, which the Always true tab marks it by.</summary>
     public IReadOnlyList<string> Tests { get; init; } = [];
 
+    /// <summary>The block's <c>status</c>, or <see langword="null"/> when it
+    /// states none — <c>deprecated</c> is what the Glossary strikes through.</summary>
+    public string? Status { get; init; }
+
     /// <summary>Every chapter under this one, depth first.</summary>
     public IEnumerable<DomainChapter> Descendants() =>
         Children.SelectMany(child => child.Descendants().Prepend(child));
@@ -350,7 +354,8 @@ public static partial class DomainUnits
             WithoutFences(prose.ToString(), "annotation", "meta").Trim(),
             children)
         {
-            Tests = List(meta.GetValueOrDefault("tests"))
+            Tests = List(meta.GetValueOrDefault("tests")),
+            Status = meta.GetValueOrDefault("status") is { Length: > 0 } status ? status : null
         };
     }
 

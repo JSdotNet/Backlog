@@ -1,0 +1,111 @@
+@page "/devbook/domain-flows"
+
+<PageTitle>Domain flows — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain flows"
+           Summary="A subpage of Devbook: the Flow page of the Domain view, which reads a bounded context's `flow.md` (local ADR 0036). A `stateDiagram-v2` is drawn as one row of states: forward transitions on the axis or above it, the ways back below it and dashed, the restore loop — the way from the last state back to the first — round the outside beneath them all, and the flow's prose under the row. Every other Mermaid diagram in the file keeps the rendering it has everywhere else."
+           Guidelines="@Rules">
+
+    <Story Name="Lifecycle row"
+           Description="A task's lifecycle: five states in one row. Draft to Ready to In progress to Done to Archived runs along the axis; Dropped skips ahead above it; Revision needed, Paused and Reopened step back below it; Restored, from Archived to Draft, is the outermost loop. Hover a transition for its full label; a screen reader hears the list of transitions instead of the drawing."
+           Code="@RowCode"
+           Source="@TaskLifecycle"
+           SourceLanguage="text">
+        <DomainFlowRow Diagram="@TaskDiagram" AriaLabel="Task lifecycle" />
+    </Story>
+
+    <Story Name="Start, end and self loops"
+           Description="Start and end pseudo-states sit at the row's ends, a filled dot and a ring. A transition from a state to itself is a small loop above it, and every label the source gives one pair of states is joined with a slash."
+           Code="@RowCode"
+           Source="@InboxLifecycle"
+           SourceLanguage="text">
+        <DomainFlowRow Diagram="@InboxDiagram" AriaLabel="Inbox item lifecycle" />
+    </Story>
+
+    <Story Name="Flow page"
+           Description="A whole `flow.md`: each chapter under its heading. The lifecycle chapter draws its state diagram as the row with its prose beneath it; the intake chapter's sequence diagram is not a state diagram, so it stays in the prose and renders as Mermaid always does."
+           Code="@PageCode"
+           Source="@FlowFile">
+        <DomainFlowPage File="@File" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why the row is monochrome: where a transition runs, and its dash, say which way it goes."),
+        new("accessibility.md#iconography-accessibility", "Why the drawing is hidden from a screen reader and the transitions are read as a list instead.")
+    ];
+
+    private const string TaskLifecycle = """
+        stateDiagram-v2
+            [*] --> Draft : Created
+            Draft --> Ready : Refined and actionable
+            Ready --> InProgress : Work started
+            InProgress --> Done : Work completed
+            Done --> Archived : Archived
+            Archived --> Draft : Restored
+            Ready --> Draft : Revision needed
+            InProgress --> Ready : Paused
+            Done --> InProgress : Reopened
+            Draft --> Archived : Dropped
+        """;
+
+    private const string InboxLifecycle = """
+        stateDiagram-v2
+            [*] --> Unprocessed : Captured
+            Unprocessed --> Routed : Route to Tasks
+            Unprocessed --> Routed : To Brain
+            Unprocessed --> Deferred : Defer
+            Deferred --> Deferred : Change the review date
+            Deferred --> Unprocessed : Review date reached
+            Routed --> [*]
+        """;
+
+    private const string FlowFile = """
+        # Tasks
+
+        ```meta
+        type: flow
+        ```
+
+        ## Task lifecycle
+
+        ```mermaid
+        stateDiagram-v2
+            [*] --> Draft : Created
+            Draft --> Ready : Refined and actionable
+            Ready --> Done : Work completed
+            Done --> Draft : Restored
+            Ready --> Draft : Revision needed
+        ```
+
+        - A task is created as `Draft` and becomes `Ready` once it can be acted on.
+        - Restoring a done task returns it to `Draft`, so it is refined again.
+
+        ## Capture intake
+
+        ```mermaid
+        sequenceDiagram
+            participant P as Phone
+            participant I as Inbox
+            P->>I: capture
+            I-->>P: acknowledged
+        ```
+
+        The intake decides by id and status and parses no token.
+        """;
+
+    private static readonly DomainFlowDiagram TaskDiagram = DomainFlows.Parse(TaskLifecycle)!;
+    private static readonly DomainFlowDiagram InboxDiagram = DomainFlows.Parse(InboxLifecycle)!;
+    private static readonly DomainChapterFile File = DomainUnits.Parse(FlowFile, ".devbook/domain/tasks/flow.md");
+
+    private const string RowCode = """
+        <DomainFlowRow Diagram="@DomainFlows.Parse(mermaidSource)" AriaLabel="Task lifecycle" />
+        """;
+
+    private const string PageCode = """
+        <DomainFlowPage File="@DomainUnits.Parse(markdown, ".devbook/domain/tasks/flow.md")"
+                        OnNavigate="OpenAsync" />
+        """;
+}
