@@ -99,7 +99,12 @@ public sealed class IterationSettings : IIterationSettings
             changed = after != before;
             if (changed)
             {
-                _store?.Set(ToStored(after.Length), after.TwoWeekStart);
+                // A length left alone is written back as held, so one a newer build wrote —
+                // read here as Week — rides along rather than becoming "week" everywhere.
+                var length = after.Length == before.Length && _store?.Choice is { } held
+                    ? held.Length
+                    : ToStored(after.Length);
+                _store?.Set(length, after.TwoWeekStart);
                 _current = after;
             }
         }

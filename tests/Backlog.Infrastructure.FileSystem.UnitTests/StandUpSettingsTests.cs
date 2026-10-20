@@ -195,6 +195,22 @@ public sealed class StandUpSettingsTests : IDisposable
         Assert.Equal(1, changes);
     }
 
+    /// <summary>ADR 0036 §4: a length a newer build wrote reads as Week here but rides along —
+    /// moving only the two-week start keeps it verbatim rather than replacing it with
+    /// <c>week</c> and pushing that to every desktop.</summary>
+    [Fact]
+    public void Moving_only_the_start_keeps_a_length_this_build_does_not_know()
+    {
+        WriteSettings("""{ "updatedAt": "2026-10-20T08:00:00Z", "length": "quarter" }""");
+        var store = Store();
+        var settings = new IterationSettings(store);
+        Assert.Equal(IterationLength.Week, settings.Length);
+
+        settings.SetTwoWeekStart(new DateOnly(2026, 10, 5));
+
+        Assert.Equal(new IterationChoice("quarter", new DateOnly(2026, 10, 5)), store.Choice);
+    }
+
     /// <summary>ADR 0036 §5: on the first start of this build, a length the person chose on
     /// the old one is what the setting reads.</summary>
     [Fact]
