@@ -15,6 +15,7 @@
     <DomainModelView Fences="@fences"
                      RelationshipNotes="@_notes"
                      Chapters="@_chapters"
+                     ChapterReferences="@_references"
                      AriaLabel="@($"Model of {_title}")" />
 }
 else if (_problem is not null)
@@ -40,6 +41,7 @@ else if (_problem is not null)
     private IReadOnlyList<DomainModelFence>? _fences;
     private string? _notes;
     private DomainChapterReading _chapters = DomainChapterReading.Empty;
+    private IReadOnlyDictionary<string, string>? _references;
     private string? _problem;
     private string _title = "Model";
     private (string? Alias, string? Path)? _loaded;
@@ -89,13 +91,15 @@ else if (_problem is not null)
         }
 
         if (_disposed || _loaded != (alias, path)) return;
-        (_fences, _title, _problem, _notes, _chapters) = (read.Fences, read.Title, read.Problem, read.Notes, read.Chapters);
+        (_fences, _title, _problem, _notes, _chapters, _references) = (read.Fences, read.Title, read.Problem, read.Notes, read.Chapters, read.References);
     }
 
     /// <summary>What the Model page shows of one model file: its class diagrams,
     /// its relationship notes, and the context's domain services and events — or
     /// why there is nothing to show.</summary>
-    internal sealed record ModelReading(IReadOnlyList<DomainModelFence>? Fences, string Title, string? Problem, string? Notes, DomainChapterReading Chapters)
+    /// <param name="References">The domain chapter each class of the diagram is,
+    /// by the name the model gives it, where a part's Brain notes are looked up.</param>
+    internal sealed record ModelReading(IReadOnlyList<DomainModelFence>? Fences, string Title, string? Problem, string? Notes, DomainChapterReading Chapters, IReadOnlyDictionary<string, string>? References = null)
     {
         public static ModelReading Failed(string problem) => new(null, "Model", problem, null, DomainChapterReading.Empty);
     }
@@ -124,13 +128,15 @@ else if (_problem is not null)
         // The prose the store keeps is an excerpt, so the notes and the domain
         // chapters are read from the files as written, through the store.
         var notes = RelationshipNotes(ReadText(view, document.Path));
-        var chapters = DomainChapterContracts.Read(
-            context!.Documents
-                .Where(d => d.Kind == DomainDevbookDocumentKind.Domain)
-                .Select(d => ReadText(view, d.Path) is { } text ? new DomainChapterSource(d.Path, text) : null)
-                .OfType<DomainChapterSource>());
+        var sources = context!.Documents
+            .Where(d => d.Kind == DomainDevbookDocumentKind.Domain)
+            .Select(d => ReadText(view, d.Path) is { } text ? new DomainChapterSource(d.Path, text) : null)
+            .OfType<DomainChapterSource>()
+            .ToList();
+        var chapters = DomainChapterContracts.Read(sources);
+        var references = DomainUnits.ModelReferences(sources.Select(source => DomainUnits.Parse(source.Markdown, source.Path)));
 
-        return new(fences, document.Title, null, notes, chapters);
+        return new(fences, document.Title, null, notes, chapters, references);
     }
 
     /// <summary>The body of the model file's <em>Relationship notes</em> chapter,

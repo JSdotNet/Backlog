@@ -24,7 +24,7 @@
             {
                 @foreach (var fence in Fences)
                 {
-                    <DomainModelDiagram Source="@fence.Source" Title="@fence.Title" />
+                    <DomainModelDiagram Source="@fence.Source" Title="@fence.Title" ChapterReferences="@ChapterReferences" />
                 }
             }
         </TabPanel>
@@ -72,6 +72,11 @@
     /// chapters.</summary>
     [Parameter]
     public DomainChapterReading Chapters { get; set; } = DomainChapterReading.Empty;
+
+    /// <summary>The domain chapter each class of the diagram is, by the name the
+    /// model gives it — where a part's Brain notes badge looks its notes up.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? ChapterReferences { get; set; }
 
     [Parameter]
     public string? AriaLabel { get; set; } = "Model";

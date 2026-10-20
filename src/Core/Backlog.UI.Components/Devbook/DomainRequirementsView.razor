@@ -62,6 +62,7 @@
                         <DevbookReferenceLink Reference="@featureReference" Text="@feature.Title" OnNavigate="OnNavigate" />
                     </p>
                 }
+                <DomainChapterTasks References="@([active.Reference])" TestId="domain-requirements-group-tasks" />
                 @if (active.Intro.Length > 0)
                 {
                     <div class="domain-requirements__intro" data-testid="domain-requirements-intro">
@@ -101,6 +102,7 @@
                                        TestId="domain-requirement-proof"
                                        Title="@ProofTitle(requirement)">@(requirement.Proved ? "✓ Proved" : "Not proved")</Badge>
                             </header>
+                            <DomainChapterTasks References="@([requirement.Reference])" TestId="domain-requirement-tasks" />
                             @if (requirement.Shall.Length > 0)
                             {
                                 <div class="domain-requirement__shall" data-testid="domain-requirement-shall">

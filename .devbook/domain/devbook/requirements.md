@@ -1738,3 +1738,43 @@ The system SHALL offer, from the Domain page's chapter bar, a Glossary that list
 - **Given** a term *Basket* whose `related` names *Draft Order*, and *Draft Order*'s names *Basket*
 - **When** the reader opens the Glossary
 - **Then** Easily confused sets *Basket* beside *Draft Order*, each with its first sentence
+
+### Requirement: A unit, feature or term shows the Brain notes linking to it
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/requirements.md#requirement-backlinks-reach-only-the-owner-and-write-nothing]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_unit_lists_the_notes_linking_to_it_or_to_a_chapter_inside_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_glossary_term_carries_its_notes_badge_and_box_and_a_term_with_none_carries_neither, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_model_part_counts_the_notes_linking_to_its_chapter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.Links_to_a_whole_file_name_no_chapter_and_a_note_is_listed_once_per_chapter, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainBacklinkTests.A_repository_s_links_read_per_heading_once_per_note_and_heading]
+```
+
+The system SHALL show under each unit, feature and glossary term of the Domain view the From your Brain box for the owner's Brain notes linking to that chapter or to a chapter inside it, and on each model-diagram part and glossary term a teal **◆ n note** badge counting them, and draw neither where no note links.
+
+#### Scenario: Notes on an aggregate and its entity
+
+- **Given** a Brain note *Plan* linking to the aggregate *Task* and a note *Steps idea* linking to its entity *Sub Item*
+- **When** the reader opens the Domain page on *Task*
+- **Then** the box under *Task* lists *Plan* and *Steps idea*, and on Model *SubItem*'s part reads ◆ 1 note
+
+#### Scenario: A term no note links to
+
+- **Given** a Brain note linking to the term *Inbox* and none to the term *Today*
+- **When** the reader opens the Glossary
+- **Then** *Inbox* carries ◆ 1 note and its box, and *Today* carries neither
+
+### Requirement: A feature or requirement shows the tasks naming it
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/features.md#bi-directional-linking]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_feature_shows_the_tasks_naming_it_gold_or_dashed_and_the_notes_linking_to_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.A_requirement_shows_the_tasks_naming_it_and_nothing_on_the_view_is_teal_but_the_Brains, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewBrainTaskLinksTests.Links_to_a_whole_file_name_no_chapter_and_a_note_is_listed_once_per_chapter]
+```
+
+The system SHALL show on a feature's detail and on each requirement the tasks whose Devbook references name that chapter as task chips, gold when this backlog holds the task and dashed, reading *not in this backlog*, when it does not, and pressing a gold chip SHALL open the task.
+
+#### Scenario: Two tasks on Capture
+
+- **Given** a task this backlog holds and a task id it does not hold, both naming the feature *Capture* in their Devbook references
+- **When** the reader picks *Capture* on Features
+- **Then** the detail shows the held task as a gold chip reading its title and the other as a dashed chip reading *not in this backlog*, and pressing the gold chip opens the task

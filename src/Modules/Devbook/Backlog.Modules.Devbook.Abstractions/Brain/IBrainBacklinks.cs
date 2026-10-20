@@ -22,7 +22,29 @@ public interface IBrainBacklinks
     /// spelling; a link to any heading of the file counts.
     /// </summary>
     Task<IReadOnlyList<BrainBacklink>> LinksToAsync(string repositoryAlias, string chapterPath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Every link the Brain holds into the repository <paramref name="repositoryAlias"/>,
+    /// one per note, chapter file and heading — what the Domain view reads once to
+    /// show each unit, feature and term the notes linking to it, and to count them
+    /// on a badge, rather than asking once per chapter. The path is as the note
+    /// writes it, in either devbook layout's spelling.
+    /// <para>
+    /// Implemented by default as none, so a double that answers
+    /// <see cref="LinksToAsync"/> alone still composes; the reader over the Brain's
+    /// database overrides it.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyList<BrainChapterBacklink>> ChapterLinksAsync(string repositoryAlias, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<BrainChapterBacklink>>([]);
 }
+
+/// <summary>One Brain note's link to one heading of a repository chapter file.</summary>
+/// <param name="ChapterPath">The chapter file's repository-relative path, as the
+/// note writes it.</param>
+/// <param name="Slug">The heading's slug, or null for a link to the whole file.</param>
+/// <param name="Note">The note, and the chapter of the note the link sits in.</param>
+public sealed record BrainChapterBacklink(string ChapterPath, string? Slug, BrainBacklink Note);
 
 /// <summary>One Brain note linking to a repository chapter.</summary>
 /// <param name="NotePath">The note's path in the Brain, as the menu names it —

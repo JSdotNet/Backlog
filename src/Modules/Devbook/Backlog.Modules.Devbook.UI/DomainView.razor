@@ -1,12 +1,25 @@
+@implements IDisposable
+@inject IServiceProvider Services
+@using Backlog.UI.Components.Brain
+
 @*
     The Domain area read by unit (local ADR 0036), behind the New domain view
     switch. It names the page the selected menu row opens and draws it: Domain,
     Context, Features, Requirements, Model and Flow so far, and a placeholder for each other
     kind of file, which the plan +devbook-domain-view's later steps replace one page
     at a time. With the switch off the pane renders DomainDevbookPanel and never this.
+
+    Every page reads the same Brain and task links, cascaded as DomainChapterLinks:
+    the owner's Brain notes linking to each chapter, read once per repository
+    (local ADR 0027 §6), and the tasks whose Devbook references name it, asked of
+    the shell (ADR 0026 §3). Teal is the Brain's alone
+    (.devbook/design/color-scheme.md#the-brains-accent): the From your Brain box
+    and the notes badge wear it, the task chips are gold, and nothing else here
+    does.
 *@
 
 <section class="domain-view" data-testid="domain-view" data-page="@PageKey" aria-label="Domain view">
+<CascadingValue Value="@Links" IsFixed="false">
     @if (Page == DomainViewPage.Domain)
     {
         <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter"
@@ -57,6 +70,7 @@
                 TestId="domain-view-placeholder"
                 role="status" />
     }
+</CascadingValue>
 </section>
 
 @code {
@@ -74,7 +88,150 @@
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
+    /// <summary>Every task's Devbook references, for the repository the view
+    /// reads — asked of the shell, since the tasks are another module's. Unset, no
+    /// page shows a task.</summary>
+    [Parameter]
+    public Func<string, IReadOnlyList<DevbookTaskReferences>>? TaskReferencesFor { get; set; }
+
+    /// <summary>The title of the task with this id in this backlog, or null —
+    /// a task chip then reads "not in this backlog".</summary>
+    [Parameter]
+    public Func<string, string?>? TaskTitleFor { get; set; }
+
+    /// <summary>Raised with a task id when the reader follows a task chip.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenTask { get; set; }
+
+    /// <summary>Raised with a Brain note's path when the reader follows one out of
+    /// a From your Brain box or a notes badge. Unset, notes are listed as text.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenNote { get; set; }
+
     private DomainViewPage Page => DomainViewUnit.PageFor(SelectedPath);
+
+    private IBrainBacklinks? _backlinks;
+    private IBrainFolderSource? _brain;
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<BrainBacklink>> NoNotes = new Dictionary<string, IReadOnlyList<BrainBacklink>>();
+    private IReadOnlyDictionary<string, IReadOnlyList<BrainBacklink>> _notes = NoNotes;
+    private IReadOnlyDictionary<string, IReadOnlyList<BrainNoteLink>> _noteLinks = DomainChapterLinks.None.Notes;
+    private CancellationTokenSource? _reading;
+    private string? _notesFor;
+    private bool _notesLoaded;
+    private int _notesRead;
+    private bool _disposed;
+    private DomainChapterLinks Links { get; set; } = DomainChapterLinks.None;
+
+    protected override void OnInitialized()
+    {
+        _backlinks = Services.GetService<IBrainBacklinks>();
+
+        // A rebuilt Brain database is announced on the Brain's own source, as the
+        // From your Brain box under the page hears it.
+        _brain = Services.GetService<IBrainFolderSource>();
+        if (_brain is not null) _brain.Changed += OnBrainChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        OnParametersSetCore();
+        if (_notesLoaded && string.Equals(_notesFor, RepositoryAlias, StringComparison.OrdinalIgnoreCase)) return;
+
+        // Another repository's notes never stand on this one's chapters while its
+        // own are read: the keys are relative to the domain folder, so they would
+        // land on the same-named chapter.
+        if (_notesLoaded) (_notes, _noteLinks, Links) = (NoNotes, DomainChapterLinks.None.Notes, BuildLinks());
+
+        (_notesLoaded, _notesFor) = (true, RepositoryAlias);
+        await LoadNotesAsync();
+        Links = BuildLinks();
+    }
+
+    /// <summary>Only the latest read lands, as in the box: a repository changed
+    /// while the Brain was being read must not show the previous one's notes.</summary>
+    private async Task LoadNotesAsync()
+    {
+        var read = ++_notesRead;
+        var alias = RepositoryAlias;
+        _reading?.Cancel();
+        _reading?.Dispose();
+        _reading = null;
+
+        IReadOnlyList<BrainChapterBacklink> links = [];
+        if (_backlinks is not null && !string.IsNullOrWhiteSpace(alias))
+        {
+            var reading = _reading = new CancellationTokenSource();
+            try
+            {
+                links = await _backlinks.ChapterLinksAsync(alias, reading.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                links = [];
+            }
+        }
+
+        if (read != _notesRead || _disposed) return;
+        _notes = DomainViewLinks.NotesByChapter(links);
+        _noteLinks = DomainViewLinks.NoteLinks(_notes);
+    }
+
+    /// <summary>The links every page reads: the notes as read, the tasks as the
+    /// shell holds them now, and the host's box and ways to open a note or task.</summary>
+    private DomainChapterLinks BuildLinks()
+    {
+        var tasks = RepositoryAlias is { Length: > 0 } alias && TaskReferencesFor is { } references
+            ? DomainViewLinks.TasksByChapter(references(alias), TaskTitleFor)
+            : null;
+        var notes = _notes;
+
+        return new DomainChapterLinks
+        {
+            Notes = _noteLinks,
+            Tasks = tasks ?? DomainChapterLinks.None.Tasks,
+            NotesBox = covered => @<BrainBacklinksBox RepositoryAlias="@RepositoryAlias"
+                                                     Links="@DomainViewLinks.NotesOn(notes, covered)"
+                                                     OnOpenNote="OnOpenNote" />,
+            OnOpenNote = OnOpenNote.HasDelegate
+                ? EventCallback.Factory.Create<BrainNoteLink>(this, note => OnOpenNote.InvokeAsync(note.Path))
+                : default,
+            OnOpenTask = OnOpenTask
+        };
+    }
+
+    private async void OnBrainChanged()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                if (_disposed) return;
+                await LoadNotesAsync();
+                Links = BuildLinks();
+                StateHasChanged();
+            });
+        }
+        catch (Exception)
+        {
+            // An async void handler, as the box's: a note count is not worth the
+            // process. The next change or repository reads again.
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _reading?.Cancel();
+        _reading?.Dispose();
+        _reading = null;
+        if (_brain is not null) _brain.Changed -= OnBrainChanged;
+    }
 
     /// <summary>
     /// The chapter a link on Features or Requirements asked for: the file, its
@@ -91,8 +248,12 @@
     private AskedChapter? Asked =>
         _asked is { } asked && string.Equals(asked.RelativePath, SelectedPath, StringComparison.OrdinalIgnoreCase) ? asked : null;
 
-    protected override void OnParametersSet()
+    private void OnParametersSetCore()
     {
+        // The shell's tasks move on every render it makes; the notes are read
+        // only when the repository or the Brain does.
+        Links = BuildLinks();
+
         // The reader moved somewhere other than where the link asked to go.
         if (!string.Equals(_shownPath, SelectedPath, StringComparison.OrdinalIgnoreCase) && Asked is null) _asked = null;
         _shownPath = SelectedPath;

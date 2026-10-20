@@ -534,6 +534,26 @@ public static partial class DomainUnits
         return item[..cut].Trim().TrimEnd('.', '—', '-', '–').Trim();
     }
 
+    /// <summary>
+    /// The chapter each typed chapter of <paramref name="files"/> is in a class
+    /// diagram, by the name the model gives it (<see cref="DomainMember.ModelName"/>'s
+    /// reading): what lets a part of the Model page's diagram find the chapter its
+    /// Brain notes link to. A term or a grouping is no class, so only the model's
+    /// own chapters answer; the first to claim a name keeps it.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> ModelReferences(IEnumerable<DomainChapterFile> files)
+    {
+        var references = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var file in files)
+        {
+            foreach (var chapter in file.AllChapters().Where(chapter => chapter.Type is not null and not "term" and not "ubiquitous-language" && chapter.Anchor.Length > 0))
+            {
+                references.TryAdd(ModelName(chapter), file.ReferenceTo(chapter));
+            }
+        }
+        return references;
+    }
+
     /// <summary>The heading run together, when an alias spells it that way in any
     /// case — <c>Recurrence</c> over an earlier <c>Repeat</c> — else the first alias
     /// that is an identifier, else the heading run together.</summary>

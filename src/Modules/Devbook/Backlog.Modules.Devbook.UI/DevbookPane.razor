@@ -806,8 +806,17 @@
     [Parameter]
     public Func<string, string?>? TaskTitleFor { get; set; }
 
+    /// <summary>
+    /// Every task's Devbook references, for one repository, which the Domain view
+    /// reads to show on a feature or requirement the tasks naming it (local ADR
+    /// 0026 §3). Asked of the shell because the tasks are another module's; unset,
+    /// the view shows no task.
+    /// </summary>
+    [Parameter]
+    public Func<string, IReadOnlyList<DevbookTaskReferences>>? TaskReferencesFor { get; set; }
+
     /// <summary>Raised with a task id when the reader follows a task out of a Brain
-    /// note's Tasks section. The shell opens it, as it opens a session's entry.</summary>
+    /// note's Tasks section, or out of a chip on the Domain view. The shell opens it, as it opens a session's entry.</summary>
     [Parameter]
     public EventCallback<string> OnOpenTask { get; set; }
 
@@ -2423,7 +2432,11 @@
             @* The New domain view switch reads here and nowhere else in the pane:
                on, the Domain area is read by unit (local ADR 0036); off, it is the
                panel below, unchanged. *@
-            "domain" when DomainViewEnabled => @<DomainView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
+            "domain" when DomainViewEnabled => @<DomainView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter"
+                                                            TaskReferencesFor="@TaskReferencesFor"
+                                                            TaskTitleFor="@TaskTitleFor"
+                                                            OnOpenTask="OnOpenTask"
+                                                            OnOpenNote="@(OpenSearchResultElsewhere.HasDelegate ? _openBacklinkNote : default)" />,
             "domain" => @<DomainDevbookPanel Compact="true" ShowContextTabs="false" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("domain", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,
             "instructions" => @<InstructionsDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,

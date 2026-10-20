@@ -545,6 +545,8 @@ repository's devbook*.
 | An unresolved `repo:` link chip | the `quiet` tone inside a dashed `color-border-strong` edge, with *not on this machine* in words |
 | The **Tasks** section of a Brain note, and the **◆ n note** badge on a task row naming the Brain notes that link to it | the band painting: 4px `color-band-2` leading border, its 24% surface, `color-text-primary` ink |
 | A task chip in a note's Tasks section | gold, the `live` tone, when this backlog holds the task, since following it opens the task; the `quiet` tone inside a dashed `color-border-strong` edge, with *not in this backlog* in words, when it does not |
+| The **From your Brain** box under a unit, feature or glossary term of the Domain view, and the **◆ n note** badge on a model part or a glossary term | the band painting, as the box under a chapter and the badge on a task row; nothing else on the Domain view is teal |
+| A task chip on a feature or requirement of the Domain view | as a task chip in a note's Tasks section: gold when this backlog holds the task, dashed with *not in this backlog* when it does not |
 
 Rules:
 
