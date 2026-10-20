@@ -20,6 +20,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Replaces the SDK's implicit reference (private, like it), whose version
+         follows the SDK patch; why is at its PackageVersion in
+         Directory.Packages.props. -->
+    <PackageReference Include="Microsoft.AspNetCore.App.Internal.Assets" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Program is the compiler-generated entry point of a top-level file, and
          internal. tests/Backlog.HostComposition.UnitTests starts this harness
          through WebApplicationFactory<Program> to prove the host still composes,
