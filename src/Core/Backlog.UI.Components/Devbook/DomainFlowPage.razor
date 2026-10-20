@@ -1,10 +1,11 @@
 @*
     The Flow page of the Domain view (local ADR 0036): a context's flow.md, one
-    section per chapter. A chapter holding a stateDiagram-v2 reads as that
-    lifecycle drawn as one row of states (DomainFlowRow), with the chapter's prose
-    beneath it. Every other Mermaid diagram — a sequence, a flowchart, a state
-    diagram the row cannot hold — stays in the prose and keeps the rendering it has
-    everywhere else.
+    section per chapter. Each diagram the page can read is drawn in the
+    lifecycle's cards, lines and type, with the chapter's prose beneath it: a
+    stateDiagram-v2 as one row of states (DomainFlowRow), a flowchart in ranks
+    (DomainFlowchart), a sequenceDiagram as cards and lifelines (DomainSequence).
+    A Mermaid diagram none of them can read stays in the prose and keeps the
+    rendering it has everywhere else.
 
     Pure: the host hands over the file it read, so the storybook draws the same
     page from a sample string.
@@ -30,9 +31,20 @@
                      data-flow="@section.Chapter.Anchor"
                      aria-label="@section.Chapter.Title">
                 <h2 class="domain-unit__title">@section.Chapter.Title</h2>
-                @foreach (var diagram in section.Diagrams)
+                @foreach (var figure in section.Diagrams)
                 {
-                    <DomainFlowRow Diagram="@diagram" AriaLabel="@($"{section.Chapter.Title}, drawn as one row of states")" />
+                    @switch (figure)
+                    {
+                        case DomainFlowDiagram row:
+                            <DomainFlowRow Diagram="@row" AriaLabel="@($"{section.Chapter.Title}, drawn as one row of states")" />
+                            break;
+                        case DomainFlowchartDiagram chart:
+                            <DomainFlowchart Diagram="@chart" AriaLabel="@($"{section.Chapter.Title}, drawn as a flowchart")" />
+                            break;
+                        case DomainSequenceDiagram sequence:
+                            <DomainSequence Diagram="@sequence" AriaLabel="@($"{section.Chapter.Title}, drawn as a sequence")" />
+                            break;
+                    }
                 }
                 @if (section.Prose.Length > 0)
                 {

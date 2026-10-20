@@ -20958,6 +20958,74 @@ select.field__input {
     stroke-linejoin: round;
 }
 
+/*
+  A flowchart and a sequence on the Flow page wear the row's cards, lines,
+  arrowhead and labels; a dotted link and a reply are dashed as a way back is.
+*/
+
+.domain-flow__text {
+    fill: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+}
+
+.domain-flow__link--dotted .domain-flow__line {
+    stroke-dasharray: 5 3;
+}
+
+.domain-flow__link--thick .domain-flow__line {
+    stroke-width: 2.25;
+}
+
+.domain-flow__lifeline,
+.domain-flow__divider {
+    fill: none;
+    stroke: var(--color-border);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+}
+
+.domain-flow__note {
+    fill: var(--color-background-raised);
+    stroke: var(--color-border);
+    stroke-width: 1;
+}
+
+.domain-flow__note-text {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+}
+
+.domain-flow__frame-label {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    paint-order: stroke;
+    stroke: var(--color-background);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+}
+
+.domain-flow__frame {
+    fill: none;
+    stroke: var(--color-border);
+    stroke-width: 1;
+}
+
+.domain-flow__frame-tag {
+    fill: var(--color-background-raised);
+    stroke: var(--color-border);
+    stroke-width: 1;
+}
+
+.domain-flow__frame-keyword {
+    fill: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
 /* --- Domain view: Features and Requirements -------------------------------- */
 /*
   The Features page reads a context's features in columns by what they build

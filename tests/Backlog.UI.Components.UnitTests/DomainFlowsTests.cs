@@ -3,8 +3,9 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// The Flow page's row (local ADR 0036): a flow's <c>stateDiagram-v2</c> read as one
 /// row of states, forward transitions above it, the ways back below it, and the
-/// restore loop — the last state back to the first — round the outside; every
-/// other Mermaid diagram left to the rendering it already has.
+/// restore loop — the last state back to the first — round the outside; a
+/// flowchart and a sequence drawn in the same style; and a diagram none of them
+/// can read left to the rendering it already has.
 /// </summary>
 public sealed class DomainFlowsTests
 {
@@ -51,6 +52,15 @@ public sealed class DomainFlowsTests
         ```
 
         The intake parses no token.
+
+        ## Task model
+
+        ```mermaid
+        classDiagram
+            class Task
+        ```
+
+        A task has a title.
         """;
 
     [Fact]
@@ -161,8 +171,13 @@ public sealed class DomainFlowsTests
         Assert.Contains("A done task can be restored.", lifecycle.Prose);
 
         var intake = DomainFlows.Section(file.Chapters[1]);
-        Assert.Empty(intake.Diagrams);
-        Assert.Contains("sequenceDiagram", intake.Prose);
+        Assert.IsType<DomainSequenceDiagram>(Assert.Single(intake.Diagrams));
+        Assert.DoesNotContain("sequenceDiagram", intake.Prose);
+        Assert.Contains("The intake parses no token.", intake.Prose);
+
+        var model = DomainFlows.Section(file.Chapters[2]);
+        Assert.Empty(model.Diagrams);
+        Assert.Contains("classDiagram", model.Prose);
     }
 
     [Fact]
@@ -174,7 +189,7 @@ public sealed class DomainFlowsTests
             .Add(p => p.File, DomainUnits.Parse(FlowFile, ".devbook/domain/tasks/flow.md")));
 
         var sections = page.FindAll("[data-testid='domain-flow-section']");
-        Assert.Equal(["task-lifecycle", "capture-intake"], sections.Select(section => section.GetAttribute("data-flow")));
+        Assert.Equal(["task-lifecycle", "capture-intake", "task-model"], sections.Select(section => section.GetAttribute("data-flow")));
 
         var lifecycle = sections[0];
         var row = lifecycle.QuerySelector("[data-testid='domain-flow-row']")!;
@@ -183,8 +198,11 @@ public sealed class DomainFlowsTests
         Assert.True(row.CompareDocumentPosition(list).HasFlag(AngleSharp.Dom.DocumentPositions.Following));
         Assert.Empty(lifecycle.QuerySelectorAll("[data-testid='diagram-view']"));
 
-        Assert.Single(sections[1].QuerySelectorAll("[data-testid='diagram-view']"));
-        Assert.Empty(sections[1].QuerySelectorAll("[data-testid='domain-flow-row']"));
+        Assert.Single(sections[1].QuerySelectorAll("[data-testid='domain-sequence']"));
+        Assert.Empty(sections[1].QuerySelectorAll("[data-testid='diagram-view']"));
+
+        Assert.Single(sections[2].QuerySelectorAll("[data-testid='diagram-view']"));
+        Assert.Empty(sections[2].QuerySelectorAll("[data-testid='domain-flow-row'], [data-testid='domain-flowchart'], [data-testid='domain-sequence']"));
     }
 
     [Fact]
