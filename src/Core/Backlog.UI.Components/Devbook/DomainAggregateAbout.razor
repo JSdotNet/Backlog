@@ -1,0 +1,104 @@
+@*
+    An aggregate's About tab in the Domain view (local ADR 0036): the chapter's
+    prose, one card per entity or value object it owns — its heading, its first
+    sentence, and the name the model gives it, small beneath — its enums as rows
+    of values, and the events it raises.
+
+    The card names the model's name and nothing of its fields: field types are
+    Model's (§6).
+*@
+
+<div class="domain-about" data-testid="domain-aggregate-about">
+    @if (Chapter.Prose.Length > 0)
+    {
+        <MarkdownView Blocks="@_prose"
+                      Source="@Chapter.Prose"
+                      DevbookDocumentPath="@DocumentPath"
+                      DevbookFolder="DevbookFolder.Domain"
+                      OnDevbookNavigate="OnNavigate" />
+    }
+
+    @if (_members.Count > 0)
+    {
+        <section class="domain-about__section" data-testid="domain-unit-members" aria-labelledby="@($"{_id}-members")">
+            <h3 class="domain-about__heading" id="@($"{_id}-members")">What it holds</h3>
+            <ul class="domain-about__cards">
+                @foreach (var member in _members)
+                {
+                    <li class="domain-about__card-item">
+                        <Card Compact="true" CssClass="domain-about__card" AriaLabel="@member.Title" TestId="domain-unit-member" data-type="@member.Type">
+                            <h4 class="domain-about__card-title"><DevbookTypeMarker Value="@member.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@member.Title</h4>
+                            @if (member.Summary.Length > 0)
+                            {
+                                <p class="domain-about__card-summary">@member.Summary</p>
+                            }
+                            <p class="domain-about__card-model" data-testid="domain-unit-member-model">@member.ModelName</p>
+                        </Card>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    @if (_enums.Count > 0)
+    {
+        <section class="domain-about__section" data-testid="domain-unit-enums" aria-labelledby="@($"{_id}-enums")">
+            <h3 class="domain-about__heading" id="@($"{_id}-enums")">Its values</h3>
+            <dl class="domain-about__enums">
+                @foreach (var item in _enums)
+                {
+                    <div class="domain-about__enum" data-testid="domain-unit-enum" data-enum="@item.Title">
+                        <dt class="domain-about__enum-title"><DevbookTypeMarker Value="enum" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@item.Title</dt>
+                        <dd class="domain-about__enum-values">
+                            @if (item.Values.Count > 0)
+                            {
+                                <ul class="domain-about__values">
+                                    @foreach (var value in item.Values)
+                                    {
+                                        <li class="domain-about__value"><code>@value</code></li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                @item.Summary
+                            }
+                        </dd>
+                    </div>
+                }
+            </dl>
+        </section>
+    }
+
+    <DomainEventList Events="@Events" />
+</div>
+
+@code {
+    /// <summary>The aggregate's chapter.</summary>
+    [Parameter, EditorRequired]
+    public DomainChapter Chapter { get; set; } = default!;
+
+    /// <summary>The file the chapter is in, which a relative link in its prose
+    /// resolves against.</summary>
+    [Parameter]
+    public string? DocumentPath { get; set; }
+
+    /// <summary>The events the aggregate raises.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainEventLine> Events { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    private readonly string _id = $"domain-about-{Guid.NewGuid():N}";
+    private IReadOnlyList<MdBlock> _prose = [];
+    private IReadOnlyList<DomainMember> _members = [];
+    private IReadOnlyList<DomainEnum> _enums = [];
+
+    protected override void OnParametersSet()
+    {
+        _prose = MarkdownPreview.ParseDocument(Chapter.Prose);
+        _members = DomainUnits.Members(Chapter);
+        _enums = DomainUnits.Enums(Chapter);
+    }
+}

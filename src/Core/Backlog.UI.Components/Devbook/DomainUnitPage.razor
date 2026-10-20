@@ -1,0 +1,193 @@
+@*
+    The Domain page of the Domain view (local ADR 0036): one unit of a `.domain`
+    file at a time.
+
+    A file holding more than one unit — an unsplit `domain.md`, with its
+    aggregates, domain services and Glossary — offers them as a chapter bar
+    inside the page (§4), each led by the mark DevbookTypeMarker draws for its
+    type. A split `domain.<name>.md` holds one aggregate and opens on it with no
+    bar: the menu row was the picking.
+
+    What a unit shows is the unit's kind. An aggregate opens on About with Always
+    true beside it; a domain service is one page; Glossary is its terms. Nothing
+    here names a field type, an invocation detail or an event payload — those are
+    Model's (§6).
+
+    Pure: the host hands over the files it read, so the storybook draws the same
+    page from a sample string.
+*@
+
+<article class="domain-units" data-testid="@TestId" aria-label="@AriaLabel">
+    @if (_units.Count == 0)
+    {
+        <EmptyState Title="No units"
+                    Description="This file holds no aggregate, domain service or Glossary to show."
+                    TestId="domain-units-empty"
+                    role="status" />
+    }
+    else if (_units.Count == 1)
+    {
+        @Unit(_units[0])
+    }
+    else
+    {
+        <Tabs ActiveId="@ActiveTabId"
+              ActiveIdChanged="SelectAsync"
+              AriaLabel="Units"
+              CssClass="domain-units__bar"
+              ListTestId="domain-units-bar"
+              TestId="domain-units-tabs">
+            @foreach (var unit in _units)
+            {
+                <TabPanel @key="unit.Key"
+                          Id="@TabId(unit)"
+                          Title="@unit.Label"
+                          TitleContent="@BarLabel(unit)"
+                          TabTestId="@($"domain-unit-tab-{unit.Key}")">
+                    @Unit(unit)
+                </TabPanel>
+            }
+        </Tabs>
+    }
+</article>
+
+@code {
+    /// <summary>The file the menu row opened.</summary>
+    [Parameter, EditorRequired]
+    public DomainChapterFile File { get; set; } = default!;
+
+    /// <summary>Every domain file of the context, the opened one included — where
+    /// the events a unit raises are looked for. Empty means the opened file
+    /// alone.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainChapterFile> DomainFiles { get; set; } = [];
+
+    /// <summary>The context's requirements files, which a domain service's "You
+    /// can count on" is read from.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainChapterFile> RequirementFiles { get; set; } = [];
+
+    /// <summary>The unit the chapter bar has picked, by its anchor. Unset, or an
+    /// anchor the file does not hold, is the first unit.</summary>
+    [Parameter]
+    public string? ActiveUnit { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ActiveUnitChanged { get; set; }
+
+    /// <summary>A reference the reader followed: a requirement, or a link in the
+    /// prose.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Domain";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-units";
+
+    private IReadOnlyList<DomainUnit> _units = [];
+    private DomainChapterFile? _read;
+    private string? _active;
+    private string? _activeParameter;
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(_read, File))
+        {
+            _read = File;
+            _units = DomainUnits.Of(File);
+        }
+
+        // Taken from the host only when the host changed it: a host that does not
+        // bind the pick keeps the reader's across its own re-renders.
+        if (!string.Equals(_activeParameter, ActiveUnit, StringComparison.Ordinal))
+        {
+            _activeParameter = ActiveUnit;
+            _active = ActiveUnit;
+        }
+    }
+
+    private string? ActiveTabId =>
+        _units.FirstOrDefault(unit => string.Equals(unit.Key, _active, StringComparison.Ordinal)) is { } active
+            ? TabId(active)
+            : null;
+
+    private static string TabId(DomainUnit unit) => $"domain-unit-{unit.Key}";
+
+    private async Task SelectAsync(string tabId)
+    {
+        var unit = _units.FirstOrDefault(candidate => TabId(candidate) == tabId);
+        if (unit is null) return;
+
+        _active = unit.Key;
+        await ActiveUnitChanged.InvokeAsync(unit.Key);
+    }
+
+    private IReadOnlyList<DomainChapterFile> EventFiles => DomainFiles.Count > 0 ? DomainFiles : [File];
+
+    // Read once per set of files, so a re-render hands the same lists down and the
+    // unit's renderers do not read their chapters again.
+    private readonly Dictionary<string, IReadOnlyList<DomainEventLine>> _events = [];
+    private readonly Dictionary<string, IReadOnlyList<DomainGuarantee>> _guarantees = [];
+    private (DomainChapterFile?, IReadOnlyList<DomainChapterFile>?, IReadOnlyList<DomainChapterFile>?) _readFrom;
+
+    private IReadOnlyList<DomainEventLine> EventsOf(DomainUnit unit)
+    {
+        Reset();
+        if (!_events.TryGetValue(unit.Key, out var events)) _events[unit.Key] = events = DomainUnits.EventsRaisedBy(unit.Reference, EventFiles);
+        return events;
+    }
+
+    private IReadOnlyList<DomainGuarantee> GuaranteesOf(DomainUnit unit)
+    {
+        Reset();
+        if (!_guarantees.TryGetValue(unit.Key, out var guarantees)) _guarantees[unit.Key] = guarantees = DomainUnits.Guarantees(unit, RequirementFiles);
+        return guarantees;
+    }
+
+    private void Reset()
+    {
+        if (_readFrom.Item1 == File && _readFrom.Item2 == DomainFiles && _readFrom.Item3 == RequirementFiles) return;
+        _readFrom = (File, DomainFiles, RequirementFiles);
+        _events.Clear();
+        _guarantees.Clear();
+    }
+
+    private static RenderFragment BarLabel(DomainUnit unit) =>
+        @<span class="domain-units__tab"><DevbookTypeMarker Value="@unit.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@unit.Label</span>;
+
+    private RenderFragment Unit(DomainUnit unit) =>
+        @<section @key="@($"{File.Path}#{unit.Key}")" class="domain-unit domain-unit--@unit.Type" data-testid="domain-unit" data-unit="@unit.Key" aria-label="@unit.Label">
+            <h2 class="domain-unit__title"><DevbookTypeMarker Value="@unit.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@unit.Label</h2>
+            @switch (unit.Kind)
+            {
+                case DomainUnitKind.Aggregate:
+                    <Tabs AriaLabel="@($"{unit.Label} pages")" CssClass="domain-unit__tabs" ListTestId="domain-unit-tabs">
+                        <TabPanel Id="@($"domain-unit-{unit.Key}-about")" Title="About" TabTestId="domain-unit-about-tab">
+                            <DomainAggregateAbout Chapter="@unit.Chapter"
+                                                  DocumentPath="@File.Path"
+                                                  Events="@EventsOf(unit)"
+                                                  OnNavigate="OnNavigate" />
+                        </TabPanel>
+                        <TabPanel Id="@($"domain-unit-{unit.Key}-always-true")" Title="Always true" TabTestId="domain-unit-always-true-tab">
+                            <EmptyState Title="Always true"
+                                        Description="@($"The rules {unit.Label} always keeps will show here.")"
+                                        TestId="domain-unit-always-true"
+                                        role="status" />
+                        </TabPanel>
+                    </Tabs>
+                    break;
+                case DomainUnitKind.DomainService:
+                    <DomainServiceAbout Chapter="@unit.Chapter"
+                                        DocumentPath="@File.Path"
+                                        Guarantees="@GuaranteesOf(unit)"
+                                        Events="@EventsOf(unit)"
+                                        OnNavigate="OnNavigate" />
+                    break;
+                default:
+                    <DomainGlossary Chapter="@unit.Chapter" DocumentPath="@File.Path" OnNavigate="OnNavigate" />
+                    break;
+            }
+        </section>;
+}
