@@ -49,6 +49,57 @@ public sealed class DomainViewModelPageTests : IDisposable
             }
             Task "1" *-- "0..*" SubItem : contains
         ```
+
+        ## Relationship notes
+
+        - `Task` is the only consistency boundary.
+        """;
+
+    private const string Domain = """
+        # Domain: Tasks
+
+        ```meta
+        status: draft
+        ```
+
+        What the tasks context is.
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        status: draft
+        ```
+
+        A refined, actionable item.
+
+        ## Occurrence Spawning
+
+        ```meta
+        type: domain-service
+        status: proposed
+        ```
+
+        Creates the next occurrence of a repeating task. Invocation semantics:
+        called synchronously by the use case that completes the task.
+
+        ## StatusChanged
+
+        ```meta
+        type: domain-event
+        status: draft
+        related: [.devbook/domain/tasks/domain.md#task]
+        ```
+
+        Published when a `Task` changes status.
+
+        ### Payload
+
+        - `task_id` - task identifier.
+
+        ### Consumers
+
+        - Monitoring & Dashboard.
         """;
 
     private const string Split = """
@@ -92,6 +143,35 @@ public sealed class DomainViewModelPageTests : IDisposable
     }
 
     [Fact]
+    public async Task Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters()
+    {
+        await using var harness = CreateHarness();
+
+        var view = harness.Context.Render<DomainView>(parameters => parameters
+            .Add(v => v.RepositoryAlias, harness.RepositoryAlias)
+            .Add(v => v.SelectedPath, "tasks/model.md"));
+
+        view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='domain-model-band']")), Patience);
+        await view.InvokeAsync(() => view.Find("[data-testid='domain-model-tab-fields']").Click());
+
+        view.WaitForAssertion(() => Assert.Equal(["Task", "SubItem"], view.FindAll("[data-testid='domain-fields-class']").Select(c => c.GetAttribute("data-name"))), Patience);
+        Assert.Contains("only consistency boundary", view.Find("[data-testid='domain-model-relationship-notes']").TextContent);
+        var service = view.Find("[data-testid='domain-service-invocation']");
+        Assert.Equal("Occurrence Spawning", service.GetAttribute("data-name"));
+        Assert.Contains("Called synchronously", service.TextContent);
+
+        await view.InvokeAsync(() => view.Find("[data-testid='domain-model-tab-events']").Click());
+
+        view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='domain-event']")), Patience);
+        var statusChanged = view.Find("[data-testid='domain-event']");
+        Assert.Equal("StatusChanged", statusChanged.GetAttribute("data-name"));
+        Assert.Equal("documented", statusChanged.GetAttribute("data-delivery"));
+        Assert.Contains("Task", statusChanged.QuerySelector("[data-testid='domain-event-raised-by']")!.TextContent);
+        Assert.Contains("task_id", statusChanged.QuerySelector("[data-testid='domain-event-payload']")!.TextContent);
+        Assert.Contains("Monitoring", statusChanged.QuerySelector("[data-testid='domain-event-consumers']")!.TextContent);
+    }
+
+    [Fact]
     public async Task A_split_model_file_opens_the_model_page_and_falls_back_to_mermaid_without_a_root()
     {
         await using var harness = CreateHarness();
@@ -124,7 +204,7 @@ public sealed class DomainViewModelPageTests : IDisposable
         _roots.Add(root);
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts and what joins them.\n");
-        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain: Tasks\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n");
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), Domain);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "model.md"), Model);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "model.scheduling.md"), Split);
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");

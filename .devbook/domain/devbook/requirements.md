@@ -1522,6 +1522,42 @@ The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, be
 - **When** the reader opens Model
 - **Then** Diagram draws the fence with mermaid
 
+### Requirement: Fields groups each class's attributes by kind
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL list on Model's Fields tab each class of the `classDiagram` that holds state, with its attributes grouped by what their types say — dates and times, ids pointing elsewhere, owned parts, vocabularies and other values, in that order — the model file's relationship notes beneath, and each domain-service chapter's invocation semantics under *Domain services · how they run*.
+
+#### Scenario: A task's fields
+
+- **Given** a `model.md` whose aggregate root *Task* has `+Date due_on`, `+List~Id~ depends_on`, `+TaskStatus status` for an enumeration *TaskStatus*, and `+String title`, and composes *SubItem* as `"0..*"`
+- **When** the reader opens Model and picks Fields
+- **Then** *due_on* is under Dates and times, *depends_on* under Ids pointing elsewhere, *SubItem* under Owned parts marked `0..*`, *status* under Vocabularies with *TaskStatus*'s values, and *title* under Other values
+
+#### Scenario: How a service runs
+
+- **Given** a `domain-service` chapter *Occurrence Spawning* whose prose says *Invocation semantics: called synchronously by the use case that completes the task.*
+- **When** the reader opens Model and picks Fields
+- **Then** *Domain services · how they run* names *Occurrence Spawning* with *Called synchronously by the use case that completes the task.*
+
+### Requirement: Events reads each event as a contract
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL list on Model's Events tab each `domain-event` chapter of the context with what raises it, its consumers, its payload and its published-language rules as the chapter writes them, and mark it *Emitted* only when the chapter that raises it says it emits or publishes it and no chapter says it is not emitted yet, and *Documented* otherwise.
+
+#### Scenario: A documented event
+
+- **Given** a `domain-event` chapter *StatusChanged* whose `related` names the aggregate *Task*, with *Payload* and *Consumers* sub-chapters, in a context whose chapters say it publishes no domain events yet
+- **When** the reader opens Model and picks Events
+- **Then** *StatusChanged* is raised by *Task*, shows its payload and consumers, and is marked *Documented*
+
 ### Requirement: The context map reads as a map and as a list
 
 ```meta

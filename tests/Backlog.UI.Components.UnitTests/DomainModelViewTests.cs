@@ -37,10 +37,78 @@ public sealed class DomainModelViewTests
         Assert.Single(view.FindAll("[data-testid='domain-model-band']"));
 
         view.Find("[data-testid='domain-model-tab-fields']").Click();
-        Assert.Single(view.FindAll("[data-testid='domain-model-fields-placeholder']"));
+        Assert.Equal("Order", view.Find("[data-testid='domain-fields-class']").GetAttribute("data-name"));
 
         view.Find("[data-testid='domain-model-tab-events']").Click();
-        Assert.Single(view.FindAll("[data-testid='domain-model-events-placeholder']"));
+        Assert.Single(view.FindAll("[data-testid='domain-events-empty']"));
+    }
+
+    [Fact]
+    public void Fields_groups_each_class_and_carries_the_notes_and_how_the_services_run()
+    {
+        using var context = Context();
+        var chapters = new DomainChapterReading(
+            [new DomainServiceInvocation("Pricing", "#pricing", "Prices an order.", "Command-invoked, once per checkout.")],
+            []);
+
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Order)])
+            .Add(v => v.RelationshipNotes, "- `Order` is the only consistency boundary.")
+            .Add(v => v.Chapters, chapters));
+        view.Find("[data-testid='domain-model-tab-fields']").Click();
+
+        var order = view.Find("[data-testid='domain-fields-class'][data-name='Order']");
+        Assert.Equal(["reference", "owned-part"], order.QuerySelectorAll("[data-testid='domain-fields-group']").Select(g => g.GetAttribute("data-kind")));
+        Assert.Contains("Ids pointing elsewhere", order.TextContent);
+        Assert.Contains("customer_id", order.TextContent);
+
+        Assert.Contains("only consistency boundary", view.Find("[data-testid='domain-model-relationship-notes']").TextContent);
+
+        var service = view.Find("[data-testid='domain-service-invocation']");
+        Assert.Contains("Domain services · how they run", view.Find("[data-testid='domain-services']").TextContent);
+        Assert.Equal("Pricing", service.GetAttribute("data-name"));
+        Assert.Contains("once per checkout", service.QuerySelector("[data-testid='domain-service-runs']")!.TextContent);
+    }
+
+    [Fact]
+    public void Events_reads_each_event_as_a_contract()
+    {
+        using var context = Context();
+        var chapters = new DomainChapterReading(
+            [],
+            [
+                new DomainEventContract("OrderPlaced", "#orderplaced", "draft", "Published when an order is placed.", ["Order"], "- `order_id` - the order.", "- Billing.", null, DomainEventDelivery.Documented),
+                new DomainEventContract("OrderShipped", "#ordershipped", "draft", "Published by Delivery.", [], null, null, null, DomainEventDelivery.Emitted)
+            ]);
+
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Order)])
+            .Add(v => v.Chapters, chapters));
+        view.Find("[data-testid='domain-model-tab-events']").Click();
+
+        var events = view.FindAll("[data-testid='domain-event']");
+        Assert.Equal(["documented", "emitted"], events.Select(e => e.GetAttribute("data-delivery")));
+
+        var placed = events[0];
+        Assert.Equal("Documented", placed.QuerySelector("[data-testid='domain-event-delivery']")!.TextContent.Trim());
+        Assert.Contains("Order", placed.QuerySelector("[data-testid='domain-event-raised-by']")!.TextContent);
+        Assert.Contains("order_id", placed.QuerySelector("[data-testid='domain-event-payload']")!.TextContent);
+        Assert.Contains("Billing", placed.QuerySelector("[data-testid='domain-event-consumers']")!.TextContent);
+        Assert.Contains("does not say", placed.QuerySelector("[data-testid='domain-event-rules']")!.TextContent);
+
+        Assert.Contains("Not named", events[1].QuerySelector("[data-testid='domain-event-raised-by']")!.TextContent);
+    }
+
+    [Fact]
+    public void A_fence_the_reader_cannot_read_says_so_on_Fields()
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainModelView>(p => p.Add(v => v.Fences, [new DomainModelFence("Broken", "classDiagram\n    Task <--> Other")]));
+        view.Find("[data-testid='domain-model-tab-fields']").Click();
+
+        Assert.Contains("could not be read into fields", view.Find("[data-testid='domain-fields-unread']").TextContent);
+        Assert.Empty(view.FindAll("[data-testid='domain-services']"));
     }
 
     [Fact]

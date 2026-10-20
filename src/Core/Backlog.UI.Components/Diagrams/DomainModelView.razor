@@ -1,8 +1,11 @@
 @*
     The Domain view's Model page (local ADR 0036): a Diagram | Fields | Events bar
     that opens on Diagram. Diagram draws each classDiagram fence of the model file
-    with DomainModelDiagram; Fields and Events are placeholders until the plan
-    +devbook-domain-view's next step fills them.
+    with DomainModelDiagram. Fields lists each fence's classes with their
+    attributes grouped by kind (DomainModelFieldsView), the model file's
+    relationship notes beneath, and how each domain service runs
+    (DomainServiceInvocations). Events reads each domain-event chapter of the
+    context as a contract (DomainEventContracts).
 *@
 
 <section class="domain-model-view" data-testid="@TestId" aria-label="@AriaLabel">
@@ -26,16 +29,30 @@
             }
         </TabPanel>
         <TabPanel Id="fields" Title="Fields" TabTestId="domain-model-tab-fields" TestId="domain-model-fields-panel">
-            <EmptyState Title="Fields"
-                        Description="Each class's fields and their types."
-                        TestId="domain-model-fields-placeholder"
-                        role="status" />
+            @if (Fences.Count == 0)
+            {
+                <EmptyState Title="No class diagram"
+                            Description="This model file holds no classDiagram fence to read fields from."
+                            TestId="domain-model-fields-empty" />
+            }
+            else
+            {
+                @foreach (var fence in Fences)
+                {
+                    <DomainModelFieldsView Source="@fence.Source" Title="@fence.Title" />
+                }
+            }
+            @if (!string.IsNullOrWhiteSpace(RelationshipNotes))
+            {
+                <section class="domain-model-view__notes" data-testid="domain-model-relationship-notes" aria-labelledby="@_notesHeadingId">
+                    <h3 class="domain-model-view__section-title" id="@_notesHeadingId">Relationship notes</h3>
+                    <MarkdownView Blocks="@MarkdownPreview.ParseDocument(RelationshipNotes)" />
+                </section>
+            }
+            <DomainServiceInvocations Services="@Chapters.Services" />
         </TabPanel>
         <TabPanel Id="events" Title="Events" TabTestId="domain-model-tab-events" TestId="domain-model-events-panel">
-            <EmptyState Title="Events"
-                        Description="The domain events the context raises and what each carries."
-                        TestId="domain-model-events-placeholder"
-                        role="status" />
+            <DomainEventContracts Events="@Chapters.Events" />
         </TabPanel>
     </Tabs>
 </section>
@@ -46,6 +63,16 @@
     [Parameter]
     public IReadOnlyList<DomainModelFence> Fences { get; set; } = [];
 
+    /// <summary>The model file's relationship notes, as markdown without their
+    /// heading — shown beneath the fields.</summary>
+    [Parameter]
+    public string? RelationshipNotes { get; set; }
+
+    /// <summary>The context's domain services and events, read from its domain
+    /// chapters.</summary>
+    [Parameter]
+    public DomainChapterReading Chapters { get; set; } = DomainChapterReading.Empty;
+
     [Parameter]
     public string? AriaLabel { get; set; } = "Model";
 
@@ -53,4 +80,5 @@
     public string? TestId { get; set; } = "domain-model-view";
 
     private string _tab = "diagram";
+    private readonly string _notesHeadingId = $"domain-model-notes-{Guid.NewGuid():N}";
 }

@@ -672,6 +672,29 @@ public sealed class DomainDevbookStore : IDisposable
         _ => DomainDevbookDocumentKind.Other
     };
 
+    /// <summary>
+    /// A document's text as written, by the path a <see cref="DomainDevbookDocument"/>
+    /// spells it with (<c>.domain/tasks/domain.md</c>) under the folder the view was
+    /// read from — or null when it is not there. The parsed document keeps only an
+    /// excerpt of each chapter; the Domain view's Model page reads the whole of the
+    /// domain chapters and the model's relationship notes through this.
+    /// </summary>
+    public static string? ReadText(DomainDevbookView view, string documentPath)
+    {
+        const string Prefix = ".domain/";
+        if (view.Error is not null || !documentPath.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) return null;
+
+        var file = Path.Combine(view.RootPath, documentPath[Prefix.Length..].Replace('/', Path.DirectorySeparatorChar));
+        try
+        {
+            return File.Exists(file) ? File.ReadAllText(file) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     private static string MermaidKind(IReadOnlyList<string> lines)
     {
         var first = lines.FirstOrDefault(l => !string.IsNullOrWhiteSpace(l))?.Trim() ?? "mermaid";

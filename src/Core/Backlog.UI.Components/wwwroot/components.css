@@ -22199,3 +22199,223 @@ select.field__input {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
 }
+
+/* The Model page's Fields and Events tabs (local ADR 0036 §6): the technical half
+   of a context — each class's fields grouped by kind, the relationship notes, how
+   each domain service runs, and each domain event as a contract. Cards on the
+   raised surface, labels in the band's small caps, types in the mono face. */
+.domain-model-view__section-title {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.domain-model-view__notes,
+.domain-services {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+    min-width: 0;
+}
+
+.domain-fields__unread {
+    margin: var(--spacing-md) 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-fields__class,
+.domain-event,
+.domain-services__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.domain-fields__class--root {
+    border-color: var(--color-border-strong);
+}
+
+.domain-fields__class-header,
+.domain-event__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.domain-fields__class-name,
+.domain-event__name {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-fields__class-kind {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-fields__class-kind.domain-model__element--root .domain-model__element-glyph {
+    color: var(--color-primary);
+}
+
+.domain-fields__class-kind.domain-model__element--value-object {
+    color: var(--color-domain-value-object);
+}
+
+.domain-fields__group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.domain-fields__group-label,
+.domain-event__label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.domain-fields__list,
+.domain-event__facts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.domain-fields__field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-fields__name {
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-fields__type {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--spacing-xs);
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-fields__type-name {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.domain-fields__detail,
+.domain-fields__empty,
+.domain-services__unsaid,
+.domain-event__unsaid {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-services__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-events {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+}
+
+.domain-services__name {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-services__summary,
+.domain-event__summary {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-services__invocation {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+}
+
+.domain-event__fact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--spacing-sm);
+}
+
+.domain-event__value {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-event__part {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+/* Documented and Emitted are information about the chapter, so both are the
+   Domain view's neutral outline (color-scheme.md#domain-view-element-tones): a
+   transparent surface inside the strong edge, secondary ink, the word saying which. */
+.badge--tone.domain-event__delivery {
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
