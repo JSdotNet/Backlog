@@ -84,7 +84,8 @@ public sealed class DomainModelViewTests
         Assert.Single(view.FindAll("[data-testid='domain-model-band']"));
 
         view.Find("[data-testid='domain-model-tab-fields']").Click();
-        Assert.Equal("Order", view.Find("[data-testid='domain-fields-class']").GetAttribute("data-name"));
+        Assert.Equal("Order", view.Find("[data-testid='domain-model-title']").TextContent.Trim());
+        Assert.Single(view.FindAll("[data-testid='domain-fields']"));
 
         view.Find("[data-testid='domain-model-tab-events']").Click();
         Assert.Single(view.FindAll("[data-testid='domain-events-empty']"));
@@ -104,10 +105,16 @@ public sealed class DomainModelViewTests
             .Add(v => v.Chapters, chapters));
         view.Find("[data-testid='domain-model-tab-fields']").Click();
 
-        var order = view.Find("[data-testid='domain-fields-class'][data-name='Order']");
-        Assert.Equal(["reference", "owned-part"], order.QuerySelectorAll("[data-testid='domain-fields-group']").Select(g => g.GetAttribute("data-kind")));
-        Assert.Contains("Ids pointing elsewhere", order.TextContent);
-        Assert.Contains("customer_id", order.TextContent);
+        // No Fields chapter: the root's fields stand in the kinds their types say,
+        // and what it owns beside them.
+        var board = view.Find("[data-testid='domain-fields']");
+        Assert.Equal("false", board.GetAttribute("data-written"));
+        Assert.Equal(["Ids pointing elsewhere"], board.QuerySelectorAll("[data-testid='domain-fields-group']").Select(g => g.GetAttribute("data-title")));
+        Assert.Equal("id", board.QuerySelector("[data-name='customer_id'] [data-testid='domain-field-type']")!.TextContent.Trim());
+        var owned = view.Find("[data-testid='domain-fields-owned']");
+        Assert.Contains("Owned by the order", owned.TextContent);
+        Assert.Equal("OrderLine", owned.QuerySelector("[data-testid='domain-fields-owned-value-objects'] [data-testid='domain-fields-owned-part']")!.GetAttribute("data-name"));
+        Assert.Contains("Pricing", owned.QuerySelector("[data-testid='domain-fields-owned-services']")!.TextContent);
 
         Assert.Contains("only consistency boundary", view.Find("[data-testid='domain-model-relationship-notes']").TextContent);
 
@@ -133,17 +140,30 @@ public sealed class DomainModelViewTests
             .Add(v => v.Chapters, chapters));
         view.Find("[data-testid='domain-model-tab-events']").Click();
 
-        var events = view.FindAll("[data-testid='domain-event']");
-        Assert.Equal(["documented", "emitted"], events.Select(e => e.GetAttribute("data-delivery")));
+        Assert.Equal("What Model tells other contexts", view.Find("[data-testid='domain-model-title']").TextContent.Trim());
+        Assert.Contains("One of two are emitted", view.Find("[data-testid='domain-events-intro']").TextContent);
 
-        var placed = events[0];
+        // The index lists every event; the first is picked and its contract shows beneath.
+        var rows = view.FindAll("[data-testid='domain-event-row']");
+        Assert.Equal(["OrderPlaced", "OrderShipped"], rows.Select(r => r.GetAttribute("data-name")));
+        Assert.Equal(["true", "false"], rows.Select(r => r.GetAttribute("data-selected")));
+        Assert.Contains("an order is placed", rows[0].TextContent);
+        Assert.Contains("Billing", rows[0].TextContent);
+
+        var placed = view.Find("[data-testid='domain-event']");
+        Assert.Equal("documented", placed.GetAttribute("data-delivery"));
         Assert.Equal("Documented", placed.QuerySelector("[data-testid='domain-event-delivery']")!.TextContent.Trim());
         Assert.Contains("Order", placed.QuerySelector("[data-testid='domain-event-raised-by']")!.TextContent);
-        Assert.Contains("order_id", placed.QuerySelector("[data-testid='domain-event-payload']")!.TextContent);
+        Assert.Equal("order_id", placed.QuerySelector("[data-testid='domain-event-payload'] th code")!.TextContent);
         Assert.Contains("Billing", placed.QuerySelector("[data-testid='domain-event-consumers']")!.TextContent);
         Assert.Contains("does not say", placed.QuerySelector("[data-testid='domain-event-rules']")!.TextContent);
 
-        Assert.Contains("Not named", events[1].QuerySelector("[data-testid='domain-event-raised-by']")!.TextContent);
+        // Picking the other row shows its contract instead.
+        view.FindAll("[data-testid='domain-event-pick']")[1].Click();
+        var shipped = view.Find("[data-testid='domain-event']");
+        Assert.Equal("OrderShipped", shipped.GetAttribute("data-name"));
+        Assert.Equal("emitted", shipped.GetAttribute("data-delivery"));
+        Assert.Contains("Not named", shipped.QuerySelector("[data-testid='domain-event-raised-by']")!.TextContent);
     }
 
     [Fact]
@@ -233,7 +253,104 @@ public sealed class DomainModelViewTests
         view.Find("[data-testid='domain-model-all-fields']").Click();
 
         Assert.Equal("true", view.Find("[data-testid='domain-model-tab-fields']").GetAttribute("aria-selected"));
-        Assert.Empty(view.FindAll("[data-testid='domain-model-title']"));
+        Assert.Equal("Task", view.Find("[data-testid='domain-model-title']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void Fields_reads_the_model_files_purpose_groups_with_meanings_and_rule_counts()
+    {
+        using var context = Context();
+        const string markdown = """
+            # Tasks
+
+            ## Fields
+
+            ### Work state
+
+            Where is the work?
+
+            - `status` — The recorded lifecycle state. Rules: [starts in draft](domain.invariants.md#invariant-a-new-task-starts-in-draft), [moves](domain.invariants.md#how-a-task-moves).
+            - `readiness` — Derived on every read.
+
+            ### Identity
+
+            What is it?
+
+            - `id` · `title` — Who it is and what it says.
+            """;
+        var rules = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["domain.invariants.md#invariant-a-new-task-starts-in-draft"] = ["A new task starts in draft"],
+            ["domain.invariants.md#how-a-task-moves"] = ["A new task starts in draft", "Status changes follow the lifecycle"]
+        };
+        var profiles = new Dictionary<string, DomainModelProfile>
+        {
+            ["Task"] = new("Task", "A refined, actionable item.", ["TaskItem", "task_id"], "draft"),
+            ["SubItem"] = new("Sub-Item", "An ordered step.", ["SubItem"], "draft")
+        };
+
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Tasks)])
+            .Add(v => v.Markdown, markdown)
+            .Add(v => v.Rules, rules)
+            .Add(v => v.Profiles, profiles));
+        view.Find("[data-testid='domain-model-tab-fields']").Click();
+
+        Assert.Equal("Draft", view.Find("[data-testid='domain-model-status']").TextContent.Trim());
+        Assert.Equal(["TaskItem", "task_id"], view.FindAll("[data-testid='domain-model-aliases'] code").Select(c => c.TextContent));
+        Assert.Equal("A refined, actionable item.", view.Find("[data-testid='domain-model-lead']").TextContent.Trim());
+        Assert.Single(view.FindAll("[data-testid='domain-fields-legend']"));
+
+        var board = view.Find("[data-testid='domain-fields']");
+        Assert.Equal("true", board.GetAttribute("data-written"));
+        var groups = board.QuerySelectorAll("[data-testid='domain-fields-group']");
+        Assert.Equal(["Work state", "Identity", "Other fields"], groups.Select(g => g.GetAttribute("data-title")));
+        Assert.Equal("Where is the work?", groups[0].QuerySelector("[data-testid='domain-fields-question']")!.TextContent);
+
+        var status = board.QuerySelector("[data-name='status']")!;
+        Assert.Equal("Task Status", status.QuerySelector("[data-testid='domain-field-type']")!.TextContent);
+        Assert.Contains("The recorded lifecycle state.", status.QuerySelector("[data-testid='domain-field-meaning']")!.TextContent);
+        Assert.DoesNotContain("Rules", status.QuerySelector("[data-testid='domain-field-meaning']")!.TextContent);
+        Assert.Equal("2 rules", status.QuerySelector("[data-testid='domain-field-rules']")!.TextContent);
+
+        var readiness = board.QuerySelector("[data-name='readiness']")!;
+        Assert.Contains("domain-field-row--derived", readiness.ClassName);
+        Assert.Equal("Readiness", readiness.QuerySelector("[data-testid='domain-field-type']")!.TextContent);
+
+        // Two fields of different types in one bullet name no one type.
+        var identity = board.QuerySelector("[data-name='id title']")!;
+        Assert.Equal("id · title", identity.QuerySelector("code")!.TextContent);
+        Assert.Null(identity.QuerySelector("[data-testid='domain-field-type']"));
+        Assert.Equal(["due_on", "repo_ids", "depends_on"], groups[2].QuerySelectorAll("[data-testid='domain-field']").Select(r => r.GetAttribute("data-name")));
+        Assert.Equal("date", groups[2].QuerySelector("[data-name='due_on'] [data-testid='domain-field-type']")!.TextContent);
+
+        var owned = view.Find("[data-testid='domain-fields-owned']");
+        Assert.Contains("Sub-Item", owned.QuerySelector("[data-testid='domain-fields-owned-entities']")!.TextContent);
+        Assert.Contains("An ordered step.", owned.QuerySelector("[data-testid='domain-fields-owned-entities']")!.TextContent);
+        Assert.Equal(["TaskStatus", "Readiness"], owned.QuerySelectorAll("[data-testid='domain-fields-enum']").Select(e => e.GetAttribute("data-name")));
+    }
+
+    [Fact]
+    public void Events_says_what_the_context_listens_to()
+    {
+        using var context = Context();
+        var chapters = new DomainChapterReading([], [])
+        {
+            Listens = [new DomainEventSubscription("Inbox", "ItemTriaged", "Publishes ItemTriaged", "Relies on Tasks creating a draft task.")]
+        };
+
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Order)])
+            .Add(v => v.Title, "Tasks")
+            .Add(v => v.Chapters, chapters));
+        view.Find("[data-testid='domain-model-tab-events']").Click();
+
+        var listens = view.Find("[data-testid='domain-events-listens']");
+        Assert.Contains("What Tasks listens to", listens.TextContent);
+        var feed = listens.QuerySelector("[data-testid='domain-events-feed']")!;
+        Assert.Equal("Inbox", feed.GetAttribute("data-context"));
+        Assert.Contains("ItemTriaged", feed.TextContent);
+        Assert.Empty(view.FindAll("[data-testid='domain-event-row']"));
     }
 
     [Fact]

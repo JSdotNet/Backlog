@@ -1,15 +1,152 @@
 @*
     A bounded context's class diagram read as fields, as the Domain view's Model
-    page shows it on Fields (local ADR 0037): every class that holds state, with its
-    attributes grouped by what their types say — dates and times, ids pointing
-    elsewhere, owned parts, vocabularies, and other values. An enumeration is not a
-    class here; its values sit beside the attribute that takes one.
+    page shows it on Fields (local ADR 0037).
 
-    A fence the reader cannot read in full says so rather than listing part of it:
-    Diagram still draws it with mermaid.
+    A fence with an aggregate root reads as that root's fields in groups, beside
+    what it owns. The groups are the model file's own purpose groups when it
+    writes a Fields chapter (DomainFieldPurposes) — each field with its meaning and
+    how many invariants it points at — and the kinds the types say when it writes
+    none. Fields the chapter does not group stand under "Other fields", so nothing
+    the diagram holds goes missing. The side column lists the owned entities and
+    value objects, the enumerations with their values, and the domain services.
+
+    A fence with no aggregate root lists every class that holds state with its
+    attributes grouped by kind. A fence the reader cannot read in full says so
+    rather than listing part of it: Diagram still draws it with mermaid.
 *@
 
-@if (_classes is null)
+@if (_board is { } board)
+{
+    var root = DomainFieldBoards.Title(board.Root.Name, Profiles);
+    <div class="domain-fields-board" data-testid="@TestId" data-written="@(board.Written ? "true" : "false")" role="group" aria-label="@($"Fields of {root}")">
+        <div class="domain-fields-board__groups">
+            @foreach (var group in board.Groups)
+            {
+                var headingId = $"{_id}-{Slug(group.Title)}";
+                <section class="domain-fields-group" data-testid="domain-fields-group" data-title="@group.Title" aria-labelledby="@headingId">
+                    <header class="domain-fields-group__header">
+                        <h3 class="domain-fields-group__title" id="@headingId">@group.Title</h3>
+                        @if (group.Question is { Length: > 0 } question)
+                        {
+                            <span class="domain-fields-group__question" data-testid="domain-fields-question">@question</span>
+                        }
+                    </header>
+                    <ul class="domain-fields-group__rows">
+                        @foreach (var row in group.Rows)
+                        {
+                            <li class="@($"domain-field-row{(row.Derived ? " domain-field-row--derived" : "")}")" data-testid="domain-field" data-name="@string.Join(" ", row.Names)">
+                                <code class="domain-field-row__name">@string.Join(" · ", row.Names)</code>
+                                <span class="domain-field-row__type">
+                                    @if (row.Type is { } type)
+                                    {
+                                        <span class="@($"domain-field-type domain-field-type--{ToneKey(type.Tone)}")" data-testid="domain-field-type">@type.Label</span>
+                                    }
+                                </span>
+                                <span class="domain-field-row__meaning" data-testid="domain-field-meaning">
+                                    @if (row.Meaning is { } meaning)
+                                    {
+                                        <MarkdownView Blocks="@MarkdownPreview.ParseDocument(meaning)" />
+                                    }
+                                    else if (row.Derived)
+                                    {
+                                        <text>Derived, never stored.</text>
+                                    }
+                                </span>
+                                @if (row.Rules.Count > 0)
+                                {
+                                    <span class="domain-field-row__rules" data-testid="domain-field-rules" title="@string.Join("\n", row.Rules)">@RuleCount(row.Rules.Count)</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+        </div>
+        <aside class="domain-fields-owned" data-testid="domain-fields-owned" aria-labelledby="@($"{_id}-owned")">
+            <h3 class="domain-fields-owned__title" id="@($"{_id}-owned")">Owned by the @root.ToLowerInvariant()</h3>
+            @if (board.Entities.Count > 0)
+            {
+                <section class="domain-fields-owned__card domain-fields-owned__card--entity" data-testid="domain-fields-owned-entities" aria-label="Entities">
+                    <h4 class="domain-fields-owned__label"><span aria-hidden="true">■</span> @(board.Entities.Count == 1 ? "Entity" : "Entities")</h4>
+                    @foreach (var part in board.Entities)
+                    {
+                        <div class="domain-fields-owned__part" data-testid="domain-fields-owned-part" data-name="@part.Name">
+                            <span class="domain-fields-owned__name">@part.Title</span>
+                            @if (part.Multiplicity is { } many)
+                            {
+                                <span class="domain-fields-owned__many">@many</span>
+                            }
+                            @if (part.Summary.Length > 0)
+                            {
+                                <p class="domain-fields-owned__summary">@DomainUnits.Plain(part.Summary)</p>
+                            }
+                        </div>
+                    }
+                </section>
+            }
+            @if (board.ValueObjects.Count > 0)
+            {
+                <section class="domain-fields-owned__card domain-fields-owned__card--value-object" data-testid="domain-fields-owned-value-objects" aria-label="Value objects">
+                    <h4 class="domain-fields-owned__label"><span aria-hidden="true">●</span> Value objects · equal by value</h4>
+                    <ul class="domain-fields-owned__list">
+                        @foreach (var part in board.ValueObjects)
+                        {
+                            <li data-testid="domain-fields-owned-part" data-name="@part.Name">
+                                <span class="domain-fields-owned__name">@part.Title</span>@if (part.Summary.Length > 0)
+                                {
+                                    <span class="domain-fields-owned__note"> — @part.Summary</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+            @if (board.Enums.Count > 0 || board.OtherEnums.Count > 0)
+            {
+                <section class="domain-fields-owned__card domain-fields-owned__card--enumeration" data-testid="domain-fields-owned-enums" aria-label="Enums">
+                    <h4 class="domain-fields-owned__label"><span aria-hidden="true">≡</span> Enums</h4>
+                    @foreach (var enumeration in board.Enums)
+                    {
+                        <div class="domain-fields-owned__enum" data-testid="domain-fields-enum" data-name="@enumeration.Name">
+                            <span class="domain-fields-owned__name">@enumeration.Title</span>
+                            @if (enumeration.Derived)
+                            {
+                                <span class="domain-fields-owned__note">derived</span>
+                            }
+                            <ul class="domain-fields-owned__values" aria-label="@($"{enumeration.Title} values")">
+                                @foreach (var value in enumeration.Values)
+                                {
+                                    <li><code>@value</code></li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                    @if (board.OtherEnums.Count > 0)
+                    {
+                        <p class="domain-fields-owned__also" data-testid="domain-fields-also">Also @string.Join(", ", board.OtherEnums.Select(e => e.Title))</p>
+                    }
+                </section>
+            }
+            @if (Services.Count > 0)
+            {
+                <section class="domain-fields-owned__card domain-fields-owned__card--service" data-testid="domain-fields-owned-services" aria-label="Domain services">
+                    <h4 class="domain-fields-owned__label"><span aria-hidden="true">⚙</span> Domain services · act on the @root.ToLowerInvariant()</h4>
+                    @foreach (var service in Services)
+                    {
+                        <div class="domain-fields-owned__part" data-name="@service.Title">
+                            <span class="domain-fields-owned__name">@service.Title</span>
+                            @if (service.Summary.Length > 0)
+                            {
+                                <p class="domain-fields-owned__summary">@DomainUnits.Plain(service.Summary)</p>
+                            }
+                        </div>
+                    }
+                </section>
+            }
+        </aside>
+    </div>
+}
+else if (_classes is null)
 {
     <p class="domain-fields__unread" data-testid="domain-fields-unread" role="status">
         @Title could not be read into fields. Diagram draws it as it is written.
@@ -78,16 +215,54 @@ else
     [Parameter]
     public string Title { get; set; } = "Model diagram";
 
+    /// <summary>The model file's Fields chapters (<see cref="DomainFieldPurposes.Read"/>).</summary>
+    [Parameter]
+    public IReadOnlyList<DomainFieldChapter> Purposes { get; set; } = [];
+
+    /// <summary>The context's invariants by the link a Fields bullet writes
+    /// (<see cref="DomainFieldBoards.RuleIndex"/>).</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, IReadOnlyList<string>>? Rules { get; set; }
+
+    /// <summary>The context's class chapters by model name
+    /// (<see cref="DomainFieldBoards.Profiles"/>).</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, DomainModelProfile>? Profiles { get; set; }
+
+    /// <summary>The context's domain services, for the side column.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainServiceInvocation> Services { get; set; } = [];
+
     [Parameter]
     public string? TestId { get; set; } = "domain-fields";
 
-    private string? _read;
+    private readonly string _id = $"domain-fields-{Guid.NewGuid():N}";
+    private (string?, object?, object?, object?)? _read;
+    private DomainFieldBoard? _board;
     private IReadOnlyList<DomainFieldsClass>? _classes;
 
     protected override void OnParametersSet()
     {
-        if (string.Equals(_read, Source, StringComparison.Ordinal)) return;
-        _read = Source;
-        _classes = DomainModelFields.TryRead(Source);
+        var key = (Source, (object?)Purposes, (object?)Rules, (object?)Profiles);
+        if (_read is { } read && read.Item1 == key.Source && ReferenceEquals(read.Item2, key.Item2) && ReferenceEquals(read.Item3, key.Item3) && ReferenceEquals(read.Item4, key.Item4)) return;
+        _read = key;
+        _board = DomainFieldBoards.TryRead(Source, Purposes, Rules, Profiles);
+        _classes = _board is null ? DomainModelFields.TryRead(Source) : null;
     }
+
+    private static string RuleCount(int count) => count == 1 ? "1 rule" : $"{count} rules";
+
+    private static string ToneKey(DomainFieldTone tone) => tone switch
+    {
+        DomainFieldTone.Date => "date",
+        DomainFieldTone.LocalTime => "local-time",
+        DomainFieldTone.Instant => "instant",
+        DomainFieldTone.Id => "id",
+        DomainFieldTone.Enumeration => "enumeration",
+        DomainFieldTone.ValueObject => "value-object",
+        DomainFieldTone.Entity => "entity",
+        _ => "plain"
+    };
+
+    private static string Slug(string title) => DomainUnits.Slug(title);
 }
