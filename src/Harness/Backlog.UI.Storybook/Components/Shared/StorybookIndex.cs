@@ -376,6 +376,10 @@ internal static class StorybookIndex
             new("devbook/domain-neighbours", "Domain neighbours", "DomainNeighboursView: a context's dependency tables as a board — listens to, listen to, hand in hand — with outside systems as dashed cards."),
             new("devbook/domain-context", "Domain context", "DomainContextView: a bounded context's Overview — its boundary, what it holds, how much is proved and settled, its flags and settings — beside Neighbours."),
 
+            // After the context page, which a card on the map opens on its
+            // Neighbours tab: the Domain view's Context map page (local ADR 0036).
+            new("devbook/domain-context-map", "Domain context map", "ContextMapView and ContextMapDiagram: `context-map.md` as Map — every context a card on an ellipse, a line per pair, amber between core contexts, dashed when not built — and as List, in reading order."),
+
             // Last, because it is the one page of the group that is not about the
             // meta block: a review note is the convention's second fence, and the
             // chapter it sits in — heading, record, prose — is everything the pages

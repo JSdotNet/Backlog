@@ -1614,15 +1614,22 @@ The system SHALL list on Model's Events tab each `domain-event` chapter of the c
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ContextMapTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextMapPageTests]
 ```
 
-The system SHALL offer the context map as a Map tab that draws the contexts and their relations and a List tab that names the contexts in reading order.
+The system SHALL offer the context map as a Map tab that draws the contexts and their relations and a List tab that names the contexts in reading order. Map draws every bounded context of the map's Mermaid fence as a card on an ellipse, ordered to cross as few lines as it can, and one line per pair of contexts the fence joins, with a head at both ends when the pair points both ways. A line between two core contexts is amber and any other grey, and a line the fence draws `-.->` is dashed. Each card says whether its context is core or supporting and how many lines touch it. Pointing at or focusing a card fades every line that does not touch it. A line's tooltip and accessible name are the "Why" of the matching row in the source context's dependency tables, or the other context's when the source keeps none. Picking a card opens that context on its Neighbours tab. List names the core contexts and then the supporting ones, each with its "Why" from the Subdomain landscape table, then the published-languages table and the strategic rules. No pattern name shows on either tab.
 
 #### Scenario: Switching to the list
 
 - **Given** a domain folder with three bounded contexts
 - **When** the reader opens Context map and picks List
 - **Then** the three contexts are listed in reading order
+
+#### Scenario: Reading a line and zooming to a context
+
+- **Given** a context map whose fence draws `Inbox -->|OHS + Published Language| Tasks`, and an Inbox `dependencies.md` whose row for Tasks says why *A triaged item becomes a draft task*
+- **When** the reader points at the Inbox card, then picks the Tasks card
+- **Then** every line that does not touch Inbox fades, the Inbox–Tasks line reads *A triaged item becomes a draft task* and never *OHS*, and Tasks opens on its Neighbours tab
 
 ### Requirement: Flow draws a lifecycle as one row of states
 
