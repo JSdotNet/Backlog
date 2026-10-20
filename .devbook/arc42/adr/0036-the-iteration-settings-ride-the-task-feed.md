@@ -18,8 +18,8 @@ Only a desktop writes it. The phone keeps reading the iteration from the
 ```
 
 Accepted, 2026-10-20, by the repository owner at the Personal Validation gate of
-the flow-spec run `run-mvghvg4z-6jl2mm` that drafted it. Not yet built; the
-flow-code run that follows it builds it.
+the flow-spec run `run-mvghvg4z-6jl2mm` that drafted it. Built by the flow-code
+run `run-mvgi6zze-v1mxco`.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.
