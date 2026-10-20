@@ -12,8 +12,9 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The Domain view's Flow page, reached as a reader reaches it: the New domain view
 /// switch on and a context's Flow row picked. A lifecycle's stateDiagram-v2 is
-/// drawn as one row of states with the chapter's prose beneath it, and every other
-/// Mermaid diagram in the file keeps the DiagramView rendering (local ADR 0036).
+/// drawn as one row of states with the chapter's prose beneath it, a sequence in the
+/// same style, and a Mermaid diagram the page cannot read keeps the DiagramView
+/// rendering (local ADR 0036).
 /// </summary>
 public sealed class DomainViewFlowPageTests : IDisposable
 {
@@ -51,6 +52,13 @@ public sealed class DomainViewFlowPageTests : IDisposable
         ```
 
         The intake parses no token.
+
+        ## Task model
+
+        ```mermaid
+        classDiagram
+            class Task
+        ```
         """;
 
     [Fact]
@@ -77,7 +85,11 @@ public sealed class DomainViewFlowPageTests : IDisposable
         Assert.Empty(lifecycle.QuerySelectorAll("[data-testid='diagram-view']"));
 
         var intake = component.Find("[data-testid='domain-flow-section'][data-flow='capture-intake']");
-        Assert.Single(intake.QuerySelectorAll("[data-testid='diagram-view']"));
+        Assert.Equal(["P", "I"], intake.QuerySelectorAll("[data-testid='domain-sequence-participant']").Select(card => card.GetAttribute("data-participant")));
+        Assert.Empty(intake.QuerySelectorAll("[data-testid='diagram-view']"));
+
+        var model = component.Find("[data-testid='domain-flow-section'][data-flow='task-model']");
+        Assert.Single(model.QuerySelectorAll("[data-testid='diagram-view']"));
         Assert.Empty(component.FindAll("[data-testid='domain-view-placeholder']"));
     }
 

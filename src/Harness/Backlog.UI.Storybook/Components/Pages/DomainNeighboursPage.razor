@@ -3,15 +3,15 @@
 <PageTitle>Domain neighbours — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain neighbours"
-           Summary="A subpage of Devbook: the Neighbours tab of a bounded context in the Domain view (local ADR 0036). DomainNeighboursView draws the context's dependency tables as a board: the contexts it listens to on the left, the ones that listen to it on the right, the ones it works hand in hand with below. Each card is a name and the first sentence of its row's reason. The relationship pattern stays in the table and never reaches a card, and a short legend says what each place on the board means."
+           Summary="A subpage of Devbook: the Neighbours tab of a bounded context in the Domain view (local ADR 0036). DomainNeighboursView draws the context's dependency tables as a board around the context's own card: the contexts it listens to on the left, the ones that listen to it on the right, the ones it works hand in hand with below. A line joins every card to the middle one, its arrowhead pointing the way information goes, and the hand-in-hand partners hang off an amber line. The middle card counts each side and links back to Overview. Each card is a name and the first sentence of its row's reason. The relationship pattern stays in the table and never reaches a card, and a short legend beneath says what the arrows, the amber line and a dashed card mean."
            Guidelines="@Rules">
 
     <Story Name="Board"
-           Description="Outbound rows listen to, inbound rows listen to the context, and every Partnership row, from either table, is one card below. GitHub and the Copilot CLI are outside the domain, so they are dashed cards that say so in words. A name that links to a context is a link that opens that context's page."
+           Description="Outbound rows listen to, inbound rows listen to the context, and every Partnership row, from either table, is one card below. GitHub and the Copilot CLI are outside the domain, so they are dashed cards that say so in words. A name that links to a context is a link that opens that context's page. The lines are drawn around the cards by the stylesheet, so a longer reason only makes its card taller. On a narrow pane the board is one column and the lines go."
            Code="@BoardCode"
            Source="@Dependencies"
            SourceLabel="dependencies.md">
-        <DomainNeighboursView ContextName="Tasks" Neighbours="@Board" OnNavigate="@(reference => _followed = reference.Path)" TestId="story-domain-neighbours" />
+        <DomainNeighboursView ContextName="Tasks" Neighbours="@Board" OnNavigate="@(reference => _followed = reference.Path)" OnOverview="@(() => _followed = "Overview")" TestId="story-domain-neighbours" />
         @if (_followed is not null)
         {
             <p class="sb-state" data-testid="story-domain-neighbours-followed">Followed: <code>@_followed</code></p>
@@ -19,7 +19,7 @@
     </Story>
 
     <Story Name="Tables inside context.md"
-           Description="A context that keeps its tables under a `## Dependencies` chapter of `context.md` reads the same way. An empty side says None rather than disappearing."
+           Description="A context that keeps its tables under a `## Dependencies` chapter of `context.md` reads the same way. An empty side says None rather than disappearing, and draws no line and no count."
            Code="@InlineCode"
            Source="@Inline"
            SourceLabel="context.md">
@@ -99,7 +99,8 @@
     private const string BoardCode = """
         <DomainNeighboursView ContextName="Tasks"
                               Neighbours="@DomainNeighbours.Read(dependenciesMd, dependenciesPath)"
-                              OnNavigate="Follow" />
+                              OnNavigate="Follow"
+                              OnOverview="OpenOverview" />
         """;
 
     private const string InlineCode = """

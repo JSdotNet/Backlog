@@ -42,10 +42,23 @@ public enum DomainFlowDirection
 /// pair joined with " / ".</summary>
 public sealed record DomainFlowTransition(string From, string To, string Label, DomainFlowDirection Direction);
 
+/// <summary>A Mermaid diagram of a flow chapter the Flow page draws itself, in
+/// the lifecycle's cards, lines and type: a state row
+/// (<see cref="DomainFlowDiagram"/>), a flowchart
+/// (<see cref="DomainFlowchartDiagram"/>) or a sequence
+/// (<see cref="DomainSequenceDiagram"/>).</summary>
+public abstract record DomainFlowFigure
+{
+    // Closed to this assembly: the Flow page draws exactly these three.
+    private protected DomainFlowFigure()
+    {
+    }
+}
+
 /// <summary>A <c>stateDiagram-v2</c> read as one row of states.</summary>
 /// <param name="States">The states in row order, the pseudo-states at the ends.</param>
 /// <param name="Transitions">In source order.</param>
-public sealed record DomainFlowDiagram(IReadOnlyList<DomainFlowState> States, IReadOnlyList<DomainFlowTransition> Transitions)
+public sealed record DomainFlowDiagram(IReadOnlyList<DomainFlowState> States, IReadOnlyList<DomainFlowTransition> Transitions) : DomainFlowFigure
 {
     public DomainFlowState State(string id) => States.First(state => state.Id == id);
 }
@@ -66,9 +79,9 @@ public sealed record DomainFlowEdge(DomainFlowTransition Transition, string Path
 /// <summary>A flow row laid out: the size of the drawing, its boxes and its edges.</summary>
 public sealed record DomainFlowLayout(double Width, double Height, IReadOnlyList<DomainFlowBox> Boxes, IReadOnlyList<DomainFlowEdge> Edges);
 
-/// <summary>A flow chapter's prose split around its state diagrams: the diagrams
-/// drawn as rows, and the rest of the chapter's markdown.</summary>
-public sealed record DomainFlowSection(DomainChapter Chapter, IReadOnlyList<DomainFlowDiagram> Diagrams, string Prose);
+/// <summary>A flow chapter's prose split around its diagrams: the diagrams the
+/// page draws itself, in source order, and the rest of the chapter's markdown.</summary>
+public sealed record DomainFlowSection(DomainChapter Chapter, IReadOnlyList<DomainFlowFigure> Diagrams, string Prose);
 
 /// <summary>
 /// Reads a flow's <c>stateDiagram-v2</c> into one row of states and lays it out
@@ -78,8 +91,10 @@ public sealed record DomainFlowSection(DomainChapter Chapter, IReadOnlyList<Doma
 /// sample string.
 /// <para>
 /// A diagram this row cannot hold — composite or concurrent states, choice and
-/// fork pseudo-states, notes — reads as <see langword="null"/>, and its fence keeps
-/// the rendering every other Mermaid diagram has.
+/// fork pseudo-states, notes — reads as <see langword="null"/>. A flowchart and a
+/// sequence are read by <see cref="DomainFlowcharts"/> and
+/// <see cref="DomainSequences"/>; a fence none of the three can read keeps the
+/// Mermaid rendering every other page gives it.
 /// </para>
 /// </summary>
 public static partial class DomainFlows
@@ -101,12 +116,13 @@ public static partial class DomainFlows
     private const double PortInset = 10;
     private const int MaxLabel = 36;
 
-    /// <summary>The section a flow chapter reads as: each state diagram it holds
-    /// that a row can draw, and its markdown with those fences taken out. A fence
-    /// the row cannot draw stays in the markdown.</summary>
+    /// <summary>The section a flow chapter reads as: each diagram it holds that
+    /// the page can draw — a state row, a flowchart or a sequence — and its
+    /// markdown with those fences taken out. A fence none of them can read stays
+    /// in the markdown, for Mermaid.</summary>
     public static DomainFlowSection Section(DomainChapter chapter)
     {
-        var diagrams = new List<DomainFlowDiagram>();
+        var diagrams = new List<DomainFlowFigure>();
         var prose = new StringBuilder();
         var lines = chapter.Prose.Split('\n');
         for (var i = 0; i < lines.Length; i++)
@@ -118,7 +134,7 @@ public static partial class DomainFlows
                 var end = i + 1;
                 while (end < lines.Length && !lines[end].Trim().StartsWith("```", StringComparison.Ordinal)) end++;
                 var source = string.Join('\n', lines[(i + 1)..Math.Min(end, lines.Length)]);
-                if (Parse(source) is { } diagram)
+                if (Figure(source) is { } diagram)
                 {
                     diagrams.Add(diagram);
                     i = end;
@@ -129,6 +145,11 @@ public static partial class DomainFlows
         }
         return new DomainFlowSection(chapter, diagrams, prose.ToString().Trim());
     }
+
+    /// <summary>Reads a Mermaid source as whichever figure the page draws, or
+    /// <see langword="null"/> when none of them can read it.</summary>
+    public static DomainFlowFigure? Figure(string? source) =>
+        (DomainFlowFigure?)Parse(source) ?? (DomainFlowFigure?)DomainFlowcharts.Parse(source) ?? DomainSequences.Parse(source);
 
     /// <summary>Reads a Mermaid source as a flow row, or <see langword="null"/>
     /// when it is not a <c>stateDiagram-v2</c> the row can hold.</summary>
@@ -459,7 +480,77 @@ public static partial class DomainFlows
     public static string Short(string label) =>
         label.Length <= MaxLabel ? label : label[..(MaxLabel - 1)].TrimEnd() + "…";
 
-    private static string N(double value) => Math.Round(value, 1).ToString(CultureInfo.InvariantCulture);
+    internal static string N(double value) => Math.Round(value, 1).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>Words wrapped into lines of at most <paramref name="width"/>
+    /// characters, a hard break (a newline) kept; a word longer than a line stands alone.</summary>
+    internal static IReadOnlyList<string> Wrap(string text, int width)
+    {
+        var lines = new List<string>();
+        foreach (var paragraph in text.Split('\n'))
+        {
+            var line = new StringBuilder();
+            foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (line.Length > 0 && line.Length + 1 + word.Length > width)
+                {
+                    lines.Add(line.ToString());
+                    line.Clear();
+                }
+                if (line.Length > 0) line.Append(' ');
+                line.Append(word);
+            }
+            lines.Add(line.ToString());
+        }
+        return lines;
+    }
+
+    /// <summary>An orthogonal polyline as an SVG path, each corner rounded by up
+    /// to <paramref name="corner"/>, collinear and repeated points dropped.</summary>
+    internal static string Rounded(IReadOnlyList<(double X, double Y)> points, double corner = Corner)
+    {
+        var kept = new List<(double X, double Y)>();
+        foreach (var point in points)
+        {
+            if (kept.Count > 0 && Math.Abs(kept[^1].X - point.X) < 0.05 && Math.Abs(kept[^1].Y - point.Y) < 0.05) continue;
+            if (kept.Count >= 2)
+            {
+                var (a, b) = (kept[^2], kept[^1]);
+                var collinear = (Math.Abs(a.X - b.X) < 0.05 && Math.Abs(b.X - point.X) < 0.05)
+                    || (Math.Abs(a.Y - b.Y) < 0.05 && Math.Abs(b.Y - point.Y) < 0.05);
+                if (collinear) kept[^1] = point;
+                else kept.Add(point);
+                continue;
+            }
+            kept.Add(point);
+        }
+
+        var path = new StringBuilder($"M {N(kept[0].X)} {N(kept[0].Y)}");
+        for (var i = 1; i < kept.Count; i++)
+        {
+            var at = kept[i];
+            if (i == kept.Count - 1)
+            {
+                path.Append($" L {N(at.X)} {N(at.Y)}");
+                break;
+            }
+            var before = kept[i - 1];
+            var after = kept[i + 1];
+            var r = Math.Min(corner, Math.Min(Distance(before, at), Distance(at, after)) / 2);
+            var (inX, inY) = Toward(at, before, r);
+            var (outX, outY) = Toward(at, after, r);
+            path.Append($" L {N(inX)} {N(inY)} Q {N(at.X)} {N(at.Y)} {N(outX)} {N(outY)}");
+        }
+        return path.ToString();
+
+        static double Distance((double X, double Y) a, (double X, double Y) b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
+
+        static (double, double) Toward((double X, double Y) from, (double X, double Y) to, double by)
+        {
+            var length = Distance(from, to);
+            return length == 0 ? from : (from.X + (to.X - from.X) / length * by, from.Y + (to.Y - from.Y) / length * by);
+        }
+    }
 
     private static void Note(List<string> appearance, string id)
     {

@@ -3,7 +3,7 @@
 <PageTitle>Domain flows — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain flows"
-           Summary="A subpage of Devbook: the Flow page of the Domain view, which reads a bounded context's `flow.md` (local ADR 0036). A `stateDiagram-v2` is drawn as one row of states: forward transitions on the axis or above it, the ways back below it and dashed, the restore loop — the way from the last state back to the first — round the outside beneath them all, and the flow's prose under the row. Every other Mermaid diagram in the file keeps the rendering it has everywhere else."
+           Summary="A subpage of Devbook: the Flow page of the Domain view, which reads a bounded context's `flow.md` (local ADR 0036). A `stateDiagram-v2` is drawn as one row of states: forward transitions on the axis or above it, the ways back below it and dashed, the restore loop — the way from the last state back to the first — round the outside beneath them all, and the flow's prose under the row. A `flowchart` and a `sequenceDiagram` are drawn in the same cards, lines, arrowheads and type; a Mermaid diagram none of the three can read keeps the rendering it has everywhere else."
            Guidelines="@Rules">
 
     <Story Name="Lifecycle row"
@@ -22,8 +22,32 @@
         <DomainFlowRow Diagram="@InboxDiagram" AriaLabel="Inbox item lifecycle" />
     </Story>
 
+    <Story Name="Flowchart down the page"
+           Description="A `flowchart TD` in ranks: each node a rank below every node linking to it, a question drawn as a card with pointed ends, every line turning between the ranks with the row's arrowhead, its label on the stretch into its node. A link back to an earlier rank — More accepted proposals? yes — runs round the outside on the right."
+           Code="@ChartCode"
+           Source="@ApplyChart"
+           SourceLanguage="text">
+        <DomainFlowchart Diagram="@ApplyDiagram" AriaLabel="AI triage pass Apply" />
+    </Story>
+
+    <Story Name="Flowchart across the page"
+           Description="A `flowchart LR`: the ranks run left to right and each label sits above the stretch into its node. A dotted link — a supplier — is dashed as the row's ways back are."
+           Code="@ChartCode"
+           Source="@AdoptionChart"
+           SourceLanguage="text">
+        <DomainFlowchart Diagram="@AdoptionDiagram" AriaLabel="Adoption tracking" />
+    </Story>
+
+    <Story Name="Sequence"
+           Description="A `sequenceDiagram`: a card per participant with its lifeline beneath, each message a line between two lifelines with its text above it, a reply dashed, a message to itself a small loop. A note is a card of its own; an alt, opt, loop or par block is a frame round its steps, its keyword in a tag and a dashed line before each further branch."
+           Code="@SequenceCode"
+           Source="@IntakeSequence"
+           SourceLanguage="text">
+        <DomainSequence Diagram="@IntakeDiagram" AriaLabel="Capture intake" />
+    </Story>
+
     <Story Name="Flow page"
-           Description="A whole `flow.md`: each chapter under its heading. The lifecycle chapter draws its state diagram as the row with its prose beneath it; the intake chapter's sequence diagram is not a state diagram, so it stays in the prose and renders as Mermaid always does."
+           Description="A whole `flow.md`: each chapter under its heading, its diagram drawn with its prose beneath it — the lifecycle as the row, the intake as a sequence, readiness as a flowchart. The model chapter's class diagram is none of the three, so it stays in the prose and renders as Mermaid always does."
            Code="@PageCode"
            Source="@FlowFile">
         <DomainFlowPage File="@File" />
@@ -33,8 +57,8 @@
 @code {
     private static readonly DesignGuideline[] Rules =
     [
-        new("color-scheme.md#domain-view-element-tones", "Why the row is monochrome: where a transition runs, and its dash, say which way it goes."),
-        new("accessibility.md#iconography-accessibility", "Why the drawing is hidden from a screen reader and the transitions are read as a list instead.")
+        new("color-scheme.md#domain-view-element-tones", "Why the drawings are monochrome: on the row, where a transition runs and its dash say which way it goes; in a flowchart the dash marks a dotted link, in a sequence a reply."),
+        new("accessibility.md#iconography-accessibility", "Why each drawing is hidden from a screen reader and its transitions, links or steps are read as a list instead.")
     ];
 
     private const string TaskLifecycle = """
@@ -94,6 +118,91 @@
         ```
 
         The intake decides by id and status and parses no token.
+
+        ## Readiness derivation
+
+        ```mermaid
+        flowchart TD
+            A{"ticked off (completed)?"} -->|yes| D["Readiness: done"]
+            A -->|no| B{"does every id in depends_on resolve to a completed task?"}
+            B -->|yes| R["Readiness: ready"]
+            B -->|"no, or an id resolves to nothing"| K["Readiness: blocked"]
+        ```
+
+        Readiness is derived on read and never stored.
+
+        ## Task model
+
+        ```mermaid
+        classDiagram
+            class Task {
+                title
+                status
+            }
+        ```
+        """;
+
+    private const string ApplyChart = """
+        flowchart TD
+            A["Apply"] --> B["Take the next accepted proposal, in list order"]
+            B --> C{"Refused?"}
+            C -->|no| D["The decision lands as one undo step"]
+            D --> E{"More accepted proposals?"}
+            E -->|yes| B
+            E -->|no| F["Screen closes, a toast counts decisions and items left"]
+            C -->|yes| G["Stop. What already landed stays"]
+            G --> H["Screen keeps the proposals not taken, a note names the refused item and why"]
+        """;
+
+    private const string AdoptionChart = """
+        flowchart LR
+            DevPC[Dev PC Management] -->|tool-version reports| AT
+            Repo[Repository Management] -->|tech-stack scans| AT
+            Reg["Public package registries<br/>(supplier)"] -.->|latest versions| AT
+            AT[Adoption Tracking] -->|daily snapshots| AA[Adoption Analytics]
+            AA -->|adoption metrics feed| Mon[Monitoring & Dashboard]
+            AA -->|adoption gaps as tech-upgrade tasks| Tasks
+        """;
+
+    private const string IntakeSequence = """
+        sequenceDiagram
+            participant P as Phone / IDE
+            participant S as Sync Service (replica)
+            participant M as Desktop sync client
+            participant I as Inbox intake
+            P->>S: POST /api/sync/inbox (title, source, attachments)
+            S->>S: write document, type = capture
+            M->>S: GET /api/sync/tasks?since=cursor
+            S-->>M: documents, captures among them
+            M->>I: ReceiveAsync(capture)
+            alt unknown id, live
+                I->>I: create item with the capture's id, save (Received)
+                loop each attachment still waiting
+                    I->>S: GET /api/sync/attachments/{id}
+                    S-->>I: bytes
+                end
+            else otherwise
+                I-->>M: AlreadyKnown / Ignored
+            end
+            Note over I,M: later — the reader routes or archives the item
+        """;
+
+    private static readonly DomainFlowchartDiagram ApplyDiagram = DomainFlowcharts.Parse(ApplyChart)!;
+    private static readonly DomainFlowchartDiagram AdoptionDiagram = DomainFlowcharts.Parse(AdoptionChart)!;
+    private static readonly DomainSequenceDiagram IntakeDiagram = DomainSequences.Parse(IntakeSequence)!;
+
+    private const string ChartCode = """
+        @if (DomainFlowcharts.Parse(mermaidSource) is { } chart)
+        {
+            <DomainFlowchart Diagram="@chart" AriaLabel="AI triage pass Apply" />
+        }
+        """;
+
+    private const string SequenceCode = """
+        @if (DomainSequences.Parse(mermaidSource) is { } sequence)
+        {
+            <DomainSequence Diagram="@sequence" AriaLabel="Capture intake" />
+        }
         """;
 
     private static readonly DomainFlowDiagram TaskDiagram = DomainFlows.Parse(TaskLifecycle)!;
