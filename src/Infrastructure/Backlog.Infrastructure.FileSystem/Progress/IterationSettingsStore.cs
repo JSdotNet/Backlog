@@ -73,7 +73,7 @@ public sealed class IterationSettingsStore : IIterationSettingsReplication
 
     /// <summary>The published choice and its stamp, as one reference so a reader on any
     /// thread sees both halves of the same version.</summary>
-    private Held _current;
+    private volatile Held _current;
 
     private Action? _localChange;
 
