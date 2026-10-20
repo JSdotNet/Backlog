@@ -843,9 +843,9 @@ public sealed class TaskSyncWorkerTests
         Assert.Single(myDay.Offered);
         Assert.Single(goals.Offered);
         Assert.Single(impediments.Offered);
-        Assert.Equal(
-            [MyDayReplicaDocuments.PreferencesType, GoalReplicaDocuments.GoalType, ImpedimentReplicaDocuments.ImpedimentType],
-            fixture.State.Current.FeedReplays);
+        Assert.True(fixture.State.Current.HasReplayedFeedFor(MyDayReplicaDocuments.PreferencesType));
+        Assert.True(fixture.State.Current.HasReplayedFeedFor(GoalReplicaDocuments.GoalType));
+        Assert.True(fixture.State.Current.HasReplayedFeedFor(ImpedimentReplicaDocuments.ImpedimentType));
         Assert.Equal("cursor-2", fixture.State.Current.PullCursor);
 
         var second = fixture.NextCycle();
@@ -854,7 +854,9 @@ public sealed class TaskSyncWorkerTests
 
         // Resumed from its cursor: no second reset, nothing offered again.
         Assert.Single(fixture.State.Saved, saved => saved.PullCursor is null);
+        Assert.Single(myDay.Offered);
         Assert.Single(goals.Offered);
+        Assert.Single(impediments.Offered);
     }
 
     /// <summary>A head that keeps no goals and no impediments — the phone, or one without
