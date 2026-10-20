@@ -1,15 +1,39 @@
 @*
     The Domain area read by unit (local ADR 0036), behind the New domain view
-    switch. It names the page the selected menu row opens and draws it: Domain and
-    Model so far, and a placeholder for each other kind of file, which the plan
-    +devbook-domain-view's later steps replace one page at a time. With the switch
-    off the pane renders DomainDevbookPanel and never this.
+    switch. It names the page the selected menu row opens and draws it: Domain,
+    Features, Requirements and Model so far, and a placeholder for each other kind
+    of file, which the plan +devbook-domain-view's later steps replace one page at
+    a time. With the switch off the pane renders DomainDevbookPanel and never this.
 *@
 
 <section class="domain-view" data-testid="domain-view" data-page="@PageKey" aria-label="Domain view">
     @if (Page == DomainViewPage.Domain)
     {
-        <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" />
+        <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter"
+                              OpenUnit="@Asked?.Anchor"
+                              OpenUnitPage="@(Asked is { AlwaysTrue: true } ? DomainUnitPage.AlwaysTruePage : null)" />
+    }
+    else if (Page == DomainViewPage.Features)
+    {
+        <DomainViewContextPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Features">
+            <DomainFeatureBoard Columns="@Columns(context)"
+                                ActiveFeature="@Asked?.Anchor"
+                                ActiveFeatureChanged="Picked"
+                                OnNavigate="NavigateAsync"
+                                AriaLabel="@($"Features of {context.ContextName}")" />
+        </DomainViewContextPage>
+    }
+    else if (Page == DomainViewPage.Requirements)
+    {
+        <DomainViewContextPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Requirements">
+            <DomainRequirementsView Groups="@Groups(context)"
+                                    DocumentPath="@context.Page!.Path"
+                                    ActiveGroup="@Asked?.Anchor"
+                                    ActiveGroupChanged="Picked"
+                                    OnNavigate="NavigateAsync"
+                                    OnOpenAlwaysTrue="OpenAlwaysTrueAsync"
+                                    AriaLabel="@($"Requirements of {context.ContextName}")" />
+        </DomainViewContextPage>
     }
     else if (Page == DomainViewPage.Model)
     {
@@ -29,7 +53,7 @@
 
 @code {
     /// <summary>The repository whose Domain area this is. The pages that fill the
-    /// frame — Domain and Model so far — read their chapters through it.</summary>
+    /// frame read their chapters through it.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
@@ -43,6 +67,66 @@
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
     private DomainViewPage Page => DomainViewUnit.PageFor(SelectedPath);
+
+    /// <summary>
+    /// The chapter a link on Features or Requirements asked for: the file, its
+    /// anchor, and whether it is a unit's Always true tab. The pane holds the
+    /// selection and passes only the file back, so the anchor is held here until
+    /// the pane has moved to that file — Requirements then opens on the feature's
+    /// group, Features on the feature, Domain on the unit's Always true tab.
+    /// </summary>
+    private sealed record AskedChapter(string RelativePath, string Anchor, bool AlwaysTrue);
+
+    private AskedChapter? _asked;
+    private string? _shownPath;
+
+    private AskedChapter? Asked =>
+        _asked is { } asked && string.Equals(asked.RelativePath, SelectedPath, StringComparison.OrdinalIgnoreCase) ? asked : null;
+
+    protected override void OnParametersSet()
+    {
+        // The reader moved somewhere other than where the link asked to go.
+        if (!string.Equals(_shownPath, SelectedPath, StringComparison.OrdinalIgnoreCase) && Asked is null) _asked = null;
+        _shownPath = SelectedPath;
+    }
+
+    private Task NavigateAsync(DevbookReference reference) =>
+        DevbookChapterLink.From(reference) is { } target ? FollowAsync(target, alwaysTrue: false) : Task.CompletedTask;
+
+    private Task OpenAlwaysTrueAsync(DomainAlwaysTrueLink unit) =>
+        DevbookChapterLink.From(unit.Reference) is { } target ? FollowAsync(target, alwaysTrue: true) : Task.CompletedTask;
+
+    private Task FollowAsync(DevbookChapterLink target, bool alwaysTrue)
+    {
+        _asked = target.Anchor is { Length: > 0 } anchor ? new AskedChapter(target.RelativePath, anchor, alwaysTrue) : null;
+        return OnNavigateToChapter.InvokeAsync(target);
+    }
+
+    /// <summary>A feature or group the reader picked by hand becomes what was
+    /// asked for, so following a link to the one shown before moves the page
+    /// back to it.</summary>
+    private void Picked(string key)
+    {
+        if (SelectedPath is { } path) _asked = new AskedChapter(path, key, AlwaysTrue: false);
+    }
+
+    // Read once per file read, so a re-render of the frame hands the same columns
+    // and groups down rather than reading the context again.
+    private DomainViewContextRead? _readFor;
+    private IReadOnlyList<DomainFeatureColumn> _columns = [];
+    private IReadOnlyList<DomainRequirementGroup> _groups = [];
+
+    private IReadOnlyList<DomainFeatureColumn> Columns(DomainViewContextRead read)
+    {
+        if (!ReferenceEquals(_readFor, read)) (_readFor, _columns, _groups) = (read, DomainFeatures.Columns(read.Page!, read.Files), []);
+        return _columns;
+    }
+
+    private IReadOnlyList<DomainRequirementGroup> Groups(DomainViewContextRead read)
+    {
+        if (!ReferenceEquals(_readFor, read)) (_readFor, _columns, _groups) = (read, [], DomainRequirements.Groups(read.Page!, read.Files));
+        return _groups;
+    }
 
     private string PageKey => DomainViewUnit.Key(Page);
 }

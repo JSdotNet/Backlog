@@ -75,6 +75,18 @@
     [Parameter]
     public EventCallback<string> ActiveUnitChanged { get; set; }
 
+    /// <summary>The page an aggregate opens on: <see cref="AboutPage"/> or
+    /// <see cref="AlwaysTruePage"/>. Unset is About; the reader's own pick wins
+    /// until the host changes it.</summary>
+    [Parameter]
+    public string? ActiveUnitPage { get; set; }
+
+    /// <summary>An aggregate's About tab, as <see cref="ActiveUnitPage"/> names it.</summary>
+    public const string AboutPage = "about";
+
+    /// <summary>An aggregate's Always true tab, as <see cref="ActiveUnitPage"/> names it.</summary>
+    public const string AlwaysTruePage = "always-true";
+
     /// <summary>A reference the reader followed: a requirement, or a link in the
     /// prose.</summary>
     [Parameter]
@@ -90,6 +102,8 @@
     private DomainChapterFile? _read;
     private string? _active;
     private string? _activeParameter;
+    private string? _unitPage;
+    private string? _unitPageParameter;
 
     protected override void OnParametersSet()
     {
@@ -106,6 +120,12 @@
             _activeParameter = ActiveUnit;
             _active = ActiveUnit;
         }
+
+        if (!string.Equals(_unitPageParameter, ActiveUnitPage, StringComparison.Ordinal))
+        {
+            _unitPageParameter = ActiveUnitPage;
+            _unitPage = ActiveUnitPage;
+        }
     }
 
     private string? ActiveTabId =>
@@ -121,6 +141,8 @@
         if (unit is null) return;
 
         _active = unit.Key;
+        // Another unit opens on About: the page asked for was the previous unit's.
+        _unitPage = null;
         await ActiveUnitChanged.InvokeAsync(unit.Key);
     }
 
@@ -163,7 +185,9 @@
             @switch (unit.Kind)
             {
                 case DomainUnitKind.Aggregate:
-                    <Tabs AriaLabel="@($"{unit.Label} pages")" CssClass="domain-unit__tabs" ListTestId="domain-unit-tabs">
+                    <Tabs AriaLabel="@($"{unit.Label} pages")" CssClass="domain-unit__tabs" ListTestId="domain-unit-tabs"
+                          ActiveId="@(_unitPage is null ? null : $"domain-unit-{unit.Key}-{_unitPage}")"
+                          ActiveIdChanged="@(id => _unitPage = id.EndsWith($"-{AlwaysTruePage}", StringComparison.Ordinal) ? AlwaysTruePage : AboutPage)">
                         <TabPanel Id="@($"domain-unit-{unit.Key}-about")" Title="About" TabTestId="domain-unit-about-tab">
                             <DomainAggregateAbout Chapter="@unit.Chapter"
                                                   DocumentPath="@File.Path"

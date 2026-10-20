@@ -1,0 +1,95 @@
+@page "/devbook/domain-requirements"
+
+<PageTitle>Domain requirements — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain requirements"
+           Summary="A subpage of Devbook: the Requirements page of the Domain view (local ADR 0036). Per feature, each requirement with its SHALL sentence set apart and whether a test proves it, read from its own `tests` field; each scenario as Given / When / Then rows, a row joining its clauses with “, and” read as one bullet per clause. The sentence that explained a feature's invariants gives way to a link that opens the unit's Always true tab. An unsplit `requirements.md` lists its features beside the page; a split `requirements.<name>.md` opens on its one feature."
+           Guidelines="@Rules">
+
+    <Story Name="Features beside the page"
+           Description="An unsplit `requirements.md` with two features. The list names each with how many of its requirements are proved; Checkout is open. Its intro no longer says where the invariants are — the Always true for Order link does that."
+           Code="@ListCode"
+           Source="@Unsplit">
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(UnsplitFile, Files)" @bind-ActiveGroup="_active" OnOpenAlwaysTrue="Open" TestId="story-domain-requirements-list" />
+        @if (_opened is { } opened)
+        {
+            <p>Opened <code>@opened.Reference</code> on Always true.</p>
+        }
+    </Story>
+
+    <Story Name="Scenario rows"
+           Description="A requirement whose Then row says two things: “the payment is refused, and the order stays paid” reads as two bullets. A bare “and” inside a clause — “an order that is paid and a card that is valid” — names one thing, and stays one row."
+           Code="@RowsCode"
+           Source="@DomainFeaturesPage.Requirements">
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(Checkout, Files)" TestId="story-domain-requirements-rows" />
+    </Story>
+
+    <Story Name="Split file"
+           Description="A split `requirements.checkout.md` holds one feature's requirements, so it opens on them with no list."
+           Code="@SplitCode"
+           Source="@DomainFeaturesPage.Requirements">
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(SplitFile, Files)" TestId="story-domain-requirements-split" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why Proved and Not proved are neutral outlines: the proof is information about the chapter, said in words and a tick, never in a fill."),
+        new("accessibility.md#iconography-accessibility", "Why every requirement and scenario mark is named for a listener.")
+    ];
+
+    private string? _active;
+    private DomainAlwaysTrueLink? _opened;
+
+    private void Open(DomainAlwaysTrueLink unit) => _opened = unit;
+
+    private const string Unsplit = DomainFeaturesPage.Requirements + """
+
+
+        ## Ordering
+
+        ```meta
+        type: requirements
+        related: [.devbook/domain/ordering/features.md#ordering]
+        ```
+
+        ### Requirement: An order is placed once
+
+        ```meta
+        type: requirement
+        tests: [unit:dotnet:Ordering.Tests.OrderTests.Placing_twice_is_refused]
+        ```
+
+        The system SHALL place an order once, and refuse to place it again.
+
+        #### Scenario: Placing twice
+
+        - **Given** a placed order
+        - **When** the customer places it again
+        - **Then** nothing changes
+        """;
+
+    private static DomainChapterFile UnsplitFile => DomainUnits.Parse(Unsplit, ".devbook/domain/ordering/requirements.md");
+
+    private static DomainChapterFile Checkout => DomainUnits.Parse(DomainFeaturesPage.Requirements, ".devbook/domain/ordering/requirements.md");
+
+    private static DomainChapterFile SplitFile => DomainUnits.Parse(DomainFeaturesPage.Requirements.Replace("# Requirements", "# Checkout"), ".devbook/domain/ordering/requirements.checkout.md");
+
+    private static IReadOnlyList<DomainChapterFile> Files => DomainFeaturesPage.Files;
+
+    private const string ListCode = """
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(requirementsFile, contextFiles)"
+                                @bind-ActiveGroup="active"
+                                OnOpenAlwaysTrue="OpenAlwaysTrueAsync"
+                                OnNavigate="OpenAsync" />
+        """;
+
+    private const string RowsCode = """
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(requirementsFile, contextFiles)" />
+        """;
+
+    private const string SplitCode = """
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(splitFile, contextFiles)" />
+        """;
+}

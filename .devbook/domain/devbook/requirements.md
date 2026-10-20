@@ -1339,7 +1339,8 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 
 > The requirements of the Domain area read by unit, behind the
 > [New domain view](context.md#new-domain-view) switch (local ADR 0036). The plan
-> `+devbook-domain-view` builds them page by page; Model and Domain are built.
+> `+devbook-domain-view` builds them page by page; Domain, Features, Requirements
+> and Model are built.
 
 ### Requirement: The flag off keeps today's Domain view
 
@@ -1476,6 +1477,7 @@ The system SHALL offer an unsplit `domain.md`'s aggregates, domain services and 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_summary_is_the_features_first_sentence]
 ```
 
 The system SHALL title each row and page with the heading as written, and summarize a unit with its chapter's first sentence.
@@ -1557,6 +1559,76 @@ The system SHALL list on Model's Events tab each `domain-event` chapter of the c
 - **Given** a `domain-event` chapter *StatusChanged* whose `related` names the aggregate *Task*, with *Payload* and *Consumers* sub-chapters, in a context whose chapters say it publishes no domain events yet
 - **When** the reader opens Model and picks Events
 - **Then** *StatusChanged* is raised by *Task*, shows its payload and consumers, and is marked *Documented*
+
+### Requirement: Features stand in columns by what they build on
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.Features_stand_in_columns_by_what_they_build_on_in_the_context, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_deprecated_feature_goes_to_the_end_of_its_column_and_a_proposed_one_says_so, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_card_counts_its_sub_features_and_names_its_flag_or_setting, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_card_counts_its_requirements_and_how_many_are_proved_from_their_tests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_split_file_reads_its_one_feature_with_the_depth_the_base_file_gives_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Cards_stand_in_columns_with_their_counts_flag_and_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_proposed_card_is_dashed_and_a_deprecated_one_struck_through_last_in_its_column, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.The_Features_row_opens_the_board_in_columns_with_each_cards_proof, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.A_split_features_file_reads_its_one_feature_in_the_column_the_base_file_gives_it]
+```
+
+The system SHALL draw the features of a `features.md` or `features.<name>.md` row in columns by how many of the context's features each builds on through `depends-on`, each card showing its sub-feature count, its flag or setting, and its requirement count with how many a linked test proves, a proposed feature dashed and a deprecated one struck through at the end of its column.
+
+#### Scenario: Three levels
+
+- **Given** a `features.md` whose *Checkout* depends on *Ordering*, whose *Quotes* depends on *Checkout*, and whose deprecated *Fax orders* depends on nothing
+- **When** the reader opens Features
+- **Then** *Ordering* and *Fax orders* stand in the first column with *Fax orders* last and struck through, *Checkout* in the second, and *Quotes* in the third
+
+#### Scenario: A card's proof
+
+- **Given** a feature *Checkout* behind the flag *New checkout*, with two sub-features, whose requirements group holds two requirements of which one names a test
+- **When** the reader opens Features
+- **Then** *Checkout*'s card says 2 sub-features, Flag · New checkout, and 2 requirements · 1 proved
+
+### Requirement: Picking a feature shows its detail
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.The_detail_names_what_it_builds_on_and_the_model_chapters_its_related_names, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Picking_a_card_opens_its_detail_and_reports_the_pick, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Following_a_chapter_in_the_detail_hands_its_reference_to_the_host, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.A_features_requirements_link_opens_Requirements_on_that_features_group]
+```
+
+The system SHALL show, for the feature the reader picks on Features, what it builds on, its flag or setting, the model chapters its `related` names, its sub-features and its requirement count, each a link to the chapter it names.
+
+#### Scenario: Picking Checkout
+
+- **Given** a feature *Checkout* that depends on *Ordering* and whose `related` names the aggregate *Order*
+- **When** the reader picks *Checkout* on Features
+- **Then** the detail names *Ordering* under Builds on and *Order* under Model
+
+### Requirement: Requirements read per feature with their proof
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_requirements_file_reads_one_group_per_feature_with_its_tally, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_requirement_reads_its_shall_sentence_and_whether_a_test_proves_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_scenario_reads_as_given_when_then_rows_with_an_and_clause_split_into_bullets, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.An_and_row_joins_the_row_above_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_clause_is_not_split_inside_a_code_span_or_emphasis, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_split_requirements_file_reads_its_one_feature, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.Requirements_written_straight_under_the_title_are_one_group, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Requirements_read_per_feature_with_the_shall_sentence_and_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_scenario_reads_as_rows_with_an_and_clause_as_bullets, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Picking_another_feature_shows_its_requirements]
+```
+
+The system SHALL show on a `requirements.md` or `requirements.<name>.md` row, per feature, each requirement with its SHALL sentence set apart and whether a test its `tests` field names proves it, and each scenario as Given, When and Then rows, a row joining clauses with ", and" read as one bullet per clause.
+
+#### Scenario: A proved requirement
+
+- **Given** a requirement whose `tests` names one test and whose scenario reads *Then the payment is refused, and the order stays paid*
+- **When** the reader opens Requirements
+- **Then** the requirement is marked Proved, and its Then row holds the bullets *the payment is refused* and *the order stays paid*
+
+### Requirement: A feature's rules are a link to Always true
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_sentence_explaining_invariants_gives_way_to_the_units_always_true_link, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_group_with_no_invariants_explained_or_aggregate_named_links_no_unit, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_sentence_naming_rules_no_unit_here_holds_stays, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_always_true_link_replaces_the_invariants_sentence_and_tells_the_host, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.An_aggregate_can_be_opened_on_always_true, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.Requirements_read_as_rows_and_the_Always_true_link_opens_the_aggregates_tab]
+```
+
+The system SHALL show, in place of a requirements group's sentence explaining invariants, a link that opens the aggregate the group, its requirements, its feature or that sentence names on the aggregate's Always true tab, and keep the sentence where no aggregate of the context matches.
+
+#### Scenario: The rules a task keeps
+
+- **Given** a requirements group whose text says *The rules a task keeps are its invariants*, linking `domain.invariants.md#task`
+- **When** the reader opens Requirements and presses Always true for Task
+- **Then** the sentence is not shown, and the Domain page opens on *Task* with Always true picked
 
 ### Requirement: The context map reads as a map and as a list
 
