@@ -17,6 +17,13 @@
     <ProjectReference Include="..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Replaces the SDK's implicit reference (private, like it), whose version
+         follows the SDK patch; why is at its PackageVersion in
+         Directory.Packages.props. -->
+    <PackageReference Include="Microsoft.AspNetCore.App.Internal.Assets" PrivateAssets="all" />
+  </ItemGroup>
+
   <!--
     The design guidelines, embedded rather than read off disk.
 
