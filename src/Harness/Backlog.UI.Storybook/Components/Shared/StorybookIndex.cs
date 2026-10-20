@@ -371,6 +371,11 @@ internal static class StorybookIndex
             // row of states; every other diagram keeps DiagramView's rendering.
             new("devbook/domain-flows", "Domain flows", "DomainFlowPage and DomainFlowRow: a `flow.md` whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — with its prose beneath."),
 
+            // The board a context's Neighbours tab draws, then
+            // the context page that holds it beside Overview (local ADR 0036).
+            new("devbook/domain-neighbours", "Domain neighbours", "DomainNeighboursView: a context's dependency tables as a board — listens to, listen to, hand in hand — with outside systems as dashed cards."),
+            new("devbook/domain-context", "Domain context", "DomainContextView: a bounded context's Overview — its boundary, what it holds, how much is proved and settled, its flags and settings — beside Neighbours."),
+
             // Last, because it is the one page of the group that is not about the
             // meta block: a review note is the convention's second fence, and the
             // chapter it sits in — heading, record, prose — is everything the pages

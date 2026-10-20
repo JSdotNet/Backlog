@@ -1458,15 +1458,38 @@ The system SHALL offer a `*.demo.html` file as a Demo button on the page it belo
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.Neighbours_reads_dependencies_md_into_listens_to_listen_to_and_hand_in_hand, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_without_dependencies_md_reads_its_own_Dependencies_chapter, unit:dotnet:Backlog.UI.Components.UnitTests.DomainNeighboursTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_board_groups_the_neighbours_and_dashes_an_external_system]
 ```
 
-The system SHALL show a context's `dependencies.md` as the Neighbours tab of the context's page, each relation worded by its table's "Why" column, and give the file no row of its own.
+The system SHALL show a context's `dependencies.md` as the Neighbours tab of the context's page, each relation worded by the first sentence of its table's "Why" or "What it relies on" column, and give the file no row of its own. The contexts it listens to stand on the left, the contexts that listen to it on the right, and its Partnership neighbours below as hand in hand. A neighbour that is not one of the domain's contexts is a dashed card. No card names the relationship's pattern. A context that keeps its tables in a `## Dependencies` chapter of `context.md` reads the same.
 
 #### Scenario: A context with neighbours
 
 - **Given** a context whose `dependencies.md` lists Tasks with the Why *Notes link to and embed tasks*
 - **When** the reader opens the context's Neighbours tab
 - **Then** Tasks is listed with *Notes link to and embed tasks*, and the menu has no row for `dependencies.md`
+
+#### Scenario: A partner and an outside system
+
+- **Given** a context whose `dependencies.md` lists Devbook as a Partnership and *GitHub (external)* as an outbound ACL
+- **When** the reader opens the context's Neighbours tab
+- **Then** Devbook stands under hand in hand, GitHub is a dashed card on the left, and neither card says *Partnership* or *ACL*
+
+### Requirement: Overview is the context's boundary
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_Overview_with_the_boundary_counts_proof_and_flags, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests]
+```
+
+The system SHALL open a context's row on an Overview tab that shows the prose above the first chapter of its `context.md`, its chapters counted per kind, how many of its requirements and always-true rules name a test, its chapters per status, and its feature flags and settings.
+
+#### Scenario: A context's Overview
+
+- **Given** a context whose `context.md` holds the feature flag `github-integration` and whose `requirements.md` holds two requirements, one with `tests`
+- **When** the reader opens the context
+- **Then** Overview is the open tab, it counts two Requirements, says one of two name a test, and lists `github-integration` among the flags and settings
 
 ### Requirement: Underscore files stay hidden
 

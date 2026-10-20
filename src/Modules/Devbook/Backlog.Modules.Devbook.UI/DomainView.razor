@@ -11,6 +11,10 @@
     {
         <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" />
     }
+    else if (Page == DomainViewPage.Context)
+    {
+        <DomainViewContextPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" />
+    }
     else if (Page == DomainViewPage.Model)
     {
         <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" />

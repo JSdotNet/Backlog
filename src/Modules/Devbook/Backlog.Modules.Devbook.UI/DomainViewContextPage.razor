@@ -1,0 +1,176 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The Domain view's page for one bounded context — its folder's row, its
+    context.md, or a dependencies.md that reached the view some other way (local
+    ADR 0036). It reads the context's files through the domain store and hands
+    them to the library's DomainContextView: Overview from context.md and the
+    chapters of every file beside it, Neighbours from dependencies.md or, failing
+    that, context.md's own Dependencies chapter. A dependencies.md path opens on
+    Neighbours.
+*@
+
+@if (_read is { Problem: null } read)
+{
+    <DomainContextView @key="@_loaded"
+                       ContextName="@read.ContextName"
+                       Overview="@read.Overview"
+                       Neighbours="@read.Neighbours"
+                       DocumentPath="@read.DocumentPath"
+                       InitialTab="@read.InitialTab"
+                       OnNavigate="NavigateAsync" />
+}
+else if (_read?.Problem is { } problem)
+{
+    <EmptyState BaseClass="devbook-empty"
+                TitleCssClass="devbook-empty__title"
+                DescriptionCssClass="@(null)"
+                Title="Context"
+                Description="@problem"
+                TestId="domain-view-context-problem"
+                role="status" />
+}
+
+@code {
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The context's folder or a file in it, relative to the Domain
+    /// folder: <c>tasks</c>, <c>tasks/context.md</c>.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    /// <summary>A link in the boundary, or a neighbour, the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    private DomainDevbookStore? _store;
+    private ContextReading? _read;
+    private (string? Alias, string? Path)? _loaded;
+    private bool _disposed;
+    private int _version;
+
+    protected override void OnInitialized()
+    {
+        // Resolved rather than injected, as the pane resolves its stores: a host
+        // composing no domain store gets a sentence, not a render failure.
+        _store = Services.GetService<DomainDevbookStore>();
+        if (_store is not null) _store.Changed += OnStoreChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded == (RepositoryAlias, SelectedPath)) return;
+        _loaded = (RepositoryAlias, SelectedPath);
+        _read = null;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var version = ++_version;
+        var alias = RepositoryAlias;
+        var path = SelectedPath;
+        if (_store is null)
+        {
+            _read = ContextReading.Failed("This host has no domain folder to read the context from.");
+            return;
+        }
+
+        ContextReading read;
+        try
+        {
+            var view = await _store.LoadAsync(alias);
+            if (_disposed || version != _version) return;
+
+            // On the pool: a context's documents are read on first access, and
+            // the desktop host's dispatcher is the UI thread.
+            read = await Task.Run(() => Read(view, path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            read = ContextReading.Failed($"The context could not be read: {ex.Message}");
+        }
+
+        if (_disposed || version != _version) return;
+        _read = read;
+    }
+
+    /// <summary>What the context page shows, or why there is nothing to show.</summary>
+    internal sealed record ContextReading(
+        string ContextName,
+        DomainContextOverview Overview,
+        DomainNeighbourhood Neighbours,
+        string? DocumentPath,
+        string InitialTab,
+        string? Problem)
+    {
+        public static ContextReading Failed(string problem) =>
+            new("the context", DomainContextOverview.Empty, DomainNeighbourhood.Empty, null, "overview", problem);
+    }
+
+    /// <summary>The context the menu path names, read into its Overview and its
+    /// Neighbours.</summary>
+    internal static ContextReading Read(DomainDevbookView view, string? selectedPath)
+    {
+        if (view.Error is { } error) return ContextReading.Failed(error);
+
+        var relative = (selectedPath ?? string.Empty).Replace('\\', '/').Trim('/');
+        var slug = relative.Split('/')[0];
+        var context = view.Contexts.FirstOrDefault(c => string.Equals(c.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        if (context is null) return ContextReading.Failed($"No bounded context at {slug}.");
+
+        var root = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Context);
+        var rootText = root is null ? null : DomainDevbookStore.ReadText(view, root);
+        var others = context.Documents
+            .Where(d => d.Kind is not (DomainDevbookDocumentKind.Context or DomainDevbookDocumentKind.Dependencies))
+            .Select(d => DomainDevbookStore.ReadText(view, d))
+            .OfType<string>();
+
+        var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies);
+        var neighbours = dependencies is not null
+            ? DomainNeighbours.Read(DomainDevbookStore.ReadText(view, dependencies), dependencies.Path)
+            : root is not null
+                ? DomainNeighbours.Read(DependenciesChapter(rootText), root.Path)
+                : DomainNeighbourhood.Empty;
+
+        var opensNeighbours = DomainDevbookStore.KindFromFile(relative) == DomainDevbookDocumentKind.Dependencies;
+
+        return new ContextReading(
+            context.DisplayName,
+            DomainContextOverview.Read(rootText, others),
+            neighbours,
+            root?.Path,
+            opensNeighbours ? "neighbours" : "overview",
+            null);
+    }
+
+    /// <summary>The <c>## Dependencies</c> chapter of a <c>context.md</c> that
+    /// keeps its dependency tables inline, or null when it has none.</summary>
+    internal static string? DependenciesChapter(string? contextMarkdown) =>
+        MarkdownChapters.Split(contextMarkdown)
+            .FirstOrDefault(c => c.Level == 2 && string.Equals(c.Title.Trim(), "Dependencies", StringComparison.OrdinalIgnoreCase))
+            ?.Text;
+
+    private Task NavigateAsync(DevbookReference reference) =>
+        DevbookChapterLink.From(reference) is { } target
+            ? OnNavigateToChapter.InvokeAsync(target)
+            : Task.CompletedTask;
+
+    private void OnStoreChanged()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_store is not null) _store.Changed -= OnStoreChanged;
+    }
+}

@@ -129,6 +129,8 @@ public sealed class DomainViewModelPageTests : IDisposable
 
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-view']")), Patience);
+        // The menu draws after the view frame, and under the whole suite's load it lags.
+        component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Tasks")), Patience);
         await ClickMenuItemAsync(component, "Tasks");
         component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, "Model")), Patience);
         await ClickMenuItemAsync(component, "Model");
