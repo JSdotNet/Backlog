@@ -123,3 +123,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0033 — The Dashboard sends its figures to Foundry, whichever part was pressed](adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md)
 - [ADR 0034 — Archify renders are generated on demand into app storage, not committed](adr/0034-archify-renders-are-generated-on-demand-not-committed.md)
 - [ADR 0035 — Goals and impediments replace sprints](adr/0035-goals-and-impediments-replace-sprints.md)
+- [ADR 0037 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](adr/0037-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)

@@ -1327,3 +1327,243 @@ The system SHALL say in the review when GitHub listed only part of a change's co
 - **Given** `feature/x` holds more commits than GitHub lists in one comparison
 - **When** the reader opens its review
 - **Then** the review says how many of the commits are shown
+
+## C4 zoom navigation
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#c4-zoom-navigation]
+```
+
+> The requirements of the **C4 zoom** tab of the architecture panel, behind the
+> `c4-zoom` switch (local ADR 0037). Each has its cases written inline until a
+> journey proves it.
+
+### Requirement: The zoom tab sits beside the C4 tab
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL offer a **C4 zoom** tab beside an unchanged **C4** tab in the architecture panel only while both `c4-zoom` and `c4-diagrams` are on, open it on the System context view, and show a dismissable hint naming the ways to move the first time it opens.
+
+#### Scenario: Both switches on
+
+- **Given** `c4-diagrams` and `c4-zoom` are on and the repository has a C4 model
+- **When** the reader opens the architecture panel
+- **Then** the tabs read Chapters, C4 and C4 zoom, and the C4 tab shows what it showed with `c4-zoom` off
+
+#### Scenario: Only the zoom switch on
+
+- **Given** `c4-zoom` is on and `c4-diagrams` is off
+- **When** the reader opens the architecture panel
+- **Then** neither the C4 tab nor the C4 zoom tab is offered
+
+#### Scenario: First opening
+
+- **Given** the reader has never opened the C4 zoom tab
+- **When** they open it
+- **Then** it shows the System context view and a hint naming zoom in, zoom out, jump and sideways
+
+#### Scenario: The hint once dismissed
+
+- **Given** the reader dismissed the hint
+- **When** they open the C4 zoom tab again
+- **Then** the System context view shows with no hint
+
+### Requirement: The zoom bar names each level's element
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL head the zoom tab with a zoom bar of the steps 1 Context, 2 Containers, 3 Components and 4 Code, each showing the element its level is about, a deeper step greyed with "pick a container" or "pick a component" until an element filling it is selected, and Landscape, Dynamic and Deployment beside it under "Also".
+
+#### Scenario: On the context view
+
+- **Given** the zoom tab shows the System context view of Prompt Backlog
+- **When** nothing is selected
+- **Then** the bar reads 1 Context Prompt Backlog, 2 Containers Prompt Backlog, 3 Components greyed "pick a container" and 4 Code greyed "pick a component"
+
+#### Scenario: A container selected
+
+- **Given** the zoom tab shows the Containers view
+- **When** the reader selects Desktop App
+- **Then** step 3 reads Components Desktop App and can be picked, and step 4 still reads "pick a component"
+
+#### Scenario: The supplementary views
+
+- **Given** the zoom tab is open on any level
+- **When** the reader looks beside the zoom bar
+- **Then** Landscape, Dynamic and Deployment are offered under "Also" and none of them is a numbered step
+
+### Requirement: Zooming moves one level and keeps the selection
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL zoom into a drillable element on a double-click, on its "Zoom in" chip, or on Enter while it has focus, and zoom out on an earlier zoom bar step or on Backspace while the diagram has focus, keeping the element zoomed out of selected and taking neither key outside the focused diagram.
+
+#### Scenario: Zoom in by double-click
+
+- **Given** the System context view shows Prompt Backlog with a Zoom in chip
+- **When** the reader double-clicks Prompt Backlog
+- **Then** the Containers view of Prompt Backlog opens
+
+#### Scenario: Zoom in by keyboard
+
+- **Given** Desktop App has focus on the Containers view
+- **When** the reader presses Enter
+- **Then** the Components view of Desktop App opens
+
+#### Scenario: Zoom out keeps the selection
+
+- **Given** the Components view of Desktop App is open
+- **When** the reader presses Backspace with the diagram focused
+- **Then** the Containers view opens with Desktop App selected
+
+#### Scenario: Zoom out from the bar
+
+- **Given** the Code view of the Devbook component is open
+- **When** the reader picks step 2 Containers in the zoom bar
+- **Then** the Containers view opens with Desktop App selected
+
+#### Scenario: Keys outside the diagram
+
+- **Given** the zoom tab is open and the find field has focus
+- **When** the reader presses Backspace or Enter
+- **Then** the field takes the key and the view does not change
+
+#### Scenario: An element with no deeper view
+
+- **Given** the Containers view shows Cloud Database, which has no components view
+- **When** the reader double-clicks it
+- **Then** it is selected, no view opens, and it shows no Zoom in chip
+
+### Requirement: A selected element opens its inspector
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters that document it, the ADRs and the TDRs that name it, and a zoom-in button only when a deeper view of it exists.
+
+#### Scenario: A container with records
+
+- **Given** the Containers view is open
+- **When** the reader selects Desktop App
+- **Then** the inspector reads Container, its description and .NET MAUI Blazor Hybrid, lists the arc42 chapters, ADRs and TDRs that name it, and offers to open its components
+
+#### Scenario: An element with nothing deeper
+
+- **Given** the Containers view is open
+- **When** the reader selects Cloud Database
+- **Then** the inspector shows its kind, description and technology and offers no zoom-in button
+
+### Requirement: An overlay counts the records on each card
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL offer an overlay switch of None, Decisions and Debt that puts the count of ADRs or of TDRs naming an element on its card, and show the TDRs that name no element in a cross-cutting tray while Debt is chosen.
+
+#### Scenario: Decisions
+
+- **Given** the Containers view is open with the overlay at None
+- **When** the reader chooses Decisions
+- **Then** each card named by an ADR shows its count of ADRs, and no card shows a TDR count
+
+#### Scenario: Debt with a cross-cutting record
+
+- **Given** one TDR names the Devbook component and two TDRs name no element
+- **When** the reader chooses Debt on the Components view of Desktop App
+- **Then** the Devbook card reads 1 TDR and the cross-cutting tray lists the other two
+
+### Requirement: Code is drawn from the source on demand
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL draw the Code level of a component from the source its code link names when it is opened, showing the types and their members, and never from an authored diagram.
+
+#### Scenario: A component with a code link
+
+- **Given** the Devbook component's code link names `Backlog.Infrastructure.Devbook`
+- **When** the reader zooms into Devbook
+- **Then** the Code view lists that project's types with their members, read from the source as it is now
+
+#### Scenario: The source changed
+
+- **Given** a type was added to `Backlog.Infrastructure.Devbook` since the Code view was last opened
+- **When** the reader opens the Code view of Devbook again
+- **Then** the new type is shown
+
+#### Scenario: A component with no code link
+
+- **Given** the Inbox component has no code link
+- **When** the reader selects it
+- **Then** step 4 stays greyed and Inbox shows no Zoom in chip
+
+### Requirement: The supplementary views move in their own way
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL play a dynamic view one numbered step at a time, switch a deployment view between its environments with another environment drawn as a dashed door into its own view, and draw the landscape's DSL groups as bands.
+
+#### Scenario: Stepping a dynamic view
+
+- **Given** the dynamic view "Capture → issue" shows step 3 of 5
+- **When** the reader steps forward
+- **Then** step 4 is drawn as the current step and the other steps are drawn as not current
+
+#### Scenario: Another environment
+
+- **Given** the Local machine deployment view is open
+- **When** the reader opens the dashed Azure door
+- **Then** the deployment view switches to the Azure environment
+
+#### Scenario: Landscape groups
+
+- **Given** the DSL groups its external systems as Capture sources, Work tracking and Operations
+- **When** the reader opens Landscape
+- **Then** each group is drawn as a band holding its systems
+
+### Requirement: Records and chapters show where they land in the model
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL, while `c4-zoom` is on, show for an ADR or a TDR opened in the Chapters tab where it lands on the container view and its decision chain, and for an arc42 chapter the views it documents with the elements present in the model but not in its mermaid fence, and those in the fence but not in the model, flagged.
+
+#### Scenario: A decision record
+
+- **Given** `c4-zoom` is on and ADR 0005 names Cloud Service and Cloud Database
+- **When** the reader opens ADR 0005 in the Chapters tab
+- **Then** a container view marks the elements it decides and touches, and its chain shows what it builds on and what builds on it
+
+#### Scenario: A chapter and the model disagree
+
+- **Given** `c4-zoom` is on and the fence in 05 Building block view draws Attachments, which the model lacks
+- **When** the reader opens chapter 05 in the Chapters tab
+- **Then** the chapter embeds the Containers view it documents and flags Attachments as in the fence but not in the model
+
+#### Scenario: The switch off
+
+- **Given** `c4-zoom` is off and `c4-diagrams` is on
+- **When** the reader opens ADR 0005 in the Chapters tab
+- **Then** the record shows no container view and no decision chain
