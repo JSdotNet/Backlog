@@ -31,7 +31,8 @@ public sealed class DevbookPaneBranchOverviewTests
         Raise(component, () => SourceInput(component).KeyDown(new KeyboardEventArgs { Key = "Escape" }));
         OpenPicker(component);
         component.WaitForAssertion(() => Assert.Contains("docs/adr", OptionNames(component)));
-        Raise(component, () => component.FindAll("[role='tab']")[^1].Click());
+        Raise(component, () => Tab(component, "AI").Click());
+        component.WaitForAssertion(() => Assert.Equal("true", Tab(component, "AI").GetAttribute("aria-selected")));
 
         Assert.Equal(1, harness.Catalog.HeadListings);
         Assert.Single(harness.Comparisons.Compared);
@@ -188,7 +189,7 @@ public sealed class DevbookPaneBranchOverviewTests
 
         component.WaitForAssertion(() =>
         {
-            var tab = component.FindAll("[role='tab']").Single(tab => tab.TextContent.Trim() == "Architecture");
+            var tab = Tab(component, "Architecture");
             var icon = tab.QuerySelector("svg[data-testid='devbook-tab-icon-arc42']");
 
             Assert.NotNull(icon);
@@ -273,6 +274,9 @@ public sealed class DevbookPaneBranchOverviewTests
     private static void Raise(IRenderedComponent<DevbookPane> component, Action raise) =>
         component.InvokeAsync(raise).GetAwaiter().GetResult();
 
+    private static AngleSharp.Dom.IElement Tab(IRenderedComponent<DevbookPane> component, string name) =>
+        component.FindAll("[role='tab']").Single(tab => tab.TextContent.Trim() == name);
+
     private static List<string> OptionNames(IRenderedComponent<DevbookPane> component) =>
         [.. component.FindAll("[data-testid='devbook-source-select-list'] [role=option] .devbook-stack__source-name").Select(name => name.TextContent.Trim())];
 
@@ -319,6 +323,8 @@ public sealed class DevbookPaneBranchOverviewTests
         // pane drew the control for it, and its absence is the change under test.
         context.Services.AddSingleton<IDevbookSnapshotCache>(new IdleSnapshotCache());
         context.Services.AddSingleton<InstructionSourceDiscovery>();
+        // The tab the first test switches to: AI reads its own folder.
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<DevbookMenu>();
         context.Services.AddSingleton<DevbookScope>();
         context.Services.AddScoped<DevbookOpenChapter>();
