@@ -27,7 +27,10 @@ Inside the boundary:
 - which pushed copy of a document wins, by
   [Change Precedence](domain.md#change-precedence);
 - attachment blobs, stored under the owner and served only through the sync
-  service (local [ADR 0014](../../arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md)).
+  service (local [ADR 0014](../../arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md));
+- the service's version, and whether an app may sync with it at all
+  ([Syncing between devices](requirements.md#syncing-between-devices); local
+  [ADR 0005 §Version compatibility](../../arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md)).
 
 Outside it: what each document means. A task document is
 [Tasks](../tasks/domain.md#task)'s, a session record is
@@ -44,8 +47,9 @@ service, and is not the same identifier.
 
 Sync runs in two places. The sync service (`Backlog.Modules.Sync.Api`, hosting
 `Backlog.Modules.Sync`) holds the owners, devices, pairing codes and replicas in
-the cloud. The desktop's sync client (`Backlog.Infrastructure.Sync`) is the
-adapter each downstream context reaches the replica through. The Devices settings
+the cloud. The sync client (`Backlog.Infrastructure.Sync`), on the desktop and the
+phone, is the adapter each downstream context reaches the replica through, and the
+place the version check sits. The Devices settings
 page is `Backlog.Modules.Sync.UI`.
 
 ## Taking part in sync

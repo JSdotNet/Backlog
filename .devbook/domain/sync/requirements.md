@@ -6,8 +6,9 @@ type: requirements
 ```
 
 > What the sync service promises the devices that pair with it and sync through
-> it. The service is the `Backlog.Modules.Sync` module, hosted by
-> `Backlog.Modules.Sync.Api`.
+> it, and what each device's sync client promises about the service it talks to.
+> The service is the `Backlog.Modules.Sync` module, hosted by
+> `Backlog.Modules.Sync.Api`; the client is `Backlog.Infrastructure.Sync`.
 
 ## Pairing a device
 
@@ -92,7 +93,8 @@ status: draft
 related: [.devbook/domain/sync/features.md#syncing-between-devices]
 ```
 
-> What the sync service promises about whose data a call reaches.
+> What the sync service promises about whose data a call reaches, and what a
+> device promises about a service newer than its app.
 
 ### Requirement: Every sync call is scoped to the token's owner
 
@@ -109,3 +111,47 @@ The sync service SHALL answer a call only from the partition of the [Owner](doma
 - **Given** two devices registered as separate owners, one of which pushed tasks
 - **When** the other device pulls
 - **Then** it receives none of the first owner's tasks
+
+### Requirement: A device sends nothing to a newer sync service
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SyncCompatibilityHandlerTests.A_newer_service_is_sent_nothing_and_the_answer_asks_for_an_update, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SyncCompatibilityRegistrationTests.A_sync_client_sends_nothing_to_a_newer_service, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SyncCompatibilityRegistrationTests.The_token_request_is_held_too, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskSyncWorkerTests.A_service_newer_than_the_app_is_sent_nothing_and_the_progress_stays, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncWorkerTests.A_service_newer_than_the_app_is_sent_nothing_and_the_progress_stays]
+```
+
+A device SHALL send no sync request, its token request included, while the sync service reports a version higher than the device's app version.
+
+#### Scenario: The service was released past the app
+
+- **Given** a desktop at app version 0.1.4 with task changes waiting to push
+- **And** a sync service whose root reports version 0.2.0
+- **When** the desktop runs a sync cycle
+- **Then** it sends no request but the version question
+- **And** it says "Update Backlog to keep syncing."
+- **And** its push watermark and pull cursor stay where they were
+
+#### Scenario: The service is rolled back
+
+- **Given** a device that stopped syncing for a service at version 0.2.0
+- **When** the service is rolled back to 0.1.0 and ten minutes pass
+- **Then** the device syncs again without a restart
+
+### Requirement: A phone holds its outbox for a newer sync service
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/sync/features.md#carrying-captures-to-the-inbox, .devbook/arc42/06-runtime-view.md#mobile-capture-and-sync]
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.DeviceOutboxTests.Entries_for_a_service_newer_than_the_app_wait_rather_than_being_refused, unit:dotnet:Backlog.Mobile.UI.UnitTests.DeviceOutboxTests.Waiting_entries_go_once_the_service_is_no_newer_than_the_app]
+```
+
+The phone SHALL hold every outbox entry in its place, with its attempts, while the sync service reports a version higher than the phone's app version.
+
+#### Scenario: A capture made while the service is newer
+
+- **Given** a phone whose sync service reports a version higher than its app's
+- **When** the person makes a capture
+- **Then** the capture waits in the outbox, not set aside as refused
+- **And** it is sent once the service reports a version no higher than the app's
