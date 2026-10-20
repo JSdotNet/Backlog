@@ -39,7 +39,7 @@ related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
 All tokens below are the **dark-mode** values. These are the only color values
-the product uses, beside the one value
+the product uses, beside the two values
 [Domain View Element Tones](#domain-view-element-tones) adds.
 
 ### Brand
@@ -576,17 +576,25 @@ related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/a
 
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
 marks a model element by its kind on the Model page's diagram and beside its
-name. The kind's glyph and word always say what the element is, and the tone
-only helps the eye group the same kind across a diagram.
+name, and a relation between two core contexts on the Context map. These are
+the two values this file adds outside the palette. The kind's glyph and word
+always say what the element is, and the tone only helps the eye group the same
+kind across a diagram.
 
 | Token | Value | Element | Against `color-background` / `-alt` / `-raised` |
 | --- | --- | --- | --- |
 | `color-domain-value-object` | `#C3D96B` | Value object | 11.99:1 / 10.41:1 / 7.83:1 |
+| `color-domain-core-line` | `#F0A33A` | A Context map line between two core contexts, and a core context's card edge | 8.91:1 / 7.74:1 / 5.82:1 |
 
 Value objects take `#C3D96B`, a yellow-green between `color-band-3` and
-`color-primary`. It is the one value this file adds outside the palette, and it
-is argued here. Teal, the value the code theme spends as `code-type`, is not
+`color-primary`. Teal, the value the code theme spends as `code-type`, is not
 available to it, because teal is reserved for [the Brain](#the-brains-accent).
+
+The Context map's lines between two core contexts take `#F0A33A`, an amber of
+their own. `color-primary` is the gold that says a thing is followable, and a
+line is not a control; every other line takes `color-border-strong`. The card
+says Core in words and the legend names both colours, so the amber is never
+the only thing that says which contexts are core.
 
 **Information badges are neutral outlines.** On the Domain view's pages, the
 `DEV` mark, a chapter's date, a chapter's feature switch, a feature's

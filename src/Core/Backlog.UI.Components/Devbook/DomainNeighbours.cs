@@ -47,6 +47,14 @@ public sealed record DomainNeighbourhood(
     public bool IsEmpty => ListensTo.Count == 0 && ListenTo.Count == 0 && HandInHand.Count == 0;
 }
 
+/// <summary>One row of a context's dependency tables.</summary>
+/// <param name="Neighbour">The row as a Neighbours card draws it.</param>
+/// <param name="Outbound">Whether the row is in the outbound table — a context
+/// this one depends on — rather than the inbound one.</param>
+/// <param name="Partnership">Whether the row's pattern is a Partnership.</param>
+/// <param name="Reason">The whole "Why" or "What it relies on" cell as plain text.</param>
+public sealed record DomainNeighbourRow(DomainNeighbour Neighbour, bool Outbound, bool Partnership, string Reason);
+
 /// <summary>Reads <see cref="DomainNeighbourhood"/> out of a dependency table.</summary>
 public static partial class DomainNeighbours
 {
@@ -55,10 +63,46 @@ public static partial class DomainNeighbours
     /// first cell's relative link resolves to the context folder it names.</summary>
     public static DomainNeighbourhood Read(string? markdown, string path)
     {
-        if (string.IsNullOrWhiteSpace(markdown)) return DomainNeighbourhood.Empty;
+        var rows = Rows(markdown, path);
+        if (rows.Count == 0) return DomainNeighbourhood.Empty;
 
-        var outbound = new List<(DomainNeighbour Neighbour, bool Partnership)>();
-        var inbound = new List<(DomainNeighbour Neighbour, bool Partnership)>();
+        // A neighbour met twice on one side is one card: the first row's.
+        static List<DomainNeighbourRow> Distinct(IEnumerable<DomainNeighbourRow> side)
+        {
+            var kept = new List<DomainNeighbourRow>();
+            foreach (var row in side)
+            {
+                if (kept.Any(seen => string.Equals(seen.Neighbour.Name, row.Neighbour.Name, StringComparison.OrdinalIgnoreCase))) continue;
+                kept.Add(row);
+            }
+            return kept;
+        }
+
+        var outbound = Distinct(rows.Where(row => row.Outbound));
+        var inbound = Distinct(rows.Where(row => !row.Outbound));
+
+        var handInHand = new List<DomainNeighbour>();
+        foreach (var row in outbound.Concat(inbound))
+        {
+            if (row.Partnership && !handInHand.Any(n => string.Equals(n.Name, row.Neighbour.Name, StringComparison.OrdinalIgnoreCase)))
+                handInHand.Add(row.Neighbour);
+        }
+
+        return new DomainNeighbourhood(
+            [.. outbound.Where(row => !row.Partnership).Select(row => row.Neighbour)],
+            [.. inbound.Where(row => !row.Partnership).Select(row => row.Neighbour)],
+            handInHand);
+    }
+
+    /// <summary>Every row of the dependency tables in <paramref name="markdown"/>, in
+    /// the order written: the outbound table's, then the inbound table's, each with
+    /// its whole reason cell as plain text. The context map reads a line's wording
+    /// from these (<see cref="Diagrams.ContextMaps"/>).</summary>
+    public static IReadOnlyList<DomainNeighbourRow> Rows(string? markdown, string path)
+    {
+        if (string.IsNullOrWhiteSpace(markdown)) return [];
+
+        var rows = new List<DomainNeighbourRow>();
         string? side = null;
         var table = new List<string>();
         MarkdownFence? fence = null;
@@ -81,7 +125,7 @@ public static partial class DomainNeighbours
 
             if (HeadingLine().IsMatch(line))
             {
-                Flush(side, table, path, outbound, inbound);
+                Flush(side, table, path, rows);
                 var heading = line.TrimStart('#').Trim();
                 side = heading.Contains("outbound", StringComparison.OrdinalIgnoreCase) ? "out"
                     : heading.Contains("inbound", StringComparison.OrdinalIgnoreCase) ? "in"
@@ -90,29 +134,15 @@ public static partial class DomainNeighbours
             }
 
             if (line.StartsWith('|')) table.Add(line);
-            else if (table.Count > 0) Flush(side, table, path, outbound, inbound);
+            else if (table.Count > 0) Flush(side, table, path, rows);
         }
-        Flush(side, table, path, outbound, inbound);
+        Flush(side, table, path, rows);
 
-        var handInHand = new List<DomainNeighbour>();
-        foreach (var (neighbour, partnership) in outbound.Concat(inbound))
-        {
-            if (partnership && !handInHand.Any(n => string.Equals(n.Name, neighbour.Name, StringComparison.OrdinalIgnoreCase)))
-                handInHand.Add(neighbour);
-        }
-
-        return new DomainNeighbourhood(
-            [.. outbound.Where(row => !row.Partnership).Select(row => row.Neighbour)],
-            [.. inbound.Where(row => !row.Partnership).Select(row => row.Neighbour)],
-            handInHand);
+        // Outbound first, whatever order the file wrote the two tables in.
+        return [.. rows.Where(row => row.Outbound), .. rows.Where(row => !row.Outbound)];
     }
 
-    private static void Flush(
-        string? side,
-        List<string> table,
-        string path,
-        List<(DomainNeighbour, bool)> outbound,
-        List<(DomainNeighbour, bool)> inbound)
+    private static void Flush(string? side, List<string> table, string path, List<DomainNeighbourRow> rows)
     {
         if (side is not null && table.Count > 2)
         {
@@ -123,7 +153,6 @@ public static partial class DomainNeighbours
             if (reason < 0) reason = header.Count - 1;
 
             // Row 1 is the |---| separator.
-            var rows = side == "out" ? outbound : inbound;
             foreach (var row in table.Skip(2).Select(Cells))
             {
                 // A table that lists nobody says so with a placeholder row.
@@ -131,11 +160,8 @@ public static partial class DomainNeighbours
 
                 var partnership = pattern >= 0 && pattern < row.Count
                     && row[pattern].TrimStart().StartsWith("Partnership", StringComparison.OrdinalIgnoreCase);
-                var neighbour = Neighbour(row[0], reason < row.Count ? row[reason] : string.Empty, path);
-
-                // A neighbour met twice on one side is one card: the first row's.
-                if (rows.Any(seen => string.Equals(seen.Item1.Name, neighbour.Name, StringComparison.OrdinalIgnoreCase))) continue;
-                rows.Add((neighbour, partnership));
+                var reasonCell = reason < row.Count ? row[reason] : string.Empty;
+                rows.Add(new DomainNeighbourRow(Neighbour(row[0], reasonCell, path), side == "out", partnership, DomainUnits.Plain(reasonCell)));
             }
         }
         table.Clear();
@@ -162,7 +188,7 @@ public static partial class DomainNeighbours
 
     /// <summary>A table row's cells, trimmed, without the outer pipes. A pipe
     /// escaped as <c>\|</c> or inside a code span stays in its cell.</summary>
-    private static List<string> Cells(string row)
+    internal static List<string> Cells(string row)
     {
         var cells = new List<string>();
         var current = new System.Text.StringBuilder();

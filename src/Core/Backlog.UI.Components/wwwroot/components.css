@@ -133,6 +133,11 @@
        Brain's. */
     --color-domain-value-object: #C3D96B;
 
+    /* The Context map's line between two core contexts, and a core card's edge,
+       beside the word Core on the card and the legend's words, never alone. An
+       amber of its own rather than color-primary, which says "followable". */
+    --color-domain-core-line: #F0A33A;
+
     /* Chart roles.
        A chart needs role names the twenty-two palette tokens do not provide: a
        series colour, a track, a gridline, a baseline. Like the code theme this
@@ -23114,6 +23119,293 @@ select.field__input {
     .domain-neighbours__board {
         grid-template-columns: minmax(0, 1fr);
     }
+}
+
+/* The Domain view's Context map page (local ADR 0036): Map draws every bounded
+   context as a card on an ellipse with one line per pair of contexts; List names
+   them in reading order. A line between two core contexts is amber, any other
+   grey, a relation named and not built dashed. Pointing at or focusing a card
+   fades every line that does not touch it. */
+.context-map-page {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.context-map {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+    min-width: 0;
+}
+
+/* The map keeps its shape: below its least width it scrolls inside the page,
+   and List is the reading for a narrow pane. */
+.context-map__scroll {
+    overflow-x: auto;
+    min-width: 0;
+}
+
+.context-map__canvas {
+    position: relative;
+    min-width: 56rem;
+    width: 100%;
+}
+
+.context-map__lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.context-map__line {
+    transition: opacity var(--transition-fast);
+}
+
+.context-map__stroke {
+    fill: none;
+    stroke: var(--color-border-strong);
+    stroke-width: 1.5;
+    pointer-events: none;
+}
+
+.context-map__line--core .context-map__stroke {
+    stroke: var(--color-domain-core-line);
+    stroke-width: 2;
+}
+
+.context-map__line--not-built .context-map__stroke {
+    stroke-dasharray: 6 5;
+}
+
+/* A wide transparent stroke under the drawn one, so the tooltip answers a
+   pointer anywhere near the line. */
+.context-map__hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 12;
+    pointer-events: stroke;
+}
+
+.context-map__line--lit .context-map__stroke {
+    stroke-width: 2.5;
+}
+
+.context-map__line--faded {
+    opacity: 0.12;
+}
+
+.context-map__head path {
+    fill: var(--color-border-strong);
+}
+
+.context-map__head--core path {
+    fill: var(--color-domain-core-line);
+}
+
+.context-map__cards {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    pointer-events: none;
+}
+
+.context-map__slot {
+    position: absolute;
+    display: flex;
+}
+
+.context-map__card {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: opacity var(--transition-fast);
+}
+
+.context-map__card--core {
+    border-color: var(--color-domain-core-line);
+}
+
+.context-map__card:hover:not([aria-disabled="true"]),
+.context-map__card--active {
+    background: var(--color-background-raised);
+}
+
+.context-map__card:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.context-map__card[aria-disabled="true"] {
+    cursor: default;
+}
+
+.context-map__card--faded {
+    opacity: 0.55;
+}
+
+.context-map__name {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.context-map__facts {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.context-map__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-lg);
+    margin: 0;
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.context-map__legend-item {
+    display: flex;
+    gap: var(--spacing-2xs);
+}
+
+.context-map__legend dt {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.context-map__legend dd {
+    margin: 0;
+}
+
+.context-map__swatch {
+    display: inline-block;
+    width: 1.25rem;
+    border-top: 2px solid var(--color-border-strong);
+}
+
+.context-map__swatch--core {
+    border-top-color: var(--color-domain-core-line);
+}
+
+.context-map__swatch--dashed {
+    border-top-style: dashed;
+}
+
+.context-map-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md) 0;
+    min-width: 0;
+}
+
+.context-map-list__group,
+.context-map-list__section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.context-map-list__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.context-map-list__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.context-map-list__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.context-map-list__item {
+    display: grid;
+}
+
+.context-map-list__card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-content: start;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.context-map-list__card--core {
+    border-left: 3px solid var(--color-domain-core-line);
+}
+
+.context-map-list__card:hover:not([aria-disabled="true"]) {
+    background: var(--color-background-raised);
+}
+
+.context-map-list__card:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.context-map-list__card[aria-disabled="true"] {
+    cursor: default;
+}
+
+.context-map-list__name {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.context-map-list__count {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.context-map-list__why {
+    grid-column: 1 / -1;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 /* The Domain view's Model page (local ADR 0036): a class diagram drawn as each
