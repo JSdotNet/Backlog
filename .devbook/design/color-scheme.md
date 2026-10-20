@@ -289,7 +289,8 @@ The code theme spends a few hues of its own; the band set and the role tokens ad
 no value the palette and the code theme do not already carry. `components.css`
 declares exactly the palette, plus the code theme in
 [Syntax Highlighting Tokens](#syntax-highlighting-tokens), the band identity set
-in [Band Identity Tokens](#band-identity-tokens), and the derived role tokens in
+in [Band Identity Tokens](#band-identity-tokens), the Domain view's element tones in
+[Domain View Element Tones](#domain-view-element-tones), and the derived role tokens in
 [Role Tokens](#role-tokens). Anything else in product code is a literal and MUST
 be replaced by a token.
 
@@ -578,9 +579,9 @@ marks a model element by its kind on the Model page's diagram and beside its
 name. The kind's glyph and word always say what the element is, and the tone
 only helps the eye group the same kind across a diagram.
 
-| Element | Tone | Against `color-background` / `-alt` / `-raised` |
-| --- | --- | --- |
-| Value object | `color-domain-value-object`, `#C3D96B` | 11.99:1 / 10.41:1 / 7.83:1 |
+| Token | Value | Element | Against `color-background` / `-alt` / `-raised` |
+| --- | --- | --- | --- |
+| `color-domain-value-object` | `#C3D96B` | Value object | 11.99:1 / 10.41:1 / 7.83:1 |
 
 Value objects take `#C3D96B`, a yellow-green between `color-band-3` and
 `color-primary`. It is the one value this file adds outside the palette, and it

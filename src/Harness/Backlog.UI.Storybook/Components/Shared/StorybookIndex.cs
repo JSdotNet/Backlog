@@ -247,6 +247,7 @@ internal static class StorybookIndex
             // fence at all — a Structurizr workspace read into mermaid at render
             // time — and an element list drawn as the DataTable above.
             new("diagrams/c4", "C4 from Structurizr DSL", "One workspace authored in c4hero, drawn as a landscape, a context, a container and a deployment view — and what the reader refuses to guess at."),
+            new("diagrams/domain-model", "Domain model", "DomainModelView and DomainModelDiagram: a context's classDiagram drawn as consistency-boundary bands, with mermaid when the fence cannot be arranged."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
             new("graph-atlas", "Graph atlas", "GraphAtlas: a graph drawn as a place — clustered in depth on a canvas, with the list beside it that the keyboard actually operates."),
 
@@ -346,6 +347,12 @@ internal static class StorybookIndex
             // exactly the pair the page above documents. A reader who has not met
             // both shapes would be looking at a mark with nowhere to put it.
             new("devbook/type-markers", "Type markers", "The eighteen marks a `.domain` type is drawn as: seven for what the file is, eleven for what a chapter describes, all built from a dot, a diamond and a boundary so the set reads as one grammar rather than eighteen drawings."),
+
+            // After Type markers, because every unit, card and event line here is led
+            // by one. The Domain view's Domain page (local ADR 0036): it draws Tabs,
+            // Card, EmptyState and MarkdownView from groups above, and its own
+            // renderers.
+            new("devbook/domain-units", "Domain units", "DomainUnitPage, DomainAggregateAbout, DomainServiceAbout, DomainEventList and DomainGlossary: a `domain.md` read one unit at a time — a chapter bar over an unsplit file, About for an aggregate, You can count on for a domain service."),
 
             // Last, because it is the one page of the group that is not about the
             // meta block: a review note is the convention's second fence, and the

@@ -1,0 +1,56 @@
+@*
+    The Domain view's Model page (local ADR 0036): a Diagram | Fields | Events bar
+    that opens on Diagram. Diagram draws each classDiagram fence of the model file
+    with DomainModelDiagram; Fields and Events are placeholders until the plan
+    +devbook-domain-view's next step fills them.
+*@
+
+<section class="domain-model-view" data-testid="@TestId" aria-label="@AriaLabel">
+    <Tabs AriaLabel="Model views"
+          TestId="domain-model-tabs"
+          ActiveId="@_tab"
+          ActiveIdChanged="@(id => _tab = id)">
+        <TabPanel Id="diagram" Title="Diagram" TabTestId="domain-model-tab-diagram" TestId="domain-model-diagram-panel">
+            @if (Fences.Count == 0)
+            {
+                <EmptyState Title="No class diagram"
+                            Description="This model file holds no classDiagram fence to draw."
+                            TestId="domain-model-empty" />
+            }
+            else
+            {
+                @foreach (var fence in Fences)
+                {
+                    <DomainModelDiagram Source="@fence.Source" Title="@fence.Title" />
+                }
+            }
+        </TabPanel>
+        <TabPanel Id="fields" Title="Fields" TabTestId="domain-model-tab-fields" TestId="domain-model-fields-panel">
+            <EmptyState Title="Fields"
+                        Description="Each class's fields and their types."
+                        TestId="domain-model-fields-placeholder"
+                        role="status" />
+        </TabPanel>
+        <TabPanel Id="events" Title="Events" TabTestId="domain-model-tab-events" TestId="domain-model-events-panel">
+            <EmptyState Title="Events"
+                        Description="The domain events the context raises and what each carries."
+                        TestId="domain-model-events-placeholder"
+                        role="status" />
+        </TabPanel>
+    </Tabs>
+</section>
+
+@code {
+    /// <summary>The model file's <c>classDiagram</c> fences, in the order the file
+    /// holds them, each with the heading it sits under.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainModelFence> Fences { get; set; } = [];
+
+    [Parameter]
+    public string? AriaLabel { get; set; } = "Model";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-model-view";
+
+    private string _tab = "diagram";
+}

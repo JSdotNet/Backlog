@@ -77,6 +77,14 @@
                 { name: '--color-border-strong', against: '--color-background', threshold: 3 },
                 { name: '--color-border-focus', against: '--color-background', threshold: 3 }
             ]
+        },
+        {
+            // The Domain view's element tones (color-scheme.md#domain-view-element-tones).
+            // Scored on the raised surface, the lightest one a model element sits on.
+            title: 'Domain view',
+            tokens: [
+                { name: '--color-domain-value-object', against: '--color-background-raised', threshold: 4.5 }
+            ]
         }
     ];
 

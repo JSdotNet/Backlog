@@ -1,0 +1,127 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The Domain view's Model page for one model file — model.md or a model.<name>.md
+    split (local ADR 0036). It reads the file's classDiagram fences through the
+    domain store and hands them to the library's DomainModelView, which opens on
+    Diagram with the Fields and Events tabs beside it.
+*@
+
+@if (_fences is { } fences)
+{
+    <DomainModelView Fences="@fences" AriaLabel="@($"Model of {_title}")" />
+}
+else if (_problem is not null)
+{
+    <EmptyState BaseClass="devbook-empty"
+                TitleCssClass="devbook-empty__title"
+                DescriptionCssClass="@(null)"
+                Title="Model"
+                Description="@_problem"
+                TestId="domain-view-model-problem"
+                role="status" />
+}
+
+@code {
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The model file, relative to the Domain folder: <c>tasks/model.md</c>.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    private DomainDevbookStore? _store;
+    private IReadOnlyList<DomainModelFence>? _fences;
+    private string? _problem;
+    private string _title = "Model";
+    private (string? Alias, string? Path)? _loaded;
+    private bool _disposed;
+
+    protected override void OnInitialized()
+    {
+        // Resolved rather than injected, as the pane resolves its stores: a host
+        // composing no domain store gets a sentence, not a render failure.
+        _store = Services.GetService<DomainDevbookStore>();
+        if (_store is not null) _store.Changed += OnStoreChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded == (RepositoryAlias, SelectedPath)) return;
+        _loaded = (RepositoryAlias, SelectedPath);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var alias = RepositoryAlias;
+        var path = SelectedPath;
+        if (_store is null)
+        {
+            (_fences, _problem) = (null, "This host has no domain folder to read the model from.");
+            return;
+        }
+
+        // Nothing of the previous file stays on screen while the next one is read.
+        (_fences, _problem) = (null, null);
+
+        (IReadOnlyList<DomainModelFence>? Fences, string Title, string? Problem) read;
+        try
+        {
+            var view = await _store.LoadAsync(alias);
+            if (_disposed || _loaded != (alias, path)) return;
+
+            // On the pool: a context's documents are read on first access, and
+            // the desktop host's dispatcher is the UI thread.
+            read = await Task.Run(() => Read(view, path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            read = (null, "Model", $"The model could not be read: {ex.Message}");
+        }
+
+        if (_disposed || _loaded != (alias, path)) return;
+        (_fences, _title, _problem) = read;
+    }
+
+    /// <summary>The model file's class diagrams, found by the menu path the pane
+    /// holds, or why there are none to show.</summary>
+    internal static (IReadOnlyList<DomainModelFence>? Fences, string Title, string? Problem) Read(DomainDevbookView view, string? selectedPath)
+    {
+        if (view.Error is { } error) return (null, "Model", error);
+
+        var relative = (selectedPath ?? string.Empty).Replace('\\', '/').Trim('/');
+        var slug = relative.Split('/')[0];
+        var context = view.Contexts.FirstOrDefault(c => string.Equals(c.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        var document = context?.Documents.FirstOrDefault(d =>
+            string.Equals(d.Path, ".domain/" + relative, StringComparison.OrdinalIgnoreCase));
+
+        if (document is null) return (null, "Model", $"No model file at {relative}.");
+
+        IReadOnlyList<DomainModelFence> fences =
+        [
+            .. document.Diagrams
+                .Where(d => d.Source.TrimStart().StartsWith("classDiagram", StringComparison.Ordinal))
+                .Select(d => new DomainModelFence(d.Title, d.Source))
+        ];
+
+        return (fences, document.Title, null);
+    }
+
+    private void OnStoreChanged()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_store is not null) _store.Changed -= OnStoreChanged;
+    }
+}

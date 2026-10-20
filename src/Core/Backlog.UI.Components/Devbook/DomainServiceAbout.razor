@@ -1,0 +1,73 @@
+@*
+    A domain service's page in the Domain view (local ADR 0036): the chapter's
+    prose, the requirements it is held to as "You can count on", each opening on
+    the Requirements page, and the events it raises. How the service is invoked is
+    not shown here; that is Model's (§6).
+*@
+
+<div class="domain-about" data-testid="domain-service-about">
+    @if (Chapter.Prose.Length > 0)
+    {
+        <MarkdownView Blocks="@_prose"
+                      Source="@Chapter.Prose"
+                      DevbookDocumentPath="@DocumentPath"
+                      DevbookFolder="DevbookFolder.Domain"
+                      OnDevbookNavigate="OnNavigate" />
+    }
+
+    @if (Guarantees.Count > 0)
+    {
+        <section class="domain-about__section" data-testid="domain-unit-guarantees" aria-labelledby="@($"{_id}-guarantees")">
+            <h3 class="domain-about__heading" id="@($"{_id}-guarantees")">You can count on</h3>
+            <ul class="domain-about__guarantees">
+                @foreach (var guarantee in Guarantees)
+                {
+                    <li class="domain-about__guarantee" data-testid="domain-unit-guarantee">
+                        <DevbookTypeMarker Value="requirement" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />
+                        @if (DevbookReference.Parse(guarantee.Reference) is { } reference)
+                        {
+                            <DevbookReferenceLink Reference="@reference"
+                                                  Text="@guarantee.Title"
+                                                  OnNavigate="OnNavigate"
+                                                  TestId="domain-unit-guarantee-link" />
+                        }
+                        else
+                        {
+                            @guarantee.Title
+                        }
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
+    <DomainEventList Events="@Events" />
+</div>
+
+@code {
+    /// <summary>The service's chapter.</summary>
+    [Parameter, EditorRequired]
+    public DomainChapter Chapter { get; set; } = default!;
+
+    /// <summary>The file the chapter is in, which a relative link in its prose
+    /// resolves against.</summary>
+    [Parameter]
+    public string? DocumentPath { get; set; }
+
+    /// <summary>The requirements the service is held to.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainGuarantee> Guarantees { get; set; } = [];
+
+    /// <summary>The events the service raises.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainEventLine> Events { get; set; } = [];
+
+    /// <summary>A requirement, or a link in the prose, the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    private readonly string _id = $"domain-service-{Guid.NewGuid():N}";
+    private IReadOnlyList<MdBlock> _prose = [];
+
+    protected override void OnParametersSet() => _prose = MarkdownPreview.ParseDocument(Chapter.Prose);
+}

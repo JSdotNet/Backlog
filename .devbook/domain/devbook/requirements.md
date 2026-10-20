@@ -1338,14 +1338,15 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 ```
 
 > The requirements of the Domain area read by unit, behind the
-> [New domain view](context.md#new-domain-view) switch (local ADR 0036). Nothing
-> here is built yet: the plan `+devbook-domain-view` builds it.
+> [New domain view](context.md#new-domain-view) switch (local ADR 0036). The plan
+> `+devbook-domain-view` builds them page by page; Model and Domain are built.
 
 ### Requirement: The flag off keeps today's Domain view
 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneDomainViewFlagTests.With_the_switch_off_the_Domain_area_is_todays_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.With_the_switch_off_a_split_context_is_todays_flat_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.With_the_switch_off_an_unsplit_context_is_todays_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneDomainViewFlagTests.Flipping_the_switch_relists_the_open_Domain_menu]
 ```
 
 The system SHALL show the Domain area exactly as it reads today while the `devbook-domain-view` switch is off.
@@ -1361,6 +1362,7 @@ The system SHALL show the Domain area exactly as it reads today while the `devbo
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Lists_an_unsplit_context_as_its_kinds, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Lists_a_split_context_by_kind_in_reading_order]
 ```
 
 The system SHALL list a bounded context's files in the devbook reading order, one row per file, each row titled by its kind.
@@ -1376,6 +1378,7 @@ The system SHALL list a bounded context's files in the devbook reading order, on
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Nests_each_split_file_under_its_kind_labelled_by_its_name_without_a_database, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Labels_a_split_row_by_its_heading_from_the_database, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.A_further_dot_nests_one_level_deeper, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.A_kind_with_no_base_file_is_a_row_that_only_opens_its_children]
 ```
 
 The system SHALL list a file named `<kind>.<name>.md` under its kind's row, titled by the file's own heading, and nest each further dot one level deeper.
@@ -1442,6 +1445,7 @@ The system SHALL show a context's `dependencies.md` as the Neighbours tab of the
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Draws_no_row_for_invariants_dependencies_demo_or_underscore_files]
 ```
 
 The system SHALL list no file or folder whose name starts with `_`.
@@ -1496,6 +1500,27 @@ The system SHALL show field types, invocation semantics and event payloads on th
 - **Given** an aggregate whose `model.md` lists its fields with their types
 - **When** the reader opens the aggregate's About tab
 - **Then** the tab names no field type, and the Model page's Fields tab does
+
+### Requirement: Model draws the aggregate's boundary
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, beside Fields and Events, that draws each aggregate root inside its consistency boundary with its composed parts and their multiplicity, places the references by identity outside the boundary and the domain services below it, and draws the diagram with mermaid when it cannot be read that way.
+
+#### Scenario: An aggregate with parts and references
+
+- **Given** a `model.md` whose `classDiagram` composes *SubItem* into the aggregate root *Task* as `"0..*"` and draws a dashed line from *Task* to *Task*
+- **When** the reader opens Model
+- **Then** Diagram is open, *SubItem* sits inside *Task*'s boundary marked `0..*`, and the dashed reference sits outside it
+
+#### Scenario: A diagram the view cannot read
+
+- **Given** a `model.md` whose `classDiagram` names no aggregate root
+- **When** the reader opens Model
+- **Then** Diagram draws the fence with mermaid
 
 ### Requirement: The context map reads as a map and as a list
 

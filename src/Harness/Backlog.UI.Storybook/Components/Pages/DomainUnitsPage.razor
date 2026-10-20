@@ -1,0 +1,237 @@
+@page "/devbook/domain-units"
+
+<PageTitle>Domain units — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain units"
+           Summary="A subpage of Devbook: the Domain page of the Domain view, which reads a bounded context's `domain.md` one unit at a time (local ADR 0036). An unsplit file offers its aggregates, domain services and Glossary in a chapter bar, each led by its type marker; a split `domain.<name>.md` opens on its one unit. An aggregate reads as About beside Always true; a domain service is one page with what you can count on. Every word is the chapters' own — headings as written, first sentences as summaries — and nothing technical shows: field types, invocation and payloads are Model's."
+           Guidelines="@Rules">
+
+    <Story Name="Chapter bar"
+           Description="An unsplit `domain.md` holding an aggregate, a domain service and its Ubiquitous Language grouping. The bar lists them in file order, the grouping read as Glossary, and the first is open. Pick another to read it; the page reports the pick so the host can keep it."
+           Code="@ChapterBarCode"
+           Source="@Domain">
+        <DomainUnitPage File="@UnsplitFile" RequirementFiles="@RequirementFiles" @bind-ActiveUnit="_active" TestId="story-domain-units-bar" />
+    </Story>
+
+    <Story Name="Split file"
+           Description="A split `domain.order.md` holds one aggregate, so it opens on it with no bar: the menu row the reader pressed was the picking."
+           Code="@SplitCode"
+           Source="@SplitDomain">
+        <DomainUnitPage File="@SplitFile" TestId="story-domain-units-split" />
+    </Story>
+
+    <Story Name="Aggregate About"
+           Description="The aggregate's prose; one card per entity or value object it owns, with its heading, its first sentence and the model's name small beneath; its enums as rows of values; and the events it raises, one plain line each with who hears them. The payload under `### Payload` is not drawn — that is Model's."
+           Code="@AboutCode"
+           Source="@Domain">
+        <DomainAggregateAbout Chapter="@Order.Chapter" DocumentPath="@DomainPath" Events="@DomainUnits.EventsRaisedBy(Order.Reference, [UnsplitFile])" />
+    </Story>
+
+    <Story Name="Domain service"
+           Description="The service's prose, then You can count on: every requirement whose `related` names the service, and every one the service's own `related` names, each a link that opens it on the Requirements page. How the service is invoked is not shown here."
+           Code="@ServiceCode"
+           Source="@Requirements">
+        <DomainServiceAbout Chapter="@Pricing.Chapter" DocumentPath="@DomainPath" Guarantees="@DomainUnits.Guarantees(Pricing, RequirementFiles)" Events="@DomainUnits.EventsRaisedBy(Pricing.Reference, [UnsplitFile])" />
+    </Story>
+
+    <Story Name="Events"
+           Description="The events list on its own: the event's name, its first sentence, and the names its `### Consumers` lists — the words before the first comma or dash, where the convention's “X, which …” turns from who to why."
+           Code="@EventsCode">
+        <DomainEventList Events="@DomainUnits.EventsRaisedBy(Order.Reference, [UnsplitFile])" />
+    </Story>
+
+    <Story Name="Glossary"
+           Description="The Ubiquitous Language grouping as the bar's Glossary: each term and its first sentence."
+           Code="@GlossaryCode">
+        <DomainGlossary Chapter="@Glossary.Chapter" DocumentPath="@DomainPath" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why the page is monochrome: a kind's mark and word say what it is, and a tone is only ever beside them."),
+        new("accessibility.md#iconography-accessibility", "Why each mark is named for a listener but adds no text to the heading it leads.")
+    ];
+
+    private const string DomainPath = ".devbook/domain/ordering/domain.md";
+    private const string RequirementsPath = ".devbook/domain/ordering/requirements.md";
+
+    private string? _active;
+
+    private const string Domain = """
+        # Ordering
+
+        ```meta
+        type: domain
+        ```
+
+        ## Order
+
+        ```meta
+        type: aggregate
+        ```
+
+        A customer's request for goods, and the consistency boundary for its lines.
+        It is placed once and paid once; a cancelled order stays on record.
+
+        ### Order Line
+
+        ```meta
+        type: entity
+        aliases: [OrderLine]
+        ```
+
+        One product and its quantity on the order. It has identity within the order.
+
+        ### Money
+
+        ```meta
+        type: value-object
+        ```
+
+        An amount in one currency, compared by value.
+
+        ### Order Status
+
+        ```meta
+        type: enum
+        ```
+
+        Where the order is: `draft`, `placed`, `paid`, `cancelled`.
+
+        ## Pricing
+
+        ```meta
+        type: domain-service
+        related: [.devbook/domain/ordering/requirements.md#pricing]
+        ```
+
+        Works out what an order costs. It is a service because it reads the price
+        list as well as the order.
+
+        ## OrderPlaced
+
+        ```meta
+        type: domain-event
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        Published when an `Order` is placed.
+
+        ### Payload
+
+        - `order_id` - the order.
+
+        ### Consumers
+
+        - Billing, which raises the invoice.
+        - Shipping, which picks the goods.
+
+        ## Ubiquitous Language
+
+        ```meta
+        type: ubiquitous-language
+        ```
+
+        ### Customer
+
+        ```meta
+        type: term
+        ```
+
+        Whoever places the order.
+
+        ### Price List
+
+        ```meta
+        type: term
+        ```
+
+        The prices in force on the day an order is placed.
+        """;
+
+    private const string SplitDomain = """
+        # Order
+
+        ```meta
+        type: domain
+        ```
+
+        ## Order
+
+        ```meta
+        type: aggregate
+        ```
+
+        A customer's request for goods, and the consistency boundary for its lines.
+        """;
+
+    private const string Requirements = """
+        # Ordering requirements
+
+        ## Pricing
+
+        ```meta
+        type: requirements
+        ```
+
+        ### Requirement: A price is never negative
+
+        ```meta
+        type: requirement
+        ```
+
+        The system SHALL price no order below zero.
+
+        ### Requirement: A discount applies once
+
+        ```meta
+        type: requirement
+        ```
+
+        The system SHALL apply a discount once per order.
+        """;
+
+    private static readonly DomainChapterFile UnsplitFile = DomainUnits.Parse(Domain, DomainPath);
+    private static readonly DomainChapterFile SplitFile = DomainUnits.Parse(SplitDomain, ".devbook/domain/ordering/domain.order.md");
+    private static readonly IReadOnlyList<DomainChapterFile> RequirementFiles = [DomainUnits.Parse(Requirements, RequirementsPath)];
+
+    private static DomainUnit Order => DomainUnits.Of(UnsplitFile)[0];
+    private static DomainUnit Pricing => DomainUnits.Of(UnsplitFile)[1];
+    private static DomainUnit Glossary => DomainUnits.Of(UnsplitFile)[2];
+
+    private const string ChapterBarCode = """
+        <DomainUnitPage File="@DomainUnits.Parse(markdown, ".devbook/domain/ordering/domain.md")"
+                        DomainFiles="@contextDomainFiles"
+                        RequirementFiles="@contextRequirementFiles"
+                        @bind-ActiveUnit="activeUnit"
+                        OnNavigate="OpenAsync" />
+        """;
+
+    private const string SplitCode = """
+        <DomainUnitPage File="@DomainUnits.Parse(markdown, ".devbook/domain/ordering/domain.order.md")" />
+        """;
+
+    private const string AboutCode = """
+        <DomainAggregateAbout Chapter="@order.Chapter"
+                              DocumentPath="@path"
+                              Events="@DomainUnits.EventsRaisedBy(order.Reference, domainFiles)" />
+        """;
+
+    private const string ServiceCode = """
+        <DomainServiceAbout Chapter="@pricing.Chapter"
+                            DocumentPath="@path"
+                            Guarantees="@DomainUnits.Guarantees(pricing, requirementFiles)"
+                            Events="@DomainUnits.EventsRaisedBy(pricing.Reference, domainFiles)"
+                            OnNavigate="OpenAsync" />
+        """;
+
+    private const string EventsCode = """
+        <DomainEventList Events="@DomainUnits.EventsRaisedBy(order.Reference, domainFiles)" />
+        """;
+
+    private const string GlossaryCode = """
+        <DomainGlossary Chapter="@glossary.Chapter" DocumentPath="@path" />
+        """;
+}
