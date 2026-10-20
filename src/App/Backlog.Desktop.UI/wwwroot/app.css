@@ -1802,23 +1802,24 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
-/* "Waiting for" and "Create follow-up" on one line: the two ends of one
-   relationship belong together, and each has a different claim on the row's
-   width. "Waiting for" reads a list of other entries' names, so it gets whatever
-   is left; "Create follow-up" is a single icon that never grows, so it takes
-   only what it needs and never yields the room the names are asking for. */
+/* "Waiting for", "Create follow-up" and "Mark as blocked" on one wrapping line.
+   The two full rows share the width, each with a 12rem basis, so a panel too
+   narrow for both wraps "Mark as blocked" to a second line rather than squeezing
+   either label; the follow-up icon never grows and sits directly after
+   "Waiting for", the row it writes the other end of. */
 .entry-doc__schedule-chain {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-xs);
 }
 
-.entry-doc__schedule-chain > :first-child {
-    flex: 1;
+.entry-doc__schedule-chain > .task-action:not(.task-action--compact) {
+    flex: 1 1 12rem;
     min-width: 0;
 }
 
-.entry-doc__schedule-chain > :last-child {
+.entry-doc__schedule-chain > .task-action--compact {
     flex: 0 0 auto;
 }
 
