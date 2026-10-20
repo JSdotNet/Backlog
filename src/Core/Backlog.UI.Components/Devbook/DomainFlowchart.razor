@@ -1,0 +1,142 @@
+@*
+    A flow's flowchart drawn in the lifecycle's style (local ADR 0036, the Flow
+    page): each node one of the lifecycle's cards — a question with pointed ends,
+    a round node with round ones — in ranks down the page (TD) or across it (LR),
+    every line running between the ranks with a rounded turn and the lifecycle's
+    arrowhead, a dotted link dashed as a way back is, and a link back to an
+    earlier rank round the outside.
+
+    The drawing is a picture of the list beneath it: a screen reader hears the
+    links as a list, one sentence each, and the SVG is hidden from it.
+*@
+
+<figure class="domain-flow domain-flow--chart" data-testid="@TestId" data-direction="@(Diagram.Across ? "lr" : "td")" aria-label="@AriaLabel">
+    <div class="domain-flow__scroll">
+        <svg class="domain-flow__svg"
+             viewBox="0 0 @N(_layout.Width) @N(_layout.Height)"
+             width="@N(_layout.Width)"
+             height="@N(_layout.Height)"
+             aria-hidden="true"
+             focusable="false">
+            <defs>
+                <marker id="@ArrowId" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path class="domain-flow__arrow" d="M 0 0 L 10 5 L 0 10 z" />
+                </marker>
+            </defs>
+
+            @foreach (var edge in _layout.Edges)
+            {
+                <g class="@EdgeClass(edge)"
+                   data-testid="domain-flowchart-link"
+                   data-from="@edge.Link.From"
+                   data-to="@edge.Link.To"
+                   data-back="@(edge.Back ? "true" : "false")">
+                    <title>@Sentence(edge.Link)</title>
+                    @if (edge.Link.Arrow)
+                    {
+                        <path class="domain-flow__line" d="@edge.Path" marker-end="url(#@ArrowId)" />
+                    }
+                    else
+                    {
+                        <path class="domain-flow__line" d="@edge.Path" />
+                    }
+                    @if (edge.LabelLines.Count > 0)
+                    {
+                        @* Wrapped, because a bare <text> in a code block is Razor's own tag. *@
+                        <g class="domain-flow__label-group"><text class="domain-flow__label" x="@N(edge.LabelX)" y="@N(edge.LabelY)" text-anchor="@edge.LabelAnchor">@for (var k = 0; k < edge.LabelLines.Count; k++)
+                        {
+                            <tspan x="@N(edge.LabelX)" dy="@(k == 0 ? "0" : "15")">@edge.LabelLines[k]</tspan>
+                        }</text></g>
+                    }
+                </g>
+            }
+
+            @foreach (var box in _layout.Boxes)
+            {
+                <g class="domain-flow__node domain-flow__node--@box.Node.Shape.ToString().ToLowerInvariant()"
+                   data-testid="domain-flowchart-node"
+                   data-node="@box.Node.Id"
+                   data-rank="@box.Rank">
+                    @switch (box.Node.Shape)
+                    {
+                        case DomainFlowchartShape.Decision:
+                            <polygon class="domain-flow__box" points="@Pointed(box)" />
+                            break;
+                        case DomainFlowchartShape.Round:
+                            <rect class="domain-flow__box" x="@N(box.X)" y="@N(box.Y)" width="@N(box.Width)" height="@N(box.Height)" rx="@N(Math.Min(box.Height / 2, 18))" ry="@N(Math.Min(box.Height / 2, 18))" />
+                            break;
+                        default:
+                            <rect class="domain-flow__box" x="@N(box.X)" y="@N(box.Y)" width="@N(box.Width)" height="@N(box.Height)" rx="8" ry="8" />
+                            break;
+                    }
+                    <g class="domain-flow__text-group"><text class="domain-flow__text" x="@N(box.CenterX)" y="@N(FirstLine(box))" text-anchor="middle">@for (var k = 0; k < box.Lines.Count; k++)
+                    {
+                        <tspan x="@N(box.CenterX)" dy="@(k == 0 ? "0" : "18")">@box.Lines[k]</tspan>
+                    }</text></g>
+                </g>
+            }
+        </svg>
+    </div>
+
+    <figcaption class="sr-only">
+        <ol>
+            @foreach (var link in Diagram.Links)
+            {
+                <li>@Sentence(link)</li>
+            }
+        </ol>
+    </figcaption>
+</figure>
+
+@code {
+    [Parameter, EditorRequired]
+    public DomainFlowchartDiagram Diagram { get; set; } = default!;
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Flowchart";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-flowchart";
+
+    // One per instance: two charts on a page must not share a marker id.
+    private readonly string _id = "domain-flowchart-" + Guid.NewGuid().ToString("N")[..8];
+    private DomainFlowchartLayout _layout = new(0, 0, [], []);
+    private DomainFlowchartDiagram? _laidOut;
+
+    private string ArrowId => _id + "-arrow";
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_laidOut, Diagram)) return;
+        _laidOut = Diagram;
+        _layout = DomainFlowcharts.Layout(Diagram);
+    }
+
+    private static string EdgeClass(DomainFlowchartEdge edge) =>
+        $"domain-flow__transition domain-flow__link--{edge.Link.Line.ToString().ToLowerInvariant()}";
+
+    /// <summary>The baseline of a card's first line, its lines centred on the card.</summary>
+    private static double FirstLine(DomainFlowchartBox box) => box.CenterY - (box.Lines.Count - 1) * 9 + 5;
+
+    /// <summary>A question's outline: a card whose two ends come to a point.</summary>
+    private static string Pointed(DomainFlowchartBox box)
+    {
+        var tip = Math.Min(14, box.Height / 2);
+        var (left, right, top, bottom, middle) = (box.X, box.X + box.Width, box.Y, box.Y + box.Height, box.CenterY);
+        return string.Join(' ', new[]
+        {
+            (left, middle), (left + tip, top), (right - tip, top), (right, middle), (right - tip, bottom), (left + tip, bottom)
+        }.Select(point => $"{N(point.Item1)},{N(point.Item2)}"));
+    }
+
+    private string Sentence(DomainFlowchartLink link)
+    {
+        var label = link.Label.Length > 0 ? $": {link.Label.Replace('\n', ' ')}" : string.Empty;
+        var dotted = link.Line == DomainFlowchartLine.Dotted ? " (dotted)" : string.Empty;
+        return $"{Name(link.From)} to {Name(link.To)}{dotted}{label}";
+    }
+
+    private string Name(string id) => Diagram.Node(id).Label.Replace('\n', ' ');
+
+    private static string N(double value) => Math.Round(value, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+}
