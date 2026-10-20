@@ -1761,10 +1761,10 @@ The system SHALL draw each `stateDiagram-v2` of a `flow.md` or `flow.<name>.md` 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Lists_every_term_and_model_chapter_of_the_context_a_to_z, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Each_row_shows_its_kind_its_aliases_as_code_chips_and_its_first_sentence, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_deprecated_term_is_struck_through_and_says_so_in_words, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_filter_matches_a_heading_or_an_alias, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_kind_filters_narrow_to_the_kinds_pressed_beside_the_filter, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Two_terms_that_name_each_other_are_easily_confused_and_a_one_way_pointer_is_not, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Reached_from_the_domain_chapter_bar_it_lists_the_split_files_too]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Lists_every_term_and_model_chapter_of_the_context_a_to_z, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Each_row_shows_its_kind_its_aliases_as_code_chips_and_its_first_sentence, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_deprecated_term_is_struck_through_and_says_so_in_words, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_proposed_term_carries_a_proposed_badge, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_filter_matches_a_heading_or_an_alias, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_glossary_opens_on_its_lead_and_a_labelled_find_box_hinting_at_aliases, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_show_pills_count_and_narrow_to_model_terms_or_borrowed, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_term_naming_its_own_heading_in_another_context_is_borrowed, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_long_list_shows_fifteen_and_the_rest_behind_more, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Terms_that_name_each_other_are_easily_confused_as_one_card_and_a_one_way_pointer_is_not, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Reached_from_the_domain_chapter_bar_it_lists_the_split_files_too]
 ```
 
-The system SHALL offer, from the Domain page's chapter bar, a Glossary that lists every term chapter under `## Ubiquitous Language` and every model chapter of the context's domain files A to Z, each with its kind, its aliases as code chips and its first sentence; that filters by heading or alias and by kind; that strikes a deprecated chapter through; and that lists as easily confused every two term chapters that name each other in `related`.
+The system SHALL offer, from the Domain page's chapter bar, a Glossary that lists every term chapter under `## Ubiquitous Language` and every model chapter of the context's domain files A to Z, each with its kind, a proposed or deprecated badge, its aliases as code chips and its first sentence; that filters by heading or alias and by one choice of All, Model, Terms or Borrowed, each with its count; that strikes a deprecated chapter through; that marks as borrowed, linking there, a term whose `related` names its own heading in another context; and that sets beside the list, as one Easily confused card per group, the term chapters that name each other in `related`.
 
 #### Scenario: Filtering by an alias
 
@@ -1776,7 +1776,13 @@ The system SHALL offer, from the Domain page's chapter bar, a Glossary that list
 
 - **Given** a term *Basket* whose `related` names *Draft Order*, and *Draft Order*'s names *Basket*
 - **When** the reader opens the Glossary
-- **Then** Easily confused sets *Basket* beside *Draft Order*, each with its first sentence
+- **Then** Easily confused sets *Basket* beside *Draft Order* in one card, each with its first sentence
+
+#### Scenario: A borrowed word
+
+- **Given** a term *Roadmap Tag* whose `related` names `.devbook/domain/roadmap/domain.md#roadmap-tag`
+- **When** the reader presses Borrowed
+- **Then** *Roadmap Tag* is listed, reading *borrowed from roadmap*, and following that opens the roadmap context's chapter
 
 ### Requirement: A unit, feature or term shows the Brain notes linking to it
 

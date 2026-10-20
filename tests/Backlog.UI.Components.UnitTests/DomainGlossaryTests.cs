@@ -5,9 +5,11 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// The Glossary unit of the Domain page (local ADR 0037): every term under
 /// <c>## Ubiquitous Language</c> and every model chapter of the context's domain
-/// files, A–Z, with its kind, its aliases as code chips and its first sentence; a
-/// filter that matches aliases too, kind filters, deprecated terms struck through,
-/// and "Easily confused" for two terms that name each other in <c>related</c>.
+/// files, A–Z, with its kind, its status, its aliases as code chips and its first
+/// sentence; a labelled find box that matches aliases too, the Show pills with
+/// their counts, deprecated terms struck through, a long list behind "n more",
+/// "Easily confused" for each group of terms that name each other in
+/// <c>related</c>, and a term borrowed from another context linked to it.
 /// </summary>
 public sealed class DomainGlossaryTests
 {
@@ -194,46 +196,165 @@ public sealed class DomainGlossaryTests
     }
 
     [Fact]
-    public void The_kind_filters_narrow_to_the_kinds_pressed_beside_the_filter()
+    public void The_glossary_opens_on_its_lead_and_a_labelled_find_box_hinting_at_aliases()
     {
         using var context = new BunitContext();
         var page = Render(context, File);
 
         Assert.Equal(
-            ["term", "aggregate", "entity", "domain-event"],
-            page.FindAll("[data-testid='domain-glossary-kinds'] button").Select(button => button.GetAttribute("data-kind")));
+            "Every word the context uses, whether it is a model chapter or a term of its own. Any alias finds the one chapter it names.",
+            page.Find("[data-testid='domain-glossary-lead']").TextContent);
+        var input = page.Find("[data-testid='domain-glossary-filter'] input");
+        Assert.Equal("Find a word or an alias", page.Find($"label[for='{input.Id}']").TextContent);
+        Assert.Equal("e.g. Buyer Line, Purchase, OrderLine", input.GetAttribute("placeholder"));
+    }
 
-        page.Find("[data-testid='domain-glossary-kind-aggregate']").Click();
-        Assert.Equal(["Order"], Shown(page));
+    [Fact]
+    public void The_show_pills_count_and_narrow_to_model_terms_or_borrowed()
+    {
+        using var context = new BunitContext();
+        var page = Render(context, File);
 
-        page.Find("[data-testid='domain-glossary-kind-entity']").Click();
-        Assert.Equal(["Order", "Order Line"], Shown(page));
+        var pills = page.FindAll("[data-testid='domain-glossary-show'] button");
+        Assert.Equal(["all", "model", "terms"], pills.Select(pill => pill.GetAttribute("data-show")));
+        Assert.Equal(["7", "3", "4"], pills.Select(pill => pill.QuerySelector(".domain-glossary__count")!.TextContent));
+        Assert.Equal("true", page.Find("[data-testid='domain-glossary-show-all']").GetAttribute("aria-checked"));
+
+        page.Find("[data-testid='domain-glossary-show-model']").Click();
+        Assert.Equal(["Order", "Order Line", "OrderPlaced"], Shown(page));
 
         page.Find("[data-testid='domain-glossary-filter'] input").Input("line");
         Assert.Equal(["Order Line"], Shown(page));
 
-        page.Find("[data-testid='domain-glossary-kind-aggregate']").Click();
-        page.Find("[data-testid='domain-glossary-kind-entity']").Click();
+        page.Find("[data-testid='domain-glossary-show-terms']").Click();
+        Assert.Equal(["Customer"], Shown(page));
+
+        page.Find("[data-testid='domain-glossary-show-all']").Click();
         Assert.Equal(["Customer", "Order Line"], Shown(page));
     }
 
     [Fact]
-    public void Two_terms_that_name_each_other_are_easily_confused_and_a_one_way_pointer_is_not()
+    public void Terms_that_name_each_other_are_easily_confused_as_one_card_and_a_one_way_pointer_is_not()
     {
-        var pairs = DomainGlossaryIndex.Confused([File]);
+        var file = DomainUnits.Parse(
+            Domain.Replace("related: [domain.md#basket]", "related: [domain.md#basket, domain.md#pending-order]", StringComparison.Ordinal) + """
 
-        var pair = Assert.Single(pairs);
-        Assert.Equal(("Basket", "Draft Order"), (pair.First.Title, pair.Second.Title));
+
+                ### Pending Order
+
+                ```meta
+                type: term
+                aliases: [awaiting]
+                related: [domain.md#draft-order]
+                ```
+
+                An order waiting on its payment.
+                """,
+            DomainPath);
+
+        var group = Assert.Single(DomainGlossaryIndex.Confused([file]));
+        Assert.Equal(["Basket", "Draft Order", "Pending Order"], group.Terms.Select(term => term.Title));
 
         using var context = new BunitContext();
-        var page = Render(context, File);
-        var shown = page.Find("[data-testid='domain-glossary-confused'] [data-testid='domain-glossary-pair']");
+        var page = Render(context, file);
+        var shown = Assert.Single(page.FindAll("[data-testid='domain-glossary-confused'] [data-testid='domain-glossary-pair']"));
+        Assert.Equal("Basket | Draft Order | Pending Order", shown.GetAttribute("data-pair"));
         Assert.Equal(
-            ["Basket", "Draft Order"],
+            ["Basket", "Draft Order", "Pending Order"],
             shown.QuerySelectorAll("[data-testid='domain-glossary-pair-term']").Select(side => side.GetAttribute("data-term")));
         Assert.Contains("What a draft order used to be called.", shown.TextContent);
         Assert.Contains("An order still being filled.", shown.TextContent);
         Assert.Equal("Basket", shown.QuerySelector("s")!.TextContent);
+        Assert.Equal("awaiting", shown.QuerySelector("[data-term='Pending Order'] code")!.TextContent);
+    }
+
+    [Fact]
+    public void A_term_naming_its_own_heading_in_another_context_is_borrowed()
+    {
+        var file = DomainUnits.Parse(
+            Domain + """
+
+
+                ### Tag
+
+                ```meta
+                type: term
+                related: [.devbook/domain/roadmap/domain.md#tag, .devbook/domain/roadmap/domain.md#release]
+                ```
+
+                A plan's label, worn by a task.
+                """,
+            DomainPath);
+
+        var entries = DomainGlossaryIndex.Entries([file]);
+        Assert.Equal(new DomainBorrowedTerm("roadmap", ".devbook/domain/roadmap/domain.md#tag"), entries.Single(entry => entry.Title == "Tag").Borrowed);
+        Assert.Null(entries.Single(entry => entry.Title == "Price List").Borrowed);
+
+        DevbookReference? followed = null;
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var page = context.Render<DomainGlossary>(parameters => parameters
+            .Add(p => p.Chapter, Language(file))
+            .Add(p => p.Files, [file])
+            .Add(p => p.DocumentPath, DomainPath)
+            .Add(p => p.DebounceMilliseconds, 0)
+            .Add(p => p.OnNavigate, reference => followed = reference));
+
+        var chip = page.Find("[data-testid='domain-glossary-term'][data-term='Tag'] [data-testid='domain-glossary-borrowed']");
+        Assert.Equal("borrowed from roadmap", chip.TextContent.Trim());
+        Assert.Equal("1", page.Find("[data-testid='domain-glossary-show-borrowed'] .domain-glossary__count").TextContent);
+
+        var across = page.Find("[data-testid='domain-glossary-across']");
+        Assert.Contains("Across contexts", across.TextContent);
+        Assert.Equal(["Tag"], across.QuerySelectorAll("[data-testid='domain-glossary-across-term']").Select(row => row.GetAttribute("data-term")));
+        Assert.Equal("roadmap", across.QuerySelector("[data-testid='domain-glossary-across-link']")!.TextContent.Trim());
+
+        chip.Click();
+        Assert.Equal(".devbook/domain/roadmap/domain.md#tag", followed?.Raw);
+
+        page.Find("[data-testid='domain-glossary-show-borrowed']").Click();
+        Assert.Equal(["Tag"], Shown(page));
+    }
+
+    [Fact]
+    public void A_proposed_term_carries_a_proposed_badge()
+    {
+        var file = DomainUnits.Parse(Domain.Replace("aliases: [Buyer Line, Client]", "status: proposed\naliases: [Buyer Line, Client]", StringComparison.Ordinal), DomainPath);
+
+        Assert.True(DomainGlossaryIndex.Entries([file]).Single(entry => entry.Title == "Customer").Proposed);
+
+        using var context = new BunitContext();
+        var page = Render(context, file);
+
+        Assert.Equal("proposed", page.Find("[data-testid='domain-glossary-term'][data-term='Customer'] [data-testid='domain-glossary-status']").TextContent.Trim());
+        Assert.Equal("deprecated", page.Find("[data-testid='domain-glossary-term'][data-term='Basket'] [data-testid='domain-glossary-status']").TextContent.Trim());
+        Assert.Null(page.Find("[data-testid='domain-glossary-term'][data-term='Order']").QuerySelector("[data-testid='domain-glossary-status']"));
+    }
+
+    [Fact]
+    public void A_long_list_shows_fifteen_and_the_rest_behind_more()
+    {
+        var terms = string.Concat(Enumerable.Range(1, 22).Select(n => $"### Word {n:00}\n\nThe {n:00}th word.\n\n"));
+        var file = DomainUnits.Parse(
+            $"# Long\n\n```meta\ntype: domain\n```\n\n## Ubiquitous Language\n\n```meta\ntype: ubiquitous-language\n```\n\n{terms}",
+            ".devbook/domain/long/domain.md");
+
+        using var context = new BunitContext();
+        var page = Render(context, file);
+
+        Assert.Equal(15, Shown(page).Count);
+        Assert.Equal("7 more", page.Find("[data-testid='domain-glossary-more']").TextContent.Trim());
+
+        page.Find("[data-testid='domain-glossary-filter'] input").Input("word");
+        Assert.Equal(22, Shown(page).Count);
+        Assert.Empty(page.FindAll("[data-testid='domain-glossary-more']"));
+
+        page.Find("[data-testid='domain-glossary-filter'] input").Input(string.Empty);
+        Assert.Equal(15, Shown(page).Count);
+
+        page.Find("[data-testid='domain-glossary-more']").Click();
+        Assert.Equal(22, Shown(page).Count);
+        Assert.Empty(page.FindAll("[data-testid='domain-glossary-more']"));
     }
 
     [Fact]

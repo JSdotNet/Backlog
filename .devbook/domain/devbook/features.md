@@ -846,12 +846,18 @@ the outside. The chapter's prose follows the row. Every other Mermaid diagram in
 the file renders as it does elsewhere, and so does a state diagram the row cannot
 hold, such as one with composite states.
 
-**The Glossary is the context's words, A to Z.** The chapter bar's Glossary lists
-every term under `## Ubiquitous Language` and every model chapter of the
-context's domain files. Each row shows its kind, its aliases as code chips and its
-first sentence. A filter box matches a heading or an alias, kind filters sit
-beside it, and a `deprecated` chapter is struck through. **Easily confused** sets
-two terms side by side when each names the other in `related`.
+**The Glossary is the context's words, A to Z.** The chapter bar's Glossary
+lists every term under `## Ubiquitous Language` and every model chapter of the
+context's domain files in one card, under a lead that says so. Each row shows
+its kind, a `proposed` or `deprecated` badge, its aliases as code chips and its
+first sentence, and a `deprecated` chapter is struck through. A find box matches
+a heading or an alias. Beside it, one-choice pills with counts show All, Model,
+Terms or Borrowed, the last only when a term is borrowed. A term is **borrowed**
+when its `related` names its own heading in another context; its row links
+there. With All picked and nothing typed, a list of more than twenty rows shows
+its first fifteen and the rest behind *n more*. Beside the list, **Easily
+confused** gives one card to each group of terms that name each other in
+`related`, and **Across contexts** lists the borrowed words.
 
 **Features stand by what they build on.** The Features page sets a context's
 features in columns by how many of its features each builds on through
