@@ -12,6 +12,7 @@ export const CELL: Record<string, Cell> = {
   done: { g: '✓', color: 'green' },
   in_progress: { g: '●', color: 'yellow' },
   blocked: { g: '✗', color: 'red' },
+  parked: { g: '‖', color: 'magenta' },
   skipped: { g: '–', dim: true },
   pending: { g: '○', dim: true },
 }
@@ -43,12 +44,29 @@ export const abbrev = (stage: string) => {
   return SHORT[key] ?? key.replace(/ /g, '').slice(0, 3)
 }
 
-export const cellsOf = (w: Worker | undefined): Cell[] =>
-  w ? w.stages.map((_, i) => CELL[w.stageStatus[i] ?? 'pending'] ?? { g: '○', dim: true }) : []
+/**
+ * Each stage's status as drawn. A surface knows no `parked`, so an unattended run reports the
+ * Personal Validation it moved onto a draft pull request as `blocked` and carries on. A block
+ * in a run that came back with a draft, at a gate, or finished parked is parked, and so is one
+ * a later stage went on past while the run is still going. A run that came back blocked keeps
+ * every block a failure, Summary closing it `done` notwithstanding; a later `skipped` is no
+ * sign of moving on, since a red Build & Test skips Verify on its way back to Implement.
+ */
+export const stageStatesOf = (w: Worker): string[] => {
+  const s = w.stages.map((_, i) => w.stageStatus[i] ?? 'pending')
+  const failed = w.state === 'blocked' || w.state === 'stopped' || w.runStatus === 'blocked'
+  const settled = w.state === 'pr' || w.state === 'gate' || w.state === 'done-before' || w.runStatus === 'parked'
+  const movedOn = (i: number) => s.slice(i + 1).some(t => t === 'in_progress' || t === 'done')
+  return s.map((x, i) => (x === 'blocked' && !failed && (settled || movedOn(i)) ? 'parked' : x))
+}
 
-/** The stage a worker stands at: the one running or blocked, else none. */
+export const cellsOf = (w: Worker | undefined): Cell[] =>
+  w ? stageStatesOf(w).map(s => CELL[s] ?? { g: '○', dim: true }) : []
+
+/** The stage a worker stands at: the one running, else the one blocked, else the one parked. */
 export const currentStage = (w: Worker) => {
-  const i = w.stageStatus.findIndex(s => s === 'in_progress' || s === 'blocked')
+  const s = stageStatesOf(w)
+  const i = [s.indexOf('in_progress'), s.indexOf('blocked'), s.indexOf('parked')].find(x => x >= 0) ?? -1
   return i >= 0 ? (w.stages[i] ?? '') : ''
 }
 
@@ -71,6 +89,7 @@ export const BLOCK: Record<string, { bg: string; g: string }> = {
   done: { bg: '#5fd38d', g: '' },
   in_progress: { bg: '#56c8e8', g: '▶' },
   blocked: { bg: '#f2767a', g: '✗' },
+  parked: { bg: '#d58be8', g: '‖' },
   skipped: { bg: '#3a3a42', g: '–' },
   pending: { bg: '#26262c', g: '' },
 }
@@ -80,6 +99,7 @@ export const GLYPH: Record<string, Cell> = {
   done: { g: '■', color: 'green' },
   in_progress: { g: '▶', color: 'cyan' },
   blocked: { g: '✗', color: 'red' },
+  parked: { g: '‖', color: 'magenta' },
   skipped: { g: '–', dim: true },
   pending: { g: '·', dim: true },
 }
@@ -137,8 +157,8 @@ export const matrixSvg = (tag: string, summary: string, rows: Row[], stages: str
     out.push(`<text x="${pad + 20}" y="${y + 14}" fill="#e6e6ea">${xml(clip(`${r.n} ${r.title}`, 32))}</text>`)
     const w = r.w
     if (w && w.stages.length > 0) {
-      w.stages.forEach((_, i) => {
-        const b = BLOCK[w.stageStatus[i] ?? 'pending'] ?? BLOCK.pending!
+      stageStatesOf(w).forEach((s, i) => {
+        const b = BLOCK[s] ?? BLOCK.pending!
         const x = x0 + i * (cell + gap)
         out.push(`<rect x="${x}" y="${y}" width="${cell}" height="18" rx="3" fill="${b.bg}"/>`)
         if (b.g) out.push(`<text x="${x + cell / 2}" y="${y + 13}" fill="#121215" font-size="11" text-anchor="middle">${xml(b.g)}</text>`)
