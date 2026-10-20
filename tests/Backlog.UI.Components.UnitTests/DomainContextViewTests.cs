@@ -62,6 +62,55 @@ public sealed class DomainContextViewTests
     }
 
     [Fact]
+    public void The_middle_card_counts_each_side_and_every_side_with_neighbours_is_joined_to_it()
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainNeighboursView>(p => p
+            .Add(v => v.ContextName, "Tasks")
+            .Add(v => v.Neighbours, DomainNeighbours.Read(DomainNeighboursTests.Dependencies, DomainNeighboursTests.Path)));
+
+        Assert.Equal("2 upstream · 1 downstream · 1 partner", view.Find("[data-testid='domain-neighbours-counts']").TextContent);
+        Assert.Equal(["listens-to", "listen-to"], view.FindAll("[data-testid='domain-neighbours-join']").Select(join => join.GetAttribute("data-side")));
+        Assert.Single(view.FindAll("[data-testid='domain-neighbours-drop']"));
+        Assert.All(view.FindAll("[data-testid='domain-neighbours-join'], [data-testid='domain-neighbours-drop']"),
+            line => Assert.Equal("true", line.GetAttribute("aria-hidden")));
+        Assert.Empty(view.FindAll("[data-testid='domain-neighbours-overview']"));
+    }
+
+    [Fact]
+    public void A_side_with_nobody_on_it_draws_no_line_and_no_count()
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainNeighboursView>(p => p
+            .Add(v => v.ContextName, "Sync")
+            .Add(v => v.Neighbours, new DomainNeighbourhood([], [new DomainNeighbour("Tasks", "A task is stored whole.", "tasks", false)], [])));
+
+        Assert.Equal("1 downstream", view.Find("[data-testid='domain-neighbours-counts']").TextContent);
+        Assert.Equal(["listen-to"], view.FindAll("[data-testid='domain-neighbours-join']").Select(join => join.GetAttribute("data-side")));
+        Assert.Empty(view.FindAll("[data-testid='domain-neighbours-drop']"));
+        Assert.Single(view.FindAll("[data-testid='domain-neighbours-listens-to'] [data-testid='domain-neighbours-none']"));
+    }
+
+    [Fact]
+    public void The_middle_cards_Overview_link_opens_the_Overview_tab()
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainContextView>(p => p
+            .Add(v => v.ContextName, "Tasks")
+            .Add(v => v.InitialTab, "neighbours")
+            .Add(v => v.Neighbours, DomainNeighbours.Read(DomainNeighboursTests.Dependencies, DomainNeighboursTests.Path)));
+
+        Assert.Equal("true", view.Find("[data-testid='domain-context-page-tab-neighbours']").GetAttribute("aria-selected"));
+
+        view.Find("[data-testid='domain-neighbours-overview']").Click();
+
+        Assert.Equal("true", view.Find("[data-testid='domain-context-page-tab-overview']").GetAttribute("aria-selected"));
+    }
+
+    [Fact]
     public void No_neighbours_says_so()
     {
         using var context = Context();
