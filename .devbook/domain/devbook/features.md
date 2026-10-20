@@ -867,7 +867,11 @@ Given, When and Then rows, a row that joins clauses with ", and" read as one
 bullet each. Where a feature's requirements rest on an aggregate's rules, a link
 opens that aggregate's **Always true** tab instead of a sentence explaining them.
 A split `features.<name>.md` or `requirements.<name>.md` reads the same way for
-its one feature.
+its one feature. The page opens on a card saying what a requirement is, with
+how many are tested; each requirement is a card with a *Test linked* or dashed
+*No test linked* mark and its scenarios on its foot, and a feature with more
+than three requirements opens the first two and lists the rest as rows that
+open in place.
 
 **The Brain and the tasks show where they link.** Under each unit, feature and
 glossary term, the [From your Brain](#repo-links-and-backlinks) box lists the

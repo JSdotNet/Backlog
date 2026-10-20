@@ -578,8 +578,9 @@ related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/a
 
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
 marks a model element by its kind on the Model page's diagram and beside its
-name, and a relation between two core contexts on the Context map. These are
-the two values this file adds outside the palette. The kind's glyph and word
+name, a relation between two core contexts on the Context map, and the
+requirement kind on the Requirements page. These are the three values this file
+adds outside the palette. The kind's glyph and word
 always say what the element is, and the tone only helps the eye group the same
 kind across a diagram.
 
@@ -587,6 +588,7 @@ kind across a diagram.
 | --- | --- | --- | --- |
 | `color-domain-value-object` | `#C3D96B` | Value object | 11.99:1 / 10.41:1 / 7.83:1 |
 | `color-domain-core-line` | `#F0A33A` | A Context map line between two core contexts, and a core context's card edge | 8.91:1 / 7.74:1 / 5.82:1 |
+| `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar | 8.87:1 / 7.70:1 / 5.79:1 |
 
 Value objects take `#C3D96B`, a yellow-green between `color-band-3` and
 `color-primary`. Teal, the value the code theme spends as `code-type`, is not
@@ -598,10 +600,18 @@ line is not a control; every other line takes `color-border-strong`. The card
 says Core in words and the legend names both colours, so the amber is never
 the only thing that says which contexts are core.
 
+The Requirements page marks the requirement kind in `#8FB4F0`, a soft blue of
+its own: the top edge of the card that says what a requirement is, the word
+*SHALL* in each requirement's sentence, the edge of the open feature in the
+feature list and the tested part of each feature's bar. It is not gold, because
+none of these is followable, and not teal, which is the Brain's. Each sits beside
+the words *Requirement*, *SHALL* or *n / m* tested, so the blue is never the only
+thing that says it.
+
 **Information badges are neutral outlines.** On the Domain view's pages, the
 `DEV` mark, a chapter's date, a chapter's feature switch, a feature's
-*Proposed* or *Deprecated* mark on Features, a requirement's *Proved* or *Not
-proved* mark on Requirements and an event's *Documented* or *Emitted* mark on
+*Proposed* or *Deprecated* mark on Features, a requirement's *Test linked* or
+dashed *No test linked* mark on Requirements and an event's *Documented* or *Emitted* mark on
 Model's Events tab are information about the
 chapter, not something the product acts on. Each is drawn as a neutral
 outline: a transparent surface inside a 1px `color-border-strong` edge, with
