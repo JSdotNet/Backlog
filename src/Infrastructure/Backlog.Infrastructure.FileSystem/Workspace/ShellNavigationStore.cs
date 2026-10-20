@@ -215,10 +215,11 @@ public sealed class ShellNavigationStore
     /// Read through the shared kernel's <c>IShowArchivedRepositories</c>.</summary>
     public bool ShowArchivedRepositories { get; private set; }
 
-    /// <summary>The iteration length the Goals view and the stand-up read in, as the
-    /// setting's value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until
-    /// one was chosen. Read through Progress's <c>IIterationSettings</c>, which reads a value it
-    /// does not know as Week.</summary>
+    /// <summary>The iteration length an earlier build kept per device, as the setting's
+    /// value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until one was
+    /// chosen. Legacy: the choice now lives in <c>IterationSettingsStore</c>, which travels
+    /// between desktops and reads this only to seed itself once (local ADR 0036, §5); this
+    /// build never writes it.</summary>
     public string? GoalsIterationLength { get; private set; }
 
     /// <summary>The day two-week iterations count from, stored as an ISO date; null until
@@ -369,7 +370,8 @@ public sealed class ShellNavigationStore
     }
 
     /// <summary>Replaces both iteration choices in one save, so a first choice of two weeks
-    /// writes its length and its start together.</summary>
+    /// writes its length and its start together. Kept for the files an earlier build wrote
+    /// and the tests that write one; the app no longer calls it (local ADR 0036, §5).</summary>
     public void SetGoalsIteration(string length, DateOnly? twoWeekStart)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(length);
