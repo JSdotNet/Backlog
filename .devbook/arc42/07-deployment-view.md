@@ -46,7 +46,7 @@ The storage root defaults to `%LOCALAPPDATA%\Backlog` and holds:
 ### Installation and Updates
 
 ```meta
-related: [".devbook/tech/desktop.md#msix-packaging", ".devbook/tech/desktop.md#app-installer-appinstaller"]
+related: [".devbook/tech/desktop.md#msix-packaging", ".devbook/tech/desktop.md#app-installer-appinstaller", ".devbook/arc42/07-deployment-view.md#release"]
 ```
 
 The desktop app is distributed as a **signed MSIX sideloaded from GitHub
@@ -78,12 +78,11 @@ Microsoft Store listing and no custom update server.
   names is therefore the folder that exists. Installs from before the opt-out
   kept everything in the redirect, and the first start of a newer build adopts
   it, as the flowchart below shows.
-- **Release automation** — `.github/workflows/release-desktop.yml` builds, signs
-  (from repository secrets), generates the `.appinstaller`, and uploads both
-  artifacts to the GitHub Release on a `v*` tag, a dispatch, a Deploy All run,
-  or the nightly schedule (`v0.1.<run_number>`). Latest is the update channel:
-  a tag, dispatch or Deploy All release takes it, and a nightly takes it only
-  when no higher-versioned release holds it.
+- **Release automation** — the Release All workflow builds and signs the MSIX
+  and generates the `.appinstaller`. It publishes them with the APK under one
+  `vX.Y.Z` release, as [Release](#release) describes. Latest is the desktop's
+  update channel: a tag, dispatch or Deploy All release takes it, and a nightly
+  takes it only when no higher-versioned release holds it.
 
 ```mermaid
 flowchart TB
@@ -101,8 +100,8 @@ failed copy is retried on the next start.
 
 ```mermaid
 flowchart LR
-    Dev["Tag v1.2.3"] --> CI["release-desktop workflow"]
-    CI -->|"signed MSIX + .appinstaller"| Release["GitHub Release"]
+    Dev["v* tag, dispatch, nightly\nor Deploy All"] --> CI["Release All workflow"]
+    CI -->|"signed MSIX + .appinstaller + .cer"| Release["GitHub Release vX.Y.Z"]
     Release -->|"first install (sideload)"| Machine["Windows machine"]
     Release -->|"OnLaunch / background / Settings check"| Machine
 ```
@@ -121,7 +120,7 @@ on-device SQLite outbox.
 ### Installation and Updates (Mobile)
 
 ```meta
-related: [".devbook/tech/mobile.md#apk-packaging", ".devbook/arc42/07-deployment-view.md#installation-and-updates", ".devbook/arc42/05-building-block-view.md#mobile-app"]
+related: [".devbook/tech/mobile.md#apk-packaging", ".devbook/arc42/07-deployment-view.md#installation-and-updates", ".devbook/arc42/07-deployment-view.md#release", ".devbook/arc42/05-building-block-view.md#mobile-app"]
 ```
 
 The mobile app is distributed as a **signed APK sideloaded from GitHub
@@ -139,13 +138,14 @@ update server.
   publishing.
 - **Versioning** — `ApplicationDisplayVersion` is the semantic version.
   `ApplicationVersion` (the Android `versionCode`) is a packed integer,
-  `major*10^7 + minor*10^5 + patch`, so `v1.2.3` becomes `10200003`. Android
-  needs a monotonically increasing integer to recognize a package as an upgrade.
-- **Release channel** — tagged `v*` releases share one GitHub Release with the
-  desktop MSIX. Nightly `main` builds publish under a separate
-  `mobile-v0.1.<run_number>` tag marked not-latest. `github.run_number` is a
-  per-workflow counter, and would otherwise collide with the desktop's own
-  nightly numbering.
+  `major*10^7 + minor*10^5 + patch`, so `v1.2.3` becomes `10200003` and
+  `v0.1.123` becomes `100123`. Android needs a monotonically increasing integer
+  to recognize a package as an upgrade. `ApkVersion` in the app and
+  `build/Get-NextReleaseVersion.ps1` in the workflow pack it the same way.
+- **Release channel** — every release carries the APK beside the desktop MSIX
+  under one `vX.Y.Z` tag, nightlies included ([Release](#release)). Nightlies
+  published before the two channels were aligned sit under `mobile-v*` tags,
+  and phones still run them.
 - **Trust** — the keystore is self-signed, so installing prompts to allow
   installs from unknown sources. Android rejects a signature change, so an APK
   signed with a different key cannot upgrade an existing install. Switching
@@ -154,7 +154,7 @@ update server.
   APK over itself through Android's `PackageInstaller`. It never installs
   without the person's tap. The update path is described below.
 - **Update channel** — the repository a build checks is compiled in from the
-  `BacklogUpdateRepository` build property, which only `release-mobile.yml`
+  `BacklogUpdateRepository` build property, which only `release-all.yml`
   passes (`.devbook/tech/mobile.md#apk-packaging`). Every other build has no
   channel. Its update window says a development build cannot update itself,
   and it asks GitHub for nothing.
@@ -162,14 +162,14 @@ update server.
   and installs it via `adb`, generating a throwaway developer keystore under
   the gitignored `build/.local/` so a local build never needs the release
   signing secrets.
-- **Release automation** — `.github/workflows/release-mobile.yml` builds,
-  signs (from repository secrets), verifies, and uploads the APK to the
-  GitHub Release on a `v*` tag or the nightly schedule.
+- **Release automation** — the Release All workflow builds, signs and verifies
+  the APK, and publishes it with the desktop packages under one `vX.Y.Z`
+  release ([Release](#release)).
 
 ```mermaid
 flowchart LR
-    Dev["Tag v1.2.3 (or mobile-v0.1.N nightly)"] --> CI["release-mobile workflow"]
-    CI -->|"signed + apksigner-verified APK"| Release["GitHub Release"]
+    Dev["v* tag, dispatch, nightly\nor Deploy All"] --> CI["Release All workflow"]
+    CI -->|"signed + apksigner-verified APK"| Release["GitHub Release vX.Y.Z"]
     Release -->|"first install (sideload)"| Device["Android device"]
     Device -->|"in-app check: list releases"| Release
     Release -->|"newer APK, installed on the person's tap"| Device
@@ -195,9 +195,9 @@ sequenceDiagram
 ```
 
 - **Which APK** — the check reads the release list, not `/releases/latest`.
-  Latest points at the desktop's release, which may carry no APK, and nightly
-  mobile builds are published not-latest under their own `mobile-v*` tags.
-  The asset named `Backlog.Mobile_x.y.z.apk` with the highest packed versionCode
+  Release All keeps Latest for the desktop's App Installer, so a nightly stays
+  off it while a higher version holds it. Older `v*` releases carry no APK, and
+  the earlier mobile nightlies sit under their own `mobile-v*` tags. The asset named `Backlog.Mobile_x.y.z.apk` with the highest packed versionCode
   wins, whichever tag it came from. Only an uploaded asset with an https
   `github.com` download URL and a stated size is offered.
 - **When it checks** — the app checks quietly once it is on screen, at most every
@@ -338,23 +338,34 @@ service image came later from a manual `azd deploy`. Read from Azure on
 2026-10-05, the container app had one active revision, created 2026-10-01 and
 healthy with one replica.
 
-**Still unproven.** `deploy-sync.yml` has never completed a run. Its `Verify
-deployment target` preflight fails because the `backlog-sync` GitHub environment
-has no variables set. So these are unverified:
+**Proven as far as a preview.** `deploy-sync.yml` first completed a run on
+2026-10-20 (run 39494451800, dispatched from `main`). That run was a `preview`. It
+passed `Verify deployment target`, signed in to Azure through the OIDC federated
+credential, and ran `azd provision --preview`, so the `backlog-sync` environment's
+variables and the credential now work. These are still unverified:
 
-- the workflow path itself;
-- the OIDC federated credential it authenticates with;
+- a `provision`, `deploy` or `service` run of the workflow;
 - the budget alert;
 - a second device syncing against the deployed service in real use.
 
 `docs/deployment/sync.md` writes those manual prerequisites down.
+
+**Two callers, two scopes.** A person starts every infrastructure run, from
+Deploy Sync itself or from Deploy All. Deploy All's sync component previews or
+provisions and never deploys the service, because its release component does. The service
+itself deploys unattended: every Release All run that publishes calls Deploy Sync
+in `service` mode, the nightly included ([Release](#release)). That mode runs
+`azd deploy` alone and provisions nothing. A provision reads the running
+container's image back and hands it to the template, so it keeps the service
+that is running. Only the first provision, with no app yet, runs the
+template's placeholder image.
 
 | Concern | Approach |
 |---|---|
 | **Infrastructure as code** | Bicep under `infra/sync/`, beside the existing `infra/foundry/`. Resource-group scoped, so it deploys into a group created by hand rather than creating one. |
 | **Provision and deploy** | `azd` (Azure Developer CLI), against `azure.yaml` at the repository root. |
 | **Environments** | One (`backlog-sync`). A personal tool does not earn a staging ring. |
-| **CI/CD** | GitHub Actions, **started by hand** (`Deploy Sync` or `Deploy All`), authenticating with **OIDC federated credentials**. The path-filtered push-to-`main` trigger ADR 0005 describes is parked until a first deploy has been watched succeed. There is no publish profile and no service principal secret in the repository; the one secret carried is the service's own token signing key. |
+| **CI/CD** | GitHub Actions, authenticating with **OIDC federated credentials**. Infrastructure is **started by hand** (`Deploy Sync` or `Deploy All`). The service deploys through Release All, nightly and on every release, in Deploy Sync's `service` mode. The path-filtered push-to-`main` trigger ADR 0005 describes stays parked. There is no publish profile and no service principal secret in the repository; the one secret carried is the service's own token signing key. |
 | **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same five containers. Azurite is the `storage` resource, with the `attachments` container (local ADR 0014). The sync path, attachments included, builds and tests with no cloud account. |
 | **Observability** | Log Analytics and Application Insights. OpenTelemetry already flows through `AddServiceDefaults()`, so this is wiring rather than design. Only application telemetry goes to either. No domain data does, because a telemetry pipeline samples and drops under load, and nothing a dashboard answers from may inherit that. The workspace carries a 1 GB/day ingestion cap (`logDailyQuotaGb`) as an emergency stop against runaway logging. Once it is reached, Azure drops the rest of the day, exceptions included. That is intended: on such a day the volume is the incident. See `docs/deployment/sync.md`. |
 
@@ -371,7 +382,7 @@ syncing.
 
 ```mermaid
 flowchart LR
-    Dev["Run workflow (manual)"] --> GHA["GitHub Actions"]
+    Dev["Deploy Sync or Deploy All\n(manual)"] --> GHA["GitHub Actions"]
     GHA -->|"OIDC federated credential\n(no Azure secret stored)"| AZD["azd deploy"]
     AZD --> Bicep["infra/sync/*.bicep"]
     Bicep --> ACA["Container Apps"]
@@ -385,6 +396,64 @@ flowchart LR
     ACA -.->|"Managed identity\nAcrPull"| ACR
     ACA -.->|"Application telemetry only"| LA
 ```
+
+## Release
+
+```meta
+related: [".devbook/arc42/07-deployment-view.md#installation-and-updates", ".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/07-deployment-view.md#provisioning-and-delivery", ".devbook/tech/tooling.md#github-actions", ".devbook/tech/desktop.md#msix-packaging", ".devbook/tech/mobile.md#apk-packaging"]
+```
+
+One workflow, Release All (`.github/workflows/release-all.yml`), releases every
+channel from one commit under one number. Each run that publishes creates one
+GitHub Release `vX.Y.Z`. It carries the desktop MSIX, its `.appinstaller`, the
+public signing certificate (`.cer`), and the Android APK. The same run deploys
+the sync service under that number.
+
+```mermaid
+flowchart LR
+    Trigger["v* tag, dispatch,\nnightly or Deploy All"] --> Plan["plan\nnumber and preconditions"]
+    Plan --> Pre["sync-preflight\nbacklog-sync environment"]
+    Pre --> Desktop["desktop\nsigned MSIX"]
+    Pre --> Mobile["mobile\nsigned APK"]
+    Desktop --> Sync["sync\nDeploy Sync, service mode"]
+    Mobile --> Sync
+    Sync --> Publish["publish\nGitHub Release vX.Y.Z"]
+```
+
+- **Numbering** — `build/Get-NextReleaseVersion.ps1` takes the highest
+  `MAJOR.MINOR.PATCH` over the `v*` and `mobile-v*` tags and raises the patch by
+  one. Reading both namespaces keeps the MSIX version and the APK versionCode
+  rising past what every device runs. A pushed tag, a dispatched version, or
+  Deploy All's `release_version` names the number instead. The plan job refuses
+  one lower than the highest tag before anything builds. Runs queue
+  workflow-wide, so two runs never number a release at once.
+- **The server before the clients** — the sync job starts only after both
+  packages built, so a broken app build never moves the server. It calls Deploy
+  Sync in `service` mode with `Version` set to `X.Y.Z`, which runs `azd deploy`
+  alone. Deploy Sync then reads `GET /` until the service reports that version
+  at the run's commit, and fails after ten minutes otherwise.
+- **Publishing** — the publish job runs only after the service took the number,
+  and refuses a release with any asset missing. A failed sync deploy therefore
+  publishes nothing and takes no number. An explicit release always takes
+  Latest. A nightly takes it only when no higher version holds it.
+- **Nightly** — the schedule runs at 05:00 UTC. It releases only when a file one
+  of the three heads builds from changed since the newest `v*` release. It skips
+  the whole release when any channel's settings are missing: the signing
+  secrets, `BACKLOG_SYNC_SERVICE_URL`, or the `backlog-sync` environment's
+  variables. The channels therefore never drift apart by a number. A release a
+  person asked for fails instead.
+- **Re-runs** — an existing tag is republished only from the commit it points
+  at. The plan job, Deploy Sync, and the publish job each check this. Re-running
+  an older failed run therefore never puts an older build under a number a newer
+  run published.
+- **Deploy All** — its release component calls Release All with its
+  `release_version`, where blank takes the next number, and its sync
+  environment. Its sync component is the infrastructure alone, so one run never
+  deploys the service twice under two versions
+  ([Provisioning and Delivery](#provisioning-and-delivery)).
+- **Failure** — the `report-failure` job opens an issue, or comments on the open
+  one, when any job fails. It says whether the sync service already took the
+  number.
 
 
 
