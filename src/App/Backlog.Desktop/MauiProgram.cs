@@ -13,6 +13,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Logging;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
@@ -107,6 +108,9 @@ public static class MauiProgram
             PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(sp.GetRequiredService<WorkingHoursSettingsStore>()),
             // %LOCALAPPDATA%\Backlog\my-day-preferences.json, beside the pace (local ADR 0032).
             MyDayPreferences = _ => new MyDayPreferencesStore(),
+            // %LOCALAPPDATA%\Backlog\iteration-settings.json, seeded once from the shell
+            // navigation file an earlier build kept the choice in (local ADR 0036).
+            IterationSettings = sp => new IterationSettingsStore(sp.GetRequiredService<ShellNavigationStore>()),
             ShellNavigation = _ => new ShellNavigationStore(),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(),
             CaptureRunLog = _ => new CaptureRunLogStore(),

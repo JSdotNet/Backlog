@@ -140,6 +140,12 @@ public sealed class SyncActivityPresentationTests
     }
 
     [Fact]
+    public void The_iteration_settings_read_by_name()
+    {
+        Assert.Equal("Iteration settings", SyncActivityPresentation.Kind(SyncItemKind.IterationSettings));
+    }
+
+    [Fact]
     public void A_goal_reads_by_name()
     {
         Assert.Equal("Goal", SyncActivityPresentation.Kind(SyncItemKind.Goal));

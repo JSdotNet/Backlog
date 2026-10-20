@@ -390,6 +390,26 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// The desktop harness reads the iteration from the one store the sync's replication
+    /// port reads too (local ADR 0036, §3), kept under its isolated root rather than the
+    /// per-user folder the installed app shares.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_reads_the_iteration_from_the_store_the_sync_reads()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        var store = harness.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.IterationSettingsStore>();
+
+        Assert.Same(
+            store,
+            harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Progress.IterationSettings>(
+            harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>());
+        Assert.StartsWith(HarnessIsolation.Root, Path.GetFullPath(store.SettingsPath), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// The desktop harness carries the Dashboard's settings section too, without a
     /// line of its own: the shared composition's <c>AddDashboardUi()</c> registers it.
     /// </summary>

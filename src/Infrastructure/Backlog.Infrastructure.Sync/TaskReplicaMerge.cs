@@ -140,6 +140,11 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// read, decided by its own stamp, and Skipped on a head without the port — which is
 /// what an older desktop build does with it.
 /// </para>
+/// <para>
+/// <b>Nor are the iteration settings.</b> An <c>iteration-settings</c> document goes to
+/// Progress's iteration settings port on the same terms (local ADR 0036, §4), and is
+/// Skipped on a head without the port.
+/// </para>
 /// </summary>
 public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
@@ -155,7 +160,8 @@ public sealed class TaskReplicaMerge(
     IImpedimentReplication? impediments = null,
     IImpedimentEditIntake? impedimentEdits = null,
     ImpedimentEditRetirements? retirements = null,
-    TimeProvider? time = null)
+    TimeProvider? time = null,
+    IIterationSettingsReplication? iteration = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -188,6 +194,11 @@ public sealed class TaskReplicaMerge(
     /// older desktop build. The phone folds the document itself and composes no
     /// merge.</summary>
     private readonly IMyDayPreferencesReplication? _myDay = myDay;
+
+    /// <summary>Where the iteration settings go, or null on a head that keeps none — an
+    /// older desktop build, or the phone, which reads the iteration from the stand-up
+    /// context instead.</summary>
+    private readonly IIterationSettingsReplication? _iteration = iteration;
 
     /// <summary>Where a goal goes, or null on a head without Progress — the phone, or a
     /// build from before the port.</summary>
@@ -661,6 +672,11 @@ public sealed class TaskReplicaMerge(
             return await ApplyMyDayPreferencesAsync(record, moved, cancellationToken).ConfigureAwait(false);
         }
 
+        if (IterationReplicaDocuments.Is(record.Change))
+        {
+            return await ApplyIterationSettingsAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
         if (GoalReplicaDocuments.IsGoal(record.Change))
         {
             return await ApplyGoalAsync(record, moved, cancellationToken).ConfigureAwait(false);
@@ -1069,6 +1085,53 @@ public sealed class TaskReplicaMerge(
             case MyDayPreferencesReplicaOutcome.Unreadable:
                 _log.LogWarning(
                     "Skipping {Kind} document {DocumentId} from the replica: it does not read as the My Day preferences. "
+                    + "The local copy is left as it is.",
+                    record.Change.Task.Type,
+                    record.Change.Id);
+                return ApplyOutcome.Unreadable;
+
+            // An echo or an older copy: the local one stands, as it does for a task.
+            default:
+                return ApplyOutcome.Held;
+        }
+    }
+
+    /// <summary>
+    /// Hands the iteration settings document to its port and counts what it answered,
+    /// exactly as <see cref="ApplyMyDayPreferencesAsync"/> does for the My Day
+    /// preferences.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyIterationSettingsAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        // Skipped, not held, on a head without the port: the settings will not land until
+        // this build can take them, and the one-time feed replay brings them in then.
+        if (_iteration is null)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no iteration settings.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _iteration
+            .ApplyAsync(IterationReplicaDocuments.ToCopy(record.Change), cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case IterationSettingsReplicaOutcome.Taken:
+                Moved(
+                    moved, SyncDirection.Received, SyncItemKind.IterationSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                return ApplyOutcome.Written;
+
+            case IterationSettingsReplicaOutcome.Unreadable:
+                _log.LogWarning(
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as the iteration settings. "
                     + "The local copy is left as it is.",
                     record.Change.Task.Type,
                     record.Change.Id);
