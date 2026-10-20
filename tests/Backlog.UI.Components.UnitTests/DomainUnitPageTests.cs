@@ -89,7 +89,7 @@ public sealed class DomainUnitPageTests
         Assert.Equal("true", tabs[0].GetAttribute("aria-selected"));
 
         page.Find("[data-testid='domain-unit-always-true-tab']").Click();
-        Assert.NotNull(page.Find("[data-testid='domain-unit-always-true']"));
+        Assert.NotNull(page.Find("[data-testid='domain-always-true']"));
     }
 
     [Fact]

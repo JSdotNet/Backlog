@@ -4,8 +4,9 @@
 @*
     The Domain view's Domain page for one domain file — domain.md or a
     domain.<name>.md split (local ADR 0036). It reads the file, the context's
-    other domain files (where the events a unit raises are written) and its
-    requirements files through the domain store, and hands them to the library's
+    other domain files (where the events a unit raises are written), its
+    requirements files and its invariants files (where Always true reads its
+    rules) through the domain store, and hands them to the library's
     DomainUnitPage: a chapter bar over an unsplit file's units, one unit opened
     straight away for a split.
 *@
@@ -15,6 +16,7 @@
     <DomainUnitPage File="@opened"
                     DomainFiles="@_domainFiles"
                     RequirementFiles="@_requirementFiles"
+                    InvariantFiles="@_invariantFiles"
                     @bind-ActiveUnit="_activeUnit"
                     OnNavigate="NavigateAsync"
                     AriaLabel="@($"Domain of {_contextName}")" />
@@ -46,6 +48,7 @@ else if (_problem is not null)
     private DomainChapterFile? _page;
     private IReadOnlyList<DomainChapterFile> _domainFiles = [];
     private IReadOnlyList<DomainChapterFile> _requirementFiles = [];
+    private IReadOnlyList<DomainChapterFile> _invariantFiles = [];
     private string _contextName = "the context";
     private string? _activeUnit;
     private string? _problem;
@@ -103,8 +106,8 @@ else if (_problem is not null)
 
         // A later read, for another file or after another folder change, wins.
         if (_disposed || version != _version) return;
-        (_page, _domainFiles, _requirementFiles, _contextName, _problem) =
-            (read.Page, read.DomainFiles, read.RequirementFiles, read.ContextName, read.Problem);
+        (_page, _domainFiles, _requirementFiles, _invariantFiles, _contextName, _problem) =
+            (read.Page, read.DomainFiles, read.RequirementFiles, read.InvariantFiles, read.ContextName, read.Problem);
     }
 
     /// <summary>The domain file the menu path names, the context's domain files
@@ -129,10 +132,14 @@ else if (_problem is not null)
             .Where(d => d.Kind == DomainDevbookDocumentKind.Requirements)
             .Select(d => Parse(view, d))
             .ToList();
+        var invariantFiles = context.Documents
+            .Where(d => d.Kind == DomainDevbookDocumentKind.Invariants)
+            .Select(d => Parse(view, d))
+            .ToList();
         var page = domainFiles.FirstOrDefault(file => string.Equals(file.Path, document.Path, StringComparison.OrdinalIgnoreCase))
             ?? Parse(view, document);
 
-        return new DomainViewDomainRead(page, domainFiles, requirementFiles, context.DisplayName, null);
+        return new DomainViewDomainRead(page, domainFiles, requirementFiles, invariantFiles, context.DisplayName, null);
     }
 
     private static DomainChapterFile Parse(DomainDevbookView view, DomainDevbookDocument document) =>

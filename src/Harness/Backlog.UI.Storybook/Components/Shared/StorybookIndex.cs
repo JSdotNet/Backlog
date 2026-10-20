@@ -356,6 +356,13 @@ internal static class StorybookIndex
             // renderers.
             new("devbook/domain-units", "Domain units", "DomainUnitPage, DomainAggregateAbout, DomainServiceAbout, DomainEventList and DomainGlossary: a `domain.md` read one unit at a time — a chapter bar over an unsplit file, About for an aggregate, You can count on for a domain service."),
 
+            // After Domain units, whose aggregate page this is the second tab of. The
+            // order bends one way here: Domain units draws DomainUnitPage, whose
+            // Always true tab is this page's DomainAlwaysTrue, before this page
+            // introduces it. It bends that way because the tab is a part of the unit
+            // page — read the page first, then the tab — as Model's tabs follow it.
+            new("devbook/domain-always-true", "Always true", "DomainAlwaysTrue: an aggregate's Always true tab — each rule's claim marked by its proof, grouped by the concept it is enforced at, where each is enforced folded until asked for."),
+
             // After Domain units, whose chapter bar offers it: the Glossary unit read
             // whole, with its filters and its Easily confused pairs.
             new("devbook/domain-glossary", "Domain glossary", "DomainGlossary: every term and model chapter of a context, A–Z, with its kind, its aliases as code chips and its first sentence — a filter box that matches aliases too, kind filters, deprecated terms struck through, and Easily confused for two terms that name each other."),

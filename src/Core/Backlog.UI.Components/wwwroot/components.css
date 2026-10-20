@@ -20610,6 +20610,95 @@ select.field__input {
     }
 }
 
+/*
+  Always true: a unit's rules, one claim per line behind its mark (✓ proved by
+  a test, ○ no test yet, ? not enforced yet), grouped under the concept each is
+  enforced at. Monochrome like the rest of the page: the glyph and the words
+  carry the meaning, so the mark takes the secondary ink and no tone.
+*/
+
+.domain-rules {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-rules__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.domain-rules__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-rules__group {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.domain-rules__heading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* A concept is named in words, so its link reads as a heading rather than as
+   the path a reference otherwise shows. */
+.domain-rules__heading .devbook-ref {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.domain-rules__list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-rules__rule {
+    display: grid;
+    grid-template-columns: 1.25rem 1fr;
+    column-gap: var(--spacing-xs);
+    align-items: baseline;
+}
+
+.domain-rules__mark {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+    text-align: center;
+}
+
+.domain-rules__claim {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.domain-rules__enforced {
+    grid-column: 2;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-rules__enforced code {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
 /* --- Domain view: Glossary ------------------------------------------------- */
 /*
   The Glossary unit of the Domain page (local ADR 0036): a filter box and the

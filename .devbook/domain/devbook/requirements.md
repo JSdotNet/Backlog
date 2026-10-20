@@ -1411,6 +1411,33 @@ The system SHALL show `domain.<name>.invariants.md` as the Always true tab of th
 - **When** the reader opens *Order*
 - **Then** the page offers the About and Always true tabs, Always true shows the rules, and the menu has no row for the invariants file
 
+### Requirement: A rule is its claim and its proof
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show each rule on Always true as its first sentence, marked ✓ when its chapter names a test, ○ when it names none and ? when its `Enforced at:` line is `open`, grouped under the domain concept that line names or else under the aggregate, with where it is enforced hidden until the reader asks for it.
+
+#### Scenario: Rules by concept
+
+- **Given** an *Order* aggregate owning *Order Line*, and an invariants chapter holding a rule enforced at `Place()` and one enforced at `OrderLine.SetQuantity()`
+- **When** the reader opens Always true
+- **Then** the first rule is under *Order* and the second under *Order Line*, and neither shows where it is enforced
+
+#### Scenario: Where each is enforced
+
+- **Given** Always true open on *Order*
+- **When** the reader presses *Show where each is enforced*
+- **Then** each rule shows its `Enforced at:` line, and pressing it again hides them
+
+#### Scenario: Shared rules on the base page
+
+- **Given** a `domain.md` with a `## Shared Value Objects` grouping holding *Money*, and an invariants chapter about *Money*
+- **When** the reader opens the Domain row
+- **Then** the chapter bar offers *Shared Value Objects*, and it shows *Money*'s rules
+
 ### Requirement: A demo is a button on its page
 
 ```meta
