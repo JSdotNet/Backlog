@@ -349,6 +349,18 @@ has no variables set. So these are unverified:
 
 `docs/deployment/sync.md` writes those manual prerequisites down.
 
+**The service version is a release decision.** Every desktop and phone stops
+syncing while the service reports a version above its own (local ADR 0005
+§Version compatibility). So:
+
+- `<Version>` in `Backlog.Modules.Sync.Api.csproj` is raised only on purpose, in
+  the change that breaks older clients. An ordinary deploy leaves it as it is.
+- The service is deployed at `0.1.0` before any desktop or phone release that
+  carries the check. A service built before `<Version>` was set reports the SDK
+  default `1.0.0`, above every released client, so a client carrying the check
+  would stop syncing on every device that installs it. After that first deploy,
+  deploy order does not matter until `<Version>` is raised.
+
 | Concern | Approach |
 |---|---|
 | **Infrastructure as code** | Bicep under `infra/sync/`, beside the existing `infra/foundry/`. Resource-group scoped, so it deploys into a group created by hand rather than creating one. |
