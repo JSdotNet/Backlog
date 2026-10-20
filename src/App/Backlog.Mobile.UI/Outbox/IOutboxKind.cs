@@ -55,15 +55,24 @@ public sealed record OutboxDelivery(OutboxDeliveryKind Kind, string? Error = nul
     /// once for the person to see.</summary>
     public static OutboxDelivery Refused(string error) => new(OutboxDeliveryKind.Refused, error);
 
+    /// <summary>The sync service is newer than this app, so nothing was sent.
+    /// The entry is the service's to take once the app is updated or the service
+    /// rolled back: it keeps its place and its attempts, and the flush stops.</summary>
+    public static OutboxDelivery Held(string error) => new(OutboxDeliveryKind.Held, error);
+
     /// <summary>
     /// How an HTTP answer reads, the same for every kind that posts to the sync
     /// service. 401 is the token, not the entry: a restarted service rejects
     /// tokens it signed before, and the next attempt carries a fresh one — so it
-    /// is transient, with 408 and 429, while every other 4xx is a refusal.
+    /// is transient, with 408 and 429, while every other 4xx is a refusal. 426
+    /// is neither: it is the app's own compatibility check answering for a
+    /// service newer than the app (the service never sends one), so the entry is
+    /// held.
     /// </summary>
     public static OutboxDelivery FromAnswer(HttpStatusCode status, string? detail) => status switch
     {
         _ when (int)status is >= 200 and < 300 => Delivered,
+        HttpStatusCode.UpgradeRequired => Held(detail ?? "Update Backlog to keep syncing."),
         HttpStatusCode.Unauthorized or HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests =>
             Transient(detail ?? $"Cloud sync answered {(int)status}."),
         _ when (int)status is >= 400 and < 500 =>
@@ -97,5 +106,6 @@ public enum OutboxDeliveryKind
 {
     Delivered,
     Transient,
-    Refused
+    Refused,
+    Held
 }

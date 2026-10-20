@@ -44,6 +44,11 @@ public sealed class DeviceOutbox : IDisposable
     /// <summary>The wait after the first failure; each later one doubles it.</summary>
     public static readonly TimeSpan FirstRetryDelay = TimeSpan.FromSeconds(2);
 
+    /// <summary>The wait after an entry was held for a service newer than this
+    /// app: the time until the compatibility check asks the service again, so
+    /// the retry meets a fresh verdict rather than the cached one.</summary>
+    public static readonly TimeSpan HeldRetryDelay = Backlog.Infrastructure.Sync.SyncCompatibility.VerdictWindow;
+
     private readonly IDeviceStore _store;
     private readonly IReadOnlyDictionary<string, IOutboxKind> _kinds;
     private readonly TimeProvider _clock;
@@ -243,6 +248,18 @@ public sealed class DeviceOutbox : IDisposable
                     await ReplaceAsync(latest with { Refused = true, LastError = delivery.Error }, cancellationToken);
                     Changed?.Invoke();
                     continue;
+
+                case OutboxDeliveryKind.Held:
+                    // The service is newer than this app. Not the entry's fault
+                    // and not the network's: it keeps its place and its attempts,
+                    // and nothing behind it goes either. Asked again when the
+                    // compatibility verdict is next due, which is what lets a
+                    // rolled-back service take the queue without a tap.
+                    await ReplaceAsync(latest with { LastError = delivery.Error }, cancellationToken);
+                    Changed?.Invoke();
+                    _notBefore = now + HeldRetryDelay;
+                    Schedule(HeldRetryDelay);
+                    return;
 
                 default:
                     var failed = latest with { Attempts = latest.Attempts + 1, LastError = delivery.Error };

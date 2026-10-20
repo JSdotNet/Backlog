@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.Sync;
 using Backlog.Mobile.UI.AppUpdate;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Outbox;
@@ -48,6 +49,13 @@ public static class MobileShellServiceCollectionExtensions
         services.TryAddSingleton<IAppUpdateService>(_ => new UnsupportedAppUpdateService());
         services.TryAddSingleton<IAppUpdateCheckStamp, InMemoryAppUpdateCheckStamp>();
         services.AddScoped<AppUpdateWatch>();
+
+        // Whether the sync service is newer than this app, which the layout's
+        // sync-paused callout reads. AddSyncClient registers the verdict a head's
+        // clients write to; TryAdd so a host composed without one — the tests'
+        // shell — still draws, with a verdict nothing ever changes.
+        services.TryAddSingleton(_ => SyncAppVersion.OfEntryAssembly());
+        services.TryAddSingleton<SyncCompatibility>();
 
         return services;
     }

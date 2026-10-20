@@ -85,3 +85,13 @@ main {
     padding-left: max(var(--spacing-md), env(safe-area-inset-left));
     padding-right: max(var(--spacing-md), env(safe-area-inset-right));
 }
+
+/*
+  The sync-paused callout (SyncCompatibility) sits between the bar and the page,
+  inset by the page's own gutter so its edge lines up with the content below.
+*/
+::deep .app-sync-paused {
+    margin-top: var(--spacing-sm);
+    margin-left: max(var(--spacing-md), env(safe-area-inset-left));
+    margin-right: max(var(--spacing-md), env(safe-area-inset-right));
+}

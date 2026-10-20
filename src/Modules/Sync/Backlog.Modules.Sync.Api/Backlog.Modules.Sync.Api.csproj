@@ -9,6 +9,11 @@
   <PropertyGroup>
     <RootNamespace>Backlog.Modules.Sync.Api</RootNamespace>
     <UserSecretsId>98bfd847-3884-49f0-aebf-b11e1e89fcb1</UserSecretsId>
+    <!-- The version GET / reports, and the one every client compares its own
+         against: a desktop or phone whose version is lower stops syncing and asks
+         to be updated (docs/deployment/sync.md). Raised on purpose, never by
+         default — raising it past the released clients stops all of them. -->
+    <Version>0.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

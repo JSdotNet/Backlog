@@ -376,7 +376,8 @@ public class SyncClientRegistrationTests
         var pushed = await PushAsync(provider, client);
 
         Assert.True(pushed.IsFailure);
-        Assert.Single(wire.Requests);
+        // The compatibility check's own GET / is not the push.
+        Assert.Single(wire.Requests, request => request.Path != "/");
     }
 
     /// <summary>A pull is a read and safe to send again, so a transient refusal is
@@ -393,7 +394,8 @@ public class SyncClientRegistrationTests
         var pulled = await PullAsync(provider, client);
 
         Assert.True(pulled.IsFailure);
-        Assert.True(wire.Requests.Count > 1, $"Expected a retry, saw {wire.Requests.Count} request(s).");
+        var pulls = wire.Requests.Count(request => request.Path != "/");
+        Assert.True(pulls > 1, $"Expected a retry, saw {pulls} request(s).");
     }
 
     /// <summary>A push of a full batch against a cold replica can run past the

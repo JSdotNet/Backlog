@@ -147,12 +147,10 @@
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            var reason = ex is SyncUnavailableException { Code: "sync.replica_unavailable" }
-                ? "Cloud sync is still starting up."
-                : "Cloud sync can't be reached.";
+            var reason = SyncPullFailure.Reason(ex);
 
             _pullNotice = $"{reason} Showing notes as this phone last saw them. Notes written here are kept and sent when it answers.";
-            Status.RecordUnreachable();
+            if (SyncPullFailure.IsUnreachable(ex)) Status.RecordUnreachable();
         }
         finally
         {

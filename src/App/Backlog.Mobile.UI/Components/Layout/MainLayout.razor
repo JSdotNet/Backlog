@@ -5,6 +5,7 @@
 @inject SharedContentCapture SharedCapture
 @inject ProgressViewProjection Progress
 @inject AppLifecycle Lifecycle
+@inject SyncCompatibility Compatibility
 @implements IDisposable
 
 @*
@@ -30,15 +31,30 @@
     whichever tab the app is on — after a first pull that did not answer, or a
     desktop that set its first goal since — and draws the bar again whenever
     Progress changes.
+
+    When the sync service is newer than this app, nothing syncs
+    (SyncCompatibility) and a callout under the bar says so on every tab, with
+    the update window as its one action. Queued captures wait in the outbox
+    meanwhile; none is set aside.
 *@
 
 <div class="page">
     <LifecycleBridge />
 
     <header class="app-bar">
-        <AppUpdateControl />
+        <AppUpdateControl @ref="_updates" />
         <SyncStatus />
     </header>
+
+    @if (Paired && Compatibility.UpdateRequired)
+    {
+        <Callout Tone="warning" Heading="Sync is paused"
+                 ActionLabel="Update Backlog" OnAction="OpenUpdates"
+                 ActionTestId="sync-update-required-action"
+                 CssClass="app-sync-paused" TestId="sync-update-required">
+            @SyncCompatibility.UpdateRequiredMessage
+        </Callout>
+    }
 
     <main class="content">
         @if (Paired)
@@ -83,6 +99,7 @@
     ];
 
     private bool _pullingProgress;
+    private AppUpdateControl? _updates;
 
     private IReadOnlyList<NavItem> Tabs => Progress.HoldsStandUp ? TabsWithStandUp : TabsWithoutStandUp;
 
@@ -93,7 +110,13 @@
         Credentials.Changed += OnCredentialsChanged;
         Progress.Changed += OnProgressChanged;
         Lifecycle.Resumed += OnResumed;
+        Compatibility.Changed += OnCompatibilityChanged;
     }
+
+    // Raised on whichever thread asked the service.
+    private void OnCompatibilityChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OpenUpdates() => _updates?.OpenWindow();
 
     // Pairing is redeemed on the render thread, but a store may raise from
     // wherever it was saved; InvokeAsync is right in both cases.
@@ -150,6 +173,7 @@
         Credentials.Changed -= OnCredentialsChanged;
         Progress.Changed -= OnProgressChanged;
         Lifecycle.Resumed -= OnResumed;
+        Compatibility.Changed -= OnCompatibilityChanged;
 
         // The capture is the scope's and may outlive this layout; it must not
         // dispatch through a component the renderer has let go.

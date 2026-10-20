@@ -23,6 +23,7 @@
 @using global::Backlog.Infrastructure.Sync.Sessions
 @using global::Backlog.SharedKernel
 @using global::Backlog.SharedKernel.Results
+@using global::Backlog.UI.Components.AppUpdate
 @using global::Backlog.UI.Components.Settings
 @using Microsoft.Extensions.DependencyInjection
 @* For the optional logger the page writes an unexpected failure to, rather
@@ -101,6 +102,20 @@
                        Role="alert"
                        BaseClass="setting__status"
                        CssClass="setting__status--error" />
+            }
+
+            @* The sync service is newer than this app, so nothing syncs until it
+               is updated. Said here as well as in the footer because this is the
+               page a person opens to find out why sync stopped. *@
+            @if (UpdateRequired)
+            {
+                <Callout Tone="warning" Heading="Sync is paused"
+                         ActionLabel="@(_updateWindowRequests is null ? null : "Open update window")"
+                         OnAction="() => _updateWindowRequests?.RequestOpen()"
+                         ActionTestId="devices-update"
+                         TestId="devices-update-required">
+                    @SyncCompatibility.UpdateRequiredMessage
+                </Callout>
             }
 
             <p class="setting__body" data-testid="devices-paired">
@@ -433,6 +448,13 @@
     /// client without a token pipeline at all. When it is there, it is the only
     /// thing that can tell a refused credential from an unreachable service.</summary>
     private SyncTokenProvider? _deviceTokens;
+
+    // Whether the sync service is newer than this app, and the way to the
+    // footer's update window; either is null in a host that composes none.
+    private SyncCompatibility? _compatibility;
+    private AppUpdateWindowRequests? _updateWindowRequests;
+
+    private bool UpdateRequired => _compatibility?.UpdateRequired == true;
     private IDeviceCredentialStore? _deviceCredentials;
 
     /// <summary>Optional for the reason the pairing client is: a host that has
@@ -1109,6 +1131,9 @@
         _taskSync = ResolveTaskSync();
         _sessionSync = ResolveSessionSync();
         _logs = Services.GetService<AppLogLocation>();
+        _compatibility = Services.GetService<SyncCompatibility>();
+        _updateWindowRequests = Services.GetService<AppUpdateWindowRequests>();
+        if (_compatibility is not null) _compatibility.Changed += OnCompatibilityChanged;
 
         // The loop outlives this page, so what it did while nobody was here is
         // already on it - and what it does while somebody is here has to reach
@@ -1156,5 +1181,9 @@
         if (_taskSync is not null) _taskSync.Changed -= OnTaskSyncChanged;
         if (_sessionSync is not null) _sessionSync.Changed -= OnSessionSyncChanged;
         if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged -= OnCredentialRejectedChanged;
+        if (_compatibility is not null) _compatibility.Changed -= OnCompatibilityChanged;
     }
+
+    // Raised on whichever thread asked the service.
+    private void OnCompatibilityChanged() => _ = InvokeAsync(StateHasChanged);
 }

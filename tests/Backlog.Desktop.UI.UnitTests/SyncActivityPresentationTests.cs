@@ -32,6 +32,25 @@ public sealed class SyncActivityPresentationTests
         Assert.StartsWith("Syncing with the cloud.", SyncActivityPresentation.ControlLabel(state), StringComparison.Ordinal);
     }
 
+    /// <summary>A sync service newer than the app outranks everything: cycles
+    /// still start and end at once, and the band must not read as syncing.</summary>
+    [Fact]
+    public void A_service_newer_than_the_app_asks_for_an_update_before_anything_else()
+    {
+        var state = new SyncFooterState(Syncing: true, Sent: 3, Received: 2, At: Noon, Error: "stale", UpdateRequired: true);
+
+        Assert.Equal("Update to sync", SyncActivityPresentation.Label(state));
+        Assert.Contains(SyncCompatibility.UpdateRequiredMessage, SyncActivityPresentation.ControlLabel(state), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_update_required_before_the_first_cycle_is_still_shown()
+    {
+        var state = new SyncFooterState(Syncing: false, Sent: 0, Received: 0, At: null, Error: null, UpdateRequired: true);
+
+        Assert.True(state.HasSomethingToShow);
+    }
+
     [Fact]
     public void A_failed_cycle_outranks_the_last_good_one()
     {
