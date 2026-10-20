@@ -1339,8 +1339,9 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 
 > The requirements of the Domain area read by unit, behind the
 > [New domain view](context.md#new-domain-view) switch (local ADR 0036). The plan
-> `+devbook-domain-view` builds them page by page; Domain, Features,
-> Requirements, Model, Flow and the Glossary are built.
+> `+devbook-domain-view` builds them page by page; the Context map, a context's
+> Overview and Neighbours, Domain, Features, Requirements, Model, Flow, the
+> Glossary and the Brain and task links are built. The Demo button is not.
 
 ### Requirement: The flag off keeps today's Domain view
 
@@ -1372,7 +1373,7 @@ The system SHALL list a bounded context's files in the devbook reading order, on
 
 - **Given** a context holding `context.md`, `domain.md`, `features.md`, `requirements.md`, `model.md` and `flow.md`
 - **When** the reader opens the context in the Domain view
-- **Then** the menu lists the context, Domain, Features, Requirements, Model, Flow and Glossary rows in that order
+- **Then** the menu lists the context, Domain, Features, Requirements, Model and Flow rows in that order, and the Glossary is in the Domain page's chapter bar
 
 ### Requirement: A split file is a child of its kind's row
 
@@ -1401,6 +1402,7 @@ The system SHALL list a file named `<kind>.<name>.md` under its kind's row, titl
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.An_aggregate_opens_on_about_with_always_true_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesTests.A_domain_file_s_rules_are_its_invariants_file_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesTests.A_split_page_reads_every_rule_of_its_own_invariants_file, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.Draws_no_row_for_invariants_dependencies_demo_or_underscore_files]
 ```
 
 The system SHALL show `domain.<name>.invariants.md` as the Always true tab of the `domain.<name>.md` page and give it no row of its own.
@@ -1416,6 +1418,7 @@ The system SHALL show `domain.<name>.invariants.md` as the Always true tab of th
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesTests.Each_rule_is_its_claim_marked_by_its_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesTests.Rules_group_by_the_concept_their_enforced_at_names_falling_back_to_the_aggregate, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.The_aggregate_s_always_true_tab_lists_its_rules_by_concept_with_their_marks, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.Where_each_rule_is_enforced_shows_only_when_asked, unit:dotnet:Backlog.UI.Components.UnitTests.DomainAlwaysTrueTests.A_shared_grouping_s_rules_show_on_the_base_page]
 ```
 
 The system SHALL show each rule on Always true as its first sentence, marked ✓ when its chapter names a test, ○ when it names none and ? when its `Enforced at:` line is `open`, grouped under the domain concept that line names or else under the aggregate, with where it is enforced hidden until the reader asks for it.
@@ -1512,6 +1515,7 @@ The system SHALL list no file or folder whose name starts with `_`.
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.An_unsplit_file_offers_its_units_in_a_chapter_bar_with_their_marks, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.A_split_file_opens_on_its_one_unit_without_a_bar, unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitsTests.The_chapter_bar_offers_aggregates_services_and_the_glossary_in_file_order]
 ```
 
 The system SHALL offer an unsplit `domain.md`'s aggregates, domain services and Glossary as a chapter bar inside the Domain page.
@@ -1543,6 +1547,7 @@ The system SHALL title each row and page with the heading as written, and summar
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainUnitPageTests.About_reads_prose_cards_values_and_events_and_no_field_type, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_groups_each_class_and_carries_the_notes_and_how_the_services_run]
 ```
 
 The system SHALL show field types, invocation semantics and event payloads on the Model page only.
@@ -1558,6 +1563,7 @@ The system SHALL show field types, invocation semantics and event payloads on th
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.The_page_opens_on_Diagram_with_Fields_and_Events_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_arranged_fence_draws_the_band_its_parts_references_and_services, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_fence_that_does_not_parse_is_drawn_with_mermaid, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.The_root_sits_in_its_band_with_its_composed_parts_and_their_multiplicity, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.The_Model_row_opens_on_Diagram_with_the_aggregate_in_its_band]
 ```
 
 The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, beside Fields and Events, that draws each aggregate root inside its consistency boundary with its composed parts and their multiplicity, places the references by identity outside the boundary and the domain services below it, and draws the diagram with mermaid when it cannot be read that way.
@@ -1579,6 +1585,7 @@ The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, be
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelFieldsTests.Attributes_are_grouped_by_kind_in_the_tab_order, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_groups_each_class_and_carries_the_notes_and_how_the_services_run]
 ```
 
 The system SHALL list on Model's Fields tab each class of the `classDiagram` that holds state, with its attributes grouped by what their types say — dates and times, ids pointing elsewhere, owned parts, vocabularies and other values, in that order — the model file's relationship notes beneath, and each domain-service chapter's invocation semantics under *Domain services · how they run*.
@@ -1600,6 +1607,7 @@ The system SHALL list on Model's Fields tab each class of the `classDiagram` tha
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_reads_each_event_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_event_reads_as_a_contract, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters]
 ```
 
 The system SHALL list on Model's Events tab each `domain-event` chapter of the context with what raises it, its consumers, its payload and its published-language rules as the chapter writes them, and mark it *Emitted* only when the chapter that raises it says it emits or publishes it and no chapter says it is not emitted yet, and *Documented* otherwise.

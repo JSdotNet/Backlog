@@ -91,7 +91,7 @@ public static class DomainViewUnit
         _ => "Page"
     };
 
-    /// <summary>What the page will show once it is built, in the feature chapter's words.</summary>
+    /// <summary>What the placeholder says when no row is selected or the file is of no known kind, in the feature chapter's words.</summary>
     public static string Description(DomainViewPage page) => page switch
     {
         DomainViewPage.None => "Choose the context map, a context, or a file inside one from the menu.",
