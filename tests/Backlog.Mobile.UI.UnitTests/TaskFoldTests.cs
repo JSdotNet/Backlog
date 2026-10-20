@@ -197,6 +197,19 @@ public sealed class TaskFoldTests
         Assert.Empty(rows);
     }
 
+    /// <summary>ADR 0036 Verification 8: the iteration settings a desktop writes are never
+    /// a task row on the phone, which reads the iteration from the stand-up context.</summary>
+    [Fact]
+    public void The_iteration_settings_document_is_never_a_row()
+    {
+        var rows = new Dictionary<Guid, TaskViewRow>();
+
+        var changed = TaskFold.Apply(rows, [Record(TestTasks.Task("Iteration settings", T0, type: "iteration-settings", contentMd: """{"length":"two-weeks","twoWeekStart":"2026-10-19"}"""), 1)]);
+
+        Assert.Empty(changed);
+        Assert.Empty(rows);
+    }
+
     private static TaskChangeRecord Record(TaskChange change, long serverTimestamp) =>
         new(change, Guid.NewGuid(), serverTimestamp);
 

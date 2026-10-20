@@ -73,6 +73,13 @@ public static class TaskFold
     /// every replica, so never to be renamed.</summary>
     public const string MyDayPreferencesType = "my-day-preferences";
 
+    /// <summary>The kind token of the iteration settings — the iteration length and the
+    /// two-week start, set on a desktop and carried between desktops
+    /// (.devbook/arc42/adr/0036). Never a row: the phone reads the iteration from the
+    /// stand-up context a desktop writes instead. A literal duplicated for the reason
+    /// <see cref="CaptureType"/> is; persisted on every replica, so never to be renamed.</summary>
+    public const string IterationSettingsType = "iteration-settings";
+
     /// <summary>Every kind the Tasks tab never lists. A note is the Inbox's, and
     /// <see cref="Notes.NoteFold"/> folds it into its own view.</summary>
     private static readonly HashSet<string> NotTasks = new(StringComparer.OrdinalIgnoreCase)
@@ -85,6 +92,7 @@ public static class TaskFold
         GitHubAccountsType,
         SprintSeriesType,
         MyDayPreferencesType,
+        IterationSettingsType,
         GoalType,
         ImpedimentType,
         StandUpContextType,
