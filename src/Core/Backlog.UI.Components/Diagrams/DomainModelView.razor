@@ -52,9 +52,9 @@
                     <h2 class="domain-model-view__title domain-model-view__title--fields" data-testid="domain-model-title">@RootTitle</h2>
                 </div>
             }
-            else if (_tab == "events" && Chapters.Events.Count > 0)
+            else if (_tab == "events" && (Chapters.Events.Count > 0 || Chapters.Listens.Count > 0))
             {
-                <h2 class="domain-model-view__title domain-model-view__title--events" data-testid="domain-model-title">What @Title tells other contexts</h2>
+                <h2 class="domain-model-view__title domain-model-view__title--events" data-testid="domain-model-title">What @ContextName tells other contexts</h2>
             }
             else
             {
@@ -128,7 +128,7 @@
                             <li><span class="domain-field-type domain-field-type--date">date</span>read on a local calendar</li>
                             <li><span class="domain-field-type domain-field-type--instant">instant</span>a moment in UTC</li>
                             <li><span class="domain-field-type domain-field-type--id">id</span>a plain id, not an object</li>
-                            <li><span class="domain-field-row__rules">2 rules</span>invariants on the field</li>
+                            <li><span class="domain-field-rules">2 rules</span>invariants on the field</li>
                         </ul>
                     }
                     @foreach (var fence in Fences)
@@ -151,7 +151,7 @@
                 <DomainServiceInvocations Services="@Chapters.Services" />
             </TabPanel>
             <TabPanel Id="events" Title="Events" TabTestId="domain-model-tab-events" TestId="domain-model-events-panel">
-                <DomainEventContracts Events="@Chapters.Events" Listens="@Chapters.Listens" Context="@Title" Root="@(_roots.Count == 1 ? _roots[0] : null)" />
+                <DomainEventContracts Events="@Chapters.Events" Listens="@Chapters.Listens" Context="@ContextName" Root="@(_roots.Count == 1 ? RootTitle : null)" />
             </TabPanel>
         </ChildContent>
     </Tabs>
@@ -182,6 +182,11 @@
     /// first — what names the types the diagram draws outside the boundary.</summary>
     [Parameter]
     public IReadOnlyList<DomainModelIdentity>? Identities { get; set; }
+
+    /// <summary>The bounded context's name as its map writes it — what Events says
+    /// tells other contexts and listens to. The model file's title when not given.</summary>
+    [Parameter]
+    public string? Context { get; set; }
 
     /// <summary>The model file as written: where its Fields chapter — the purpose
     /// groups the root's fields stand in — is read from.</summary>
@@ -242,6 +247,8 @@
 
     /// <summary>The root as its chapter heads it, on Fields.</summary>
     private string RootTitle => _roots.Count == 1 ? DomainFieldBoards.Title(_roots[0], Profiles) : Title;
+
+    private string ContextName => Context is { Length: > 0 } context ? context : Title;
 
     private static string Sentence(string word) => word.Length == 0 ? word : char.ToUpperInvariant(word[0]) + word[1..];
 

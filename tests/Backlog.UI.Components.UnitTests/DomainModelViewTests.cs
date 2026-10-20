@@ -112,7 +112,7 @@ public sealed class DomainModelViewTests
         Assert.Equal(["Ids pointing elsewhere"], board.QuerySelectorAll("[data-testid='domain-fields-group']").Select(g => g.GetAttribute("data-title")));
         Assert.Equal("id", board.QuerySelector("[data-name='customer_id'] [data-testid='domain-field-type']")!.TextContent.Trim());
         var owned = view.Find("[data-testid='domain-fields-owned']");
-        Assert.Contains("Owned by the order", owned.TextContent);
+        Assert.Contains("Owned by the Order", owned.TextContent);
         Assert.Equal("OrderLine", owned.QuerySelector("[data-testid='domain-fields-owned-value-objects'] [data-testid='domain-fields-owned-part']")!.GetAttribute("data-name"));
         Assert.Contains("Pricing", owned.QuerySelector("[data-testid='domain-fields-owned-services']")!.TextContent);
 
@@ -141,7 +141,7 @@ public sealed class DomainModelViewTests
         view.Find("[data-testid='domain-model-tab-events']").Click();
 
         Assert.Equal("What Model tells other contexts", view.Find("[data-testid='domain-model-title']").TextContent.Trim());
-        Assert.Contains("One of two are emitted", view.Find("[data-testid='domain-events-intro']").TextContent);
+        Assert.Contains("One of two is emitted", view.Find("[data-testid='domain-events-intro']").TextContent);
 
         // The index lists every event; the first is picked and its contract shows beneath.
         var rows = view.FindAll("[data-testid='domain-event-row']");

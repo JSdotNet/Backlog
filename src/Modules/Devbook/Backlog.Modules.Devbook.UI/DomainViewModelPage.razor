@@ -24,6 +24,7 @@
                      Rules="@_rules"
                      Profiles="@_profiles"
                      Title="@_title"
+                     Context="@_context"
                      AriaLabel="@($"Model of {_title}")" />
 }
 else if (_problem is not null)
@@ -52,6 +53,7 @@ else if (_problem is not null)
     private IReadOnlyDictionary<string, string>? _references;
     private IReadOnlyList<DomainModelIdentity>? _identities;
     private string? _markdown;
+    private string? _context;
     private IReadOnlyDictionary<string, IReadOnlyList<string>>? _rules;
     private IReadOnlyDictionary<string, DomainModelProfile>? _profiles;
     private string? _problem;
@@ -104,7 +106,7 @@ else if (_problem is not null)
 
         if (_disposed || _loaded != (alias, path)) return;
         (_fences, _title, _problem, _notes, _chapters, _references, _identities) = (read.Fences, read.Title, read.Problem, read.Notes, read.Chapters, read.References, read.Identities);
-        (_markdown, _rules, _profiles) = (read.Markdown, read.Rules, read.Profiles);
+        (_markdown, _rules, _profiles, _context) = (read.Markdown, read.Rules, read.Profiles, read.Context);
     }
 
     /// <summary>What the Model page shows of one model file: its class diagrams,
@@ -117,6 +119,9 @@ else if (_problem is not null)
         /// <summary>The aggregate and entity chapters of every context an id
         /// attribute can point at, the ones this context's aggregates relate to first.</summary>
         public IReadOnlyList<DomainModelIdentity> Identities { get; init; } = [];
+
+        /// <summary>The bounded context's name, as Events says it.</summary>
+        public string? Context { get; init; }
 
         /// <summary>The model file as written: its Fields chapter's purpose groups.</summary>
         public string? Markdown { get; init; }
@@ -172,7 +177,7 @@ else if (_problem is not null)
         var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies) is { } table
             ? TryReadText(view, table.Path)
             : null;
-        var chapters = DomainChapterContracts.Read(sources) with { Listens = DomainEventIndex.Listens(dependencies, document.Title) };
+        var chapters = DomainChapterContracts.Read(sources) with { Listens = DomainEventIndex.Listens(dependencies, context.DisplayName, context.Slug) };
         var references = DomainUnits.ModelReferences(own);
 
         // What an id attribute points at may be another context's aggregate —
@@ -189,6 +194,7 @@ else if (_problem is not null)
         return new(fences, document.Title, null, notes, chapters, references)
         {
             Identities = identities,
+            Context = context.DisplayName,
             Markdown = markdown,
             Rules = DomainFieldBoards.RuleIndex(invariants),
             Profiles = DomainFieldBoards.Profiles(own)

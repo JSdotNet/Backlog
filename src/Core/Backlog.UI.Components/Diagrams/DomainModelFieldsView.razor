@@ -15,14 +15,21 @@
     rather than listing part of it: Diagram still draws it with mermaid.
 *@
 
-@if (_board is { } board)
+@if (_boards is { Count: > 0 } boards)
 {
+  @foreach (var board in boards)
+  {
     var root = DomainFieldBoards.Title(board.Root.Name, Profiles);
+    var owner = $"{_id}-{board.Root.Name}";
+    @if (boards.Count > 1)
+    {
+        <h3 class="domain-model-view__section-title domain-fields__title">@root</h3>
+    }
     <div class="domain-fields-board" data-testid="@TestId" data-written="@(board.Written ? "true" : "false")" role="group" aria-label="@($"Fields of {root}")">
         <div class="domain-fields-board__groups">
             @foreach (var group in board.Groups)
             {
-                var headingId = $"{_id}-{Slug(group.Title)}";
+                var headingId = $"{owner}-{Slug(group.Title)}";
                 <section class="domain-fields-group" data-testid="domain-fields-group" data-title="@group.Title" aria-labelledby="@headingId">
                     <header class="domain-fields-group__header">
                         <h3 class="domain-fields-group__title" id="@headingId">@group.Title</h3>
@@ -47,14 +54,10 @@
                                     {
                                         <MarkdownView Blocks="@MarkdownPreview.ParseDocument(meaning)" />
                                     }
-                                    else if (row.Derived)
-                                    {
-                                        <text>Derived, never stored.</text>
-                                    }
                                 </span>
                                 @if (row.Rules.Count > 0)
                                 {
-                                    <span class="domain-field-row__rules" data-testid="domain-field-rules" title="@string.Join("\n", row.Rules)">@RuleCount(row.Rules.Count)</span>
+                                    <span class="domain-field-rules" data-testid="domain-field-rules" title="@string.Join("\n", row.Rules)" aria-label="@($"{RuleCount(row.Rules.Count)}: {string.Join("; ", row.Rules)}")">@RuleCount(row.Rules.Count)</span>
                                 }
                             </li>
                         }
@@ -62,8 +65,8 @@
                 </section>
             }
         </div>
-        <aside class="domain-fields-owned" data-testid="domain-fields-owned" aria-labelledby="@($"{_id}-owned")">
-            <h3 class="domain-fields-owned__title" id="@($"{_id}-owned")">Owned by the @root.ToLowerInvariant()</h3>
+        <aside class="domain-fields-owned" data-testid="domain-fields-owned" aria-labelledby="@($"{owner}-owned")">
+            <h3 class="domain-fields-owned__title" id="@($"{owner}-owned")">Owned by the @root</h3>
             @if (board.Entities.Count > 0)
             {
                 <section class="domain-fields-owned__card domain-fields-owned__card--entity" data-testid="domain-fields-owned-entities" aria-label="Entities">
@@ -130,7 +133,7 @@
             @if (Services.Count > 0)
             {
                 <section class="domain-fields-owned__card domain-fields-owned__card--service" data-testid="domain-fields-owned-services" aria-label="Domain services">
-                    <h4 class="domain-fields-owned__label"><span aria-hidden="true">⚙</span> Domain services · act on the @root.ToLowerInvariant()</h4>
+                    <h4 class="domain-fields-owned__label"><span aria-hidden="true">⚙</span> Domain services · act on the @root</h4>
                     @foreach (var service in Services)
                     {
                         <div class="domain-fields-owned__part" data-name="@service.Title">
@@ -145,6 +148,7 @@
             }
         </aside>
     </div>
+  }
 }
 else if (_classes is null)
 {
@@ -237,17 +241,25 @@ else
     public string? TestId { get; set; } = "domain-fields";
 
     private readonly string _id = $"domain-fields-{Guid.NewGuid():N}";
-    private (string?, object?, object?, object?)? _read;
-    private DomainFieldBoard? _board;
+    private string? _readSource;
+    private IReadOnlyList<DomainFieldChapter>? _readPurposes;
+    private IReadOnlyDictionary<string, IReadOnlyList<string>>? _readRules;
+    private IReadOnlyDictionary<string, DomainModelProfile>? _readProfiles;
+    private IReadOnlyList<DomainFieldBoard>? _boards;
     private IReadOnlyList<DomainFieldsClass>? _classes;
+    private bool _readOnce;
 
     protected override void OnParametersSet()
     {
-        var key = (Source, (object?)Purposes, (object?)Rules, (object?)Profiles);
-        if (_read is { } read && read.Item1 == key.Source && ReferenceEquals(read.Item2, key.Item2) && ReferenceEquals(read.Item3, key.Item3) && ReferenceEquals(read.Item4, key.Item4)) return;
-        _read = key;
-        _board = DomainFieldBoards.TryRead(Source, Purposes, Rules, Profiles);
-        _classes = _board is null ? DomainModelFields.TryRead(Source) : null;
+        if (_readOnce
+            && string.Equals(_readSource, Source, StringComparison.Ordinal)
+            && ReferenceEquals(_readPurposes, Purposes)
+            && ReferenceEquals(_readRules, Rules)
+            && ReferenceEquals(_readProfiles, Profiles)) return;
+
+        (_readOnce, _readSource, _readPurposes, _readRules, _readProfiles) = (true, Source, Purposes, Rules, Profiles);
+        _boards = DomainFieldBoards.TryReadAll(Source, Purposes, Rules, Profiles);
+        _classes = _boards is { Count: > 0 } ? null : DomainModelFields.TryRead(Source);
     }
 
     private static string RuleCount(int count) => count == 1 ? "1 rule" : $"{count} rules";

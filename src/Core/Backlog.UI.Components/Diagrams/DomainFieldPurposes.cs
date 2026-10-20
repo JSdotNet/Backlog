@@ -67,8 +67,11 @@ public static partial class DomainFieldPurposes
     /// <summary>The chapter for <paramref name="root"/>: the one that names it, else
     /// a plain <c>## Fields</c>.</summary>
     public static DomainFieldChapter? For(IReadOnlyList<DomainFieldChapter> chapters, string root) =>
-        chapters.FirstOrDefault(c => string.Equals(c.Root, root, StringComparison.OrdinalIgnoreCase))
+        chapters.FirstOrDefault(c => c.Root is not null && string.Equals(Squash(c.Root), Squash(root), StringComparison.OrdinalIgnoreCase))
         ?? chapters.FirstOrDefault(c => c.Root is null);
+
+    /// <summary>A name with its spaces and hyphens gone: <em>Inbox Item</em> is <c>InboxItem</c>.</summary>
+    private static string Squash(string name) => new([.. name.Where(char.IsLetterOrDigit)]);
 
     private static DomainFieldPurpose Purpose(MarkdownChapter chapter)
     {
@@ -141,13 +144,13 @@ public static partial class DomainFieldPurposes
         }
     }
 
-    [GeneratedRegex(@"^(?<names>`[^`]+`(?:\s*[·,/]\s*`[^`]+`)*)\s*[—–-]\s*(?<meaning>.*)$")]
+    [GeneratedRegex(@"^(?<names>`[^`]+`(?:\s*[·,/]\s*`[^`]+`)*)\s*[—–:-]\s*(?<meaning>.*)$")]
     private static partial Regex EntryLine();
 
     [GeneratedRegex(@"`([^`]+)`")]
     private static partial Regex NameSpan();
 
-    [GeneratedRegex(@"(?:^|\s)Rules?:\s*(?<links>.+)$")]
+    [GeneratedRegex(@"(?:^|\s)Rules?:\s*(?<links>\[.+)$")]
     private static partial Regex RulesClause();
 
     [GeneratedRegex(@"\[[^\]]*\]\(([^)\s]+)\)")]

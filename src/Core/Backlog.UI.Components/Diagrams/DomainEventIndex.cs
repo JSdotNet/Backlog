@@ -35,23 +35,34 @@ public static partial class DomainEventIndex
         return match.Success ? summary[match.Length..].Trim() : summary;
     }
 
-    /// <summary>Each line of the <em>Consumers</em> list: the name up to its first
-    /// comma or dash, and the rest.</summary>
+    /// <summary>Each bullet of the <em>Consumers</em> list, its wrapped lines
+    /// joined: the name up to its first dash, or a comma before a lower-case word,
+    /// and the rest. Empty when the section is prose rather than a list.</summary>
     public static IReadOnlyList<DomainEventConsumer> Consumers(DomainEventContract contract)
     {
         if (contract.Consumers is null) return [];
 
-        var result = new List<DomainEventConsumer>();
+        var bullets = new List<string>();
         foreach (var raw in contract.Consumers.Split('\n'))
         {
             var line = raw.Trim();
-            if (!(line.StartsWith("- ", StringComparison.Ordinal) || line.StartsWith("* ", StringComparison.Ordinal))) continue;
+            if (line.StartsWith("- ", StringComparison.Ordinal) || line.StartsWith("* ", StringComparison.Ordinal)) bullets.Add(line[2..]);
+            else if (line.Length > 0 && bullets.Count > 0) bullets[^1] += " " + line;
+        }
 
-            var text = DomainUnits.Plain(line[2..]).Trim().TrimEnd('.');
+        var result = new List<DomainEventConsumer>();
+        foreach (var bullet in bullets)
+        {
+            var text = DomainUnits.Plain(bullet).Trim().TrimEnd('.');
             var split = ConsumerSplit().Match(text);
-            result.Add(split.Success
-                ? new DomainEventConsumer(text[..split.Index].Trim(), text[(split.Index + split.Length)..].Trim())
-                : new DomainEventConsumer(text, null));
+            if (!split.Success)
+            {
+                result.Add(new DomainEventConsumer(text, null));
+                continue;
+            }
+
+            var what = text[(split.Index + split.Length)..].Trim();
+            result.Add(new DomainEventConsumer(text[..split.Index].Trim(), what.Length > 0 ? what : null));
         }
 
         return result;
@@ -82,7 +93,10 @@ public static partial class DomainEventIndex
     /// pattern names another context as the supplier of a published language —
     /// <c>OHS + Published Language (Inbox = supplier)</c> — in the order written.
     /// </summary>
-    public static IReadOnlyList<DomainEventSubscription> Listens(string? dependencies, string context)
+    /// <param name="context">The context's name as its map writes it.</param>
+    /// <param name="slug">The context's folder, so a table that shortens the name —
+    /// <c>(Monitoring = supplier)</c> in <c>monitoring/</c> — is still read as its own.</param>
+    public static IReadOnlyList<DomainEventSubscription> Listens(string? dependencies, string context, string? slug = null)
     {
         if (string.IsNullOrWhiteSpace(dependencies)) return [];
 
@@ -111,7 +125,7 @@ public static partial class DomainEventIndex
             if (supplier is not { Success: true } || !pattern!.Contains("Published Language", StringComparison.OrdinalIgnoreCase)) continue;
 
             var name = supplier.Groups["name"].Value.Trim();
-            if (string.Equals(name, context, StringComparison.OrdinalIgnoreCase)) continue;
+            if (IsSelf(name, context, slug)) continue;
 
             var how = Cell(header, cells, "mechanism") ?? string.Empty;
             var why = Cell(header, cells, "why") ?? Cell(header, cells, "relies") ?? string.Empty;
@@ -125,6 +139,11 @@ public static partial class DomainEventIndex
 
         return result;
     }
+
+    private static bool IsSelf(string name, string context, string? slug) =>
+        string.Equals(name, context, StringComparison.OrdinalIgnoreCase)
+        || context.StartsWith(name + " ", StringComparison.OrdinalIgnoreCase)
+        || (slug is { Length: > 0 } && string.Equals(DomainUnits.Slug(name), slug, StringComparison.OrdinalIgnoreCase));
 
     private static string? Cell(string[] header, IReadOnlyList<string> cells, string column)
     {
@@ -141,7 +160,7 @@ public static partial class DomainEventIndex
     [GeneratedRegex(@"^(Published|Raised|Emitted)\s+(when|after|once)\s+", RegexOptions.IgnoreCase)]
     private static partial Regex WhenLead();
 
-    [GeneratedRegex(@",\s+|\s+[—–-]\s+")]
+    [GeneratedRegex(@"\s+[—–-](?:\s+|$)|,\s+(?=[a-z])")]
     private static partial Regex ConsumerSplit();
 
     [GeneratedRegex(@"^[-*]\s+`(?<name>[^`]+)`\s*[—–:-]\s*(?<meaning>.+)$")]

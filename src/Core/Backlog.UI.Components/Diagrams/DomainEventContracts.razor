@@ -22,7 +22,7 @@ else
     <div class="domain-events" data-testid="@TestId">
         @if (Events.Count == 0)
         {
-            <p class="domain-events__intro" data-testid="domain-events-none" role="status">This context's domain chapters hold no domain-event chapter.</p>
+            <p class="domain-events__intro" data-testid="domain-events-none">This context's domain chapters hold no domain-event chapter.</p>
         }
         else
         {
@@ -48,7 +48,7 @@ else
                                     <button type="button"
                                             class="domain-events__pick"
                                             data-testid="domain-event-pick"
-                                            aria-pressed="@(picked ? "true" : "false")"
+                                            aria-current="@(picked ? "true" : null)"
                                             @onclick="@(() => _selected = contract.Anchor)">@contract.Title</button>
                                 </th>
                                 <td>@RaisedBy(contract)</td>
@@ -64,7 +64,7 @@ else
             {
                 var consumers = DomainEventIndex.Consumers(selected);
                 var payload = DomainEventIndex.Payload(selected);
-                <article class="domain-event" data-testid="domain-event" data-name="@selected.Title" data-delivery="@DeliveryKey(selected)" aria-label="@selected.Title" aria-live="polite">
+                <article class="domain-event" data-testid="domain-event" data-name="@selected.Title" data-delivery="@DeliveryKey(selected)" aria-label="@selected.Title">
                     <div class="domain-event__lead">
                         <header class="domain-event__header">
                             <h3 class="domain-event__name">@selected.Title</h3>
@@ -92,7 +92,11 @@ else
                             </li>
                             <li class="domain-event__step" data-testid="domain-event-consumers">
                                 <span class="domain-event__step-label">consumed by</span>
-                                @if (consumers.Count == 0)
+                                @if (consumers.Count == 0 && selected.Consumers is { } prose)
+                                {
+                                    <MarkdownView Blocks="@MarkdownPreview.ParseDocument(prose)" />
+                                }
+                                else if (consumers.Count == 0)
                                 {
                                     <span class="domain-event__unsaid">The chapter does not say.</span>
                                 }
@@ -162,10 +166,6 @@ else
                             {
                                 <code class="domain-events__feed-name">@name</code>
                             }
-                            else
-                            {
-                                <span class="domain-events__feed-title">@feed.Context</span>
-                            }
                             <p class="domain-events__feed-text">from <strong>@feed.Context</strong> — @feed.How</p>
                             @if (feed.Why.Length > 0)
                             {
@@ -213,11 +213,12 @@ else
         {
             var count = Events.Count;
             var emitted = Events.Count(e => e.Delivery == DomainEventDelivery.Emitted);
-            var subject = Root is { Length: > 0 } root ? $"the {root.ToLowerInvariant()}" : "the context";
+            var subject = Root is { Length: > 0 } root ? $"the {root}" : "the context";
             var state = (count, emitted) switch
             {
                 (1, 0) => "It is documented; it is not emitted yet.",
                 (1, 1) => "It is emitted.",
+                (_, 1) => $"One of {Number(count)} is emitted; the rest are documented.",
                 (_, 0) => $"All {Number(count)} are documented; none is emitted yet.",
                 _ when emitted == count => $"All {Number(count)} are emitted.",
                 _ => $"{Sentence(Number(emitted))} of {Number(count)} are emitted; the rest are documented."

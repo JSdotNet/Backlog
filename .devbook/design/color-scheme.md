@@ -625,7 +625,8 @@ word *event*. It shares its value with `color-error-text` but never paints a
 surface or an outline of an input, so it does not read as an error. A field's
 rule count, its *date*, *instant* and *id* badges and the root's status are
 information about the chapter, so they stay neutral outlines like the badges
-below.
+below: *instant* on the raised surface inside its edge, *id* and the status
+dashed.
 
 **Information badges are neutral outlines.** On the Domain view's pages, the
 `DEV` mark, a chapter's date, a chapter's feature switch, a feature's

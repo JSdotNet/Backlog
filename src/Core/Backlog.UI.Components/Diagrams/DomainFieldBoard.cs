@@ -84,6 +84,17 @@ public static partial class DomainFieldBoards
     /// <summary>The heading of the group of fields no purpose group names.</summary>
     public const string Ungrouped = "Other fields";
 
+    /// <summary>One board per aggregate root of the fence, in the order the fence
+    /// declares them — empty when the fence cannot be read or names no root.</summary>
+    public static IReadOnlyList<DomainFieldBoard> TryReadAll(
+        string? source,
+        IReadOnlyList<DomainFieldChapter>? chapters = null,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? rules = null,
+        IReadOnlyDictionary<string, DomainModelProfile>? profiles = null) =>
+        DomainClassDiagramReader.TryRead(source) is { } diagram
+            ? [.. diagram.Classes.Where(c => c.Kind == DomainModelKind.AggregateRoot).Select(root => Read(diagram, root, chapters, rules, profiles))]
+            : [];
+
     /// <summary>The board of the fence's first aggregate root, or null when the
     /// fence cannot be read or names no root.</summary>
     public static DomainFieldBoard? TryRead(
@@ -91,38 +102,44 @@ public static partial class DomainFieldBoards
         IReadOnlyList<DomainFieldChapter>? chapters = null,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? rules = null,
         IReadOnlyDictionary<string, DomainModelProfile>? profiles = null) =>
-        DomainClassDiagramReader.TryRead(source) is { } diagram ? Read(diagram, chapters, rules, profiles) : null;
+        TryReadAll(source, chapters, rules, profiles).FirstOrDefault();
 
-    public static DomainFieldBoard? Read(
+    public static DomainFieldBoard Read(
         DomainClassDiagram diagram,
+        DomainModelClass root,
         IReadOnlyList<DomainFieldChapter>? chapters = null,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? rules = null,
         IReadOnlyDictionary<string, DomainModelProfile>? profiles = null)
     {
-        var root = diagram.Classes.FirstOrDefault(c => c.Kind == DomainModelKind.AggregateRoot);
-        if (root is null) return null;
 
         var chapter = chapters is null ? null : DomainFieldPurposes.For(chapters, root.Name);
         var groups = chapter is { Purposes.Count: > 0 }
-            ? Written(diagram, root, chapter, rules)
-            : ByKind(diagram, root);
+            ? Written(diagram, root, chapter, rules, profiles)
+            : ByKind(diagram, root, profiles);
 
-        var owned = diagram.Relations
+        // What the root owns: what it composes, and any entity or value object an
+        // attribute of it is typed as, with or without a line.
+        var lines = diagram.Relations
             .Where(r => r.Kind is DomainModelRelationKind.Composition or DomainModelRelationKind.Aggregation
                 && string.Equals(r.From, root.Name, StringComparison.Ordinal))
-            .Select(r => (Relation: r, Class: diagram.Find(r.To)))
-            .Where(p => p.Class is not null)
+            .Select(r => (Class: diagram.Find(r.To), Multiplicity: r.ToMultiplicity));
+        var typed = root.Attributes
+            .Where(a => !DomainModelFields.IsIdentity(a))
+            .Select(a => (Class: DomainModelFields.BaseType(a.Type) is { } type ? diagram.Find(type) : null, Multiplicity: (string?)null))
+            .Where(p => p.Class is { Kind: DomainModelKind.Entity or DomainModelKind.ValueObject });
+        var owned = lines.Concat(typed)
+            .Where(p => p.Class is not null && p.Class.Kind is not (DomainModelKind.Enumeration or DomainModelKind.AggregateRoot or DomainModelKind.Service))
             .GroupBy(p => p.Class!.Name, StringComparer.Ordinal)
             .Select(g => g.First())
             .ToList();
 
         var entities = owned
             .Where(p => p.Class!.Kind == DomainModelKind.Entity)
-            .Select(p => Part(p.Class!, p.Relation.ToMultiplicity, profiles, useChapter: true))
+            .Select(p => Part(p.Class!, p.Multiplicity, profiles, useChapter: true))
             .ToList();
         var valueObjects = owned
-            .Where(p => p.Class!.Kind != DomainModelKind.Entity && p.Class!.Kind != DomainModelKind.Enumeration)
-            .Select(p => Part(p.Class!, p.Relation.ToMultiplicity, profiles, useChapter: false))
+            .Where(p => p.Class!.Kind != DomainModelKind.Entity)
+            .Select(p => Part(p.Class!, p.Multiplicity, profiles, useChapter: false))
             .ToList();
 
         var taken = root.Attributes
@@ -240,7 +257,8 @@ public static partial class DomainFieldBoards
         DomainClassDiagram diagram,
         DomainModelClass root,
         DomainFieldChapter chapter,
-        IReadOnlyDictionary<string, IReadOnlyList<string>>? rules)
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? rules,
+        IReadOnlyDictionary<string, DomainModelProfile>? profiles)
     {
         var named = new HashSet<string>(StringComparer.Ordinal);
         var groups = new List<DomainFieldRowGroup>();
@@ -256,11 +274,11 @@ public static partial class DomainFieldBoards
                 DomainFieldType? type;
                 if (derivedFrom is not null)
                 {
-                    type = new(Title(derivedFrom.Name, null), derivedFrom.Kind == DomainModelKind.Enumeration ? DomainFieldTone.Enumeration : DomainFieldTone.Plain);
+                    type = new(Title(derivedFrom.Name, profiles), derivedFrom.Kind == DomainModelKind.Enumeration ? DomainFieldTone.Enumeration : DomainFieldTone.Plain);
                 }
                 else
                 {
-                    var types = attributes.Select(a => a is null ? null : TypeOf(diagram, a)).Distinct().ToList();
+                    var types = attributes.Select(a => a is null ? null : TypeOf(diagram, a, profiles)).Distinct().ToList();
                     type = types.Count == 1 ? types[0] : null;
                 }
 
@@ -276,7 +294,7 @@ public static partial class DomainFieldBoards
 
         var rest = root.Attributes
             .Where(a => !named.Contains(a.Name))
-            .Select(a => new DomainFieldRow([a.Name], TypeOf(diagram, a), null, []))
+            .Select(a => new DomainFieldRow([a.Name], TypeOf(diagram, a, profiles), null, []))
             .ToList();
         if (rest.Count > 0) groups.Add(new DomainFieldRowGroup(Ungrouped, null, rest));
 
@@ -284,23 +302,26 @@ public static partial class DomainFieldBoards
     }
 
     /// <summary>No purpose groups written: the kinds the types say, as before.</summary>
-    private static List<DomainFieldRowGroup> ByKind(DomainClassDiagram diagram, DomainModelClass root)
+    private static List<DomainFieldRowGroup> ByKind(DomainClassDiagram diagram, DomainModelClass root, IReadOnlyDictionary<string, DomainModelProfile>? profiles)
     {
         var read = DomainModelFields.Read(diagram).FirstOrDefault(c => string.Equals(c.Name, root.Name, StringComparison.Ordinal));
         if (read is null) return [];
 
         return
         [
+            // A part composed in with no attribute naming it is the side column's;
+            // an attribute is a row whatever its kind.
             .. read.Groups
-                .Where(g => g.Kind != DomainFieldKind.OwnedPart)
                 .Select(g => new DomainFieldRowGroup(
                     DomainModelFields.Label(g.Kind),
                     null,
                     [
-                        .. g.Fields.Select(f => root.Attributes.FirstOrDefault(a => a.Name == f.Name) is { } attribute
-                            ? new DomainFieldRow([f.Name], TypeOf(diagram, attribute), null, [])
-                            : new DomainFieldRow([f.Name], null, null, []))
+                        .. g.Fields
+                            .Select(f => root.Attributes.FirstOrDefault(a => a.Name == f.Name))
+                            .OfType<DomainModelAttribute>()
+                            .Select(attribute => new DomainFieldRow([attribute.Name], TypeOf(diagram, attribute, profiles), null, []))
                     ]))
+                .Where(g => g.Rows.Count > 0)
         ];
     }
 
@@ -338,12 +359,7 @@ public static partial class DomainFieldBoards
         return $"{FileName(link[..hash])}#{link[(hash + 1)..]}".ToLowerInvariant();
     }
 
-    private static string FileName(string path)
-    {
-        var normalized = path.Replace('\\', '/');
-        var slash = normalized.LastIndexOf('/');
-        return slash < 0 ? normalized : normalized[(slash + 1)..];
-    }
+    private static string FileName(string path) => Path.GetFileName(path.Replace('\\', '/'));
 
     private static string Snake(string name) => string.Join('_', Words().Matches(name).Select(m => m.Value.ToLowerInvariant()));
 
