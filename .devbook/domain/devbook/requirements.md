@@ -1468,10 +1468,16 @@ The system SHALL offer a `*.demo.html` file as a Demo button on the page it belo
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.Neighbours_reads_dependencies_md_into_listens_to_listen_to_and_hand_in_hand, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_without_dependencies_md_reads_its_own_Dependencies_chapter, unit:dotnet:Backlog.UI.Components.UnitTests.DomainNeighboursTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_board_groups_the_neighbours_and_dashes_an_external_system]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.Neighbours_reads_dependencies_md_into_listens_to_listen_to_and_hand_in_hand, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_without_dependencies_md_reads_its_own_Dependencies_chapter, unit:dotnet:Backlog.UI.Components.UnitTests.DomainNeighboursTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_board_groups_the_neighbours_and_dashes_an_external_system, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_page_opens_with_its_title_and_tags_each_card]
 ```
 
-The system SHALL show a context's `dependencies.md` as the Neighbours tab of the context's page, each relation worded by the first sentence of its table's "Why" or "What it relies on" column, and give the file no row of its own. The contexts it listens to stand on the left, the contexts that listen to it on the right, and its Partnership neighbours below as hand in hand. A neighbour that is not one of the domain's contexts is a dashed card. No card names the relationship's pattern. A context that keeps its tables in a `## Dependencies` chapter of `context.md` reads the same.
+The system SHALL show a context's `dependencies.md` as the Neighbours tab of the context's page, each relation worded by the first sentence of its table's "Why" or "What it relies on" column cut to a short phrase, the whole sentence on hover, and give the file no row of its own. A neighbour stands by the way information goes: the ones that supply the context on the left as what it listens to, the ones it supplies on the right as who listens to it, read from the pattern's role mark — *(Inbox = supplier)*, *(Tasks = customer)* — and, where a row has none, from its table, outbound on the left and inbound on the right. Its Partnership neighbours stand below as hand in hand, and on neither side. A neighbour that is not one of the domain's contexts is a dashed card, and outside systems on one side that share a contract are one card. No card names the relationship's pattern. A context that keeps its tables in a `## Dependencies` chapter of `context.md` reads the same.
+
+#### Scenario: Each neighbour stands where its information goes
+
+- **Given** a context whose `dependencies.md` lists Inbox as an inbound dependent with *(Inbox = supplier)*, Productivity as an outbound dependency with *(Tasks = supplier)*, and Roadmap Planning both as an outbound Customer/Supplier and as an inbound Partnership
+- **When** the reader opens the context's Neighbours tab
+- **Then** Inbox stands on the left, Productivity on the right, and Roadmap Planning only under hand in hand
 
 #### Scenario: A context with neighbours
 

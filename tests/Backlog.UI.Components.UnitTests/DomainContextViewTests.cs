@@ -36,9 +36,9 @@ public sealed class DomainContextViewTests
             .Add(v => v.ContextName, "Tasks")
             .Add(v => v.Neighbours, DomainNeighbours.Read(DomainNeighboursTests.Dependencies, DomainNeighboursTests.Path)));
 
-        Assert.Equal(["GitHub", "Sessions"], view.FindAll("[data-testid='domain-neighbours-listens-to'] [data-testid='domain-neighbour']").Select(card => card.GetAttribute("data-name")));
-        Assert.Equal(["Inbox"], view.FindAll("[data-testid='domain-neighbours-listen-to'] [data-testid='domain-neighbour']").Select(card => card.GetAttribute("data-name")));
-        Assert.Equal(["Devbook"], view.FindAll("[data-testid='domain-neighbours-hand-in-hand'] [data-testid='domain-neighbour']").Select(card => card.GetAttribute("data-name")));
+        Assert.Equal(["GitHub", "Sessions", "Inbox"], view.FindAll("[data-testid='domain-neighbours-listens-to'] [data-testid='domain-neighbour']").Select(card => card.GetAttribute("data-name")));
+        Assert.Equal(["Productivity"], view.FindAll("[data-testid='domain-neighbours-listen-to'] [data-testid='domain-neighbour']").Select(card => card.GetAttribute("data-name")));
+        Assert.Equal(["Devbook", "Roadmap Planning"], view.FindAll("[data-testid='domain-neighbours-hand-in-hand'] [data-testid='domain-neighbour']").Select(card => card.GetAttribute("data-name")));
         Assert.Contains("domain-neighbours__card--external", view.Find("[data-testid='domain-neighbour'][data-name='GitHub']").ClassName);
         Assert.DoesNotContain("domain-neighbours__card--external", view.Find("[data-testid='domain-neighbour'][data-name='Sessions']").ClassName);
         Assert.DoesNotContain("Partnership", view.Markup, StringComparison.Ordinal);
@@ -70,7 +70,7 @@ public sealed class DomainContextViewTests
             .Add(v => v.ContextName, "Tasks")
             .Add(v => v.Neighbours, DomainNeighbours.Read(DomainNeighboursTests.Dependencies, DomainNeighboursTests.Path)));
 
-        Assert.Equal("2 upstream · 1 downstream · 1 partner", view.Find("[data-testid='domain-neighbours-counts']").TextContent);
+        Assert.Equal("3 upstream · 1 downstream · 2 partners", view.Find("[data-testid='domain-neighbours-counts']").TextContent);
         Assert.Equal(["listens-to", "listen-to"], view.FindAll("[data-testid='domain-neighbours-join']").Select(join => join.GetAttribute("data-side")));
         Assert.Single(view.FindAll("[data-testid='domain-neighbours-drop']"));
         Assert.All(view.FindAll("[data-testid='domain-neighbours-join'], [data-testid='domain-neighbours-drop']"),
@@ -108,6 +108,49 @@ public sealed class DomainContextViewTests
         view.Find("[data-testid='domain-neighbours-overview']").Click();
 
         Assert.Equal("true", view.Find("[data-testid='domain-context-page-tab-overview']").GetAttribute("aria-selected"));
+    }
+
+    [Fact]
+    public void The_page_opens_with_its_title_and_tags_each_card()
+    {
+        using var context = Context();
+        var neighbours = DomainNeighbours.Read(DomainNeighboursTests.Dependencies, DomainNeighboursTests.Path).Describe(
+            new Dictionary<string, DomainNeighbourContext>(StringComparer.OrdinalIgnoreCase) { ["inbox"] = new("Inbox", true) });
+
+        var view = context.Render<DomainNeighboursView>(p => p
+            .Add(v => v.ContextName, "Tasks")
+            .Add(v => v.ContextSummary, "Core · draft")
+            .Add(v => v.Neighbours, neighbours));
+
+        Assert.Equal("Tasks and its neighbours", view.Find("[data-testid='domain-neighbours-title']").TextContent);
+        Assert.Equal(
+            "Who Tasks listens to on the left, who listens to Tasks on the right, and who it works hand in hand with below.",
+            view.Find("[data-testid='domain-neighbours-lede']").TextContent);
+        Assert.Equal("Core · draft", view.Find("[data-testid='domain-neighbours-summary']").TextContent);
+        Assert.Single(view.FindAll("[data-testid='domain-neighbour'][data-name='Inbox'] [data-testid='domain-neighbour-core']"));
+        Assert.Single(view.FindAll("[data-testid='domain-neighbour'][data-name='GitHub'] [data-testid='domain-neighbour-external']"));
+        Assert.Empty(view.FindAll("[data-testid='domain-neighbour'][data-name='Sessions'] [data-testid='domain-neighbour-core']"));
+        Assert.Equal("Hand in hand", view.Find("[data-testid='domain-neighbours-hand-in-hand'] h3").TextContent);
+
+        // A phrase that lost only its full stop offers no tooltip.
+        var inboxLine = view.Find("[data-testid='domain-neighbour'][data-name='Inbox'] [data-testid='domain-neighbour-line']");
+        Assert.Null(inboxLine.GetAttribute("title"));
+    }
+
+    [Fact]
+    public void A_cut_phrase_offers_its_whole_sentence_on_hover()
+    {
+        using var context = Context();
+        const string sentence = "Work views can expose quick links to relevant environments without Tasks owning endpoint or launch semantics.";
+        var environment = new DomainNeighbour("Environment", DomainNeighbours.Phrase(sentence), "environment", false) { Sentence = sentence };
+
+        var view = context.Render<DomainNeighboursView>(p => p
+            .Add(v => v.ContextName, "Tasks")
+            .Add(v => v.Neighbours, new DomainNeighbourhood([environment], [], [])));
+
+        var line = view.Find("[data-testid='domain-neighbour-line']");
+        Assert.Equal("Work views can expose quick links to relevant environments…", line.TextContent);
+        Assert.Equal(sentence, line.GetAttribute("title"));
     }
 
     [Fact]
