@@ -1670,7 +1670,24 @@ The system SHALL show on a `requirements.md` or `requirements.<name>.md` row, pe
 
 - **Given** a requirement whose `tests` names one test and whose scenario reads *Then the payment is refused, and the order stays paid*
 - **When** the reader opens Requirements
-- **Then** the requirement is marked Proved, and its Then row holds the bullets *the payment is refused* and *the order stays paid*
+- **Then** the requirement is marked Test linked, and its Then row holds the bullets *the payment is refused* and *the order stays paid*
+
+### Requirement: Requirements read as the design lays them out
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_page_opens_on_its_summary_and_sets_the_shall_word_apart, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_long_feature_opens_two_requirements_and_lists_the_rest_as_rows, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_shall_sentence_splits_around_its_first_shall_outside_code]
+```
+
+The system SHALL open the Requirements page on a card saying what a requirement is with how many the file holds and how many a test proves, and a dashed What is always true card per unit the open feature's requirements rest on; list the features By feature · tested, each with its proved and total count and a bar; and draw each requirement as a card holding its title, a *Test linked* or dashed *No test linked* mark, its SHALL sentence with the word SHALL set apart, the tasks referencing it, and each scenario's GIVEN, WHEN and THEN rows on the card's foot. A feature with more than three requirements opens its first two and lists the rest as rows that each open in place, four of them before an *and n more* row.
+
+#### Scenario: A feature with seven requirements
+
+- **Given** a feature whose requirements file holds seven requirements
+- **When** the reader opens it on Requirements
+- **Then** the first two read as cards, four more as rows reading Show, and a last row reads *and 1 more in* the feature
+- **And** pressing a row opens that requirement in place
 
 ### Requirement: A feature's rules are a link to Always true
 

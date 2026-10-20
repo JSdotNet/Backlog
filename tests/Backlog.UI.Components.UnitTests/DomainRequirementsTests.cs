@@ -79,6 +79,21 @@ public sealed class DomainRequirementsTests
     }
 
     [Fact]
+    public void A_shall_sentence_splits_around_its_first_shall_outside_code()
+    {
+        Assert.Equal(("The system ", " refuse a payment."), DomainRequirements.SplitShall("The system SHALL refuse a\npayment."));
+        Assert.Null(DomainRequirements.SplitShall("The system **SHALL** refuse."));
+        Assert.Null(DomainRequirements.SplitShall("The system _SHALL_ refuse."));
+        Assert.Equal(("[x](a-SHALL.md) then ", "."), DomainRequirements.SplitShall("[x](a-SHALL.md) then SHALL."));
+        Assert.Null(DomainRequirements.SplitShall("    The system SHALL be code."));
+        Assert.Equal(("`SHALL` here and *SHALL* there, but ", " this."), DomainRequirements.SplitShall("`SHALL` here and *SHALL* there, but SHALL this."));
+        Assert.Equal(("[SHALL](a.md) ", " go."), DomainRequirements.SplitShall("[SHALL](a.md) SHALL go."));
+        Assert.Null(DomainRequirements.SplitShall("The system SHALLOW stays whole."));
+        Assert.Null(DomainRequirements.SplitShall("- The system SHALL be a list."));
+        Assert.Null(DomainRequirements.SplitShall("> The system SHALL be quoted."));
+    }
+
+    [Fact]
     public void A_sentence_explaining_invariants_gives_way_to_the_units_always_true_link()
     {
         var checkout = Groups[0];

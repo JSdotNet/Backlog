@@ -85,7 +85,9 @@
             tokens: [
                 { name: '--color-domain-value-object', against: '--color-background-raised', threshold: 4.5 },
                 // A line and a card edge, not text: the non-text 3:1 floor.
-                { name: '--color-domain-core-line', against: '--color-background-raised', threshold: 3 }
+                { name: '--color-domain-core-line', against: '--color-background-raised', threshold: 3 },
+                // The word SHALL is text: the 4.5:1 floor.
+                { name: '--color-domain-requirement', against: '--color-background-raised', threshold: 4.5 }
             ]
         }
     ];

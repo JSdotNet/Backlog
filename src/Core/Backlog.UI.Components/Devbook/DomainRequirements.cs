@@ -257,6 +257,62 @@ public static partial class DomainRequirements
             prose.ToString().Trim());
     }
 
+    /// <summary>
+    /// A SHALL paragraph cut around its first SHALL, so the page can set the word
+    /// apart: the markdown before it and after it, each one line. Null where the
+    /// paragraph is not running prose — a list, a quote, a table or a heading —
+    /// or holds no SHALL outside a code span, link text or emphasis, and the page
+    /// renders the paragraph whole.
+    /// </summary>
+    public static (string Before, string After)? SplitShall(string paragraph)
+    {
+        var raw = paragraph.Split('\n').Where(line => line.Trim().Length > 0).ToList();
+        // Four spaces or a tab in front make a line indented code, not prose.
+        if (raw.Count == 0 || raw.Any(line => line.StartsWith("    ", StringComparison.Ordinal) || line.StartsWith('\t'))) return null;
+        var lines = raw.Select(line => line.Trim()).ToList();
+        if (lines.Any(line => NotProse().IsMatch(line) || line.StartsWith('>'))) return null;
+
+        var text = string.Join(' ', lines);
+        var inCode = false;
+        var inEmphasis = false;
+        var inLinkText = false;
+        var inLinkTarget = false;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch == '`') inCode = !inCode;
+            else if (inCode) continue;
+            else if (inLinkTarget)
+            {
+                if (ch == ')') inLinkTarget = false;
+            }
+            else if (ch == '*')
+            {
+                // A run — `*` or `**` — opens or closes one emphasis.
+                while (i + 1 < text.Length && text[i + 1] == '*') i++;
+                inEmphasis = !inEmphasis;
+            }
+            else if (ch == '[') inLinkText = true;
+            else if (ch == ']')
+            {
+                inLinkText = false;
+                if (i + 1 < text.Length && text[i + 1] == '(') inLinkTarget = true;
+            }
+            else if (!inEmphasis && !inLinkText
+                && string.CompareOrdinal(text, i, "SHALL", 0, 5) == 0
+                && (i == 0 || IsBoundary(text[i - 1]))
+                && (i + 5 == text.Length || IsBoundary(text[i + 5])))
+            {
+                return (text[..i], text[(i + 5)..]);
+            }
+        }
+        return null;
+
+        // An underscore touching the word is emphasis written the other way, so
+        // it is no boundary either.
+        static bool IsBoundary(char ch) => !char.IsLetterOrDigit(ch) && ch != '_' && ch != '*';
+    }
+
     /// <summary>A row's clauses: split at each ", and " outside a code span or
     /// emphasis. A bare "and" inside a clause — "<c>domain.md</c> and
     /// <c>model.md</c>" — names a list, not two clauses, and stays.</summary>

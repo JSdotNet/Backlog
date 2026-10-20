@@ -11,7 +11,7 @@
 @if (_tasks.Count > 0)
 {
     <div class="domain-chapter-tasks" data-testid="@TestId">
-        <span class="domain-chapter-tasks__label">Tasks</span>
+        <span class="domain-chapter-tasks__label">@Label</span>
         <ul class="domain-chapter-tasks__list" aria-label="Tasks naming this chapter">
             @foreach (var task in _tasks)
             {
@@ -37,6 +37,11 @@
 
     [Parameter]
     public string TestId { get; set; } = "domain-chapter-tasks";
+
+    /// <summary>The word before the chips: <c>Tasks</c>, or <c>Referenced by</c>
+    /// under a requirement's sentence.</summary>
+    [Parameter]
+    public string Label { get; set; } = "Tasks";
 
     private IReadOnlyList<DomainTaskLink> _tasks = [];
 

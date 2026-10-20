@@ -101,8 +101,8 @@ public sealed class DomainFeatureBoardTests
         var requirements = view.FindAll("[data-testid='domain-requirement']");
         Assert.Equal(["true", "false"], requirements.Select(item => item.GetAttribute("data-proved")));
         Assert.Contains("SHALL refuse a second payment", requirements[0].QuerySelector("[data-testid='domain-requirement-shall']")!.TextContent);
-        Assert.Contains("Proved", requirements[0].QuerySelector("[data-testid='domain-requirement-proof']")!.TextContent);
-        Assert.Equal("Not proved", requirements[1].QuerySelector("[data-testid='domain-requirement-proof']")!.TextContent.Trim());
+        Assert.Equal("✓ Test linked", requirements[0].QuerySelector("[data-testid='domain-requirement-proof']")!.TextContent.Trim());
+        Assert.Equal("No test linked", requirements[1].QuerySelector("[data-testid='domain-requirement-proof']")!.TextContent.Trim());
     }
 
     [Fact]
@@ -156,5 +156,55 @@ public sealed class DomainFeatureBoardTests
 
         page.Find("[data-testid='domain-unit-about-tab']").Click();
         Assert.Equal("true", page.Find("[data-testid='domain-unit-about-tab']").GetAttribute("aria-selected"));
+    }
+
+    [Fact]
+    public void The_page_opens_on_its_summary_and_sets_the_shall_word_apart()
+    {
+        using var context = new BunitContext();
+        var view = Requirements(context);
+
+        Assert.Equal("3 · 2 tested", view.Find("[data-testid='domain-requirements-tally']").TextContent.Trim());
+        Assert.Contains("for Order", view.Find("[data-testid='domain-requirements-always-true-link']").TextContent, StringComparison.Ordinal);
+        Assert.Equal(["1 / 2", "1 / 1"], view.FindAll(".domain-requirements__feature-tally [aria-hidden]").Select(tally => tally.TextContent.Trim()));
+        Assert.Equal("width: 50%", view.Find(".domain-requirements__feature-fill").GetAttribute("style"));
+
+        var shall = view.Find("[data-testid='domain-requirement-shall']");
+        Assert.Equal("SHALL", shall.QuerySelector(".domain-requirement__shall-word")!.TextContent);
+        Assert.Equal("The system SHALL refuse a second payment for a paid order.", shall.TextContent.Trim());
+        Assert.Contains("domain-requirement__proof--none", view.FindAll("[data-testid='domain-requirement-proof']")[1].ClassName, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_long_feature_opens_two_requirements_and_lists_the_rest_as_rows()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var markdown = "# Requirements\n\n## Long\n\n```meta\ntype: requirements\n```\n"
+            + string.Concat(Enumerable.Range(1, 7).Select(n => $"\n### Requirement: Rule {n}\n\n```meta\ntype: requirement\n```\n\nThe system SHALL keep rule {n}.\n"))
+            + "\n## Short\n\n```meta\ntype: requirements\n```\n\n### Requirement: One rule\n\n```meta\ntype: requirement\n```\n\nThe system SHALL keep one rule.\n";
+        var file = DomainUnits.Parse(markdown, ".devbook/domain/ordering/requirements.md");
+        var view = context.Render<DomainRequirementsView>(parameters => parameters.Add(p => p.Groups, DomainRequirements.Groups(file, [file])));
+
+        Assert.Equal(2, view.FindAll(".domain-requirements__list [data-testid='domain-requirement']").Count);
+        var toggles = view.FindAll("[data-testid='domain-requirement-toggle']");
+        Assert.Equal(["Rule 3", "Rule 4", "Rule 5", "Rule 6"], toggles.Select(toggle => toggle.QuerySelector(".domain-requirement__toggle-title")!.TextContent));
+        Assert.All(toggles, toggle => Assert.Equal("false", toggle.GetAttribute("aria-expanded")));
+        Assert.Equal("and 1 more in Long", view.Find("[data-testid='domain-requirements-more']").TextContent.Trim());
+        Assert.Equal(2, view.FindAll("[data-testid='domain-requirement-shall']").Count);
+
+        view.FindAll("[data-testid='domain-requirement-toggle']")[0].Click();
+        Assert.Equal("true", view.FindAll("[data-testid='domain-requirement-toggle']")[0].GetAttribute("aria-expanded"));
+        Assert.Equal(3, view.FindAll("[data-testid='domain-requirement-shall']").Count);
+
+        view.Find("[data-testid='domain-requirements-more']").Click();
+        Assert.Equal(5, view.FindAll("[data-testid='domain-requirement-toggle']").Count);
+        Assert.Empty(view.FindAll("[data-testid='domain-requirements-more']"));
+
+        // Another feature opens with its own rows closed; coming back finds these closed too.
+        view.Find("[data-testid='domain-requirements-feature'][data-key='short']").Click();
+        view.Find("[data-testid='domain-requirements-feature'][data-key='long']").Click();
+        Assert.Equal(4, view.FindAll("[data-testid='domain-requirement-toggle']").Count);
+        Assert.All(view.FindAll("[data-testid='domain-requirement-toggle']"), toggle => Assert.Equal("false", toggle.GetAttribute("aria-expanded")));
     }
 }

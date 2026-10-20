@@ -138,6 +138,11 @@
        amber of its own rather than color-primary, which says "followable". */
     --color-domain-core-line: #F0A33A;
 
+    /* The requirement kind on the Requirements page: the summary card's edge,
+       the SHALL word, the open feature's edge and its tested bar, always beside
+       the words that say requirement, SHALL or tested. */
+    --color-domain-requirement: #8FB4F0;
+
     /* Chart roles.
        A chart needs role names the twenty-two palette tokens do not provide: a
        series colour, a track, a gridline, a baseline. Like the code theme this
@@ -20999,8 +21004,7 @@ select.field__input {
 }
 
 .domain-features__cards,
-.domain-requirements__feature-list,
-.domain-requirements__list {
+.domain-requirements__feature-list {
     display: grid;
     gap: var(--spacing-xs);
     margin: 0;
@@ -21031,8 +21035,7 @@ select.field__input {
 }
 
 .domain-feature-card:focus-visible,
-.domain-requirements__feature:focus-visible,
-.domain-requirements__always-true-link:focus-visible {
+.domain-requirements__feature:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
@@ -21147,26 +21150,113 @@ select.field__input {
     font-size: inherit;
 }
 
+/* The Requirements page, as the design board "Requirements — requirements.md"
+   lays it out: the page's title and summary cards, then the features beside
+   the open feature's requirement cards. The requirement tone marks the kind —
+   the summary card's top edge, the SHALL word, the open feature's edge and
+   the tested bars — beside the words that say it, never alone
+   (.devbook/design/color-scheme.md#domain-view-element-tones). */
 .domain-requirements {
     display: grid;
-    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
-    align-items: start;
-    gap: var(--spacing-md);
+    gap: var(--spacing-xl);
     min-width: 0;
 }
 
-.domain-requirements > :only-child,
-.domain-requirements > .empty-state {
-    grid-column: 1 / -1;
+.domain-requirements__page {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.domain-requirements__page-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-requirements__summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+    gap: var(--spacing-sm);
+}
+
+.domain-requirements__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+}
+
+.domain-requirements__card--requirement {
+    border-top: 3px solid var(--color-domain-requirement);
+}
+
+/* A way out to the Domain page rather than content: dashed, on the page's own
+   surface. */
+.domain-requirements__card--always-true {
+    border-style: dashed;
+    background: var(--color-background);
+    cursor: pointer;
+}
+
+.domain-requirements__card--always-true:hover {
+    border-color: var(--color-border-strong);
+}
+
+.domain-requirements__card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.domain-requirements__card-meta,
+.domain-requirements__card-text {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-requirements__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+.domain-requirements__features {
+    display: flex;
+    flex: 1 1 14rem;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.domain-requirements__features-label {
+    padding: 0 var(--spacing-sm) var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .domain-requirements__feature {
-    display: grid;
-    gap: var(--spacing-2xs);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
     width: 100%;
     min-height: 2.75rem;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border: var(--border-width) solid transparent;
+    padding: var(--spacing-sm);
+    border: 0;
     border-radius: var(--border-radius-md);
     background: transparent;
     color: var(--color-text-primary);
@@ -21180,19 +21270,49 @@ select.field__input {
 }
 
 .domain-requirements__feature--selected {
-    border-color: var(--color-border-strong);
     background: var(--color-background-alt);
+    box-shadow: inset 3px 0 0 var(--color-domain-requirement);
 }
 
-.domain-requirements__feature-tally,
-.domain-requirements__tally {
+.domain-requirements__feature-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.domain-requirements__feature-name {
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-requirements__feature-tally {
+    flex: none;
     color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+.domain-requirements__feature--selected .domain-requirements__feature-name {
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-requirements__feature-bar {
+    display: flex;
+    height: 4px;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border);
+}
+
+.domain-requirements__feature-fill {
+    background: var(--color-domain-requirement);
 }
 
 .domain-requirements__group {
-    display: grid;
-    gap: var(--spacing-sm);
+    display: flex;
+    flex: 999 1 32rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
     min-width: 0;
 }
 
@@ -21200,71 +21320,138 @@ select.field__input {
 .domain-requirement__header {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-sm);
 }
 
 .domain-requirements__feature-link {
-    margin: 0;
-    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
-.domain-requirements__always-true {
+.domain-requirements__list {
+    display: grid;
+    gap: var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-requirements__rows {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
+    flex-direction: column;
     margin: 0;
+    padding: 0;
+    gap: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    list-style: none;
 }
 
-.domain-requirements__always-true-link {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
-    min-height: 2.75rem;
-    padding: 0 var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-md);
-    background: transparent;
-    color: var(--color-text-link);
-    font: inherit;
-    cursor: pointer;
+.domain-requirements__rows > li + li {
+    border-top: var(--border-width) solid var(--color-border);
 }
 
 .domain-requirement {
     display: grid;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm) var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-requirement__card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
-    background: var(--color-background-raised);
+    background: var(--color-background-alt);
+}
+
+/* A requirement past the first two: a fold whose heading reads its title and
+   Show, the chevron's place taken by the word as the design draws it. */
+.domain-requirement-fold {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.domain-requirement-fold__heading {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-normal);
+}
+
+.domain-requirement-fold .fold__trigger {
+    display: flex;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.domain-requirement-fold .fold__trigger:hover {
+    background: var(--color-background-alt);
+}
+
+.domain-requirement-fold .fold__trigger:focus-visible {
+    outline-offset: -2px;
+}
+
+.domain-requirement-fold .fold__chevron {
+    display: none;
+}
+
+.domain-requirement-fold .fold__label {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.domain-requirement-fold > .fold__region {
+    padding: 0 var(--spacing-sm) var(--spacing-sm);
+}
+
+.domain-requirement__header--untitled {
+    justify-content: flex-end;
+}
+
+.domain-requirement__statement {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
 }
 
 .domain-requirement__title {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
     margin: 0;
     font-size: var(--font-size-base);
     font-weight: var(--font-weight-semibold);
     overflow-wrap: anywhere;
 }
 
-/* Information about the chapter, so a neutral outline; a proved requirement
-   says so in its word and its tick, never in a tone. */
+/* Information about the chapter, so a neutral outline; a requirement with no
+   test linked says so in words inside a dashed edge, never in a tone. */
 .badge--tone.domain-requirement__proof {
+    border-radius: var(--border-radius-full);
     background: transparent;
     border-color: var(--color-border-strong);
     color: var(--color-text-secondary);
 }
 
-/* The SHALL sentence is the requirement: it reads first and larger, set off by
-   a rule in the brand's highlight. */
+.badge--tone.domain-requirement__proof--none {
+    border-style: dashed;
+}
+
+/* The SHALL sentence is the requirement: it reads first and larger, its SHALL
+   in the requirement tone. */
 .domain-requirement__shall {
-    padding-left: var(--spacing-sm);
-    border-left: var(--border-width-2) solid var(--color-primary);
+    margin: 0;
+    color: var(--color-text-primary);
     font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-normal);
+}
+
+.domain-requirement__shall-word {
+    color: var(--color-domain-requirement);
+    letter-spacing: 0.04em;
 }
 
 .domain-requirement__prose,
@@ -21272,52 +21459,103 @@ select.field__input {
     color: var(--color-text-secondary);
 }
 
+.domain-requirement__statement .domain-chapter-tasks {
+    margin-block: 0;
+}
+
+.domain-requirements__more-button {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: 2.75rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 0;
+    background: none;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-requirements__more-button:hover {
+    background: var(--color-background-alt);
+}
+
+.domain-requirements__more-button:focus-visible,
+.domain-requirements__card--always-true:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.domain-requirement__toggle-word {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-requirement__toggle-title {
+    overflow-wrap: anywhere;
+}
+
+/* The scenario sits on the card's sunken foot. */
 .domain-scenario {
-    display: grid;
-    gap: var(--spacing-2xs);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
 }
 
 .domain-scenario__title {
     margin: 0;
+    color: var(--color-text-primary);
     font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-normal);
 }
 
 .domain-scenario__word {
     color: var(--color-text-secondary);
-    font-weight: var(--font-weight-normal);
 }
 
 .domain-scenario__steps {
     display: grid;
-    gap: var(--spacing-2xs);
+    grid-template-columns: 4rem minmax(0, 1fr);
+    gap: var(--spacing-sm) var(--spacing-sm);
     margin: 0;
+    font-size: var(--font-size-sm);
 }
 
 .domain-scenario__step {
-    display: grid;
-    grid-template-columns: 4rem 1fr;
-    gap: var(--spacing-sm);
+    display: contents;
 }
 
 .domain-scenario__keyword {
     color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    line-height: var(--line-height-normal);
+    text-transform: uppercase;
 }
 
 .domain-scenario__clauses {
     margin: 0;
     min-width: 0;
+    color: var(--color-text-secondary);
 }
 
 .domain-scenario__bullets {
     margin: 0;
     padding-left: var(--spacing-md);
+    list-style: disc;
 }
 
 @media (max-width: 40rem) {
-    .domain-requirements {
-        grid-template-columns: 1fr;
+    .domain-requirement__statement,
+    .domain-scenario {
+        padding-inline: var(--spacing-md);
     }
 
     .domain-feature-detail__fact {
