@@ -207,6 +207,11 @@ sequenceDiagram
   every tombstone it writes, but **nothing local can show it working**. The Cosmos
   emulator does not honour TTL, so this is deployed-only behaviour that no test or
   QA run here has exercised.
+- **A cycle against a newer service sends nothing.** While the service reports a
+  version above the app's (local ADR 0005 §Version compatibility), each cycle stops
+  before its first request, and the person reads why. The push watermark and the
+  pull cursor do not move, so everything waiting goes once the app is updated or
+  the service rolled back.
 
 ## Session Record Sync
 
@@ -255,6 +260,10 @@ file is replaced whole or not at all. The cursor therefore never runs ahead of t
 records it covers. A pull the process did not survive is read again from the last
 cursor it saved. That costs repeated work and loses nothing, because a record
 merges idempotently on its identity and server timestamp.
+
+A cycle against a sync service newer than the app sends nothing, as under
+[Task Sync](#task-sync). The watermark and the cursor stay where they were, and the
+records still to push go once the app is updated.
 
 - **Single-writer, so last-write-wins does not apply.** A session ran on one
   machine and only that machine holds the evidence for it, so there is never a
