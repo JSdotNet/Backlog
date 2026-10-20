@@ -8,6 +8,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
@@ -228,6 +229,33 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>
+    /// The head keeps one iteration settings store behind the screens' port and the
+    /// replication port (local ADR 0036, §3), so the length the Goals view sets is the
+    /// document the sync sends — and it is seeded from the shell navigation file an
+    /// earlier build kept the choice in (§5).
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_keeps_the_iteration_in_its_one_synced_store()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        var store = provider.GetRequiredService<IterationSettingsStore>();
+        Assert.Same(store, provider.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication>());
+        Assert.Null(await ((Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication)store).ReadAsync(TestContext.Current.CancellationToken));
+
+        provider.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>()
+            .SetLength(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, new DateOnly(2026, 10, 21));
+
+        Assert.Equal(new IterationChoice("two-weeks", new DateOnly(2026, 10, 19)), store.Choice);
+        Assert.Equal(Path.Combine(_appData, IterationSettingsStore.FileName), store.SettingsPath);
+    }
+
+    /// <summary>
     /// The roadmap's actual hours are answered by the adapter over the agent activity,
     /// and one instance serves every window, as the activity source it reads does.
     /// </summary>
@@ -361,6 +389,8 @@ public sealed class MauiDesktopCompositionTests : IDisposable
                 time: null,
                 sp.GetRequiredService<WorkingHoursSettingsStore>()),
             MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(_appData, MyDayPreferencesStore.FileName)),
+            IterationSettings = sp => new IterationSettingsStore(
+                Path.Combine(_appData, IterationSettingsStore.FileName), sp.GetRequiredService<ShellNavigationStore>()),
             ShellNavigation = _ => new ShellNavigationStore(Path.Combine(_appData, "shell-navigation.json")),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(_appData, "capture-sources.json")),
             CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(_appData, "capture-runs.json")),

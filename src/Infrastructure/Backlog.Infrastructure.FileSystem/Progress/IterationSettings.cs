@@ -4,9 +4,9 @@ using Backlog.Modules.Progress.Abstractions.Services;
 namespace Backlog.Infrastructure.FileSystem.Progress;
 
 /// <summary>
-/// Answers Progress's <see cref="IIterationSettings"/> from the device's
-/// <see cref="ShellNavigationStore"/>, on the terms <see cref="ToolsViewPreferences"/>
-/// answers the tools pane's: the length as the setting's own values —
+/// Answers Progress's <see cref="IIterationSettings"/> from the person's
+/// <see cref="IterationSettingsStore"/> — the file that travels between their desktops
+/// (local ADR 0036) — with the length as the setting's own values —
 /// <c>day</c>, <c>week</c>, <c>two-weeks</c> and <c>month</c>
 /// (<c>.devbook/domain/progress/context.md#iteration-length</c>) — and the two-week start as
 /// an ISO date. A value it does not know reads as Week, and a start that is no date as none.
@@ -16,19 +16,24 @@ namespace Backlog.Infrastructure.FileSystem.Progress;
 /// A host that composed no store still resolves the port: the choices are then held for the
 /// life of this instance and forgotten on restart.
 /// </para>
+/// <para>
+/// A copy the store took from another desktop replaces the snapshot and raises
+/// <see cref="Changed"/>, so the Goals view and the stand-up redraw under a pull.
+/// </para>
 /// </summary>
 public sealed class IterationSettings : IIterationSettings
 {
-    private readonly ShellNavigationStore? _store;
+    private readonly IterationSettingsStore? _store;
     private readonly Lock _gate = new();
     private volatile Snapshot _current;
 
-    public IterationSettings(ShellNavigationStore? store)
+    public IterationSettings(IterationSettingsStore? store)
     {
         _store = store;
-        _current = store is null
-            ? new Snapshot(IterationLength.Week, null)
-            : new Snapshot(Parse(store.GoalsIterationLength), store.GoalsTwoWeekStart);
+        _current = SnapshotOf(store?.Choice);
+
+        // Lives as long as the store: both are the host's singletons.
+        if (store is not null) store.Replaced += OnReplaced;
     }
 
     public event Action? Changed;
@@ -94,13 +99,32 @@ public sealed class IterationSettings : IIterationSettings
             changed = after != before;
             if (changed)
             {
-                _store?.SetGoalsIteration(ToStored(after.Length), after.TwoWeekStart);
+                _store?.Set(ToStored(after.Length), after.TwoWeekStart);
                 _current = after;
             }
         }
 
         if (changed) Changed?.Invoke();
     }
+
+    /// <summary>Reads the choice the store took from another desktop, and announces it
+    /// when it reads differently.</summary>
+    private void OnReplaced()
+    {
+        bool changed;
+        lock (_gate)
+        {
+            var after = SnapshotOf(_store?.Choice);
+            changed = after != _current;
+            _current = after;
+        }
+
+        if (changed) Changed?.Invoke();
+    }
+
+    /// <summary>The choice as read: Week with no start until one was made.</summary>
+    private static Snapshot SnapshotOf(IterationChoice? choice) =>
+        choice is null ? new Snapshot(IterationLength.Week, null) : new Snapshot(Parse(choice.Length), choice.TwoWeekStart);
 
     private sealed record Snapshot(IterationLength Length, DateOnly? TwoWeekStart);
 }
