@@ -70,13 +70,15 @@ Backlog accepts five type words; a generated plan writes four of them. `plan` is
 roadmap level ([Two levels](#two-levels)); the other three are steps, and the type says who
 does the work:
 
-- **`prompt`** — an AI session runs it. Opens with the [plan item marker](#plan-item-marker)
-  and the [session-name line](#step-numbers), states `repo:`, and may carry `## Setup:` sub-items and the
+- **`prompt`** — an AI session runs it. Opens with the [plan item marker](#plan-item-marker),
+  the [session-name line](#step-numbers) and, when the source has an address, the
+  [read-first line](#read-first-line); states `repo:`, and may carry `## Setup:` sub-items and the
   knowledge/devbook reminder.
 - **`task`** — only the user does it: a decision, a sign-off, an action in an account or on a
   machine an AI session cannot reach. A plain entry addressed to the user — title, metadata
   line, body saying what to do and what done looks like, `- [ ]` lines for the user's own
-  steps. No marker, no session-name line, no `Setup:` or knowledge sub-item. It still states
+  steps, opened by a [read-first line](#read-first-line) when it checks or acts on what the
+  source describes. No marker, no session-name line, no `Setup:` or knowledge sub-item. It still states
   `repo:` — once per repository the work is done in, on or for, or every repository the
   plan targets when it concerns none in particular — so it sits with its repository in
   Backlog like every other step.
@@ -184,6 +186,8 @@ Backlog plan item `add-command` of plan `vscode-desktop-rollout` for `backlog-de
 
 Title this session `vscode-desktop-rollout:2 - Add the export command` before you start.
 
+Read first: `.devbook/domain/export/features.md#export-command`, https://claude.ai/code/artifact/3f9a2c1e-7b4d-4e8a-9c6f-2d1b5e8a0f47.
+
 Add an export command to the command palette that serializes the current view to Markdown
 with front matter, publisher `backlog` in the extension manifest.
 
@@ -199,6 +203,8 @@ Backlog plan item `wire-toolbar` of plan `vscode-desktop-rollout` for `backlog-d
 
 Title this session `vscode-desktop-rollout:3 - Wire the export command into the toolbar` before you start.
 
+Read first: `.devbook/domain/export/features.md#toolbar-button`, https://claude.ai/code/artifact/3f9a2c1e-7b4d-4e8a-9c6f-2d1b5e8a0f47.
+
 Wire the command from the previous prompt into the toolbar as a button.
 
 ## Update backlog-desktop's own knowledge docs / devbook once this prompt lands
@@ -210,6 +216,8 @@ Wire the command from the previous prompt into the toolbar as a button.
 Backlog plan item `review-plan` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `wire-toolbar` — run it with the `run-plan-item` skill.
 
 Title this session `vscode-desktop-rollout:4 - Review the VS Code desktop rollout plan for anything missed` before you start.
+
+Read first: `.devbook/domain/export/features.md`, https://claude.ai/code/artifact/3f9a2c1e-7b4d-4e8a-9c6f-2d1b5e8a0f47.
 
 Read the material this plan came from against what actually landed: every entry done, and
 nothing dropped, deferred or left half-finished on the way. Write up anything still
@@ -263,6 +271,33 @@ Backlog plan item `<id>` of plan `<tag>` for `<repo>`[, `<repo>`…][, after `<i
   the session-name line is an instruction a person can follow without one.
 - Plans written before the skill dropped its prefix name `backlog-run-plan-item` here;
   that spelling is still recognized.
+
+## Read-first line
+
+The third body line of a `prompt`, after the marker and the session-name line; the first
+body line of a `task` or `test` that carries one. It names the material the plan was
+written from that this step needs, because a session runs a pasted entry with nothing but
+its text:
+
+```
+Read first: `<path>[#anchor]`[, `<path>[#anchor]`…][, <url>…].
+```
+
+- A **path** is repository-relative, in backticks — a devbook chapter, an ADR, a spec or
+  design file, with the `#anchor` of the section when one section answers. On an entry with
+  one `repo:` it is relative to that repository; any other file, and every file named by an
+  entry with several `repo:`, is `` `owner/name:path` ``.
+- A **URL** is a design, prototype, mockup or artifact the step's work must match, written
+  bare so it stays a link.
+- Name the sections this step implements, shows or checks, not the whole source; the
+  plan's review prompt names all of it.
+- Material with no address — notes given inline — is never named here: the instructions
+  carry what the step needs from it.
+- It is prose: the leading `Read first:` keeps it from being read as a metadata line, and
+  an `#anchor` glued to its path is never scanned as a tag.
+- A `devbook:` token on the metadata line names the same chapter for the app; Import moves
+  it into the task's Devbook references and out of the text, so this line is what a copied
+  entry still carries.
 
 ## Entry marker
 

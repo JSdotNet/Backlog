@@ -54,8 +54,8 @@ the full build (`pull-request.yml`); into a stack parent they get none until res
   is ahead of `<base>`, even with entries still blocked or waiting — its body lists them. One
   already open (`gh pr list --head plan/<slug> --base <base> --state open`) gets its body
   updated instead.
-  Opened through the repository's own pull-request rules; a draft when unattended. Entries
-  merged into `plan/<slug>` stay In progress until it merges into `<base>`.
+  Opened through the repository's own pull-request rules; a draft when unattended. An entry
+  is Done once merged into `plan/<slug>`; the sign-off below is what waits on `<base>`.
 - **The sign-off carries it.** Merging the closing pull request is the plan's sign-off, so the
   `sign-off-plan` entry is where the task list shows it. Once its pull request is open or
   found open, `read_item` the sign-off: unless its notes already carry the pull request's URL,
