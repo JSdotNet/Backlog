@@ -107,14 +107,14 @@ public sealed class StandupScreenTests
             "3 of 6 done, 1 in progress, 1 blocked, 1 not started",
             app.FindAll("[data-testid='standup-goal-bar']")[0].GetAttribute("aria-label"));
 
-        // Finished: grouped by goal, No goal last, a merged pull request's number beside its task.
-        Assert.Equal("5", app.Find("[data-testid='standup-finished-total']").TextContent.Trim());
+        // Finished: grouped by goal, nothing no goal counts, a merged pull request's number beside its task.
+        Assert.Equal("4", app.Find("[data-testid='standup-finished-total']").TextContent.Trim());
         Assert.Equal(
-            ["Customers get paid faster", "Devbook search ships", "No goal"],
+            ["Customers get paid faster", "Devbook search ships"],
             app.FindAll("[data-testid='standup-finished-list-goal']").Select(goal => goal.TextContent));
         var finished = app.FindAll("[data-testid='standup-finished-list-title']").Select(title => title.TextContent).ToList();
         Assert.Contains("Invoice PDF export", finished);
-        Assert.Contains("VAT rate per line item", finished);
+        Assert.DoesNotContain("VAT rate per line item", finished);
         // A pull request attached straight to the goal is named once, by its chip.
         Assert.Contains("Pull request", finished);
         Assert.DoesNotContain(finished, title => title.Contains("JSdotNet/Backlog#", StringComparison.Ordinal));
@@ -194,8 +194,8 @@ public sealed class StandupScreenTests
         app.WaitForAssertion(() => Assert.Equal("16 Oct → 19 Oct", app.Find("[data-testid='standup-windows']").TextContent));
         Assert.Equal("true", app.Find("[data-testid='standup-length-day']").GetAttribute("aria-checked"));
 
-        // Last is Friday alone now, so Finished holds only what was done that day.
-        Assert.Equal(["VAT rate per line item"], app.FindAll("[data-testid='standup-finished-list-title']").Select(title => title.TextContent));
+        // Last is Friday alone now, and the one task done that day is no goal's, so Finished holds none.
+        Assert.Empty(app.FindAll("[data-testid='standup-finished-list-title']"));
     }
 
     [Fact]

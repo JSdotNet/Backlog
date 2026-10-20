@@ -29,8 +29,7 @@ public interface IProgressTaskSource
 /// <paramref name="RepositoryAliases"/> aside — how a goal's attached plan counts its
 /// entries (<c>.devbook/domain/progress/domain.md#goal-attachment</c>).</param>
 /// <param name="CompletedFrom">With <paramref name="CompletedThrough"/>, also selects every
-/// task completed from the one day through the other, both included, in any repository —
-/// what the stand-up's Finished reads the work no goal holds from.</param>
+/// task completed from the one day through the other, both included, in any repository.</param>
 /// <param name="CompletedThrough">The last completion day selected; see <paramref name="CompletedFrom"/>.</param>
 /// <param name="DueFrom">With <paramref name="DueThrough"/>, also selects every task due from
 /// the one day through the other, both included, in any repository — what Planned reads the
