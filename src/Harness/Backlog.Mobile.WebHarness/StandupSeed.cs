@@ -93,7 +93,7 @@ internal static class StandupSeed
         Task("Voice capture offline", "ready", "phone-capture", effort: 8, order: 1);
         Task("Capture to a plan", "ready", "phone-capture", effort: 3, order: 2);
 
-        // No goal: work the stand-up still reads.
+        // No goal: the done task stays out of Finished; the due one is planned under No goal.
         Task("VAT rate per line item", "done", effort: 2, completedOn: LastWeek(3));
         Task("Renew the signing certificate", "ready", effort: 1, dueOn: next.First.AddDays(2));
 
