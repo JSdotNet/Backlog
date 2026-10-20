@@ -16,10 +16,11 @@ the file names alone. No chapter gains a metadata field for the view.
 ```meta
 ```
 
-Proposed, 2026-10-20. Not yet built: the plan `+devbook-domain-view` builds it
-behind the [New domain view](../../domain/devbook/context.md#new-domain-view)
-switch. It awaits acceptance at the Personal Validation gate of the flow-spec run
-that drafted it.
+Proposed, 2026-10-20. Built behind the
+[New domain view](../../domain/devbook/context.md#new-domain-view) switch by the
+plan `+devbook-domain-view`, all but the **Demo** button for a `*.demo.html`
+file. Checked in the running app on 2026-10-20. It awaits acceptance at the
+Personal Validation gate of the flow-spec run that drafted it.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.

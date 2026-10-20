@@ -137,19 +137,19 @@ bounded context's files as units, and each row opens a page drawn for the kind o
 file it is (local ADR 0036). Turned off, the Domain area is today's view,
 unchanged.
 
-It ships off and marked `DEV` while the plan `+devbook-domain-view` builds the
-new view. Only the Domain area reads it. The other areas of the Devbook, and the
+It ships off and marked `DEV` until the new view is accepted. Only the Domain area reads it. The other areas of the Devbook, and the
 [Devbook pane](#devbook-pane) switch that offers the pane at all, do not. The
 settings screen lists it from the feature catalog in `AppFeatures.cs`, and a
 person's choice is kept in `features.json` beside the app's other per-device
 choices.
 
-While the plan builds it, the view is a frame: each menu row opens a placeholder
-that names the page its kind of file will get, and the plan's later steps
-replace the placeholders one page at a time.
+The plan has built every page: the Context map, a context's **Overview** and
+**Neighbours**, Domain, Features, Requirements, Model and Flow, with the Brain
+notes and tasks that link to each. Only the **Demo** button for a click demo is
+still to come, and a file of no known kind opens a placeholder.
 
-Model is the first page built. It opens on **Diagram**, which draws each
-`classDiagram` of the model file as the aggregate's consistency boundary: the
+Model opens on **Diagram**, which draws each `classDiagram` of the model file
+as the aggregate's consistency boundary: the
 root and its composed parts inside the band, what it holds by identity outside
 it, and the domain services below. A diagram that cannot be read that way, has
 no aggregate root, or holds structure no boundary shows is drawn with mermaid as
@@ -160,14 +160,13 @@ as a contract: what raises it, who consumes it, its payload and its
 published-language rules, and whether the chapters say it is emitted or only
 documented.
 
-Domain is the second. An unsplit `domain.md` offers its units in a chapter bar,
-a split file opens on its one aggregate, and an aggregate reads as **About**
-beside **Always true**, its rules read from the invariants file beside the page;
-see [Domain view by unit](features.md#domain-view-by-unit).
+On Domain, an unsplit `domain.md` offers its units in a chapter bar, a split
+file opens on its one aggregate, and an aggregate reads as **About** beside
+**Always true**, its rules read from the invariants file beside the page; see
+[Domain view by unit](features.md#domain-view-by-unit).
 
-Flow and the Glossary follow. Flow draws each lifecycle as one row of states,
-and the Domain page's Glossary lists the context's terms and model chapters A to
-Z.
+Flow draws each lifecycle as one row of states, and the Domain page's Glossary
+lists the context's terms and model chapters A to Z.
 
 The flag is retired when the old Domain view is removed, which a later plan does.
 The new view then always shows.

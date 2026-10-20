@@ -792,12 +792,11 @@ field types reads Model.
 | --- | --- | --- |
 | Context map | `context-map.md` | **Map** draws the contexts and their relations; **List** names them in reading order |
 | A context | `context.md` | **Overview** is the context's boundary; **Neighbours** is its `dependencies.md` |
-| Domain | `domain.md` and its splits | A unit picker. An aggregate opens **About** and **Always true**; a domain service opens one page |
+| Domain | `domain.md` and its splits | A unit picker. An aggregate opens **About** and **Always true**; a domain service opens one page; the **Glossary**, from the Ubiquitous Language chapter, is the bar's last tab |
 | Features | `features.md` | The features and their sub-features |
 | Requirements | `requirements.md` | Each requirement and its scenarios |
 | Model | `model.md` | **Diagram**, **Fields** and **Events** |
 | Flow | `flow.md` | The context's lifecycles |
-| Glossary | the Ubiquitous Language chapter | The context's terms |
 
 The menu lists files in the devbook reading order, and a split file nests under
 its kind's row. A rules file, a click demo and `dependencies.md` get no row of
