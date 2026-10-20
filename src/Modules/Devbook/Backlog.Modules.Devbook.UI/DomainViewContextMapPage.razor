@@ -1,0 +1,169 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The Domain view's Context map page (local ADR 0036). It reads context-map.md and
+    every context's dependency tables through the domain store and hands them to the
+    library's ContextMapView: Map draws the contexts on an ellipse with a line per
+    pair, each line worded by the source context's dependency row; List names them
+    in reading order. A card opens its context on Neighbours, by following that
+    context's dependencies.md, which the pane opens on the context's row.
+*@
+
+@if (_read is { Problem: null } read)
+{
+    <ContextMapView @key="@_loaded"
+                    Map="@read.Map"
+                    Layout="@read.Layout"
+                    DocumentPath="@read.DocumentPath"
+                    OnOpen="OpenAsync"
+                    OnNavigate="NavigateAsync" />
+}
+else if (_read?.Problem is { } problem)
+{
+    <EmptyState BaseClass="devbook-empty"
+                TitleCssClass="devbook-empty__title"
+                DescriptionCssClass="@(null)"
+                Title="Context map"
+                Description="@problem"
+                TestId="domain-view-context-map-problem"
+                role="status" />
+}
+
+@code {
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The menu row: <c>context-map.md</c>.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    /// <summary>A card the reader picked, as the reference to its context's
+    /// Neighbours, or a link in the published languages or the rules.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    private DomainDevbookStore? _store;
+    private ContextMapReading? _read;
+    private (string? Alias, string? Path)? _loaded;
+    private bool _disposed;
+    private int _version;
+
+    protected override void OnInitialized()
+    {
+        // Resolved rather than injected, as the pane resolves its stores: a host
+        // composing no domain store gets a sentence, not a render failure.
+        _store = Services.GetService<DomainDevbookStore>();
+        if (_store is not null) _store.Changed += OnStoreChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded == (RepositoryAlias, SelectedPath)) return;
+        _loaded = (RepositoryAlias, SelectedPath);
+        _read = null;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var version = ++_version;
+        var alias = RepositoryAlias;
+        if (_store is null)
+        {
+            _read = ContextMapReading.Failed("This host has no domain folder to read the context map from.");
+            return;
+        }
+
+        ContextMapReading read;
+        try
+        {
+            var view = await _store.LoadAsync(alias);
+            if (_disposed || version != _version) return;
+
+            // On the pool: every context's dependency tables are read from disk,
+            // and the desktop host's dispatcher is the UI thread.
+            read = await Task.Run(() => Read(view));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            read = ContextMapReading.Failed($"The context map could not be read: {ex.Message}");
+        }
+
+        if (_disposed || version != _version) return;
+        _read = read;
+    }
+
+    /// <summary>What the Context map page shows, or why there is nothing to show.</summary>
+    internal sealed record ContextMapReading(ContextMap Map, ContextMapLayout? Layout, string? DocumentPath, string? Problem)
+    {
+        public static ContextMapReading Failed(string problem) => new(ContextMap.Empty, null, null, problem);
+    }
+
+    /// <summary>The domain folder's context map, its lines worded from each
+    /// context's dependency tables: <c>dependencies.md</c>, or failing that
+    /// <c>context.md</c>'s <c>## Dependencies</c> chapter.</summary>
+    internal static ContextMapReading Read(DomainDevbookView view)
+    {
+        if (view.Error is { } error) return ContextMapReading.Failed(error);
+
+        var mapPath = view.ContextMap.Path;
+        var markdown = string.IsNullOrEmpty(mapPath) ? null : DomainDevbookStore.ReadText(view, mapPath);
+        if (markdown is null) return ContextMapReading.Failed("The domain folder has no context-map.md.");
+
+        var sources = new List<ContextMapSource>();
+        foreach (var context in view.Contexts)
+        {
+            var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies);
+            var root = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Context);
+            if (dependencies is not null)
+            {
+                sources.Add(new ContextMapSource(context.Slug, context.DisplayName, DomainDevbookStore.ReadText(view, dependencies.Path), dependencies.Path));
+            }
+            else if (root is not null)
+            {
+                var chapter = DomainViewContextPage.DependenciesChapter(DomainDevbookStore.ReadText(view, root.Path));
+                sources.Add(new ContextMapSource(context.Slug, context.DisplayName, chapter, root.Path));
+            }
+            else
+            {
+                sources.Add(new ContextMapSource(context.Slug, context.DisplayName, null, string.Empty));
+            }
+        }
+
+        // Laid out here, on the pool with the reading, rather than on the render.
+        var map = ContextMaps.Read(markdown, sources);
+        return new ContextMapReading(map, ContextMapLayout.Arrange(map), mapPath, null);
+    }
+
+    /// <summary>The reference a card follows: its context's <c>dependencies.md</c>,
+    /// which has no menu row and so opens the context's row on Neighbours.</summary>
+    internal static DevbookChapterLink? NeighboursOf(ContextMapContext context) =>
+        context.Slug is { } slug ? DevbookChapterLink.From($".devbook/domain/{slug}/dependencies.md") : null;
+
+    private Task OpenAsync(ContextMapContext context) =>
+        NeighboursOf(context) is { } target
+            ? OnNavigateToChapter.InvokeAsync(target)
+            : Task.CompletedTask;
+
+    private Task NavigateAsync(DevbookReference reference) =>
+        DevbookChapterLink.From(reference) is { } target
+            ? OnNavigateToChapter.InvokeAsync(target)
+            : Task.CompletedTask;
+
+    private void OnStoreChanged()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_store is not null) _store.Changed -= OnStoreChanged;
+    }
+}

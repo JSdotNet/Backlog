@@ -1741,6 +1741,7 @@
         {
             // The reader's own pick: whatever a followed reference focused is done.
             _focus = null;
+            _unitOpening = null;
             _selectedChapterPaths[node.AreaKey] = node.Path;
         }
 
@@ -1939,12 +1940,15 @@
         // tab on another page; the reference opens that page instead.
         var relativePath = target.RelativePath;
         var anchor = target.Anchor;
+        UnitOpening? opening = null;
         if (!ContainsPath(root, relativePath))
         {
             if (UnitHostIn(root, relativePath) is not { } host) return;
+            opening = UnitOpening.For(ActiveRepositoryAlias, target.AreaKey, host, relativePath);
             relativePath = host;
             anchor = null;
         }
+        _unitOpening = opening;
 
         _selectedSection = target.AreaKey;
         _selectedChapterPaths[target.AreaKey] = relativePath;
@@ -1958,6 +1962,37 @@
             ? new ChapterFocus(ActiveRepositoryAlias, target.AreaKey, relativePath, new DevbookFocus(heading, ++_focusSequence))
             : null;
     }
+
+    /// <summary>A file with no menu row of its own that a followed reference named,
+    /// and the row that shows it (<see cref="UnitHostIn"/>). The page that row opens
+    /// is told which file was asked for, so a <c>dependencies.md</c> — a Context map
+    /// card, a link — opens its context on Neighbours rather than Overview. Replaced
+    /// by the next followed reference and cleared by a menu pick; anything else that
+    /// moves the selection leaves it, and it then answers nothing, since it holds
+    /// only while its row is the one selected.</summary>
+    private sealed record UnitOpening(string? RepositoryAlias, string AreaKey, string Host, string Path)
+    {
+        /// <summary>The opening to remember, or null when the row's page reads
+        /// nothing from the file: only a context page has a tab a file names, its
+        /// Neighbours for <c>dependencies.md</c>. An invariants file opens its domain
+        /// page as the row itself would.</summary>
+        public static UnitOpening? For(string? repositoryAlias, string areaKey, string host, string path) =>
+            DomainDevbookStore.KindFromFile(path) == DomainDevbookDocumentKind.Dependencies
+                ? new UnitOpening(repositoryAlias, areaKey, host, path)
+                : null;
+    }
+
+    private UnitOpening? _unitOpening;
+
+    /// <summary>The file a followed reference asked for when the selected row is
+    /// the one standing in for it, else the selected row itself.</summary>
+    private string? OpenedPathFor(string areaKey, string? selectedPath) =>
+        _unitOpening is { } opening
+        && string.Equals(opening.AreaKey, areaKey, StringComparison.Ordinal)
+        && string.Equals(opening.RepositoryAlias, ActiveRepositoryAlias, StringComparison.Ordinal)
+        && string.Equals(opening.Host, selectedPath, StringComparison.OrdinalIgnoreCase)
+            ? opening.Path
+            : selectedPath;
 
     /// <summary>The heading a followed reference named, in the repository and the
     /// chapter it named it in. The repository too, because a fork or a sibling
@@ -2339,7 +2374,9 @@
         var selectedPath = SelectedChapterPath;
         if (selectedPath is not null && !ContainsPath(root, selectedPath) && UnitHostIn(root, selectedPath) is { } host)
         {
-            // The switch flipped on with a tab's file open: stay on its page.
+            // The switch flipped on with a tab's file open: stay on its page, and on
+            // the tab that file is.
+            _unitOpening = UnitOpening.For(ActiveRepositoryAlias, root.AreaKey, host, selectedPath);
             _selectedChapterPaths[root.AreaKey] = host;
             selectedPath = host;
         }
@@ -2432,7 +2469,7 @@
             @* The New domain view switch reads here and nowhere else in the pane:
                on, the Domain area is read by unit (local ADR 0036); off, it is the
                panel below, unchanged. *@
-            "domain" when DomainViewEnabled => @<DomainView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter"
+            "domain" when DomainViewEnabled => @<DomainView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@OpenedPathFor("domain", SelectedChapterPath)" OnNavigateToChapter="SelectChapter"
                                                             TaskReferencesFor="@TaskReferencesFor"
                                                             TaskTitleFor="@TaskTitleFor"
                                                             OnOpenTask="OnOpenTask"

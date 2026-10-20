@@ -64,7 +64,7 @@ public sealed class DevbookPaneDomainViewFlagTests : IDisposable
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Equal("context-map", component.Find("[data-testid='domain-view']").GetAttribute("data-page")));
         Assert.Empty(component.FindComponents<DomainDevbookPanel>());
-        Assert.Equal("Context map", component.Find("[data-testid='domain-view-placeholder'] .devbook-empty__title").TextContent.Trim());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='context-map-page']")));
 
         await ClickMenuItemAsync(component, "Tasks");
         component.WaitForAssertion(() => Assert.Equal("context", component.Find("[data-testid='domain-view']").GetAttribute("data-page")));
