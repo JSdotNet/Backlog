@@ -20,6 +20,12 @@ never starts, stops or names a session. That is why nothing here is a command, a
 the [Session Log](domain.md#session-log) aggregate has no invariant about state
 transitions: a session's state is derived on every reading, not advanced.
 
+One record here is not evidence: a [Session Request](domain.md#session-request) asks
+for a session that does not exist yet. A person creates it with a click, and a
+dispatcher outside this context starts the session (local
+[ADR 0037](../../arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)).
+The request is the context's one command, and it still never starts a session itself.
+
 An optional Collections MCP can add a second kind of evidence: sanitized activity
 updates that a configured session reports as it moves. Those updates are an
 **enrichment layer**, not a second authority. They say more about what a known
@@ -60,3 +66,23 @@ The key is `SessionFeatures.Sessions` in the Sessions module. Its string is the 
 screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is
 kept in `features.json` beside the app's other per-device choices. It is retired when
 the Sessions area leaves `DEV`.
+
+## Session requests
+
+```meta
+status: draft
+type: feature-flag
+key: session-requests
+default: off
+related: [".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md"]
+```
+
+Turning it on offers Start session on an entry and on a plan's roadmap item, maps
+`GET /session-requests/wait` on the MCP listener, and adds the tools a dispatcher
+claims and reports with. Off, the action is not shown, the route answers `404` and the
+tools leave the endpoint.
+
+It is off by default while the dispatchers are built
+([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
+The repository owner decides when it turns on. It is retired once the Manager skill
+has shipped and the feature leaves `DEV`.
