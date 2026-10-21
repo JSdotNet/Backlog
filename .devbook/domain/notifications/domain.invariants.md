@@ -5,7 +5,7 @@ status: proposed
 type: invariants
 ```
 
-What each aggregate on [`domain.md`](domain.md) enforces, one chapter per aggregate. Nothing is built yet, so no invariant names a test.
+What each aggregate on [`domain.md`](domain.md) enforces, one chapter per aggregate, with the unit tests that prove each rule built so far.
 
 ## Notification
 
@@ -22,6 +22,7 @@ related: [.devbook/domain/notifications/domain.md#notification]
 ```meta
 status: proposed
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.Only_the_owner_instance_closes_a_notification, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.Only_the_owner_instance_accepts_a_reply, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.Only_the_owner_instance_acknowledges_an_alert]
 ```
 
 Every state change and every accepted answer comes from the owner instance that published the notification (`notification.not_owner`). One writer per document is what lets the replica carry it without merge rules.
@@ -33,6 +34,7 @@ Enforced at: all mutations
 ```meta
 status: proposed
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.A_question_without_a_subject_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.A_question_without_an_answer_spec_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.An_alert_may_have_no_subject_and_carries_no_answer_spec]
 ```
 
 A notification of kind Question carries an answer spec and a subject (`notification.question_incomplete`). An alert carries no answer spec, and may have no subject.
@@ -44,6 +46,7 @@ Enforced at: constructor
 ```meta
 status: proposed
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.An_unknown_kind_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.An_unknown_severity_is_refused]
 ```
 
 The kind is Alert or Question, and the severity is info, warning or critical (`notification.unknown_kind`, `notification.unknown_severity`).
@@ -55,6 +58,7 @@ Enforced at: constructor
 ```meta
 status: proposed
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.Neither_the_draft_nor_the_notification_carries_a_deadline_or_a_default_answer, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.A_question_nobody_answered_is_still_open_however_much_time_passes]
 ```
 
 A notification carries no deadline and no default answer, so time alone never settles a question (`notification.deadline_not_supported`).
@@ -66,6 +70,7 @@ Enforced at: constructor
 ```meta
 status: proposed
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.An_alert_moves_once_from_open_to_acknowledged, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.Only_an_alert_is_acknowledged, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.Only_a_question_is_answered, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.A_closed_notification_stays_closed]
 ```
 
 A notification starts Open and moves once, to Acknowledged, Answered or Closed (`notification.already_settled`). Only an alert is acknowledged, and only a question is answered.
@@ -77,6 +82,7 @@ Enforced at: `Acknowledge()`, `Accept()`, `Close()`, `CloseForSubject()`
 ```meta
 status: proposed
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.The_first_valid_reply_becomes_the_answer_and_every_later_one_is_rejected, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationsTests.Two_replies_racing_settle_on_exactly_one_answer]
 ```
 
 The first valid reply the owner processes becomes the answer, and every later reply is rejected as already answered (`notification.already_answered`).
@@ -88,6 +94,7 @@ Enforced at: `Accept()`
 ```meta
 status: proposed
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.A_title_holds_at_most_80_characters, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.A_summary_holds_at_most_180_characters, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationInvariantTests.A_body_holds_at_most_32_KB_of_Markdown]
 ```
 
 The title holds at most 80 characters and the summary at most 180, both plain text (`notification.content_too_long`). The body holds at most 32 KB of Markdown.
@@ -109,6 +116,7 @@ related: [.devbook/domain/notifications/domain.md#reply]
 ```meta
 status: proposed
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_single_choice_reply_picks_exactly_one_offered_choice, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_multiple_choice_reply_picks_offered_choices_within_the_limits, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.An_open_reply_is_plain_text_within_the_length_limit, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.Choices_with_open_take_one_choice_or_the_open_answer_but_not_both]
 ```
 
 A reply holds only choice ids the answer spec offers, within its count limits, and open text only where the spec allows it and within its length (`reply.invalid`).
@@ -120,6 +128,7 @@ Enforced at: `Accept()` on the Notification
 ```meta
 status: proposed
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_reply_after_the_question_closed_is_rejected_as_closed]
 ```
 
 A reply that reaches the owner after the question closed is rejected as closed (`reply.closed`).
@@ -131,6 +140,7 @@ Enforced at: `Accept()` on the Notification
 ```meta
 status: proposed
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.An_owner_only_question_rejects_a_viewers_reply_and_takes_the_owners]
 ```
 
 When the answer spec says `answerOn: owner`, a reply from any viewer instance is rejected (`reply.owner_only`). Without it, any paired viewer may answer.
@@ -147,3 +157,5 @@ type: invariant
 A reply is accepted only from a device under the same owner as the notification (`reply.foreign_owner`). The sync service checks it first, and the owner instance checks it again.
 
 Enforced at: the sync reply endpoint, and `Accept()` on the Notification
+
+The module core checks only that a reply is addressed to this owner instance (`reply.wrong_instance`); the account check lands with the sync exchange, which carries the owner the replica partitions on.

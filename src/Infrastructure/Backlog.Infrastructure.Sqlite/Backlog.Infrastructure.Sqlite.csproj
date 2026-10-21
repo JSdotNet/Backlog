@@ -39,6 +39,9 @@
          claude_api_requests table in the same database. The context has no module
          project, so the port comes from its abstractions; same direction otherwise. -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <!-- Notifications' INotificationRepository, answered under Notifications/ by the
+         notifications table in the same database (local ADR 0038 §3). Same direction. -->
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
   </ItemGroup>
 
   <ItemGroup>

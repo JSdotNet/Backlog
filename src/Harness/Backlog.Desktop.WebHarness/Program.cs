@@ -258,6 +258,10 @@ _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 // head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
 
+// And the notifications startup pass, on the same terms and for the same reason the desktop
+// head starts it.
+_ = app.Services.GetRequiredService<Backlog.Modules.Notifications.Services.NotificationsStartup>().Start();
+
 // And the devbook database refresher: resolving it points every database reader
 // at the app's storage, so it has to exist before the first pane opens.
 _ = app.Services.GetRequiredService<DevbookDatabaseRefresher>();
