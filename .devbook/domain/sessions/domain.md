@@ -1153,8 +1153,9 @@ A person's ask for a session that runs one entry or one plan. It carries:
 - the **entry id** of an entry request, or the **plan tag** of a plan request;
 - the **repository**, as `owner/name`;
 - that repository's **clone folder** on this machine;
-- its **state**, and while Claimed, the lease's end;
-- once Started, the **session id** the dispatcher reported.
+- its **state**, and while Claimed, the dispatcher that claimed it and the lease's end;
+- once Started, the **session id** the dispatcher reported;
+- when the person asked, which orders the queue.
 
 [It carries nothing of the entry's text](domain.invariants.md#invariant-a-request-carries-no-entry-text):
 the brief a dispatcher hands the new session is fixed by its kind.
@@ -1180,7 +1181,8 @@ stateDiagram-v2
 ```
 
 - **Requested.** Waiting for a dispatcher. The long poll hands out the oldest first.
-- **Claimed.** One dispatcher holds it. [Only a Requested request can be
+- **Claimed.** One dispatcher holds it. The dispatcher may release it back to
+  Requested before the lease ends. [Only a Requested request can be
   claimed](domain.invariants.md#invariant-only-a-requested-request-can-be-claimed),
   so two dispatchers never start the same request.
 - **Started.** The dispatcher reported the session it started.
@@ -1191,6 +1193,10 @@ stateDiagram-v2
 **The lease.** A claim holds the request for two minutes. [A lease that runs out
 returns the request to Requested](domain.invariants.md#invariant-a-lapsed-claim-returns-the-request-to-requested),
 so a dispatcher that stopped mid-dispatch does not keep it.
+
+**One open request per target.** [A second ask returns the open
+request](domain.invariants.md#invariant-one-open-request-per-entry-or-plan): an entry or plan
+with a request in Requested, Claimed or Started gets that request back rather than a second one.
 
 **No expiry.** [A request never expires](domain.invariants.md#invariant-a-request-never-expires):
 it waits for a dispatcher until the person cancels it. Linked and Cancelled are final.

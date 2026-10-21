@@ -124,6 +124,12 @@ public static class AppFeatures
             "Pull requests",
             "Open the full-screen list of your open pull requests across every registered repository, and update, ready or merge them from there.",
             Status: AppFeatureStatus.Dev),
+        new(
+            SessionFeatures.SessionRequests,
+            "Session requests",
+            "Start a Claude session on a prompt entry or a plan with one click: the app queues a request naming the entry or plan, the repository and its clone folder, and a dispatcher session waiting on the MCP server starts it. Nothing of the entry's text is handed over.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
         new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost."),
         new(
             SyncFeatures.Sync,
