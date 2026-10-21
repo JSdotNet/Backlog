@@ -87,17 +87,31 @@ Previous is disabled on the first step and Next on the last. Play walks forward 
         <C4DynamicSteps Steps="@DynamicSteps" Current="1" TestId="sb-c4-dynamic-steps" />
     </Story>
 
+    <Story Name="The element inspector"
+           Description="`C4ElementInspector`, the panel the zoom tab sets beside the picture for the element selected on it — the design's Containers screen: its **kind**, **name**, **technology** and **description**, and *Open its 3 components* when a deeper view exists. Below that, what the knowledge folders say about it, which the host hands in per element through `RecordsFor` because the library has no idea what a chapter is: the arc42 chapters that document a view showing it, the **decisions** that name it with a *proposed* chip on one still proposed, and the **debt** with its severity and rung on the debt ladder. Each opens its record in the Chapters tab.
+
+An element nothing names says so in each section; with no host behind it at all the three sections are left out rather than claiming it has none."
+           Code="@InspectorUsage">
+        <div class="sb-c4-zoom-moments">
+            <p class="sb-c4-zoom-moments__label">Desktop App selected</p>
+            <C4ElementInspector Element="@DesktopApp" ZoomLabel="Open its 3 components" Records="@DesktopRecords" TestId="sb-c4-element-inspector" />
+
+            <p class="sb-c4-zoom-moments__label">An element nothing names</p>
+            <C4ElementInspector Element="@LocalTaskStore" Records="@C4ElementRecords.None" TestId="sb-c4-element-inspector-none" />
+        </div>
+    </Story>
+
     <Story Name="A deployment view"
            Description="On a deployment view the zoom tab puts the scope's environments behind **one tab list**, and draws every other environment as a **dashed door** naming what runs there; opening the door is the same move as its tab. Open *Deployment* under Also in the zoom tab above to walk it: Local machine and Staging.
 
-A deployment node is drawn as the frame round what it runs, and on the zoom tab the frame is **selectable**: `C4SvgWriter` writes it as a `g.node` for the frames named in `C4SvgOptions.SelectableBoundaryAliases`, which the C4 tab never sets. Selecting one opens the inspector below — its kind, technology and description, and the container instances it runs, each with *Show in containers*, which opens the container view with that container selected."
+A deployment node is drawn as the frame round what it runs, and on the zoom tab the frame is **selectable**: `C4SvgWriter` writes it as a `g.node` for the frames named in `C4SvgOptions.SelectableBoundaryAliases`, which the C4 tab never sets. Selecting one opens the element inspector below — the same panel every element opens — headed with its kind, technology and description, and listing the container instances it runs, each with *Show in containers*, which opens the container view with that container selected."
            Code="@DeploymentUsage">
         <div class="sb-c4-zoom-moments">
             <p class="sb-c4-zoom-moments__label">The door from Local machine</p>
             <C4DeploymentDoors Doors="@StagingDoor" TestId="sb-c4-deployment-doors" />
 
             <p class="sb-c4-zoom-moments__label">MSIX package selected</p>
-            <C4DeploymentInspector Details="@MsixPackage" TestId="sb-c4-deployment-inspector" />
+            <C4ElementInspector Element="@MsixPackageNode" Deployment="@MsixPackage" TestId="sb-c4-deployment-inspector" />
         </div>
     </Story>
 
@@ -256,10 +270,36 @@ That behaviour is the whole safeguard. This reader is a second implementation of
     private static IReadOnlyList<C4PlaybackStep> DynamicSteps =>
         C4DynamicPlayback.Steps(Parsed, Parsed.View("capture-to-issue")!);
 
+    private const string InspectorUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        RecordsFor="@(elementId => C4ElementInspection.For(c4, workspaceEntry, chapters, elementId))"
+                        OnOpenRecord="OpenInChapters" />
+        """;
+
+    private static readonly C4Element DesktopApp = Parsed.Element("backlog.desktop")!;
+    private static readonly C4Element LocalTaskStore = Parsed.Element("backlog.store")!;
+    private static readonly C4Element MsixPackageNode = Parsed.Element("pc.msix")!;
+
+    /// <summary>What a host might say about Desktop App: a sample, not this
+    /// repository's own records.</summary>
+    private static readonly C4ElementRecords DesktopRecords = new(
+        [
+            new C4InspectorChapter(".devbook/arc42/03-context-and-scope.md", "03", "Context and scope › Access channels"),
+            new C4InspectorChapter(".devbook/arc42/05-building-block-view.md", "05", "Building block view")
+        ],
+        [
+            new C4InspectorRecord(".devbook/arc42/adr/0001-desktop-channel.md", "0001", "Desktop channel uses .NET MAUI Blazor Hybrid", C4InspectorRecordKind.Decision),
+            new C4InspectorRecord(".devbook/arc42/adr/0030-stored-credentials.md", "0030", "Stored credentials go through the OS envelope", C4InspectorRecordKind.Decision, Proposed: true)
+        ],
+        [
+            new C4InspectorRecord(".devbook/arc42/tdr/0001-branch-snapshots.md", "0001", "Artifacts are invisible on a branch snapshot", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified")
+        ]);
+
     private const string DeploymentUsage = """
         <C4DeploymentDoors Doors="@doors" OnOpen="OpenEnvironment" />
-        <C4DeploymentInspector Details="@C4ZoomDeployment.Details(workspace, selectedElementId)"
-                               OnOpenContainer="OpenContainer" />
+        <C4ElementInspector Element="@workspace.Element(selectedElementId)!"
+                            Deployment="@C4ZoomDeployment.Details(workspace, selectedElementId)"
+                            OnOpenContainer="OpenContainer" />
         """;
 
     /// <summary>The doors the Local machine view draws: Staging.</summary>

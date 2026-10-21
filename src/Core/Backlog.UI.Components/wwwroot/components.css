@@ -17900,7 +17900,7 @@ select.field__input {
     grid-column: 1 / -1;
 }
 
-.c4-zoom-explorer--dynamic > .c4-zoom-explorer__frame {
+.c4-zoom-explorer--dynamic > .c4-zoom-explorer__body {
     grid-column: 1;
 }
 
@@ -18217,18 +18217,41 @@ select.field__input {
     font-size: var(--font-size-sm);
 }
 
-.c4-deployment-inspector {
+/* The picture, and beside it the inspector of the element selected on it (the
+   design's Containers screen). The inspector wraps under the picture when the two
+   do not fit side by side. */
+.c4-zoom-explorer__body {
     display: flex;
-    flex: 1 1 20rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+}
+
+.c4-zoom-explorer__stage {
+    flex: 3 1 32rem;
+    min-width: 0;
+}
+
+.c4-element-inspector {
+    display: flex;
+    flex: 1 1 18rem;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-lg);
+    box-sizing: border-box;
+    max-width: 100%;
     padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
     background: var(--color-background-alt);
 }
 
-.c4-deployment-inspector__kicker {
+.c4-element-inspector__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.c4-element-inspector__kind {
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
@@ -18237,34 +18260,146 @@ select.field__input {
     text-transform: uppercase;
 }
 
-.c4-deployment-inspector__name {
+.c4-element-inspector__name {
     margin: 0;
     font-size: var(--font-size-lg);
     font-weight: var(--font-weight-semibold);
 }
 
-.c4-deployment-inspector__description {
-    margin: 0;
-    line-height: 1.5;
-}
-
-.c4-deployment-inspector__none {
+.c4-element-inspector__technology {
     margin: 0;
     color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.c4-element-inspector__description {
+    margin: var(--spacing-xs) 0 0;
     line-height: 1.5;
 }
 
-.c4-deployment-inspector__section {
+.c4-element-inspector__zoom {
+    align-self: flex-start;
+    margin-top: var(--spacing-xs);
+}
+
+.c4-element-inspector__section {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
 }
 
-.c4-deployment-inspector__heading {
+.c4-element-inspector__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.c4-element-inspector__heading {
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
+}
+
+.c4-element-inspector__tally {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-element-inspector__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.c4-element-inspector__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-element-inspector__record {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-element-inspector__record:hover {
+    background: var(--color-background-raised);
+}
+
+.c4-element-inspector__record:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-element-inspector__record--debt {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.c4-element-inspector__number {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+.c4-element-inspector__number--decision {
+    color: var(--color-primary);
+}
+
+.c4-element-inspector__number--debt {
+    color: var(--color-error-text);
+}
+
+.c4-element-inspector__debt-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.c4-element-inspector__debt-state {
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+}
+
+.c4-element-inspector__title {
+    flex: 1 1 0;
+    min-width: min(10rem, 100%);
+    line-height: 1.4;
+}
+
+.c4-element-inspector__chip {
+    flex: none;
+}
+
+/* A decision still proposed: dashed, as the design draws a choice not yet made. */
+.c4-element-inspector__chip.badge--status-proposed {
+    background: transparent;
+    border: var(--border-width) dashed var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+/* What a deployment node runs, a section of the element inspector. */
+.c4-deployment-inspector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
 }
 
 .c4-deployment-inspector__runs {

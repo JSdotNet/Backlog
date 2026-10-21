@@ -51,7 +51,17 @@ public sealed record C4LinkedRecord(
     C4RecordKind Kind,
     DevbookDebtSeverity? Severity,
     DevbookDebtLifecycle? Lifecycle,
-    IReadOnlyList<DevbookHistoryRow> History);
+    IReadOnlyList<DevbookHistoryRow> History)
+{
+    /// <summary>A decision record's <c>status</c> as written — <c>proposed</c>,
+    /// <c>accepted</c> — which the inspector reads its "proposed" chip from. Null for
+    /// every other kind: a debt record's status is its <see cref="Lifecycle"/>.</summary>
+    public string? Status { get; init; }
+
+    /// <summary>A decision still at <c>status: proposed</c>.</summary>
+    public bool Proposed =>
+        Kind == C4RecordKind.Decision && string.Equals(Status?.Trim(), "proposed", StringComparison.OrdinalIgnoreCase);
+}
 
 /// <summary>
 /// One edge from a record to an element of the workspace.
@@ -194,6 +204,9 @@ internal static class C4RecordLinks
             kind,
             kind == C4RecordKind.Debt ? meta.DebtSeverity : null,
             kind == C4RecordKind.Debt ? meta.DebtLifecycle : null,
-            history);
+            history)
+        {
+            Status = kind == C4RecordKind.Decision ? meta.Status : null
+        };
     }
 }

@@ -14,6 +14,9 @@
 
     It holds two things, the open view and the selected element. Everything the zoom
     bar says and everywhere a move goes is C4ZoomNavigation's, derived from those two.
+    The selected element is shown beside the picture in C4ElementInspector, every
+    element alike, a deployment node included; what the knowledge folders say about it
+    is the host's, asked for through RecordsFor.
 
     The ways to move, and where each is handled:
 
@@ -98,6 +101,9 @@
         @* A deployment view whose scope is deployed to more than one environment puts
            the picture behind one tab per environment; the frame is the open tab's
            panel. Any other view is the frame alone. *@
+        @* The picture, and beside it the inspector of the element selected on it. *@
+        <div class="c4-zoom-explorer__body">
+        <div class="c4-zoom-explorer__stage">
         @if (_environments.Count > 1)
         {
             <Tabs Bare="true"
@@ -126,16 +132,24 @@
         {
             @frame
         }
+        </div>
 
-        @if (_doors.Count > 0 || _deploymentNode is not null)
+        @if (_inspected is not null)
+        {
+            <C4ElementInspector Element="@_inspected"
+                                ZoomLabel="@_zoomLabel"
+                                OnZoomIn="ZoomIntoSelectedAsync"
+                                Deployment="@_deploymentNode"
+                                OnOpenContainer="OpenContainerAsync"
+                                Records="@_records"
+                                OnOpenRecord="OpenRecordAsync" />
+        }
+        </div>
+
+        @if (_doors.Count > 0)
         {
             <div class="c4-zoom-explorer__deployment" data-testid="c4-zoom-deployment">
                 <C4DeploymentDoors Doors="@_doors" OnOpen="OpenEnvironmentAsync" />
-
-                @if (_deploymentNode is not null)
-                {
-                    <C4DeploymentInspector Details="@_deploymentNode" OnOpenContainer="OpenContainerAsync" />
-                }
             </div>
         }
 
@@ -196,6 +210,15 @@
     private IReadOnlyList<C4DeploymentEnvironment> _doors = [];
     private C4DeploymentNodeDetails? _deploymentNode;
 
+    /// <summary>The selected element as the inspector shows it, the view one level
+    /// below it (null when there is none) with what the zoom-in button says about it,
+    /// and what the host's knowledge folders say about it. All null with nothing
+    /// selected.</summary>
+    private C4Element? _inspected;
+    private string? _zoomTarget;
+    private string? _zoomLabel;
+    private C4ElementRecords? _records;
+
     /// <summary>Set by a move the viewer reported — a zoom from the picture — so the
     /// next picture takes the keyboard focus back. A move from the bar leaves the focus
     /// on the bar. Cleared on the attach that honours it.</summary>
@@ -244,6 +267,21 @@
 
     [Parameter]
     public string? TestId { get; set; } = "c4-zoom-explorer";
+
+    /// <summary>
+    /// What the knowledge folders say about an element, by its model identifier: the
+    /// chapters that document it and the decisions and debt that name it, shown in the
+    /// inspector. The component library has no idea what a chapter is, so the host
+    /// works it out. Null — a host with no folder behind it — leaves those sections out
+    /// of the inspector.
+    /// </summary>
+    [Parameter]
+    public Func<string, C4ElementRecords>? RecordsFor { get; set; }
+
+    /// <summary>A chapter or a record was picked in the inspector, by the path
+    /// <see cref="RecordsFor"/> handed it with. The host opens it.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenRecord { get; set; }
 
     /// <summary>How long Play holds each step of a dynamic view before the next.</summary>
     [Parameter]
@@ -332,6 +370,10 @@
             _environments = [];
             _doors = [];
             _deploymentNode = null;
+            _inspected = null;
+            _zoomTarget = null;
+            _zoomLabel = null;
+            _records = null;
             return;
         }
 
@@ -369,7 +411,75 @@
         _environments = C4ZoomDeployment.Environments(Workspace, _view);
         _doors = [.. _environments.Where(environment => !environment.Current)];
         _deploymentNode = _view.Kind == C4ViewKind.Deployment ? C4ZoomDeployment.Details(Workspace, _selectedId) : null;
+
+        _inspected = Workspace.Element(_selectedId);
+        _zoomTarget = _inspected is null ? null : C4ZoomNavigation.ZoomInView(Workspace, _view, _inspected.Id);
+        _zoomLabel = _zoomTarget is null || _inspected is null ? null : ZoomLabelFor(_inspected, Workspace.View(_zoomTarget));
+        _records = RecordsOf(_inspected);
     }
+
+    private Func<string, C4ElementRecords>? _recordsAskedOf;
+    private string? _recordsAskedFor;
+
+    /// <summary>The host's records for the inspected element, asked for again only
+    /// when the element or the host's delegate changed: a refresh runs on every Play
+    /// step and every parent render, and the host's answer walks the views. A host
+    /// hands a new delegate when what it reads from changed.</summary>
+    private C4ElementRecords? RecordsOf(C4Element? element)
+    {
+        if (element is null || RecordsFor is null)
+        {
+            _recordsAskedOf = null;
+            _recordsAskedFor = null;
+            return null;
+        }
+
+        if (ReferenceEquals(_recordsAskedOf, RecordsFor)
+            && string.Equals(_recordsAskedFor, element.Id, StringComparison.Ordinal)
+            && _records is not null)
+        {
+            return _records;
+        }
+
+        _recordsAskedOf = RecordsFor;
+        _recordsAskedFor = element.Id;
+        return RecordsFor(element.Id);
+    }
+
+    /// <summary>
+    /// What the inspector's zoom-in button says: "Open its 11 components", the way the
+    /// design words it, when the view below is the element's own containers or
+    /// components; "Zoom in" for any other deeper view — a system's context, say.
+    /// </summary>
+    private string ZoomLabelFor(C4Element element, C4View? next)
+    {
+        var (kind, noun) = next?.Kind switch
+        {
+            C4ViewKind.Container => (C4ElementKind.Container, "container"),
+            C4ViewKind.Component => (C4ElementKind.Component, "component"),
+            _ => ((C4ElementKind?)null, (string?)null)
+        };
+
+        if (kind is null) return "Zoom in";
+
+        var count = Workspace.Elements.Count(candidate => candidate.Kind == kind
+            && string.Equals(candidate.ParentId, element.Id, StringComparison.OrdinalIgnoreCase));
+
+        return count == 0 ? "Zoom in" : $"Open its {count} {noun}{(count == 1 ? string.Empty : "s")}";
+    }
+
+    /// <summary>The inspector's zoom-in button: the view below the selected element,
+    /// with the keyboard handed to the new picture as a zoom from the picture does.</summary>
+    private Task ZoomIntoSelectedAsync()
+    {
+        if (_zoomTarget is null) return Task.CompletedTask;
+
+        Open(_zoomTarget, null);
+        _refocus = true;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenRecordAsync(string path) => OnOpenRecord.InvokeAsync(path);
 
     private static bool SameSet(IReadOnlySet<string>? left, IReadOnlySet<string>? right) =>
         left is null ? right is null : right is not null && left.SetEquals(right);

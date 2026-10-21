@@ -1452,7 +1452,7 @@ type: requirement
 status: draft
 ```
 
-The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters that document it, the ADRs and the TDRs that name it, and a zoom-in button only when a deeper view of it exists.
+The system SHALL show, for the selected element, its kind, description and technology, the arc42 chapters that document a view showing it, the ADRs and the TDRs that name it — a proposed ADR marked as proposed, a TDR with its severity and lifecycle, each opening in the Chapters tab — and a zoom-in button only when a deeper view of it exists.
 
 #### Scenario: A container with records
 
@@ -1465,6 +1465,18 @@ The system SHALL show, for the selected element, its kind, description and techn
 - **Given** the Containers view is open
 - **When** the reader selects Cloud Database
 - **Then** the inspector shows its kind, description and technology and offers no zoom-in button
+
+#### Scenario: An element no record names
+
+- **Given** the Containers view is open and no ADR or TDR names Cloud Database
+- **When** the reader selects Cloud Database
+- **Then** the Decisions and Technical debt sections each say that nothing names it
+
+#### Scenario: Opening a record
+
+- **Given** Desktop App is selected and its inspector lists a proposed ADR
+- **When** the reader picks that ADR
+- **Then** the Chapters tab opens on the ADR
 
 ### Requirement: An overlay counts the records on each card
 
