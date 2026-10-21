@@ -3,21 +3,27 @@
 <PageTitle>Domain features — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain features"
-           Summary="A subpage of Devbook: the Features page of the Domain view (local ADR 0037). A context's features stand in columns by what they build on — the `depends-on` chain counted end to end — each card its heading and first sentence, its sub-feature count, the flag or setting it hangs on, and how many requirements it has with how many a test proves. A proposed feature is dashed; a deprecated one is struck through at the end of its column. Picking a card opens its detail. A split `features.<name>.md` reads the same way for its one feature."
+           Summary="A subpage of Devbook: the Features page of the Domain view (local ADR 0037), a context's features in compact cards in columns by what they build on, with the picked feature's detail and what it promises below."
            Guidelines="@Rules">
 
     <Story Name="Board"
-           Description="An unsplit `features.md`: Ordering, Quotes and Fax orders build on nothing and Checkout builds on Ordering, so they stand in two columns. Checkout hangs on a flag and has two sub-features; Quotes is proposed, so its card is dashed; Fax orders is deprecated, struck through at the end of its column. Pick a card to read its detail."
+           Description="An unsplit `features.md`: Ordering, Quotes and Fax orders build on nothing and Checkout builds on Ordering, so they stand in two columns. Quotes is proposed and dashed, Fax orders is deprecated and struck through in the box at the end of the last column."
            Code="@BoardCode"
            Source="@Features">
-        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" @bind-ActiveFeature="_active" TestId="story-domain-features-board" />
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" @bind-ActiveFeature="_active" TestId="story-domain-features-board" />
     </Story>
 
     <Story Name="Detail"
-           Description="Checkout picked: what it builds on, its flag in words, the model chapters its `related` names, its sub-features, and its requirements with how many are proved — the requirements a link onto the Requirements page."
+           Description="Checkout picked: what it builds on, the flag it is gated by, the model chapters its `related` names as chips, and its sub-features; beside them, what it promises — its two requirements, a bar of the one a test proves, and a link onto the Requirements page."
            Code="@DetailCode"
            Source="@Requirements">
-        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ActiveFeature="checkout" TestId="story-domain-features-detail" />
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" ActiveFeature="checkout" TestId="story-domain-features-detail" />
+    </Story>
+
+    <Story Name="Proposed card picked"
+           Description="Quotes picked: a proposed card that is picked trades its dashes for the solid brand edge, so the pick still reads while the card is hovered."
+           Code="@ProposedCode">
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" ActiveFeature="quotes" TestId="story-domain-features-proposed" />
     </Story>
 
     <Story Name="Split file"
@@ -233,12 +239,17 @@
 
     private const string BoardCode = """
         <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)"
+                            ContextName="@contextName"
                             @bind-ActiveFeature="active"
                             OnNavigate="OpenAsync" />
         """;
 
     private const string DetailCode = """
-        <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ActiveFeature="checkout" />
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ContextName="Ordering" ActiveFeature="checkout" />
+        """;
+
+    private const string ProposedCode = """
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ContextName="Ordering" ActiveFeature="quotes" />
         """;
 
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<BrainNoteLink>> SampleNotes = new Dictionary<string, IReadOnlyList<BrainNoteLink>>

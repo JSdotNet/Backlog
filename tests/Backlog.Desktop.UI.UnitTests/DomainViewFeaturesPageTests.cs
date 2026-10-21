@@ -187,7 +187,9 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='domain-features-column']").Count), Patience);
         Assert.Equal("features", component.Find("[data-testid='domain-view']").GetAttribute("data-page"));
         var capture = component.Find("[data-testid='domain-feature-card'][data-key='capture']");
-        Assert.Equal("1 requirement · 1 proved", capture.QuerySelector("[data-testid='domain-feature-requirements']")!.TextContent.Trim());
+        Assert.Equal("1 req · 1 tested", capture.QuerySelector("[data-testid='domain-feature-requirements'] [aria-hidden='true']")!.TextContent.Trim());
+        Assert.Equal("What Tasks lets a person do", component.Find("[data-testid='domain-features-title']").TextContent.Trim());
+        Assert.Single(component.FindAll("[data-testid='domain-features-title']"));
         Assert.Contains("domain-feature-card--proposed", component.Find("[data-testid='domain-feature-card'][data-key='steps']").ClassList);
         Assert.Contains("Task", component.Find("[data-testid='domain-feature-model']").TextContent);
         Assert.Empty(component.FindAll("[data-testid='domain-view-placeholder']"));
@@ -204,7 +206,9 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
 
         view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='domain-feature-card']")), Patience);
         Assert.Equal("2", view.Find("[data-testid='domain-features-column']").GetAttribute("data-depth"));
-        Assert.Equal("Flag · Recurrence", view.Find("[data-testid='domain-feature-gate']").TextContent.Trim());
+        var gate = view.Find("[data-testid='domain-feature-gate']");
+        Assert.Equal("flag", gate.GetAttribute("data-kind"));
+        Assert.Equal("Recurrence", gate.QuerySelector(".domain-feature-card__gate-name")!.TextContent.Trim());
     }
 
     [Fact]
@@ -245,7 +249,8 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
         component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='domain-feature-card'][data-key='steps']")), Patience);
 
         await component.InvokeAsync(() => component.Find("[data-testid='domain-feature-card'][data-key='steps']").Click());
-        await component.InvokeAsync(() => component.Find("[data-testid='domain-feature-detail-requirements'] button").Click());
+        Assert.Equal("None linked to a test yet", component.Find("[data-testid='domain-feature-promise-proof']").TextContent.Trim());
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-feature-promises'] [data-testid='domain-feature-detail-requirements'] button").Click());
 
         component.WaitForAssertion(() => Assert.Equal("requirements", component.Find("[data-testid='domain-view']").GetAttribute("data-page")), Patience);
         component.WaitForAssertion(() => Assert.Equal("steps", component.Find("[data-testid='domain-requirements-group']").GetAttribute("data-key")), Patience);

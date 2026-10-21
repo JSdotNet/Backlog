@@ -39,7 +39,7 @@ related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
 All tokens below are the **dark-mode** values. These are the only color values
-the product uses, beside the five values
+the product uses, beside the seven values
 [Domain View Element Tones](#domain-view-element-tones) adds.
 
 ### Brand
@@ -591,7 +591,7 @@ kind across a diagram.
 | `color-domain-entity` | `#E5A15F` | Entity: its kind line and its card's top edge | 8.55:1 / 7.42:1 / 5.58:1 |
 | `color-domain-value-object` | `#C3D96B` | Value object: its kind line and its card's top edge | 11.99:1 / 10.41:1 / 7.83:1 |
 | `color-domain-core-line` | `#F0A33A` | A Context map line between two core contexts, a core context's card edge, and the words that say core on its card and over List's Core group | 8.91:1 / 7.74:1 / 5.82:1 |
-| `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar | 8.87:1 / 7.70:1 / 5.79:1 |
+| `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar; on Features, a card's requirement tally and the tested part of the detail's promises bar | 8.87:1 / 7.70:1 / 5.79:1 |
 | `color-domain-enumeration` | `#B39DDB` | An enumeration where a field takes one on Fields, and the Enums card's label | 7.81:1 / 6.78:1 / 5.10:1 |
 | `color-domain-event` | `#EC8E97` | A domain event's name on Events: the index's Event column, the open contract's heading, the dashed *event* step and the picked row's edge | 7.91:1 / 6.87:1 / 5.17:1 |
 | `color-domain-service` | `#86C98F` | A domain service's outlined square in the Domain page's chapter bar | 9.59:1 / 8.33:1 / 6.26:1 |
@@ -615,10 +615,12 @@ says which contexts are core. The card a pick would open says *zoom in* in
 The Requirements page marks the requirement kind in `#8FB4F0`, a soft blue of
 its own: the top edge of the card that says what a requirement is, the word
 *SHALL* in each requirement's sentence, the edge of the open feature in the
-feature list and the tested part of each feature's bar. It is not gold, because
+feature list and the tested part of each feature's bar. The Features page spends
+it the same way: a card's *n req · m tested* tally, and the tested part of the
+bar in the picked feature's *What it promises* pane. It is not gold, because
 none of these is followable, and not teal, which is the Brain's. Each sits beside
-the words *Requirement*, *SHALL* or *n / m* tested, so the blue is never the only
-thing that says it.
+the words *Requirement*, *SHALL*, *req* or *n / m* tested, so the blue is never
+the only thing that says it.
 
 The Domain page's chapter bar leads each aggregate with a square filled in
 `color-primary`, the gold the Model diagram already gives an aggregate root, and
@@ -640,7 +642,8 @@ below: *instant* on the raised surface inside its edge, *id* and the status
 dashed.
 
 **Information badges are neutral outlines.** On the Domain view's pages, the
-`DEV` mark, a chapter's date, a chapter's feature switch, a feature's
+`DEV` mark, a chapter's date, a chapter's feature switch, a feature's flag or
+setting chip on Features, a feature's
 *Proposed* or *Deprecated* mark on Features, a term's *proposed* or
 *deprecated* mark on the Glossary, a requirement's *Test linked* or
 dashed *No test linked* mark on Requirements and an event's *Documented* or *Emitted* mark on

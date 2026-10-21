@@ -27,21 +27,138 @@ public sealed class DomainFeatureBoardTests
         Assert.Equal(["0", "1", "2"], board.FindAll("[data-testid='domain-features-column']").Select(column => column.GetAttribute("data-depth")));
         var checkout = board.Find("[data-testid='domain-feature-card'][data-key='checkout']");
         Assert.Equal("2 sub-features", checkout.QuerySelector("[data-testid='domain-feature-sub-features']")!.TextContent.Trim());
-        Assert.Equal("Flag · New checkout", checkout.QuerySelector("[data-testid='domain-feature-gate']")!.TextContent.Trim());
-        Assert.Equal("2 requirements · 1 proved", checkout.QuerySelector("[data-testid='domain-feature-requirements']")!.TextContent.Trim());
+
+        // The chip shows the chapter's title; a listener also hears what it is.
+        var gate = checkout.QuerySelector("[data-testid='domain-feature-gate']")!;
+        Assert.Equal("flag", gate.GetAttribute("data-kind"));
+        Assert.Equal("New checkout", gate.QuerySelector(".domain-feature-card__gate-name")!.TextContent.Trim());
+        Assert.Equal("Flag:", gate.QuerySelector(".sr-only")!.TextContent.Trim());
+
+        var tally = checkout.QuerySelector("[data-testid='domain-feature-requirements']")!;
+        Assert.Equal("2 req · 1 tested", tally.QuerySelector("[aria-hidden='true']")!.TextContent.Trim());
+        Assert.Equal("2 requirements, 1 tested", tally.QuerySelector(".sr-only")!.TextContent.Trim());
+
+        Assert.Equal("after Ordering, Invoicing", checkout.QuerySelector("[data-testid='domain-feature-after']")!.TextContent.Trim());
+        Assert.Null(board.Find("[data-key='ordering']").QuerySelector("[data-testid='domain-feature-after']"));
     }
 
     [Fact]
-    public void A_proposed_card_is_dashed_and_a_deprecated_one_struck_through_last_in_its_column()
+    public void A_setting_chip_is_outlined_like_a_flag_and_names_its_kind_only_to_a_listener()
     {
         using var context = new BunitContext();
         var board = Board(context);
 
-        Assert.Contains("domain-feature-card--proposed", board.Find("[data-key='quotes']").ClassList);
-        var first = board.FindAll("[data-testid='domain-features-column']")[0].QuerySelectorAll("[data-testid='domain-feature-card']");
-        Assert.Equal("fax-orders", first[^1].GetAttribute("data-key"));
-        Assert.Contains("domain-feature-card--deprecated", first[^1].ClassList);
-        Assert.Equal("Deprecated", first[^1].QuerySelector("[data-testid='domain-feature-status']")!.TextContent.Trim());
+        var gate = board.Find("[data-key='quotes'] [data-testid='domain-feature-gate']");
+        Assert.Equal("setting", gate.GetAttribute("data-kind"));
+        var flag = board.Find("[data-key='checkout'] [data-testid='domain-feature-gate']");
+        Assert.Equal(flag.ClassName, gate.ClassName);
+        Assert.Equal("Setting: Quote validity", gate.GetAttribute("title"));
+        Assert.Equal("Flag: New checkout", flag.GetAttribute("title"));
+        Assert.Equal("Setting: Quote validity", gate.TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_card_shows_no_summary_and_no_tally_without_requirements()
+    {
+        using var context = new BunitContext();
+        var board = Board(context);
+
+        Assert.Empty(board.FindAll(".domain-feature-card__summary"));
+        Assert.DoesNotContain("Place an order for goods.", board.Find("[data-key='ordering']").TextContent, StringComparison.Ordinal);
+        Assert.Null(board.Find("[data-key='quotes']").QuerySelector("[data-testid='domain-feature-requirements']"));
+    }
+
+    [Fact]
+    public void A_proposed_card_is_dashed_and_deprecated_features_gather_at_the_end_of_the_last_column()
+    {
+        using var context = new BunitContext();
+        var board = Board(context);
+
+        var quotes = board.Find("[data-testid='domain-feature-card'][data-key='quotes']");
+        Assert.Contains("domain-feature-card--proposed", quotes.ClassList);
+        Assert.Equal("Proposed", quotes.QuerySelector("[data-testid='domain-feature-status']")!.TextContent.Trim());
+
+        // Fax orders no longer stands as a card in its own column.
+        Assert.Empty(board.FindAll("[data-testid='domain-feature-card'][data-key='fax-orders']"));
+        var columns = board.FindAll("[data-testid='domain-features-column']");
+        Assert.Null(columns[0].QuerySelector("[data-testid='domain-features-deprecated']"));
+        var box = columns[^1].QuerySelector("[data-testid='domain-features-deprecated']")!;
+        Assert.Equal("Deprecated · 1", box.QuerySelector("[data-testid='domain-features-deprecated-title']")!.TextContent.Trim());
+        Assert.Equal(["fax-orders"], box.QuerySelectorAll("[data-testid='domain-feature-deprecated']").Select(item => item.GetAttribute("data-key")));
+        Assert.Contains("Kept so old links resolve", box.TextContent, StringComparison.Ordinal);
+
+        // It still opens its detail.
+        board.Find("[data-testid='domain-feature-deprecated'][data-key='fax-orders']").Click();
+        Assert.Equal("fax-orders", board.Find("[data-testid='domain-feature-detail']").GetAttribute("data-key"));
+        Assert.Equal("Deprecated", board.Find("[data-testid='domain-feature-detail-status']").TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_column_left_with_only_deprecated_features_is_not_drawn()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var file = DomainUnits.Parse("""
+            # Features
+
+            ## Live
+
+            ```meta
+            type: feature
+            ```
+
+            ## Old
+
+            ```meta
+            type: feature
+            status: deprecated
+            depends-on: [features.md#live]
+            ```
+            """, ".devbook/domain/x/features.md");
+        var board = context.Render<DomainFeatureBoard>(parameters => parameters.Add(p => p.Columns, DomainFeatures.Columns(file, [file])));
+
+        var column = Assert.Single(board.FindAll("[data-testid='domain-features-column']"));
+        Assert.Equal("0", column.GetAttribute("data-depth"));
+        Assert.NotNull(column.QuerySelector("[data-testid='domain-features-deprecated']"));
+    }
+
+    [Fact]
+    public void A_picked_proposed_card_carries_the_selected_class()
+    {
+        using var context = new BunitContext();
+        var board = Board(context);
+
+        board.Find("[data-key='quotes']").Click();
+
+        var quotes = board.Find("[data-key='quotes']");
+        Assert.Contains("domain-feature-card--selected", quotes.ClassList);
+        Assert.Contains("domain-feature-card--proposed", quotes.ClassList);
+        Assert.Equal("Proposed", board.Find("[data-testid='domain-feature-detail-status']").TextContent.Trim());
+        Assert.DoesNotContain("domain-feature-card--selected", board.Find("[data-key='ordering']").ClassList);
+    }
+
+    [Fact]
+    public void The_page_title_names_the_context_and_the_lead_counts_its_features()
+    {
+        using var context = new BunitContext();
+        var board = Board(context, parameters => parameters.Add(p => p.ContextName, "Ordering"));
+
+        Assert.Equal("What Ordering lets a person do", board.Find("[data-testid='domain-features-title']").TextContent.Trim());
+        Assert.StartsWith("4 features and their sub-features, laid out by what each builds on.", board.Find("[data-testid='domain-features-lead']").TextContent.Trim(), StringComparison.Ordinal);
+        var legend = board.Find("[data-testid='domain-features-legend']").TextContent;
+        Assert.Contains("flag or setting", legend, StringComparison.Ordinal);
+        Assert.Contains("what it hangs on", legend, StringComparison.Ordinal);
+        Assert.Contains("its promises on the Requirements page", legend, StringComparison.Ordinal);
+        Assert.Contains("agreed, not yet the model", legend, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Without_a_context_name_the_page_title_is_Features()
+    {
+        using var context = new BunitContext();
+        var board = Board(context);
+
+        Assert.Equal("Features", board.Find("[data-testid='domain-features-title']").TextContent.Trim());
     }
 
     [Fact]
@@ -61,8 +178,61 @@ public sealed class DomainFeatureBoardTests
         Assert.Contains("Invoicing", detail.QuerySelector("[data-testid='domain-feature-builds-on']")!.TextContent);
         Assert.Contains("New checkout", detail.QuerySelector("[data-testid='domain-feature-detail-gate']")!.TextContent);
         Assert.Contains("Order", detail.QuerySelector("[data-testid='domain-feature-model']")!.TextContent);
-        Assert.Contains("2 requirements · 1 proved", detail.QuerySelector("[data-testid='domain-feature-detail-requirements']")!.TextContent);
+        Assert.Contains("Card payment", detail.QuerySelector("[data-testid='domain-feature-detail-sub-features']")!.TextContent);
+        Assert.Contains("2 requirements", detail.QuerySelector("[data-testid='domain-feature-promises'] [data-testid='domain-feature-detail-requirements']")!.TextContent);
         Assert.Equal("true", board.Find("[data-key='checkout']").GetAttribute("aria-pressed"));
+    }
+
+    [Fact]
+    public void The_gate_reads_its_link_then_its_kind_as_separate_words()
+    {
+        using var context = new BunitContext();
+        var board = Board(context, parameters => parameters.Add(p => p.ActiveFeature, "checkout"));
+
+        var gate = board.Find("[data-testid='domain-feature-detail-gate']");
+        Assert.Equal("Gated by", gate.QuerySelector("dt")!.TextContent.Trim());
+        Assert.Equal("New checkout · flag", Words(gate.QuerySelector("dd")!.TextContent));
+
+        board.Find("[data-key='quotes']").Click();
+        gate = board.Find("[data-testid='domain-feature-detail-gate']");
+        Assert.Equal("Configured by", gate.QuerySelector("dt")!.TextContent.Trim());
+        Assert.Equal("Quote validity · setting", Words(gate.QuerySelector("dd")!.TextContent));
+
+        board.Find("[data-key='ordering']").Click();
+        gate = board.Find("[data-testid='domain-feature-detail-gate']");
+        Assert.Equal("Gated by", gate.QuerySelector("dt")!.TextContent.Trim());
+        Assert.Equal("Always on", Words(gate.QuerySelector("dd")!.TextContent));
+    }
+
+    /// <summary>The text as a reader sees it: whitespace runs collapse to one space.</summary>
+    private static string Words(string text) => System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+
+    [Fact]
+    public void The_promises_pane_counts_the_requirements_and_bars_how_many_a_test_proves()
+    {
+        using var context = new BunitContext();
+        var board = Board(context, parameters => parameters.Add(p => p.ActiveFeature, "checkout"));
+
+        var promises = board.Find("[data-testid='domain-feature-promises']");
+        Assert.Contains("What it promises", promises.TextContent, StringComparison.Ordinal);
+        Assert.Equal("2 requirements", promises.QuerySelector("[data-testid='domain-feature-promise-count']")!.TextContent.Trim());
+        var bar = promises.QuerySelector("[data-testid='domain-feature-promise-bar']")!;
+        Assert.Equal("img", bar.GetAttribute("role"));
+        Assert.Equal("1 of 2 requirements linked to a test", bar.GetAttribute("aria-label"));
+        Assert.Equal("width: 50%", bar.QuerySelector(".domain-feature-detail__fill")!.GetAttribute("style"));
+        Assert.Equal("1 of 2 linked to a test", promises.QuerySelector("[data-testid='domain-feature-promise-proof']")!.TextContent.Trim());
+        Assert.Contains("Open them on Requirements", promises.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Requirements", board.Find(".domain-feature-detail__facts").TextContent, StringComparison.Ordinal);
+
+        board.Find("[data-key='ordering']").Click();
+        promises = board.Find("[data-testid='domain-feature-promises']");
+        Assert.Equal("1 requirement", promises.QuerySelector("[data-testid='domain-feature-promise-count']")!.TextContent.Trim());
+        Assert.Equal("All linked to a test", promises.QuerySelector("[data-testid='domain-feature-promise-proof']")!.TextContent.Trim());
+
+        board.Find("[data-key='quotes']").Click();
+        promises = board.Find("[data-testid='domain-feature-promises']");
+        Assert.Equal("No requirements yet", promises.QuerySelector("[data-testid='domain-feature-promise-count']")!.TextContent.Trim());
+        Assert.Null(promises.QuerySelector("[data-testid='domain-feature-promise-bar']"));
     }
 
     [Fact]

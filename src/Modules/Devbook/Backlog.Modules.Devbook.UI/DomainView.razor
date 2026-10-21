@@ -35,6 +35,7 @@
     {
         <DomainViewContextFilesPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" Title="Features">
             <DomainFeatureBoard Columns="@Columns(context)"
+                                ContextName="@context.ContextName"
                                 ActiveFeature="@Asked?.Anchor"
                                 ActiveFeatureChanged="Picked"
                                 OnNavigate="NavigateAsync"
