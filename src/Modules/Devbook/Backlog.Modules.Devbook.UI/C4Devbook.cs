@@ -334,7 +334,7 @@ public sealed class C4DevbookStore : IDisposable
     /// sample diagram is not part of the model.
     /// </para>
     /// </summary>
-    private static IEnumerable<C4MermaidSource> C4Fences(string chapter, string text)
+    internal static IEnumerable<C4MermaidSource> C4Fences(string chapter, string text)
     {
         var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
 

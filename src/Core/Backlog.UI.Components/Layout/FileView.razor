@@ -156,6 +156,7 @@
                                                 OnDevbookNavigate="@OnDevbookNavigate"
                                                 DevbookHrefFor="@DevbookHrefFor"
                                                 ChapterAdornment="@ChapterAdornment"
+                                                ChapterInsert="@ChapterInsert"
                                                 Comments="@Comments"
                                                 CommentLayout="@CommentLayout"
                                                 OnAddComment="@OnAddComment"
@@ -422,6 +423,11 @@
     /// <c>MarkdownView.ChapterAdornment</c>.</summary>
     [Parameter]
     public Func<string, int, RenderFragment?>? ChapterAdornment { get; set; }
+
+    /// <summary>What to draw under each chapter heading — see
+    /// <c>MarkdownView.ChapterInsert</c>.</summary>
+    [Parameter]
+    public Func<int, string, int, RenderFragment?>? ChapterInsert { get; set; }
 
     /// <summary>Remarks against the file's blocks. Empty — the default — renders
     /// the file exactly as it did before comments existed.</summary>
