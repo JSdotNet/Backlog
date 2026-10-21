@@ -66,7 +66,12 @@
 
            The second tab is absent, not empty, when the feature is off or there is
            neither a workspace nor a C4 fence in the chapters to draw one from. A tab
-           that opens onto nothing is worse than no tab. *@
+           that opens onto nothing is worse than no tab.
+
+           The image source wraps the one the pane cascades, so a chapter's
+           `![…](c4:<view key>)` draws that view and every other image still reaches
+           the scenario screenshots. *@
+        <CascadingValue TValue="IDevbookImageSource" Value="@_c4Images" IsFixed="true">
         <Tabs AriaLabel="Architecture views"
               TestId="arc42-tabs"
               ActiveId="@_tab"
@@ -265,6 +270,7 @@
                 </TabPanel>
             }
         </Tabs>
+        </CascadingValue>
     }
 </aside>
 
@@ -521,8 +527,21 @@
         });
     }
 
+    /// <summary>The image source the pane cascades — scenario screenshots — which
+    /// <see cref="_c4Images"/> hands every image that is not a C4 embed.</summary>
+    [CascadingParameter]
+    public IDevbookImageSource? PaneImages { get; set; }
+
+    /// <summary>Draws a chapter's <c>![…](c4:&lt;view key&gt;)</c> embeds from
+    /// <see cref="_c4"/>. One instance for the panel's life, cascaded fixed, with the
+    /// catalog swapped inside it on every read.</summary>
+    private readonly C4ViewImages _c4Images = new();
+
     protected override async Task OnParametersSetAsync()
     {
+        _c4Images.Next = PaneImages;
+        if (!_c4Images.OnOpen.HasDelegate) _c4Images.OnOpen = EventCallback.Factory.Create<C4View>(this, OpenEmbeddedView);
+
         if (_catalog is null || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
         {
             await LoadAsync();
@@ -616,6 +635,7 @@
 
         _catalog = catalog;
         _c4 = c4;
+        _c4Images.Catalog = c4;
         _loadedRepositoryAlias = alias;
 
         // The folder read, so an earlier failure no longer describes it. Cleared
@@ -1232,6 +1252,15 @@
         _tab = C4Tab;
     }
 
+    /// <summary>"Open in C4 tab" under a view a chapter embeds.</summary>
+    private void OpenEmbeddedView(C4View view)
+    {
+        if (_c4.Views.FirstOrDefault(entry => string.Equals(entry.Key, view.Key, StringComparison.OrdinalIgnoreCase)) is { } entry)
+        {
+            SelectView(entry);
+        }
+    }
+
     /// <summary>The chapters the open view documents, drawn under the diagram. Handed
     /// to the explorer as a slot because the component library has no idea what a
     /// knowledge chapter is, and should not learn.</summary>
@@ -1254,7 +1283,7 @@
         else
         {
             builder.OpenComponent<Alert>(sequence++);
-            builder.AddAttribute(sequence++, "Message", "No chapter references this view yet. Name it in _c4/references.json to tie the two together.");
+            builder.AddAttribute(sequence++, "Message", $"No chapter embeds this view yet. Embed it as ![…](c4:{view.Key}) in the chapter it belongs to.");
             builder.AddAttribute(sequence++, "TestId", "arc42-c4-view-unreferenced");
             builder.AddAttribute(sequence++, "Role", "status");
             builder.CloseComponent();
@@ -1277,13 +1306,12 @@
     };
 
     /// <summary>
-    /// The chapters the open view documents, as <c>_c4/references.json</c> states
-    /// them.
+    /// The chapters the open view documents: the sections that embed it, plus what
+    /// <c>_c4/references.json</c> still states.
     /// <para>
-    /// One authored statement, read here as written and inverted for the chapter side
-    /// — so the two directions cannot disagree, because there is only one of them on
-    /// disk. A reference may name a section and this keeps the section: it is part of
-    /// what the author wrote. Whether a given chapter counts as documented is a
+    /// One map, read here and inverted for the chapter side, so the two directions
+    /// cannot disagree. A reference may name a section and this keeps the section: it
+    /// is part of what the author wrote. Whether a given chapter counts as documented is a
     /// question about the file, which is <c>C4ViewEntry.Documented</c>.
     /// </para>
     /// </summary>

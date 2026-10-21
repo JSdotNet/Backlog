@@ -1660,6 +1660,272 @@ public sealed class SessionsPaneTests
         });
     }
 
+    /// <summary>
+    /// The Show strip reads Live, Open, All, and Open carries its own tally the way Live
+    /// does. The pane still opens on Live.
+    /// </summary>
+    [Fact]
+    public void The_show_strip_offers_open_between_live_and_all_with_its_own_tally()
+    {
+        using var context = Context(OpenSample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var views = pane.FindAll("[data-testid='sessions-view-filter'] [data-testid^='sessions-view-']")
+                .Select(button => button.GetAttribute("data-testid"));
+
+            Assert.Equal(["sessions-view-live", "sessions-view-open", "sessions-view-all"], views);
+            Assert.Equal("true", pane.Find("[data-testid='sessions-view-live']").GetAttribute("aria-pressed"));
+            Assert.Equal("Running now", pane.Find("#sessions-title").TextContent.Trim());
+
+            // Three unarchived rows, whatever their state; the archived row and the
+            // rows with no desktop record are not among them.
+            Assert.Equal("3", pane.Find("[data-testid='sessions-open-tally']").TextContent.Trim());
+            Assert.Equal("1", pane.Find("[data-testid='sessions-live-tally']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// Open keeps the rows the desktop app has not archived and nothing else, under its
+    /// own heading, and the count badge counts the folded Scheduled rows too.
+    /// </summary>
+    [Fact]
+    public void Open_shows_the_unarchived_sessions_whatever_their_state()
+    {
+        using var context = Context(OpenSample);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowOpen(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("Open in Claude", pane.Find("#sessions-title").TextContent.Trim());
+            Assert.Equal(
+                ["Claude/open-running", "Claude/open-idle", "Claude/open-scheduled"],
+                pane.FindAll("[data-testid='sessions-row']").Select(row => row.GetAttribute("data-row-key")));
+            Assert.Equal("3 of 5 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// In Open, a Finished open row wears the quiet Idle badge in place of the Finished
+    /// chip, and Finished stays in its title and its screen-reader text; a Running open
+    /// row keeps its chip. In All the same Finished row is drawn as it always was.
+    /// </summary>
+    [Fact]
+    public void An_open_finished_row_reads_idle_in_open_and_finished_everywhere_else()
+    {
+        using var context = Context(OpenSample);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowOpen(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            var idle = RowOf(pane, "open-idle");
+            var badge = idle.QuerySelector("[data-testid='sessions-idle']");
+
+            Assert.NotNull(badge);
+            Assert.Contains("badge--tone-quiet", badge!.ClassName);
+            Assert.StartsWith("Idle", badge.TextContent.Trim());
+            Assert.Contains("reads Finished", badge.GetAttribute("title"));
+            Assert.Contains("reads Finished", badge.QuerySelector(".sr-only")!.TextContent);
+            Assert.Empty(idle.QuerySelectorAll(".badge--integration-finished"));
+
+            var running = RowOf(pane, "open-running");
+
+            Assert.Null(running.QuerySelector("[data-testid='sessions-idle']"));
+            Assert.NotEmpty(running.QuerySelectorAll(".badge--integration-running"));
+        });
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='sessions-idle']"));
+            Assert.NotEmpty(RowOf(pane, "open-idle").QuerySelectorAll(".badge--integration-finished"));
+        });
+    }
+
+    /// <summary>
+    /// The desktop app's scheduled runs close the Open list in one Scheduled section,
+    /// folded on open: its heading counts them, its rows are behind the fold, and the
+    /// fold opens on a press. Live and All have no such section.
+    /// </summary>
+    [Fact]
+    public void Scheduled_runs_sit_in_one_folded_section_at_the_end_of_open()
+    {
+        using var context = Context(OpenSample);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowOpen(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            var names = pane.FindAll("[data-testid='sessions-group-name']").Select(name => name.TextContent.Trim()).ToList();
+
+            Assert.Equal("Scheduled", names[^1]);
+            Assert.Equal("1", pane.FindAll("[data-testid='sessions-group-size']")[^1].TextContent.Trim());
+
+            var fold = pane.Find("[data-testid='sessions-scheduled-fold']");
+
+            Assert.Equal("false", fold.GetAttribute("aria-expanded"));
+            Assert.True(pane.Find("[data-group-key='scheduled'] .fold__region").HasAttribute("hidden"));
+        });
+
+        pane.Find("[data-testid='sessions-scheduled-fold']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", pane.Find("[data-testid='sessions-scheduled-fold']").GetAttribute("aria-expanded"));
+            Assert.False(pane.Find("[data-group-key='scheduled'] .fold__region").HasAttribute("hidden"));
+        });
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='sessions-scheduled-fold']")));
+    }
+
+    /// <summary>
+    /// The panel never shows a row the fold has hidden: a scheduled row picked while
+    /// the fold was open gives the panel back to the first unfolded row once it closes.
+    /// </summary>
+    [Fact]
+    public void The_panel_never_shows_a_folded_row()
+    {
+        using var context = Context(OpenSample);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowOpen(pane);
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-scheduled-fold']")));
+        pane.Find("[data-testid='sessions-scheduled-fold']").Click();
+
+        var scheduled = RowOf(pane, "open-scheduled").GetAttribute("data-row-key")!;
+        Pick(pane, scheduled);
+
+        pane.Find("[data-testid='sessions-scheduled-fold']").Click();
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal(RowOf(pane, "open-running").GetAttribute("data-row-key"), pane.Find("[data-testid='sessions-detail']").GetAttribute("data-row-key")));
+    }
+
+    /// <summary>With every open row scheduled and the fold closed, there is no row to
+    /// show, so there is no panel rather than a panel about a hidden row.</summary>
+    [Fact]
+    public void With_only_scheduled_rows_folded_away_there_is_no_panel()
+    {
+        using var context = Context([OpenSample[2], OpenSample[3]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowOpen(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(pane.FindAll("[data-testid='sessions-scheduled-fold']"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-detail']"));
+        });
+    }
+
+    /// <summary>Open's empty state says what Open reads and names All as the way
+    /// out, with the number All would show.</summary>
+    [Fact]
+    public void An_empty_open_view_names_all_as_the_way_out()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowOpen(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            var empty = pane.Find("[data-testid='sessions-empty']");
+
+            Assert.Contains("No sessions open in the Claude desktop app", empty.TextContent);
+            Assert.Contains("Choose All to see the 4 sessions", empty.TextContent);
+            Assert.Equal("0", pane.Find("[data-testid='sessions-open-tally']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// A capped reading that lists open sessions past its cap names them apart: they
+    /// are not among the most recent, and counting them there would make the number a
+    /// lie. Without any, the subtitle reads as it always did.
+    /// </summary>
+    [Fact]
+    public void A_capped_subtitle_names_the_older_open_sessions_apart()
+    {
+        var older = Sample[0] with { Id = "open-old", State = AgentSessionState.Finished, LastActivityAt = Noon.AddDays(-30), Archived = false };
+        IReadOnlyList<AgentSession> sessions = [.. Sample, older];
+
+        using var context = Context(new CatalogSource(new AgentSessionCatalog(sessions, [], 1388) { OpenBeyondCap = 1 }));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "The 4 most recent of 1388 sessions this PC has a record of, plus 1 older one still open in Claude, most recently active first.",
+            pane.Find("[data-testid='sessions-subtitle']").TextContent.Trim()));
+    }
+
+    [Fact]
+    public void A_capped_subtitle_with_no_older_open_session_reads_as_before()
+    {
+        using var context = Context(new CatalogSource(new AgentSessionCatalog(Sample, [], 842)));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "The 4 most recent of 842 sessions this PC has a record of, most recently active first.",
+            pane.Find("[data-testid='sessions-subtitle']").TextContent.Trim()));
+    }
+
+    /// <summary>A source that answers one catalog as it is, for the facts the other
+    /// stubs do not carry.</summary>
+    private sealed class CatalogSource(AgentSessionCatalog catalog) : IAgentSessionSource
+    {
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            Task.FromResult(catalog);
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(catalog);
+    }
+
+    private static void ShowOpen(IRenderedComponent<SessionsPane> pane)
+    {
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-view-open']")));
+        pane.Find("[data-testid='sessions-view-open']").Click();
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal("true", pane.Find("[data-testid='sessions-view-open']").GetAttribute("aria-pressed")));
+    }
+
+    /// <summary>The row of one Claude session, by its id.</summary>
+    private static AngleSharp.Dom.IElement RowOf(IRenderedComponent<SessionsPane> pane, string id) =>
+        pane.Find($"[data-testid='sessions-row'][data-row-key='Claude/{id}']");
+
+    /// <summary>
+    /// Sessions as the desktop app's store leaves them: one open and running, one open
+    /// with no process (Finished), one open scheduled routine run, one archived — and a
+    /// Copilot session, which has no desktop record at all. A property, because it is
+    /// built from <see cref="Sample"/>, which is declared below it.
+    /// </summary>
+    private static IReadOnlyList<AgentSession> OpenSample =>
+    [
+        Sample[0] with { Id = "open-running", Archived = false },
+        Sample[0] with { Id = "open-idle", Title = "tidy the inbox import", State = AgentSessionState.Finished, LastActivityAt = Noon.AddHours(-1), Archived = false },
+        Sample[0] with { Id = "open-scheduled", Title = "Morning brief", State = AgentSessionState.Finished, LastActivityAt = Noon.AddMinutes(-30), Archived = false, ScheduledTask = "morning-brief" },
+        Sample[0] with { Id = "archived", Title = "an archived session", State = AgentSessionState.Finished, LastActivityAt = Noon.AddMinutes(-10), Archived = true },
+        Sample[1]
+    ];
+
     private static BunitContext Context(
         IReadOnlyList<AgentSession> sessions,
         IReadOnlyList<string>? unreadable = null,

@@ -168,6 +168,68 @@ public sealed class AgentSessionGroupTests
         Assert.Equal("NEW-NAME", group.Name);
     }
 
+    /// <summary>
+    /// The desktop app's routine runs leave the sections they were grouped into for one
+    /// trailing section of their own, under every grouping. Setting them apart moves
+    /// rows and never drops one: every row is still in exactly one section.
+    /// </summary>
+    [Theory]
+    [InlineData(AgentSessionGrouping.None)]
+    [InlineData(AgentSessionGrouping.Environment)]
+    [InlineData(AgentSessionGrouping.Kind)]
+    [InlineData(AgentSessionGrouping.When)]
+    [InlineData(AgentSessionGrouping.Repository)]
+    public void Scheduled_rows_close_the_list_in_one_section_of_their_own(AgentSessionGrouping grouping)
+    {
+        var sections = AgentSessionGroups.ScheduledApart(
+            AgentSessionGroups.Of(Rows(ScheduledSample), grouping, Noon, TimeZoneInfo.Utc));
+
+        var scheduled = sections[^1];
+
+        Assert.Equal("Scheduled", scheduled.Name);
+        Assert.Equal("scheduled", scheduled.Key);
+
+        // Most recently active first, like every other section — across the sections
+        // the rows came from, not in the order those sections happened to fall.
+        Assert.Equal(["routine-new", "routine-laptop", "routine-old"], scheduled.Rows.Select(row => row.Id));
+        Assert.All(sections.SkipLast(1).SelectMany(section => section.Rows), row => Assert.Null(row.Session!.ScheduledTask));
+
+        Assert.Equal(
+            ScheduledSample.Select(session => session.Id).Order(StringComparer.Ordinal),
+            sections.SelectMany(section => section.Rows).Select(row => row.Id).Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>A section the scheduled rows emptied is dropped rather than drawn as a
+    /// heading over nothing, for the reason no grouping answers an empty section.</summary>
+    [Fact]
+    public void A_section_left_empty_by_the_scheduled_rows_is_dropped()
+    {
+        var sections = AgentSessionGroups.ScheduledApart(
+            AgentSessionGroups.Of(Rows(ScheduledSample), AgentSessionGrouping.Environment));
+
+        // DEV-LAPTOP held only a routine run.
+        Assert.Equal(["DEV-TOWER", "Scheduled"], sections.Select(section => section.Name));
+    }
+
+    /// <summary>With nothing scheduled the sections come back as they were, and no
+    /// empty Scheduled section is added.</summary>
+    [Fact]
+    public void With_nothing_scheduled_the_sections_are_unchanged()
+    {
+        var sections = AgentSessionGroups.Of(Rows(Sample), AgentSessionGrouping.Environment);
+
+        Assert.Same(sections, AgentSessionGroups.ScheduledApart(sections));
+    }
+
+    private static readonly IReadOnlyList<AgentSession> ScheduledSample =
+    [
+        Session("interactive", AgentSessionKind.Claude, "tower", "DEV-TOWER", Noon.AddMinutes(-5)),
+        Session("routine-old", AgentSessionKind.Claude, "tower", "DEV-TOWER", Noon.AddDays(-3)) with { ScheduledTask = "nightly-sweep" },
+        Session("routine-new", AgentSessionKind.Claude, "tower", "DEV-TOWER", Noon.AddMinutes(-1)) with { ScheduledTask = "morning-brief" },
+        Session("routine-laptop", AgentSessionKind.Claude, "laptop", "DEV-LAPTOP", Noon.AddHours(-2)) with { ScheduledTask = "morning-brief" },
+        Session("copilot", AgentSessionKind.Copilot, "tower", "DEV-TOWER", Noon.AddHours(-9))
+    ];
+
     [Theory]
     [InlineData(AgentSessionKind.Claude, "Claude")]
     [InlineData(AgentSessionKind.Copilot, "Copilot")]

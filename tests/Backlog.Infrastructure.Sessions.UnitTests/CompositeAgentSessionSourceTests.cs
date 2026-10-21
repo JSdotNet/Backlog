@@ -141,6 +141,60 @@ public sealed class CompositeAgentSessionSourceTests
         Assert.Equal(only.Discovered, catalog.Discovered);
     }
 
+    /// <summary>
+    /// The desktop app's facts are this machine's reading of its own disk, so only a
+    /// Local answer carries them. A Recorded or Replicated answer never does, whatever
+    /// a source handed in — and where the Local reading of a session is there, it is
+    /// the answer, and its facts are kept.
+    /// </summary>
+    [Fact]
+    public async Task Only_a_local_answer_carries_the_desktop_record()
+    {
+        var composite = new CompositeAgentSessionSource(
+        [
+            new StubSource(new AgentSessionCatalog(
+                [Session("both") with { Archived = false, ScheduledTask = "nightly-sweep" }],
+                [],
+                1)),
+            new StubSource(new AgentSessionCatalog(
+                [
+                    Session("both") with { Origin = AgentSessionOrigin.Recorded, Archived = true },
+                    Session("recorded") with { Origin = AgentSessionOrigin.Recorded, Archived = false, ScheduledTask = "nightly-sweep" },
+                    Session("replicated") with { Origin = AgentSessionOrigin.Replicated, Archived = false, ScheduledTask = "nightly-sweep" }
+                ],
+                [],
+                3))
+        ]);
+
+        var catalog = await composite.GetSessionsAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["both False nightly-sweep", "recorded  ", "replicated  "],
+            catalog.Sessions.Select(session => $"{session.Id} {session.Archived} {session.ScheduledTask}"));
+    }
+
+    /// <summary>The local reading's count of open sessions listed past its cap reaches
+    /// the merged catalog, so the surface can still say what the list holds.</summary>
+    [Fact]
+    public async Task The_open_sessions_past_the_cap_are_still_counted_after_the_merge()
+    {
+        var composite = new CompositeAgentSessionSource(
+        [
+            new StubSource(new AgentSessionCatalog(
+                [Session("recent"), Session("open-old") with { Archived = false }],
+                [],
+                5) { OpenBeyondCap = 1 }),
+            new StubSource(new AgentSessionCatalog(
+                [Session("recent") with { Origin = AgentSessionOrigin.Recorded }],
+                [],
+                1))
+        ]);
+
+        var catalog = await composite.GetSessionsAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, catalog.OpenBeyondCap);
+    }
+
     // --- Composition -----------------------------------------------------------
 
     /// <summary>

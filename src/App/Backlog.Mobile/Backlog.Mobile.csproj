@@ -62,7 +62,7 @@
     </ItemGroup>
 
     <!-- BacklogSyncServiceUrl is the sync service the APK talks to when nothing in
-         its environment says otherwise: release-mobile.yml and
+         its environment says otherwise: release-all.yml and
          build/Install-AndroidApp.ps1 pass it with -p:BacklogSyncServiceUrl=. Empty
          by default, and deliberately not defaulted from BACKLOG_SYNC_URL: the
          AppHost sets that variable on the build process to a host-localhost
@@ -98,7 +98,7 @@
 
     <!-- BacklogUpdateRepository is the update channel: the GitHub repository, as
          owner/repository, whose releases this APK checks for a newer signed APK.
-         Only release-mobile.yml passes it (-p:BacklogUpdateRepository=), because
+         Only release-all.yml passes it (-p:BacklogUpdateRepository=), because
          only its APKs are signed with the release key a later release can update.
          Empty by default, and empty means a build that cannot update itself:
          build/Install-AndroidApp.ps1 and a debug deploy leave it out, and their

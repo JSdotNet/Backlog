@@ -767,6 +767,284 @@ public sealed class C4DevbookPanelTests : IDisposable
             TimeSpan.FromSeconds(5));
     }
 
+    // ---- a chapter embedding a view: ![…](c4:<key>) ---------------------------
+
+    /// <summary>A chapter that embeds the container view under its own section — a
+    /// heading with a <c>meta</c> block, a chapter node — with the key spelled in
+    /// another case, which devbook matches without regard to.</summary>
+    private const string EmbeddingChapter =
+        "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n" +
+        "## Container view\n\n```meta\n```\n\n![The containers](c4:Containers-Backlog)\n\nThe prose under it.\n";
+
+    /// <summary>Every place devbook's <c>c4Embeds</c> reads an embed as an example
+    /// rather than an embed: a code span, a fence, and an HTML comment, one of them
+    /// spread over lines.</summary>
+    private const string QuotingChapter =
+        "# 05. Building Block View\n\n```meta\nstatus: active\n```\n\n" +
+        "## How to embed\n\nWrite `![x](c4:containers-backlog)` in the chapter.\n\n" +
+        "```markdown\n![x](c4:containers-backlog)\n```\n\n" +
+        "<!-- ![x](c4:containers-backlog) -->\n\n" +
+        "<!--\n![x](c4:containers-backlog)\n-->\n";
+
+    [Fact]
+    public async Task A_chapter_embedding_a_view_draws_that_view_where_the_image_was()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter);
+
+        var component = harness.Render(ChapterPath);
+        harness.Settle(component);
+
+        var embed = component.WaitForElement("[data-testid='devbook-c4-embed']");
+        Assert.Equal("containers-backlog", embed.GetAttribute("data-c4-view"));
+        Assert.Equal("The containers", embed.GetAttribute("aria-label"));
+        Assert.NotNull(embed.QuerySelector("[data-testid='devbook-c4-embed-diagram'] svg"));
+        Assert.Contains("Desktop App", embed.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Open_in_C4_tab_under_an_embedded_view_opens_that_view()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter);
+
+        var component = harness.Render(ChapterPath);
+        harness.Settle(component);
+
+        await component.WaitForElement("[data-testid='devbook-c4-embed-open']").ClickAsync(new());
+
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
+        Assert.Contains("Container Diagram", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>An embed naming no view is devbook's checker's error to report. The
+    /// chapter keeps its own rule for it — the alt text — rather than drawing a figure
+    /// of nothing.</summary>
+    [Fact]
+    public async Task An_embed_naming_no_view_keeps_its_alt_text()
+    {
+        await using var harness = CreateHarness(
+            c4Enabled: true,
+            chapter: EmbeddingChapter.Replace("c4:Containers-Backlog", "c4:no-such-view", StringComparison.Ordinal));
+
+        var component = harness.Render(ChapterPath);
+        harness.Settle(component);
+
+        component.WaitForAssertion(() => Assert.Contains("The containers", component.Find("[data-testid='arc42-chapter-file']").TextContent, StringComparison.Ordinal));
+        Assert.Empty(component.FindAll("[data-testid='devbook-c4-embed']"));
+    }
+
+    [Fact]
+    public async Task With_the_key_off_an_embed_keeps_its_alt_text()
+    {
+        await using var harness = CreateHarness(c4Enabled: false, chapter: EmbeddingChapter);
+
+        var component = harness.Render(ChapterPath);
+        harness.Settle(component);
+
+        component.WaitForAssertion(() => Assert.Contains("The containers", component.Find("[data-testid='arc42-chapter-file']").TextContent, StringComparison.Ordinal));
+        Assert.Empty(component.FindAll("[data-testid='devbook-c4-embed']"));
+    }
+
+    /// <summary>The embed is the reference: with no <c>references.json</c> at all, the
+    /// view names the section that embeds it.</summary>
+    [Fact]
+    public async Task A_view_a_chapter_embeds_names_that_chapter_in_the_C4_tab()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, createReferenceDirectory: false);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+        await component.Find("[data-testid='c4-view-option'][title='containers-backlog']").ClickAsync(new());
+
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-view-unreferenced']"));
+        Assert.NotEmpty(component.FindAll($"[data-testid='arc42-c4-view-references'] [title='{ChapterPath}#container-view']"));
+    }
+
+    /// <summary>The section is the builder's edge source: the innermost heading that is
+    /// a chapter node. An embed under the title alone, or under a structural heading
+    /// with no <c>meta</c> block, documents the file.</summary>
+    [Theory]
+    [InlineData("# 05. Building Block View\n\n```meta\n```\n\n![x](c4:containers-backlog)\n")]
+    [InlineData("# 05. Building Block View\n\n```meta\n```\n\n## Structural\n\n![x](c4:containers-backlog)\n")]
+    public async Task An_embed_outside_any_chapter_node_documents_the_file(string chapter)
+    {
+        await using var harness = CreateHarness(c4Enabled: true, chapter: chapter, createReferenceDirectory: false);
+
+        var catalog = await harness.LoadCatalogAsync();
+
+        Assert.Equal([ChapterPath], Assert.Single(catalog.Views, view => view.Key == "containers-backlog").Documents);
+    }
+
+    /// <summary>A <c>references.json</c> entry naming another folder's chapter — the
+    /// repository's <c>.devbook/domain/context-map.md</c> — is kept beside the embed
+    /// until it is retired.</summary>
+    [Fact]
+    public async Task A_references_entry_for_another_folder_stays_beside_the_embed()
+    {
+        const string references = """
+            { "views": { "containers-backlog": [".devbook/domain/context-map.md"] } }
+            """;
+
+        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, references: references);
+
+        var catalog = await harness.LoadCatalogAsync();
+
+        Assert.Equal(
+            [$"{ChapterPath}#container-view", ".devbook/domain/context-map.md"],
+            Assert.Single(catalog.Views, view => view.Key == "containers-backlog").Documents);
+    }
+
+    [Fact]
+    public async Task A_chapter_lists_the_views_it_embeds()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, createReferenceDirectory: false);
+
+        var component = harness.Render(ChapterPath);
+        harness.Settle(component);
+
+        var link = Assert.Single(component.FindAll("[data-testid='arc42-chapter-c4-view']"));
+        Assert.Contains("Container Diagram", link.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task An_embed_quoted_in_a_code_span_a_fence_or_a_comment_documents_nothing()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, chapter: QuotingChapter, references: Undocumented);
+
+        var catalog = await harness.LoadCatalogAsync();
+
+        Assert.All(catalog.Views, view => Assert.Empty(view.Documents));
+    }
+
+    /// <summary>Until <c>references.json</c> is retired, a view keeps what it states
+    /// beside the embeds — except a second entry for a file an embed already names,
+    /// which would list one chapter twice.</summary>
+    [Fact]
+    public async Task The_map_is_the_embeds_plus_what_references_json_still_states()
+    {
+        const string references = """
+            {
+              "views": {
+                "containers-backlog": [
+                  ".arc42/05-building-block-view.md#an-old-anchor",
+                  ".arc42/06-runtime-view.md"
+                ],
+                "context-backlog": [".arc42/03-context-and-scope.md"]
+              }
+            }
+            """;
+
+        await using var harness = CreateHarness(c4Enabled: true, chapter: EmbeddingChapter, references: references);
+
+        var catalog = await harness.LoadCatalogAsync();
+
+        var containers = Assert.Single(catalog.Views, view => view.Key == "containers-backlog");
+        Assert.Equal([$"{ChapterPath}#container-view", ".arc42/06-runtime-view.md"], containers.Documents);
+        Assert.Equal(containers.Documents, catalog.Workspaces[0].Documents("containers-backlog"));
+
+        var context = Assert.Single(catalog.Views, view => view.Key == "context-backlog");
+        Assert.Equal([".arc42/03-context-and-scope.md"], context.Documents);
+    }
+
+    [Fact]
+    public async Task A_view_nothing_embeds_says_how_to_embed_it()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, references: Undocumented);
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+
+        Assert.Contains("c4:context-backlog", component.Find("[data-testid='arc42-c4-view-unreferenced']").TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("references.json", component.Find("[data-testid='arc42-c4-view-unreferenced']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>An embed is a chapter edit, so a save in the app has to drop even a
+    /// catalog read from an authored workspace — no <c>.dsl</c> changed, but the map
+    /// did.</summary>
+    [Fact]
+    public async Task Saving_a_chapter_drops_the_map_even_for_an_authored_workspace()
+    {
+        await using var harness = CreateHarness(c4Enabled: true, references: Undocumented);
+        var store = harness.Context.Services.GetRequiredService<C4DevbookStore>();
+
+        var before = await harness.LoadCatalogAsync();
+        Assert.All(before.Views, view => Assert.Empty(view.Documents));
+
+        File.WriteAllText(Path.Combine(harness.Arc42, "05-building-block-view.md"), EmbeddingChapter);
+        store.ChapterSaved();
+
+        var after = await harness.LoadCatalogAsync();
+        Assert.NotEmpty(Assert.Single(after.Views, view => view.Key == "containers-backlog").Documents);
+    }
+
+    // ---- the image source on its own -----------------------------------------
+
+    [Theory]
+    [InlineData("c4:container-view", "container-view")]
+    [InlineData("  <C4:Container-View>  ", "Container-View")]
+    [InlineData("c4:", null)]
+    [InlineData("https://example.com/c4:x.png", null)]
+    [InlineData("assets/c4.png", null)]
+    [InlineData("scenario:features#shot", null)]
+    public void An_image_target_names_a_view_only_under_the_c4_scheme(string target, string? key) =>
+        Assert.Equal(key, C4ViewImages.Key(target));
+
+    [Fact]
+    public void Every_image_that_is_not_a_view_goes_to_the_source_above()
+    {
+        var next = new RecordingImages();
+        var images = new C4ViewImages { Catalog = Catalog(), Next = next };
+
+        Assert.Null(images.Image("scenario:features#shot", "A shot", ".arc42/05.md"));
+        Assert.Null(images.Image("c4:no-such-view", "Missing", ".arc42/05.md"));
+        Assert.NotNull(images.Image("c4:CONTAINERS-BACKLOG", "Containers", ".arc42/05.md"));
+
+        Assert.Equal(["scenario:features#shot", "c4:no-such-view"], next.Asked);
+    }
+
+    [Fact]
+    public void With_the_feature_off_no_embed_resolves()
+    {
+        var images = new C4ViewImages();
+
+        Assert.Null(images.Resolve("c4:containers-backlog"));
+        Assert.Null(images.Image("c4:containers-backlog", "Containers", null));
+    }
+
+    /// <summary>The catalog the store would hand over for <see cref="Workspace"/>.</summary>
+    private static C4Catalog Catalog()
+    {
+        var workspace = C4DslReader.Read(Workspace);
+        var views = workspace.Views
+            .Select(view => new C4ViewEntry(
+                C4DevbookStore.Reference(".arc42/workspace.dsl", view.Key),
+                C4DevbookStore.WorkspaceFile,
+                workspace.Name!,
+                view.Key,
+                view.Kind,
+                view.Title ?? view.Key,
+                C4MermaidWriter.Write(workspace, view),
+                []))
+            .ToList();
+
+        var entry = new C4WorkspaceEntry(C4DevbookStore.WorkspaceFile, workspace.Name!, workspace, [], new Dictionary<string, string[]>());
+        return new C4Catalog(true, null, views, [], [entry]);
+    }
+
+    private sealed class RecordingImages : Backlog.UI.Components.Devbook.IDevbookImageSource
+    {
+        public List<string> Asked { get; } = [];
+
+        public RenderFragment? Image(string target, string caption, string? documentPath)
+        {
+            Asked.Add(target);
+            return null;
+        }
+    }
+
     private Harness CreateHarness(
         bool c4Enabled,
         bool registerStore = true,
@@ -877,6 +1155,11 @@ public sealed class C4DevbookPanelTests : IDisposable
         public void Settle(IRenderedComponent<Arc42DevbookPanel> component) =>
             component.WaitForAssertion(() =>
                 Assert.Empty(component.FindAll("[data-testid='arc42-loading']")));
+
+        /// <summary>The store's catalog for this repository, read directly — what the
+        /// panel is handed, without a render in between.</summary>
+        public Task<C4Catalog> LoadCatalogAsync() =>
+            Context.Services.GetRequiredService<C4DevbookStore>().LoadAsync(RepositoryAlias);
 
         public async ValueTask DisposeAsync() => await Context.DisposeAsync();
     }

@@ -215,7 +215,7 @@ Open **Actions -> Deploy Foundry -> Run workflow** and choose:
 The workflow always builds and validates the Bicep template before previewing or deploying. It does not run automatically on push.
 
 It is also callable as a reusable workflow, which is how `Deploy All` runs it alongside
-sync and the desktop release. See [`all.md`](all.md).
+sync and the release of both apps. See [`all.md`](all.md).
 
 ## Enabling the AI features after a deploy
 

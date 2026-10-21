@@ -31,7 +31,7 @@ public interface IApkInstaller
 /// </summary>
 /// <remarks>
 /// <para>
-/// A build without an update channel — every build <c>release-mobile.yml</c> did not
+/// A build without an update channel — every build <c>release-all.yml</c> did not
 /// publish — reports <see cref="IsSupported"/> false and answers every request with
 /// <see cref="ApkUpdateChannel.DevelopmentBuildMessage"/>, as the desktop answers an
 /// unpackaged run. It asks GitHub for nothing.

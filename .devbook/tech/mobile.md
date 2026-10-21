@@ -86,7 +86,7 @@ related: [".devbook/tech/mobile.md#apk-packaging"]
 The Android toolchain the MAUI Android head builds and signs through.
 
 - **Used for** — producing the APK, and `apksigner verify`, which
-  `.github/workflows/release-mobile.yml` runs before publishing so an unsigned
+  `.github/workflows/release-all.yml` runs before publishing so an unsigned
   package cannot reach a release.
 - **Why** — signing verification has to be a separate check. `dotnet publish`
   produces an unsigned package when a signing value is missing, and that failure
@@ -101,8 +101,8 @@ type: runtime
 
 The runtime the Android toolchain itself needs.
 
-- **Used for** — installed by `actions/setup-java` in the mobile release
-  workflow, ahead of the `maui-android` workload.
+- **Used for** — installed by `actions/setup-java` in the Release All
+  workflow's mobile job, ahead of the `maui-android` workload.
 - **Why** — required by the Android SDK build tools; not a choice this project
   makes.
 
@@ -112,7 +112,7 @@ The runtime the Android toolchain itself needs.
 status: adopted
 type: tool
 depends-on: [".devbook/tech/mobile.md#android", ".devbook/tech/mobile.md#android-sdk-build-tools"]
-related: [".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/05-building-block-view.md#mobile-app"]
+related: [".devbook/arc42/07-deployment-view.md#installation-and-updates-mobile", ".devbook/arc42/07-deployment-view.md#release", ".devbook/arc42/05-building-block-view.md#mobile-app"]
 ```
 
 The packaging and release format for the Android client.
@@ -126,9 +126,10 @@ The packaging and release format for the Android client.
 - **How** — `dotnet publish` targets `net10.0-android` with
   `AndroidPackageFormat=apk`. `ApplicationDisplayVersion` is the semantic
   version. `ApplicationVersion` is a packed integer `versionCode`
-  (`major*10^7 + minor*10^5 + patch`), so a newer release always installs over
-  an older one.
-- **Signing** — `.github/workflows/release-mobile.yml` passes the signing values
+  (`major*10^7 + minor*10^5 + patch`), so `0.1.123` packs to `100123` and a
+  newer release always installs over an older one. The release number comes
+  from `build/Get-NextReleaseVersion.ps1`, which the desktop MSIX shares.
+- **Signing** — `.github/workflows/release-all.yml` passes the signing values
   on the publish command line from repository secrets: `AndroidSigningKeyStore`,
   `AndroidSigningKeyAlias`, `AndroidSigningStorePass`, and
   `AndroidSigningKeyPass`. `Backlog.Mobile.csproj` carries none of them. The
@@ -138,7 +139,7 @@ The packaging and release format for the Android client.
   install.
 - **Update channel** — `BacklogUpdateRepository` is the GitHub repository, as
   `owner/repository`, whose releases the installed APK checks for a newer one.
-  Only `release-mobile.yml` passes it (`-p:BacklogUpdateRepository=`), because
+  Only `release-all.yml` passes it (`-p:BacklogUpdateRepository=`), because
   only its APKs carry the release key a later release can update. A target in
   `Backlog.Mobile.csproj` compiles it into `UpdateChannelBuildDefaults.Repository`
   and fails the build on a value that is not `owner/repository`. Empty is the
