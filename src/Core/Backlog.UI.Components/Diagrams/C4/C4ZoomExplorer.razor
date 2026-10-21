@@ -23,7 +23,7 @@
       anywhere else in the app is never taken as a move.
 *@
 
-<div class="c4-zoom-explorer" data-testid="@TestId" role="region" aria-label="C4 zoom">
+<div class="c4-zoom-explorer@(_playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty)" data-testid="@TestId" role="region" aria-label="C4 zoom">
     @if (_view is null)
     {
         <EmptyState Title="No C4 views here yet" role="status">
@@ -73,6 +73,20 @@
                            TestId="c4-zoom-diagram" />
         </div>
 
+        @* A dynamic view plays its steps: the panel beside the picture, the current
+           step's arrow drawn in the primary colour by C4SvgWriter's step options. *@
+        @if (_playback.Count > 0)
+        {
+            <C4DynamicSteps Steps="@_playback"
+                            Current="@_stepIndex"
+                            Playing="@_playing"
+                            ReducedMotion="@_reducedMotion"
+                            OnPrevious="PreviousStep"
+                            OnNext="NextStep"
+                            OnPlay="Play"
+                            OnPick="PickStep" />
+        }
+
         <footer class="c4-zoom-explorer__foot">
             <p class="c4-zoom-explorer__legend" data-testid="c4-zoom-legend">Double-click an element, or its Zoom in chip, to open the next level. Backspace goes back up.</p>
 
@@ -117,6 +131,16 @@
     /// leaves it alone costs no interop call.</summary>
     private string? _shownSelection;
 
+    private IReadOnlyList<C4PlaybackStep> _playback = [];
+    private string? _playbackView;
+    private int _stepIndex;
+    private bool _playing;
+    private bool _reducedMotion;
+    private bool _reducedMotionRead;
+    private CancellationTokenSource? _play;
+    private bool _disposed;
+    private C4SvgOptions? _attachedOptions;
+
     [Parameter, EditorRequired]
     public C4Workspace Workspace { get; set; } = C4Workspace.Empty;
 
@@ -136,6 +160,10 @@
 
     [Parameter]
     public string? TestId { get; set; } = "c4-zoom-explorer";
+
+    /// <summary>How long Play holds each step of a dynamic view before the next.</summary>
+    [Parameter]
+    public TimeSpan PlayInterval { get; set; } = TimeSpan.FromSeconds(1.6);
 
     /// <summary>The element selected now, by its model identifier. For the host and
     /// for tests; the zoom bar is drawn from it.</summary>
@@ -182,9 +210,156 @@
             .Select(node => node.Alias)
             .ToHashSet(StringComparer.Ordinal);
 
-        if (_options.ZoomInAliases is null || !_options.ZoomInAliases.SetEquals(zoomable))
+        RefreshPlayback();
+
+        var numberSteps = _playback.Count > 0;
+        int? currentStep = numberSteps ? _playback[_stepIndex].Order : null;
+
+        if (_options.ZoomInAliases is null
+            || !_options.ZoomInAliases.SetEquals(zoomable)
+            || _options.NumberSteps != numberSteps
+            || _options.CurrentStep != currentStep)
         {
-            _options = new C4SvgOptions(zoomable);
+            _options = new C4SvgOptions(zoomable, numberSteps, currentStep);
+        }
+    }
+
+    // ---- playing a dynamic view --------------------------------------------------
+
+    /// <summary>The open view's steps, re-read on every refresh; a newly opened view
+    /// starts on its first step with nothing playing.</summary>
+    private void RefreshPlayback()
+    {
+        _playback = _view is null ? [] : C4DynamicPlayback.Steps(Workspace, _view);
+
+        if (!string.Equals(_playbackView, _view?.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            _playbackView = _view?.Key;
+            _stepIndex = 0;
+            StopPlaying();
+        }
+
+        _stepIndex = _playback.Count == 0 ? 0 : Math.Clamp(_stepIndex, 0, _playback.Count - 1);
+    }
+
+    /// <summary>The step drawn as current now, by its number; null off a dynamic view.
+    /// For the host and for tests.</summary>
+    public int? CurrentStep => _playback.Count > 0 ? _playback[_stepIndex].Order : null;
+
+    /// <summary>Whether Play is walking the steps now. For the host and for tests.</summary>
+    public bool Playing => _playing;
+
+    private void MoveTo(int index)
+    {
+        _stepIndex = _playback.Count == 0 ? 0 : Math.Clamp(index, 0, _playback.Count - 1);
+        Refresh();
+    }
+
+    private void PreviousStep()
+    {
+        StopPlaying();
+        MoveTo(C4DynamicPlayback.Previous(_stepIndex, _playback.Count));
+    }
+
+    private void NextStep()
+    {
+        StopPlaying();
+        MoveTo(C4DynamicPlayback.Next(_stepIndex, _playback.Count));
+    }
+
+    private void PickStep(int index)
+    {
+        StopPlaying();
+        MoveTo(index);
+    }
+
+    /// <summary>
+    /// Play walks forward one step per <see cref="PlayInterval"/> and stops on the last;
+    /// pressed while playing it pauses, and pressed on the last step it starts again
+    /// from the first.
+    /// <para>
+    /// A reader who asked for reduced motion gets no timed walk: the picture would
+    /// change under them unasked. Play then moves one step per press, wrapping from the
+    /// last to the first. The preference is read once, when the first steps panel is
+    /// drawn, so a press never waits on script: two quick presses are a play and a
+    /// pause, never two walks.
+    /// </para>
+    /// </summary>
+    private void Play()
+    {
+        if (_playback.Count == 0) return;
+
+        if (_playing)
+        {
+            StopPlaying();
+            return;
+        }
+
+        var last = _playback.Count - 1;
+
+        if (_reducedMotion)
+        {
+            MoveTo(_stepIndex >= last ? 0 : _stepIndex + 1);
+            return;
+        }
+
+        if (_stepIndex >= last) MoveTo(0);
+
+        if (_disposed) return;
+
+        _playing = true;
+        _play = new CancellationTokenSource();
+        _ = WalkAsync(_play.Token);
+    }
+
+    /// <summary>The timed walk Play starts. Every move is made on the renderer's own
+    /// context, and a cancelled walk — a press, a new view, the tab closing — makes no
+    /// further move.</summary>
+    private async Task WalkAsync(CancellationToken token)
+    {
+        try
+        {
+            while (_stepIndex < _playback.Count - 1)
+            {
+                await Task.Delay(PlayInterval, token);
+                await InvokeAsync(() =>
+                {
+                    if (token.IsCancellationRequested) return;
+                    MoveTo(_stepIndex + 1);
+                    StateHasChanged();
+                });
+                token.ThrowIfCancellationRequested();
+            }
+
+            await InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested) return;
+                StopPlaying();
+                StateHasChanged();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void StopPlaying()
+    {
+        _playing = false;
+        _play?.Cancel();
+        _play?.Dispose();
+        _play = null;
+    }
+
+    private async Task<bool> ReducedMotionAsync()
+    {
+        try
+        {
+            return await Js.InvokeAsync<bool>("backlogC4Zoom.reducedMotion");
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            return false;
         }
     }
 
@@ -315,7 +490,22 @@
             return;
         }
 
-        if (!ReferenceEquals(_diagram, _attachedDiagram))
+        // A dynamic view tells the reader up front that Play will not move on its
+        // own, so the preference is read once the first steps panel is on screen —
+        // and only then, so a Play press never has to wait on script.
+        if (_playback.Count > 0 && !_reducedMotionRead)
+        {
+            _reducedMotionRead = true;
+            if (await ReducedMotionAsync())
+            {
+                _reducedMotion = true;
+                StateHasChanged();
+            }
+        }
+
+        // A new current step rewrites the picture, and the cards the viewer made
+        // focusable go with it, so the picture is handed over again.
+        if (!ReferenceEquals(_diagram, _attachedDiagram) || !ReferenceEquals(_options, _attachedOptions))
         {
             await AttachAsync(_diagram);
             return;
@@ -335,6 +525,7 @@
         _self ??= DotNetObjectReference.Create(this);
         _attached = true;
         _attachedDiagram = diagram;
+        _attachedOptions = _options;
         _shownSelection = SelectedAlias;
 
         var refocus = _refocus;
@@ -380,6 +571,9 @@
 
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
+        StopPlaying();
+
         // Only after a viewer was asked for: a prerender disposes the component
         // without ever reaching OnAfterRender.
         if (_attached)

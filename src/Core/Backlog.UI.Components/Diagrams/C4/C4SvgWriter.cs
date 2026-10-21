@@ -18,7 +18,17 @@ namespace Backlog.UI.Components.Diagrams.C4;
 /// card. Named by the host rather than read off <see cref="C4PlacedNode.Drillable"/>
 /// because where a card zooms to is the host's navigation, not the layout's: on a
 /// landscape the zoom tab opens a system's context view, which no drill offers.</param>
-public sealed record C4SvgOptions(IReadOnlySet<string>? ZoomInAliases = null)
+/// <param name="NumberSteps">Whether a dynamic view's arrows carry their step number in a
+/// badge, <c>g.c4-diagram__step-badge</c>, rather than as a prefix to the label, and every
+/// numbered arrow says which step it is with <c>data-c4-step</c>. The zoom tab's steps
+/// panel plays the view by these numbers.</param>
+/// <param name="CurrentStep">The step drawn as the current one: its arrow, label and
+/// badge carry <c>--current</c>, and every other numbered arrow does not. Read only with
+/// <paramref name="NumberSteps"/>.</param>
+public sealed record C4SvgOptions(
+    IReadOnlySet<string>? ZoomInAliases = null,
+    bool NumberSteps = false,
+    int? CurrentStep = null)
 {
     /// <summary>No additions: the picture every view drew before options existed.</summary>
     public static C4SvgOptions None { get; } = new();
@@ -82,9 +92,10 @@ public static class C4SvgWriter
         // order: a card is never behind the line that leaves it, and a label is never
         // under the card it points at.
         foreach (var boundary in diagram.Boundaries) WriteBoundary(svg, boundary);
-        foreach (var edge in diagram.Edges) WriteEdge(svg, id, edge);
-        foreach (var edge in diagram.Edges) WriteEdgeLabel(svg, edge);
-        foreach (var node in diagram.Nodes) WriteNode(svg, id, node, options ?? C4SvgOptions.None);
+        options ??= C4SvgOptions.None;
+        foreach (var edge in diagram.Edges) WriteEdge(svg, id, edge, options);
+        foreach (var edge in diagram.Edges) WriteEdgeLabel(svg, edge, options);
+        foreach (var node in diagram.Nodes) WriteNode(svg, id, node, options);
 
         svg.Append("</svg>");
         return svg.ToString();
@@ -99,21 +110,35 @@ public static class C4SvgWriter
             .Append("</g>");
     }
 
-    private static void WriteEdge(StringBuilder svg, string id, C4PlacedEdge edge)
+    private static void WriteEdge(StringBuilder svg, string id, C4PlacedEdge edge, C4SvgOptions options)
     {
-        svg.Append("<g class=\"c4-diagram__edge\">")
+        svg.Append("<g class=\"c4-diagram__edge").Append(StepModifiers(edge, options, "c4-diagram__edge")).Append('"')
+            .Append(StepAttribute(edge, options)).Append('>')
             .Append(Invariant($"<path d=\"{Escape(edge.Path)}\" marker-end=\"url(#{Escape(id)}-arrow)\" />"))
             .Append("</g>");
     }
 
-    private static void WriteEdgeLabel(StringBuilder svg, C4PlacedEdge edge)
+    private static void WriteEdgeLabel(StringBuilder svg, C4PlacedEdge edge, C4SvgOptions options)
     {
         if (string.IsNullOrWhiteSpace(edge.Label) && edge.Order is null) return;
 
-        svg.Append(Invariant($"<g class=\"c4-diagram__edge-label\" transform=\"translate({edge.LabelX:0.##}, {edge.LabelY:0.##})\">"))
-            .Append("<text text-anchor=\"middle\">");
+        svg.Append("<g class=\"c4-diagram__edge-label").Append(StepModifiers(edge, options, "c4-diagram__edge-label")).Append('"')
+            .Append(StepAttribute(edge, options))
+            .Append(Invariant($" transform=\"translate({edge.LabelX:0.##}, {edge.LabelY:0.##})\">"));
 
-        if (edge.Order is { } order)
+        // The badge sits above the label's first line, centred on it like the label,
+        // so it never has to know how wide the text beneath it is drawn.
+        if (options.NumberSteps && edge.Order is { } badge)
+        {
+            svg.Append("<g class=\"c4-diagram__step-badge\" aria-hidden=\"true\">")
+                .Append("<circle cx=\"0\" cy=\"-17\" r=\"9\" />")
+                .Append(Invariant($"<text text-anchor=\"middle\" x=\"0\" y=\"-13.5\">{badge}</text>"))
+                .Append("</g>");
+        }
+
+        svg.Append("<text text-anchor=\"middle\">");
+
+        if (!options.NumberSteps && edge.Order is { } order)
         {
             svg.Append(Invariant($"<tspan class=\"c4-diagram__edge-order\">{order}. </tspan>"));
         }
@@ -127,6 +152,20 @@ public static class C4SvgWriter
 
         svg.Append("</g>");
     }
+
+    /// <summary>The <c>--step</c> and <c>--current</c> modifiers a numbered arrow and its
+    /// label carry when the host plays the steps; nothing otherwise.</summary>
+    private static string StepModifiers(C4PlacedEdge edge, C4SvgOptions options, string block)
+    {
+        if (!options.NumberSteps || edge.Order is not { } order) return string.Empty;
+
+        return order == options.CurrentStep
+            ? $" {block}--step {block}--current"
+            : $" {block}--step";
+    }
+
+    private static string StepAttribute(C4PlacedEdge edge, C4SvgOptions options) =>
+        options.NumberSteps && edge.Order is { } order ? Invariant($" data-c4-step=\"{order}\"") : string.Empty;
 
     private static void WriteNode(StringBuilder svg, string id, C4PlacedNode node, C4SvgOptions options)
     {
