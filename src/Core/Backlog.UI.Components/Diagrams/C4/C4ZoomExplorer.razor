@@ -656,7 +656,7 @@
             || _options.CurrentStep != currentStep
             || !SameChips(_options.RecordChips, chips))
         {
-            _options = new C4SvgOptions(zoomable, numberSteps, currentStep) { SelectableBoundaryAliases = frames, RecordChips = chips };
+            _options = new C4SvgOptions(zoomable, numberSteps, currentStep) { SelectableBoundaryAliases = frames, RecordChips = chips, EdgeEnds = true };
         }
 
         _environments = C4ZoomDeployment.Environments(Workspace, _view);

@@ -158,6 +158,19 @@ public sealed class C4ZoomSurfaceTests : IDisposable
         explorer.WaitForAssertion(() => Assert.Equal("Devbook", locations[^1].CodeComponent));
     }
 
+    /// <summary>The explorer asks for edge ends, so its viewer can light the selected
+    /// card's relationships; the classic C4 tab never does (C4SvgWriterTests).</summary>
+    [Fact]
+    public async Task The_picture_names_the_ends_of_its_lines_so_the_selected_cards_can_be_lit()
+    {
+        var explorer = Render();
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(C4MermaidWriter.AliasOf("backlog"), "context-backlog"));
+
+        var diagram = explorer.Find("[data-testid='c4-zoom-diagram']").InnerHtml;
+        Assert.Contains($"data-c4-from=\"{C4MermaidWriter.AliasOf("backlog.desktop")}\"", diagram, StringComparison.Ordinal);
+        Assert.Contains("-arrow-related\"", diagram, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Without_a_navigation_the_explorer_draws_as_the_zoom_tab_always_did()
     {

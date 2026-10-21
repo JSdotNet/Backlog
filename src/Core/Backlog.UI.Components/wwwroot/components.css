@@ -23273,20 +23273,30 @@ button.c4-code__record:focus-visible .c4-code__record-title {
    columns — the host's navigation, the picture, the inspector — as the design draws
    every screen. A document the host opens in place of the picture takes the picture's
    and the inspector's room. Nothing here reaches the explorer without Navigation, so
-   the C4 zoom tab draws as before. One column under 60rem of surface width.     */
+   the C4 zoom tab draws as before. One column under 60rem of surface width.
+
+   A host that gives the surface a height gets three columns that each scroll on
+   their own, as the design's do: the row is that height and no more, so a long
+   chapter scrolls inside the main column rather than running past a pane that
+   clips. A host that gives it none gets columns as tall as their content. Under
+   60rem the columns stack and the surface's body scrolls as one.               */
 
 .c4-zoom-explorer--surface {
     container-type: inline-size;
     container-name: c4-zoom-surface;
     gap: var(--spacing-sm);
+    min-height: 0;
 }
 
 .c4-zoom-explorer__surface {
     display: grid;
+    flex: 1 1 auto;
     grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(16rem, 20rem);
+    grid-template-rows: minmax(0, 1fr);
     gap: var(--spacing-md);
-    align-items: start;
+    align-items: stretch;
     min-width: 0;
+    min-height: 0;
 }
 
 .c4-zoom-explorer__surface--document {
@@ -23294,19 +23304,16 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 }
 
 .c4-zoom-explorer__nav {
-    position: sticky;
-    top: 0;
     min-width: 0;
-    max-height: calc(100vh - 8rem);
+    min-height: 0;
     overflow: auto;
     box-sizing: border-box;
 }
 
 .c4-zoom-explorer__aside {
-    position: sticky;
-    top: 0;
+    align-self: start;
     min-width: 0;
-    max-height: calc(100vh - 8rem);
+    max-height: 100%;
     overflow: auto;
     box-sizing: border-box;
     padding: var(--spacing-md);
@@ -23327,6 +23334,8 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     flex-direction: column;
     gap: var(--spacing-sm);
     min-width: 0;
+    min-height: 0;
+    overflow: auto;
 }
 
 .c4-zoom-explorer__main.c4-zoom-explorer--dynamic {
@@ -23376,9 +23385,50 @@ button.c4-code__record:focus-visible .c4-code__record-title {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .c4-zoom-explorer__nav,
-    .c4-zoom-explorer__aside {
-        position: static;
-        max-height: none;
+    .c4-zoom-explorer__surface {
+        grid-template-rows: none;
+        grid-auto-rows: max-content;
+        align-content: start;
+        overflow: auto;
     }
+
+    .c4-zoom-explorer__nav,
+    .c4-zoom-explorer__main,
+    .c4-zoom-explorer__document,
+    .c4-zoom-explorer__aside {
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+/* ---- the selected card's relationships (C4 zoom) ----
+
+   While a card is selected, the lines into and out of it — and their labels — are
+   drawn in the primary colour, heavier, with an arrowhead of their own, and every
+   other line is dimmed so the selected card's connections read at a glance. The
+   viewer (markRelated in components.js) sets the classes, and only on a picture
+   written with C4SvgOptions.EdgeEnds, which the C4 tab never asks for. Nothing
+   selected, nothing changes.                                                     */
+.c4-diagram--focused g.c4-diagram__edge,
+.c4-diagram--focused g.c4-diagram__edge-label {
+    opacity: 0.35;
+}
+
+.c4-diagram--focused g.c4-diagram__edge.c4-diagram__edge--related,
+.c4-diagram--focused g.c4-diagram__edge-label.c4-diagram__edge--related {
+    opacity: 1;
+}
+
+g.c4-diagram__edge.c4-diagram__edge--related path {
+    stroke: var(--color-primary);
+    stroke-width: 2.5;
+}
+
+g.c4-diagram__edge-label.c4-diagram__edge--related text {
+    fill: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-diagram__arrowhead--related {
+    fill: var(--color-primary);
 }

@@ -9379,9 +9379,25 @@ a.pull-request-detail-checks__name:hover {
 
 .arc42-surface__chapters {
     display: grid;
+    flex: 1 1 auto;
     grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: var(--spacing-md);
-    align-items: start;
+    align-items: stretch;
+    min-height: 0;
+}
+
+.arc42-surface__nav {
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* The chapter's own layout below scrolls the article; this only holds it. */
+.arc42-surface__document {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .arc42-surface-nav {
@@ -9604,26 +9620,78 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-xs);
 }
 
-/* On the surface the document area holds the chapter and its right-hand panel; the
-   Devbook stack's scroll rules for the Chapters tab do not apply to it. */
+/* The pane's height reaches the surface's columns. The pane clips at the
+   section's height (the rule above for .devbook-pane--arc42), so every box between
+   it and the column that scrolls takes the height it is given rather than its
+   content's: the surface, the explorer, and in the document column the chapter's
+   layout, whose article and right-hand panel each scroll on their own — the
+   chapter is never cut off at the pane's edge with no scrollbar to reach the end. */
+.devbook-stack__section > .devbook-pane--arc42 > .arc42-surface {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.devbook-stack__section > .devbook-pane--arc42 > .arc42-surface > .c4-zoom-explorer--surface {
+    flex: 1 1 auto;
+}
+
+.arc42-surface .c4-zoom-explorer__document {
+    overflow: hidden;
+}
+
 .arc42-surface .arc42-devbook-layout--record {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
-    align-items: start;
+    align-items: stretch;
 }
 
 .devbook-stack__section > .devbook-pane--arc42 .arc42-surface .arc42-devbook-layout {
     display: grid;
-    overflow: visible;
+    flex: 1 1 auto;
+    grid-template-rows: minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
 }
 
-.devbook-stack__section > .devbook-pane--arc42 .arc42-surface .arc42-devbook-layout--record > .devbook-record-model {
-    max-height: none;
+.devbook-stack__section > .devbook-pane--arc42 .arc42-surface .arc42-devbook-layout--record > .devbook-record-model,
+.devbook-stack__section > .devbook-pane--arc42 .arc42-surface .arc42-devbook-layout--record > .arc42-chapter-links {
+    align-self: start;
+    max-height: 100%;
+    overflow: auto;
 }
 
+/* Narrow: one column, and the whole document area scrolls as one — the chapter,
+   then its panel under it. */
 @container devbook-stack (max-width: 60rem) {
     .arc42-surface .arc42-devbook-layout--record,
     .arc42-surface__chapters {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .arc42-surface__chapters {
+        grid-template-rows: none;
+        grid-auto-rows: max-content;
+        align-content: start;
+        overflow: auto;
+    }
+
+    .arc42-surface .c4-zoom-explorer__document,
+    .arc42-surface__nav,
+    .arc42-surface__document {
+        overflow: visible;
+    }
+
+    .devbook-stack__section > .devbook-pane--arc42 .arc42-surface .arc42-devbook-layout {
+        grid-template-rows: none;
+        height: auto;
+        overflow: visible;
+    }
+
+    .devbook-stack__section > .devbook-pane--arc42 .arc42-surface .devbook-document {
+        max-height: none;
+        overflow: visible;
     }
 }
