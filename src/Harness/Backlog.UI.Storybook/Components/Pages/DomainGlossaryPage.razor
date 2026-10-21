@@ -7,10 +7,10 @@
            Guidelines="@Rules">
 
     <Story Name="Glossary"
-           Description="Terms and model chapters together, A–Z. Each row is led by its type marker and names its kind in words; its aliases are code chips; its summary is its first sentence. `Basket` is `status: deprecated`, so it is struck through and a screen reader hears “deprecated”."
+           Description="Terms and model chapters together, A–Z. Each row is led by its type marker and names its kind in words; its aliases are code chips; its summary is its first sentence. `Basket` is `status: deprecated`, so it is struck through and a screen reader hears “deprecated”. A row the invariants are about counts its rules — Order, Order Line, Money — and the count opens them in place under the row."
            Code="@GlossaryCode"
            Source="@Domain">
-        <DomainGlossary Chapter="@Language" Files="@Files" DocumentPath="@DomainPath" DebounceMilliseconds="0" />
+        <DomainGlossary Chapter="@Language" Files="@Files" DocumentPath="@DomainPath" DebounceMilliseconds="0" RulesAbout="@Catalog.About" />
     </Story>
 
     <Story Name="Filtered"
@@ -137,10 +137,67 @@
     private static readonly IReadOnlyList<DomainChapterFile> Files = [File];
     private static readonly DomainChapter Language = File.Chapters.Single(chapter => chapter.Type == "ubiquitous-language");
 
+    // The rules the Order's invariants write, which a row's rule count opens.
+    private const string Invariants = """
+        # Invariants
+
+        ## Order
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        ### Invariant: An order is placed once
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Placing_twice_is_refused]
+        ```
+
+        A placed order cannot be placed again.
+
+        Enforced at: `Place()`
+
+        ### Invariant: A line has a quantity
+
+        ```meta
+        type: invariant
+        ```
+
+        Every order line holds one or more of its product.
+
+        Enforced at: `OrderLine.SetQuantity()`
+
+        ### Invariant: An amount has one currency
+
+        ```meta
+        type: invariant
+        ```
+
+        An amount names exactly one currency.
+
+        Enforced at: `Money`
+
+        ### Invariant: A cancelled order stays on record
+
+        ```meta
+        type: invariant
+        ```
+
+        Cancelling an order keeps it.
+
+        Enforced at: open
+        """;
+
+    private static readonly DomainRuleCatalog Catalog = DomainRuleCatalog.Of(Files, [DomainUnits.Parse(Invariants, ".devbook/domain/ordering/domain.invariants.md")]);
+
     private const string GlossaryCode = """
         <DomainGlossary Chapter="@glossary.Chapter"
                         Files="@contextDomainFiles"
                         DocumentPath="@path"
+                        RulesAbout="@DomainRuleCatalog.Of(contextDomainFiles, invariantFiles).About"
+                        OnOpenRule="OpenAlwaysTrueAsync"
                         OnNavigate="OpenAsync" />
         """;
 

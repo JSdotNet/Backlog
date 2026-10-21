@@ -4,8 +4,9 @@
     status as a kicker, the heading as written, the chapter's first sentence
     (§5), a tile per group of rules it always keeps, the links out — Always true,
     how it moves, the Glossary — and the reader's Brain notes. Below it, a card
-    per entity or value object it owns, its enums as rows of values read as
-    words, and the events it raises with who hears them.
+    per entity or value object it owns — its rule count opening the rules about
+    it in place (DomainRuleList) — its enums as rows of values read as words,
+    and the events it raises with who hears them.
 
     Nothing here names a field: a summary that closes on a list of fields reads
     as far as the colon, a note naming one is left out, and field types,
@@ -49,7 +50,9 @@
                 @foreach (var member in _members)
                 {
                     var proposed = string.Equals(member.Status, "proposed", StringComparison.OrdinalIgnoreCase);
-                    var rules = RuleCountOf?.Invoke(member) ?? 0;
+                    var rules = RulesOf?.Invoke(member) ?? [];
+                    var shown = _rulesShown.Contains(member.Anchor);
+                    var listId = $"{_id}-rules-{member.Anchor}";
                     <li class="domain-about__card-item">
                         <Card Compact="true" CssClass="@(proposed ? "domain-about__card domain-about__card--proposed" : "domain-about__card")" AriaLabel="@member.Title" TestId="domain-unit-member" data-type="@member.Type">
                             <h4 class="domain-about__card-title">@member.Title</h4>
@@ -65,11 +68,25 @@
                                         <span class="domain-about__card-status" data-testid="domain-unit-member-proposed">· proposed</span>
                                     }
                                 </span>
-                                @if (rules > 0 && OnShowRules.HasDelegate)
+                                @if (rules.Count > 0)
                                 {
-                                    <button type="button" class="domain-about__link" data-testid="domain-unit-member-rules" @onclick="() => OnShowRules.InvokeAsync()">@rules @(rules == 1 ? "rule" : "rules") →</button>
+                                    <AppButton Variant="ButtonVariant.None"
+                                               BaseClass="domain-about__link"
+                                               TestId="domain-unit-member-rules"
+                                               OnClick="@(() => ToggleRules(member))"
+                                               aria-expanded="@(shown ? "true" : "false")"
+                                               aria-controls="@listId">@DomainRuleText.Count(rules.Count)</AppButton>
                                 }
                             </p>
+                            @if (shown && rules.Count > 0)
+                            {
+                                <DomainRuleList Rules="@rules"
+                                                OnOpen="OnOpenRule"
+                                                AriaLabel="@($"Rules about {member.Title}")"
+                                                CssClass="domain-about__card-rules"
+                                                TestId="domain-unit-member-rule-list"
+                                                id="@listId" />
+                            }
                         </Card>
                     </li>
                 }
@@ -135,14 +152,14 @@
     [Parameter]
     public DomainPageLink? Model { get; set; }
 
-    /// <summary>How many rules Always true holds about a member, which its card
-    /// links to.</summary>
+    /// <summary>The rules Always true holds about a member, which its card
+    /// counts and opens in place.</summary>
     [Parameter]
-    public Func<DomainMember, int>? RuleCountOf { get; set; }
+    public Func<DomainMember, IReadOnlyList<DomainRule>>? RulesOf { get; set; }
 
-    /// <summary>Opens Always true.</summary>
+    /// <summary>A rule's link to its row on Always true, followed.</summary>
     [Parameter]
-    public EventCallback OnShowRules { get; set; }
+    public EventCallback<DomainAlwaysTrueLink> OnOpenRule { get; set; }
 
     /// <summary>What closes the hero: the reader's Brain notes on the unit.</summary>
     [Parameter]
@@ -152,6 +169,12 @@
     private string _lead = string.Empty;
     private IReadOnlyList<DomainMember> _members = [];
     private IReadOnlyList<DomainEnum> _enums = [];
+    private readonly HashSet<string> _rulesShown = new(StringComparer.Ordinal);
+
+    private void ToggleRules(DomainMember member)
+    {
+        if (!_rulesShown.Remove(member.Anchor)) _rulesShown.Add(member.Anchor);
+    }
 
     // A tile reads as the group's first two rules, each the heading as written.
     private static string TileBody(DomainRuleGroup group)

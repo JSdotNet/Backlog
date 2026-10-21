@@ -8,7 +8,9 @@
     The lines are drawn by the stylesheet, not by an SVG: the band, the parts and
     the references stay boxes in a reading order — the parts above the root, the
     root, the parts below it, then what sits outside — and each part says its kind
-    and multiplicity in words, which a screen reader reads and a line never was. A
+    and multiplicity in words, which a screen reader reads and a line never was.
+    A part the invariants are about counts its rules, and the count opens them
+    in place under the card (DomainRuleList). A
     fence this cannot arrange in full (DomainModelArrangement returns null) is
     handed to DiagramView, which draws it with mermaid as before.
 *@
@@ -133,6 +135,25 @@ else
     [Parameter]
     public IReadOnlyDictionary<string, string>? ChapterReferences { get; set; }
 
+    /// <summary>The rules about a part, by the name the model gives it: what its
+    /// card counts and opens in place. Unset, no card counts rules.</summary>
+    [Parameter]
+    public Func<string, IReadOnlyList<DomainRule>>? RulesAbout { get; set; }
+
+    /// <summary>A rule's link to its row on Always true, followed.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenRule { get; set; }
+
+    private readonly string _rulesId = $"domain-model-rules-{Guid.NewGuid():N}";
+
+    // The parts whose rules the reader opened, by the part's name.
+    private readonly HashSet<string> _rulesShown = new(StringComparer.Ordinal);
+
+    private void ToggleRules(string part)
+    {
+        if (!_rulesShown.Remove(part)) _rulesShown.Add(part);
+    }
+
     /// <summary>The chapters an id attribute can point at, the ones to prefer
     /// first: what names the types outside the boundary.</summary>
     [Parameter]
@@ -248,6 +269,9 @@ else
         var element = part.Class;
         var key = DomainModelArrangement.KindKey(element.Kind);
         var summary = FieldSummary(element);
+        var rules = RulesAbout?.Invoke(element.Name) ?? [];
+        var shown = _rulesShown.Contains(element.Name);
+        var listId = $"{_rulesId}-{element.Name}";
         <span class="@($"domain-model__element domain-model__element--{key}")" data-testid="domain-model-element" data-kind="@key" data-name="@element.Name">
             <span class="domain-model__element-kind">
                 <span class="domain-model__element-glyph" aria-hidden="true">@DomainModelArrangement.KindGlyph(element.Kind)</span>
@@ -274,7 +298,26 @@ else
             {
                 <span class="domain-model__element-fields">@summary</span>
             }
+            @if (rules.Count > 0)
+            {
+                <AppButton Variant="ButtonVariant.None"
+                           BaseClass="domain-model__rules"
+                           TestId="domain-model-rules"
+                           OnClick="@(() => ToggleRules(element.Name))"
+                           aria-expanded="@(shown ? "true" : "false")"
+                           aria-controls="@listId"
+                           aria-label="@($"{DomainRuleText.Count(rules.Count)} about {element.Name}")">@DomainRuleText.Count(rules.Count)</AppButton>
+            }
         </span>
+        @if (shown && rules.Count > 0)
+        {
+            <DomainRuleList Rules="@rules"
+                            OnOpen="OnOpenRule"
+                            AriaLabel="@($"Rules about {element.Name}")"
+                            CssClass="domain-model__rule-list"
+                            TestId="domain-model-rule-list"
+                            id="@listId" />
+        }
     };
 
     private RenderFragment RootCard(DomainModelBoundary boundary, bool above, bool below) => __builder =>

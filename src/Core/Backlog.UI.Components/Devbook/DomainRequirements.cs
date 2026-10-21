@@ -45,12 +45,20 @@ public sealed record DomainAlwaysTrueLink(string Title, string DocumentPath, str
 {
     /// <summary>The unit's reference: the file and its anchor.</summary>
     public string Reference => $"{DocumentPath}#{UnitKey}";
+
+    /// <summary>The rule to land on, by its own reference — its invariants file
+    /// and anchor — or <see langword="null"/> for the tab's top.</summary>
+    public string? Rule { get; init; }
+
+    /// <summary>The unit's rules the page shows in place, each linking to its
+    /// own row on Always true. Empty where the page lists none.</summary>
+    public IReadOnlyList<DomainRule> Listed { get; init; } = [];
 }
 
 /// <summary>One feature's requirements: a <c>##</c> chapter of a requirements
 /// file.</summary>
 /// <param name="Intro">The group's own text, with any sentence explaining
-/// invariants taken out — <see cref="AlwaysTrue"/> links to them instead.</param>
+/// invariants taken out — <see cref="AlwaysTrue"/> lists them instead.</param>
 /// <param name="Feature">The feature its <c>related</c> names.</param>
 /// <param name="AlwaysTrue">The units whose rules the requirements rest on.</param>
 public sealed record DomainRequirementGroup(
@@ -131,8 +139,8 @@ public static partial class DomainRequirements
 
         var groups = new List<DomainRequirementGroup>();
         var keys = new HashSet<string>(StringComparer.Ordinal);
-        // Each domain file's aggregates with their rules, read once for every group.
-        var aggregatesOf = new Dictionary<DomainChapterFile, IReadOnlyList<(DomainUnit Unit, IReadOnlyList<DomainRuleGroup> Rules)>>();
+        // Every unit's rules, read once for every group.
+        var catalog = DomainRuleCatalog.Of(domainFiles, files);
         var loose = page.Chapters.Where(DomainUnits.IsRequirement).ToList();
         if (loose.Count > 0)
         {
@@ -158,7 +166,7 @@ public static partial class DomainRequirements
             var related = chapter.Related.Select(entry => DomainUnits.Resolve(entry, page.Path)).ToList();
             var feature = related.FirstOrDefault(entry => DomainFeatures.KindOf(DomainUnits.PathOf(entry)) is "features" or "skills" && entry.Contains('#'));
             var intro = OwnText(chapter.Prose);
-            var alwaysTrue = AlwaysTrue(page, chapter, related, feature, intro, files, domainFiles, aggregatesOf);
+            var alwaysTrue = AlwaysTrue(page, chapter, related, feature, intro, files, catalog);
 
             groups.Add(new DomainRequirementGroup(
                 key,
@@ -343,16 +351,17 @@ public static partial class DomainRequirements
     }
 
     /// <summary>
-    /// The units whose Always true tab the group's requirements rest on: every
-    /// aggregate the group, its requirements or its feature names in
-    /// <c>related</c>, and the one each invariants link in the group's text
-    /// belongs to. A link into <c>domain.&lt;name&gt;.invariants.md</c> is the
-    /// aggregate of <c>domain.&lt;name&gt;.md</c>; one into
-    /// <c>domain.invariants.md</c> is the aggregate its anchor or its rule's
-    /// <c>related</c> names. A reference that names no aggregate still reaches
-    /// one that has rules: the innermost holding the chapter it names, else every
-    /// one with a group of rules about it — the concept, or a chapter of the file
-    /// it names whole.
+    /// The units whose rules the group's requirements rest on, each with the
+    /// rules the page shows in place. What the group, its requirements or its
+    /// feature name in <c>related</c>, and each invariants link in the group's
+    /// text, is first asked of <paramref name="catalog"/> for the rules about it
+    /// (<see cref="DomainRuleCatalog.About(string)"/>). A reference no rule is
+    /// about still reaches a unit with rules, all of them shown: the aggregate
+    /// it names, a whole split file being its one aggregate, else the innermost
+    /// holding the chapter it names. A link into
+    /// <c>domain.&lt;name&gt;.invariants.md</c> is the aggregate of
+    /// <c>domain.&lt;name&gt;.md</c>; one into <c>domain.invariants.md</c> the
+    /// aggregate its anchor or its rule's <c>related</c> names.
     /// </summary>
     private static IReadOnlyList<DomainAlwaysTrueLink> AlwaysTrue(
         DomainChapterFile page,
@@ -361,17 +370,17 @@ public static partial class DomainRequirements
         string? feature,
         string intro,
         IReadOnlyList<DomainChapterFile> files,
-        IReadOnlyList<DomainChapterFile> domainFiles,
-        Dictionary<DomainChapterFile, IReadOnlyList<(DomainUnit Unit, IReadOnlyList<DomainRuleGroup> Rules)>> aggregatesOf)
+        DomainRuleCatalog catalog)
     {
-        var named = new List<string>(related);
-        named.AddRange(Within(group).SelectMany(requirement => requirement.Related.Select(entry => DomainUnits.Resolve(entry, page.Path))));
+        // Each reference, and whether the rules about it are what it reaches.
+        var named = new List<(string Reference, bool Precise)>(related.Select(entry => (entry, true)));
+        named.AddRange(Within(group).SelectMany(requirement => requirement.Related.Select(entry => (DomainUnits.Resolve(entry, page.Path), true))));
         if (feature is not null)
         {
             foreach (var file in files.Where(file => DomainFeatures.KindOf(file.Path) == "features"))
             {
                 var chapter = file.AllChapters().FirstOrDefault(candidate => DomainUnits.Normalize(file.ReferenceTo(candidate)) == feature);
-                if (chapter is not null) named.AddRange(chapter.Related.Select(entry => DomainUnits.Resolve(entry, file.Path)));
+                if (chapter is not null) named.AddRange(chapter.Related.Select(entry => (DomainUnits.Resolve(entry, file.Path), true)));
             }
         }
 
@@ -384,91 +393,73 @@ public static partial class DomainRequirements
 
             var invariants = files.FirstOrDefault(file => DomainUnits.Normalize(file.Path) == path);
             var rule = anchor is null ? null : invariants?.AllChapters().FirstOrDefault(chapter => chapter.Anchor == anchor);
-            if (rule is not null) named.AddRange(rule.Related.Select(entry => DomainUnits.Resolve(entry, invariants!.Path)));
-            named.Add(anchor is null ? host : $"{host}#{anchor}");
-            named.Add(host);
+
+            // A link to a rule, or a group of rules, shows those rules alone.
+            if (anchor is not null && catalog.About(target).Count > 0)
+            {
+                named.Add((target, true));
+                continue;
+            }
+            if (rule is not null) named.AddRange(rule.Related.Select(entry => (DomainUnits.Resolve(entry, invariants!.Path), false)));
+            named.Add((anchor is null ? host : $"{host}#{anchor}", false));
+            named.Add((host, false));
         }
 
-        var links = new List<DomainAlwaysTrueLink>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var reference in named)
+        var units = new List<(string Unit, DomainAlwaysTrueLink Link, List<DomainRule> Rules)>();
+        foreach (var (reference, precise) in named)
         {
-            var path = DomainUnits.PathOf(reference);
-            var file = domainFiles.FirstOrDefault(candidate => DomainUnits.Normalize(candidate.Path) == path);
-            if (file is null)
+            var about = precise ? catalog.About(reference) : [];
+            if (about.Count > 0)
             {
-                // Outside the domain files — a flow, say — a reference reaches the
-                // aggregates whose rules are about what it names.
-                foreach (var other in domainFiles)
-                {
-                    foreach (var (unit, rules) in RulesAbout(AggregatesOf(other), reference)) Add(other, unit, rules);
-                }
+                foreach (var rule in about) Add(rule);
                 continue;
             }
 
-            var aggregates = AggregatesOf(file);
-            var hash = reference.IndexOf('#');
-            var anchor = hash < 0 ? null : reference[(hash + 1)..];
-            // The aggregate named, a whole split file being its one aggregate.
-            List<(DomainUnit Unit, IReadOnlyList<DomainRuleGroup> Rules)> direct = anchor is null
-                ? [.. aggregates.Take(aggregates.Count == 1 ? 1 : 0)]
-                : [.. aggregates.Where(entry => entry.Unit.Chapter.Anchor == anchor).Take(1)];
-
-            // Else the innermost aggregate holding the chapter named, or every one
-            // whose rules are about it — each only when it has rules to open on.
-            var reached = direct.Count > 0 || anchor is null ? direct : Reached(aggregates, anchor, reference);
-            foreach (var (unit, rules) in reached) Add(file, unit, rules);
-        }
-        return links;
-
-        IReadOnlyList<(DomainUnit Unit, IReadOnlyList<DomainRuleGroup> Rules)> AggregatesOf(DomainChapterFile file)
-        {
-            if (!aggregatesOf.TryGetValue(file, out var aggregates))
+            foreach (var entry in Reached(catalog, reference))
             {
-                aggregatesOf[file] = aggregates = [.. DomainUnits.Of(file, files)
-                    .Where(unit => unit.Kind == DomainUnitKind.Aggregate)
-                    .Select(unit => (unit, DomainUnits.RulesOf(unit, file, files, domainFiles)))];
+                foreach (var rule in entry.Rules) Add(rule);
             }
-            return aggregates;
         }
+        return [.. units.Select(unit => unit.Link with { Rules = unit.Rules.Count, Listed = catalog.InOrder(unit.Rules) })];
 
-        void Add(DomainChapterFile file, DomainUnit unit, IReadOnlyList<DomainRuleGroup> rules)
+        void Add(DomainRule rule)
         {
-            if (seen.Add($"{DomainUnits.Normalize(file.Path)}#{unit.Key}")) links.Add(new DomainAlwaysTrueLink(unit.Chapter.Title, file.Path, unit.Key, Count(rules)));
+            if (rule.Place is not { } place) return;
+            var key = DomainUnits.Normalize(place.Reference);
+            var index = units.FindIndex(unit => unit.Unit == key);
+            if (index < 0)
+            {
+                units.Add((key, place with { Rule = null }, []));
+                index = units.Count - 1;
+            }
+            if (!units[index].Rules.Contains(rule)) units[index].Rules.Add(rule);
         }
-
     }
 
-    /// <summary>The aggregates a reference into their file reaches without naming
-    /// one: the innermost that holds the chapter <paramref name="anchor"/>, else
-    /// every one with a group of rules whose <c>related</c> names
-    /// <paramref name="reference"/>. Only those with rules.</summary>
-    private static List<(DomainUnit Unit, IReadOnlyList<DomainRuleGroup> Rules)> Reached(
-        IReadOnlyList<(DomainUnit Unit, IReadOnlyList<DomainRuleGroup> Rules)> aggregates,
-        string anchor,
-        string reference)
+    /// <summary>The units a reference no rule is about still reaches: the
+    /// aggregate it names, a whole split file being its one aggregate, else the
+    /// innermost holding the chapter it names.</summary>
+    private static IEnumerable<DomainUnitRules> Reached(DomainRuleCatalog catalog, string reference)
     {
+        var path = DomainUnits.PathOf(DomainUnits.Normalize(reference));
+        var hash = reference.IndexOf('#');
+        var anchor = hash < 0 ? null : reference[(hash + 1)..];
+        var aggregates = catalog.Units
+            .Where(entry => entry.Unit.Kind == DomainUnitKind.Aggregate && DomainUnits.Normalize(entry.Page.Path) == path)
+            .ToList();
+        if (anchor is null)
+        {
+            // A whole file is its aggregate only where it holds one.
+            return aggregates.Count == 1 && DomainUnits.Of(aggregates[0].Page).Count(unit => unit.Kind == DomainUnitKind.Aggregate) == 1
+                ? aggregates
+                : [];
+        }
+
+        var named = aggregates.Where(entry => entry.Unit.Chapter.Anchor == anchor).Take(1).ToList();
+        if (named.Count > 0) return named;
         var holder = aggregates.LastOrDefault(entry => entry.Unit.Chapter.Descendants().Any(chapter => chapter.Anchor == anchor));
-        if (holder.Unit is not null) return Count(holder.Rules) > 0 ? [holder] : [];
-        return RulesAbout(aggregates, reference);
+        return holder is null ? [] : [holder];
     }
-
-    /// <summary>The aggregates with a group of rules whose <c>related</c> names
-    /// <paramref name="reference"/> — or, for a whole file, a chapter in it.</summary>
-    private static List<(DomainUnit Unit, IReadOnlyList<DomainRuleGroup> Rules)> RulesAbout(
-        IReadOnlyList<(DomainUnit Unit, IReadOnlyList<DomainRuleGroup> Rules)> aggregates,
-        string reference)
-    {
-        var target = DomainUnits.Normalize(reference);
-        var whole = !target.Contains('#');
-        return [.. aggregates.Where(entry => entry.Rules.Any(group => group.Links.Any(link =>
-        {
-            var linked = DomainUnits.Normalize(link.Reference);
-            return linked == target || (whole && DomainUnits.PathOf(linked) == target);
-        })))];
-    }
-
-    private static int Count(IReadOnlyList<DomainRuleGroup> groups) => groups.Sum(group => group.Rules.Count);
 
     /// <summary>A chapter's own text: its prose up to the first sub-heading.</summary>
     private static string OwnText(string prose)

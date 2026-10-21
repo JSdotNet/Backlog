@@ -1,10 +1,8 @@
 @*
     The Requirements page of the Domain view (local ADR 0037), laid out as the
     design board "Requirements — requirements.md" draws it. The page opens on its
-    title and two cards: what a requirement is, with how many the file holds and
-    how many a test proves, and — dashed, because it is a way out rather than
-    content — What is always true for each unit whose rules the open feature's
-    requirements rest on, which opens that unit's Always true tab.
+    title and a card: what a requirement is, with how many the file holds and
+    how many a test proves.
 
     Below them, an unsplit requirements.md lists its features By feature · tested,
     each with its proved / count and a bar; a split requirements.<name>.md holds
@@ -15,6 +13,10 @@
     ", and" reads as one bullet per clause. A feature with more than three
     requirements opens its first two and lists the rest as rows that open in
     place.
+
+    Under the feature's heading, What is always true: the rules of the units its
+    chapters name, in place (DomainRuleList), each opening on where it is
+    enforced and linking to its row on that unit's Always true tab.
 
     Pure: the host hands over the groups DomainRequirements read.
 *@
@@ -39,23 +41,6 @@
                     </div>
                     <span class="domain-requirements__card-text">A promise to someone outside the product. One SHALL sentence, its cases as Given / When / Then, proved by a linked test.</span>
                 </div>
-                @foreach (var unit in active.AlwaysTrue)
-                {
-                    var described = $"{_id}-always-true-{unit.UnitKey}";
-                    <button type="button"
-                            class="domain-requirements__card domain-requirements__card--always-true"
-                            data-testid="domain-requirements-always-true-link"
-                            data-unit="@unit.UnitKey"
-                            aria-label="@($"What is always true for {unit.Title}, on Domain")"
-                            aria-describedby="@described"
-                            @onclick="() => OnOpenAlwaysTrue.InvokeAsync(unit)">
-                        <span class="domain-requirements__card-head">
-                            <b>What is always true</b>
-                            <span class="domain-requirements__card-meta" data-testid="domain-requirements-always-true-meta">@RulesMeta(unit)</span>
-                        </span>
-                        <span class="domain-requirements__card-text" id="@described">Not promises but what the model never lets happen, whoever changes the @(unit.Title).</span>
-                    </button>
-                }
             </div>
         </header>
 
@@ -109,6 +94,29 @@
                                       DevbookFolder="DevbookFolder.Domain"
                                       OnDevbookNavigate="OnNavigate" />
                     </div>
+                }
+                @if (active.AlwaysTrue.Any(unit => unit.Listed.Count > 0))
+                {
+                    <section class="domain-requirements__rules" data-testid="domain-requirements-always-true" aria-labelledby="@($"{_id}-rules")">
+                        <div class="domain-requirements__rules-head">
+                            <h4 class="domain-requirements__rules-title" id="@($"{_id}-rules")">What is always true</h4>
+                            <span class="domain-requirements__card-meta" data-testid="domain-requirements-always-true-meta">@RulesMeta(active)</span>
+                        </div>
+                        <span class="domain-requirements__card-text">Not promises but what the model never lets happen, whoever changes @UnitNames(active). These requirements lean on them.</span>
+                        @foreach (var unit in active.AlwaysTrue.Where(unit => unit.Listed.Count > 0))
+                        {
+                            @if (active.AlwaysTrue.Count(other => other.Listed.Count > 0) > 1)
+                            {
+                                <span class="domain-requirements__rules-unit" data-testid="domain-requirements-always-true-unit">@unit.Title</span>
+                            }
+                            <DomainRuleList @key="unit.Reference"
+                                            Rules="@unit.Listed"
+                                            OnOpen="OnOpenAlwaysTrue"
+                                            AriaLabel="@($"What is always true about {unit.Title}")"
+                                            TestId="domain-requirements-rules"
+                                            data-unit="@unit.UnitKey" />
+                        }
+                    </section>
                 }
 
                 @{
@@ -201,8 +209,8 @@
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
 
-    /// <summary>An Always true link the reader pressed: the host opens that unit
-    /// on its Always true tab.</summary>
+    /// <summary>A rule's link to Always true the reader followed: the host opens
+    /// that unit on its Always true tab, at the rule.</summary>
     [Parameter]
     public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
 
@@ -261,14 +269,13 @@
     private static int OpenCount(DomainRequirementGroup group) =>
         group.Requirements.Count <= OpenAll ? group.Requirements.Count : OpenFirst;
 
-    /// <summary>How many rules the card opens on, as the board reads it.</summary>
-    private static string RulesMeta(DomainAlwaysTrueLink unit) =>
-        unit.Rules switch
-        {
-            0 => "on Domain",
-            1 => "1 rule · on Domain",
-            var count => $"{count} rules · on Domain"
-        };
+    /// <summary>How many rules the section shows, as the board's card read it.</summary>
+    private static string RulesMeta(DomainRequirementGroup group) =>
+        $"{DomainRuleText.Count(group.AlwaysTrue.Sum(unit => unit.Listed.Count))} · on Domain";
+
+    /// <summary>The units whose rules the section shows, by name: "the Task", "the Task or the Order".</summary>
+    private static string UnitNames(DomainRequirementGroup group) =>
+        string.Join(" or ", group.AlwaysTrue.Where(unit => unit.Listed.Count > 0).Select(unit => $"the {unit.Title}"));
 
     private static string Tested(DomainProofTally tally) =>
         tally.Count == 0 ? "No requirements" : $"{tally.Count} · {tally.Proved} tested";

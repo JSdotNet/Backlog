@@ -6,11 +6,17 @@
     split (local ADR 0037). It reads the file through the domain store and hands
     it to the library's DomainFlowPage: each lifecycle drawn as one row of states
     with its prose beneath, every other diagram as it renders everywhere else.
+    It reads the context's domain and invariants files too, for the rules the
+    invariants write about a lifecycle or a card beside it, shown in place.
 *@
 
 @if (_page is { } opened)
 {
-    <DomainFlowPage File="@opened" OnNavigate="NavigateAsync" AriaLabel="@($"Flow of {_contextName}")" />
+    <DomainFlowPage File="@opened"
+                    OnNavigate="NavigateAsync"
+                    RulesAbout="@_catalog.About"
+                    OnOpenRule="OnOpenAlwaysTrue"
+                    AriaLabel="@($"Flow of {_contextName}")" />
 }
 else if (_problem is not null)
 {
@@ -35,8 +41,14 @@ else if (_problem is not null)
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
+    /// <summary>A rule shown on the page, followed to its row on its unit's
+    /// Always true tab.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
     private DomainDevbookStore? _store;
     private DomainChapterFile? _page;
+    private DomainRuleCatalog _catalog = DomainRuleCatalog.Empty;
     private string _contextName = "the context";
     private string? _problem;
     private (string? Alias, string? Path)? _loaded;
@@ -73,7 +85,7 @@ else if (_problem is not null)
 
         if (clear) (_page, _problem) = (null, null);
 
-        (DomainChapterFile? Page, string ContextName, string? Problem) read;
+        (DomainChapterFile? Page, string ContextName, string? Problem, DomainRuleCatalog Rules) read;
         try
         {
             var view = await _store.LoadAsync(alias);
@@ -85,18 +97,18 @@ else if (_problem is not null)
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            read = (null, "the context", $"The flow could not be read: {ex.Message}");
+            read = (null, "the context", $"The flow could not be read: {ex.Message}", DomainRuleCatalog.Empty);
         }
 
         if (_disposed || version != _version) return;
-        (_page, _contextName, _problem) = read;
+        (_page, _contextName, _problem, _catalog) = read;
     }
 
     /// <summary>The flow file the menu path names, read into chapters, or why
     /// there is nothing to show.</summary>
-    internal static (DomainChapterFile? Page, string ContextName, string? Problem) Read(DomainDevbookView view, string? selectedPath)
+    internal static (DomainChapterFile? Page, string ContextName, string? Problem, DomainRuleCatalog Rules) Read(DomainDevbookView view, string? selectedPath)
     {
-        if (view.Error is { } error) return (null, "the context", error);
+        if (view.Error is { } error) return (null, "the context", error, DomainRuleCatalog.Empty);
 
         var relative = (selectedPath ?? string.Empty).Replace('\\', '/').Trim('/');
         var slug = relative.Split('/')[0];
@@ -104,9 +116,30 @@ else if (_problem is not null)
         var document = context?.Documents.FirstOrDefault(d =>
             string.Equals(d.Path, ".domain/" + relative, StringComparison.OrdinalIgnoreCase));
 
-        if (context is null || document is null) return (null, "the context", $"No flow file at {relative}.");
+        if (context is null || document is null) return (null, "the context", $"No flow file at {relative}.", DomainRuleCatalog.Empty);
 
-        return (DomainUnits.Parse(DomainDevbookStore.ReadText(view, document), document.Path), context.DisplayName, null);
+        // The rules about a lifecycle or a card are the invariants files'; one
+        // that cannot be read only leaves the page without them.
+        var domainFiles = Parsed(view, context, DomainDevbookDocumentKind.Domain);
+        var invariantFiles = Parsed(view, context, DomainDevbookDocumentKind.Invariants);
+        return (DomainUnits.Parse(DomainDevbookStore.ReadText(view, document), document.Path), context.DisplayName, null, DomainRuleCatalog.Of(domainFiles, invariantFiles));
+    }
+
+    private static List<DomainChapterFile> Parsed(DomainDevbookView view, DomainDevbookContext context, DomainDevbookDocumentKind kind)
+    {
+        var files = new List<DomainChapterFile>();
+        foreach (var document in context.Documents.Where(d => d.Kind == kind))
+        {
+            try
+            {
+                files.Add(DomainUnits.Parse(DomainDevbookStore.ReadText(view, document), document.Path));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Left out: the page shows the flow without that file's rules.
+            }
+        }
+        return files;
     }
 
     private Task NavigateAsync(DevbookReference reference) =>

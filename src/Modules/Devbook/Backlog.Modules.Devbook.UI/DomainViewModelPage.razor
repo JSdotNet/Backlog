@@ -7,7 +7,8 @@
     domain store and hands them to the library's DomainModelView, which opens on
     Diagram with the Fields and Events tabs beside it. Fields also takes the file
     itself (its Fields chapter's purpose groups and its relationship notes), the
-    context's invariants (what a field's rule count counts) and its class chapters
+    context's invariants (what a field's or a part's rule count counts and
+    opens in place, each rule linking to its row on Always true) and its class chapters
     (the header and the side column); Fields and Events the domain services and
     events of the context's domain.md and its splits, and Events what the context
     listens to from its dependencies.md — all read from the files as written.
@@ -22,6 +23,8 @@
                      Identities="@_identities"
                      Markdown="@_markdown"
                      Rules="@_rules"
+                     RuleCatalog="@_catalog"
+                     OnOpenAlwaysTrue="OnOpenAlwaysTrue"
                      Profiles="@_profiles"
                      Title="@_title"
                      Context="@_context"
@@ -46,6 +49,11 @@ else if (_problem is not null)
     [Parameter]
     public string? SelectedPath { get; set; }
 
+    /// <summary>A rule shown on Fields or Diagram, followed to its row on its
+    /// unit's Always true tab.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
     private DomainDevbookStore? _store;
     private IReadOnlyList<DomainModelFence>? _fences;
     private string? _notes;
@@ -55,6 +63,7 @@ else if (_problem is not null)
     private string? _markdown;
     private string? _context;
     private IReadOnlyDictionary<string, IReadOnlyList<string>>? _rules;
+    private DomainRuleCatalog? _catalog;
     private IReadOnlyDictionary<string, DomainModelProfile>? _profiles;
     private string? _problem;
     private string _title = "Model";
@@ -106,7 +115,7 @@ else if (_problem is not null)
 
         if (_disposed || _loaded != (alias, path)) return;
         (_fences, _title, _problem, _notes, _chapters, _references, _identities) = (read.Fences, read.Title, read.Problem, read.Notes, read.Chapters, read.References, read.Identities);
-        (_markdown, _rules, _profiles, _context) = (read.Markdown, read.Rules, read.Profiles, read.Context);
+        (_markdown, _rules, _profiles, _context, _catalog) = (read.Markdown, read.Rules, read.Profiles, read.Context, read.RuleCatalog);
     }
 
     /// <summary>What the Model page shows of one model file: its class diagrams,
@@ -131,6 +140,10 @@ else if (_problem is not null)
 
         /// <summary>The context's class chapters by model name.</summary>
         public IReadOnlyDictionary<string, DomainModelProfile>? Profiles { get; init; }
+
+        /// <summary>Every rule of the context, with its mark and its place on
+        /// Always true: what a field's or a part's rule count opens.</summary>
+        public DomainRuleCatalog? RuleCatalog { get; init; }
 
         public static ModelReading Failed(string problem) => new(null, "Model", problem, null, DomainChapterReading.Empty);
     }
@@ -197,6 +210,7 @@ else if (_problem is not null)
             Context = context.DisplayName,
             Markdown = markdown,
             Rules = DomainFieldBoards.RuleIndex(invariants),
+            RuleCatalog = DomainRuleCatalog.Of(own, invariants),
             Profiles = DomainFieldBoards.Profiles(own)
         };
     }

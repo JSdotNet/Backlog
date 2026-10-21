@@ -87,7 +87,14 @@
                     <ul class="domain-rules__list">
                         @foreach (var rule in group.Rules)
                         {
-                            <li class="domain-rules__rule@(rule.Proof == DomainRuleProof.Open ? " domain-rules__rule--open" : string.Empty)" data-testid="domain-rule" data-proof="@ProofName(rule.Proof)">
+                            var focused = IsFocused(rule);
+                            <li class="@RowClass(rule, focused)"
+                                data-testid="domain-rule"
+                                data-proof="@ProofName(rule.Proof)"
+                                data-rule="@(rule.Reference.Length > 0 ? rule.Reference : null)"
+                                data-focused="@(focused ? "true" : null)"
+                                tabindex="@(focused ? "-1" : null)"
+                                @ref="_rows[rule]">
                                 <span class="domain-rules__mark domain-rules__mark--@ProofName(rule.Proof)" aria-hidden="true">@Glyph(rule.Proof)</span>
                                 <span class="sr-only">@ProofText(rule.Proof): </span>
                                 <span class="domain-rules__line"><span class="domain-rules__claim">@Headline(rule)</span>@if (rule.Proof == DomainRuleProof.Open)
@@ -132,6 +139,12 @@
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
 
+    /// <summary>The rule a link elsewhere opened the tab on, by its reference
+    /// (<see cref="DomainRule.Reference"/>): its row is marked and takes focus,
+    /// so the reader lands on it.</summary>
+    [Parameter]
+    public string? FocusRule { get; set; }
+
     private static readonly DomainRuleProof[] Proofs = [DomainRuleProof.Proved, DomainRuleProof.Unproved, DomainRuleProof.Open];
 
     private bool _showEnforced;
@@ -159,28 +172,13 @@
 
     private string HeadingId(DomainRuleGroup group) => $"{_id}-{Groups.ToList().IndexOf(group)}";
 
-    /// <summary>What a row reads as: the rule's heading, the short claim the
-    /// board shows, as a sentence. Its first sentence, which names the fields and
-    /// calls, waits behind the toggle with where it is enforced.</summary>
-    private static string Headline(DomainRule rule)
-    {
-        var title = rule.Title.Trim();
-        return title.Length == 0 || ".!?".Contains(title[^1], StringComparison.Ordinal) ? title : title + ".";
-    }
+    private static string Headline(DomainRule rule) => DomainRuleText.Headline(rule);
 
-    private static string Glyph(DomainRuleProof proof) => proof switch
-    {
-        DomainRuleProof.Proved => "✓",
-        DomainRuleProof.Open => "?",
-        _ => "○"
-    };
+    private static string Glyph(DomainRuleProof proof) => DomainRuleText.Glyph(proof);
 
-    private static string ProofText(DomainRuleProof proof) => proof switch
-    {
-        DomainRuleProof.Proved => "Proved by a test",
-        DomainRuleProof.Open => "Not enforced yet",
-        _ => "No test yet"
-    };
+    private static string ProofText(DomainRuleProof proof) => DomainRuleText.ProofText(proof);
+
+    private static string ProofName(DomainRuleProof proof) => DomainRuleText.ProofName(proof);
 
     private static string CountText(DomainRuleProof proof) => proof switch
     {
@@ -189,15 +187,50 @@
         _ => "no test linked"
     };
 
-    private static string ProofName(DomainRuleProof proof) => proof switch
+    // Each row by its rule, so the one a link asked for can take focus.
+    private readonly Dictionary<DomainRule, ElementReference> _rows = [];
+    private IReadOnlyList<DomainRuleGroup>? _rowsOf;
+    private string? _focusedOn;
+
+    protected override void OnParametersSet()
     {
-        DomainRuleProof.Proved => "proved",
-        DomainRuleProof.Open => "open",
-        _ => "unproved"
-    };
+        // Other rules draw other rows; a rule asked for again, or after another,
+        // takes focus again.
+        if (!ReferenceEquals(_rowsOf, Groups))
+        {
+            _rowsOf = Groups;
+            _rows.Clear();
+        }
+        if (!string.Equals(_focusedOn, FocusRule, StringComparison.Ordinal)) _focusedOn = null;
+    }
+
+    private static string RowClass(DomainRule rule, bool focused) =>
+        "domain-rules__rule"
+        + (rule.Proof == DomainRuleProof.Open ? " domain-rules__rule--open" : string.Empty)
+        + (focused ? " domain-rules__rule--focused" : string.Empty);
+
+    private bool IsFocused(DomainRule rule) =>
+        FocusRule is { Length: > 0 } focus && string.Equals(DomainUnits.Normalize(rule.Reference), DomainUnits.Normalize(focus), StringComparison.Ordinal);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Focused once per rule asked for: a re-render must not pull the reader back.
+        if (FocusRule is not { Length: > 0 } focus || string.Equals(_focusedOn, focus, StringComparison.Ordinal)) return;
+        var rule = Groups.SelectMany(group => group.Rules).FirstOrDefault(IsFocused);
+        if (rule is null || !_rows.TryGetValue(rule, out var row)) return;
+        _focusedOn = focus;
+        try
+        {
+            await row.FocusAsync();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or JSException or TaskCanceledException)
+        {
+            // Prerendered or torn down: the row stays marked, unfocused.
+        }
+    }
 
     /// <summary>The line as written, its code spans drawn as code.</summary>
-    private static RenderFragment Inline(string text) => builder =>
+    internal static RenderFragment Inline(string text) => builder =>
     {
         var parts = text.Split('`');
         for (var i = 0; i < parts.Length; i++)

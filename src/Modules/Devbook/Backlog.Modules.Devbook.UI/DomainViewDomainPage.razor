@@ -20,6 +20,8 @@
                     ModelPath="@_modelPath"
                     @bind-ActiveUnit="_activeUnit"
                     ActiveUnitPage="@OpenUnitPage"
+                    ActiveRule="@OpenRule"
+                    OnOpenAlwaysTrue="OnOpenAlwaysTrue"
                     OnNavigate="NavigateAsync"
                     AriaLabel="@($"Domain of {_contextName}")" />
 }
@@ -55,6 +57,16 @@ else if (_problem is not null)
     /// for Always true. Unset is About.</summary>
     [Parameter]
     public string? OpenUnitPage { get; set; }
+
+    /// <summary>The rule Always true lands on, by its reference — the one a rule
+    /// shown on another page linked to. Unset is the tab's top.</summary>
+    [Parameter]
+    public string? OpenRule { get; set; }
+
+    /// <summary>A rule shown here whose unit is another domain file's, followed
+    /// to its row on that unit's Always true tab.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
 
     private DomainDevbookStore? _store;
     private DomainChapterFile? _page;

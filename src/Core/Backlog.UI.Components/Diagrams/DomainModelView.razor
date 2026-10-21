@@ -87,6 +87,8 @@
                                             ChapterReferences="@ChapterReferences"
                                             Identities="@Identities"
                                             Services="@Chapters.Services"
+                                            RulesAbout="@(RuleCatalog is null ? null : PartRules)"
+                                            OnOpenRule="OnOpenAlwaysTrue"
                                             OnAllFields="@(() => _tab = "fields")" />
                     }
                 }
@@ -128,7 +130,7 @@
                             <li><span class="domain-field-type domain-field-type--date">date</span>read on a local calendar</li>
                             <li><span class="domain-field-type domain-field-type--instant">instant</span>a moment in UTC</li>
                             <li><span class="domain-field-type domain-field-type--id">id</span>a plain id, not an object</li>
-                            <li><span class="domain-field-rules">2 rules</span>invariants on the field</li>
+                            <li><span class="domain-field-rules">2 rules</span>invariants on the field, opened in place</li>
                         </ul>
                     }
                     @foreach (var fence in Fences)
@@ -137,6 +139,8 @@
                                                Title="@fence.Title"
                                                Purposes="@_purposes"
                                                Rules="@Rules"
+                                               RuleCatalog="@RuleCatalog"
+                                               OnOpenRule="OnOpenAlwaysTrue"
                                                Profiles="@Profiles"
                                                Services="@Chapters.Services" />
                     }
@@ -198,6 +202,16 @@
     [Parameter]
     public IReadOnlyDictionary<string, IReadOnlyList<string>>? Rules { get; set; }
 
+    /// <summary>Every rule of the context with its mark and its place on Always
+    /// true: what a field's or a part's rule count opens in place.</summary>
+    [Parameter]
+    public DomainRuleCatalog? RuleCatalog { get; set; }
+
+    /// <summary>A rule's link to its row on Always true, followed: the host
+    /// opens that unit there.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
     /// <summary>The context's class chapters by model name
     /// (<see cref="DomainFieldBoards.Profiles"/>): the Fields header's heading,
     /// status, aliases and lead, and the side column's names.</summary>
@@ -241,6 +255,13 @@
                 .Distinct(StringComparer.Ordinal)
         ];
     }
+
+    /// <summary>The rules about a part of the diagram: those about the domain
+    /// chapter its name is (<see cref="ChapterReferences"/>).</summary>
+    private IReadOnlyList<DomainRule> PartRules(string name) =>
+        RuleCatalog is { } catalog && ChapterReferences is not null && ChapterReferences.TryGetValue(name, out var reference)
+            ? catalog.About(reference)
+            : [];
 
     private DomainModelProfile? RootProfile =>
         _roots.Count == 1 && Profiles is not null && Profiles.TryGetValue(_roots[0], out var profile) ? profile : null;

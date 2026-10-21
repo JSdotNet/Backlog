@@ -21,7 +21,27 @@ public enum DomainRuleProof
 /// the chapter has no sentence of its own.</param>
 /// <param name="EnforcedAt">What its <c>Enforced at:</c> line says, as written,
 /// or <see langword="null"/> when it has none.</param>
-public sealed record DomainRule(string Title, string Claim, string? EnforcedAt, DomainRuleProof Proof);
+public sealed record DomainRule(string Title, string Claim, string? EnforcedAt, DomainRuleProof Proof)
+{
+    /// <summary>The rule's own chapter: the invariants file as the host spells it
+    /// and the rule's anchor. Empty for a rule read outside a file.</summary>
+    public string Reference { get; init; } = string.Empty;
+
+    /// <summary>Where the rule sits on Always true: its unit, with
+    /// <see cref="DomainAlwaysTrueLink.Rule"/> naming the rule, which a list of
+    /// rules shown elsewhere links to. <see langword="null"/> for a rule read
+    /// outside a unit.</summary>
+    public DomainAlwaysTrueLink? Place { get; init; }
+
+    /// <summary>The concept its <c>Enforced at:</c> line names, by its reference,
+    /// or <see langword="null"/> when the line names none of the domain's.</summary>
+    public string? EnforcedOn { get; init; }
+
+    /// <summary>Whether the rule's mark is known: false for a rule a page names
+    /// that no invariants file read holds, which is drawn by its heading alone
+    /// rather than with a mark that would claim what stands behind it.</summary>
+    public bool Marked { get; init; } = true;
+}
 
 /// <summary>The rules about one concept. Either a group the invariants chapter
 /// writes itself — a <c>type: invariants</c> heading inside the aggregate's
@@ -144,9 +164,15 @@ public static partial class DomainUnits
         var groups = new List<(Concept Concept, IReadOnlyList<DomainRuleLink> Links, List<DomainRule> Rules)>();
         foreach (var (chapter, written, fallback) in found)
         {
-            var rule = Rule(chapter);
+            var named = NamedConcept(Rule(chapter).EnforcedAt, concepts);
+            var rule = Rule(chapter) with
+            {
+                Reference = rules.ReferenceTo(chapter),
+                Place = new DomainAlwaysTrueLink(unit.Chapter.Title, page.Path, unit.Key) { Rule = rules.ReferenceTo(chapter) },
+                EnforcedOn = named?.Reference
+            };
             var concept = written is null
-                ? NamedConcept(rule.EnforcedAt, concepts) ?? fallback
+                ? named ?? fallback
                 : new Concept(written.Title, null, rules.ReferenceTo(written));
             var group = groups.FirstOrDefault(g => g.Concept.Reference == concept.Reference);
             if (group.Rules is null)
@@ -385,4 +411,46 @@ public static partial class DomainUnits
 
     [GeneratedRegex(@"^([A-Z][A-Za-z0-9]*)(?:$|\.[A-Za-z])")]
     private static partial Regex LeadingType();
+}
+
+/// <summary>How a rule reads wherever it is drawn — Always true, and every
+/// list of rules shown in place: its mark, the words behind the mark, and the
+/// short claim a row leads with.</summary>
+public static class DomainRuleText
+{
+    /// <summary>The mark: ✓ proved, ○ no test yet, ? not enforced yet.</summary>
+    public static string Glyph(DomainRuleProof proof) => proof switch
+    {
+        DomainRuleProof.Proved => "✓",
+        DomainRuleProof.Open => "?",
+        _ => "○"
+    };
+
+    /// <summary>What the mark says, for a listener.</summary>
+    public static string ProofText(DomainRuleProof proof) => proof switch
+    {
+        DomainRuleProof.Proved => "Proved by a test",
+        DomainRuleProof.Open => "Not enforced yet",
+        _ => "No test yet"
+    };
+
+    /// <summary>The mark's name, as a class and a data attribute spell it.</summary>
+    public static string ProofName(DomainRuleProof proof) => proof switch
+    {
+        DomainRuleProof.Proved => "proved",
+        DomainRuleProof.Open => "open",
+        _ => "unproved"
+    };
+
+    /// <summary>What a row reads as: the rule's heading, the short claim, as a
+    /// sentence. Its first sentence, which names the fields and calls, waits
+    /// with where it is enforced.</summary>
+    public static string Headline(DomainRule rule)
+    {
+        var title = rule.Title.Trim();
+        return title.Length == 0 || ".!?".Contains(title[^1], StringComparison.Ordinal) ? title : title + ".";
+    }
+
+    /// <summary>A count of rules in words: "1 rule", "3 rules".</summary>
+    public static string Count(int count) => count == 1 ? "1 rule" : $"{count} rules";
 }

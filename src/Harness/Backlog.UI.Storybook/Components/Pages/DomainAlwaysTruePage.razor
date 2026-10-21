@@ -3,7 +3,7 @@
 <PageTitle>Always true — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Always true"
-           Summary="A subpage of Devbook: an aggregate's Always true tab on the Domain page of the Domain view (local ADR 0037). It reads the invariants file beside the domain file — `domain.invariants.md`, or `domain.<name>.invariants.md` beside a split — and shows each rule as its heading, the short claim, marked ✓ when its chapter names a test, ○ when it names none, and ? when its `Enforced at:` line is `open`; the bar counts each mark and the tab's title counts the rules. Rules sit in a card per group: a group the chapter writes itself — a `### <group>` heading of `type: invariants` inside the aggregate's chapter, its rules as `#### Invariant:` beneath it, what its `related` names linked beside its heading — and, for a rule outside every such group, the concept its `Enforced at:` line names, falling back to the aggregate. A rule's first sentence and where it is enforced name fields and code, so they stay folded until asked for."
+           Summary="A subpage of Devbook: an aggregate's Always true tab on the Domain page of the Domain view (local ADR 0037). It reads the invariants file beside the domain file — `domain.invariants.md`, or `domain.<name>.invariants.md` beside a split — and shows each rule as its heading, the short claim, marked ✓ when its chapter names a test, ○ when it names none, and ? when its `Enforced at:` line is `open`; the bar counts each mark and the tab's title counts the rules. Rules sit in a card per group: a group the chapter writes itself — a `### <group>` heading of `type: invariants` inside the aggregate's chapter, its rules as `#### Invariant:` beneath it, what its `related` names linked beside its heading — and, for a rule outside every such group, the concept its `Enforced at:` line names, falling back to the aggregate. A rule's first sentence and where it is enforced name fields and code, so they stay folded until asked for. Always true is the full list; every other page shows the rules about what it draws in place, through DomainRuleList, each linking back to its row here."
            Guidelines="@Rules">
 
     <Story Name="Grouped by the chapter"
@@ -25,6 +25,25 @@
            Code="@PageCode"
            Source="@Domain">
         <DomainUnitPage File="@Page" InvariantFiles="@InvariantFiles" TestId="story-domain-rules-page" />
+    </Story>
+
+    <Story Name="Rules in place"
+           Description="DomainRuleList, the one list every page draws a unit's rules with where the reader meets what they constrain — under a feature on Requirements and Features, behind a field's or a part's rule count on Model, a member's card on About, a domain service, a Glossary row, a lifecycle or a card on Flow. Each row is Always true's: the mark, then the short claim, an open rule saying so. Press a row to read its first sentence, where it is enforced and a link to its own row on Always true. Past three rules the rest wait behind n more; a list one past the limit shows them all."
+           Code="@ListCode">
+        <DomainRuleList Rules="@InPlace"
+                        OnOpen="@(link => _opened = link.Rule)"
+                        AriaLabel="What is always true about Order"
+                        TestId="story-domain-rule-list" />
+        @if (_opened is { } opened)
+        {
+            <p class="story-followed">Opened Always true on <code>@opened</code>.</p>
+        }
+    </Story>
+
+    <Story Name="Landed on a rule"
+           Description="Followed from a list elsewhere, Always true opens on its unit with the rule's row ringed and focused, so the reader lands where they were sent."
+           Code="@FocusCode">
+        <DomainAlwaysTrue Groups="@DomainUnits.RulesOf(GroupedOrder, Page, GroupedFiles, [Page])" UnitTitle="Order" FocusRule="@($"{InvariantsPath}#invariant-a-line-has-a-quantity")" />
     </Story>
 
     <Story Name="No rules written"
@@ -253,6 +272,24 @@
                         DomainFiles="@domainFiles"
                         InvariantFiles="@invariantFiles"
                         OnNavigate="OpenAsync" />
+        """;
+
+    // Every rule of the grouped chapter, as a page elsewhere would ask for the
+    // rules about the Order.
+    private static IReadOnlyList<DomainRule> InPlace => DomainRuleCatalog.Of([Page], GroupedFiles).About($"{DomainPath}#order");
+
+    private string? _opened;
+
+    private const string ListCode = """
+        <DomainRuleList Rules="@DomainRuleCatalog.Of(domainFiles, invariantFiles).About(reference)"
+                        OnOpen="OpenAlwaysTrueAsync"
+                        AriaLabel="What is always true about Order" />
+        """;
+
+    private const string FocusCode = """
+        <DomainAlwaysTrue Groups="@DomainUnits.RulesOf(order, page, invariantFiles, domainFiles)"
+                          UnitTitle="@order.Label"
+                          FocusRule="@link.Rule" />
         """;
 
     private const string EmptyCode = """

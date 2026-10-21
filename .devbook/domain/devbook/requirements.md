@@ -1744,7 +1744,7 @@ status: draft
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_page_opens_on_its_summary_and_sets_the_shall_word_apart, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_long_feature_opens_two_requirements_and_lists_the_rest_as_rows, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_shall_sentence_splits_around_its_first_shall_outside_code]
 ```
 
-The system SHALL open the Requirements page on a card saying what a requirement is with how many the file holds and how many a test proves, and a dashed What is always true card per unit the open feature's requirements rest on; list the features By feature · tested, each with its proved and total count and a bar; and draw each requirement as a card holding its title, a *Test linked* or dashed *No test linked* mark, its SHALL sentence with the word SHALL set apart, the tasks referencing it, and each scenario's GIVEN, WHEN and THEN rows on the card's foot. A feature with more than three requirements opens its first two and lists the rest as rows that each open in place, four of them before an *and n more* row.
+The system SHALL open the Requirements page on a card saying what a requirement is with how many the file holds and how many a test proves; list the features By feature · tested, each with its proved and total count and a bar; and draw each requirement as a card holding its title, a *Test linked* or dashed *No test linked* mark, its SHALL sentence with the word SHALL set apart, the tasks referencing it, and each scenario's GIVEN, WHEN and THEN rows on the card's foot. A feature with more than three requirements opens its first two and lists the rest as rows that each open in place, four of them before an *and n more* row.
 
 #### Scenario: A feature with seven requirements
 
@@ -1753,27 +1753,55 @@ The system SHALL open the Requirements page on a card saying what a requirement 
 - **Then** the first two read as cards, four more as rows reading Show, and a last row reads *and 1 more in* the feature
 - **And** pressing a row opens that requirement in place
 
-### Requirement: A feature's rules are a link to Always true
+### Requirement: A feature's rules show under it
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_sentence_explaining_invariants_gives_way_to_the_units_always_true_link, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_group_with_no_invariants_explained_or_aggregate_named_links_no_unit, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_sentence_naming_rules_no_unit_here_holds_stays, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_always_true_link_replaces_the_invariants_sentence_and_tells_the_host, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.An_aggregate_can_be_opened_on_always_true, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.Requirements_read_as_rows_and_the_Always_true_link_opens_the_aggregates_tab, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_term_an_aggregates_rules_are_about_links_that_aggregate_with_its_rule_count, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_chapter_inside_an_aggregate_links_that_aggregate, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_chapter_inside_an_aggregate_with_no_rules_links_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.The_always_true_card_counts_the_rules_it_opens_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_file_outside_the_domain_its_rules_are_about_links_the_aggregate]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_sentence_explaining_invariants_gives_way_to_the_units_always_true_link, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_group_with_no_invariants_explained_or_aggregate_named_links_no_unit, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_sentence_naming_rules_no_unit_here_holds_stays, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_rules_in_place_replace_the_invariants_sentence_and_link_each_to_its_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.An_aggregate_can_be_opened_on_always_true, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.Requirements_read_as_rows_and_a_rule_shown_in_place_opens_its_row_on_Always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_term_an_aggregates_rules_are_about_links_that_aggregate_with_its_rule_count, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_chapter_inside_an_aggregate_links_that_aggregate, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_chapter_inside_an_aggregate_with_no_rules_links_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.What_is_always_true_lists_the_rules_in_place_and_counts_them, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_rule_shown_in_place_opens_on_where_it_is_enforced_and_links_to_its_row_on_always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_file_outside_the_domain_its_rules_are_about_links_the_aggregate]
 ```
 
-The system SHALL show, in place of a requirements group's sentence explaining invariants, a link that opens the aggregate the group, its requirements, its feature or that sentence names on the aggregate's Always true tab, and keep the sentence where no aggregate of the context matches. Where they name a chapter inside an aggregate, or a concept or file one of the aggregate's invariants groups is about, that aggregate is linked too when it has rules. The link counts the rules it opens on.
+The system SHALL show under a requirements group's heading, in place of its sentence explaining invariants, What is always true: the rules about what the group, its requirements, its feature or that sentence names — every rule of an aggregate it names, and the rules of a concept, term or file one of an aggregate's invariants groups is about — and, for a chapter inside an aggregate that no group is about, every rule of that aggregate. It counts the rules it shows, keeps the sentence where no rule of the context matches, and shows each rule as Always true marks it, opening on where it is enforced with a link to its row on Always true.
 
 #### Scenario: The rules a task keeps
 
 - **Given** a requirements group whose text says *The rules a task keeps are its invariants*, linking `domain.invariants.md#task`
-- **When** the reader opens Requirements and presses Always true for Task
-- **Then** the sentence is not shown, and the Domain page opens on *Task* with Always true picked
+- **When** the reader opens Requirements, opens a rule under What is always true and follows it to Always true
+- **Then** the sentence is not shown, and the Domain page opens on *Task* with Always true picked and that rule's row marked
 
 #### Scenario: A feature naming a term the rules are about
 
 - **Given** a feature whose `related` names the term *My Day*, and a group of *Task*'s invariants whose `related` names it too
 - **When** the reader opens the feature on Requirements
-- **Then** a What is always true card reads the number of *Task*'s rules *· on Domain*, and pressing it opens *Task* with Always true picked
+- **Then** What is always true reads the number of that group's rules *· on Domain* and lists them, each with its ✓, ○ or ? mark
+
+### Requirement: A unit's rules show wherever they apply
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.The_rules_about_a_concept_are_those_its_enforced_at_line_or_its_group_names, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.The_rules_about_a_unit_are_every_rule_on_its_always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.Each_rule_knows_its_row_on_always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_list_draws_each_rule_as_always_true_does_and_shows_three_before_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_list_one_past_the_limit_shows_every_rule, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_row_opens_on_where_the_rule_is_enforced_and_links_to_its_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.Always_true_marks_the_rule_a_link_opened_it_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_member_cards_rule_count_opens_its_rules_in_place_and_each_lands_on_always_true, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.The_host_can_open_a_unit_on_a_rule, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_domain_service_shows_what_is_always_true_of_the_units_it_touches, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_glossary_rows_rule_count_opens_its_rules_in_place, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_lifecycle_the_invariants_name_shows_its_rules_under_it_and_a_card_behind_its_count, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_fields_rule_count_opens_the_fields_rules_in_place_marked, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_fields_rule_no_invariants_file_holds_reads_as_its_heading_unmarked, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_requirements_link_to_one_rule_shows_that_rule_alone, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_parts_rule_count_on_the_diagram_opens_its_rules_in_place, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRulesInPlaceTests.A_features_detail_shows_what_is_always_true_of_what_it_uses]
+```
+
+The system SHALL show the rules about a thing on every page that draws it, in one list: on Features under a feature's promises, on Model behind a field's rule count on Fields and a part's on Diagram, on About behind a member card's rule count, on a domain service's page for the units its `related` names, on the Glossary behind a row's rule count, and on Flow under a lifecycle and behind a card's rule count — wherever a group's `related` or a rule's `Enforced at:` type names it. Each rule reads as its claim with its ✓, ○ or ? mark, opens in place on its first sentence and where it is enforced, and links to its row on its unit's Always true tab, which opens with that row marked and focused. A list shows three rules and the rest behind *n more*, or all four when there are four; Always true stays the full list.
+
+#### Scenario: A field's rules on Model
+
+- **Given** a model file whose `status` field links two of *Order*'s invariants, one named by a test and one `open`
+- **When** the reader opens Fields and presses *2 rules* on `status`
+- **Then** the two rules show under the row, marked ✓ and ?, and pressing one shows where it is enforced and *On Order's Always true →*
+
+#### Scenario: A member's rules on About
+
+- **Given** an *Order* aggregate owning *Order Line*, and two rules enforced at `OrderLine`
+- **When** the reader presses *2 rules* on the *Order Line* card and follows the first rule
+- **Then** the rules show on the card, and Always true opens with that rule's row marked
+
+#### Scenario: A long list
+
+- **Given** a thing five rules are about
+- **When** the reader opens its rules
+- **Then** three show, and *2 more rules* shows the other two
 
 ### Requirement: The context map reads as a map and as a list
 
