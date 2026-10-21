@@ -86,10 +86,10 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
 
         Assert.Equal("financieel/context.md", context.Path);
         Assert.Equal(
-            ["Domain", "Actors", "Features", "Requirements", "Model", "Flow", "Assets", "Import"],
+            ["Domain", "Actors", "Features", "Requirements", "Model", "Flow", "Import"],
             context.Children.Select(node => node.Label));
         Assert.Equal(
-            ["financieel/domain.md", "financieel/actors.md", "financieel/features", "financieel/requirements.md", "financieel/model.md", "financieel/flow.md", "financieel/assets", "financieel/import.md"],
+            ["financieel/domain.md", "financieel/actors.md", "financieel/features", "financieel/requirements.md", "financieel/model.md", "financieel/flow.md", "financieel/import.md"],
             context.Children.Select(node => node.Path));
     }
 
@@ -203,11 +203,85 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
 
         var context = await LoadContextAsync(repo, "tasks", domainView: true);
 
-        Assert.Equal(["Domain", "Features", "Requirements", "Model", "Flow", "Assets"], context.Children.Select(node => node.Label));
+        Assert.Equal(["Domain", "Features", "Requirements", "Model", "Flow"], context.Children.Select(node => node.Label));
         Assert.Equal(
-            ["tasks/domain.md", "tasks/features.md", "tasks/requirements.md", "tasks/model.md", "tasks/flow.md", "tasks/assets"],
+            ["tasks/domain.md", "tasks/features.md", "tasks/requirements.md", "tasks/model.md", "tasks/flow.md"],
             context.Children.Select(node => node.Path));
         Assert.All(context.Children, node => Assert.Empty(node.Children));
+        Assert.All(context.Children, node => Assert.Null(node.Count));
+    }
+
+    /// <summary>The board's counts beside each kind row: Fincent's Domain 13,
+    /// Features 20, Requirements 17 (the board's 18 counts <c>requirements.md</c>
+    /// itself), Model 10, Flows 10, and none on Actoren, which holds no split.</summary>
+    [Fact]
+    public async Task A_kind_row_counts_the_rows_under_it()
+    {
+        var repo = Repository("financieel", Financieel, "assets");
+
+        var context = await LoadContextAsync(repo, "financieel", domainView: true);
+
+        Assert.Equal(
+            new (string, int?)[] { ("Domain", 13), ("Actors", null), ("Features", 20), ("Requirements", 17), ("Model", 10), ("Flow", 10), ("Import", null) },
+            context.Children.Select(node => (node.Label, node.Count)));
+        Assert.All(Descendants(context).Except(context.Children), node => Assert.Null(node.Count));
+    }
+
+    [Fact]
+    public async Task A_kind_row_is_labelled_by_its_base_file_s_heading_from_the_database()
+    {
+        var repo = Repository("financieel", ["context.md", "actors.md", "domain.md", "flow.md", "flow.geld-eruit.md", "model.md"]);
+
+        DevbookMenuTestDatabase.Write(repo, ".domain",
+        [
+            new DevbookMenuOutlineRow("directory", "financieel", ".domain/financieel", "Financieel", IsRoot: false),
+            new DevbookMenuOutlineRow("file", "context.md", ".domain/financieel/context.md", "Financieel", IsRoot: true, Parent: ".domain/financieel"),
+            new DevbookMenuOutlineRow("file", "actors.md", ".domain/financieel/actors.md", "Actoren", IsRoot: false, Parent: ".domain/financieel"),
+            new DevbookMenuOutlineRow("file", "domain.md", ".domain/financieel/domain.md", "Domain", IsRoot: false, Parent: ".domain/financieel"),
+            new DevbookMenuOutlineRow("file", "flow.md", ".domain/financieel/flow.md", "Flows", IsRoot: false, Parent: ".domain/financieel"),
+            new DevbookMenuOutlineRow("file", "flow.geld-eruit.md", ".domain/financieel/flow.geld-eruit.md", "Geld eruit", IsRoot: false, Parent: ".domain/financieel"),
+            // Backlog's own chapters all carry the context's heading: the row keeps its kind.
+            new DevbookMenuOutlineRow("file", "model.md", ".domain/financieel/model.md", "Financieel", IsRoot: false, Parent: ".domain/financieel")
+        ]);
+
+        var context = await LoadContextAsync(repo, "financieel", domainView: true);
+
+        Assert.Equal(["Domain", "Actoren", "Model", "Flows"], context.Children.Select(node => node.Label));
+        Assert.Equal("Geld eruit", Assert.Single(Child(context, "Flows").Children).Label);
+    }
+
+    /// <summary>Backlog's <c>monitoring/</c> is "Monitoring &amp; Dashboard", and
+    /// every chapter in it carries that heading: its rows keep their kinds' names
+    /// even after <c>context.md</c> is edited past the last build.</summary>
+    [Fact]
+    public async Task A_heading_that_repeats_the_context_s_title_keeps_the_kind_s_name()
+    {
+        var repo = Repository("monitoring", ["context.md", "features.md", "model.md"]);
+
+        DevbookMenuTestDatabase.Write(repo, ".domain",
+        [
+            new DevbookMenuOutlineRow("directory", "monitoring", ".domain/monitoring", "Monitoring & Dashboard", IsRoot: false),
+            new DevbookMenuOutlineRow("file", "context.md", ".domain/monitoring/context.md", "Monitoring & Dashboard", IsRoot: true, Parent: ".domain/monitoring"),
+            new DevbookMenuOutlineRow("file", "features.md", ".domain/monitoring/features.md", "Monitoring & Dashboard", IsRoot: false, Parent: ".domain/monitoring"),
+            new DevbookMenuOutlineRow("file", "model.md", ".domain/monitoring/model.md", "Monitoring & Dashboard", IsRoot: false, Parent: ".domain/monitoring")
+        ]);
+        File.SetLastWriteTimeUtc(Path.Combine(repo, ".domain", "monitoring", "context.md"), DateTime.UtcNow.AddHours(1));
+
+        var context = await LoadContextAsync(repo, "monitoring", domainView: true);
+
+        Assert.Equal(["Features", "Model"], context.Children.Select(node => node.Label));
+    }
+
+    /// <summary>ADR 0037's file table gives the images folder no row, and the
+    /// board draws none: the chapters show its images, the menu does not.</summary>
+    [Fact]
+    public async Task The_assets_folder_draws_no_row_but_another_folder_does()
+    {
+        var repo = Repository("financieel", ["context.md", "domain.md"], "assets", "archief");
+
+        var context = await LoadContextAsync(repo, "financieel", domainView: true);
+
+        Assert.Equal(["financieel/domain.md", "financieel/archief"], context.Children.Select(node => node.Path));
     }
 
     [Fact]

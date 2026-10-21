@@ -13,8 +13,17 @@ namespace Backlog.Desktop.UI.Devbook;
 /// row that only opens its children. The files that are a tab or a button on
 /// another page draw no row: <c>domain*.invariants.md</c> is Always true and
 /// <c>dependencies.md</c> is Neighbours (a <c>*.demo.html</c> never reaches the
-/// menu, which lists Markdown only). Every other page, and every folder, follows
-/// the kinds in the order the rail has always given them.
+/// menu, which lists Markdown only). The <c>assets</c> folder draws no row either:
+/// it holds the images the chapters show, not a page, and the board draws none.
+/// Every other page, and every folder, follows the kinds in the order the rail has
+/// always given them.
+/// </para>
+/// <para>
+/// A kind's row is labelled by its base file's heading — Fincent's
+/// <c>actors.md</c> is "Actoren" and its <c>flow.md</c> "Flows" — and counts the
+/// rows under it. A heading that only repeats the context's name, as every
+/// chapter of an unsplit Backlog context does, says nothing about the kind, so
+/// that row keeps the kind's own name, as it does with no database.
 /// </para>
 /// <para>
 /// Derived from the file names alone, as the rest of the rail is. A split row is
@@ -46,6 +55,10 @@ public sealed partial class DevbookMenu
             Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(directory)),
             Path.TrimEndingDirectorySeparator(root),
             StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The folder of a context that draws no row: its images, which
+    /// the chapters show rather than the menu.</summary>
+    private const string AssetsFolder = "assets";
 
     /// <summary>A file the view shows on another file's page rather than as a
     /// row: an invariants subpage (Always true) or the context's dependencies
@@ -81,10 +94,12 @@ public sealed partial class DevbookMenu
             if (stems.Count == 0) continue;
 
             claimed.UnionWith(stems);
-            units.Add(UnitRow(prefix, label, stems));
+            var row = UnitRow(prefix, KindLabel(prefix, label), stems);
+            units.Add(row with { Count = row.HasChildren ? row.Children.Count : null });
         }
 
         var others = directories
+            .Where(entry => !string.Equals(Path.GetFileName(Path.TrimEndingDirectorySeparator(entry.DiskPath)), AssetsFolder, StringComparison.OrdinalIgnoreCase))
             .Concat(listed.Where(file => !claimed.Contains(Path.GetFileNameWithoutExtension(file.DiskPath))))
             .ToList();
         var names = others.Select(entry => Path.GetFileName(entry.DiskPath)).ToList();
@@ -140,6 +155,12 @@ public sealed partial class DevbookMenu
                 children,
                 true);
         }
+
+        // The base file's heading, unless it only names the context.
+        string KindLabel(string prefix, string label) =>
+            byStem.ContainsKey(prefix) && outline.TryKindHeading(relativeDirectory, prefix + ".md", out var heading)
+                ? heading
+                : label;
 
         string Heading(string fileName, string stem) =>
             outline.TryHeading(relativeDirectory, fileName, out var heading)

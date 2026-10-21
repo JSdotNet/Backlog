@@ -211,6 +211,24 @@ internal sealed class DevbookMenuOutline
         return true;
     }
 
+    /// <summary>
+    /// A base file's heading when it names the file's kind rather than its
+    /// context — the label a kind's row takes in the New domain view (local ADR
+    /// 0037): Fincent's <c>actors.md</c> is "Actoren". False where the heading is
+    /// the folder's own title, as every chapter of a Backlog context is headed,
+    /// and wherever <see cref="TryHeading"/> is.
+    /// </summary>
+    public bool TryKindHeading(string relativeDirectory, string name, out string heading)
+    {
+        if (!TryHeading(relativeDirectory, name, out heading)) return false;
+
+        var key = relativeDirectory.Length == 0 ? name : relativeDirectory + "/" + name;
+        if (!string.Equals(heading, _titles[key].ParentTitle?.Trim(), StringComparison.OrdinalIgnoreCase)) return true;
+
+        heading = string.Empty;
+        return false;
+    }
+
     /// <summary>Whether the outline's answer for an entry is last build's. A
     /// directory is asked about through its root document, which is where its
     /// title came from.
