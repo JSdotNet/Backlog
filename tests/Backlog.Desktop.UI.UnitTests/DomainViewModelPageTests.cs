@@ -51,9 +51,47 @@ public sealed class DomainViewModelPageTests : IDisposable
             Task "1" *-- "0..*" SubItem : contains
         ```
 
+        ## Fields
+
+        ### Links
+
+        What does it point at?
+
+        - `depends_on` — Tasks this one waits on. Rules: [a missing one still blocks](domain.invariants.md#invariant-a-dependency-naming-no-task-still-blocks).
+
         ## Relationship notes
 
         - `Task` is the only consistency boundary.
+        """;
+
+    private const string Invariants = """
+        # Invariants
+
+        ## Task
+
+        ```meta
+        type: invariants
+        ```
+
+        ### Readiness and dependencies
+
+        #### Invariant: A dependency naming no task still blocks
+
+        ```meta
+        type: invariant
+        ```
+
+        A dependency whose task is gone still blocks.
+        """;
+
+    private const string Dependencies = """
+        # Tasks
+
+        ## Inbound dependents (known)
+
+        | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
+        |---|---|---|---|---|
+        | [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` | `.domain/inbox/domain.md#itemtriaged` | Relies on Tasks creating a draft task from a triaged item. |
         """;
 
     private const string Domain = """
@@ -184,7 +222,12 @@ public sealed class DomainViewModelPageTests : IDisposable
         view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='domain-model-band']")), Patience);
         await view.InvokeAsync(() => view.Find("[data-testid='domain-model-tab-fields']").Click());
 
-        view.WaitForAssertion(() => Assert.Equal(["Task", "SubItem"], view.FindAll("[data-testid='domain-fields-class']").Select(c => c.GetAttribute("data-name"))), Patience);
+        // The model file's purpose groups, the invariant its bullet counts, and
+        // what the root owns, read from the files as written.
+        view.WaitForAssertion(() => Assert.Equal(["Links", "Other fields"], view.FindAll("[data-testid='domain-fields-group']").Select(c => c.GetAttribute("data-title"))), Patience);
+        Assert.Equal("Task", view.Find("[data-testid='domain-model-title']").TextContent.Trim());
+        Assert.Equal("1 rule", view.Find("[data-testid='domain-field'][data-name='depends_on'] [data-testid='domain-field-rules']").TextContent);
+        Assert.Equal("SubItem", view.Find("[data-testid='domain-fields-owned-entities'] [data-testid='domain-fields-owned-part']").GetAttribute("data-name"));
         Assert.Contains("only consistency boundary", view.Find("[data-testid='domain-model-relationship-notes']").TextContent);
         var service = view.Find("[data-testid='domain-service-invocation']");
         Assert.Equal("Occurrence Spawning", service.GetAttribute("data-name"));
@@ -199,6 +242,10 @@ public sealed class DomainViewModelPageTests : IDisposable
         Assert.Contains("Task", statusChanged.QuerySelector("[data-testid='domain-event-raised-by']")!.TextContent);
         Assert.Contains("task_id", statusChanged.QuerySelector("[data-testid='domain-event-payload']")!.TextContent);
         Assert.Contains("Monitoring", statusChanged.QuerySelector("[data-testid='domain-event-consumers']")!.TextContent);
+
+        var feed = view.Find("[data-testid='domain-events-feed']");
+        Assert.Equal("Inbox", feed.GetAttribute("data-context"));
+        Assert.Contains("ItemTriaged", feed.TextContent);
     }
 
     [Fact]
@@ -236,6 +283,8 @@ public sealed class DomainViewModelPageTests : IDisposable
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts and what joins them.\n");
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), Domain);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "model.md"), Model);
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.invariants.md"), Invariants);
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "dependencies.md"), Dependencies);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "model.scheduling.md"), Split);
         Directory.CreateDirectory(Path.Combine(root, ".domain", "repository-management"));
         File.WriteAllText(Path.Combine(root, ".domain", "repository-management", "domain.md"), Repositories);

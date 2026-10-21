@@ -40,6 +40,27 @@ public sealed record ContextMapLine(string From, string To, bool BothWays, bool 
         string.Equals(From, id, StringComparison.Ordinal) || string.Equals(To, id, StringComparison.Ordinal);
 }
 
+/// <summary>One name a published-languages row gives its contract, short: an
+/// event or type as the map spells it, or a term in words — never a devbook path.</summary>
+/// <param name="Name">The name: <c>ItemCaptured</c>, <c>Roadmap Item</c>, <c>The replica protocol</c>.</param>
+/// <param name="IsCode">Whether the name is an identifier — an event or type
+/// written in PascalCase — and so shows as code.</param>
+/// <param name="Reference">The devbook path the row gives for it, which the name
+/// opens, or <see langword="null"/>.</param>
+public sealed record ContextMapContractName(string Name, bool IsCode, string? Reference);
+
+/// <summary>One row of the published-languages table.</summary>
+/// <param name="Owner">The contract owner, as plain text.</param>
+/// <param name="Names">The contract's names, in the order the cell writes them.</param>
+/// <param name="UsedBy">The contexts that conform to it, as plain text.</param>
+public sealed record ContextMapContract(string Owner, IReadOnlyList<ContextMapContractName> Names, string UsedBy);
+
+/// <summary>One strategic rule: a top-level bullet of the chapter.</summary>
+/// <param name="Title">Its first sentence, without the full stop or colon that ends
+/// it, as markdown.</param>
+/// <param name="Body">The rest of the bullet, as markdown, or the empty string.</param>
+public sealed record ContextMapRule(string Title, string Body);
+
 /// <summary>A context's dependency tables, as the host found them, which a line's
 /// wording is read from.</summary>
 /// <param name="Slug">The context's folder: <c>tasks</c>.</param>
@@ -70,6 +91,24 @@ public sealed record ContextMap(
     string Rules)
 {
     public static ContextMap Empty { get; } = new([], [], string.Empty, string.Empty);
+
+    /// <summary>The map's title: its file's <c>#</c> heading, or the empty string.</summary>
+    public string Title { get; init; } = string.Empty;
+
+    /// <summary>The published-languages table's rows, each contract named short;
+    /// empty when the chapter holds no table, and List then shows it as written.</summary>
+    public IReadOnlyList<ContextMapContract> Contracts { get; init; } = [];
+
+    /// <summary>The published-languages chapter's heading as written, or the empty string.</summary>
+    public string LanguagesTitle { get; init; } = string.Empty;
+
+    /// <summary>The table's owner, contract and used-by column headings as
+    /// written; empty when <see cref="Contracts"/> is.</summary>
+    public IReadOnlyList<string> ContractColumns { get; init; } = [];
+
+    /// <summary>The strategic rules, one per top-level bullet; empty when the
+    /// chapter is not a plain bullet list, and List then shows it as written.</summary>
+    public IReadOnlyList<ContextMapRule> RuleCards { get; init; } = [];
 
     /// <summary>Whether the map names no context at all.</summary>
     public bool IsEmpty => Contexts.Count == 0;
@@ -155,11 +194,232 @@ public static partial class ContextMaps
             lines.Add(new ContextMapLine(edge.From, edge.To, edge.BothWays, edge.Built, Wording(from, to, rowsBySlug)));
         }
 
-        return new ContextMap(
-            contexts,
-            lines,
-            Body(Chapter(chapters, "published language")),
-            Body(Chapter(chapters, "strategic rules")));
+        var languages = Body(Chapter(chapters, "published language"));
+        var rules = Body(Chapter(chapters, "strategic rules"));
+        var (columns, contracts) = ContractsOf(languages, markdown);
+        return new ContextMap(contexts, lines, languages, rules)
+        {
+            Title = TitleOf(markdown),
+            LanguagesTitle = TitleOf(Chapter(chapters, "published language"), "## "),
+            ContractColumns = columns,
+            Contracts = contracts,
+            RuleCards = RulesOf(rules)
+        };
+    }
+
+    /// <summary>The first heading at <paramref name="marker"/>'s level outside a
+    /// fence, as plain text, or the empty string.</summary>
+    private static string TitleOf(string? markdown, string marker = "# ")
+    {
+        if (markdown is null) return string.Empty;
+        MarkdownFence? fence = null;
+        foreach (var raw in markdown.Replace("\r\n", "\n").Split('\n'))
+        {
+            if (fence is { } open)
+            {
+                if (open.IsClosedBy(raw)) fence = null;
+                continue;
+            }
+            if (MarkdownFence.Open(raw) is { } opened)
+            {
+                fence = opened;
+                continue;
+            }
+            if (raw.StartsWith(marker, StringComparison.Ordinal)) return DomainUnits.Plain(raw[marker.Length..]);
+        }
+        return string.Empty;
+    }
+
+    /// <summary>The published-languages table's rows. A contract cell written as
+    /// prose is named by its words before the first colon; otherwise by its code
+    /// spans that are not paths; otherwise by each path's anchor, spelt as the map
+    /// spells that name elsewhere — <c>#itemcaptured</c> as <c>ItemCaptured</c> — or
+    /// read back as words.</summary>
+    private static (IReadOnlyList<string> Columns, List<ContextMapContract> Rows) ContractsOf(string chapter, string markdown)
+    {
+        var contracts = new List<ContextMapContract>();
+        var table = TableLines(chapter);
+        if (table.Count < 3) return ([], contracts);
+
+        // A line beside the table — a lead, a note — is the chapter's to say, so
+        // the chapter is left to be shown as written.
+        if (chapter.Replace("\r\n", "\n").Split('\n').Any(l => l.Trim().Length > 0 && !l.Trim().StartsWith('|'))) return ([], contracts);
+
+        var header = DomainNeighbours.Cells(table[0]);
+        var contract = header.FindIndex(c => c.Contains("contract", StringComparison.OrdinalIgnoreCase) && !c.Contains("owner", StringComparison.OrdinalIgnoreCase));
+        if (contract < 0) contract = 1;
+        var usedBy = header.FindIndex(c => c.Contains("used", StringComparison.OrdinalIgnoreCase));
+        if (usedBy < 0) usedBy = 2;
+
+        foreach (var cells in table.Skip(2).Select(DomainNeighbours.Cells))
+        {
+            if (cells.Count <= Math.Max(contract, usedBy) || cells[0].Length == 0) continue;
+            contracts.Add(new ContextMapContract(DomainUnits.Plain(cells[0]), Names(cells[contract], markdown), DomainUnits.Plain(cells[usedBy])));
+        }
+        if (contracts.Count == 0 || header.Count <= Math.Max(contract, usedBy)) return ([], []);
+        return ([DomainUnits.Plain(header[0]), DomainUnits.Plain(header[contract]), DomainUnits.Plain(header[usedBy])], contracts);
+    }
+
+    /// <summary>The lines of a chapter's table, trimmed: header, rule, then rows.</summary>
+    private static List<string> TableLines(string chapter) =>
+        [.. chapter.Replace("\r\n", "\n").Split('\n').Select(l => l.Trim()).Where(l => l.StartsWith('|'))];
+
+    private static List<ContextMapContractName> Names(string cell, string markdown)
+    {
+        var spans = CodeSpan().Matches(cell).Select(m => m.Groups["code"].Value.Trim()).Where(s => s.Length > 0).ToList();
+        var reference = spans.FirstOrDefault(IsPath);
+
+        if (!cell.TrimStart().StartsWith('`'))
+        {
+            var colon = cell.IndexOf(':', StringComparison.Ordinal);
+            var prose = CodeSpan().Replace(colon > 0 ? cell[..colon] : cell, m => IsPath(m.Groups["code"].Value) ? string.Empty : m.Value);
+            var words = DomainUnits.Plain(prose);
+            return words.Length == 0 ? [] : [new ContextMapContractName(words, false, reference)];
+        }
+
+        var named = spans.Where(s => !IsPath(s)).ToList();
+        if (named.Count > 0) return [.. named.Select(n => new ContextMapContractName(n, IsIdentifier(n), reference))];
+
+        return
+        [
+            .. spans.Select(path =>
+            {
+                var hash = path.IndexOf('#', StringComparison.Ordinal);
+                var name = hash >= 0 && hash < path.Length - 1
+                    ? Spell(path[(hash + 1)..], markdown)
+                    : System.IO.Path.GetFileNameWithoutExtension(path);
+                return new ContextMapContractName(name, IsIdentifier(name), path);
+            })
+        ];
+    }
+
+    private static bool IsPath(string span) =>
+        span.Contains('/', StringComparison.Ordinal) || span.Contains('#', StringComparison.Ordinal)
+        || span.EndsWith(".md", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsIdentifier(string name) => PascalCase().IsMatch(name);
+
+    /// <summary>An anchor as the map spells the name it addresses — the first
+    /// PascalCase word anywhere in it whose letters match — or its words, each
+    /// capitalised.</summary>
+    private static string Spell(string anchor, string markdown)
+    {
+        var key = anchor.Replace("-", string.Empty, StringComparison.Ordinal);
+        foreach (Match word in Word().Matches(markdown))
+        {
+            if (IsIdentifier(word.Value) && string.Equals(word.Value, key, StringComparison.OrdinalIgnoreCase)) return word.Value;
+        }
+        return string.Join(' ', anchor.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+    }
+
+    /// <summary>The strategic rules, one per top-level bullet, each titled by its
+    /// first sentence. Anything outside the bullets — a lead line, a heading —
+    /// leaves the chapter to be shown as written.</summary>
+    private static List<ContextMapRule> RulesOf(string chapter)
+    {
+        var items = new List<List<string>>();
+        List<string>? current = null;
+        MarkdownFence? fence = null;
+        foreach (var raw in chapter.Replace("\r\n", "\n").Split('\n'))
+        {
+            // A fence's lines belong to the rule it sits in, whatever they start with.
+            if (fence is { } open)
+            {
+                if (open.IsClosedBy(raw)) fence = null;
+                if (current is null) return [];
+                current.Add(raw.StartsWith("  ", StringComparison.Ordinal) ? raw[2..] : raw);
+                continue;
+            }
+            if (MarkdownFence.Open(raw.TrimStart()) is { } opened)
+            {
+                fence = opened;
+                if (current is null) return [];
+                current.Add(raw.StartsWith("  ", StringComparison.Ordinal) ? raw[2..] : raw);
+                continue;
+            }
+            if (raw.StartsWith("- ", StringComparison.Ordinal) || raw.StartsWith("* ", StringComparison.Ordinal))
+            {
+                current = [raw[2..]];
+                items.Add(current);
+                continue;
+            }
+            if (current is null)
+            {
+                if (raw.Trim().Length > 0) return [];
+                continue;
+            }
+            if (raw.StartsWith('#')) return [];
+            current.Add(raw.StartsWith("  ", StringComparison.Ordinal) ? raw[2..] : raw);
+        }
+
+        return
+        [
+            .. items.Select(lines =>
+            {
+                var (title, body) = FirstSentence(string.Join('\n', lines).Trim());
+                return new ContextMapRule(title, body);
+            })
+        ];
+    }
+
+    /// <summary>A rule split after its first sentence: at a full stop followed by
+    /// white space and a capital — so <c>e.g. this</c> runs on — or a colon closing
+    /// its line, outside code, links and brackets. A sentence that ends inside
+    /// bold keeps its closing <c>**</c>.</summary>
+    private static (string Title, string Body) FirstSentence(string text)
+    {
+        var code = false;
+        var bold = false;
+        var depth = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '`')
+            {
+                code = !code;
+                continue;
+            }
+            if (code) continue;
+            if (c == '*' && i + 1 < text.Length && text[i + 1] == '*')
+            {
+                bold = !bold;
+                i++;
+                continue;
+            }
+            if (bold && c == '.' && string.CompareOrdinal(text, i + 1, "**", 0, 2) == 0 && Starts(i + 3))
+            {
+                return ((text[..i] + "**").Trim(), i + 3 >= text.Length ? string.Empty : text[(i + 3)..].Trim());
+            }
+            if (c is '(' or '[')
+            {
+                depth++;
+                continue;
+            }
+            if (c is ')' or ']')
+            {
+                depth = Math.Max(0, depth - 1);
+                continue;
+            }
+            if (depth > 0 || bold) continue;
+
+            var end = i + 1 == text.Length;
+            if ((c == '.' && Starts(i + 1)) || (c == ':' && (end || text[i + 1] == '\n')))
+            {
+                return (text[..i].Trim(), end ? string.Empty : text[(i + 1)..].Trim());
+            }
+        }
+        return (text, string.Empty);
+
+        // Whether a new sentence starts at `at`: the end, or white space then a
+        // capital, a code span, a link or emphasis.
+        bool Starts(int at)
+        {
+            if (at >= text.Length) return true;
+            if (!char.IsWhiteSpace(text[at])) return false;
+            var next = at;
+            while (next < text.Length && char.IsWhiteSpace(text[next])) next++;
+            return next == text.Length || char.IsUpper(text[next]) || text[next] is '`' or '[' or '*' or '_' or '-';
+        }
     }
 
     /// <summary>The "Why" of the source context's row naming the other context —
@@ -218,7 +478,7 @@ public static partial class ContextMaps
         var rows = new List<(string, string?, string?)>();
         if (chapter is null) return rows;
 
-        var table = chapter.Replace("\r\n", "\n").Split('\n').Select(l => l.Trim()).Where(l => l.StartsWith('|')).ToList();
+        var table = TableLines(chapter);
         if (table.Count < 3) return rows;
 
         var header = DomainNeighbours.Cells(table[0]);
@@ -357,4 +617,15 @@ public static partial class ContextMaps
 
     [GeneratedRegex(@"[^a-z0-9]+")]
     private static partial Regex NotWord();
+
+    [GeneratedRegex(@"`(?<code>[^`]+)`")]
+    private static partial Regex CodeSpan();
+
+    // An identifier with a capital inside it and a small letter somewhere:
+    // ItemCaptured, AIWorkLogged; never an acronym such as OHS.
+    [GeneratedRegex(@"^(?=[A-Za-z0-9]*[a-z])[A-Z][A-Za-z0-9]*[A-Z][A-Za-z0-9]*$")]
+    private static partial Regex PascalCase();
+
+    [GeneratedRegex(@"\b[A-Za-z][A-Za-z0-9]*\b")]
+    private static partial Regex Word();
 }

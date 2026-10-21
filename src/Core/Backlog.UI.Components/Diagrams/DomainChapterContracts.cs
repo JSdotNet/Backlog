@@ -47,6 +47,10 @@ public sealed record DomainEventContract(
 /// service runs and what each event carries (local ADR 0037 §6).</summary>
 public sealed record DomainChapterReading(IReadOnlyList<DomainServiceInvocation> Services, IReadOnlyList<DomainEventContract> Events)
 {
+    /// <summary>What the context listens to from others, out of its dependency
+    /// tables (<see cref="DomainEventIndex.Listens"/>).</summary>
+    public IReadOnlyList<DomainEventSubscription> Listens { get; init; } = [];
+
     public static DomainChapterReading Empty { get; } = new([], []);
 }
 
