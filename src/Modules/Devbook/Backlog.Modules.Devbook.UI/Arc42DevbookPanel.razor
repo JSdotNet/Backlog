@@ -59,8 +59,8 @@
     {
         @* The architecture surface (plan c4-zoom-navigation, the design's every
            screen): while `c4-zoom` is on, this pane is one surface rather than the
-           Chapters / C4 / C4 zoom tabs below. A header with the breadcrumb and the
-           find field; the zoom bar, always there; the left navigation; the picture,
+           Chapters / C4 / C4 zoom tabs below. The zoom bar, always there; the left
+           navigation, headed by the find field; the picture,
            or a chapter, an ADR or a TDR opened in its place; and the right-hand
            panel that goes with what is open. The pane's own chapter menu stands down
            while it is on (DevbookPane.SurfaceOwnsMenu): the design has one left
@@ -69,8 +69,6 @@
            draws its `![…](c4:<view key>)` embeds too. *@
         <CascadingValue TValue="IDevbookImageSource" Value="@_c4Images" IsFixed="true">
         <section class="arc42-surface" data-testid="arc42-surface" aria-label="Architecture">
-            <Arc42SurfaceHeader Place="@SurfacePlace" Find="@FindInSurface" OnOpen="OpenFoundAsync" />
-
             @C4WorkspaceChoice
 
             @if (Workspace is { } surfaceWorkspace)
@@ -1347,21 +1345,26 @@
         }
     }
 
-    private RenderFragment SurfaceNavigation => @<Arc42SurfaceNavigation Mode="@SurfaceMode"
-                                                                         Views="@SurfaceViews"
-                                                                         Location="@_zoomLocation"
-                                                                         Documenting="@SurfaceDocumenting"
-                                                                         Chapters="@SurfaceLists.Chapters"
-                                                                         Decisions="@SurfaceLists.Decisions"
-                                                                         Debt="@SurfaceLists.Debt"
-                                                                         OpenPath="@(ShowingDocument ? _selected?.Path : null)"
-                                                                         HasModel="@(Workspace is not null)"
-                                                                         OnOpenView="OpenIndexedView"
-                                                                         OnOpenDocument="OpenSurfaceDocumentAsync"
-                                                                         OnShowChapters="ShowChaptersAsync"
-                                                                         OnShowDecisions="ShowDecisionsAsync"
-                                                                         OnShowDebt="ShowDebtAsync"
-                                                                         OnBackToModel="ReturnToModel" />;
+    /// <summary>The left navigation: the find field, then the lists that go with what
+    /// is open. The surface has no header row; the find field heads this column.</summary>
+    private RenderFragment SurfaceNavigation => @<div class="arc42-surface__side">
+        <Arc42SurfaceFind Find="@FindInSurface" OnOpen="OpenFoundAsync" />
+        <Arc42SurfaceNavigation Mode="@SurfaceMode"
+                                Views="@SurfaceViews"
+                                Location="@_zoomLocation"
+                                Documenting="@SurfaceDocumenting"
+                                Chapters="@SurfaceLists.Chapters"
+                                Decisions="@SurfaceLists.Decisions"
+                                Debt="@SurfaceLists.Debt"
+                                OpenPath="@(ShowingDocument ? _selected?.Path : null)"
+                                HasModel="@(Workspace is not null)"
+                                OnOpenView="OpenIndexedView"
+                                OnOpenDocument="OpenSurfaceDocumentAsync"
+                                OnShowChapters="ShowChaptersAsync"
+                                OnShowDecisions="ShowDecisionsAsync"
+                                OnShowDebt="ShowDebtAsync"
+                                OnBackToModel="ReturnToModel" />
+    </div>;
 
     /// <summary>The open chapter or record, as a fragment the Chapters tab and the
     /// surface both draw.</summary>
@@ -1452,31 +1455,6 @@
         }
 
         return _chapterLinks;
-    }
-
-    /// <summary>The breadcrumb after Backlog / Devbook / Architecture.</summary>
-    private IReadOnlyList<string> SurfacePlace
-    {
-        get
-        {
-            if (ShowingDocument && _selected is { } document)
-            {
-                var number = C4ElementInspection.NumberOf(document.Path);
-                if (Arc42DevbookCatalog.IsArchitectureDecision(document.Path)) return ["Decisions", $"ADR {number}"];
-                if (Arc42DevbookCatalog.IsDebtRecord(document.Path)) return ["Technical debt", $"TDR {number}"];
-
-                return ["arc42", number ?? C4ElementInspection.WithoutNumber(document.Title)];
-            }
-
-            if (_zoomLocation is { } location)
-            {
-                return location.CodeComponent is { } component
-                    ? ["C4", location.Title, $"{component} · code"]
-                    : ["C4", location.Title];
-            }
-
-            return [];
-        }
     }
 
     private Func<string, IReadOnlyList<Arc42FindHit>>? _find;

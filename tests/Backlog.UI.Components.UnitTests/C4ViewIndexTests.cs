@@ -1,40 +1,53 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The "C4 views" list on the architecture surface's left navigation: every view of
-/// the workspace once, the zoom chain first and indented by level, the counts being
-/// what each level opens onto, then the views beside the chain.
+/// The views list on the architecture surface's left navigation: the landscape and the
+/// zoom chain one line per level, named by level and indented one step per level, then
+/// the flows, the deployments, and any second view of a level apart under Other views.
 /// </summary>
 public sealed class C4ViewIndexTests
 {
     private static C4Workspace Workspace => C4ZoomNavigationTests.Workspace;
 
     [Fact]
-    public void The_chain_comes_first_indented_by_level_then_dynamic_and_deployment()
+    public void The_chain_reads_one_line_per_level_named_by_level_and_indented_per_level()
     {
         var entries = C4ViewIndex.For(Workspace);
 
         Assert.Equal(
             ["landscape", "context-backlog", "containers-backlog", "components-desktop", "capture-to-issue", "deployment-local"],
             entries.Select(entry => entry.ViewKey));
-        Assert.Equal([0, 0, 1, 2, 0, 0], entries.Select(entry => entry.Depth));
         Assert.Equal(["System landscape", "System context", "Containers", "Desktop App", "Capture to issue", "Local machine"], entries.Select(entry => entry.Label));
+        Assert.Equal([0, 0, 1, 2, 0, 0], entries.Select(entry => entry.Depth));
+        Assert.Equal(
+            [C4ViewIndexGroup.Model, C4ViewIndexGroup.Model, C4ViewIndexGroup.Model, C4ViewIndexGroup.Model, C4ViewIndexGroup.Flows, C4ViewIndexGroup.Deployment],
+            entries.Select(entry => entry.Group));
     }
 
     [Fact]
-    public void A_level_counts_what_it_opens_onto_and_a_view_beside_the_chain_says_its_kind()
+    public void A_line_keeps_the_views_full_title_for_its_tooltip()
+    {
+        var entries = C4ViewIndex.For(Workspace).ToDictionary(entry => entry.ViewKey);
+
+        Assert.Equal("Containers", entries["containers-backlog"].Title);
+        Assert.Equal("Desktop App components", entries["components-desktop"].Title);
+        Assert.Equal("Everything", entries["landscape"].Title);
+    }
+
+    [Fact]
+    public void A_level_counts_what_it_opens_onto()
     {
         var entries = C4ViewIndex.For(Workspace).ToDictionary(entry => entry.ViewKey);
 
         Assert.Equal("2", entries["containers-backlog"].Detail);
         Assert.Equal("2", entries["components-desktop"].Detail);
         Assert.Null(entries["context-backlog"].Detail);
-        Assert.Equal("dynamic", entries["capture-to-issue"].Detail);
-        Assert.Equal("deploy", entries["deployment-local"].Detail);
+        Assert.Null(entries["capture-to-issue"].Detail);
+        Assert.Null(entries["deployment-local"].Detail);
     }
 
     [Fact]
-    public void A_component_with_code_gets_a_code_line_under_its_components_view()
+    public void A_component_with_code_gets_a_code_line_one_step_under_its_container()
     {
         var entries = C4ViewIndex.For(Workspace, id => id == "backlog.desktop.devbook");
 
@@ -65,22 +78,30 @@ public sealed class C4ViewIndexTests
         Assert.True(code.IsOpen("components-desktop", "backlog.desktop.devbook"));
     }
 
-    /// <summary>Two context views of one system both lead to its containers: the
-    /// containers view is listed once, so every line has its own view.</summary>
+    /// <summary>
+    /// A second context and a second containers view of the same system — what
+    /// devbook 1.28.0's migration left beside the authored ones in this repository's
+    /// own workspace: the chain keeps one line per level, the view the zoom bar opens,
+    /// and the others are listed once each under Other views by their own title.
+    /// </summary>
     [Fact]
-    public void A_view_two_contexts_lead_to_is_listed_once_and_two_container_views_are_told_apart()
+    public void A_second_view_of_a_level_is_listed_once_apart_from_the_chain()
     {
         var context = Workspace.View("context-backlog")!;
         var containers = Workspace.View("containers-backlog")!;
         var workspace = Workspace with
         {
-            Views = [.. Workspace.Views, context with { Key = "context-again", Title = "Context again" }, containers with { Key = "containers-again", Title = "Containers again" }]
+            Views = [.. Workspace.Views, context with { Key = "context-zalt", Title = "Context again" }, containers with { Key = "containers-zalt", Title = "Containers again" }]
         };
 
         var entries = C4ViewIndex.For(workspace);
 
         Assert.Equal(entries.Count, entries.Select(entry => (entry.ViewKey, entry.CodeComponentId)).Distinct().Count());
-        Assert.Contains(entries, entry => entry.Label == "Containers again");
-        Assert.Contains(entries, entry => entry.ViewKey == "containers-backlog" && entry.Label == "Containers");
+        Assert.Single(entries, entry => entry.Label == "System context");
+        Assert.Single(entries, entry => entry.Label == "Containers");
+
+        var others = entries.Where(entry => entry.Group == C4ViewIndexGroup.Other).ToList();
+        Assert.Equal(["Containers again", "Context again"], others.Select(entry => entry.Label).Order());
+        Assert.All(others, entry => Assert.Equal(0, entry.Depth));
     }
 }

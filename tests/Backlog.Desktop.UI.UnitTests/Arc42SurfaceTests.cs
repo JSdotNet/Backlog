@@ -8,8 +8,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Architecture pane as one surface while <c>c4-zoom</c> is on (plan
-/// c4-zoom-navigation, entry 15b): the header with the breadcrumb and the find field,
-/// the zoom bar always there, the left navigation — the C4 views, the chapters that
+/// c4-zoom-navigation, entry 15b): no header row — the find field heads the left
+/// navigation — the zoom bar always there, the left navigation — the C4 views, the chapters that
 /// document the open view, the records — and a chapter, an ADR or a TDR opened inside
 /// the surface with its own left list and right-hand panel.
 /// <para>
@@ -101,14 +101,22 @@ public sealed class Arc42SurfaceTests : IDisposable
         var component = harness.Render(null);
         Settle(component);
 
-        Assert.Equal(["Backlog", "Devbook", "Architecture", "C4", "System Context"], Crumbs(component));
+        // No breadcrumb and no header row: the find field heads the left navigation.
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-crumb']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface-header']"));
+        Assert.NotNull(component.Find(".arc42-surface__side > [data-testid='arc42-surface-find-box'] + [data-testid='arc42-surface-nav']"));
         Assert.Equal("Find element, chapter, ADR, TDR", component.Find("[data-testid='arc42-surface-find'] input").GetAttribute("placeholder"));
+        component.WaitForAssertion(() => Assert.Equal("System context", OpenLine(component)));
         Assert.Single(component.FindAll("[data-testid='c4-zoom-bar']"));
         Assert.Equal("model", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
 
         var views = component.FindAll("[data-testid='arc42-surface-view']");
         Assert.Equal(["Systemcontext", "Containers5"], views.Select(view => string.Concat(view.TextContent.Where(character => !char.IsWhiteSpace(character)))));
         Assert.Equal("page", views[0].GetAttribute("aria-current"));
+
+        // Short, level-based names; the view's own title is the tooltip.
+        Assert.Equal("System Context", views[0].GetAttribute("title"));
+        Assert.Equal("Container Diagram", views[1].GetAttribute("title"));
 
         Assert.Equal("3 · 1 proposed", component.Find("[data-testid='arc42-surface-decisions-count']").TextContent);
         Assert.Equal("1", component.Find("[data-testid='arc42-surface-debt-count']").TextContent);
@@ -132,7 +140,8 @@ public sealed class Arc42SurfaceTests : IDisposable
             var document = Assert.Single(component.FindAll("[data-testid='arc42-surface-document']"));
             Assert.Contains("05", document.TextContent, StringComparison.Ordinal);
             Assert.Contains("documented by 05", component.Find("[data-testid='arc42-surface-documented-by']").TextContent, StringComparison.Ordinal);
-            Assert.Equal(["Backlog", "Devbook", "Architecture", "C4", "Container Diagram"], Crumbs(component));
+            Assert.Equal("Containers", OpenLine(component));
+            Assert.Equal("Container Diagram", component.Find("[data-testid='c4-zoom-title']").TextContent);
         });
     }
 
@@ -156,7 +165,7 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal(["Backlog", "Devbook", "Architecture", "arc42", "05"], Crumbs(component));
+            Assert.Contains("05", OpenLine(component), StringComparison.Ordinal);
             var open = component.FindAll("[data-testid='arc42-surface-chapter']").Single(chapter => chapter.GetAttribute("aria-current") == "page");
             Assert.Contains("C4 1", open.TextContent, StringComparison.Ordinal);
             Assert.Single(component.FindAll("[data-testid='arc42-chapter-links']"));
@@ -221,7 +230,7 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal(["Backlog", "Devbook", "Architecture", "Decisions", "ADR 0005"], Crumbs(component));
+            Assert.Equal("decisions", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
             Assert.Single(component.FindAll("[data-testid='arc42-record-model']"));
             Assert.Equal("page", component.FindAll("[data-testid='arc42-surface-record']").Single(record => record.TextContent.Contains("0005", StringComparison.Ordinal)).GetAttribute("aria-current"));
         });
@@ -244,7 +253,11 @@ public sealed class Arc42SurfaceTests : IDisposable
 
         await component.Find("[data-testid='arc42-surface-record']").ClickAsync(new());
 
-        component.WaitForAssertion(() => Assert.Equal(["Backlog", "Devbook", "Architecture", "Technical debt", "TDR 0001"], Crumbs(component)));
+        component.WaitForAssertion(() =>
+        {
+            Assert.Contains("0001", OpenLine(component), StringComparison.Ordinal);
+            Assert.Contains("The debt.", component.Find("[data-testid='arc42-document']").TextContent, StringComparison.Ordinal);
+        });
     }
 
     [Fact]
@@ -287,7 +300,11 @@ public sealed class Arc42SurfaceTests : IDisposable
         await input.InputAsync(new ChangeEventArgs { Value = "offline" });
         await component.FindAll("[role='option']").Single().ClickAsync(new());
 
-        component.WaitForAssertion(() => Assert.Equal(["Backlog", "Devbook", "Architecture", "Technical debt", "TDR 0001"], Crumbs(component)));
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("debt", component.Find("[data-testid='arc42-surface-nav']").GetAttribute("data-mode"));
+            Assert.Contains("The debt.", component.Find("[data-testid='arc42-document']").TextContent, StringComparison.Ordinal);
+        });
     }
 
     /// <summary>A views map that still names a chapter since renamed: its line is
@@ -332,14 +349,17 @@ public sealed class Arc42SurfaceTests : IDisposable
 
     // ---- the harness ------------------------------------------------------------
 
-    private static List<string> Crumbs(IRenderedComponent<Arc42DevbookPanel> component) =>
-        [.. component.FindAll("[data-testid='arc42-surface-crumb']").Select(crumb => crumb.TextContent.Trim())];
+    /// <summary>The left navigation's open line — a view, a chapter or a record — as
+    /// its label reads, without the count or tag beside it.</summary>
+    private static string OpenLine(IRenderedComponent<Arc42DevbookPanel> component) =>
+        component.Find("[data-testid='arc42-surface-nav'] [aria-current='page'] .arc42-surface-nav__label").TextContent.Trim()
+        + (component.Find("[data-testid='arc42-surface-nav'] [aria-current='page']").QuerySelector(".arc42-surface-nav__number")?.TextContent is { } number ? " " + number : string.Empty);
 
     private static void Settle(IRenderedComponent<Arc42DevbookPanel> component) =>
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='arc42-loading']"));
-            Assert.True(component.FindAll("[data-testid='arc42-surface-crumb']").Count > 3 || component.FindAll("[data-testid='arc42-surface']").Count == 0);
+            Assert.True(component.FindAll("[data-testid='arc42-surface-nav']").Count > 0 || component.FindAll("[data-testid='arc42-surface']").Count == 0);
         });
 
     private const string Workspace = """

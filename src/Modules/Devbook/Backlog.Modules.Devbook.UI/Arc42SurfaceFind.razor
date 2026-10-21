@@ -1,36 +1,19 @@
 @*
-    The architecture surface's header (plan c4-zoom-navigation): where the reader is —
-    Backlog / Devbook / Architecture and then the view, the chapter or the record open —
-    and one field that finds any of them: an element of the model, a chapter, an ADR
-    or a TDR.
+    The architecture surface's find field (plan c4-zoom-navigation): one field that
+    finds anything the surface can open — an element of the model, a chapter, an ADR
+    or a TDR. It heads the left navigation; the surface has no header row of its own,
+    since the breadcrumb that stood beside it said only what the navigation's open line
+    and the main area's heading already say.
 
-    The crumbs before the last are not links: Backlog and Devbook are the shell's tabs
-    above this pane, and Architecture is this surface. Only the last, the place itself,
-    is marked current.
-
-    The find field is the library's Combobox: the panel works out the suggestions for
+    The field is the library's Combobox: the panel works out the suggestions for
     what is typed (Arc42Surface.Find) and opens what is picked. Its keys are the
     field's for the reason the Devbook source field gives: the Devbook takes the screen
     and closes on Escape, and the Escape that clears the field must not also close it.
 *@
 
-<header class="arc42-surface-header" data-testid="arc42-surface-header">
-    <nav class="arc42-surface-header__crumbs" aria-label="Breadcrumb" data-testid="arc42-surface-breadcrumb">
-        <ol class="arc42-surface-header__trail">
-            @{ var trail = Trail; }
-            @for (var index = 0; index < trail.Count; index++)
-            {
-                var crumb = trail[index];
-                var last = index == trail.Count - 1;
-                <li class="arc42-surface-header__crumb@(last ? " arc42-surface-header__crumb--current" : string.Empty)"
-                    aria-current="@(last ? "location" : null)"
-                    data-testid="arc42-surface-crumb">@crumb</li>
-            }
-        </ol>
-    </nav>
-
-    <span class="arc42-surface-header__find-keys" @onkeydown:stopPropagation="true">
-        <Combobox CssClass="arc42-surface-header__find"
+<div class="arc42-surface-find" role="search" data-testid="arc42-surface-find-box">
+    <span class="arc42-surface-find__keys" @onkeydown:stopPropagation="true">
+        <Combobox CssClass="arc42-surface-find__field"
                   OpenOnInput="true"
                   Compact="true"
                   AriaLabel="Find an element, chapter or record"
@@ -42,27 +25,22 @@
                   OnCommit="CommitAsync"
                   TestId="arc42-surface-find">
             <OptionTemplate Context="option">
-                <span class="arc42-surface-header__hit">
-                    <span class="arc42-surface-header__hit-label">@option.Label</span>
+                <span class="arc42-surface-find__hit">
+                    <span class="arc42-surface-find__hit-label">@option.Label</span>
                     @if (option.Hint is not null)
                     {
-                        <span class="arc42-surface-header__hit-detail">@option.Hint</span>
+                        <span class="arc42-surface-find__hit-detail">@option.Hint</span>
                     }
                 </span>
             </OptionTemplate>
         </Combobox>
     </span>
-</header>
+</div>
 
 @code {
     private string _query = string.Empty;
     private IReadOnlyList<SelectorOption> _options = [];
     private IReadOnlyList<Arc42FindHit> _hits = [];
-
-    /// <summary>The crumbs after Backlog / Devbook / Architecture: the view, or
-    /// "arc42" and a chapter's number, or a record.</summary>
-    [Parameter]
-    public IReadOnlyList<string> Place { get; set; } = [];
 
     /// <summary>The suggestions for what is typed. The panel's, because it holds the
     /// catalogs they are read from.</summary>
@@ -73,8 +51,6 @@
     /// first match then.</summary>
     [Parameter]
     public EventCallback<Arc42FindHit> OnOpen { get; set; }
-
-    private IReadOnlyList<string> Trail => ["Backlog", "Devbook", "Architecture", .. Place];
 
     private Task SetQueryAsync(string text)
     {

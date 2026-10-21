@@ -9300,11 +9300,12 @@ a.pull-request-detail-checks__name:hover {
 
 /* ---- the architecture surface (c4-zoom on) ----
 
-   The Architecture pane as one surface (plan c4-zoom-navigation): a header with the
-   breadcrumb and the find field, the zoom bar, then the left navigation, the main
-   area and the right-hand panel (the explorer lays those out; components.css). The
-   navigation's lists are drawn here: a heading per group, a row per line, the open
-   line marked with the primary colour's inset rule as the design draws it.       */
+   The Architecture pane as one surface (plan c4-zoom-navigation): the zoom bar, then
+   the left navigation headed by the find field, the main area and the right-hand
+   panel (the explorer lays those out; components.css). There is no header row: the
+   open line in the navigation and the main area's heading say where the reader is.
+   The navigation's lists are drawn here: a heading per group, one line per item,
+   the open line marked with the primary colour's inset rule as the design draws it. */
 
 .arc42-surface {
     display: flex;
@@ -9313,62 +9314,29 @@ a.pull-request-detail-checks__name:hover {
     min-width: 0;
 }
 
-.arc42-surface-header {
+/* The find field and the lists under it: one column, the field first. */
+.arc42-surface__side {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-md);
-    padding: var(--spacing-xs) var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background-alt);
-}
-
-.arc42-surface-header__crumbs {
-    flex: 1 1 16rem;
+    flex-direction: column;
+    gap: var(--spacing-sm);
     min-width: 0;
 }
 
-.arc42-surface-header__trail {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.arc42-surface-header__crumb + .arc42-surface-header__crumb::before {
-    content: "/";
-    margin-right: var(--spacing-xs);
-    color: var(--color-text-disabled);
-}
-
-.arc42-surface-header__crumb--current {
-    color: var(--color-text-primary);
-    font-weight: var(--font-weight-semibold);
-}
-
-.arc42-surface-header__find-keys {
+.arc42-surface-find__keys {
     display: contents;
 }
 
-.arc42-surface-header__find {
-    flex: 0 1 18rem;
-    min-width: 12rem;
+.arc42-surface-find__field {
+    width: 100%;
 }
 
-.arc42-surface-header__hit {
+.arc42-surface-find__hit {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-2xs);
 }
 
-.arc42-surface-header__hit-detail {
+.arc42-surface-find__hit-detail {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
 }
@@ -9463,15 +9431,34 @@ a.pull-request-detail-checks__name:hover {
     font-weight: var(--font-weight-semibold);
 }
 
-.arc42-surface-nav__item--depth-1 { padding-left: calc(var(--spacing-sm) + 0.875rem); }
-.arc42-surface-nav__item--depth-2 { padding-left: calc(var(--spacing-sm) + 1.75rem); }
-.arc42-surface-nav__item--depth-3 { padding-left: calc(var(--spacing-sm) + 2.625rem); }
-.arc42-surface-nav__item--depth-4 { padding-left: calc(var(--spacing-sm) + 3.5rem); }
+.arc42-surface-nav__item--depth-1 { padding-left: calc(var(--spacing-sm) + 0.75rem); }
+.arc42-surface-nav__item--depth-2 { padding-left: calc(var(--spacing-sm) + 1.5rem); }
+.arc42-surface-nav__item--depth-3 { padding-left: calc(var(--spacing-sm) + 2.25rem); }
+.arc42-surface-nav__item--depth-4 { padding-left: calc(var(--spacing-sm) + 3rem); }
 
 .arc42-surface-nav__label {
     flex: 1 1 auto;
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+/* A views-list line is one line, whatever its name: the label is cut with an
+   ellipsis (the full title is the line's tooltip) and the count or tag sits in a
+   right-hand column of one width, so the numbers line up down the list. */
+.arc42-surface-nav__item--line {
+    align-items: center;
+}
+
+.arc42-surface-nav__item--line > .arc42-surface-nav__label {
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.arc42-surface-nav__detail--column {
+    min-width: 2.5rem;
+    text-align: right;
 }
 
 .arc42-surface-nav__number {

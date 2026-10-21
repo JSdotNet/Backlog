@@ -1,26 +1,48 @@
 namespace Backlog.UI.Components.Diagrams.C4;
 
+/// <summary>Which group of the architecture surface's views list a line sits in.</summary>
+public enum C4ViewIndexGroup
+{
+    /// <summary>The landscape and the zoom chain: context, containers, components, code.</summary>
+    Model,
+
+    /// <summary>Dynamic views: a flow told step by step.</summary>
+    Flows,
+
+    /// <summary>Deployment views, one per environment.</summary>
+    Deployment,
+
+    /// <summary>A second view of a level the chain already has a view of — another
+    /// context or containers view of the same system. Listed by its own title, apart
+    /// from the chain, so the chain reads one line per level.</summary>
+    Other
+}
+
 /// <summary>
-/// One line of the "C4 views" list on the architecture surface's left navigation: a
-/// view of the workspace, or a component's Code level.
+/// One line of the views list on the architecture surface's left navigation: a view
+/// of the workspace, or a component's Code level.
 /// </summary>
-/// <param name="Label">What the line says: "System landscape", "Containers", the
-/// container a components view is of, the environment a deployment view draws.</param>
-/// <param name="Detail">What it says on the right: the number of containers or
-/// components the view opens, or the kind of a view that sits beside the chain —
-/// "code", "dynamic", "deploy". Null when there is nothing to add.</param>
-/// <param name="Depth">How far the line is indented: 0 for the views beside the chain
-/// and its top, one more per level down.</param>
+/// <param name="Label">What the line says: short and by level — "System context",
+/// "Containers", the container a components view is of, the component a Code level is
+/// of, the environment a deployment view draws.</param>
+/// <param name="Title">The view's full title, for the line's tooltip. The main area's
+/// heading says it too.</param>
+/// <param name="Detail">The right-hand column: how many containers or components the
+/// level opens onto, or "code". Null when there is nothing to add.</param>
+/// <param name="Depth">How far the line is indented within its group: one step per
+/// level of the chain.</param>
 /// <param name="ViewKey">The view the line opens; for a Code line, the components view
 /// the component is drawn on.</param>
 /// <param name="CodeComponentId">The component whose Code level the line opens, or null
 /// for a view.</param>
 public sealed record C4ViewIndexEntry(
     string Label,
+    string Title,
     string? Detail,
     int Depth,
     string ViewKey,
     C4ViewKind Kind,
+    C4ViewIndexGroup Group,
     string? CodeComponentId = null)
 {
     /// <summary>Whether the line is open now: its view with no Code level open, or its
@@ -32,15 +54,21 @@ public sealed record C4ViewIndexEntry(
 }
 
 /// <summary>
-/// The architecture surface's "C4 views" list (plan c4-zoom-navigation, the design's
-/// left navigation): every view of the workspace once, the zoom chain first — landscape,
-/// context, containers, then a components view per container and the Code level of each
-/// component that has one — and after it the views beside the chain, dynamic and
-/// deployment.
+/// The architecture surface's views list (plan c4-zoom-navigation, the design's left
+/// navigation): the landscape and the zoom chain — a system's context, its containers,
+/// a components view per container and the Code level of each component that has one,
+/// one line per level and indented one step per level — then the flows, the
+/// deployments, and last any second view of a level the chain already shows.
 /// <para>
-/// Pure, so the order and the counts are tested without a renderer. The counts are the
-/// elements a level opens onto — a system's containers, a container's components — not
-/// what the view happens to draw, which also counts the people and systems around them.
+/// The chain takes, per level and scope, the view the zoom bar opens — the first in
+/// level order — so the line and the bar never disagree about which view "Containers"
+/// is. A second view of the same level and scope is still listed, under Other views by
+/// its own title: it is a view somebody authored, and dropping it would hide it.
+/// </para>
+/// <para>
+/// Pure, so the order, the names and the counts are tested without a renderer. The
+/// counts are the elements a level opens onto — a system's containers, a container's
+/// components — not what the view happens to draw.
 /// </para>
 /// </summary>
 public static class C4ViewIndex
@@ -53,107 +81,107 @@ public static class C4ViewIndex
 
         var views = C4Exploration.OrderedViews(workspace);
         var entries = new List<C4ViewIndexEntry>();
+        var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var view in views.Where(view => view.Kind == C4ViewKind.SystemLandscape && !Listed(entries, view.Key)))
+        void Add(C4ViewIndexEntry entry)
         {
-            entries.Add(new C4ViewIndexEntry(Title(workspace, view, "System landscape"), null, 0, view.Key, view.Kind));
+            entries.Add(entry);
+            if (entry.CodeComponentId is null) listed.Add(entry.ViewKey);
         }
 
-        foreach (var context in views.Where(view => view.Kind == C4ViewKind.SystemContext))
+        // The chain's view of a level: the first of that kind and scope.
+        C4View? Chain(C4ViewKind kind, string? scope) =>
+            views.FirstOrDefault(view => view.Kind == kind && string.Equals(view.ScopeId, scope, StringComparison.OrdinalIgnoreCase));
+
+        if (views.FirstOrDefault(view => view.Kind == C4ViewKind.SystemLandscape) is { } landscape)
         {
-            if (Listed(entries, context.Key)) continue;
+            Add(new C4ViewIndexEntry("System landscape", Title(workspace, landscape), null, 0, landscape.Key, landscape.Kind, C4ViewIndexGroup.Model));
+        }
 
-            entries.Add(new C4ViewIndexEntry(Title(workspace, context, "System context"), null, 0, context.Key, context.Kind));
+        // One chain per system that has a context or containers view, in the order the
+        // views name them.
+        var systems = views
+            .Where(view => view.Kind is C4ViewKind.SystemContext or C4ViewKind.Container && view.ScopeId is not null)
+            .Select(view => view.ScopeId!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-            foreach (var containers in views.Where(view => view.Kind == C4ViewKind.Container && SameScope(view, context)))
+        foreach (var system in systems)
+        {
+            var depth = 0;
+            if (Chain(C4ViewKind.SystemContext, system) is { } context)
             {
-                AddContainers(workspace, views, containers, hasCode, entries);
+                var label = systems.Count > 1 ? workspace.Element(system)?.Name ?? "System context" : "System context";
+                Add(new C4ViewIndexEntry(label, Title(workspace, context), null, 0, context.Key, context.Kind, C4ViewIndexGroup.Model));
+                depth = 1;
+            }
+
+            if (Chain(C4ViewKind.Container, system) is not { } containers) continue;
+
+            var children = Children(workspace, system, C4ElementKind.Container);
+            Add(new C4ViewIndexEntry("Containers", Title(workspace, containers), Count(children.Count), depth, containers.Key, containers.Kind, C4ViewIndexGroup.Model));
+
+            foreach (var container in children)
+            {
+                if (Chain(C4ViewKind.Component, container.Id) is { } components)
+                {
+                    AddComponents(workspace, components, container.Name, depth + 1, hasCode, Add);
+                }
             }
         }
 
-        // A container view whose system has no context view still belongs in the chain.
-        foreach (var containers in views.Where(view => view.Kind == C4ViewKind.Container
-                     && !entries.Any(entry => string.Equals(entry.ViewKey, view.Key, StringComparison.OrdinalIgnoreCase))))
+        // A components view of a container no containers view leads to.
+        foreach (var components in views.Where(view => view.Kind == C4ViewKind.Component && !listed.Contains(view.Key)))
         {
-            AddContainers(workspace, views, containers, hasCode, entries);
+            if (!ReferenceEquals(Chain(C4ViewKind.Component, components.ScopeId), components)) continue;
+
+            var name = workspace.Element(components.ScopeId)?.Name ?? Title(workspace, components);
+            AddComponents(workspace, components, name, 0, hasCode, Add);
         }
 
-        // And a components view of a container no container view draws.
-        foreach (var components in views.Where(view => view.Kind == C4ViewKind.Component
-                     && !entries.Any(entry => string.Equals(entry.ViewKey, view.Key, StringComparison.OrdinalIgnoreCase))))
+        // Flows and deployments in the order the workspace declares them: an author
+        // lists the canonical environment first.
+        foreach (var dynamic in workspace.Views.Where(view => view.Kind == C4ViewKind.Dynamic))
         {
-            AddComponents(workspace, components, 2, hasCode, entries);
+            var title = Title(workspace, dynamic);
+            Add(new C4ViewIndexEntry(title, title, null, 0, dynamic.Key, dynamic.Kind, C4ViewIndexGroup.Flows));
         }
 
-        foreach (var dynamic in views.Where(view => view.Kind == C4ViewKind.Dynamic && !Listed(entries, view.Key)))
+        foreach (var deployment in workspace.Views.Where(view => view.Kind == C4ViewKind.Deployment))
         {
-            entries.Add(new C4ViewIndexEntry(C4Exploration.Label(workspace, dynamic), "dynamic", 0, dynamic.Key, dynamic.Kind));
+            var title = Title(workspace, deployment);
+            var label = string.IsNullOrWhiteSpace(deployment.Environment) ? title : deployment.Environment;
+            Add(new C4ViewIndexEntry(label, title, null, 0, deployment.Key, deployment.Kind, C4ViewIndexGroup.Deployment));
         }
 
-        foreach (var deployment in views.Where(view => view.Kind == C4ViewKind.Deployment && !Listed(entries, view.Key)))
+        // Every view not yet listed: a second view of a level the chain shows.
+        foreach (var other in views.Where(view => !listed.Contains(view.Key)))
         {
-            var label = string.IsNullOrWhiteSpace(deployment.Environment)
-                ? C4Exploration.Label(workspace, deployment)
-                : deployment.Environment;
-            entries.Add(new C4ViewIndexEntry(label, "deploy", 0, deployment.Key, deployment.Kind));
+            var title = Title(workspace, other);
+            Add(new C4ViewIndexEntry(title, title, null, 0, other.Key, other.Kind, C4ViewIndexGroup.Other));
         }
 
         return entries;
     }
 
-    private static void AddContainers(
-        C4Workspace workspace,
-        IReadOnlyList<C4View> views,
-        C4View containers,
-        Func<string, bool>? hasCode,
-        List<C4ViewIndexEntry> entries)
-    {
-        // A view is listed once, under the first system context that leads to it: two
-        // context views of one system both lead to its containers.
-        if (Listed(entries, containers.Key)) return;
-
-        var count = Children(workspace, containers.ScopeId, C4ElementKind.Container).Count;
-        var label = views.Count(view => view.Kind == C4ViewKind.Container) > 1 ? C4Exploration.Label(workspace, containers) : "Containers";
-        entries.Add(new C4ViewIndexEntry(label, Count(count), 1, containers.Key, containers.Kind));
-
-        foreach (var container in Children(workspace, containers.ScopeId, C4ElementKind.Container))
-        {
-            foreach (var components in views.Where(view => view.Kind == C4ViewKind.Component
-                         && string.Equals(view.ScopeId, container.Id, StringComparison.OrdinalIgnoreCase)))
-            {
-                AddComponents(workspace, components, 2, hasCode, entries);
-            }
-        }
-    }
-
     private static void AddComponents(
         C4Workspace workspace,
         C4View components,
+        string label,
         int depth,
         Func<string, bool>? hasCode,
-        List<C4ViewIndexEntry> entries)
+        Action<C4ViewIndexEntry> add)
     {
-        if (Listed(entries, components.Key)) return;
-
         var children = Children(workspace, components.ScopeId, C4ElementKind.Component);
-        var sameScope = workspace.Views.Count(view => view.Kind == C4ViewKind.Component
-            && string.Equals(view.ScopeId, components.ScopeId, StringComparison.OrdinalIgnoreCase));
-        var label = sameScope == 1 && workspace.Element(components.ScopeId)?.Name is { } scope
-            ? scope
-            : C4Exploration.Label(workspace, components);
-        entries.Add(new C4ViewIndexEntry(label, Count(children.Count), depth, components.Key, components.Kind));
+        add(new C4ViewIndexEntry(label, Title(workspace, components), Count(children.Count), depth, components.Key, components.Kind, C4ViewIndexGroup.Model));
 
         if (hasCode is null) return;
 
         foreach (var component in children.Where(component => hasCode(component.Id)))
         {
-            entries.Add(new C4ViewIndexEntry(component.Name, "code", depth + 1, components.Key, components.Kind, component.Id));
+            add(new C4ViewIndexEntry(component.Name, $"Code — {component.Name}", "code", depth + 1, components.Key, components.Kind, C4ViewIndexGroup.Model, component.Id));
         }
     }
-
-    /// <summary>Whether a view already has its line: every view is listed once.</summary>
-    private static bool Listed(List<C4ViewIndexEntry> entries, string viewKey) =>
-        entries.Any(entry => entry.CodeComponentId is null && string.Equals(entry.ViewKey, viewKey, StringComparison.OrdinalIgnoreCase));
 
     private static List<C4Element> Children(C4Workspace workspace, string? parentId, C4ElementKind kind) =>
         parentId is null
@@ -161,13 +189,7 @@ public static class C4ViewIndex
             : [.. workspace.Elements.Where(element => element.Kind == kind
                 && string.Equals(element.ParentId, parentId, StringComparison.OrdinalIgnoreCase))];
 
-    private static bool SameScope(C4View view, C4View other) =>
-        string.Equals(view.ScopeId, other.ScopeId, StringComparison.OrdinalIgnoreCase);
-
     private static string? Count(int count) => count > 0 ? count.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
 
-    /// <summary>A landscape or context view is named by its level, as the design lists
-    /// it; a second one of the same level by its own title, so two read apart.</summary>
-    private static string Title(C4Workspace workspace, C4View view, string level) =>
-        workspace.Views.Count(other => other.Kind == view.Kind) > 1 ? C4Exploration.Label(workspace, view) : level;
+    private static string Title(C4Workspace workspace, C4View view) => C4Exploration.Label(workspace, view);
 }

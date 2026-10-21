@@ -19,28 +19,10 @@
     @switch (Mode)
     {
         case Arc42SurfaceMode.Model:
-            <section class="arc42-surface-nav__group" aria-labelledby="@Id("views")" data-testid="arc42-surface-views">
-                <h2 class="arc42-surface-nav__heading" id="@Id("views")">C4 views</h2>
-                @foreach (var entry in Views)
-                {
-                    var open = entry.IsOpen(Location?.ViewKey, Location?.CodeComponentId);
-                    <AppButton @key="(entry.ViewKey, entry.CodeComponentId)"
-                               BaseClass="arc42-surface-nav__item"
-                               CssClass="@ItemClass(open, $"arc42-surface-nav__item--depth-{Math.Min(entry.Depth, 4)}")"
-                               Variant="ButtonVariant.None"
-                               aria-current="@(open ? "page" : null)"
-                               data-view="@entry.ViewKey"
-                               data-code="@entry.CodeComponentId"
-                               TestId="arc42-surface-view"
-                               OnClick="() => OnOpenView.InvokeAsync(entry)">
-                        <span class="arc42-surface-nav__label">@entry.Label</span>
-                        @if (entry.Detail is not null)
-                        {
-                            <span class="arc42-surface-nav__detail">@entry.Detail</span>
-                        }
-                    </AppButton>
-                }
-            </section>
+            @foreach (var group in Views.Where(entry => entry.Group != C4ViewIndexGroup.Other).GroupBy(entry => entry.Group))
+            {
+                @ViewGroup(group.Key, [.. group])
+            }
 
             <section class="arc42-surface-nav__group" aria-labelledby="@Id("documents")" data-testid="arc42-surface-documents">
                 <h2 class="arc42-surface-nav__heading" id="@Id("documents")">arc42 · documents this view</h2>
@@ -83,6 +65,11 @@
                     <span class="arc42-surface-nav__detail arc42-surface-nav__detail--debt" data-testid="arc42-surface-debt-count">@Debt.Count</span>
                 </AppButton>
             </section>
+
+            @if (Views.Any(entry => entry.Group == C4ViewIndexGroup.Other))
+            {
+                @ViewGroup(C4ViewIndexGroup.Other, [.. Views.Where(entry => entry.Group == C4ViewIndexGroup.Other)])
+            }
             break;
 
         case Arc42SurfaceMode.Chapters:
@@ -223,6 +210,44 @@
     }
 
     private string Id(string part) => $"{_id}-{part}";
+
+    /// <summary>One group of the views list, under its heading.</summary>
+    private RenderFragment ViewGroup(C4ViewIndexGroup key, IReadOnlyList<C4ViewIndexEntry> entries) => @<text>
+        @{ var groupId = Id($"views-{key.ToString().ToLowerInvariant()}"); }
+        <section class="arc42-surface-nav__group"
+                 aria-labelledby="@groupId"
+                 data-group="@key.ToString().ToLowerInvariant()"
+                 data-testid="@(key == C4ViewIndexGroup.Model ? "arc42-surface-views" : "arc42-surface-views-group")">
+            <h2 class="arc42-surface-nav__heading" id="@groupId">@GroupTitle(key)</h2>
+            @foreach (var entry in entries)
+            {
+                var open = entry.IsOpen(Location?.ViewKey, Location?.CodeComponentId);
+                <AppButton @key="(entry.ViewKey, entry.CodeComponentId)"
+                           BaseClass="arc42-surface-nav__item"
+                           CssClass="@ItemClass(open, $"arc42-surface-nav__item--line arc42-surface-nav__item--depth-{Math.Min(entry.Depth, 4)}")"
+                           Variant="ButtonVariant.None"
+                           aria-current="@(open ? "page" : null)"
+                           title="@entry.Title"
+                           data-view="@entry.ViewKey"
+                           data-code="@entry.CodeComponentId"
+                           TestId="arc42-surface-view"
+                           OnClick="() => OnOpenView.InvokeAsync(entry)">
+                    <span class="arc42-surface-nav__label">@entry.Label</span>
+                    <span class="arc42-surface-nav__detail arc42-surface-nav__detail--column">@entry.Detail</span>
+                </AppButton>
+            }
+        </section>
+    </text>;
+
+    /// <summary>What a group of the views list is headed: the model's levels, then the
+    /// views beside them.</summary>
+    private static string GroupTitle(C4ViewIndexGroup group) => group switch
+    {
+        C4ViewIndexGroup.Flows => "Flows",
+        C4ViewIndexGroup.Deployment => "Deployment",
+        C4ViewIndexGroup.Other => "Other views",
+        _ => "C4 views"
+    };
 
     private static string? ItemClass(bool open, string? extra = null)
     {
