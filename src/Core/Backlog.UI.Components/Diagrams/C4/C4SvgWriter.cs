@@ -42,7 +42,21 @@ public sealed record C4SvgOptions(
     /// still the thing a reader asks about.
     /// </summary>
     public IReadOnlySet<string>? SelectableBoundaryAliases { get; init; }
+
+    /// <summary>
+    /// The record counts the zoom tab's overlay puts on cards, by the alias of each
+    /// card. A card named here with a decision count draws an <c>n ADR</c> chip; with an
+    /// open-debt count it draws an <c>n TDR</c> chip and is drawn on the debt surface
+    /// (<c>c4-diagram__node--debt</c>). A count of zero draws nothing, and a card not
+    /// named here is drawn as it always was. Null, the default, is no overlay.
+    /// </summary>
+    public IReadOnlyDictionary<string, C4CardRecords>? RecordChips { get; init; }
 }
+
+/// <summary>What the overlay counts on one card: the decision records (ADRs) and the
+/// open debt records (TDRs not yet resolved) that name its element. The host puts in
+/// only the count its overlay shows, so the other one is zero.</summary>
+public sealed record C4CardRecords(int Decisions, int OpenDebt);
 
 /// <summary>
 /// Draws a laid-out C4 view as SVG.
@@ -215,7 +229,9 @@ public static class C4SvgWriter
         // which is exactly the confusion the notation exists to prevent.
         var radius = person ? node.Height / 2 : 8;
 
-        svg.Append(Invariant($"<g class=\"{NodeClass(node)}\" id=\"{Escape(id)}-{Escape(node.Alias)}\">"))
+        var records = options.RecordChips is { } chips && chips.TryGetValue(node.Alias, out var counted) ? counted : null;
+
+        svg.Append(Invariant($"<g class=\"{NodeClass(node, records)}\" id=\"{Escape(id)}-{Escape(node.Alias)}\">"))
             .Append(Invariant($"<rect x=\"{node.X:0.##}\" y=\"{node.Y:0.##}\" width=\"{node.Width:0.##}\" height=\"{node.Height:0.##}\" rx=\"{radius:0.##}\" />"));
 
         // A person gets a drawn figure rather than a character. The glyphs are fine as
@@ -259,7 +275,51 @@ public static class C4SvgWriter
 
         if (options.ZoomInAliases?.Contains(node.Alias) == true) WriteZoomIn(svg, node);
 
+        if (records is not null) WriteRecordChips(svg, node, records);
+
         svg.Append("</g>");
+    }
+
+    /// <summary>
+    /// The overlay's record chips — <c>n ADR</c>, <c>n TDR</c> — in a row straddling the
+    /// card's top edge from the left, clear of the <c>Zoom in</c> chip at the right and
+    /// of the <c>EXTERNAL</c> chip at the foot, so a card may carry all three.
+    /// <para>
+    /// Inside the card's own group, so a press on a chip still selects the card, and
+    /// each says what it counts in a <c>title</c> for a reader who hovers it.
+    /// </para>
+    /// </summary>
+    private static void WriteRecordChips(StringBuilder svg, C4PlacedNode node, C4CardRecords records)
+    {
+        var x = node.X + 12;
+        var y = node.Y - 7.5;
+
+        if (records.Decisions > 0)
+        {
+            x = WriteRecordChip(svg, x, y, $"{records.Decisions} ADR", "adr",
+                $"{records.Decisions} decision record{(records.Decisions == 1 ? string.Empty : "s")} name{(records.Decisions == 1 ? "s" : string.Empty)} this element");
+        }
+
+        if (records.OpenDebt > 0)
+        {
+            WriteRecordChip(svg, x, y, $"{records.OpenDebt} TDR", "tdr",
+                $"{records.OpenDebt} open debt record{(records.OpenDebt == 1 ? string.Empty : "s")} name{(records.OpenDebt == 1 ? "s" : string.Empty)} this element");
+        }
+    }
+
+    /// <summary>One record chip at <paramref name="x"/>; answers where the next one
+    /// starts.</summary>
+    private static double WriteRecordChip(StringBuilder svg, double x, double y, string label, string kind, string title)
+    {
+        var width = 14 + label.Length * 5.6;
+
+        svg.Append(Invariant($"<g class=\"c4-diagram__records c4-diagram__records--{kind}\" data-c4-records=\"{kind}\">"))
+            .Append(Invariant($"<title>{Escape(title)}</title>"))
+            .Append(Invariant($"<rect x=\"{x:0.##}\" y=\"{y:0.##}\" width=\"{width:0.##}\" height=\"15\" rx=\"7.5\" />"))
+            .Append(Invariant($"<text x=\"{x + width / 2:0.##}\" y=\"{y + 10.5:0.##}\" text-anchor=\"middle\">{Escape(label)}</text>"))
+            .Append("</g>");
+
+        return x + width + 6;
     }
 
     /// <summary>
@@ -303,12 +363,13 @@ public static class C4SvgWriter
     /// it outside the scope, and does it lead anywhere.
     /// </para>
     /// </summary>
-    private static string NodeClass(C4PlacedNode node)
+    private static string NodeClass(C4PlacedNode node, C4CardRecords? records)
     {
         var classes = new List<string> { "node", "c4-diagram__node", $"c4-diagram__node--{Level(node.Node.Kind)}" };
 
         if (node.External) classes.Add("c4-diagram__node--external");
         if (node.Drillable) classes.Add("c4-drillable");
+        if (records is { OpenDebt: > 0 }) classes.Add("c4-diagram__node--debt");
 
         return string.Join(' ', classes);
     }

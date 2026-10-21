@@ -17885,6 +17885,185 @@ select.field__input {
     fill: var(--color-text-inverse);
 }
 
+/* ---- the record overlay ----
+   Drawn only when the zoom tab's overlay asks C4SvgWriter for record chips, so
+   nothing here reaches the C4 tab. A decision chip is the warning surface with the
+   primary ink, as the design's Containers screen draws it; a debt chip is the error
+   surface with its own ink (color-scheme.md: color-error-text is the legible
+   foreground for color-error, and never a fill). A card carrying open debt takes
+   the error surface itself — `fault`, in the status-role table — so its chip keeps
+   that surface and ink and is set off from the card by the strong border. */
+.c4-diagram__records rect {
+    stroke-dasharray: none;
+}
+
+.c4-diagram__records text {
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.c4-diagram__records--adr rect {
+    fill: var(--color-warning);
+    stroke: var(--color-primary);
+    stroke-width: 1;
+}
+
+.c4-diagram__records--adr text {
+    fill: var(--color-primary);
+}
+
+.c4-diagram__records--tdr rect {
+    fill: var(--color-error);
+    stroke: var(--color-error-text);
+    stroke-width: 1;
+}
+
+.c4-diagram__records--tdr text {
+    fill: var(--color-error-text);
+}
+
+.c4-diagram__node--debt > rect {
+    fill: var(--color-error);
+    stroke: var(--color-error-text);
+    stroke-width: 1.5;
+}
+
+.c4-diagram__node--debt .c4-diagram__records--tdr rect {
+    stroke: var(--color-border-strong);
+}
+
+.c4-zoom-explorer__overlay {
+    display: flex;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+    max-width: 100%;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+    padding: 3px;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+}
+
+.c4-zoom-explorer__overlay-label {
+    padding: 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-zoom-explorer__overlay-choices {
+    display: flex;
+    gap: 2px;
+}
+
+.c4-zoom-explorer__overlay-choice {
+    min-height: 32px;
+    padding: 0 var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.c4-zoom-explorer__overlay-choice:hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.c4-zoom-explorer__overlay-choice:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-zoom-explorer__overlay-choice--active,
+.c4-zoom-explorer__overlay-choice--active:hover {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-zoom-explorer__below {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-cross-cutting {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.c4-cross-cutting__head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.c4-cross-cutting__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-cross-cutting__note,
+.c4-cross-cutting__severity {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-cross-cutting__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-cross-cutting__record {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-cross-cutting__record:hover {
+    background: var(--color-background-raised);
+}
+
+.c4-cross-cutting__record:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-cross-cutting__number {
+    color: var(--color-error-text);
+    font-family: var(--font-family-mono);
+}
+
+.c4-cross-cutting__title {
+    flex: 1;
+}
+
 /* ---- a dynamic view played step by step ----
    The picture and the steps panel side by side; every other part of the tab spans
    both columns. The current step — its arrow, its badge, its row — is drawn in the

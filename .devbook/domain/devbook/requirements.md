@@ -1485,7 +1485,7 @@ type: requirement
 status: draft
 ```
 
-The system SHALL offer an overlay switch of None, Decisions and Debt that puts the count of ADRs or of TDRs naming an element on its card, and show the TDRs that name no element in a cross-cutting tray while Debt is chosen.
+The system SHALL offer an overlay switch of None, Decisions and Debt that puts the count of ADRs, or of open TDRs, naming an element on its card, draws a card that open TDRs name on the error surface, counts under the diagram the records that name only elements below the view, and shows the open TDRs that name no element in a cross-cutting tray while Debt is chosen.
 
 #### Scenario: Decisions
 
@@ -1497,7 +1497,13 @@ The system SHALL offer an overlay switch of None, Decisions and Debt that puts t
 
 - **Given** one TDR names the Devbook component and two TDRs name no element
 - **When** the reader chooses Debt on the Components view of Desktop App
-- **Then** the Devbook card reads 1 TDR and the cross-cutting tray lists the other two
+- **Then** the Devbook card reads 1 TDR on the error surface and the cross-cutting tray lists the other two
+
+#### Scenario: Records below the view
+
+- **Given** one ADR names only the Shell component of Desktop App
+- **When** the reader chooses Decisions on the Containers view
+- **Then** no card counts that ADR, and the line under the diagram says 1 ADR links only to elements below it
 
 ### Requirement: Code is drawn from the source on demand
 

@@ -835,10 +835,15 @@ shows its severity and its rung on the debt ladder. Each chapter and record open
 in the **Chapters** tab. A section with nothing to list says so. A deployment node
 opens the same inspector, with the container instances it runs.
 
-**Overlays.** A switch reads None, Decisions or Debt. Decisions puts a count of
-ADRs on each card, and Debt a count of TDRs. Debt that names no element is shown
-in a cross-cutting tray beside the diagram, so it is never lost for having no
-place on a card.
+**Overlays.** A switch in the tab's head reads None, Decisions or Debt, and the
+choice holds as the reader zooms. Decisions puts an "n ADR" chip on each card the
+decisions name. Debt puts an "n TDR" chip on each card that open debt names (debt
+not yet resolved), and draws that card on the error surface. A card counts the
+records the inspector lists for it, those that touch it included. Under the
+diagram a line counts the records that name no element on the view but one
+nested below a card on it, the ones a reader finds by zooming in. Open debt that
+names no element is shown in a cross-cutting tray under the diagram while Debt is
+chosen, so it is never lost for having no place on a card.
 
 **Code is generated, never authored.** Level 4 is drawn from the source on demand:
 a component linked to its code opens its types with their members. A component

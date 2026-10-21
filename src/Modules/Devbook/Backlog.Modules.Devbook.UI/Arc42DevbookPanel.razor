@@ -258,6 +258,7 @@
                                     OnHintDismissed="DismissC4ZoomHint"
                                     OpenView="@_zoomOpen"
                                     RecordsFor="@InspectorRecords(zoomWorkspace)"
+                                    CrossCuttingDebt="@CrossCuttingDebt()"
                                     OnOpenRecord="OpenInspectedRecordAsync"
                                     Code="@ZoomCode"
                                     TestId="arc42-c4-zoom-explorer" />
@@ -1116,6 +1117,23 @@
         }
 
         return _inspectorRecords;
+    }
+
+    private IReadOnlyList<C4InspectorRecord> _crossCuttingDebt = [];
+    private (C4Catalog? C4, Arc42DevbookCatalog? Chapters) _crossCuttingDebtFor;
+
+    /// <summary>The debt records that name no element, for the zoom tab's Debt overlay
+    /// tray. Read again only when the model or the chapters changed, so the explorer
+    /// is handed the same list on every other render.</summary>
+    private IReadOnlyList<C4InspectorRecord> CrossCuttingDebt()
+    {
+        if (!ReferenceEquals(_crossCuttingDebtFor.C4, _c4) || !ReferenceEquals(_crossCuttingDebtFor.Chapters, _catalog))
+        {
+            _crossCuttingDebtFor = (_c4, _catalog);
+            _crossCuttingDebt = C4ElementInspection.CrossCuttingDebt(_c4, _catalog?.Documents ?? []);
+        }
+
+        return _crossCuttingDebt;
     }
 
     /// <summary>A chapter or a record picked in the zoom tab's inspector: followed
