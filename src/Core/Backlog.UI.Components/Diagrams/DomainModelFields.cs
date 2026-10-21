@@ -132,7 +132,7 @@ public static partial class DomainModelFields
 
         // An identity is a reference whatever else its name suggests: a
         // `recurrence_source_id` is not a part, it is somewhere else.
-        if (attribute.IsIdReference || NamesAnotherId(attribute)) return new DomainField(attribute.Name, type, DomainFieldKind.Reference);
+        if (IsIdentity(attribute)) return new DomainField(attribute.Name, type, DomainFieldKind.Reference);
 
         var named = BaseType(attribute.Type) is { } baseType ? diagram.Find(baseType) : null;
         if (named is not null)
@@ -153,6 +153,10 @@ public static partial class DomainModelFields
 
         return new DomainField(attribute.Name, type, DomainFieldKind.Value);
     }
+
+    /// <summary>Whether the attribute holds another aggregate's identity, by its
+    /// name or by its type.</summary>
+    internal static bool IsIdentity(DomainModelAttribute attribute) => attribute.IsIdReference || NamesAnotherId(attribute);
 
     /// <summary>An id written as its type — <c>TaskId</c>, <c>List~OwnerId~</c> — is
     /// another aggregate's identity too. The bare <c>Id</c> is not: it is how a

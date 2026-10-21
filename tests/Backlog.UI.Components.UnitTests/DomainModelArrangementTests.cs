@@ -108,35 +108,157 @@ public sealed class DomainModelArrangementTests
     }
 
     [Fact]
-    public void Dashed_lines_and_id_attributes_are_references_outside_the_band()
+    public void Each_type_the_root_names_by_id_sits_outside_the_band_once()
     {
         var boundary = Assert.Single(DomainModelArrangement.TryArrange(Tasks)!.Boundaries);
 
+        // depends_on is the attribute the dashed "depends on" line draws: one
+        // reference, not two. Readiness is an enumeration the task is derived as,
+        // not something it names by id. With no chapters to read, an id's target
+        // is its name in words.
         Assert.Equal(
             [
-                ("Task", DomainModelReferenceSource.Relation, "depends on"),
-                ("Readiness", DomainModelReferenceSource.Relation, "derived as"),
-                ("repo_ids", DomainModelReferenceSource.Attribute, null),
-                ("source_inbox_id", DomainModelReferenceSource.Attribute, null),
-                ("depends_on", DomainModelReferenceSource.Attribute, null)
+                ("Task", "0..*", new[] { "depends_on" }),
+                ("Repo", "0..*", new[] { "repo_ids" }),
+                ("Source inbox", "0..1", new[] { "source_inbox_id" })
             ],
-            boundary.References.Select(r => (r.Target, r.Source, r.Label)));
+            boundary.References.Select(r => (r.Target, r.Multiplicity, r.Via.ToArray())));
 
         Assert.False(new DomainModelAttribute("cells", "List~Grid~").IsIdReference);
         Assert.True(new DomainModelAttribute("owners", "List~UserId~").IsIdReference);
 
         // The class's own identity is not a reference to anything.
-        Assert.DoesNotContain(boundary.References, r => r.Target == "id");
+        Assert.DoesNotContain(boundary.References, r => r.Via.Contains("id"));
+        Assert.DoesNotContain(boundary.References, r => r.Target == "Readiness");
         Assert.DoesNotContain(boundary.Parts, p => p.Class.Name is "Readiness" or "TaskStatus");
     }
 
     [Fact]
-    public void Domain_services_sit_below_and_what_has_no_place_is_named()
+    public void A_part_s_own_ids_are_the_part_s_detail_not_the_aggregate_s_references()
     {
-        var arrangement = DomainModelArrangement.TryArrange(Tasks)!;
+        var boundary = Assert.Single(DomainModelArrangement.TryArrange("""
+            classDiagram
+                class Task {
+                    <<aggregate root>>
+                    +List~String~ repo_ids
+                }
+                class ProjectionRef {
+                    <<value object>>
+                    +String repo_id
+                    +String external_id
+                }
+                Task "1" *-- "0..*" ProjectionRef : projects to
+            """)!.Boundaries);
 
-        Assert.Equal(["PlanSequencing"], arrangement.Services.Select(s => s.Name));
-        Assert.Equal(["RecurrenceUnit", "TaskStatus"], arrangement.Unplaced.Select(c => c.Name));
+        Assert.Equal(["repo_ids"], boundary.References.SelectMany(r => r.Via));
+    }
+
+    [Fact]
+    public void An_id_points_at_the_chapter_whose_alias_or_heading_names_it()
+    {
+        DomainModelIdentity[] identities =
+        [
+            new("Inbox Group", "aggregate", [], "inbox/domain.md#inbox-group"),
+            new("Repository", "entity", ["repo_id", "repo_ids"], "repository-management/domain.md#repository"),
+            new("Inbox Item", "aggregate", ["InboxItem"], "inbox/domain.md#inbox-item"),
+            new("Source Ref", "value-object", [], "tasks/domain.md#source-ref")
+        ];
+
+        var boundary = Assert.Single(DomainModelArrangement.TryArrange(Tasks, identities)!.Boundaries);
+
+        Assert.Equal(
+            [
+                ("Task", null),
+                ("Repository", "repository-management/domain.md#repository"),
+                ("Inbox Group", "inbox/domain.md#inbox-group")
+            ],
+            boundary.References.Select(r => (r.Target, r.Chapter)));
+
+        // The order the identities come in decides between two headings that both
+        // fit: the caller puts the chapters the root relates to first.
+        var preferred = Assert.Single(DomainModelArrangement.TryArrange(Tasks, [identities[2], identities[0], identities[1]])!.Boundaries);
+        Assert.Equal("Inbox Item", preferred.References[2].Target);
+
+        // Only an aggregate or an entity is something an id points at: a value
+        // object has no identity, so "source" does not resolve to Source Ref.
+        Assert.Equal(
+            "Recurrence source",
+            DomainModelArrangement.IdentityOf("recurrence_source_id", null, identities).Title);
+    }
+
+    [Fact]
+    public void Two_ids_that_point_at_one_type_share_its_card()
+    {
+        var boundary = Assert.Single(DomainModelArrangement.TryArrange("""
+            classDiagram
+                class Task {
+                    <<aggregate root>>
+                    +String source_inbox_id
+                    +List~String~ inbox_ids
+                }
+            """, [new DomainModelIdentity("Inbox Item", "aggregate", [], "inbox/domain.md#inbox-item")])!.Boundaries);
+
+        var reference = Assert.Single(boundary.References);
+        Assert.Equal(("Inbox Item", "0..*"), (reference.Target, reference.Multiplicity));
+        Assert.Equal(["source_inbox_id", "inbox_ids"], reference.Via);
+    }
+
+    [Fact]
+    public void An_id_and_a_line_to_the_same_type_share_one_card()
+    {
+        var boundary = Assert.Single(DomainModelArrangement.TryArrange("""
+            classDiagram
+                class Task {
+                    <<aggregate root>>
+                    +String source_inbox_id
+                }
+                Task ..> InboxItem : created from
+            """, [new DomainModelIdentity("Inbox Item", "aggregate", [], "inbox/domain.md#inbox-item")])!.Boundaries);
+
+        var reference = Assert.Single(boundary.References);
+        Assert.Equal(("InboxItem", DomainModelReferenceSource.Relation), (reference.Target, reference.Source));
+        Assert.Equal(["source_inbox_id"], reference.Via);
+    }
+
+    [Fact]
+    public void A_heading_spelled_as_the_id_wins_over_one_that_starts_with_it()
+    {
+        DomainModelIdentity[] identities =
+        [
+            new("Task Template", "aggregate", [], "tasks/domain.md#task-template"),
+            new("Task", "aggregate", [], "tasks/domain.md#task")
+        ];
+
+        Assert.Equal("Task", DomainModelArrangement.IdentityOf("parent_task_id", "String", identities).Title);
+        Assert.Equal("User", DomainModelArrangement.IdentityOf("owner", "UserId", identities).Title);
+    }
+
+    [Fact]
+    public void The_root_card_lists_its_vocabularies_dates_and_values_but_no_id_or_part()
+    {
+        var boundary = Assert.Single(DomainModelArrangement.TryArrange("""
+            classDiagram
+                class Task {
+                    <<aggregate root>>
+                    +Id id
+                    +String title
+                    +Date due_on
+                    +TaskStatus status
+                    +String source_inbox_id
+                    +Recurrence recurrence
+                }
+                class Recurrence {
+                    <<value object>>
+                    +Integer interval
+                }
+                class TaskStatus {
+                    <<enumeration>>
+                    draft
+                }
+                Task "1" *-- "0..1" Recurrence : repeats by
+            """)!.Boundaries);
+
+        Assert.Equal(["status", "due_on", "title"], boundary.KeyFields);
     }
 
     [Fact]

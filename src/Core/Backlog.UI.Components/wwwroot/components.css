@@ -133,6 +133,11 @@
        Brain's. */
     --color-domain-value-object: #C3D96B;
 
+    /* Entities on the Model diagram: the kind line and the card's top edge, beside
+       the glyph and the word entity, never alone. A clay of its own, apart from the
+       value objects' yellow-green and the root's gold. */
+    --color-domain-entity: #E5A15F;
+
     /* The Context map's line between two core contexts, and a core card's edge,
        beside the word Core on the card and the legend's words, never alone. An
        amber of its own rather than color-primary, which says "followable". */
@@ -24517,16 +24522,124 @@ select.field__input {
 }
 
 /* The Domain view's Model page (local ADR 0037): a class diagram drawn as each
-   aggregate's consistency-boundary band, what it holds by identity beside the
-   band, and the context's domain services below. Markup rather than lines: each
-   part says its relation and multiplicity in words. */
+   aggregate's consistency-boundary band — the root in the middle, its composed
+   parts as a tree above and below it joined by lines with the gold "owns" diamond
+   on the root, what it names by id in a column outside the band on a dashed line,
+   and the domain services that act on it beneath. The lines are the stylesheet's:
+   the markup stays boxes in reading order, each part saying its kind and
+   multiplicity in words. Under 56rem the tree folds into rows with no lines. */
 .domain-model-view {
     display: flex;
     flex-direction: column;
     min-width: 0;
 }
 
+/* The heading on the left, the Diagram | Fields | Events switch on the right. */
+.domain-model-view__strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.domain-model-view__title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: calc(var(--font-size-2xl) * 4 / 3);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.25;
+}
+
+/* One fused set (interaction-guidelines.md, "Fused means one set"): the options
+   flush inside one border with hairlines between them, the chosen one tinted and
+   underlined on the group's shared bottom edge. */
+.domain-model-view__switch {
+    display: inline-flex;
+    margin-left: auto;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-model-view__view {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.domain-model-view__view:hover {
+    color: var(--color-text-primary);
+}
+
+.domain-model-view__view + .domain-model-view__view {
+    border-left: var(--border-width) solid var(--color-border);
+}
+
+.domain-model-view__view:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.domain-model-view__view--active {
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-background-raised));
+    box-shadow: inset 0 calc(var(--border-width-2) * -1) 0 var(--color-primary);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model-view__intro {
+    max-width: 60rem;
+    margin: 0 0 var(--spacing-xs);
+    color: var(--color-text-secondary);
+}
+
+.domain-model-view__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    list-style: none;
+}
+
+.domain-model-view__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.domain-model-view__legend-owns {
+    width: 0.625rem;
+    height: 0.625rem;
+    background: var(--color-primary);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.domain-model-view__legend-id {
+    width: 1.5rem;
+    border-top: var(--border-width-2) dashed var(--color-border-strong);
+}
+
 .domain-model {
+    --domain-model-gap: var(--spacing-md);
+    --domain-model-stem: var(--spacing-xl);
+    --domain-model-line: var(--border-width-2) solid var(--color-border-strong);
+    --domain-model-id-line: var(--border-width-2) dashed var(--color-border-strong);
+    --domain-model-band-pad: var(--spacing-lg);
+    --domain-model-outside: 15rem;
+    --domain-model-column-gap: var(--spacing-md);
+    --domain-model-spine: calc(var(--domain-model-gap) * 2);
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
@@ -24540,35 +24653,41 @@ select.field__input {
 }
 
 .domain-model__aggregate {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--spacing-md);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    column-gap: var(--domain-model-column-gap);
+    row-gap: var(--domain-model-gap);
+}
+
+.domain-model__aggregate--references {
+    grid-template-columns: minmax(0, 1fr) var(--domain-model-outside);
 }
 
 /* The consistency boundary: what changes together, in one transaction. */
 .domain-model__band {
     position: relative;
-    display: flex;
-    flex: 1 1 22rem;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-md);
+    display: grid;
+    grid-column: 1;
+    grid-row: 1 / 4;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: subgrid;
+    row-gap: 0;
     min-width: 0;
-    padding: var(--spacing-lg) var(--spacing-md) var(--spacing-md);
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-md);
+    padding: calc(var(--domain-model-band-pad) + var(--spacing-md)) var(--domain-model-band-pad) var(--domain-model-band-pad);
+    border: var(--border-width) dashed var(--color-primary);
+    border-radius: var(--border-radius-lg);
     background: var(--color-background-alt);
 }
 
 .domain-model__band-label {
     position: absolute;
-    top: var(--spacing-xs);
-    left: var(--spacing-md);
-    color: var(--color-text-secondary);
+    top: var(--spacing-sm);
+    left: var(--domain-model-band-pad);
+    color: var(--color-primary);
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
@@ -24576,53 +24695,240 @@ select.field__input {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
-.domain-model__parts {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--spacing-sm);
-    width: 100%;
-    margin: 0;
-    padding: var(--spacing-sm) 0 0;
-    border-top: var(--border-width) dashed var(--color-border);
-    list-style: none;
-}
-
-.domain-model__service-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
+/* A row of parts: equal columns, one bar joining their centres, one stem per part. */
+.domain-model__tier {
+    --domain-model-columns: 1;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--domain-model-columns), minmax(0, 1fr));
+    gap: var(--domain-model-gap);
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.domain-model__part,
-.domain-model__reference {
+.domain-model__tier::after {
+    content: "";
+    position: absolute;
+    left: calc((100% - (var(--domain-model-columns) - 1) * var(--domain-model-gap)) / var(--domain-model-columns) / 2);
+    right: calc((100% - (var(--domain-model-columns) - 1) * var(--domain-model-gap)) / var(--domain-model-columns) / 2);
+    border-top: var(--domain-model-line);
+}
+
+.domain-model__tier--above {
+    grid-row: 1;
+}
+
+.domain-model__tier--below {
+    grid-row: 3;
+}
+
+.domain-model__tier--above::after {
+    bottom: 0;
+}
+
+.domain-model__tier--below::after {
+    top: 0;
+}
+
+.domain-model__part {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
     gap: var(--spacing-xs);
     min-width: 0;
 }
 
-.domain-model__part[data-depth="2"],
-.domain-model__part[data-depth="3"] {
-    padding-left: var(--spacing-sm);
-    border-left: var(--border-width) solid var(--color-border);
+.domain-model__tier > .domain-model__part::before,
+.domain-model__tier > .domain-model__part::after {
+    align-self: center;
+    border-left: var(--domain-model-line);
 }
 
-.domain-model__edge {
+.domain-model__tier--above > .domain-model__part::after {
+    content: "";
+    flex: 1 0 var(--domain-model-stem);
+}
+
+.domain-model__tier--below > .domain-model__part::before {
+    content: "";
+    flex: 0 0 var(--domain-model-stem);
+}
+
+.domain-model__subparts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0 0 0 var(--spacing-md);
+    border-left: var(--domain-model-line);
+    list-style: none;
+}
+
+/* The root row: the card centred between a spacer and the dashed line out to
+   what it names by id. The line runs on past the band's padding, its border and
+   the column gap to the column's spine — lengths this stylesheet sets, so it
+   ends exactly there. The stems fill the row above and below the card. */
+.domain-model__root {
+    display: grid;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 20rem) minmax(0, 1fr);
+    align-items: center;
+}
+
+.domain-model__root-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    align-self: stretch;
+    justify-content: center;
+    grid-column: 2;
+}
+
+.domain-model__root--above .domain-model__root-stack::before,
+.domain-model__root--below .domain-model__root-stack::after {
+    content: "";
+    flex: 1 0 var(--domain-model-stem);
+    border-left: var(--domain-model-line);
+}
+
+.domain-model__id-line {
+    grid-column: 3;
+    margin-right: calc(-1 * (var(--domain-model-band-pad) + var(--border-width) + var(--domain-model-column-gap)));
+    border-top: var(--domain-model-id-line);
+}
+
+.domain-model__owns {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    background: var(--color-primary);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.domain-model__owns--above {
+    margin-bottom: -0.5rem;
+}
+
+.domain-model__owns--below {
+    margin-top: -0.5rem;
+}
+
+.domain-model__element {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-top: var(--border-width-4) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.domain-model__element--entity {
+    border-top-color: var(--color-domain-entity);
+}
+
+.domain-model__element--value-object {
+    border-top-color: var(--color-domain-value-object);
+}
+
+.domain-model__element.domain-model__element--root {
+    position: relative;
+    gap: var(--spacing-xs);
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width-2) solid var(--color-primary);
+    border-radius: var(--border-radius-lg);
+}
+
+.domain-model__element-title {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.domain-model__element-name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-model__element--root .domain-model__element-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    line-height: 1.3;
+}
+
+.domain-model__element-kind {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: var(--spacing-xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+}
+
+.domain-model__element--root .domain-model__element-kind,
+.domain-model__element--root .domain-model__element-glyph {
+    color: var(--color-primary);
+}
+
+.domain-model__element--entity .domain-model__element-kind {
+    color: var(--color-domain-entity);
+}
+
+.domain-model__element--value-object .domain-model__element-kind {
+    color: var(--color-domain-value-object);
+}
+
+.domain-model__element-fields {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-model__key-fields {
+    display: flex;
+    flex-direction: column;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+.domain-model__root-links {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.domain-model__all-fields {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.domain-model__all-fields:hover {
+    color: var(--color-primary-light);
+}
+
+.domain-model__all-fields:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .domain-model__edge-owner {
@@ -24631,74 +24937,109 @@ select.field__input {
 
 .domain-model__multiplicity {
     font-family: var(--font-family-mono);
-    color: var(--color-text-primary);
 }
 
-.domain-model__element {
-    display: inline-flex;
-    flex-direction: column;
-    gap: var(--spacing-2xs);
-    min-width: 8rem;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-raised);
-}
-
-.domain-model__element--root {
-    border-color: var(--color-primary);
-}
-
-.domain-model__element-name {
-    color: var(--color-text-primary);
-    font-weight: var(--font-weight-semibold);
-}
-
-.domain-model__element-kind {
-    display: inline-flex;
-    align-items: baseline;
-    gap: var(--spacing-xs);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.domain-model__element--root .domain-model__element-glyph {
-    color: var(--color-primary);
-}
-
-.domain-model__element--value-object .domain-model__element-glyph,
-.domain-model__element--value-object .domain-model__element-kind {
-    color: var(--color-domain-value-object);
-}
-
-/* Held by identity: outside the band, on a dashed edge. */
+/* Named by id: a column outside the band, in the root's row, each type on a
+   dashed arrow off one dashed spine at the column's left edge, which the root's
+   line reaches. The heading sits above the list so the list's middle is the
+   row's middle. */
 .domain-model__references {
+    position: relative;
     display: flex;
-    flex: 0 1 16rem;
     flex-direction: column;
     gap: var(--spacing-sm);
     min-width: 0;
-    padding: var(--spacing-md);
-    border: var(--border-width) dashed var(--color-border-strong);
-    border-radius: var(--border-radius-md);
+}
+
+.domain-model__aggregate--references .domain-model__references {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    padding-left: var(--domain-model-spine);
+}
+
+.domain-model__aggregate--references .domain-model__references > .domain-model__group-label {
+    position: absolute;
+    bottom: calc(100% + var(--spacing-sm));
+    left: var(--domain-model-spine);
 }
 
 .domain-model__reference-list {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-lg);
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.domain-model__reference-name {
-    color: var(--color-text-primary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
+/* From the first card's middle to the last's — and through the row's middle,
+   where the root's line arrives, since the list is centred on it. */
+.domain-model__aggregate--references .domain-model__reference-list::before {
+    content: "";
+    position: absolute;
+    top: 1.75rem;
+    bottom: 1.75rem;
+    left: calc(var(--domain-model-spine) * -1);
+    border-left: var(--domain-model-id-line);
 }
 
-.domain-model__reference-type {
+.domain-model__reference {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.domain-model__aggregate--references .domain-model__reference::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--domain-model-spine) * -1);
+    width: calc(var(--domain-model-spine) - var(--spacing-xs));
+    border-top: var(--domain-model-id-line);
+}
+
+.domain-model__aggregate--references .domain-model__reference::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--spacing-xs) * -1 - 1px);
+    width: 0.375rem;
+    height: 0.5rem;
+    background: var(--color-border-strong);
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+    transform: translateY(-50%);
+}
+
+.domain-model__reference-head {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.domain-model__reference-name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model__reference-head .domain-model__multiplicity,
+.domain-model__reference-owner {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-model__reference-via {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
@@ -24708,13 +25049,87 @@ select.field__input {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    padding-top: var(--spacing-md);
-    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-model__service-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-model__service {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-model__service-name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model__service-summary {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 .domain-model__unplaced {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+}
+
+/* Narrow: the column of ids goes under the band and the rows of parts wrap, so
+   the lines that would no longer meet are not drawn. */
+@container (max-width: 56rem) {
+    .domain-model__aggregate--references {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto auto auto;
+    }
+
+    .domain-model__aggregate--references .domain-model__references {
+        grid-column: 1;
+        grid-row: 4;
+        padding-left: 0;
+    }
+
+    .domain-model__aggregate--references .domain-model__references > .domain-model__group-label {
+        position: static;
+    }
+
+    .domain-model__id-line,
+    .domain-model__owns,
+    .domain-model__root--above .domain-model__root-stack::before,
+    .domain-model__root--below .domain-model__root-stack::after {
+        display: none;
+    }
+
+    .domain-model__tier {
+        grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    }
+
+    .domain-model__tier::after,
+    .domain-model__tier > .domain-model__part::before,
+    .domain-model__tier > .domain-model__part::after,
+    .domain-model__aggregate--references .domain-model__reference-list::before,
+    .domain-model__aggregate--references .domain-model__reference::before,
+    .domain-model__aggregate--references .domain-model__reference::after {
+        display: none;
+    }
+
+    .domain-model__tier--above {
+        padding-bottom: var(--spacing-md);
+    }
+
+    .domain-model__tier--below {
+        padding-top: var(--spacing-md);
+    }
 }
 
 /* The Model page's Fields and Events tabs (local ADR 0037 §6): the technical half
@@ -24796,6 +25211,10 @@ select.field__input {
 
 .domain-fields__class-kind.domain-model__element--root .domain-model__element-glyph {
     color: var(--color-primary);
+}
+
+.domain-fields__class-kind.domain-model__element--entity {
+    color: var(--color-domain-entity);
 }
 
 .domain-fields__class-kind.domain-model__element--value-object {
