@@ -107,8 +107,8 @@
       "pluginVersion": "1.28.0"
     },
     "devbook": {
-      "pluginVersion": "1.28.0",
-      "contractVersion": 33,
+      "pluginVersion": "1.29.0",
+      "contractVersion": 34,
       "adopted": [
         "arc42",
         "domain",
@@ -133,8 +133,8 @@
           "managed": true
         },
         ".agents/rules/devbook-chapter-metadata.md": {
-          "from": "1.28.0",
-          "hash": "sha256:c72f2bad1cfaa3ed9fba5edab26b39db42296b23db0436011035a75c74d48efa",
+          "from": "1.29.0",
+          "hash": "sha256:6eebee847a2e331ab2c977876bd1d3db4c42e7d16911ae64f35fea3d2f0bef5a",
           "managed": true
         },
         ".agents/rules/devbook-design.md": {
@@ -153,8 +153,8 @@
           "managed": true
         },
         ".agents/rules/devbook-tech.md": {
-          "from": "1.13.0",
-          "hash": "sha256:8dcf5b411350ef9ebf0f3a280cd8ad483ad3c8611bd7a952a26ed650aec048df",
+          "from": "1.29.0",
+          "hash": "sha256:a17ff7ce54180dd5930c10a3f27a79e8f9d57f06e48338a05e3527cf47bbc1d2",
           "managed": true
         },
         ".agents/rules/devbook-writing.md": {
@@ -243,8 +243,8 @@
           "managed": false
         },
         ".devbook/_tools/devbook-meta": {
-          "from": "1.28.0",
-          "hash": "sha256:6e06efceb183aeee1c88cf99bfc0811adac3a07c826d061f981ad843bd6e90ce",
+          "from": "1.29.0",
+          "hash": "sha256:1a9417a53d9dd25b15ef83aa3032dd66c85553698ba48b5a56f607a86db78bce",
           "managed": true
         },
         ".devbook/_tools/devbook-tech": {
