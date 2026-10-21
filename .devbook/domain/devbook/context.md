@@ -119,3 +119,57 @@ the feature catalog yet: no code checks the key, so there is no default to state
 and nothing to switch. The chapter exists so the feature has its gate before the
 first line of it is built. When the review ships, the key lands in
 `DevbookFeatures` and in the catalog, and this chapter gains its `default`.
+
+## New domain view
+
+```meta
+status: draft
+type: feature-flag
+key: devbook-domain-view
+default: off
+roadmap: [devbook-domain-view]
+related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0037-the-domain-view-reads-by-unit.md", ".devbook/domain/devbook/requirements.md#requirement-the-flag-off-keeps-todays-domain-view"]
+```
+
+Turning it on replaces the Domain area of the Devbook with the
+[Domain view by unit](features.md#domain-view-by-unit). The menu then lists a
+bounded context's files as units, and each row opens a page drawn for the kind of
+file it is (local ADR 0037). Turned off, the Domain area is today's view,
+unchanged.
+
+It ships off and marked `DEV` until the new view is accepted. Only the Domain area reads it. The other areas of the Devbook, and the
+[Devbook pane](#devbook-pane) switch that offers the pane at all, do not. The
+settings screen lists it from the feature catalog in `AppFeatures.cs`, and a
+person's choice is kept in `features.json` beside the app's other per-device
+choices.
+
+The plan has built every page: the Context map, a context's page with its
+neighbours and its **Overview**, Domain, Features, Requirements, Model and Flow, with the Brain
+notes and tasks that link to each. Only the **Demo** button for a click demo is
+still to come, and a file of no known kind opens a placeholder.
+
+Model opens on **Diagram**, headed by the root's name, which draws each
+`classDiagram` of the model file as the aggregate's consistency boundary: the
+root card with its key fields and a link to Fields in the middle of the band,
+its composed parts as a tree joined to it above and below, and outside the band
+one card per type the root names by id — the class a dashed line reaches, or
+the aggregate or entity chapter whose alias or heading the id attribute spells.
+The context's domain-service chapters sit below it, and a class no
+aggregate holds is a card outside every boundary. A diagram that does not parse
+or has no aggregate root is drawn with mermaid as before. **Fields** lists each
+class's attributes grouped by kind, with the model's relationship notes beneath and how each domain service runs, read from
+its chapter's invocation semantics. **Events** reads each `domain-event` chapter
+as a contract: what raises it, who consumes it, its payload and its
+published-language rules, and whether the chapters say it is emitted or only
+documented.
+
+On Domain, an unsplit `domain.md` offers its units in a chapter bar, a split
+file opens on its one aggregate, and an aggregate reads as **About** beside
+**Always true**, its rules read from the invariants file beside the page; see
+[Domain view by unit](features.md#domain-view-by-unit).
+
+Flow draws each lifecycle as one row of states, and the Domain page's Glossary
+lists the context's terms and model chapters A to Z.
+
+The flag is retired when the old Domain view is removed, which a later plan does.
+The new view then always shows.

@@ -174,6 +174,22 @@ public sealed class TreeViewTests
         Assert.Null(tree.Find("nav").GetAttribute("aria-busy"));
     }
 
+    [Fact]
+    public void A_trail_sits_after_the_label_and_a_row_without_one_draws_no_wrapper()
+    {
+        using var context = new BunitContext();
+
+        var tree = context.Render<TreeView>(parameters => parameters
+            .Add(v => v.Nodes, new[] { Folder })
+            .Add(v => v.IsNodeExpanded, _ => true)
+            .Add(v => v.NodeTrail, node => node.Id == Folder.Id ? builder => builder.AddContent(0, "2") : null));
+
+        var trail = Assert.Single(tree.FindAll(".devbook-menu__trail"));
+        Assert.Equal("2", trail.TextContent);
+        Assert.Equal("devbook-menu__label", trail.PreviousElementSibling?.ClassName);
+        Assert.Contains("Intake", trail.ParentElement!.TextContent, StringComparison.Ordinal);
+    }
+
     private static IRenderedComponent<TreeView> Render(
         BunitContext context,
         Func<TreeNode, bool> expanded,

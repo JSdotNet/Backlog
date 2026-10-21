@@ -1,6 +1,6 @@
 -- devbook-schema.sql - the DDL of the generated devbook database, as one text.
 --
--- schema-version: 5
+-- schema-version: 6
 --
 -- One file read by both writers: tools/devbook/devbook-schema.mjs loads it for
 -- the Node writer, and Backlog.Infrastructure.Devbook embeds it for the app's own

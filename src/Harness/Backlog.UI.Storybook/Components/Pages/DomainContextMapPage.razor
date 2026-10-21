@@ -1,0 +1,180 @@
+@page "/devbook/domain-context-map"
+
+<PageTitle>Domain context map — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain context map"
+           Summary="A subpage of Devbook: the Context map page of the Domain view (local ADR 0037). ContextMapView is a Map | List bar. ContextMapDiagram, the Map, draws every bounded context as a card on an ellipse, ordered to cross as few lines as it can, with one line per pair of contexts the map's Mermaid fence joins. List names the contexts in reading order, Core then Supporting, each with the landscape table's reason, then the published languages and the strategic rules. No pattern name reaches either tab."
+           Guidelines="@Rules">
+
+    <Story Name="Map"
+           Description="A line between two core contexts is amber, any other grey, and a relation the map draws `-.->` is dashed because it is named and not built. Tasks and Roadmap Planning point at each other, so their line has a head at both ends. Each card says Core or Supporting and how many lines touch it.
+
+Point at or tab to a card and every line that does not touch it fades. Hover a line for its wording: the reason the source context's dependency table gives. Picking a card opens that context's page, on its neighbours; here it names the context it would open."
+           Code="@MapCode"
+           Source="@ContextMapMd"
+           SourceLabel="context-map.md">
+        <ContextMapView Map="@Sample" OnOpen="@(context => _opened = context.Slug)" TestId="story-context-map" />
+        @if (_opened is not null)
+        {
+            <p class="sb-state" data-testid="story-context-map-opened">Opens: <code>@_opened</code></p>
+        }
+    </Story>
+
+    <Story Name="List"
+           Description="The same map read as a list, opened on List. Core contexts come first, then Supporting, each in the order the Subdomain landscape table writes them. The published-languages table and the strategic rules follow as context-map.md writes them."
+           Code="@ListCode">
+        <ContextMapView Map="@Sample" InitialTab="list" OnOpen="@(context => _openedFromList = context.Slug)" TestId="story-context-map-list" />
+        @if (_openedFromList is not null)
+        {
+            <p class="sb-state" data-testid="story-context-map-list-opened">Opens: <code>@_openedFromList</code></p>
+        }
+    </Story>
+
+    <Story Name="A context with no folder"
+           Description="A card for a context the map names and the domain folder has no folder for is drawn, and opens nothing: there is no context page to open. It can still be focused, to fade the lines that do not touch it."
+           Code="@NoFolderCode">
+        <ContextMapDiagram Map="@NoFolder" OnOpen="@(context => _opened = context.Slug)" TestId="story-context-map-no-folder" />
+    </Story>
+
+    <Story Name="No contexts"
+           Description="A context map whose Mermaid fence names no bounded context."
+           Code="@EmptyCode">
+        <ContextMapDiagram TestId="story-context-map-empty" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why a line between two core contexts is amber, and why the card says Core in words beside it."),
+        new("accessibility.md#contrast", "What contrast the amber and the grey lines hold against the surfaces they cross.")
+    ];
+
+    private string? _opened;
+    private string? _openedFromList;
+
+    private const string ContextMapMd = """
+        # Backlog
+
+        ```meta
+        type: context-map
+        status: draft
+        ```
+
+        ## Subdomain landscape
+
+        | Bounded context | Subdomain type | Why |
+        |---|---|---|
+        | Capture | Core | It is the front door for turning raw external input into normalized intent. |
+        | Inbox | Core | It owns triage and the decision point where captured input becomes work. |
+        | Tasks | Core | It owns the durable work model and prioritization. |
+        | Roadmap Planning | Core | It owns the forward plan: what is intended, when, in what order. |
+        | Productivity | Supporting | It turns AI-assisted work activity into personal productivity insight. |
+        | Sessions | Supporting | It records what the AI coding agents have been doing on each environment. |
+        | Dev PC Management | Supporting | It provides machine inventory and compliance. |
+
+        ## Context map
+
+        ```mermaid
+        flowchart LR
+            Capture[Capture]
+            Inbox[Inbox]
+            Tasks[Tasks]
+            Roadmap[Roadmap Planning]
+            Productivity[Productivity]
+            Sessions[Sessions]
+            DevPC[Dev PC Management]
+
+            Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
+            Inbox -->|OHS + Published Language<br/>ItemTriaged| Tasks
+            Tasks <-->|Partnership<br/>Optional cross-link by id| Roadmap
+            Tasks -->|OHS + Published Language<br/>AIWorkLogged| Productivity
+            Sessions -->|Customer/Supplier<br/>Agent session facts| Productivity
+            Sessions -->|Customer/Supplier<br/>Linked session state| Tasks
+            DevPC -.->|"Customer/Supplier (not built)<br/>Machine identity"| Sessions
+        ```
+
+        ## Published languages and contracts
+
+        | Contract owner | Published language / contract | Used by |
+        |---|---|---|
+        | Capture | `.devbook/domain/capture/domain.md#itemcaptured` | Inbox |
+        | Inbox | `.devbook/domain/inbox/domain.md#itemtriaged` | Tasks |
+        | Tasks | `.devbook/domain/tasks/domain.md#aiworklogged` | Productivity |
+
+        ## Strategic rules
+
+        - Only the owning context defines a published language. Consumers conform to that contract.
+        - `Tasks` and `Roadmap Planning` split the word *priority* on purpose.
+        """;
+
+    private const string TasksDependencies = """
+        ## Outbound dependencies
+
+        | Depends on (context/module) | DDD pattern | Why |
+        |---|---|---|
+        | [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Partnership | A task can name the plan it serves; neither side writes the other's priority. |
+        | [Productivity](../productivity/domain.md#productivity-ledger) | OHS + Published Language (Tasks = supplier) | AI-assisted activity on a task is available for productivity analysis. |
+        | [Sessions](../sessions/domain.md#session-state) | Customer/Supplier (Tasks = customer) | A task's work badge colours a linked session by its state. |
+        """;
+
+    private const string CaptureDependencies = """
+        ## Outbound dependencies
+
+        | Depends on (context/module) | DDD pattern | Why |
+        |---|---|---|
+        | [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Capture = supplier) | Every capture lands in the Inbox as one item to triage. |
+        """;
+
+    private const string InboxDependencies = """
+        ## Outbound dependencies
+
+        | Depends on (context/module) | DDD pattern | Why |
+        |---|---|---|
+        | [Tasks](../tasks/domain.md#task) | OHS + Published Language (Inbox = supplier) | A triaged item becomes a draft task. |
+        """;
+
+    private const string SessionsDependencies = """
+        ## Inbound dependents (known)
+
+        | Consumer (context/module) | DDD pattern | What it relies on |
+        |---|---|---|
+        | [Productivity](../productivity/domain.md#productivity-ledger) | Customer/Supplier | Relies on the Session Log to count agent work. |
+        | [Dev PC Management](../dev-pc-management/domain.md#machine) | Customer/Supplier (not built) | Would name the machine an environment runs on. |
+        """;
+
+    private static readonly ContextMapSource[] Sources =
+    [
+        new("capture", "Capture", CaptureDependencies, ".devbook/domain/capture/dependencies.md"),
+        new("inbox", "Inbox", InboxDependencies, ".devbook/domain/inbox/dependencies.md"),
+        new("tasks", "Tasks", TasksDependencies, ".devbook/domain/tasks/dependencies.md"),
+        new("roadmap", "Roadmap", null, ".devbook/domain/roadmap/context.md"),
+        new("productivity", "Productivity", null, ".devbook/domain/productivity/context.md"),
+        new("sessions", "Sessions", SessionsDependencies, ".devbook/domain/sessions/dependencies.md"),
+        new("dev-pc-management", "Dev PC Management", null, ".devbook/domain/dev-pc-management/context.md"),
+    ];
+
+    private static readonly ContextMap Sample = ContextMaps.Read(ContextMapMd, Sources);
+
+    private static readonly ContextMap NoFolder = ContextMaps.Read(ContextMapMd, [.. Sources.Where(s => s.Slug != "dev-pc-management")]);
+
+    private const string MapCode = """
+        <ContextMapView Map="@ContextMaps.Read(contextMapMd, contextsWithTheirDependencyTables)"
+                        DocumentPath="@contextMapPath"
+                        OnOpen="OpenContext"
+                        OnNavigate="Follow" />
+        """;
+
+    private const string ListCode = """
+        <ContextMapView Map="@map" InitialTab="list" OnOpen="OpenContext" />
+        """;
+
+    private const string NoFolderCode = """
+        <ContextMapDiagram Map="@ContextMaps.Read(contextMapMd, contextsWithoutDevPc)" OnOpen="OpenContext" />
+        """;
+
+    private const string EmptyCode = """
+        <ContextMapDiagram Map="@ContextMap.Empty" />
+        """;
+}

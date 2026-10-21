@@ -96,7 +96,7 @@ const FIXTURE = {
         '',
         '## Aggregate: Inbox Item',
         '',
-        meta({ status: 'active', roadmap: '[inbox, capture]' }),
+        meta({ status: 'active', roadmap: '[inbox, capture]', tests: '[unit:dotnet:Inbox.Tests.Keeps_text, e2e:playwright:inbox.spec.ts#capture]' }),
         '',
         annotation({ kind: 'question', body: 'does a triaged item keep its capture source?' }),
         '',
@@ -578,6 +578,12 @@ test('list-valued metadata becomes attribute rows, references become edges', asy
     await withFixture(({ all }) => {
         const roadmap = all("SELECT value FROM node_attribute WHERE name = 'roadmap' ORDER BY value");
         assert.deepEqual(roadmap.map((row) => row.value), ['capture', 'inbox']);
+
+        const tests = all("SELECT node_id, value FROM node_attribute WHERE name = 'tests' ORDER BY rowid");
+        assert.deepEqual(tests.map((row) => ({ ...row })), [
+            { node_id: '.devbook/domain/inbox/domain.md#aggregate-inbox-item', value: 'unit:dotnet:Inbox.Tests.Keeps_text' },
+            { node_id: '.devbook/domain/inbox/domain.md#aggregate-inbox-item', value: 'e2e:playwright:inbox.spec.ts#capture' },
+        ]);
 
         const related = all("SELECT target FROM edge WHERE type = 'related' AND source = '.devbook/domain/inbox/domain.md'");
         assert.deepEqual(related.map((row) => row.target), ['.devbook/tech/shared.md']);

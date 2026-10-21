@@ -1,0 +1,385 @@
+@*
+    The Glossary of a bounded context in the Domain view (local ADR 0037), the
+    unit the Domain chapter bar offers for the ubiquitous-language grouping.
+
+    It opens on a fixed lead, then the grouping's own prose. Under them a labelled
+    find box, which matches a heading or an alias, and the Show pills — All, Model,
+    Terms and, when a term is borrowed, Borrowed — one choice, each with its count;
+    the box and the pill compose. Then two columns that wrap on a narrow pane:
+
+    - The A–Z card: every term chapter beside every model chapter of the context's
+      domain files. A row's first line is its mark, its heading, its kind in words,
+      a proposed or deprecated badge, where a borrowed term comes from, its Brain
+      notes and its aliases as code chips; the second its first sentence; then,
+      where the invariants name it, its rule count, which opens them in place. A
+      deprecated chapter is struck through on a sunken row. A long list shows
+      fifteen rows and the rest behind "n more" until the reader filters or picks.
+    - The aside: "Easily confused", one card per group of terms that name each
+      other in `related`, so no term repeats; then, when a term is borrowed, the
+      Across contexts card linking each to its counterpart. No card carries a
+      caption of its own: the wording is the chapters' (ADR 0037 §5).
+*@
+
+<div class="domain-about domain-glossary" data-testid="domain-glossary">
+    <p class="domain-glossary__lead" data-testid="domain-glossary-lead">Every word the context uses, whether it is a model chapter or a term of its own. Any alias finds the one chapter it names.</p>
+
+    @if (Chapter.Prose.Length > 0)
+    {
+        <MarkdownView Blocks="@_prose"
+                      Source="@Chapter.Prose"
+                      DevbookDocumentPath="@DocumentPath"
+                      DevbookFolder="DevbookFolder.Domain"
+                      OnDevbookNavigate="OnNavigate" />
+    }
+
+    @if (_entries.Count > 0)
+    {
+        <div class="domain-glossary__filters" data-testid="domain-glossary-filters">
+            <div class="domain-glossary__find">
+                <label class="domain-glossary__label" for="@SearchId">Find a word or an alias</label>
+                <SearchBox Id="@SearchId"
+                           Value="@_filter"
+                           ValueChanged="FilterChanged"
+                           Placeholder="@_placeholder"
+                           AriaLabel="Find a word or an alias"
+                           ClearLabel="Clear the filter"
+                           DebounceMilliseconds="@DebounceMilliseconds"
+                           CssClass="domain-glossary__search"
+                           TestId="domain-glossary-filter" />
+            </div>
+            <ButtonGroup Radio="true" AriaLabel="Show" CssClass="domain-glossary__show" TestId="domain-glossary-show">
+                @Pill(All, "All", _entries.Count)
+                @Pill(Model, "Model", _modelCount)
+                @Pill(Terms, "Terms", _termCount)
+                @if (_borrowed.Count > 0)
+                {
+                    @Pill(Borrowed, "Borrowed", _borrowed.Count)
+                }
+            </ButtonGroup>
+        </div>
+    }
+
+    @if (_entries.Count > 0 || _confused.Count > 0 || _borrowed.Count > 0)
+    {
+        <div class="domain-glossary__layout">
+            @if (_entries.Count > 0)
+            {
+                @if (_shown.Count == 0)
+                {
+                    <EmptyState Title="No match"
+                                Description="No term or model chapter matches the filter."
+                                TestId="domain-glossary-no-match"
+                                CssClass="domain-glossary__main"
+                                role="status" />
+                }
+                else
+                {
+                    <section class="domain-glossary__main domain-glossary__list" data-testid="domain-glossary-entries" aria-labelledby="@ListId">
+                        <h3 class="domain-glossary__list-heading" id="@ListId">A – Z</h3>
+                        <ul class="domain-glossary__entries">
+                            @foreach (var entry in Visible)
+                            {
+                                <li @key="entry"
+                                    class="@EntryClass(entry)"
+                                    data-testid="domain-glossary-term"
+                                    data-term="@entry.Title"
+                                    data-kind="@entry.Kind"
+                                    data-deprecated="@(entry.Deprecated ? "true" : null)">
+                                    <div class="domain-glossary__title">
+                                        @* Decorative: the kind is said in words beside it. *@
+                                        <DevbookTypeMarker Value="@entry.Kind" CssClass="devbook-type-marker--leads" ShowTooltip="false" />
+                                        @Name(entry)
+                                        <span class="domain-glossary__kind" data-testid="domain-glossary-kind">@entry.KindLabel</span>
+                                        @if (entry.Proposed)
+                                        {
+                                            <Badge Kind="tone" CssClass="domain-glossary__status" TestId="domain-glossary-status">proposed</Badge>
+                                        }
+                                        else if (entry.Deprecated)
+                                        {
+                                            <Badge Kind="tone" CssClass="domain-glossary__status" TestId="domain-glossary-status">deprecated</Badge>
+                                        }
+                                        @if (entry.Borrowed is { } borrowed)
+                                        {
+                                            <span class="domain-glossary__borrowed">@Counterpart(borrowed, $"borrowed from {borrowed.Context}", "domain-glossary-borrowed")</span>
+                                        }
+                                        <BrainNotesBadge Notes="@Links.NotesOn(entry.Reference)" OnOpen="Links.OnOpenNote" TestId="domain-glossary-notes" />
+                                        @if (entry.Aliases.Count > 0)
+                                        {
+                                            <ul class="domain-glossary__aliases" aria-label="Aliases">
+                                                @foreach (var alias in entry.Aliases)
+                                                {
+                                                    <li><code class="domain-glossary__alias" data-testid="domain-glossary-alias">@alias</code></li>
+                                                }
+                                            </ul>
+                                        }
+                                    </div>
+                                    @if (entry.Summary.Length > 0)
+                                    {
+                                        <p class="domain-glossary__summary">@entry.Summary</p>
+                                    }
+                                    @{
+                                        var rules = RulesOf(entry);
+                                    }
+                                    @if (rules.Count > 0)
+                                    {
+                                        var shown = _rulesShown.Contains(entry.Reference);
+                                        var listId = $"{_id}-rules-{DomainUnits.Slug(entry.Reference)}";
+                                        <AppButton Variant="ButtonVariant.None"
+                                                   BaseClass="domain-glossary__rules"
+                                                   TestId="domain-glossary-rules"
+                                                   OnClick="@(() => ToggleRules(entry))"
+                                                   aria-expanded="@(shown ? "true" : "false")"
+                                                   aria-controls="@listId">@DomainRuleText.Count(rules.Count)</AppButton>
+                                        @if (shown)
+                                        {
+                                            <DomainRuleList Rules="@rules"
+                                                            OnOpen="OnOpenRule"
+                                                            AriaLabel="@($"Rules about {entry.Title}")"
+                                                            CssClass="domain-glossary__rule-list"
+                                                            TestId="domain-glossary-rule-list"
+                                                            id="@listId" />
+                                        }
+                                    }
+                                    <DomainChapterNotes References="@([entry.Reference])" />
+                                </li>
+                            }
+                        </ul>
+                        @if (Hidden > 0)
+                        {
+                            <AppButton BaseClass="domain-glossary__more" TestId="domain-glossary-more" OnClick="ShowAll">@Hidden more</AppButton>
+                        }
+                    </section>
+                }
+            }
+
+            @if (_confused.Count > 0 || _borrowed.Count > 0)
+            {
+                <aside class="domain-glossary__aside" aria-label="Beside the list">
+                    @if (_confused.Count > 0)
+                    {
+                        <section class="domain-glossary__confused" data-testid="domain-glossary-confused" aria-labelledby="@ConfusedId">
+                            <h3 class="domain-glossary__aside-heading" id="@ConfusedId">Easily confused</h3>
+                            <p class="domain-glossary__aside-intro">Words that sound alike and mean different things. Each card sets them side by side.</p>
+                            <ul class="domain-glossary__pairs">
+                                @foreach (var group in _confused)
+                                {
+                                    <li class="domain-glossary__pair"
+                                        data-testid="domain-glossary-pair"
+                                        data-pair="@string.Join(" | ", group.Terms.Select(term => term.Title))">
+                                        @foreach (var term in group.Terms)
+                                        {
+                                            @Tile(term)
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </section>
+                    }
+                    @if (_borrowed.Count > 0)
+                    {
+                        <section class="domain-glossary__across" data-testid="domain-glossary-across" aria-labelledby="@AcrossId">
+                            <h3 class="domain-glossary__across-heading" id="@AcrossId">Across contexts — the same word in another context</h3>
+                            <ul class="domain-glossary__across-rows">
+                                @foreach (var entry in _borrowed)
+                                {
+                                    <li @key="entry" class="domain-glossary__across-row" data-testid="domain-glossary-across-term" data-term="@entry.Title">
+                                        <span class="domain-glossary__name">@entry.Title</span>
+                                        @Counterpart(entry.Borrowed!, entry.Borrowed!.Context, "domain-glossary-across-link")
+                                    </li>
+                                }
+                            </ul>
+                        </section>
+                    }
+                </aside>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private const string All = "all";
+    private const string Model = "model";
+    private const string Terms = "terms";
+    private const string Borrowed = "borrowed";
+
+    /// <summary>More rows than this and, unfiltered, the list shows the first
+    /// <see cref="ShortList"/> and the rest behind "n more".</summary>
+    private const int LongList = 20;
+    private const int ShortList = 15;
+
+    private readonly string _id = "domain-glossary-" + Guid.NewGuid().ToString("N")[..8];
+
+    /// <summary>The Brain notes linking to each term, which its badge counts and
+    /// its box lists.</summary>
+    [CascadingParameter]
+    public DomainChapterLinks? Cascaded { get; set; }
+
+    private DomainChapterLinks Links => Cascaded ?? DomainChapterLinks.None;
+
+    /// <summary>The ubiquitous-language chapter, whose prose leads the page.</summary>
+    [Parameter, EditorRequired]
+    public DomainChapter Chapter { get; set; } = default!;
+
+    /// <summary>The context's domain files, which the terms and model chapters are
+    /// read from. Empty means the grouping's own terms alone.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainChapterFile> Files { get; set; } = [];
+
+    [Parameter]
+    public string? DocumentPath { get; set; }
+
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    /// <summary>The rules about a chapter, by its reference
+    /// (<see cref="DomainRuleCatalog.About(string)"/>): a row's rule count, which
+    /// opens them in place. Unset, no row counts rules.</summary>
+    [Parameter]
+    public Func<string, IReadOnlyList<DomainRule>>? RulesAbout { get; set; }
+
+    /// <summary>A rule's link to its row on Always true, followed.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenRule { get; set; }
+
+    /// <summary>What the filter box opens with; blank is every row.</summary>
+    [Parameter]
+    public string? Filter { get; set; }
+
+    /// <summary>How long the filter waits after a keystroke; a test passes 0.</summary>
+    [Parameter]
+    public int DebounceMilliseconds { get; set; } = 150;
+
+    private IReadOnlyList<MdBlock> _prose = [];
+    private IReadOnlyList<DomainGlossaryEntry> _entries = [];
+    private IReadOnlyList<DomainGlossaryEntry> _shown = [];
+    private IReadOnlyList<DomainGlossaryEntry> _borrowed = [];
+    private IReadOnlyList<DomainConfusedGroup> _confused = [];
+    private int _modelCount;
+    private int _termCount;
+    private string _placeholder = string.Empty;
+    private string _show = All;
+    private bool _expanded;
+    private string _filter = string.Empty;
+    private (DomainChapter?, IReadOnlyList<DomainChapterFile>?) _read;
+    private string? _filterParameter;
+
+    private string SearchId => _id + "-find";
+    private string ListId => _id + "-list";
+    private string ConfusedId => _id + "-confused";
+    private string AcrossId => _id + "-across";
+
+    /// <summary>Capped only while the reader is browsing everything: a typed
+    /// filter or a picked pill is a question, and its answer is shown whole.</summary>
+    private bool Capped => !_expanded && _show == All && string.IsNullOrWhiteSpace(_filter) && _shown.Count > LongList;
+
+    private IEnumerable<DomainGlossaryEntry> Visible => Capped ? _shown.Take(ShortList) : _shown;
+
+    private int Hidden => Capped ? _shown.Count - ShortList : 0;
+
+    protected override void OnParametersSet()
+    {
+        // Taken from the host only when the host changed it, so the reader's
+        // typing survives the host's own re-renders.
+        if (!string.Equals(_filterParameter, Filter, StringComparison.Ordinal))
+        {
+            _filterParameter = Filter;
+            _filter = Filter ?? string.Empty;
+            Refilter();
+        }
+
+        if (_read == (Chapter, Files)) return;
+        _read = (Chapter, Files);
+
+        _prose = MarkdownPreview.ParseDocument(Chapter.Prose);
+        var files = Files.Count > 0 ? Files : [new DomainChapterFile(DocumentPath ?? string.Empty, string.Empty, [Chapter])];
+        _entries = DomainGlossaryIndex.Entries(files);
+        _modelCount = _entries.Count(entry => !entry.IsTerm);
+        _termCount = _entries.Count(entry => entry.IsTerm);
+        _borrowed = [.. _entries.Where(entry => entry.Borrowed is not null)];
+        _confused = DomainGlossaryIndex.Confused(files);
+        _placeholder = Placeholder(_entries);
+        _expanded = false;
+        if (_show == Borrowed && _borrowed.Count == 0) _show = All;
+        Refilter();
+    }
+
+    /// <summary>The first alias of the first three entries that have one, so the
+    /// box shows the reader that an alias is worth typing.</summary>
+    private static string Placeholder(IReadOnlyList<DomainGlossaryEntry> entries)
+    {
+        var aliases = entries.Where(entry => entry.Aliases.Count > 0).Take(3).Select(entry => entry.Aliases[0]).ToList();
+        return aliases.Count > 0 ? "e.g. " + string.Join(", ", aliases) : "A heading or an alias";
+    }
+
+    private void FilterChanged(string value)
+    {
+        _filter = value ?? string.Empty;
+        Refilter();
+    }
+
+    private void Pick(string show)
+    {
+        _show = show;
+        Refilter();
+    }
+
+    private void ShowAll() => _expanded = true;
+
+    // The rows whose rules the reader opened, by the row's reference.
+    private readonly HashSet<string> _rulesShown = new(StringComparer.Ordinal);
+
+    private IReadOnlyList<DomainRule> RulesOf(DomainGlossaryEntry entry) =>
+        RulesAbout is { } about && entry.Reference.Length > 0 ? about(entry.Reference) : [];
+
+    private void ToggleRules(DomainGlossaryEntry entry)
+    {
+        if (!_rulesShown.Remove(entry.Reference)) _rulesShown.Add(entry.Reference);
+    }
+
+    private bool InShow(DomainGlossaryEntry entry) => _show switch
+    {
+        Model => !entry.IsTerm,
+        Terms => entry.IsTerm,
+        Borrowed => entry.Borrowed is not null,
+        _ => true
+    };
+
+    private void Refilter() =>
+        _shown = [.. _entries.Where(entry => InShow(entry) && entry.Matches(_filter))];
+
+    private static string EntryClass(DomainGlossaryEntry entry) =>
+        entry.Deprecated ? "domain-glossary__entry domain-glossary__entry--deprecated" : "domain-glossary__entry";
+
+    private RenderFragment Pill(string show, string label, int count) =>
+        @<ToggleButton @key="show"
+                       Pressed="@(_show == show)"
+                       PressedChanged="@(_ => Pick(show))"
+                       CssClass="domain-glossary__pill"
+                       TestId="@($"domain-glossary-show-{show}")"
+                       data-show="@show">@label <span class="domain-glossary__count">@count</span></ToggleButton>;
+
+    /// <summary>The way to the chapter a borrowed term names in its own context: a
+    /// link when the host can follow it, its words alone when it cannot.</summary>
+    private RenderFragment Counterpart(DomainBorrowedTerm borrowed, string text, string testId) =>
+        DevbookReference.Parse(borrowed.Reference) is { } reference
+            ? @<DevbookReferenceLink Reference="@reference" Text="@text" OnNavigate="OnNavigate" TestId="@testId" />
+            : @<span data-testid="@testId">@text</span>;
+
+    private static RenderFragment Name(DomainGlossaryEntry entry) =>
+        entry.Deprecated
+            ? @<span class="domain-glossary__name"><s>@entry.Title</s><span class="sr-only"> (deprecated)</span></span>
+            : @<span class="domain-glossary__name">@entry.Title</span>;
+
+    private static RenderFragment Tile(DomainGlossaryEntry entry) =>
+        @<div class="domain-glossary__side" data-testid="domain-glossary-pair-term" data-term="@entry.Title">
+            @Name(entry)
+            @if (entry.Summary.Length > 0)
+            {
+                <p class="domain-glossary__summary">@entry.Summary</p>
+            }
+            @if (entry.Aliases.Count > 0)
+            {
+                <code class="domain-glossary__hint">@entry.Aliases[0]</code>
+            }
+        </div>;
+}

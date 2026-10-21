@@ -757,6 +757,7 @@
                          OnOpenReferenceFollowed="OnDevbookReferenceFollowed"
                          OnOpenRepositoryChapter="OpenBrainRepoLinkAsync"
                          TaskTitleFor="TaskTitleFor"
+                         TaskReferencesFor="TaskReferencesFor"
                          OnOpenTask="OpenTaskFromBrainAsync" />
         </main>
     }
@@ -2776,6 +2777,16 @@
         Guid.TryParse(taskId, out var id) && State.Rows.FirstOrDefault(row => row.Id == id) is { } row
             ? row.PreviewTitle
             : null;
+
+    /// <summary>The Devbook references of every task in this backlog filed to the
+    /// repository <paramref name="repositoryAlias"/> — the entry's own repository,
+    /// else the one the list is anchored to, as the task's chips read them — which
+    /// the Domain view shows on the features and requirements they name.</summary>
+    private IReadOnlyList<DevbookTaskReferences> TaskReferencesFor(string repositoryAlias) =>
+        [.. State.Rows
+            .Where(row => row.Id is not null && row.DevbookReferences.Count > 0
+                && string.Equals(State.DevbookRepositoryAliasFor(row), repositoryAlias, StringComparison.OrdinalIgnoreCase))
+            .Select(row => new DevbookTaskReferences(row.TaskId, row.DevbookReferences))];
 
     /// <summary>A task followed out of a Brain note: the task list on screen, that
     /// task selected — as a session's entry is opened.</summary>

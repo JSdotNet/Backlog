@@ -17,6 +17,7 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 ```mermaid
 classDiagram
     class RoadmapPlan {
+        <<aggregate root>>
         +PlanId Id
         +RoadmapItem[] Items
         +Milestone[] Milestones
@@ -28,6 +29,7 @@ classDiagram
     }
 
     class RoadmapItem {
+        <<entity>>
         +RoadmapItemId Id
         +string Title
         +RoadmapTag Tag
@@ -36,38 +38,46 @@ classDiagram
     }
 
     class Milestone {
+        <<entity>>
         +RoadmapMilestoneId Id
         +string Title
         +DateOnly On
     }
 
     class PlannedWindow {
+        <<value object>>
         +DateOnly Start
         +DateOnly End
         +int Days
     }
 
     class RepositoryScope {
+        <<value object>>
         +string[] Aliases
     }
 
     class Dependency {
+        <<value object>>
         +RoadmapNodeId DependsOnId
     }
 
     class PlanningLane {
+        <<value object>>
         +string Name
     }
 
     class TaskLink {
+        <<value object>>
         +Guid EntryId
     }
 
     class RoadmapTag {
+        <<value object>>
         +string Slug
     }
 
     class KnowledgeRef {
+        <<value object>>
         +string Path
         +string Slug
     }
@@ -89,40 +99,40 @@ classDiagram
     }
 
     class PlanSequencing {
-        <<service>>
+        <<domain service>>
         +Order(RoadmapPlan)
         +Contradictions(RoadmapPlan)
         +WouldCycle(nodeId, dependsOnId)
     }
 
     class RepositoryScopeResolution {
-        <<service>>
+        <<domain service>>
         +Resolve(RepositoryScope)
     }
 
     class RoadmapItemGathering {
-        <<service>>
+        <<domain service>>
         +Gather(RoadmapItem) GatheredSet
         +TotalRegisteredEffort(GatheredSet)
         +UnestimatedCount(GatheredSet)
     }
 
-    RoadmapPlan "1" *-- "many" RoadmapItem : owns
-    RoadmapPlan "1" *-- "many" Milestone : owns
+    RoadmapPlan "1" *-- "0..*" RoadmapItem : owns
+    RoadmapPlan "1" *-- "0..*" Milestone : owns
 
-    RoadmapItem --> PlannedWindow : has
-    RoadmapItem --> RoadmapTag : filed under
+    RoadmapItem "1" *-- "1" PlannedWindow : has
+    RoadmapItem "1" *-- "1" RoadmapTag : filed under
     RoadmapItem --> PlanningPriority : has
-    RoadmapItem --> RepositoryScope : has
-    RoadmapItem --> PlanningLane : filed under
-    RoadmapItem "1" --> "many" Dependency : waits on
-    RoadmapItem --> TaskLink : optionally names
-    RoadmapItem "1" --> "0..*" KnowledgeRef : references
+    RoadmapItem "1" *-- "1" RepositoryScope : has
+    RoadmapItem "1" *-- "1" PlanningLane : filed under
+    RoadmapItem "1" *-- "0..*" Dependency : waits on
+    RoadmapItem "1" *-- "0..1" TaskLink : optionally names
+    RoadmapItem "1" *-- "0..*" KnowledgeRef : references
 
     Milestone --> MilestoneKind : has
-    Milestone --> RepositoryScope : optionally has
-    Milestone --> PlanningLane : optionally filed under
-    Milestone "1" --> "many" Dependency : waits on
+    Milestone "1" *-- "0..1" RepositoryScope : optionally has
+    Milestone "1" *-- "0..1" PlanningLane : optionally filed under
+    Milestone "1" *-- "0..*" Dependency : waits on
 
     Dependency ..> RoadmapItem : may point at
     Dependency ..> Milestone : may point at

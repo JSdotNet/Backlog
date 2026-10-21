@@ -1,0 +1,260 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The Domain view's Model page for one model file — model.md or a model.<name>.md
+    split (local ADR 0037). It reads the file's classDiagram fences through the
+    domain store and hands them to the library's DomainModelView, which opens on
+    Diagram with the Fields and Events tabs beside it. Fields also takes the file
+    itself (its Fields chapter's purpose groups and its relationship notes), the
+    context's invariants (what a field's or a part's rule count counts and
+    opens in place, each rule linking to its row on Always true) and its class chapters
+    (the header and the side column); Fields and Events the domain services and
+    events of the context's domain.md and its splits, and Events what the context
+    listens to from its dependencies.md — all read from the files as written.
+*@
+
+@if (_fences is { } fences)
+{
+    <DomainModelView Fences="@fences"
+                     RelationshipNotes="@_notes"
+                     Chapters="@_chapters"
+                     ChapterReferences="@_references"
+                     Identities="@_identities"
+                     Markdown="@_markdown"
+                     Rules="@_rules"
+                     RuleCatalog="@_catalog"
+                     OnOpenAlwaysTrue="OnOpenAlwaysTrue"
+                     Profiles="@_profiles"
+                     Title="@_title"
+                     Context="@_context"
+                     AriaLabel="@($"Model of {_title}")" />
+}
+else if (_problem is not null)
+{
+    <EmptyState BaseClass="devbook-empty"
+                TitleCssClass="devbook-empty__title"
+                DescriptionCssClass="@(null)"
+                Title="Model"
+                Description="@_problem"
+                TestId="domain-view-model-problem"
+                role="status" />
+}
+
+@code {
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The model file, relative to the Domain folder: <c>tasks/model.md</c>.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    /// <summary>A rule shown on Fields or Diagram, followed to its row on its
+    /// unit's Always true tab.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
+    private DomainDevbookStore? _store;
+    private IReadOnlyList<DomainModelFence>? _fences;
+    private string? _notes;
+    private DomainChapterReading _chapters = DomainChapterReading.Empty;
+    private IReadOnlyDictionary<string, string>? _references;
+    private IReadOnlyList<DomainModelIdentity>? _identities;
+    private string? _markdown;
+    private string? _context;
+    private IReadOnlyDictionary<string, IReadOnlyList<string>>? _rules;
+    private DomainRuleCatalog? _catalog;
+    private IReadOnlyDictionary<string, DomainModelProfile>? _profiles;
+    private string? _problem;
+    private string _title = "Model";
+    private (string? Alias, string? Path)? _loaded;
+    private bool _disposed;
+
+    protected override void OnInitialized()
+    {
+        // Resolved rather than injected, as the pane resolves its stores: a host
+        // composing no domain store gets a sentence, not a render failure.
+        _store = Services.GetService<DomainDevbookStore>();
+        if (_store is not null) _store.Changed += OnStoreChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded == (RepositoryAlias, SelectedPath)) return;
+        _loaded = (RepositoryAlias, SelectedPath);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var alias = RepositoryAlias;
+        var path = SelectedPath;
+        if (_store is null)
+        {
+            (_fences, _problem) = (null, "This host has no domain folder to read the model from.");
+            return;
+        }
+
+        // Nothing of the previous file stays on screen while the next one is read.
+        (_fences, _problem) = (null, null);
+
+        ModelReading read;
+        try
+        {
+            var view = await _store.LoadAsync(alias);
+            if (_disposed || _loaded != (alias, path)) return;
+
+            // On the pool: a context's documents are read on first access, and
+            // the desktop host's dispatcher is the UI thread.
+            read = await Task.Run(() => Read(view, path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            read = ModelReading.Failed($"The model could not be read: {ex.Message}");
+        }
+
+        if (_disposed || _loaded != (alias, path)) return;
+        (_fences, _title, _problem, _notes, _chapters, _references, _identities) = (read.Fences, read.Title, read.Problem, read.Notes, read.Chapters, read.References, read.Identities);
+        (_markdown, _rules, _profiles, _context, _catalog) = (read.Markdown, read.Rules, read.Profiles, read.Context, read.RuleCatalog);
+    }
+
+    /// <summary>What the Model page shows of one model file: its class diagrams,
+    /// its relationship notes, and the context's domain services and events — or
+    /// why there is nothing to show.</summary>
+    /// <param name="References">The domain chapter each class of the diagram is,
+    /// by the name the model gives it, where a part's Brain notes are looked up.</param>
+    internal sealed record ModelReading(IReadOnlyList<DomainModelFence>? Fences, string Title, string? Problem, string? Notes, DomainChapterReading Chapters, IReadOnlyDictionary<string, string>? References = null)
+    {
+        /// <summary>The aggregate and entity chapters of every context an id
+        /// attribute can point at, the ones this context's aggregates relate to first.</summary>
+        public IReadOnlyList<DomainModelIdentity> Identities { get; init; } = [];
+
+        /// <summary>The bounded context's name, as Events says it.</summary>
+        public string? Context { get; init; }
+
+        /// <summary>The model file as written: its Fields chapter's purpose groups.</summary>
+        public string? Markdown { get; init; }
+
+        /// <summary>The context's invariants by the link a Fields bullet writes.</summary>
+        public IReadOnlyDictionary<string, IReadOnlyList<string>>? Rules { get; init; }
+
+        /// <summary>The context's class chapters by model name.</summary>
+        public IReadOnlyDictionary<string, DomainModelProfile>? Profiles { get; init; }
+
+        /// <summary>Every rule of the context, with its mark and its place on
+        /// Always true: what a field's or a part's rule count opens.</summary>
+        public DomainRuleCatalog? RuleCatalog { get; init; }
+
+        public static ModelReading Failed(string problem) => new(null, "Model", problem, null, DomainChapterReading.Empty);
+    }
+
+    /// <summary>The model file's class diagrams, found by the menu path the pane
+    /// holds, or why there are none to show.</summary>
+    internal static ModelReading Read(DomainDevbookView view, string? selectedPath)
+    {
+        if (view.Error is { } error) return ModelReading.Failed(error);
+
+        var relative = (selectedPath ?? string.Empty).Replace('\\', '/').Trim('/');
+        var slug = relative.Split('/')[0];
+        var context = view.Contexts.FirstOrDefault(c => string.Equals(c.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        var document = context?.Documents.FirstOrDefault(d =>
+            string.Equals(d.Path, ".domain/" + relative, StringComparison.OrdinalIgnoreCase));
+
+        if (document is null) return ModelReading.Failed($"No model file at {relative}.");
+
+        IReadOnlyList<DomainModelFence> fences =
+        [
+            .. document.Diagrams
+                .Where(d => d.Source.TrimStart().StartsWith("classDiagram", StringComparison.Ordinal))
+                .Select(d => new DomainModelFence(d.Title, d.Source))
+        ];
+
+        // The prose the store keeps is an excerpt, so the notes and the domain
+        // chapters are read from the files as written, through the store.
+        var markdown = ReadText(view, document.Path);
+        var notes = RelationshipNotes(markdown);
+        var sources = context!.Documents
+            .Where(d => d.Kind == DomainDevbookDocumentKind.Domain)
+            .Select(d => ReadText(view, d.Path) is { } text ? new DomainChapterSource(d.Path, text) : null)
+            .OfType<DomainChapterSource>()
+            .ToList();
+        var own = sources.Select(source => DomainUnits.Parse(source.Markdown, source.Path)).ToList();
+
+        // What a field's rule count counts, and what the context listens to: the
+        // invariants files and the dependency tables, read as written.
+        var invariants = context.Documents
+            .Where(d => d.Kind == DomainDevbookDocumentKind.Invariants)
+            .Select(d => TryReadText(view, d.Path) is { } text ? DomainUnits.Parse(text, d.Path) : null)
+            .OfType<DomainChapterFile>()
+            .ToList();
+        var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies) is { } table
+            ? TryReadText(view, table.Path)
+            : null;
+        var chapters = DomainChapterContracts.Read(sources) with { Listens = DomainEventIndex.Listens(dependencies, context.DisplayName, context.Slug) };
+        var references = DomainUnits.ModelReferences(own);
+
+        // What an id attribute points at may be another context's aggregate —
+        // repo_ids at Repository Management's Repository — so every context's
+        // domain files are read for the chapters an id can name. Another context's
+        // file that cannot be read only leaves its chapters unnamed.
+        var others = view.Contexts
+            .Where(other => !ReferenceEquals(other, context))
+            .SelectMany(other => other.Documents.Where(d => d.Kind == DomainDevbookDocumentKind.Domain))
+            .Select(d => TryReadText(view, d.Path) is { } text ? DomainUnits.Parse(text, d.Path) : null)
+            .OfType<DomainChapterFile>();
+        var identities = DomainUnits.ModelIdentities(own, others);
+
+        return new(fences, document.Title, null, notes, chapters, references)
+        {
+            Identities = identities,
+            Context = context.DisplayName,
+            Markdown = markdown,
+            Rules = DomainFieldBoards.RuleIndex(invariants),
+            RuleCatalog = DomainRuleCatalog.Of(own, invariants),
+            Profiles = DomainFieldBoards.Profiles(own)
+        };
+    }
+
+    /// <summary>The body of the model file's <em>Relationship notes</em> chapter,
+    /// without its heading, or null when it has none.</summary>
+    internal static string? RelationshipNotes(string? markdown)
+    {
+        var chapter = MarkdownChapters.Split(markdown)
+            .FirstOrDefault(c => c.Level >= 2 && c.Title.Contains("relationship notes", StringComparison.OrdinalIgnoreCase));
+        if (chapter is null) return null;
+
+        var body = string.Join('\n', chapter.Text.Split('\n').Skip(1)).Trim();
+        return body.Length == 0 ? null : body;
+    }
+
+    private static string? ReadText(DomainDevbookView view, string documentPath) =>
+        DomainDevbookStore.ReadText(view, documentPath);
+
+    private static string? TryReadText(DomainDevbookView view, string documentPath)
+    {
+        try
+        {
+            return ReadText(view, documentPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private void OnStoreChanged()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_store is not null) _store.Changed -= OnStoreChanged;
+    }
+}

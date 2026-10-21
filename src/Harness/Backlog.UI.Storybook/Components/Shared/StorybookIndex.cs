@@ -247,6 +247,9 @@ internal static class StorybookIndex
             // fence at all — a Structurizr workspace read into mermaid at render
             // time — and an element list drawn as the DataTable above.
             new("diagrams/c4", "C4 from Structurizr DSL", "One workspace authored in c4hero, drawn as a landscape, a context, a container and a deployment view — and what the reader refuses to guess at."),
+            new("diagrams/domain-model", "Domain model", "DomainModelView and DomainModelDiagram: a context's classDiagram drawn as consistency-boundary bands, with mermaid when the fence cannot be arranged."),
+            new("diagrams/domain-model-fields", "Domain model fields", "DomainModelFieldsView and DomainServiceInvocations: Model's Fields tab — the root's fields in the model file's purpose groups beside what it owns, and how each domain service runs."),
+            new("diagrams/domain-events", "Domain events", "DomainEventContracts: Model's Events tab — an All events index with the picked event's contract beneath, and what the context listens to."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
             new("graph-atlas", "Graph atlas", "GraphAtlas: a graph drawn as a place — clustered in depth on a canvas, with the list beside it that the keyboard actually operates."),
 
@@ -346,6 +349,42 @@ internal static class StorybookIndex
             // exactly the pair the page above documents. A reader who has not met
             // both shapes would be looking at a mark with nowhere to put it.
             new("devbook/type-markers", "Type markers", "The eighteen marks a `.domain` type is drawn as: seven for what the file is, eleven for what a chapter describes, all built from a dot, a diamond and a boundary so the set reads as one grammar rather than eighteen drawings."),
+
+            // After Type markers, because every unit, card and event line here is led
+            // by one. The Domain view's Domain page (local ADR 0037): it draws Tabs,
+            // Card, EmptyState and MarkdownView from groups above, and its own
+            // renderers.
+            new("devbook/domain-units", "Domain units", "DomainUnitPage, DomainAggregateAbout, DomainServiceAbout, DomainEventList, DomainLinkRow and DomainGlossary: a `domain.md` read one unit at a time — a captioned chapter bar over an unsplit file, About as a summary for an aggregate, You can count on for a domain service."),
+            // Features and Requirements draw DomainRuleList, which Always true below
+            // introduces: the list is that tab's rows shown elsewhere, so the order bends
+            // the way it does for the tab itself.
+            new("devbook/domain-features", "Domain features", "DomainFeatureBoard: a context's features in columns by what they build on, each card with its sub-features, flag or setting and proved requirements, and the detail picking one opens."),
+            new("devbook/domain-requirements", "Domain requirements", "DomainRequirementsView, as the design lays it out: the summary cards, features by tested, each requirement a card with its SHALL sentence, proof mark and Given / When / Then rows, and a long feature's rest as rows."),
+
+            // After Domain units, whose aggregate page this is the second tab of. The
+            // order bends one way here: Domain units draws DomainUnitPage, whose
+            // Always true tab is this page's DomainAlwaysTrue, before this page
+            // introduces it. It bends that way because the tab is a part of the unit
+            // page — read the page first, then the tab — as Model's tabs follow it.
+            new("devbook/domain-always-true", "Always true", "DomainAlwaysTrue and DomainRuleList: an aggregate's Always true tab — each rule's claim marked by its proof and counted, in a card per group the chapter writes or else per concept it is enforced at, where each is enforced folded until asked for — and the list every other page shows a unit's rules with in place, each linking back to its row."),
+
+            // After Domain units, whose chapter bar offers it: the Glossary unit read
+            // whole, with its filters and its Easily confused pairs.
+            new("devbook/domain-glossary", "Domain glossary", "DomainGlossary: every term and model chapter of a context, A–Z, with its kind, its aliases as code chips and its first sentence — a find box that matches aliases too, All / Model / Terms / Borrowed pills with counts, proposed and deprecated badges, and Easily confused beside the list for terms that name each other."),
+
+            // The Domain view's Flow page (local ADR 0037): a lifecycle drawn as one
+            // row of states, flowcharts and sequences in the same style; a diagram
+            // none of them reads keeps DiagramView's rendering.
+            new("devbook/domain-flows", "Domain flows", "DomainFlowPage, DomainFlowRow, DomainFlowchart and DomainSequence: a `flow.md` whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — and whose flowcharts and sequences wear the same cards and lines, with its prose beneath."),
+
+            // The board atop a context's page, then the page that holds it
+            // above its Overview (local ADR 0037).
+            new("devbook/domain-neighbours", "Domain neighbours", "DomainNeighboursView: a context's dependency tables as a board — listens to, listen to, hand in hand — with outside systems as dashed cards."),
+            new("devbook/domain-context", "Domain context", "DomainContextView: a bounded context's one page — its neighbours, then its Overview: its badges and lead, its boundary inside and outside, what it holds, how well it is proved and how settled, its switches and the questions its pages answer."),
+
+            // After the context page, which a card on the map opens: the
+            // Domain view's Context map page (local ADR 0037).
+            new("devbook/domain-context-map", "Domain context map", "ContextMapView and ContextMapDiagram: `context-map.md` as Map — every context a card on an ellipse, a line per pair, amber between core contexts, dashed when not built — and as List, in reading order."),
 
             // Last, because it is the one page of the group that is not about the
             // meta block: a review note is the convention's second fence, and the

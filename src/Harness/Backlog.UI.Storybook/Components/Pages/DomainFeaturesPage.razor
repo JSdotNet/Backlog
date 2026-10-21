@@ -1,0 +1,357 @@
+@page "/devbook/domain-features"
+
+<PageTitle>Domain features — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain features"
+           Summary="A subpage of Devbook: the Features page of the Domain view (local ADR 0037), a context's features in compact cards in columns by what they build on, with the picked feature's detail and what it promises below."
+           Guidelines="@Rules">
+
+    <Story Name="Board"
+           Description="An unsplit `features.md`: Ordering, Quotes and Fax orders build on nothing and Checkout builds on Ordering, so they stand in two columns. Quotes is proposed and dashed, Fax orders is deprecated and struck through in the box at the end of the last column."
+           Code="@BoardCode"
+           Source="@Features">
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" @bind-ActiveFeature="_active" TestId="story-domain-features-board" />
+    </Story>
+
+    <Story Name="Detail"
+           Description="Checkout picked: what it builds on, the flag it is gated by, the model chapters its `related` names as chips, and its sub-features; beside them, what it promises — its two requirements, a bar of the one a test proves, and a link onto the Requirements page — and what is always true of what it uses: the Order's rules its requirements lean on, in place, three before the rest, each opening on where it is enforced."
+           Code="@DetailCode"
+           Source="@Requirements">
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" ActiveFeature="checkout" OnOpenAlwaysTrue="@(link => _openedRule = link.Rule)" TestId="story-domain-features-detail" />
+        @if (_openedRule is { } openedRule)
+        {
+            <p>Opened Always true on <code>@openedRule</code>.</p>
+        }
+    </Story>
+
+    <Story Name="Proposed card picked"
+           Description="Quotes picked: a proposed card that is picked trades its dashes for the solid brand edge, so the pick still reads while the card is hovered."
+           Code="@ProposedCode">
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" ActiveFeature="quotes" TestId="story-domain-features-proposed" />
+    </Story>
+
+    <Story Name="Split file"
+           Description="A split `features.gift-cards.md` holds one feature, so the board is that one card with its detail open. Its column still counts what it builds on in the base file."
+           Code="@SplitCode"
+           Source="@SplitFeatures">
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(SplitFile, [.. Files, SplitFile])" TestId="story-domain-features-split" />
+    </Story>
+
+    <Story Name="Tasks and Brain notes"
+           Description="The host cascades a DomainChapterLinks: the tasks whose Devbook references name each chapter, and the owner's Brain notes linking to it. Checkout's detail lists its tasks as chips — gold when this backlog holds the task, dashed and reading not in this backlog when it does not — and, under them, the host's From your Brain box; here a plain stand-in shows where it goes. Below the board, the two pieces stand alone for Ordering. A chapter no task names and no note links to carries neither."
+           Code="@LinksCode">
+        <CascadingValue Value="@Links">
+            <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ActiveFeature="checkout" TestId="story-domain-features-links" />
+            <DomainChapterTasks References="@([$"{Path}#ordering"])" TestId="story-domain-chapter-tasks" />
+            <DomainChapterNotes References="@([$"{Path}#ordering"])" />
+        </CascadingValue>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why the flag, the status and the proof are neutral outlines: they are information about the chapter, not something the product acts on."),
+        new("accessibility.md#iconography-accessibility", "Why dashed and struck-through cards also say Proposed and Deprecated in words.")
+    ];
+
+    private string? _active;
+    private string? _openedRule;
+
+    private const string Path = ".devbook/domain/ordering/features.md";
+
+    internal const string Features = """
+        # Features
+
+        ```meta
+        type: features
+        ```
+
+        ## Ordering
+
+        ```meta
+        type: feature
+        status: draft
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        Place an order for goods and follow it until it is paid.
+
+        ## Checkout
+
+        ```meta
+        type: feature
+        status: draft
+        feature-flag: .devbook/domain/ordering/context.md#new-checkout
+        depends-on: [.devbook/domain/ordering/features.md#ordering]
+        related: [.devbook/domain/ordering/domain.md#order, .devbook/domain/ordering/model.md#order]
+        ```
+
+        Pay for an order in one step.
+
+        ### Card payment
+
+        ```meta
+        type: sub-feature
+        ```
+
+        Pay by card.
+
+        ### Invoice
+
+        ```meta
+        type: sub-feature
+        ```
+
+        Pay later on invoice.
+
+        ## Quotes
+
+        ```meta
+        type: feature
+        status: proposed
+        ```
+
+        Ask for a price before ordering.
+
+        ## Fax orders
+
+        ```meta
+        type: feature
+        status: deprecated
+        ```
+
+        Send an order by fax.
+        """;
+
+    internal const string SplitFeatures = """
+        # Gift cards
+
+        ```meta
+        type: features
+        ```
+
+        ## Gift cards
+
+        ```meta
+        type: feature
+        status: draft
+        setting: .devbook/domain/ordering/context.md#gift-card-limit
+        depends-on: [.devbook/domain/ordering/features.md#checkout]
+        ```
+
+        Pay with a gift card.
+        """;
+
+    internal const string Context = """
+        # Ordering
+
+        ```meta
+        type: context
+        ```
+
+        ## New checkout
+
+        ```meta
+        type: feature-flag
+        ```
+
+        Turns the one-step checkout on.
+
+        ## Gift card limit
+
+        ```meta
+        type: setting
+        ```
+
+        The most a gift card may hold.
+        """;
+
+    internal const string Domain = """
+        # Ordering
+
+        ```meta
+        type: domain
+        ```
+
+        ## Order
+
+        ```meta
+        type: aggregate
+        ```
+
+        A customer's request for goods.
+        """;
+
+    internal const string Invariants = """
+        # Invariants
+
+        ```meta
+        type: invariants
+        ```
+
+        ## Order
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        ### Invariant: A paid order is not paid again
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.Tests.A_paid_order_is_refused]
+        ```
+
+        A paid order refuses a second payment.
+
+        Enforced at: `Order.Pay()`
+
+        ### Invariant: An order holds a line
+
+        ```meta
+        type: invariant
+        ```
+
+        An order is never placed empty.
+
+        Enforced at: `Order.Place()`
+
+        ### Invariant: A cancelled order stays on record
+
+        ```meta
+        type: invariant
+        ```
+
+        Cancelling an order keeps it, marked cancelled.
+
+        Enforced at: open
+
+        ### Invariant: A total is worked out, never typed
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.Tests.Total_is_the_sum]
+        ```
+
+        The total is the sum of the lines.
+
+        Enforced at: `Order.Total`
+        """;
+
+    internal const string Requirements = """
+        # Requirements
+
+        ```meta
+        type: requirements
+        ```
+
+        ## Checkout
+
+        ```meta
+        type: requirements
+        related: [.devbook/domain/ordering/features.md#checkout, .devbook/domain/ordering/domain.md#order]
+        ```
+
+        > The requirements of paying in one step. The rules an order always keeps are
+        > its [invariants](domain.invariants.md#order).
+
+        ### Requirement: A paid order cannot be paid again
+
+        ```meta
+        type: requirement
+        tests: [unit:dotnet:Ordering.Tests.CheckoutTests.A_paid_order_is_refused]
+        ```
+
+        The system SHALL refuse to take a second payment for an order that is paid.
+
+        #### Scenario: Paying twice
+
+        - **Given** an order that is paid and a card that is valid
+        - **When** the customer pays again
+        - **Then** the payment is refused, and the order stays paid
+
+        ### Requirement: Checkout says what it costs
+
+        ```meta
+        type: requirement
+        ```
+
+        The system SHALL show the total, tax included, before the customer pays.
+
+        #### Scenario: The total
+
+        - **Given** an order of two items
+        - **When** the customer opens checkout
+        - **Then** the total names the tax
+        """;
+
+    private static DomainChapterFile FeaturesFile => DomainUnits.Parse(Features, Path);
+
+    private static DomainChapterFile SplitFile => DomainUnits.Parse(SplitFeatures, ".devbook/domain/ordering/features.gift-cards.md");
+
+    internal static IReadOnlyList<DomainChapterFile> Files =>
+    [
+        DomainUnits.Parse(Context, ".devbook/domain/ordering/context.md"),
+        DomainUnits.Parse(Domain, ".devbook/domain/ordering/domain.md"),
+        DomainUnits.Parse(Invariants, ".devbook/domain/ordering/domain.invariants.md"),
+        FeaturesFile,
+        DomainUnits.Parse(Requirements, ".devbook/domain/ordering/requirements.md")
+    ];
+
+    private const string BoardCode = """
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)"
+                            ContextName="@contextName"
+                            @bind-ActiveFeature="active"
+                            OnNavigate="OpenAsync" />
+        """;
+
+    private const string DetailCode = """
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ContextName="Ordering" ActiveFeature="checkout" />
+        """;
+
+    private const string ProposedCode = """
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ContextName="Ordering" ActiveFeature="quotes" />
+        """;
+
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<BrainNoteLink>> SampleNotes = new Dictionary<string, IReadOnlyList<BrainNoteLink>>
+    {
+        [DomainChapterLinks.Key($"{Path}#checkout")] = [new("projects/checkout.md", "Checkout ideas")],
+        [DomainChapterLinks.Key($"{Path}#ordering")] = [new("work/standup.md", "Standup")]
+    };
+
+    private static readonly DomainChapterLinks Links = new()
+    {
+        Tasks = new Dictionary<string, IReadOnlyList<DomainTaskLink>>
+        {
+            [DomainChapterLinks.Key($"{Path}#checkout")] =
+            [
+                new("6b1f2c1e-0d3a-4c55-9a51-2f4a1c0e7b10", "Take card payments at checkout"),
+                new("0c9e5d7a-4b2f-4e61-8d3c-7a1b9e2f6c40", null)
+            ],
+            [DomainChapterLinks.Key($"{Path}#ordering")] = [new("5a2d8e3f-1c4b-4a7e-9f60-3b8c2d1e0a99", "Show the order history")]
+        },
+        Notes = SampleNotes,
+        NotesBox = references => @<p data-testid="story-domain-chapter-notes">From your Brain: the host's box lists @string.Join(", ", references.SelectMany(reference => SampleNotes.GetValueOrDefault(DomainChapterLinks.Key(reference)) ?? []).Select(note => note.Title)).</p>
+    };
+
+    private const string LinksCode = """
+        <CascadingValue Value="@links">
+            <DomainFeatureBoard Columns="@DomainFeatures.Columns(featuresFile, contextFiles)" ActiveFeature="checkout" />
+            <DomainChapterTasks References="@([$"{path}#ordering"])" />
+            <DomainChapterNotes References="@([$"{path}#ordering"])" />
+        </CascadingValue>
+
+        links = new DomainChapterLinks
+        {
+            Tasks = tasksByChapter,   // DomainChapterLinks.Key(reference) → DomainTaskLink(id, title or null)
+            Notes = notesByChapter,   // DomainChapterLinks.Key(reference) → BrainNoteLink(path, title)
+            NotesBox = references => @<p>From your Brain: the host's box lists …</p>
+        };
+        """;
+
+    private const string SplitCode = """
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(splitFile, contextFiles)" />
+        """;
+}

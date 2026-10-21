@@ -1,0 +1,298 @@
+@using System.Globalization
+
+@*
+    The Domain view's Context map page (local ADR 0037): the map's title — its
+    file's heading — and a sentence of counts, then a Map | List bar that opens on
+    Map. Map is ContextMapDiagram. List names the contexts in the Subdomain
+    landscape table's reading order, Core first and Supporting after, each card its
+    "Why" cell; then the published languages as a table under the chapter's own
+    headings, naming each contract short (an event as code, a term in words, never
+    its path); then each strategic rule
+    as a card titled by its first sentence. A chapter List cannot read that way is
+    shown as context-map.md writes it. A card on either tab hands its context to
+    OnOpen.
+*@
+
+<section class="context-map-page" data-testid="@TestId" aria-label="Context map">
+    <header class="context-map-page__header">
+        <h2 class="context-map-page__title" data-testid="context-map-page-title">@(Map.Title.Length > 0 ? Map.Title : "Context map")</h2>
+        @if (!Map.IsEmpty)
+        {
+            <p class="context-map-page__intro" data-testid="context-map-page-intro">
+                @if (_tab == "list")
+                {
+                    @($"{Contexts(Map.Contexts.Count)} and {Relationships(Map.Lines.Count)}. Each card says why the context exists and how many relationships touch it.")
+                }
+                else
+                {
+                    @($"{Contexts(Map.Contexts.Count)} and how they rely on each other. Point at a line to read it{(OnOpen.HasDelegate ? "; pick a context to zoom in" : string.Empty)}.")
+                }
+            </p>
+        }
+    </header>
+
+    <Tabs AriaLabel="Context map views"
+          TestId="context-map-page-tabs"
+          ActiveId="@_tab"
+          ActiveIdChanged="@(id => _tab = id)">
+        <TabPanel Id="map" Title="Map" TabTestId="context-map-page-tab-map" TestId="context-map-page-map-panel">
+            <ContextMapDiagram Map="@Map" Layout="@Layout" OnOpen="OnOpen" />
+        </TabPanel>
+        <TabPanel Id="list" Title="List" TabTestId="context-map-page-tab-list" TestId="context-map-page-list-panel">
+            <div class="context-map-list">
+                @if (Map.IsEmpty)
+                {
+                    <EmptyState Title="No contexts"
+                                Description="The context map's Mermaid fence names no bounded context."
+                                TestId="context-map-list-empty" />
+                }
+                @foreach (var (title, contexts, key) in Groups())
+                {
+                    <section class="context-map-list__group" data-testid="context-map-list-group" data-kind="@key" aria-labelledby="@($"{_id}-{key}")">
+                        <h3 class="@(key == "core" ? "context-map-list__kind context-map-list__kind--core" : "context-map-list__kind")" id="@($"{_id}-{key}")">
+                            <span class="context-map-list__kind-name">@title · @contexts.Count</span>
+                            @if (Tagline(key) is { } tagline)
+                            {
+                                <span class="context-map-list__tagline">@tagline</span>
+                            }
+                        </h3>
+                        <ul class="context-map-list__cards">
+                            @foreach (var context in contexts)
+                            {
+                                var canOpen = OnOpen.HasDelegate && context.Slug is not null;
+                                <li class="context-map-list__item">
+                                    <button type="button"
+                                            class="@(context.IsCore ? "context-map-list__card context-map-list__card--core" : "context-map-list__card")"
+                                            data-testid="context-map-list-card"
+                                            data-context="@context.Id"
+                                            aria-disabled="@(canOpen ? null : "true")"
+                                            @onclick="@(() => OpenAsync(context))">
+                                        <span class="context-map-list__name">@context.Name</span>
+                                        @if (context.Why.Length > 0)
+                                        {
+                                            <span class="context-map-list__why" data-testid="context-map-list-why">@context.Why</span>
+                                        }
+                                        <span class="context-map-list__count">
+                                            @Relationships(Map.LinesTouching(context.Id))
+                                            @if (canOpen)
+                                            {
+                                                <span class="context-map-list__open" aria-hidden="true"> · open →</span>
+                                            }
+                                        </span>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                }
+
+                @if (Map.Contracts.Count > 0)
+                {
+                    <section class="context-map-list__section" data-testid="context-map-list-languages" aria-labelledby="@($"{_id}-languages")">
+                        <h3 class="context-map-list__heading" id="@($"{_id}-languages")">@LanguagesTitle</h3>
+                        <div class="context-map-contracts">
+                            <table class="context-map-contracts__table">
+                                <thead>
+                                    <tr>
+                                        @foreach (var column in Map.ContractColumns)
+                                        {
+                                            <th scope="col">@column</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var contract in Map.Contracts)
+                                    {
+                                        <tr data-testid="context-map-contract-row">
+                                            <td>@contract.Owner</td>
+                                            <td class="context-map-contracts__names">
+                                                @for (var i = 0; i < contract.Names.Count; i++)
+                                                {
+                                                    var name = contract.Names[i];
+                                                    if (i > 0)
+                                                    {
+                                                        <span class="context-map-contracts__dot" aria-hidden="true"> · </span>
+                                                    }
+                                                    @if (Follow(name) is { } reference)
+                                                    {
+                                                        <button type="button"
+                                                                class="context-map-contracts__name"
+                                                                data-testid="context-map-contract"
+                                                                title="@reference.Raw"
+                                                                @onclick="@(() => OnNavigate.InvokeAsync(reference))">
+                                                            @if (name.IsCode)
+                                                            {
+                                                                <code>@name.Name</code>
+                                                            }
+                                                            else
+                                                            {
+                                                                @name.Name
+                                                            }
+                                                        </button>
+                                                    }
+                                                    else if (name.IsCode)
+                                                    {
+                                                        <code data-testid="context-map-contract">@name.Name</code>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span data-testid="context-map-contract">@name.Name</span>
+                                                    }
+                                                }
+                                            </td>
+                                            <td>@contract.UsedBy</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                }
+                else if (Map.Languages.Length > 0)
+                {
+                    <section class="context-map-list__section" data-testid="context-map-list-languages" aria-labelledby="@($"{_id}-languages")">
+                        <h3 class="context-map-list__heading" id="@($"{_id}-languages")">@LanguagesTitle</h3>
+                        <MarkdownView Blocks="@_languages"
+                                      Source="@Map.Languages"
+                                      DevbookDocumentPath="@DocumentPath"
+                                      DevbookFolder="DevbookFolder.Domain"
+                                      OnDevbookNavigate="OnNavigate" />
+                    </section>
+                }
+
+                @if (_ruleCards.Count > 0)
+                {
+                    <section class="context-map-list__section" data-testid="context-map-list-rules" aria-labelledby="@($"{_id}-rules")">
+                        <h3 class="context-map-list__heading" id="@($"{_id}-rules")">Strategic rules</h3>
+                        <ul class="context-map-rules">
+                            @foreach (var (title, body) in _ruleCards)
+                            {
+                                <li class="context-map-rules__card" data-testid="context-map-rule">
+                                    <div class="context-map-rules__title" data-testid="context-map-rule-title">
+                                        <MarkdownView Blocks="@title"
+                                                      DevbookDocumentPath="@DocumentPath"
+                                                      DevbookFolder="DevbookFolder.Domain"
+                                                      OnDevbookNavigate="OnNavigate" />
+                                    </div>
+                                    @if (body.Count > 0)
+                                    {
+                                        <div class="context-map-rules__body">
+                                            <MarkdownView Blocks="@body"
+                                                          DevbookDocumentPath="@DocumentPath"
+                                                          DevbookFolder="DevbookFolder.Domain"
+                                                          OnDevbookNavigate="OnNavigate" />
+                                        </div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                }
+                else if (Map.Rules.Length > 0)
+                {
+                    <section class="context-map-list__section" data-testid="context-map-list-rules" aria-labelledby="@($"{_id}-rules")">
+                        <h3 class="context-map-list__heading" id="@($"{_id}-rules")">Strategic rules</h3>
+                        <MarkdownView Blocks="@_rules"
+                                      Source="@Map.Rules"
+                                      DevbookDocumentPath="@DocumentPath"
+                                      DevbookFolder="DevbookFolder.Domain"
+                                      OnDevbookNavigate="OnNavigate" />
+                    </section>
+                }
+            </div>
+        </TabPanel>
+    </Tabs>
+</section>
+
+@code {
+    /// <summary>The context map, read by <see cref="ContextMaps.Read"/>.</summary>
+    [Parameter]
+    public ContextMap Map { get; set; } = ContextMap.Empty;
+
+    /// <summary>The <c>context-map.md</c> the chapters are read from, which a
+    /// relative link in them resolves against.</summary>
+    [Parameter]
+    public string? DocumentPath { get; set; }
+
+    /// <summary>The tab the page opens on: <c>map</c> or <c>list</c>.</summary>
+    [Parameter]
+    public string InitialTab { get; set; } = "map";
+
+    /// <summary>The map laid out for <see cref="Map"/>, when the host arranged it
+    /// off the render thread.</summary>
+    [Parameter]
+    public ContextMapLayout? Layout { get; set; }
+
+    /// <summary>A context card the reader picked, on Map or on List.</summary>
+    [Parameter]
+    public EventCallback<ContextMapContext> OnOpen { get; set; }
+
+    /// <summary>A contract, or a link in the rules, the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "context-map-page";
+
+    private readonly string _id = $"context-map-page-{Guid.NewGuid():N}";
+    private string? _tab;
+    private ContextMap? _parsed;
+    private IReadOnlyList<MdBlock> _languages = [];
+    private IReadOnlyList<MdBlock> _rules = [];
+    private IReadOnlyList<(IReadOnlyList<MdBlock> Title, IReadOnlyList<MdBlock> Body)> _ruleCards = [];
+
+    protected override void OnParametersSet()
+    {
+        _tab ??= InitialTab;
+        if (ReferenceEquals(_parsed, Map)) return;
+        _parsed = Map;
+        _languages = MarkdownPreview.ParseDocument(Map.Languages);
+        _rules = MarkdownPreview.ParseDocument(Map.Rules);
+        _ruleCards =
+        [
+            .. Map.RuleCards.Select(rule => (
+                MarkdownPreview.ParseDocument(rule.Title),
+                rule.Body.Length == 0 ? (IReadOnlyList<MdBlock>)[] : MarkdownPreview.ParseDocument(rule.Body)))
+        ];
+    }
+
+    private Task OpenAsync(ContextMapContext context) =>
+        OnOpen.HasDelegate && context.Slug is not null ? OnOpen.InvokeAsync(context) : Task.CompletedTask;
+
+    /// <summary>The chapter a contract's name opens, when the row gives a path and
+    /// the page has somewhere to send it.</summary>
+    private DevbookReference? Follow(ContextMapContractName name) =>
+        OnNavigate.HasDelegate ? DevbookReference.ParseDevbookPath(name.Reference) : null;
+
+    private string LanguagesTitle => Map.LanguagesTitle.Length > 0 ? Map.LanguagesTitle : "Published languages";
+
+    private static string Contexts(int count) =>
+        count == 1 ? "1 bounded context" : $"{count.ToString(CultureInfo.InvariantCulture)} bounded contexts";
+
+    private static string Relationships(int count) =>
+        count == 1 ? "1 relationship" : $"{count.ToString(CultureInfo.InvariantCulture)} relationships";
+
+    /// <summary>What each kind of subdomain is for, in a few words.</summary>
+    private static string? Tagline(string kind) => kind switch
+    {
+        "core" => "What makes the product different",
+        "supporting" => "Needed, but not the product's edge",
+        _ => null
+    };
+
+    /// <summary>Core, then Supporting, then any other type the landscape table
+    /// names, each in the table's order; a group with no context is left out.</summary>
+    private IEnumerable<(string Title, IReadOnlyList<ContextMapContext> Contexts, string Key)> Groups()
+    {
+        var kinds = Map.Contexts.Select(c => c.Kind).Distinct(StringComparer.Ordinal)
+            .OrderBy(k => k switch { "core" => 0, "supporting" => 1, _ => 2 })
+            .ThenBy(k => k, StringComparer.Ordinal);
+        foreach (var kind in kinds)
+        {
+            var contexts = Map.Contexts.Where(c => c.Kind == kind).ToList();
+            static string Slug(string text) => System.Text.RegularExpressions.Regex.Replace(text, "[^a-z0-9]+", "-").Trim('-');
+            var title = ContextMapDiagram.KindWord(contexts[0]);
+            yield return (title, contexts, Slug(kind));
+        }
+    }
+}

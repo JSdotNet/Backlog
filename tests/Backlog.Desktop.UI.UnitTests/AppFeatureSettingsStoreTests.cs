@@ -86,6 +86,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DevbookFeatures.C4Diagrams,
                 DevbookFeatures.Search,
                 DevbookFeatures.SemanticSearch,
+                DevbookFeatures.DomainView,
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
                 SessionFeatures.PullRequests,

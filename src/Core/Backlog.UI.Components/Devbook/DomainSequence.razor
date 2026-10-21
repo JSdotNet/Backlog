@@ -1,0 +1,186 @@
+@*
+    A flow's sequence diagram drawn in the lifecycle's style (local ADR 0037, the
+    Flow page): a card per participant on top with a lifeline beneath it, each
+    message a line between two lifelines with the lifecycle's arrowhead and its
+    text above it — a reply dashed, as a way back is — a message to itself a small
+    loop, a note a card of its own, and each alt, opt, loop or par block a frame
+    round its steps with its keyword in a tag and a dashed line before each
+    further branch.
+
+    The drawing is a picture of the list beneath it: a screen reader hears the
+    steps as a list, one sentence each, and the SVG is hidden from it.
+*@
+
+<figure class="domain-flow domain-flow--sequence" data-testid="@TestId" aria-label="@AriaLabel">
+    <div class="domain-flow__scroll">
+        <svg class="domain-flow__svg"
+             viewBox="0 0 @N(_layout.Width) @N(_layout.Height)"
+             width="@N(_layout.Width)"
+             height="@N(_layout.Height)"
+             aria-hidden="true"
+             focusable="false">
+            <defs>
+                <marker id="@ArrowId" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path class="domain-flow__arrow" d="M 0 0 L 10 5 L 0 10 z" />
+                </marker>
+            </defs>
+
+            @* A frame's outline and dividers sit behind the lifelines; its tag and
+               conditions are drawn after them, so no lifeline runs through a word. *@
+            @foreach (var frame in _layout.Frames)
+            {
+                <g class="domain-flow__frame-group" data-testid="domain-sequence-frame" data-keyword="@frame.Keyword">
+                    <rect class="domain-flow__frame" x="@N(frame.X)" y="@N(frame.Y)" width="@N(frame.Width)" height="@N(frame.Height)" rx="8" ry="8" />
+                    @foreach (var divider in frame.Dividers)
+                    {
+                        <path class="domain-flow__divider" d="M @N(frame.X) @N(divider.Y) H @N(frame.X + frame.Width)" />
+                    }
+                </g>
+            }
+
+            @foreach (var column in _layout.Columns)
+            {
+                <path class="domain-flow__lifeline" d="M @N(column.CenterX) @N(column.Y + column.Height) V @N(column.LifelineEnd)" />
+            }
+
+            @foreach (var column in _layout.Columns)
+            {
+                <g class="domain-flow__state" data-testid="domain-sequence-participant" data-participant="@column.Participant.Id">
+                    <rect class="domain-flow__box" x="@N(column.X)" y="@N(column.Y)" width="@N(column.Width)" height="@N(column.Height)" rx="10" ry="10" />
+                    <g class="domain-flow__label-group"><text class="domain-flow__name" x="@N(column.CenterX)" y="@N(column.Y + column.Height / 2 + 4.5)" text-anchor="middle">@column.Participant.Label</text></g>
+                </g>
+            }
+
+            @foreach (var frame in _layout.Frames)
+            {
+                <g class="domain-flow__frame-head">
+                    <rect class="domain-flow__frame-tag" x="@N(frame.X)" y="@N(frame.Y)" width="@N(TagWidth(frame.Keyword))" height="20" rx="6" ry="6" />
+                    <g class="domain-flow__label-group">
+                        <text class="domain-flow__frame-keyword" x="@N(frame.X + TagWidth(frame.Keyword) / 2)" y="@N(frame.Y + 14)" text-anchor="middle">@frame.Keyword</text>
+                        @if (frame.Label.Length > 0)
+                        {
+                            <g><text class="domain-flow__frame-label" x="@N(frame.X + TagWidth(frame.Keyword) + 8)" y="@N(frame.Y + 14)">[@frame.Label]</text></g>
+                        }
+                    </g>
+                    @foreach (var divider in frame.Dividers)
+                    {
+                        @if (divider.Label.Length > 0)
+                        {
+                            <g class="domain-flow__label-group"><text class="domain-flow__frame-label" x="@N(frame.X + 8)" y="@N(divider.Y + 16)">[@divider.Label]</text></g>
+                        }
+                    }
+                </g>
+            }
+
+            @foreach (var note in _layout.Notes)
+            {
+                <g class="domain-flow__note-group" data-testid="domain-sequence-note">
+                    <rect class="domain-flow__note" x="@N(note.X)" y="@N(note.Y)" width="@N(note.Width)" height="@N(note.Height)" rx="8" ry="8" />
+                    <g class="domain-flow__label-group"><text class="domain-flow__note-text" x="@N(note.X + note.Width / 2)" y="@N(note.Y + 20)" text-anchor="middle">@for (var k = 0; k < note.Lines.Count; k++)
+                    {
+                        <tspan x="@N(note.X + note.Width / 2)" dy="@(k == 0 ? "0" : "16")">@note.Lines[k]</tspan>
+                    }</text></g>
+                </g>
+            }
+
+            @foreach (var arrow in _layout.Arrows)
+            {
+                <g class="domain-flow__transition @(arrow.Message.Reply ? "domain-flow__transition--back" : "domain-flow__transition--forward")"
+                   data-testid="domain-sequence-message"
+                   data-from="@arrow.Message.From"
+                   data-to="@arrow.Message.To"
+                   data-reply="@(arrow.Message.Reply ? "true" : "false")">
+                    <title>@Sentence(arrow.Message)</title>
+                    @if (arrow.Message.Arrow)
+                    {
+                        <path class="domain-flow__line" d="@arrow.Path" marker-end="url(#@ArrowId)" />
+                    }
+                    else
+                    {
+                        <path class="domain-flow__line" d="@arrow.Path" />
+                    }
+                    @if (arrow.Lines.Count > 0)
+                    {
+                        <g class="domain-flow__label-group"><text class="domain-flow__label" x="@N(arrow.TextX)" y="@N(arrow.TextY)" text-anchor="@arrow.TextAnchor">@for (var k = 0; k < arrow.Lines.Count; k++)
+                        {
+                            <tspan x="@N(arrow.TextX)" dy="@(k == 0 ? "0" : "16")">@arrow.Lines[k]</tspan>
+                        }</text></g>
+                    }
+                </g>
+            }
+        </svg>
+    </div>
+
+    <figcaption class="sr-only">
+        <ol>
+            @foreach (var step in Diagram.Steps)
+            {
+                @if (Sentence(step) is { } sentence)
+                {
+                    <li>@sentence</li>
+                }
+            }
+        </ol>
+    </figcaption>
+</figure>
+
+@code {
+    [Parameter, EditorRequired]
+    public DomainSequenceDiagram Diagram { get; set; } = default!;
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Sequence";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-sequence";
+
+    // One per instance: two sequences on a page must not share a marker id.
+    private readonly string _id = "domain-sequence-" + Guid.NewGuid().ToString("N")[..8];
+    private DomainSequenceLayout _layout = new(0, 0, [], [], [], []);
+    private DomainSequenceDiagram? _laidOut;
+
+    private string ArrowId => _id + "-arrow";
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_laidOut, Diagram)) return;
+        _laidOut = Diagram;
+        _layout = DomainSequences.Layout(Diagram);
+    }
+
+    private static double TagWidth(string keyword) => DomainSequences.TagWidth(keyword);
+
+    private string? Sentence(DomainSequenceStep step) => step switch
+    {
+        DomainSequenceMessage message => Sentence(message),
+        DomainSequenceNote note => note.First == note.Last
+            ? $"Note {Where(note.Placement)} {Name(note.First)}: {Flat(note.Text)}"
+            : $"Note over {Name(note.First)} and {Name(note.Last)}: {Flat(note.Text)}",
+        DomainSequenceBlock block => block.Label.Length > 0 ? $"{block.Keyword}: {block.Label}" : block.Keyword,
+        DomainSequenceBranch branch => branch.Label.Length > 0 ? $"{branch.Keyword}: {branch.Label}" : branch.Keyword,
+        DomainSequenceEnd => "end",
+        _ => null
+    };
+
+    private string Sentence(DomainSequenceMessage message)
+    {
+        var reply = message.Reply ? " (reply)" : string.Empty;
+        var text = message.Text.Length > 0 ? $": {Flat(message.Text)}" : string.Empty;
+        return message.From == message.To
+            ? $"{Name(message.From)} to itself{text}"
+            : $"{Name(message.From)} to {Name(message.To)}{reply}{text}";
+    }
+
+    private static string Where(DomainSequencePlacement placement) => placement switch
+    {
+        DomainSequencePlacement.LeftOf => "left of",
+        DomainSequencePlacement.RightOf => "right of",
+        _ => "over"
+    };
+
+    private static string Flat(string text) => text.Replace('\n', ' ');
+
+    private string Name(string id) => Diagram.Participant(id).Label;
+
+    private static string N(double value) => Math.Round(value, 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+}

@@ -1,0 +1,107 @@
+@page "/devbook/domain-requirements"
+
+<PageTitle>Domain requirements — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain requirements"
+           Summary="A subpage of Devbook: the Requirements page of the Domain view (local ADR 0037), laid out as the design board “Requirements — requirements.md”. It opens on a card saying what a requirement is, with how many the file holds and how many a test proves. Under the open feature's heading, What is always true lists the rules of the units its chapters name, in place — the list that replaces the sentence explaining its invariants — each opening on where it is enforced and linking to its row on Always true. An unsplit `requirements.md` lists its features By feature · tested, each with a bar; a split `requirements.<name>.md` opens on its one feature. Each requirement is a card: its title and a Test linked or dashed No test linked mark, its SHALL sentence set larger with SHALL in the requirement tone, the tasks referencing it, and each scenario as GIVEN / WHEN / THEN rows on the card's foot, a row joining its clauses with “, and” read as one bullet per clause. A feature with more than three requirements opens the first two and lists the rest as rows."
+           Guidelines="@Rules">
+
+    <Story Name="Features beside the page"
+           Description="An unsplit `requirements.md` with two features. The list names each with how many of its requirements are tested, and a bar; Checkout is open. Its intro no longer says where the invariants are — What is always true lists the Order's rules under its heading, three before the rest. Press a rule to read where it is enforced and follow it to its row on Always true."
+           Code="@ListCode"
+           Source="@Unsplit">
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(UnsplitFile, Files)" @bind-ActiveGroup="_active" OnOpenAlwaysTrue="Open" TestId="story-domain-requirements-list" />
+        @if (_opened is { } opened)
+        {
+            <p>Opened <code>@opened.Reference</code> on Always true, at <code>@opened.Rule</code>.</p>
+        }
+    </Story>
+
+    <Story Name="Scenario rows"
+           Description="A requirement whose Then row says two things: “the payment is refused, and the order stays paid” reads as two bullets. A bare “and” inside a clause — “an order that is paid and a card that is valid” — names one thing, and stays one row."
+           Code="@RowsCode"
+           Source="@DomainFeaturesPage.Requirements">
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(Checkout, Files)" TestId="story-domain-requirements-rows" />
+    </Story>
+
+    <Story Name="A long feature"
+           Description="A feature with seven requirements opens the first two as cards and lists the rest as rows, four of them before “and 1 more in Long”. A row's Show opens that requirement in place."
+           Code="@RowsCode"
+           Source="@Long">
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(LongFile, Files)" TestId="story-domain-requirements-long" />
+    </Story>
+
+    <Story Name="Split file"
+           Description="A split `requirements.checkout.md` holds one feature's requirements, so it opens on them with no list."
+           Code="@SplitCode"
+           Source="@DomainFeaturesPage.Requirements">
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(SplitFile, Files)" TestId="story-domain-requirements-split" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why Test linked and No test linked are neutral outlines — the proof is information about the chapter, said in words, never in a fill — and why the requirement kind takes its own soft blue."),
+        new("accessibility.md#iconography-accessibility", "Why the proof mark says its state in words and the tested tally carries a spoken form, so neither leans on the blue.")
+    ];
+
+    private string? _active;
+    private DomainAlwaysTrueLink? _opened;
+
+    private void Open(DomainAlwaysTrueLink unit) => _opened = unit;
+
+    private const string Unsplit = DomainFeaturesPage.Requirements + """
+
+
+        ## Ordering
+
+        ```meta
+        type: requirements
+        related: [.devbook/domain/ordering/features.md#ordering]
+        ```
+
+        ### Requirement: An order is placed once
+
+        ```meta
+        type: requirement
+        tests: [unit:dotnet:Ordering.Tests.OrderTests.Placing_twice_is_refused]
+        ```
+
+        The system SHALL place an order once, and refuse to place it again.
+
+        #### Scenario: Placing twice
+
+        - **Given** a placed order
+        - **When** the customer places it again
+        - **Then** nothing changes
+        """;
+
+    private static readonly string Long = "# Requirements\n\n## Long\n\n```meta\ntype: requirements\n```\n"
+        + string.Concat(Enumerable.Range(1, 7).Select(n => $"\n### Requirement: Rule {n} holds\n\n```meta\ntype: requirement\n```\n\nThe system SHALL keep rule {n}.\n\n#### Scenario: Rule {n}\n\n- **Given** a task\n- **When** the reader edits it\n- **Then** rule {n} holds, and nothing else changes\n"));
+
+    private static DomainChapterFile LongFile => DomainUnits.Parse(Long, ".devbook/domain/ordering/requirements.long.md");
+
+    private static DomainChapterFile UnsplitFile => DomainUnits.Parse(Unsplit, ".devbook/domain/ordering/requirements.md");
+
+    private static DomainChapterFile Checkout => DomainUnits.Parse(DomainFeaturesPage.Requirements, ".devbook/domain/ordering/requirements.md");
+
+    private static DomainChapterFile SplitFile => DomainUnits.Parse(DomainFeaturesPage.Requirements.Replace("# Requirements", "# Checkout"), ".devbook/domain/ordering/requirements.checkout.md");
+
+    private static IReadOnlyList<DomainChapterFile> Files => DomainFeaturesPage.Files;
+
+    private const string ListCode = """
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(requirementsFile, contextFiles)"
+                                @bind-ActiveGroup="active"
+                                OnOpenAlwaysTrue="OpenAlwaysTrueAsync"
+                                OnNavigate="OpenAsync" />
+        """;
+
+    private const string RowsCode = """
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(requirementsFile, contextFiles)" />
+        """;
+
+    private const string SplitCode = """
+        <DomainRequirementsView Groups="@DomainRequirements.Groups(splitFile, contextFiles)" />
+        """;
+}

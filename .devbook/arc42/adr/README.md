@@ -63,6 +63,7 @@ between inherited ADRs 0005 and 0009.
 - **[0034 — Archify renders are generated on demand into app storage, not committed](0034-archify-renders-are-generated-on-demand-not-committed.md)** *(proposed, built; amends 0004 and 0008, changes the remediation of TDR 0001)*
 - **[0035 — Goals and impediments replace sprints](0035-goals-and-impediments-replace-sprints.md)** *(proposed, not yet built; supersedes the sprint parts of 0022 §2 and 0028)*
 - **[0036 — The iteration settings ride the task feed as one whole document](0036-the-iteration-settings-ride-the-task-feed.md)** *(accepted, built; refines 0035 §3, follows 0032)*
+- **[0037 — The Domain view reads by unit](0037-the-domain-view-reads-by-unit.md)** *(proposed, not yet built)*
 
 ## Inherited decisions
 

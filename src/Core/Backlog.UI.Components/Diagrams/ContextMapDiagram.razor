@@ -1,0 +1,197 @@
+@using System.Globalization
+
+@*
+    The Context map's Map tab in the Domain view (local ADR 0037): every bounded
+    context as a card on an ellipse, in the order that crosses the fewest lines,
+    and one line per pair of contexts the map's Mermaid fence joins. A line between
+    two core contexts is amber, any other grey; a relation the map draws -.-> (named,
+    not built) is dashed; a pair that relies on each other has a head at both ends.
+    A card says core or supporting and how many lines touch it. Pointing at or
+    focusing a card fades every line that does not touch it, and the card says
+    "zoom in" when picking it opens its context. A
+    line's tooltip and accessible name are the dependency table's reason, and no
+    pattern name reaches the map. Picking a card hands its context to OnOpen.
+*@
+
+<section class="context-map" data-testid="@TestId" aria-label="Map">
+    @if (Map.IsEmpty)
+    {
+        <EmptyState Title="No contexts"
+                    Description="The context map's Mermaid fence names no bounded context."
+                    TestId="context-map-empty" />
+    }
+    else
+    {
+        <div class="context-map__scroll">
+            <div class="context-map__canvas"
+                 data-testid="context-map-canvas"
+                 data-crossings="@_layout.Crossings"
+                 data-active="@_active"
+                 style="@($"aspect-ratio: {N(_layout.Width)} / {N(_layout.Height)}; min-width: {N(52 * _layout.Width / ContextMapLayout.DefaultWidth)}rem;")">
+                <svg class="context-map__lines"
+                     viewBox="@($"0 0 {N(_layout.Width)} {N(_layout.Height)}")"
+                     preserveAspectRatio="xMidYMid meet"
+                     role="group"
+                     aria-label="Lines between the contexts">
+                    <defs>
+                        <marker id="@($"{_id}-head-core")" class="context-map__head context-map__head--core" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" />
+                        </marker>
+                        <marker id="@($"{_id}-head")" class="context-map__head" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" />
+                        </marker>
+                    </defs>
+                    @foreach (var stroke in _layout.Strokes)
+                    {
+                        var head = stroke.Core ? $"url(#{_id}-head-core)" : $"url(#{_id}-head)";
+                        var words = Map.Describe(stroke.Line);
+                        <g class="@LineClass(stroke)"
+                           data-testid="context-map-line"
+                           data-from="@stroke.Line.From"
+                           data-to="@stroke.Line.To"
+                           data-both-ways="@(stroke.Line.BothWays ? "true" : "false")"
+                           data-built="@(stroke.Line.Built ? "true" : "false")"
+                           data-core="@(stroke.Core ? "true" : "false")"
+                           role="img"
+                           aria-label="@words">
+                            <title>@words</title>
+                            <line class="context-map__hit" x1="@N(stroke.X1)" y1="@N(stroke.Y1)" x2="@N(stroke.X2)" y2="@N(stroke.Y2)" />
+                            <line class="context-map__stroke"
+                                  x1="@N(stroke.X1)" y1="@N(stroke.Y1)" x2="@N(stroke.X2)" y2="@N(stroke.Y2)"
+                                  marker-end="@head"
+                                  marker-start="@(stroke.Line.BothWays ? head : null)" />
+                        </g>
+                    }
+                </svg>
+
+                <ul class="context-map__cards" aria-label="Contexts">
+                    @foreach (var card in _layout.Cards)
+                    {
+                        var context = card.Context;
+                        <li class="context-map__slot" style="@CardStyle(card)">
+                            <button type="button"
+                                    class="@CardClass(card)"
+                                    data-testid="context-map-card"
+                                    data-context="@context.Id"
+                                    data-kind="@context.Kind"
+                                    aria-disabled="@(CanOpen(context) ? null : "true")"
+                                    aria-label="@($"{context.Name}, {KindWord(context).ToLowerInvariant()}, {LinesWord(card.Lines)}")"
+                                    title="@(context.Why.Length > 0 ? context.Why : null)"
+                                    @onmouseenter="@(() => _hovered = context.Id)"
+                                    @onmouseleave="@(() => _hovered = Leave(_hovered, context.Id))"
+                                    @onfocus="@(() => _focused = context.Id)"
+                                    @onblur="@(() => _focused = Leave(_focused, context.Id))"
+                                    @onclick="@(() => OpenAsync(context))">
+                                <span class="context-map__name">@context.Name</span>
+                                <span class="context-map__facts" aria-hidden="true">
+                                    <span class="context-map__kind" data-testid="context-map-card-kind">@KindWord(context).ToLowerInvariant()</span>
+                                    <span class="context-map__dot">·</span>
+                                    <span class="context-map__count" data-testid="context-map-card-lines">@card.Lines.ToString(CultureInfo.InvariantCulture)</span>
+                                    @if (CanOpen(context))
+                                    {
+                                        <span class="context-map__zoom" data-testid="context-map-card-zoom">· zoom in →</span>
+                                    }
+                                </span>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        <div class="context-map__legend" data-testid="context-map-legend">
+            <ul class="context-map__legend-lines" aria-label="Lines">
+                <li><span class="context-map__swatch context-map__swatch--core" aria-hidden="true"></span>between core contexts</li>
+                <li><span class="context-map__swatch" aria-hidden="true"></span>with a supporting context</li>
+                <li><span class="context-map__swatch context-map__swatch--dashed" aria-hidden="true"></span>planned, not built</li>
+            </ul>
+            <p class="context-map__legend-note">Arrows point the way information goes; two heads, both ways · the number is how many lines touch a context</p>
+        </div>
+    }
+</section>
+
+@code {
+    /// <summary>The context map, read by <see cref="ContextMaps.Read"/>.</summary>
+    [Parameter]
+    public ContextMap Map { get; set; } = ContextMap.Empty;
+
+    /// <summary>A card the reader picked. With no handler, or for a context no
+    /// folder is named for, the card is drawn disabled: a card that goes nowhere is
+    /// not a control.</summary>
+    [Parameter]
+    public EventCallback<ContextMapContext> OnOpen { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "context-map";
+
+    private readonly string _id = $"context-map-{Guid.NewGuid():N}";
+    private ContextMap? _arranged;
+    private ContextMapLayout _layout = ContextMapLayout.Arrange(ContextMap.Empty);
+    private string? _hovered;
+    private string? _focused;
+
+    /// <summary>The map laid out by <see cref="ContextMapLayout.Arrange"/> for
+    /// <see cref="Map"/>, when the host arranged it off the render thread; else the
+    /// component arranges it.</summary>
+    [Parameter]
+    public ContextMapLayout? Layout { get; set; }
+
+    /// <summary>The card the lines answer: the one pointed at, else the one focused.</summary>
+    private string? _active => _hovered ?? _focused;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_arranged, Map) && (Layout is null || ReferenceEquals(_layout, Layout))) return;
+        _arranged = Map;
+        _layout = Layout ?? ContextMapLayout.Arrange(Map);
+        _hovered = null;
+        _focused = null;
+    }
+
+    private static string? Leave(string? current, string id) =>
+        string.Equals(current, id, StringComparison.Ordinal) ? null : current;
+
+    private bool CanOpen(ContextMapContext context) => OnOpen.HasDelegate && context.Slug is not null;
+
+    // aria-disabled rather than disabled, so a card that opens nothing can still
+    // be focused to fade the lines that do not touch it.
+    private Task OpenAsync(ContextMapContext context) =>
+        CanOpen(context) ? OnOpen.InvokeAsync(context) : Task.CompletedTask;
+
+    private string LineClass(ContextMapStroke stroke)
+    {
+        var css = "context-map__line";
+        if (stroke.Core) css += " context-map__line--core";
+        if (!stroke.Line.Built) css += " context-map__line--not-built";
+        if (_active is { } active) css += stroke.Line.Touches(active) ? " context-map__line--lit" : " context-map__line--faded";
+        return css;
+    }
+
+    private string CardClass(ContextMapCard card)
+    {
+        var css = "context-map__card";
+        if (card.Context.IsCore) css += " context-map__card--core";
+        if (_active is { } active)
+        {
+            if (string.Equals(active, card.Context.Id, StringComparison.Ordinal)) css += " context-map__card--active";
+            else if (!Map.Lines.Any(line => line.Touches(active) && line.Touches(card.Context.Id))) css += " context-map__card--faded";
+        }
+        return css;
+    }
+
+    private string CardStyle(ContextMapCard card)
+    {
+        var left = (card.X - _layout.CardWidth / 2) / _layout.Width * 100;
+        var top = (card.Y - _layout.CardHeight / 2) / _layout.Height * 100;
+        var width = _layout.CardWidth / _layout.Width * 100;
+        var height = _layout.CardHeight / _layout.Height * 100;
+        return $"left: {N(left)}%; top: {N(top)}%; width: {N(width)}%; height: {N(height)}%;";
+    }
+
+    internal static string KindWord(ContextMapContext context) =>
+        context.Kind.Length == 0 ? "Supporting" : char.ToUpperInvariant(context.Kind[0]) + context.Kind[1..];
+
+    internal static string LinesWord(int lines) => lines == 1 ? "1 line" : $"{lines} lines";
+
+    private static string N(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+}

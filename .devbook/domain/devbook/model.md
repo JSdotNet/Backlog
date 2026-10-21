@@ -25,11 +25,6 @@ classDiagram
         +Timestamp created_at
         +Timestamp updated_at
     }
-    class Brain {
-        <<folder>>
-        +Path folder
-        +PARACategory[] areas
-    }
     class ProjectRef {
         <<value object>>
         +String repo_id
@@ -60,9 +55,7 @@ classDiagram
         import
     }
 
-    KnowledgeNote --> PARACategory : organized under
-    Brain "1" o-- "0..*" KnowledgeNote : holds
-    Brain "1" *-- "1..*" PARACategory : declares
+    KnowledgeNote "1" *-- "1" PARACategory : organized under
     KnowledgeNote --> NoteSource : originated from
     KnowledgeNote "1" *-- "0..*" ProjectRef : scoped to
     KnowledgeNote "1" *-- "0..*" Tag : tagged with
@@ -73,12 +66,13 @@ classDiagram
 ## Relationship notes
 
 - `KnowledgeNote` is the aggregate root. `ProjectRef`, `Tag`,
-  `RoadmapContribution`, and `TaskLink` are owned value objects, and there are no
-  separately identified child entities.
-- `Brain` is the folder the person picked, not an aggregate: it holds the notes
-  as Markdown files and declares its areas in `CONVENTIONS.md`, the PARA set when
-  it declares none. A note's `PARACategory` is one of those areas, read from the
-  note's top folder unless its `para` field overrides it.
+  `RoadmapContribution`, `TaskLink` and `PARACategory` are owned value objects,
+  and there are no separately identified child entities.
+- The [Brain](domain.md#brain) is the folder the person picked, not a building
+  block, so the diagram does not draw it: it holds the notes as Markdown files and
+  declares its areas in `CONVENTIONS.md`, the PARA set when it declares none. A
+  note's `PARACategory` is one of those areas, a value the note holds, read from
+  the note's top folder unless its `para` field overrides it.
 - `ProjectRef` is written as the note's `repos` field and `TaskLink` as its
   `tasks` field (local ADR 0026). A `repo:` link to a repository chapter is not a
   `ProjectRef`: it addresses one chapter, and the Brain's database keeps it as an

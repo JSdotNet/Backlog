@@ -112,6 +112,12 @@
     [Parameter]
     public Func<TreeNode, RenderFragment?>? NodeMark { get; set; }
 
+    /// <summary>What a row shows after its label, at the row's far edge, or
+    /// null for nothing — a count, say. Shaped like <see cref="NodeMark"/> for
+    /// the same reason: a row with nothing to show renders no wrapper.</summary>
+    [Parameter]
+    public Func<TreeNode, RenderFragment?>? NodeTrail { get; set; }
+
     [Parameter]
     public Func<TreeNode, bool> IsFolderOpening { get; set; } = static _ => false;
 
@@ -195,6 +201,10 @@
                         <span class="@(ClassPrefix)__mark">@mark</span>
                     }
                     <span class="@(ClassPrefix)__label">@node.Label</span>
+                    @if (NodeTrail?.Invoke(node) is { } trail)
+                    {
+                        <span class="@(ClassPrefix)__trail">@trail</span>
+                    }
                 </button>
             </div>
             @if (node.HasChildren && IsNodeExpanded(node))

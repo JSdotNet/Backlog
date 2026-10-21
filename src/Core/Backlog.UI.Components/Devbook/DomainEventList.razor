@@ -1,0 +1,44 @@
+@*
+    The events a unit raises, one row each: what happened, in the chapter's
+    first sentence, and who hears it. The event's name is an identifier and its
+    payload is a contract, so both are Model's (local ADR 0037 §6) — the link
+    beside the heading opens it.
+*@
+
+@if (Events.Count > 0)
+{
+    <section class="domain-about__section" data-testid="domain-unit-events" aria-labelledby="@HeadingId">
+        <div class="domain-about__section-head">
+            <h3 class="domain-about__section-title" id="@HeadingId">What the rest of the domain hears</h3>
+            @if (Model is { } model)
+            {
+                <button type="button" class="domain-about__link" data-testid="@model.TestId" @onclick="model.Follow">@model.Text →</button>
+            }
+        </div>
+        <ul class="domain-about__events">
+            @foreach (var domainEvent in Events)
+            {
+                <li class="domain-about__event" data-testid="domain-unit-event" data-event="@domainEvent.Name">
+                    <span class="domain-about__event-summary">@domainEvent.Summary</span>
+                    @if (domainEvent.Consumers.Count > 0)
+                    {
+                        <span class="domain-about__event-consumers" data-testid="domain-unit-event-consumers">Heard by @string.Join(", ", domainEvent.Consumers)</span>
+                    }
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<DomainEventLine> Events { get; set; } = [];
+
+    /// <summary>The link beside the heading that opens Model, where the events'
+    /// contracts are. None leaves the heading alone.</summary>
+    [Parameter]
+    public DomainPageLink? Model { get; set; }
+
+    /// <summary>Unique per list, so two on one page label their own sections.</summary>
+    private readonly string HeadingId = $"domain-events-{Guid.NewGuid():N}";
+}

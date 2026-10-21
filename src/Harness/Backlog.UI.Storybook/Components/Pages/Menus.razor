@@ -32,6 +32,16 @@ No open-in-VS-Code button here: a tree of rows is a tree of rows, and this one h
                   IsLoading="true" />
     </Story>
 
+    <Story Name="TreeView with a count after a row"
+           Description="NodeTrail draws something after a row's label, at its far edge, and a row the host answers null for draws nothing. The Devbook menu's New domain view uses it for the count beside each kind of a split context, here Fincent's Financieel."
+           Code="@TreeTrailCode">
+        <TreeView Nodes="SplitContext"
+                  HeadingLabel="Domain"
+                  ShowOpenButton="false"
+                  IsNodeExpanded="IsSplitExpanded"
+                  NodeTrail="node => SplitCounts.TryGetValue(node.Id, out var count) ? builder => builder.AddContent(0, count) : null" />
+    </Story>
+
     <Story Name="OpenFolderButton"
            Description="“Open this in VS Code”, as a control of its own in its three states, and then where a host meets it: `TreeView` draws it beside its heading once it is given a root folder that can be opened. Folder view puts the same button in a folder's own header, and shows it there.
 
@@ -164,6 +174,30 @@ The icon is `aria-hidden` and the accessible name says which folder. The SVG is 
         new("empty", string.Empty, TreeNodeKind.Message, true, "No technology chapters have been generated.")
     ];
 
+    // Fincent's Financieel as the New domain view lists it: its kinds, each split
+    // under its own, and the count of each kind's rows.
+    private static readonly IReadOnlyList<TreeNode> SplitContext =
+    [
+        new("financieel", "Financieel", TreeNodeKind.Folder, true, null,
+        [
+            new("domain", "Domain", TreeNodeKind.Item, true, null, [.. Enumerable.Range(1, 13).Select(n => TreeNode.Leaf($"domain-{n}", $"Unit {n}"))]),
+            TreeNode.Leaf("actors", "Actoren"),
+            new("features", "Features", TreeNodeKind.Folder, true, null, [.. Enumerable.Range(1, 20).Select(n => TreeNode.Leaf($"features-{n}", $"Feature {n}"))]),
+            new("flows", "Flows", TreeNodeKind.Item, true, null,
+            [
+                TreeNode.Leaf("flow-geld-eruit", "Geld eruit"),
+                TreeNode.Leaf("flow-geld-ontvangen", "Geld ontvangen"),
+                TreeNode.Leaf("flow-lopende-maand", "De lopende maand")
+            ]),
+            TreeNode.Leaf("import", "Import")
+        ])
+    ];
+
+    private static bool IsSplitExpanded(TreeNode node) => node.Id is "financieel" or "flows";
+
+    private static readonly IReadOnlyDictionary<string, int> SplitCounts =
+        new Dictionary<string, int> { ["domain"] = 13, ["features"] = 20, ["flows"] = 3 };
+
     // The tree under the OpenFolderButton story has its own root and rows, so the
     // TreeView story above keeps a tree with nowhere on disk to open.
     private static readonly TreeNode ArchitectureFolder = new("arc42-root", ".arc42", TreeNodeKind.Folder);
@@ -228,6 +262,11 @@ The icon is `aria-hidden` and the accessible name says which folder. The SVG is 
     private void OnMenuItemSelected(MenuItem item) => _lastAction = $"Menu: {item.Label}";
 
     private void OnContextItemSelected(MenuItem item) => _lastAction = $"Context: {item.Label}";
+
+    private const string TreeTrailCode = """
+        <TreeView Nodes="@_nodes"
+                  NodeTrail="node => _counts.TryGetValue(node.Id, out var count) ? builder => builder.AddContent(0, count) : null" />
+        """;
 
     private const string TreeLoadingCode = """
         <TreeView Nodes="@_nodes" IsLoading="@_loading" />

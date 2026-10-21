@@ -1,0 +1,212 @@
+@page "/devbook/domain-glossary"
+
+<PageTitle>Domain glossary — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain glossary"
+           Summary="A subpage of Devbook: the Glossary the Domain page's chapter bar offers (local ADR 0037). It lists every term under `## Ubiquitous Language` and every model chapter of the context's domain files, A–Z, each with its kind, its status, its aliases as code chips and its first sentence. A labelled find box matches headings and aliases, the Show pills beside it — All, Model, Terms and, when a term is borrowed from another context, Borrowed — narrow to one choice with its count, a deprecated chapter is struck through on a sunken row, and Easily confused sets side by side, one card per group, the terms that name each other in `related`."
+           Guidelines="@Rules">
+
+    <Story Name="Glossary"
+           Description="Terms and model chapters together, A–Z. Each row is led by its type marker and names its kind in words; its aliases are code chips; its summary is its first sentence. `Basket` is `status: deprecated`, so it is struck through and a screen reader hears “deprecated”. A row the invariants are about counts its rules — Order, Order Line, Money — and the count opens them in place under the row."
+           Code="@GlossaryCode"
+           Source="@Domain">
+        <DomainGlossary Chapter="@Language" Files="@Files" DocumentPath="@DomainPath" DebounceMilliseconds="0" RulesAbout="@Catalog.About" />
+    </Story>
+
+    <Story Name="Filtered"
+           Description="The same Glossary with the filter set to `line`. The filter matches the heading or any alias, so `Order Line` stays and so does `Customer`, whose alias is `Buyer Line`. A Show pill narrows on top of it, and nothing matching reads as a sentence rather than an empty list."
+           Code="@FilteredCode"
+           Source="@Domain">
+        <DomainGlossary Chapter="@Language" Files="@Files" DocumentPath="@DomainPath" Filter="line" DebounceMilliseconds="0" />
+    </Story>
+
+    <Story Name="Easily confused"
+           Description="`Basket` and `Draft Order` name each other in `related`, so they are set side by side on one Easily confused card, each with its first sentence and its first alias. Filtered to `basket`, the list holds only the struck-through `Basket`, while the card stays whatever the filter shows. A one-way `related` is a pointer, not a confusion, and makes no pair: `Price List` names `Basket`, and nothing pairs them."
+           Code="@ConfusedCode"
+           Source="@Domain">
+        <DomainGlossary Chapter="@Language" Files="@Files" DocumentPath="@DomainPath" Filter="basket" DebounceMilliseconds="0" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why an alias is a neutral outline and the page is monochrome: a kind's mark and word say what it is."),
+        new("accessibility.md#iconography-accessibility", "Why each mark is named for a listener, and why struck-through text also says deprecated in words.")
+    ];
+
+    private const string DomainPath = ".devbook/domain/ordering/domain.md";
+
+    private const string Domain = """
+        # Ordering
+
+        ```meta
+        type: domain
+        ```
+
+        ## Order
+
+        ```meta
+        type: aggregate
+        aliases: [Purchase]
+        ```
+
+        A customer's request for goods, and the consistency boundary for its lines.
+
+        ### Order Line
+
+        ```meta
+        type: entity
+        aliases: [OrderLine]
+        ```
+
+        One product and its quantity on the order.
+
+        ### Money
+
+        ```meta
+        type: value-object
+        ```
+
+        An amount in one currency, compared by value.
+
+        ## Pricing
+
+        ```meta
+        type: domain-service
+        ```
+
+        Works out what an order costs.
+
+        ## OrderPlaced
+
+        ```meta
+        type: domain-event
+        ```
+
+        Published when an `Order` is placed.
+
+        ## Ubiquitous Language
+
+        ```meta
+        type: ubiquitous-language
+        ```
+
+        The words the ordering team uses, and what each one means here.
+
+        ### Customer
+
+        ```meta
+        type: term
+        aliases: [Buyer Line, Client]
+        ```
+
+        Whoever places the order.
+
+        ### Basket
+
+        ```meta
+        type: term
+        status: deprecated
+        aliases: [Cart]
+        related: [.devbook/domain/ordering/domain.md#draft-order]
+        ```
+
+        What a draft order used to be called; say draft order instead.
+
+        ### Draft Order
+
+        ```meta
+        type: term
+        related: [.devbook/domain/ordering/domain.md#basket]
+        ```
+
+        An order the customer is still filling, before it is placed.
+
+        ### Price List
+
+        ```meta
+        type: term
+        related: [.devbook/domain/ordering/domain.md#basket]
+        ```
+
+        The prices in force on the day an order is placed.
+        """;
+
+    private static readonly DomainChapterFile File = DomainUnits.Parse(Domain, DomainPath);
+    private static readonly IReadOnlyList<DomainChapterFile> Files = [File];
+    private static readonly DomainChapter Language = File.Chapters.Single(chapter => chapter.Type == "ubiquitous-language");
+
+    // The rules the Order's invariants write, which a row's rule count opens.
+    private const string Invariants = """
+        # Invariants
+
+        ## Order
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        ### Invariant: An order is placed once
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Placing_twice_is_refused]
+        ```
+
+        A placed order cannot be placed again.
+
+        Enforced at: `Place()`
+
+        ### Invariant: A line has a quantity
+
+        ```meta
+        type: invariant
+        ```
+
+        Every order line holds one or more of its product.
+
+        Enforced at: `OrderLine.SetQuantity()`
+
+        ### Invariant: An amount has one currency
+
+        ```meta
+        type: invariant
+        ```
+
+        An amount names exactly one currency.
+
+        Enforced at: `Money`
+
+        ### Invariant: A cancelled order stays on record
+
+        ```meta
+        type: invariant
+        ```
+
+        Cancelling an order keeps it.
+
+        Enforced at: open
+        """;
+
+    private static readonly DomainRuleCatalog Catalog = DomainRuleCatalog.Of(Files, [DomainUnits.Parse(Invariants, ".devbook/domain/ordering/domain.invariants.md")]);
+
+    private const string GlossaryCode = """
+        <DomainGlossary Chapter="@glossary.Chapter"
+                        Files="@contextDomainFiles"
+                        DocumentPath="@path"
+                        RulesAbout="@DomainRuleCatalog.Of(contextDomainFiles, invariantFiles).About"
+                        OnOpenRule="OpenAlwaysTrueAsync"
+                        OnNavigate="OpenAsync" />
+        """;
+
+    private const string FilteredCode = """
+        <DomainGlossary Chapter="@glossary.Chapter" Files="@contextDomainFiles" Filter="line" />
+        """;
+
+    private const string ConfusedCode = """
+        @* Basket's related names Draft Order, and Draft Order's names Basket *@
+        <DomainGlossary Chapter="@glossary.Chapter" Files="@contextDomainFiles" Filter="basket" />
+        """;
+}
