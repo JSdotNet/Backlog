@@ -154,6 +154,23 @@
         <p class="sb-state" data-testid="input-combobox-typed-value">Value = @Show(_comboTyped) · last commit: @_comboTypedCommit</p>
     </Story>
 
+    <Story Name="Combobox — a find field"
+           Description="OpenOnInput: typing opens the list, for a field whose suggestions are the point. The host narrows the options to what was typed — the architecture surface's find field does this over elements, chapters, ADRs and TDRs. Type *de*."
+           Code="@ComboboxFindCode">
+        <div class="sb-row">
+            <Combobox Options="@FindOptions"
+                      AriaLabel="Find an element, chapter or record"
+                      Placeholder="Find element, chapter, ADR, TDR"
+                      Compact="true"
+                      OpenOnInput="true"
+                      Value="@_comboFind"
+                      ValueChanged="v => _comboFind = v"
+                      OnCommit="c => _comboFindCommit = Describe(c)"
+                      TestId="input-combobox-find" />
+        </div>
+        <p class="sb-state" data-testid="input-combobox-find-value">Value = @Show(_comboFind) · last commit: @_comboFindCommit</p>
+    </Story>
+
     <Story Name="Combobox — a figure refused"
            Description="The host keeps a figure only when it is a number from 0.25 to 24, and calls Refuse on any other commit: the field goes back to the last figure kept — and, bound two-way, tells the host so through ValueChanged — and the host says why. Type 30 and press Enter."
            Code="@ComboboxRefusedCode">
@@ -642,6 +659,22 @@ It exists because two panels had each written a private class to get here, which
     private string _comboPicked = "4";
     private string _comboPickedCommit = "none";
     private string _comboTyped = "2.75";
+    private string _comboFind = string.Empty;
+    private string _comboFindCommit = "none";
+
+    private static readonly SelectorOption[] FindSamples =
+    [
+        new("element:desktop", "Desktop App", "Container · .NET MAUI Blazor Hybrid"),
+        new("element:devbook", "Devbook", "Component · Razor"),
+        new("chapter:05", "05 Building Block View", "arc42 chapter"),
+        new("adr:0012", "ADR 0012 Backlog is an MCP server in the desktop app", "Decision")
+    ];
+
+    /// <summary>The find sample's suggestions: the samples whose name holds what was typed.</summary>
+    private IReadOnlyList<SelectorOption> FindOptions =>
+        _comboFind.Trim().Length < 2
+            ? []
+            : [.. FindSamples.Where(option => option.Label.Contains(_comboFind.Trim(), StringComparison.OrdinalIgnoreCase))];
     private string _comboTypedCommit = "none";
     private string _comboText = "3";
     private string _comboKept = "3";
@@ -677,6 +710,15 @@ It exists because two panels had each written a private class to get here, which
            the field takes the value, the list reads the label. *@
         <Combobox Options="@HourPresets" AriaLabel="Hours" Compact="true"
                   Value="4" ValueChanged="v => _hours = v" OnCommit="OnCommit" />
+        """;
+
+    private const string ComboboxFindCode = """
+        <Combobox Options="@Matches(_query)"
+                  AriaLabel="Find an element, chapter or record"
+                  Placeholder="Find element, chapter, ADR, TDR"
+                  OpenOnInput="true"
+                  @bind-Value="_query"
+                  OnCommit="Open" />
         """;
 
     private const string ComboboxTypedCode = """

@@ -65,6 +65,42 @@ Here the Devbook component has code folders, so it carries a chip on the Desktop
         </div>
     </Story>
 
+    <Story Name="The architecture surface"
+           Description="`C4ZoomExplorer` handed a `Navigation`: the design's every screen, as the Architecture pane draws it while `c4-zoom` is on. The zoom bar across the top, then three columns — the host's **left navigation**, the **picture** with its title, its source, what documents it and the **− / Fit / +** that size it, and the **inspector** of the selected element, which says what selecting does while nothing is.
+
+The navigation is the host's: the explorer knows nothing of chapters. Here it is the C4 views list `C4ViewIndex` builds — the zoom chain indented under the system it opens, each level counting what it opens onto, a Code line under a component that has code, then the dynamic and deployment views. A line opens its view through `OpenView`; `OnLocationChanged` tells the host where the explorer went, which is what marks the open line."
+           Code="@SurfaceUsage">
+        <div class="sb-c4-stage sb-c4-stage--zoom">
+            <C4ZoomExplorer Workspace="@Parsed"
+                            Problems="@Parsed.Problems"
+                            Code="@SampleCode"
+                            RecordsFor="@SampleRecords"
+                            HintDismissed="true"
+                            OpenView="@_surfaceOpen"
+                            Navigation="@SurfaceNavigation"
+                            ViewCaption="@SurfaceCaption"
+                            OnLocationChanged="location => _surfaceLocation = location"
+                            TestId="sb-c4-zoom-surface" />
+        </div>
+    </Story>
+
+    <Story Name="A document in place of the picture"
+           Description="The same surface with a `Document` open — on the Architecture pane, an arc42 chapter, an ADR or a TDR. The document takes the picture's and the inspector's room; the bar stays, drawn with **no step current**, since the reader is on no view. Any press on it — the step they came from included — moves the picture and raises `OnNavigate`, and the host closes the document: press *Context* here."
+           Code="@DocumentUsage">
+        <div class="sb-c4-stage sb-c4-stage--zoom">
+            <C4ZoomExplorer Workspace="@Parsed"
+                            HintDismissed="true"
+                            Navigation="@SurfaceNavigation"
+                            Document="@(_documentOpen ? SampleDocument : null)"
+                            OnNavigate="() => _documentOpen = false"
+                            TestId="sb-c4-zoom-surface-document" />
+            @if (!_documentOpen)
+            {
+                <AppButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" TestId="sb-c4-zoom-surface-reopen" OnClick="() => _documentOpen = true">Open the chapter again</AppButton>
+            }
+        </div>
+    </Story>
+
     <Story Name="The Code level"
            Description="`C4CodeView`, level 4 of the zoom tab: one component's types **drawn from its C# source when it is opened**, never authored (local ADR 0037 §3). Each class box carries its stereotype — the kind with its modifiers and its base list — its name, and its members, the **Public** ones or **All** of them, in UML's marks: + public, # protected, ~ internal, - private. A box lists up to eight members; past eight it lists seven and says how many more there are.
 
@@ -262,6 +298,51 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                     ViewKey="@_viewKey"
                     ViewKeyChanged="key => _viewKey = key"
                     ViewFooter="@ViewReferences" />
+        """;
+
+    private C4ZoomOpen? _surfaceOpen;
+    private C4ZoomLocation? _surfaceLocation;
+    private bool _documentOpen = true;
+
+    private static readonly IReadOnlyList<C4ViewIndexEntry> SurfaceViews = C4ViewIndex.For(Parsed, HasCode);
+
+    /// <summary>A host's left navigation, as small as it can be: the C4 views list.</summary>
+    private RenderFragment SurfaceNavigation => @<nav class="sb-c4-surface-nav" aria-label="C4 views">
+        @foreach (var entry in SurfaceViews)
+        {
+            var open = entry.IsOpen(_surfaceLocation?.ViewKey, _surfaceLocation?.CodeComponentId);
+            <AppButton Variant="@(open ? ButtonVariant.Secondary : ButtonVariant.Ghost)"
+                       Size="ButtonSize.Small"
+                       aria-current="@(open ? "page" : null)"
+                       CssClass="@($"sb-c4-surface-nav__line sb-c4-surface-nav__line--depth-{Math.Min(entry.Depth, 3)}")"
+                       OnClick="() => _surfaceOpen = new C4ZoomOpen(entry.ViewKey, entry.CodeComponentId, entry.CodeComponentId is not null)">
+                @entry.Label @(entry.Detail is null ? null : $" · {entry.Detail}")
+            </AppButton>
+        }
+    </nav>;
+
+    private static readonly RenderFragment<C4View> SurfaceCaption = view => @<span> · documented by 03, 05</span>;
+
+    private static readonly RenderFragment SampleDocument = @<article class="sb-c4-surface-document">
+        <h2>05. Building Block View</h2>
+        <p>The chapter, read on the surface in place of the picture. The zoom bar above still moves the picture; pressing it brings the picture back.</p>
+    </article>;
+
+    private const string SurfaceUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        OpenView="@_open"
+                        Navigation="@LeftNavigation"
+                        Document="@(_showDocument ? Chapter : null)"
+                        ViewCaption="@(view => @<span> · documented by …</span>)"
+                        OnNavigate="() => _showDocument = false"
+                        OnLocationChanged="location => _location = location" />
+        """;
+
+    private const string DocumentUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        Navigation="@LeftNavigation"
+                        Document="@Chapter"
+                        OnNavigate="() => _showDocument = false" />
         """;
 
     private const string ZoomUsage = """

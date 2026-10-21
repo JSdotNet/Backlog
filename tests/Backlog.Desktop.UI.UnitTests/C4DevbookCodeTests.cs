@@ -227,7 +227,7 @@ public sealed class C4DevbookCodeTests : IDisposable
     /// record's chapter, and Open in editor reaches the host's launcher.
     /// </summary>
     [Fact]
-    public async Task The_zoom_tab_opens_the_code_level_of_a_component_with_code()
+    public async Task The_surface_opens_the_code_level_of_a_component_with_code()
     {
         var clone = CreateRepository();
         var (features, gitHub, folders, workspace, alias) = Sources(clone);
@@ -254,7 +254,8 @@ public sealed class C4DevbookCodeTests : IDisposable
             .Add(component => component.OnNavigateToChapter, EventCallback.Factory.Create<DevbookChapterLink>(this, asked.Add)));
         panel.WaitForAssertion(() => Assert.Empty(panel.FindAll("[data-testid='arc42-loading']")));
 
-        await panel.Find("[data-testid='arc42-c4-zoom-tab']").ClickAsync(new());
+        // The surface lists the component's Code level among its views.
+        Assert.Contains(panel.FindAll("[data-testid='arc42-surface-view']"), line => line.GetAttribute("data-code") == Devbook);
 
         var explorer = panel.FindComponent<C4ZoomExplorer>();
         await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(C4MermaidWriter.AliasOf("backlog"), "context-backlog"));

@@ -161,7 +161,7 @@ public sealed class C4ChapterViewsTests : IDisposable
     }
 
     [Fact]
-    public async Task Open_in_C4_zoom_opens_the_zoom_tab_at_that_view()
+    public async Task Open_in_C4_zoom_opens_the_picture_at_that_view_in_place_of_the_chapter()
     {
         await using var harness = CreateHarness(c4ZoomEnabled: true, chapter: Chapter(MatchingFence));
 
@@ -173,7 +173,7 @@ public sealed class C4ChapterViewsTests : IDisposable
 
         component.WaitForAssertion(() =>
             Assert.Equal("containers-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent));
-        Assert.Equal("true", component.Find("[data-testid='arc42-c4-zoom-tab']").GetAttribute("aria-selected"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
     }
 
     /// <summary>Asking again for the view after the reader zoomed elsewhere opens it
@@ -196,7 +196,8 @@ public sealed class C4ChapterViewsTests : IDisposable
         component.WaitForAssertion(() =>
             Assert.Equal("context-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent));
 
-        await component.Find("[data-testid='arc42-chapters-tab']").ClickAsync(new());
+        // Back to the chapter through the left navigation's way to every chapter.
+        await component.Find("[data-testid='arc42-surface-all-chapters']").ClickAsync(new());
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-chapter-c4-open-zoom']")));
         await component.Find("[data-testid='arc42-chapter-c4-open-zoom']").ClickAsync(new());
 
@@ -275,7 +276,8 @@ public sealed class C4ChapterViewsTests : IDisposable
         var component = harness.Render(ChapterPath);
         harness.Settle(component);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-zoom-tab']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-surface-explorer']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']")));
         Assert.Empty(component.FindAll("[data-testid='arc42-chapter-c4-embed']"));
     }
 

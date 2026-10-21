@@ -23254,3 +23254,119 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     align-items: center;
     min-width: 0;
 }
+
+/* ---- the C4 zoom explorer as the architecture surface ----
+
+   Navigation set (plan c4-zoom-navigation): the bar across the top, then three
+   columns — the host's navigation, the picture, the inspector — as the design draws
+   every screen. A document the host opens in place of the picture takes the picture's
+   and the inspector's room. Nothing here reaches the explorer without Navigation, so
+   the C4 zoom tab draws as before. One column under 60rem of surface width.     */
+
+.c4-zoom-explorer--surface {
+    container-type: inline-size;
+    container-name: c4-zoom-surface;
+    gap: var(--spacing-sm);
+}
+
+.c4-zoom-explorer__surface {
+    display: grid;
+    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(16rem, 20rem);
+    gap: var(--spacing-md);
+    align-items: start;
+    min-width: 0;
+}
+
+.c4-zoom-explorer__surface--document {
+    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+}
+
+.c4-zoom-explorer__nav {
+    position: sticky;
+    top: 0;
+    min-width: 0;
+    max-height: calc(100vh - 8rem);
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+.c4-zoom-explorer__aside {
+    position: sticky;
+    top: 0;
+    min-width: 0;
+    max-height: calc(100vh - 8rem);
+    overflow: auto;
+    box-sizing: border-box;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.c4-zoom-explorer__aside > .c4-element-inspector {
+    padding: 0;
+    border: 0;
+    background: none;
+}
+
+.c4-zoom-explorer__main,
+.c4-zoom-explorer__document {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.c4-zoom-explorer__main.c4-zoom-explorer--dynamic {
+    display: grid;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__head {
+    align-items: center;
+    justify-content: space-between;
+}
+
+.c4-zoom-explorer__heading {
+    display: flex;
+    flex: 1 1 18rem;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.c4-zoom-explorer__title--surface {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    line-height: 1.25;
+}
+
+.c4-zoom-explorer__source {
+    font-family: var(--font-family-mono);
+}
+
+.c4-zoom-explorer__scale {
+    flex: 0 0 auto;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__frame {
+    overflow: auto;
+    border: var(--border-width) solid var(--color-border);
+}
+
+.c4-zoom-explorer__canvas {
+    width: 100%;
+    height: 100%;
+}
+
+@container c4-zoom-surface (max-width: 60rem) {
+    .c4-zoom-explorer__surface,
+    .c4-zoom-explorer__surface--document {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .c4-zoom-explorer__nav,
+    .c4-zoom-explorer__aside {
+        position: static;
+        max-height: none;
+    }
+}

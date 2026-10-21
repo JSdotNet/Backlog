@@ -1,0 +1,272 @@
+@*
+    The architecture surface's left navigation (plan c4-zoom-navigation): the design
+    has one left column on every screen, and what it lists follows what is open.
+
+    - On the model: "C4 views" — every view once, the zoom chain indented under the
+      system it opens, then the dynamic and deployment views — "arc42 · documents
+      this view" with the way to every chapter, and "Records": the decisions with how
+      many are still proposed, and the technical debt.
+    - On a chapter: the arc42 chapters with their C4 / ADR / TDR badges.
+    - On a decision record, or the decisions chapter: the decision log.
+    - On a debt record, or the risks chapter: the debt.
+
+    Every document list ends with the way back to the model. Which list is drawn, and
+    what each line does, is the panel's; this only draws them, each line a button
+    that reports what it names.
+*@
+
+<nav class="arc42-surface-nav" aria-label="@AriaLabel" data-testid="arc42-surface-nav" data-mode="@Mode.ToString().ToLowerInvariant()">
+    @switch (Mode)
+    {
+        case Arc42SurfaceMode.Model:
+            <section class="arc42-surface-nav__group" aria-labelledby="@Id("views")" data-testid="arc42-surface-views">
+                <h2 class="arc42-surface-nav__heading" id="@Id("views")">C4 views</h2>
+                @foreach (var entry in Views)
+                {
+                    var open = entry.IsOpen(Location?.ViewKey, Location?.CodeComponentId);
+                    <AppButton @key="(entry.ViewKey, entry.CodeComponentId)"
+                               BaseClass="arc42-surface-nav__item"
+                               CssClass="@ItemClass(open, $"arc42-surface-nav__item--depth-{Math.Min(entry.Depth, 4)}")"
+                               Variant="ButtonVariant.None"
+                               aria-current="@(open ? "page" : null)"
+                               data-view="@entry.ViewKey"
+                               data-code="@entry.CodeComponentId"
+                               TestId="arc42-surface-view"
+                               OnClick="() => OnOpenView.InvokeAsync(entry)">
+                        <span class="arc42-surface-nav__label">@entry.Label</span>
+                        @if (entry.Detail is not null)
+                        {
+                            <span class="arc42-surface-nav__detail">@entry.Detail</span>
+                        }
+                    </AppButton>
+                }
+            </section>
+
+            <section class="arc42-surface-nav__group" aria-labelledby="@Id("documents")" data-testid="arc42-surface-documents">
+                <h2 class="arc42-surface-nav__heading" id="@Id("documents")">arc42 · documents this view</h2>
+                @if (Documenting.Count == 0)
+                {
+                    <p class="arc42-surface-nav__none" data-testid="arc42-surface-documents-none">No chapter documents this view.</p>
+                }
+                @foreach (var citation in Documenting)
+                {
+                    <AppButton @key="citation.Reference"
+                               BaseClass="arc42-surface-nav__item"
+                               Variant="ButtonVariant.None"
+                               title="@citation.Reference"
+                               TestId="arc42-surface-document"
+                               OnClick="() => OnOpenDocument.InvokeAsync(citation.Reference)">
+                        @if (citation.Number is not null)
+                        {
+                            <span class="arc42-surface-nav__number">@citation.Number</span>
+                        }
+                        <span class="arc42-surface-nav__label">@citation.Title</span>
+                    </AppButton>
+                }
+                @AllChapters
+            </section>
+
+            <section class="arc42-surface-nav__group" aria-labelledby="@Id("records")" data-testid="arc42-surface-records">
+                <h2 class="arc42-surface-nav__heading" id="@Id("records")">Records</h2>
+                <AppButton BaseClass="arc42-surface-nav__item"
+                           Variant="ButtonVariant.None"
+                           TestId="arc42-surface-decisions"
+                           OnClick="() => OnShowDecisions.InvokeAsync()">
+                    <span class="arc42-surface-nav__label">Decisions</span>
+                    <span class="arc42-surface-nav__detail" data-testid="arc42-surface-decisions-count">@DecisionsDetail</span>
+                </AppButton>
+                <AppButton BaseClass="arc42-surface-nav__item"
+                           Variant="ButtonVariant.None"
+                           TestId="arc42-surface-debt"
+                           OnClick="() => OnShowDebt.InvokeAsync()">
+                    <span class="arc42-surface-nav__label">Technical debt</span>
+                    <span class="arc42-surface-nav__detail arc42-surface-nav__detail--debt" data-testid="arc42-surface-debt-count">@Debt.Count</span>
+                </AppButton>
+            </section>
+            break;
+
+        case Arc42SurfaceMode.Chapters:
+            <section class="arc42-surface-nav__group" aria-labelledby="@Id("chapters")" data-testid="arc42-surface-chapters">
+                <h2 class="arc42-surface-nav__heading" id="@Id("chapters")">arc42</h2>
+                @foreach (var chapter in Chapters)
+                {
+                    var open = Same(chapter.Path, OpenPath);
+                    <AppButton @key="chapter.Path"
+                               BaseClass="arc42-surface-nav__item"
+                               CssClass="@ItemClass(open)"
+                               Variant="ButtonVariant.None"
+                               aria-current="@(open ? "page" : null)"
+                               title="@chapter.Path"
+                               TestId="arc42-surface-chapter"
+                               OnClick="() => OnOpenDocument.InvokeAsync(chapter.Path)">
+                        @if (chapter.Number is not null)
+                        {
+                            <span class="arc42-surface-nav__number">@chapter.Number</span>
+                        }
+                        <span class="arc42-surface-nav__label">@chapter.Title</span>
+                        @if (chapter.Views > 0)
+                        {
+                            <Badge BaseClass="arc42-surface-nav__badge" Kind="c4" TestId="arc42-surface-chapter-c4">C4 @chapter.Views</Badge>
+                        }
+                        @if (chapter.Decisions > 0)
+                        {
+                            <Badge BaseClass="arc42-surface-nav__badge" Kind="adr" TestId="arc42-surface-chapter-adr">@chapter.Decisions ADR</Badge>
+                        }
+                        @if (chapter.Debt > 0)
+                        {
+                            <Badge BaseClass="arc42-surface-nav__badge" Kind="tdr" TestId="arc42-surface-chapter-tdr">@chapter.Debt TDR</Badge>
+                        }
+                    </AppButton>
+                }
+                @BackToModel
+            </section>
+            break;
+
+        case Arc42SurfaceMode.Decisions:
+            <section class="arc42-surface-nav__group" aria-labelledby="@Id("decisions")" data-testid="arc42-surface-decision-log">
+                <h2 class="arc42-surface-nav__heading" id="@Id("decisions")">Decisions · @Decisions.Count(record => !record.Guideline)</h2>
+                @RecordList(Decisions.Where(record => !record.Guideline), "ADR")
+                @if (Decisions.Any(record => record.Guideline))
+                {
+                    <h3 class="arc42-surface-nav__subheading">Guidelines · @Decisions.Count(record => record.Guideline)</h3>
+                    @RecordList(Decisions.Where(record => record.Guideline), "ADR")
+                }
+                @AllChapters
+                @BackToModel
+            </section>
+            break;
+
+        case Arc42SurfaceMode.Debt:
+            <section class="arc42-surface-nav__group" aria-labelledby="@Id("debt")" data-testid="arc42-surface-debt-log">
+                <h2 class="arc42-surface-nav__heading" id="@Id("debt")">Technical debt · @Debt.Count</h2>
+                @RecordList(Debt, "TDR")
+                @AllChapters
+                @BackToModel
+            </section>
+            break;
+    }
+</nav>
+
+@code {
+    private readonly string _id = "arc42-surface-nav-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>Which list is drawn.</summary>
+    [Parameter]
+    public Arc42SurfaceMode Mode { get; set; }
+
+    /// <summary>The model's views, as <see cref="C4ViewIndex"/> lists them.</summary>
+    [Parameter]
+    public IReadOnlyList<C4ViewIndexEntry> Views { get; set; } = [];
+
+    /// <summary>Where the zoom is: the line marked open.</summary>
+    [Parameter]
+    public C4ZoomLocation? Location { get; set; }
+
+    /// <summary>The chapters that document the open view.</summary>
+    [Parameter]
+    public IReadOnlyList<Arc42SurfaceCitation> Documenting { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<Arc42SurfaceChapter> Chapters { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<Arc42SurfaceRecord> Decisions { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<Arc42SurfaceRecord> Debt { get; set; } = [];
+
+    /// <summary>The document open, marked on the document lists.</summary>
+    [Parameter]
+    public string? OpenPath { get; set; }
+
+    /// <summary>Whether there is a model to go back to. Without one the surface is the
+    /// chapters alone, and the way back is left out.</summary>
+    [Parameter]
+    public bool HasModel { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<C4ViewIndexEntry> OnOpenView { get; set; }
+
+    /// <summary>A chapter or a record, by its path — a reference that may name a
+    /// section.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenDocument { get; set; }
+
+    [Parameter]
+    public EventCallback OnShowChapters { get; set; }
+
+    [Parameter]
+    public EventCallback OnShowDecisions { get; set; }
+
+    [Parameter]
+    public EventCallback OnShowDebt { get; set; }
+
+    [Parameter]
+    public EventCallback OnBackToModel { get; set; }
+
+    private string AriaLabel => Mode switch
+    {
+        Arc42SurfaceMode.Chapters => "arc42 chapters",
+        Arc42SurfaceMode.Decisions => "Decision log",
+        Arc42SurfaceMode.Debt => "Technical debt",
+        _ => "Architecture"
+    };
+
+    private string DecisionsDetail
+    {
+        get
+        {
+            var local = Decisions.Where(record => !record.Guideline).ToList();
+            var proposed = local.Count(record => record.Proposed);
+            return proposed == 0 ? $"{local.Count}" : $"{local.Count} · {proposed} proposed";
+        }
+    }
+
+    private string Id(string part) => $"{_id}-{part}";
+
+    private static string? ItemClass(bool open, string? extra = null)
+    {
+        var classes = string.Join(' ', new[] { open ? "arc42-surface-nav__item--open" : null, extra }.Where(part => part is not null));
+        return classes.Length == 0 ? null : classes;
+    }
+
+    private static bool Same(string path, string? other) =>
+        other is not null && string.Equals(C4ViewEntry.FileOf(path), C4ViewEntry.FileOf(other), StringComparison.OrdinalIgnoreCase);
+
+    private RenderFragment AllChapters => @<AppButton BaseClass="arc42-surface-nav__link"
+                                                      Variant="ButtonVariant.None"
+                                                      TestId="arc42-surface-all-chapters"
+                                                      OnClick="() => OnShowChapters.InvokeAsync()">All @Chapters.Count(chapter => chapter.Number is not null) chapters</AppButton>;
+
+    private RenderFragment BackToModel => @<text>
+        @if (HasModel)
+        {
+            <AppButton BaseClass="arc42-surface-nav__link arc42-surface-nav__link--back"
+                       Variant="ButtonVariant.None"
+                       TestId="arc42-surface-back"
+                       OnClick="() => OnBackToModel.InvokeAsync()">Back to the C4 model</AppButton>
+        }
+    </text>;
+
+    private RenderFragment RecordList(IEnumerable<Arc42SurfaceRecord> records, string kind) => @<text>
+        @foreach (var record in records)
+        {
+            var open = Same(record.Path, OpenPath);
+            <AppButton @key="record.Path"
+                       BaseClass="arc42-surface-nav__item"
+                       CssClass="@ItemClass(open)"
+                       Variant="ButtonVariant.None"
+                       aria-current="@(open ? "page" : null)"
+                       title="@($"{kind} {record.Number}")"
+                       TestId="arc42-surface-record"
+                       OnClick="() => OnOpenDocument.InvokeAsync(record.Path)">
+                <span class="arc42-surface-nav__number">@record.Number</span>
+                <span class="arc42-surface-nav__label">@record.Title</span>
+                @if (record.Note is not null)
+                {
+                    <span class="arc42-surface-nav__detail" data-testid="arc42-surface-record-note">@record.Note</span>
+                }
+            </AppButton>
+        }
+    </text>;
+}

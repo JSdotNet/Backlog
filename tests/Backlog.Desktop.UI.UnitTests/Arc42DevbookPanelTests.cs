@@ -710,8 +710,8 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         Assert.Equal("containers", link.Anchor);
     }
 
-    /// <summary>"Open in C4 zoom" goes to the zoom tab, on the container view, with
-    /// the element the record decides selected.</summary>
+    /// <summary>"Open in C4 zoom" closes the record and opens the picture, on the
+    /// container view, with the element the record decides selected.</summary>
     [Fact]
     public async Task Open_in_C4_zoom_opens_the_container_view_with_the_decided_element_selected()
     {
@@ -724,7 +724,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("true", component.Find("[data-testid='arc42-c4-zoom-tab']").GetAttribute("aria-selected"));
+            Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
             var zoom = component.FindComponent<C4ZoomExplorer>().Instance;
             Assert.Equal("containers-backlog", zoom.ViewKey);
             Assert.Equal("backlog.cloud", zoom.SelectedElementId);
