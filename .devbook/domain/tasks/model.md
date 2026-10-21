@@ -8,7 +8,10 @@ status: draft
 > Structural view of the domain model for this bounded context: aggregates,
 > entities, value objects, and their relationships. Keep this in sync with
 > `domain.md` (which describes responsibilities/invariants in prose) — this
-> file focuses on structure and relationships.
+> file focuses on structure and relationships. `## Fields` groups the root's
+> fields by purpose: one `###` per group, its first paragraph the question the
+> group answers, then one bullet per field — `` `name` — what it means `` —
+> ending in `Rules:` and links to the invariants that hold the field.
 
 ## Model diagram
 
@@ -37,6 +40,15 @@ classDiagram
         +List~Id~ depends_on
         +Id recurrence_source_id
         +Integer effort
+        +AgendaTime agenda_time
+        +List~PlannedHoursBlock~ planned_hours
+        +Date blocked_since
+        +EntryView view
+        +Attachment attachment
+        +SourceRef source_ref
+        +String import_plan_id
+        +Timestamp updated_at
+        +Timestamp deleted_at
     }
     class SubItem {
         <<entity>>
@@ -62,6 +74,34 @@ classDiagram
         <<value object>>
         +Timestamp timestamp
         +String action
+    }
+    class AgendaTime {
+        <<value object>>
+        +LocalTime start
+        +Integer duration_minutes
+    }
+    class PlannedHoursBlock {
+        <<value object>>
+        +Date on
+        +Decimal hours
+    }
+    class Attachment {
+        <<value object>>
+        +String path
+    }
+    class SourceRef {
+        <<value object>>
+        +String connector_id
+        +String target
+        +String external_id
+        +String url
+        +String source_state
+        +Timestamp source_updated_at
+    }
+    class EntryView {
+        <<enumeration>>
+        steps
+        notes
     }
     class TaskType {
         <<enumeration>>
@@ -122,11 +162,70 @@ classDiagram
     Task --> Priority : ranked by
     SubItem --> SubItemStatus : has status
     Task "1" *-- "0..1" Recurrence : repeats by
+    Task "1" *-- "0..1" AgendaTime : placed in My Day at
+    Task "1" *-- "0..*" PlannedHoursBlock : sets hours aside by
+    Task "1" *-- "0..1" Attachment : attaches
+    Task "1" *-- "0..1" SourceRef : stands for
+    Task --> EntryView : shown as
     Recurrence --> RecurrenceUnit : counted in
     Recurrence "1" --> "0..*" Weekday : restricted to
     Task "0..*" ..> "0..*" Task : depends on
     Task ..> Readiness : derived as
 ```
+
+## Fields
+
+### Work state
+
+Where is the work?
+
+- `status` — The recorded lifecycle state. It moves only along [the Task lifecycle](flow.md#task-lifecycle). Rules: [starts in draft](domain.invariants.md#invariant-a-new-task-starts-in-draft), [follows the lifecycle](domain.invariants.md#invariant-status-changes-follow-the-lifecycle).
+- `priority` — Execution priority. Planning priority is the roadmap's word, not this one.
+- `started_on` — Stamped by the first move into progress; pausing keeps it. Rules: [the first move stamps the start](domain.invariants.md#invariant-the-first-move-into-progress-stamps-the-start).
+- `completed_on` — The tick: the person has dealt with it. [Not a status](domain.md#completed).
+- `blocked_since` — Someone said something outside the backlog is in the way, and since when. Not the derived blocked.
+- `readiness` — Derived from `depends_on` on every read, never stored. Rules: [Readiness and dependencies](domain.invariants.md#readiness-and-dependencies).
+
+### Scheduling
+
+When is it wanted? All optional, none load-bearing.
+
+- `due_on` — The day the task is committed to.
+- `remind_at` — A wish to be reminded, not a promise it was sent.
+- `in_my_day_on` — This morning's choice. Membership is derived when [My Day](domain.md#my-day) is read.
+- `agenda_time` — A start and a duration inside My Day. It borrows My Day's date. Rules: [My Day and its agenda time](domain.invariants.md#my-day-and-its-agenda-time).
+- `recurrence` — The shape of a repeat. The next date is calculated, never stored.
+- `planned_hours` — Hours set aside per day. Not an estimate. Rules: [Planned hours](domain.invariants.md#planned-hours).
+- `effort` — Sizes the work. Owned here; the roadmap only totals it. Rules: [never negative](domain.invariants.md#invariant-effort-is-never-negative).
+
+### Identity and working set
+
+What is it, and where did the person put it?
+
+- `id` · `created_at` — The task's own identity, and when it was made.
+- `title` · `content_md` — The entry text. Steps are written inside it.
+- `type` — Prompt, task, idea or test.
+- `area` · `order` · `tags` — The person's own grouping and rank. They travel with the task. Rules: [a blank area is unfiled](domain.invariants.md#invariant-a-blank-area-is-unfiled).
+- `view` — A display choice stored on the task. Not domain state.
+- `attachment` — The one place the task's material lives: a path, never a copy.
+
+### Links and provenance
+
+What does it point at, and where did it come from?
+
+- `repo_ids` — Target repositories, resolved by Repository Management.
+- `depends_on` — Tasks this one waits on. A missing one still blocks. Rules: [a missing task still blocks](domain.invariants.md#invariant-a-dependency-naming-no-task-still-blocks), [a loop reads blocked](domain.invariants.md#invariant-every-task-in-a-dependency-loop-reads-blocked).
+- `source_inbox_id` — The inbox item it was triaged from.
+- `recurrence_source_id` — The occurrence it followed. Provenance, not ownership.
+- `import_plan_id` — The plan that produced it; also a `+tag`. Rules: [a plan id keeps its sigil](domain.invariants.md#invariant-a-plan-id-keeps-its-sigil).
+- `source_ref` — Present only on a [Linked Task](domain.md#linked-task): the source owns its title and status.
+
+### Across devices
+
+Written by the device, never by hand.
+
+- `updated_at` — Every edit restamps it, so the later edit wins whole. Rules: [every edit restamps the task](domain.invariants.md#invariant-every-edit-restamps-the-task).
+- `deleted_at` — Makes it a tombstone, so the deletion can travel. Rules: [a restore is stamped after its tombstone](domain.invariants.md#invariant-a-restored-task-is-stamped-after-its-tombstone).
 
 ## Relationship notes
 
@@ -175,3 +274,8 @@ classDiagram
 - `effort` is a plain scalar on the root, not a value object: the task's
   [Effort](domain.md#effort). It is neither a `Timestamp` nor a duration, and it
   carries no relationship to another type.
+- `agenda_time`, `attachment` and `source_ref` are owned value objects with no
+  identity of their own, each held at most once. `planned_hours` is a list of
+  value objects, one per day. `view` is a presentation preference the entry's
+  markdown carries, not domain state, and `blocked_since` is the stored
+  *blocked*, distinct from the derived `Readiness`.

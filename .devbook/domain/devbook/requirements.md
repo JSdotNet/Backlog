@@ -1611,16 +1611,22 @@ The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, be
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelFieldsTests.Attributes_are_grouped_by_kind_in_the_tab_order, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_groups_each_class_and_carries_the_notes_and_how_the_services_run]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelFieldsTests.Attributes_are_grouped_by_kind_in_the_tab_order, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_groups_each_class_and_carries_the_notes_and_how_the_services_run, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Fields_reads_the_model_files_purpose_groups_with_meanings_and_rule_counts, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFieldBoardTests.A_fields_chapter_reads_into_purpose_groups_with_their_question_meanings_and_rule_links, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFieldBoardTests.The_rule_index_counts_the_invariants_under_each_heading, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters]
 ```
 
-The system SHALL list on Model's Fields tab each class of the `classDiagram` that holds state, with its attributes grouped by what their types say — dates and times, ids pointing elsewhere, owned parts, vocabularies and other values, in that order — the model file's relationship notes beneath, and each domain-service chapter's invocation semantics under *Domain services · how they run*.
+The system SHALL head Model's Fields tab with the aggregate root's kind, its chapter's status and aliases, its name and its chapter's first sentence, and list the root's fields in the purpose groups the model file's `## Fields` chapter writes — each group with the question its first paragraph asks, each field with its type, its meaning and how many invariants its `Rules:` links name, fields no group names under *Other fields* — or, when the model file writes no `## Fields` chapter, grouped by what their types say: dates and times, ids pointing elsewhere, vocabularies and other values, in that order. Beside the groups it SHALL list what the root owns — its entities, value objects, enums with their values and the context's domain services — and beneath them the model file's relationship notes and each domain-service chapter's invocation semantics under *Domain services · how they run*. A fence with no aggregate root SHALL list each class that holds state with its attributes grouped by kind.
 
-#### Scenario: A task's fields
+#### Scenario: A task's purpose groups
 
-- **Given** a `model.md` whose aggregate root *Task* has `+Date due_on`, `+List~Id~ depends_on`, `+TaskStatus status` for an enumeration *TaskStatus*, and `+String title`, and composes *SubItem* as `"0..*"`
+- **Given** a `model.md` whose `## Fields` chapter has a `### Work state` group asking *Where is the work?* with the bullet `` `status` — The recorded lifecycle state. Rules: `` linking two invariants of `domain.invariants.md`, and whose aggregate root *Task* also has `+Date due_on`
 - **When** the reader opens Model and picks Fields
-- **Then** *due_on* is under Dates and times, *depends_on* under Ids pointing elsewhere, *SubItem* under Owned parts marked `0..*`, *status* under Vocabularies with *TaskStatus*'s values, and *title* under Other values
+- **Then** *Work state* asks *Where is the work?*, *status* reads *Task Status*, *The recorded lifecycle state.* and *2 rules*, and *due_on* stands under *Other fields* as a *date*
+
+#### Scenario: A task's fields with no Fields chapter
+
+- **Given** a `model.md` with no `## Fields` chapter whose aggregate root *Task* has `+Date due_on`, `+List~Id~ depends_on`, `+TaskStatus status` for an enumeration *TaskStatus*, and `+String title`, and composes *SubItem* as `"0..*"`
+- **When** the reader opens Model and picks Fields
+- **Then** *due_on* is under Dates and times, *depends_on* under Ids pointing elsewhere, *status* under Vocabularies, *title* under Other values, and *SubItem* is under *Owned by the task* marked `0..*`
 
 #### Scenario: How a service runs
 
@@ -1633,10 +1639,10 @@ The system SHALL list on Model's Fields tab each class of the `classDiagram` tha
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_reads_each_event_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_event_reads_as_a_contract, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_reads_each_event_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainChapterContractsTests.A_domain_event_reads_as_a_contract, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Events_says_what_the_context_listens_to, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.A_context_listens_to_the_published_languages_another_context_supplies, unit:dotnet:Backlog.UI.Components.UnitTests.DomainEventIndexTests.An_event_reads_when_it_fires_who_consumes_it_and_its_payload_as_rows, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.Fields_and_Events_read_the_model_notes_and_the_contexts_domain_chapters]
 ```
 
-The system SHALL list on Model's Events tab each `domain-event` chapter of the context with what raises it, its consumers, its payload and its published-language rules as the chapter writes them, and mark it *Emitted* only when the chapter that raises it says it emits or publishes it and no chapter says it is not emitted yet, and *Documented* otherwise.
+The system SHALL head Model's Events tab *What ‹context› tells other contexts*, list each `domain-event` chapter of the context in an *All events* index with what raises it, when, its consumers and its state, and show the picked event's contract beneath — what raises it, its consumers, its payload and its published-language rules as the chapter writes them — the first event picked until the reader picks another. It SHALL mark an event *Emitted* only when the chapter that raises it says it emits or publishes it and no chapter says it is not emitted yet, and *Documented* otherwise. Under *What ‹context› listens to* it SHALL list each row of the context's `dependencies.md` in which another context supplies a published language.
 
 #### Scenario: A documented event
 

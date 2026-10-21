@@ -5,9 +5,12 @@
     The Domain view's Model page for one model file — model.md or a model.<name>.md
     split (local ADR 0037). It reads the file's classDiagram fences through the
     domain store and hands them to the library's DomainModelView, which opens on
-    Diagram with the Fields and Events tabs beside it. Fields also takes the file's
-    relationship notes, and Fields and Events the domain services and events of
-    the context's domain.md and its splits, read from the files as written.
+    Diagram with the Fields and Events tabs beside it. Fields also takes the file
+    itself (its Fields chapter's purpose groups and its relationship notes), the
+    context's invariants (what a field's rule count counts) and its class chapters
+    (the header and the side column); Fields and Events the domain services and
+    events of the context's domain.md and its splits, and Events what the context
+    listens to from its dependencies.md — all read from the files as written.
 *@
 
 @if (_fences is { } fences)
@@ -17,7 +20,11 @@
                      Chapters="@_chapters"
                      ChapterReferences="@_references"
                      Identities="@_identities"
+                     Markdown="@_markdown"
+                     Rules="@_rules"
+                     Profiles="@_profiles"
                      Title="@_title"
+                     Context="@_context"
                      AriaLabel="@($"Model of {_title}")" />
 }
 else if (_problem is not null)
@@ -45,6 +52,10 @@ else if (_problem is not null)
     private DomainChapterReading _chapters = DomainChapterReading.Empty;
     private IReadOnlyDictionary<string, string>? _references;
     private IReadOnlyList<DomainModelIdentity>? _identities;
+    private string? _markdown;
+    private string? _context;
+    private IReadOnlyDictionary<string, IReadOnlyList<string>>? _rules;
+    private IReadOnlyDictionary<string, DomainModelProfile>? _profiles;
     private string? _problem;
     private string _title = "Model";
     private (string? Alias, string? Path)? _loaded;
@@ -95,6 +106,7 @@ else if (_problem is not null)
 
         if (_disposed || _loaded != (alias, path)) return;
         (_fences, _title, _problem, _notes, _chapters, _references, _identities) = (read.Fences, read.Title, read.Problem, read.Notes, read.Chapters, read.References, read.Identities);
+        (_markdown, _rules, _profiles, _context) = (read.Markdown, read.Rules, read.Profiles, read.Context);
     }
 
     /// <summary>What the Model page shows of one model file: its class diagrams,
@@ -107,6 +119,18 @@ else if (_problem is not null)
         /// <summary>The aggregate and entity chapters of every context an id
         /// attribute can point at, the ones this context's aggregates relate to first.</summary>
         public IReadOnlyList<DomainModelIdentity> Identities { get; init; } = [];
+
+        /// <summary>The bounded context's name, as Events says it.</summary>
+        public string? Context { get; init; }
+
+        /// <summary>The model file as written: its Fields chapter's purpose groups.</summary>
+        public string? Markdown { get; init; }
+
+        /// <summary>The context's invariants by the link a Fields bullet writes.</summary>
+        public IReadOnlyDictionary<string, IReadOnlyList<string>>? Rules { get; init; }
+
+        /// <summary>The context's class chapters by model name.</summary>
+        public IReadOnlyDictionary<string, DomainModelProfile>? Profiles { get; init; }
 
         public static ModelReading Failed(string problem) => new(null, "Model", problem, null, DomainChapterReading.Empty);
     }
@@ -134,14 +158,26 @@ else if (_problem is not null)
 
         // The prose the store keeps is an excerpt, so the notes and the domain
         // chapters are read from the files as written, through the store.
-        var notes = RelationshipNotes(ReadText(view, document.Path));
+        var markdown = ReadText(view, document.Path);
+        var notes = RelationshipNotes(markdown);
         var sources = context!.Documents
             .Where(d => d.Kind == DomainDevbookDocumentKind.Domain)
             .Select(d => ReadText(view, d.Path) is { } text ? new DomainChapterSource(d.Path, text) : null)
             .OfType<DomainChapterSource>()
             .ToList();
-        var chapters = DomainChapterContracts.Read(sources);
         var own = sources.Select(source => DomainUnits.Parse(source.Markdown, source.Path)).ToList();
+
+        // What a field's rule count counts, and what the context listens to: the
+        // invariants files and the dependency tables, read as written.
+        var invariants = context.Documents
+            .Where(d => d.Kind == DomainDevbookDocumentKind.Invariants)
+            .Select(d => TryReadText(view, d.Path) is { } text ? DomainUnits.Parse(text, d.Path) : null)
+            .OfType<DomainChapterFile>()
+            .ToList();
+        var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies) is { } table
+            ? TryReadText(view, table.Path)
+            : null;
+        var chapters = DomainChapterContracts.Read(sources) with { Listens = DomainEventIndex.Listens(dependencies, context.DisplayName, context.Slug) };
         var references = DomainUnits.ModelReferences(own);
 
         // What an id attribute points at may be another context's aggregate —
@@ -155,7 +191,14 @@ else if (_problem is not null)
             .OfType<DomainChapterFile>();
         var identities = DomainUnits.ModelIdentities(own, others);
 
-        return new(fences, document.Title, null, notes, chapters, references) { Identities = identities };
+        return new(fences, document.Title, null, notes, chapters, references)
+        {
+            Identities = identities,
+            Context = context.DisplayName,
+            Markdown = markdown,
+            Rules = DomainFieldBoards.RuleIndex(invariants),
+            Profiles = DomainFieldBoards.Profiles(own)
+        };
     }
 
     /// <summary>The body of the model file's <em>Relationship notes</em> chapter,
