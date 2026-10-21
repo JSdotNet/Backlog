@@ -109,6 +109,27 @@ public sealed class AgentSessionRecordStoreTests : IDisposable
         Assert.Empty(store.All());
     }
 
+    /// <summary>The Claude desktop app's facts are a reading of its store, made again on
+    /// every read, and a record keeps no copy of them: neither is written to the file,
+    /// and a record read back has neither.</summary>
+    [Fact]
+    public void A_record_keeps_no_desktop_record_facts()
+    {
+        var store = Store();
+        var record = Record("s-1");
+
+        store.Save([record with { Session = record.Session with { Archived = false, ScheduledTask = "nightly-sweep" } }]);
+
+        var file = Assert.Single(Directory.GetFiles(_root, "*.json"));
+        var json = File.ReadAllText(file);
+        Assert.DoesNotContain("nightly-sweep", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("archived", json, StringComparison.OrdinalIgnoreCase);
+
+        var read = Assert.Single(store.All());
+        Assert.Null(read.Session.Archived);
+        Assert.Null(read.Session.ScheduledTask);
+    }
+
     /// <summary>Two agents issuing one session id are two records.</summary>
     [Fact]
     public void Two_agents_with_one_session_id_are_two_records()

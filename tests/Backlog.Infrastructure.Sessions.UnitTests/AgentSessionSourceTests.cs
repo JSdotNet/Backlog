@@ -1146,6 +1146,191 @@ public sealed class AgentSessionSourceTests : IDisposable
         Assert.Equal(AgentSessionDetail.Timestamps, since.Detail);
     }
 
+    // --- The Claude desktop app's session store --------------------------------
+
+    /// <summary>
+    /// The desktop app keeps sessions open in its sidebar long after they stop being
+    /// among the newest hundred, and an open session is never dropped by the cap — the
+    /// rule live sessions already have. An archived one beyond the cap is dropped like
+    /// any other, and both are counted.
+    /// </summary>
+    [Fact]
+    public async Task An_open_session_beyond_the_cap_is_still_listed_and_an_archived_one_is_not()
+    {
+        for (var index = 0; index < AgentSessionLimits.PerAgent; index++)
+        {
+            GivenClaudeTranscript("D--Repos-Backlog", $"session-{index:000}", @"D:\Repos\Backlog", "main", Noon.AddMinutes(-index));
+        }
+
+        GivenClaudeTranscript("D--Repos-Backlog", "open-old", @"D:\Repos\Backlog", "main", Noon.AddDays(-30));
+        GivenClaudeTranscript("D--Repos-Backlog", "archived-old", @"D:\Repos\Backlog", "main", Noon.AddDays(-31));
+        GivenDesktopRecord("local_open", "open-old", archived: false);
+        GivenDesktopRecord("local_archived", "archived-old", archived: true);
+
+        var catalog = await ReadWithDesktopAsync(AgentSessionQuery.Newest);
+
+        var open = Assert.Single(catalog.Sessions, session => session.Id == "open-old");
+        Assert.Equal(false, open.Archived);
+        Assert.DoesNotContain(catalog.Sessions, session => session.Id == "archived-old");
+
+        // Every one of the hundred newest is still there: the open session took no
+        // place from them.
+        Assert.Equal(AgentSessionLimits.PerAgent + 1, catalog.Sessions.Count);
+        Assert.Equal(AgentSessionLimits.PerAgent + 2, catalog.Discovered);
+        Assert.True(catalog.Capped);
+    }
+
+    /// <summary>
+    /// The catalog says how many open sessions it lists past the cap: those older than
+    /// a session the cap dropped. An open session newer than everything dropped is among
+    /// the most recent anyway and is not counted; nothing is counted without a cap.
+    /// </summary>
+    [Fact]
+    public async Task The_catalog_counts_the_open_sessions_listed_only_because_they_are_open()
+    {
+        for (var index = 0; index < AgentSessionLimits.PerAgent; index++)
+        {
+            GivenClaudeTranscript("D--Repos-Backlog", $"session-{index:000}", @"D:\Repos\Backlog", "main", Noon.AddMinutes(-index));
+        }
+
+        GivenClaudeTranscript("D--Repos-Backlog", "dropped", @"D:\Repos\Backlog", "main", Noon.AddDays(-10));
+        GivenClaudeTranscript("D--Repos-Backlog", "open-recent", @"D:\Repos\Backlog", "main", Noon.AddMinutes(-30));
+        GivenClaudeTranscript("D--Repos-Backlog", "open-old", @"D:\Repos\Backlog", "main", Noon.AddDays(-30));
+        GivenDesktopRecord("local_recent", "open-recent", archived: false);
+        GivenDesktopRecord("local_old", "open-old", archived: false);
+
+        var catalog = await ReadWithDesktopAsync(AgentSessionQuery.Newest);
+
+        Assert.True(catalog.Capped);
+        Assert.Equal(AgentSessionLimits.PerAgent + 2, catalog.Sessions.Count);
+        Assert.Equal(1, catalog.OpenBeyondCap);
+    }
+
+    [Fact]
+    public async Task Without_a_cap_no_open_session_is_counted_beyond_it()
+    {
+        GivenClaudeTranscript("D--Repos-Backlog", "open-old", @"D:\Repos\Backlog", "main", Noon.AddDays(-30));
+        GivenDesktopRecord("local_old", "open-old", archived: false);
+
+        var catalog = await ReadWithDesktopAsync(AgentSessionQuery.Newest);
+
+        Assert.False(catalog.Capped);
+        Assert.Equal(0, catalog.OpenBeyondCap);
+    }
+
+    /// <summary>Unknown is never open. A Claude session the desktop app holds no record
+    /// of reads null, and so does every Copilot session, whatever the store says about
+    /// an id that happens to match.</summary>
+    [Fact]
+    public async Task A_session_with_no_desktop_record_is_neither_archived_nor_open()
+    {
+        GivenClaudeTranscript("D--Repos-Backlog", "cli-only", @"D:\Repos\Backlog", "main", Noon.AddHours(-2));
+        GivenClaudeTranscript("D--Repos-Backlog", "desktop", @"D:\Repos\Backlog", "main", Noon.AddHours(-3));
+        GivenCopilotSession("copilot", @"D:\Repos\Backlog", "JSdotNet/Backlog", "main", Noon.AddHours(-3), Noon.AddHours(-2));
+        GivenDesktopRecord("local_desktop", "desktop", archived: true, scheduledTask: "nightly-sweep");
+        GivenDesktopRecord("local_copilot", "copilot", archived: false);
+
+        var catalog = await ReadWithDesktopAsync(AgentSessionQuery.Newest);
+
+        var cliOnly = Assert.Single(catalog.Sessions, session => session.Id == "cli-only");
+        Assert.Null(cliOnly.Archived);
+        Assert.Null(cliOnly.ScheduledTask);
+
+        var desktop = Assert.Single(catalog.Sessions, session => session.Id == "desktop");
+        Assert.Equal(true, desktop.Archived);
+        Assert.Equal("nightly-sweep", desktop.ScheduledTask);
+
+        var copilot = Assert.Single(catalog.Sessions, session => session.Kind == AgentSessionKind.Copilot);
+        Assert.Null(copilot.Archived);
+        Assert.Null(copilot.ScheduledTask);
+    }
+
+    /// <summary>
+    /// Open is not live. An open session whose process the desktop app ended has no
+    /// live marker and reads Finished; one with a marker keeps the state its marker
+    /// gives it. The desktop record moves neither.
+    /// </summary>
+    [Fact]
+    public async Task An_open_session_keeps_the_state_its_liveness_evidence_gives_it()
+    {
+        GivenClaudeTranscript("D--Repos-Backlog", "idle", @"D:\Repos\Backlog", "main", Noon.AddHours(-5));
+        GivenClaudeLiveSession("running", @"D:\Repos\Backlog", "running", Noon.AddHours(-1), Noon.AddMinutes(-2));
+        GivenClaudeLiveSession("stalled", @"D:\Repos\Backlog", "stalled", Noon.AddHours(-9), Noon.AddHours(-2));
+        GivenDesktopRecord("local_idle", "idle", archived: false);
+        GivenDesktopRecord("local_running", "running", archived: false);
+        GivenDesktopRecord("local_stalled", "stalled", archived: false);
+
+        var catalog = await ReadWithDesktopAsync(AgentSessionQuery.Newest);
+
+        Assert.Equal(
+            ["idle Finished False", "running Running False", "stalled Stalled False"],
+            catalog.Sessions
+                .Select(session => $"{session.Id} {session.State} {session.Archived}")
+                .Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>A live marker names its desktop record too, as <c>hostSessionId</c>. A
+    /// running session no record names by its CLI id is found by that before it is
+    /// concluded to have no record.</summary>
+    [Fact]
+    public async Task A_running_session_is_matched_to_its_desktop_record_by_its_host_session()
+    {
+        GivenClaudeLiveSession("resumed", @"D:\Repos\Backlog", "resumed", Noon.AddHours(-1), Noon.AddMinutes(-2), hostSessionId: "local_host");
+        GivenDesktopRecord("local_host", "an-earlier-cli-id", archived: false, scheduledTask: "morning-brief");
+
+        var session = Assert.Single((await ReadWithDesktopAsync(AgentSessionQuery.Newest)).Sessions, session => session.Id == "resumed");
+
+        Assert.Equal(false, session.Archived);
+        Assert.Equal("morning-brief", session.ScheduledTask);
+    }
+
+    /// <summary>The depth decides which fields a session carries and never which
+    /// sessions are listed: a timestamps reading lists the open sessions the cap would
+    /// otherwise drop, stamped as a full one stamps them.</summary>
+    [Fact]
+    public async Task A_timestamps_reading_lists_the_same_sessions_open_ones_included()
+    {
+        for (var index = 0; index < AgentSessionLimits.PerAgent; index++)
+        {
+            GivenClaudeTranscript("D--Repos-Backlog", $"session-{index:000}", @"D:\Repos\Backlog", "main", Noon.AddMinutes(-index));
+        }
+
+        GivenClaudeTranscript("D--Repos-Backlog", "open-old", @"D:\Repos\Backlog", "main", Noon.AddDays(-30));
+        GivenDesktopRecord("local_open", "open-old", archived: false, scheduledTask: "nightly-sweep");
+
+        var full = await ReadWithDesktopAsync(AgentSessionQuery.Newest);
+        var timestamps = await ReadWithDesktopAsync(AgentSessionQuery.Newest.TimestampsOnly());
+
+        Assert.Equal(full.Discovered, timestamps.Discovered);
+        Assert.Equal(
+            full.Sessions.Select(Stamped).Order(StringComparer.Ordinal),
+            timestamps.Sessions.Select(Stamped).Order(StringComparer.Ordinal));
+        Assert.Contains(timestamps.Sessions, session => session.Id == "open-old" && session.Archived == false);
+
+        static string Stamped(AgentSession session) => $"{session.Id} {session.Archived} {session.ScheduledTask}";
+    }
+
+    private string DesktopHome => Path.Combine(_root, "claude-code-sessions");
+
+    private Task<AgentSessionCatalog> ReadWithDesktopAsync(AgentSessionQuery query) =>
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FakeTimeProvider(Noon), desktopHome: DesktopHome)
+            .GetSessionsAsync(query, TestContext.Current.CancellationToken);
+
+    /// <summary>A record in the desktop app's store, in the store's own layout and with
+    /// the keys it writes — a blob among them, because a real record is mostly blob.</summary>
+    private void GivenDesktopRecord(string desktopId, string cliSessionId, bool? archived, string? scheduledTask = null)
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(DesktopHome, "account", "org"));
+        var path = Path.Combine(folder.FullName, $"{desktopId}.json");
+        var flag = archived is { } value ? $""","isArchived":{(value ? "true" : "false")}""" : string.Empty;
+        var task = scheduledTask is null ? string.Empty : $""","scheduledTaskId":"{scheduledTask}" """.TrimEnd();
+
+        File.WriteAllText(path, $$"""
+            {"sessionId":"{{desktopId}}","cliSessionId":"{{cliSessionId}}","cwd":"D:\\Repos\\Backlog","toolSurfaceSnapshot":{"tools":[{"name":"a","isArchived":true}]},"lastActivityAt":{{Noon.AddHours(-1).ToUnixTimeMilliseconds()}}{{flag}}{{task}},"title":"a title"}
+            """);
+        File.SetLastWriteTimeUtc(path, Noon.UtcDateTime.AddHours(-1));
+    }
+
     // --- The transcript facts cache ------------------------------------------
 
     /// <summary>
@@ -1293,7 +1478,8 @@ public sealed class AgentSessionSourceTests : IDisposable
         string name,
         DateTimeOffset startedAt,
         DateTimeOffset lastWrite,
-        int? pid = null)
+        int? pid = null,
+        string? hostSessionId = null)
     {
         var sessions = Directory.CreateDirectory(Path.Combine(ClaudeHome, "sessions"));
 
@@ -1301,11 +1487,12 @@ public sealed class AgentSessionSourceTests : IDisposable
         // reason two of them can claim one session id.
         var process = pid ?? Math.Abs(id.GetHashCode());
         var path = Path.Combine(sessions.FullName, $"{process}.json");
+        var host = hostSessionId is null ? string.Empty : $$""","hostSessionId":"{{hostSessionId}}" """.TrimEnd();
 
         // The shape Claude Code actually writes, fields and all: a reader tested
         // against a tidied-up version of a file is a reader tested against nothing.
         File.WriteAllText(path, $$"""
-            {"pid":{{process}},"sessionId":"{{id}}","cwd":"{{folder.Replace(@"\", @"\\")}}","startedAt":{{startedAt.ToUnixTimeMilliseconds()}},"version":"2.1.229","kind":"interactive","entrypoint":"claude-desktop","name":"{{name}}","nameSource":"derived"}
+            {"pid":{{process}},"sessionId":"{{id}}","cwd":"{{folder.Replace(@"\", @"\\")}}","startedAt":{{startedAt.ToUnixTimeMilliseconds()}},"version":"2.1.229","kind":"interactive","entrypoint":"claude-desktop"{{host}},"name":"{{name}}","nameSource":"derived"}
             """);
 
         File.SetLastWriteTimeUtc(path, lastWrite.UtcDateTime);

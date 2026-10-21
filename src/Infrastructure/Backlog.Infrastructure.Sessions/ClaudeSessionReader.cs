@@ -27,6 +27,13 @@ namespace Backlog.Infrastructure.Sessions;
 /// and only one of them is right — while the transcript states the <c>cwd</c>
 /// outright a few lines in.
 /// </para>
+/// <para>
+/// A third record is handed in rather than read here: the Claude desktop app's session
+/// store (<see cref="ClaudeDesktopSessions"/>), which says which sessions the desktop app
+/// still holds open. Every session this reader builds is stamped from it, live and past,
+/// at both reading depths, because the depth must never change which sessions are
+/// answered — and the open ones are exempt from the cap.
+/// </para>
 /// </summary>
 internal sealed class ClaudeSessionReader
 {
@@ -82,10 +89,13 @@ internal sealed class ClaudeSessionReader
     /// <summary>What this reader is called when it cannot be read.</summary>
     internal static string Name => "Claude";
 
-    internal async Task<SessionReading> ReadAsync(AgentSessionQuery query, CancellationToken cancellationToken)
+    internal async Task<SessionReading> ReadAsync(
+        AgentSessionQuery query,
+        ClaudeDesktopSessions desktop,
+        CancellationToken cancellationToken)
     {
         var now = _clock.GetUtcNow();
-        var live = await ReadLiveAsync(now, cancellationToken).ConfigureAwait(false);
+        var live = await ReadLiveAsync(now, desktop, cancellationToken).ConfigureAwait(false);
         var transcripts = Transcripts();
 
         // A timestamps reading opens no transcript, live or past: the walk's metadata
@@ -119,15 +129,38 @@ internal sealed class ClaudeSessionReader
         // this surface for, and there are only ever as many as the machine is running.
         // A horizon reading has no cap: the count it feeds is only right if it is over
         // everything, and the facts cache is what makes that affordable on a refresh.
-        var room = query.IsNewest ? Math.Max(0, AgentSessionLimits.PerAgent - live.Count) : history.Count;
-        var past = await ReadHistoryAsync(history, room, opens, now, cancellationToken).ConfigureAwait(false);
+        //
+        // An open session is never dropped by it either, for the same reason: it is in
+        // the desktop app's sidebar, which is where a reader of the Open view is looking,
+        // and the desktop app keeps sessions there for weeks after they stop being among
+        // the newest hundred. They are read beside the cap rather than inside it, so the
+        // room is computed over the rest and the newest hundred stay the newest hundred.
+        var exempt = query.IsNewest
+            ? history.Where(transcript => desktop.IsOpen(Path.GetFileNameWithoutExtension(transcript.Name))).ToList()
+            : [];
+        var capped = history.Except(exempt).OrderByDescending(file => file.LastWriteTimeUtc).ToList();
+        var room = query.IsNewest ? Math.Max(0, AgentSessionLimits.PerAgent - live.Count) : capped.Count;
+
+        // The open sessions older than the newest one the cap dropped: the ones listed
+        // only because they are open. Any open session newer than that is among the
+        // most recent anyway, since nothing newer than it was left out.
+        var beyondCap = capped.Count > room
+            ? exempt.Count(transcript => transcript.LastWriteTimeUtc < capped[room].LastWriteTimeUtc)
+            : 0;
+
+        var chosen = capped
+            .Take(room)
+            .Concat(exempt)
+            .OrderByDescending(file => file.LastWriteTimeUtc)
+            .ToList();
+        var past = await ReadHistoryAsync(chosen, desktop, opens, now, cancellationToken).ConfigureAwait(false);
 
         _remembered.Prune(transcripts.Values.Select(transcript => transcript.FullName));
 
         // Sessions found, not files found. A session filed under two folders was never
         // two sessions, and counting it twice would have the subtitle overstate what
         // this machine has been doing.
-        return new SessionReading([.. counted, .. past], live.Count + history.Count);
+        return new SessionReading([.. counted, .. past], live.Count + history.Count) { OpenBeyondCap = beyondCap };
     }
 
     /// <summary>
@@ -232,6 +265,7 @@ internal sealed class ClaudeSessionReader
 
     private async Task<IReadOnlyList<AgentSession>> ReadLiveAsync(
         DateTimeOffset now,
+        ClaudeDesktopSessions desktop,
         CancellationToken cancellationToken)
     {
         var folder = new DirectoryInfo(Path.Combine(_home, "sessions"));
@@ -261,7 +295,7 @@ internal sealed class ClaudeSessionReader
                 continue;
             }
 
-            var session = FromLiveFile(json, file, now);
+            var session = FromLiveFile(json, file, now, desktop);
 
             if (session is not null) sessions.Add(session);
         }
@@ -289,7 +323,7 @@ internal sealed class ClaudeSessionReader
     /// half-written or unrecognised file is an ordinary event and losing one row is
     /// the proportionate response to it.
     /// </summary>
-    private AgentSession? FromLiveFile(string json, FileInfo file, DateTimeOffset now)
+    private AgentSession? FromLiveFile(string json, FileInfo file, DateTimeOffset now, ClaudeDesktopSessions desktop)
     {
         JsonDocument document;
 
@@ -320,7 +354,13 @@ internal sealed class ClaudeSessionReader
             // means here.
             var lastActivity = new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero);
 
-            return new AgentSession(
+            // The live file names its desktop record by the desktop app's own id, which
+            // is the fallback where no record names this session's CLI id. The stamp
+            // survives the transcript facts taken onto this session later: those are
+            // record expressions over it.
+            var record = desktop.For(id, ClaudeJson.NonBlankText(root, "hostSessionId"));
+
+            return Stamped(new AgentSession(
                 Id: id,
                 Kind: AgentSessionKind.Claude,
                 EnvironmentId: _environmentId,
@@ -345,33 +385,29 @@ internal sealed class ClaudeSessionReader
 
                 // Read off this machine's own disk, which is the only kind of record
                 // this reader can produce.
-                Origin: AgentSessionOrigin.Local);
+                Origin: AgentSessionOrigin.Local), record);
         }
     }
 
     /// <summary>
-    /// The most recent <paramref name="room"/> sessions the history holds. It is handed
-    /// the deduped transcripts rather than finding them, because the caller needs the
-    /// same set to answer a live session's turn count from — deduped before the cap and
-    /// not after, so a session filed twice costs one place in the list rather than two.
+    /// The past sessions the caller chose: the most recent ones the cap leaves room for,
+    /// and the open ones beside them. It is handed the deduped transcripts rather than
+    /// finding them, because the caller needs the same set to answer a live session's
+    /// turn count from — deduped before the cap and not after, so a session filed twice
+    /// costs one place in the list rather than two. The choice is made before anything
+    /// is opened: a transcript costs a file handle and a pass over the file, and a
+    /// developer's profile holds hundreds.
     /// </summary>
     private async Task<List<AgentSession>> ReadHistoryAsync(
         IReadOnlyCollection<FileInfo> transcripts,
-        int room,
+        ClaudeDesktopSessions desktop,
         bool opens,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
         var sessions = new List<AgentSession>();
 
-        // Counted before anything is opened, and only the most recent are opened: a
-        // transcript costs a file handle and a pass over the file, and a developer's
-        // profile holds hundreds.
-        var newest = transcripts
-            .OrderByDescending(file => file.LastWriteTimeUtc)
-            .Take(room);
-
-        foreach (var transcript in newest)
+        foreach (var transcript in transcripts)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -384,7 +420,7 @@ internal sealed class ClaudeSessionReader
 
             var id = Path.GetFileNameWithoutExtension(transcript.Name);
 
-            sessions.Add(WithWork(new AgentSession(
+            sessions.Add(Stamped(WithWork(new AgentSession(
                 Id: id,
                 Kind: AgentSessionKind.Claude,
                 EnvironmentId: _environmentId,
@@ -400,11 +436,19 @@ internal sealed class ClaudeSessionReader
                 // stalled means still registered as running, and nothing here is.
                 State: AgentSessionState.Finished,
                 TurnCount: turns,
-                Origin: AgentSessionOrigin.Local), facts));
+                Origin: AgentSessionOrigin.Local), facts), desktop.For(id)));
         }
 
         return sessions;
     }
+
+    /// <summary>The session with what its desktop record says — whether the desktop app
+    /// archived it, and the scheduled task it is a run of — or as read where there is no
+    /// record, both left null: unknown, never "not archived".</summary>
+    private static AgentSession Stamped(AgentSession session, ClaudeDesktopSession? record) =>
+        record is null
+            ? session
+            : session with { Archived = record.Archived, ScheduledTask = record.ScheduledTask };
 
     /// <summary>The session with what its transcript says about its work. A pass that
     /// did not finish leaves the lists null — not read — rather than empty.</summary>
