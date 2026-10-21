@@ -744,6 +744,239 @@ The system SHALL draw a repo link this machine cannot resolve as a dashed edge.
 - **When** the reader opens the Brain's atlas
 - **Then** the edge is dashed, its node is a hollow ring, and the node's chip reads *not on this machine*
 
+## Lobes atlas
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#lobes-atlas, .devbook/domain/devbook/context.md#lobes-atlas]
+```
+
+> The requirements of the one atlas that draws the Brain and every devbook as
+> brains. All of them hold while `atlas-lobes` is on.
+
+### Requirement: One atlas maps the Brain and every registered devbook
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open one full-window atlas from the shell header that draws the Brain and the devbook of every registered repository as brains the reader rotates by dragging and zooms by scrolling.
+
+#### Scenario: Opening from the header
+
+- **Given** a Brain index and two registered repositories with devbooks
+- **When** the reader opens the atlas from the shell header
+- **Then** the atlas fills the window in the All scope, with the Brain and both devbooks drawn
+
+#### Scenario: Rotating and zooming
+
+- **Given** the atlas is open
+- **When** the reader drags across it and then scrolls
+- **Then** the drag rotates the brains and the scroll changes the zoom the atlas reports
+
+### Requirement: The atlas offers All, Brain and one scope per devbook
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL offer the scopes All, Brain and one per devbook, drawing the Brain in the middle of All with each devbook as a smaller brain around it.
+
+#### Scenario: All
+
+- **Given** the atlas is open with two registered devbooks
+- **When** the reader picks All
+- **Then** the Brain is drawn in the middle and each devbook as a smaller brain around it
+
+#### Scenario: One devbook
+
+- **Given** the atlas is open in All
+- **When** the reader picks a devbook's scope
+- **Then** only that devbook is drawn, by region
+
+### Requirement: An unregistered alias is a ghost devbook
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL draw a repository alias the Brain links to that is not registered on this machine as a dashed ghost devbook holding only the chapters the notes name, in the link's own words.
+
+#### Scenario: Another machine's repository
+
+- **Given** Brain notes linking three chapters of an alias not registered here
+- **When** the reader opens the atlas
+- **Then** the alias has a dashed scope of its own, and its brain is a dashed outline holding those three chapters, each named as its link wrote it
+
+### Requirement: A Brain note's region comes from its PARA area
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL place each Brain note in a region by its PARA area: Projects in Frontal; Areas, Resources and any area `CONVENTIONS.md` declares beyond PARA in Parietal; People in Temporal; the linked repository chapters in Occipital; Journal and the inbox in Cerebellum; area roots and `CONVENTIONS.md` in the Brain stem; and Archive as the faint outer dust.
+
+#### Scenario: A project note
+
+- **Given** a note in the Projects area
+- **When** the reader opens the Brain scope
+- **Then** the note is drawn in Frontal
+
+#### Scenario: The para field wins
+
+- **Given** a note in the Resources folder whose `para` field names Projects
+- **When** the reader opens the Brain scope
+- **Then** the note is drawn in Frontal, not Parietal
+
+#### Scenario: A declared area beyond PARA
+
+- **Given** a `CONVENTIONS.md` that declares an area `recipes`
+- **When** the reader opens the Brain scope
+- **Then** the notes in `recipes` are drawn in Parietal
+
+#### Scenario: Archive
+
+- **Given** a note in the Archive area
+- **When** the reader opens the Brain scope
+- **Then** the note is drawn in the outer dust and in no region
+
+### Requirement: A devbook chapter's region comes from its folder
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL place each devbook chapter in a region by its folder: `arc42` in Frontal, `tech` in Parietal, `domain` in Temporal, `design` in Occipital, `ai` in Cerebellum, and each folder's convention root and the reading-order roots in the Brain stem.
+
+#### Scenario: A decision record
+
+- **Given** a devbook with a decision record under `arc42/adr/`
+- **When** the reader opens that devbook's scope
+- **Then** the record is drawn in Frontal
+
+#### Scenario: A convention root
+
+- **Given** a devbook whose `domain/` folder has a convention root
+- **When** the reader opens that devbook's scope
+- **Then** the root is drawn in the Brain stem, not Temporal
+
+### Requirement: Brain and devbook marks keep their colours and bundles show the links
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL draw Brain marks in `color-band-2` and devbook marks in gold, with a bundle from each Brain repository hub to the chapters the notes link, solid when the link resolves and dashed when it does not.
+
+#### Scenario: Bundles in All
+
+- **Given** Brain notes linking chapters of a registered devbook
+- **When** the reader opens the All scope
+- **Then** solid bundles run from the Brain's hub for that repository to those chapters
+
+#### Scenario: The Brain hub in a devbook's scope
+
+- **Given** Brain notes linking chapters of a registered devbook
+- **When** the reader opens that devbook's scope
+- **Then** a Brain hub floats beside the devbook with bundles to those same chapters
+
+#### Scenario: An unresolved link
+
+- **Given** a Brain note linking an alias not registered here
+- **When** the reader opens the All scope
+- **Then** the bundle from the Brain's hub for that alias is dashed
+
+### Requirement: The panel and its controls act on the current scope
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL list the scopes in the left panel in All and the six regions in a single scope, and apply the region chips, Labels, All and None to the current scope only.
+
+#### Scenario: None in one scope
+
+- **Given** the atlas in the Brain scope with every region shown, and a devbook's regions all shown
+- **When** the reader presses None and then picks that devbook's scope
+- **Then** the Brain's regions are hidden and the devbook's regions are all still shown
+
+#### Scenario: The panel follows the scope
+
+- **Given** the atlas in All
+- **When** the reader picks the Brain scope
+- **Then** the left panel lists the six regions in place of the scopes
+
+### Requirement: The scope card offers one action for its scope
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show a scope card naming the scope with its counts and one action: Open in the pane for the Brain, Open devbook for a devbook, Register repository for a ghost devbook.
+
+#### Scenario: A devbook
+
+- **Given** the atlas in a registered devbook's scope
+- **When** the reader presses Open devbook on its card
+- **Then** the pane shows that repository's devbook and the atlas closes
+
+#### Scenario: A ghost devbook
+
+- **Given** the atlas in a ghost devbook's scope
+- **When** the reader reads its card
+- **Then** the card's one action is Register repository
+
+### Requirement: Without a Brain index the atlas offers to build one
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL, with no Brain index built yet, say so and offer to build it instead of drawing an empty map.
+
+#### Scenario: A Brain never indexed
+
+- **Given** a Brain folder whose index has not been built
+- **When** the reader opens the atlas
+- **Then** it says the Brain is not indexed yet and offers to build the index, and draws no map
+
+### Requirement: The pane's Atlas button follows the flag
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open the Lobes atlas at the pane's scope from the Devbook pane's Atlas button while `atlas-lobes` is on, and today's atlas while it is off, leaving the technology atlas on the Tech tab in its layered layout.
+
+#### Scenario: On a repository
+
+- **Given** `atlas-lobes` is on and the pane shows `backlog`
+- **When** the reader presses Atlas
+- **Then** the Lobes atlas opens in the `backlog` scope
+
+#### Scenario: Flag off
+
+- **Given** `atlas-lobes` is off and the pane shows the Brain
+- **When** the reader presses Atlas
+- **Then** today's atlas of the Brain opens
+
+#### Scenario: The Tech tab
+
+- **Given** `atlas-lobes` is on
+- **When** the reader opens the technology atlas on the Tech tab
+- **Then** it is drawn in its layered layout
+
 ## Capture into the Brain
 
 ```meta
