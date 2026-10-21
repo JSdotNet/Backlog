@@ -6913,6 +6913,83 @@ a.pull-request-detail-checks__name:hover {
     margin-top: var(--spacing-sm);
 }
 
+/* A C4 view drawn inside the arc42 chapter that documents it, under the section
+   references.json names, while c4-zoom is on (plan c4-zoom-navigation, the design's
+   arc42 screen). A figure with its own edge: it is not part of the chapter's text,
+   and the chapter's own fence is still drawn where the chapter writes it. */
+.md-chapter-insert {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm) 0 var(--spacing-md);
+}
+
+.devbook-c4-embed {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+    background: var(--color-background-alt);
+}
+
+.devbook-c4-embed__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.devbook-c4-embed__caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.devbook-c4-embed__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.devbook-c4-embed__badge {
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-size: var(--font-size-2xs);
+    font-weight: 600;
+}
+
+.devbook-c4-embed__canvas {
+    padding: var(--spacing-md);
+    background: var(--color-background);
+    overflow-x: auto;
+}
+
+.devbook-c4-embed__open {
+    border: 0;
+    background: transparent;
+    color: var(--color-text-link);
+    font: inherit;
+    cursor: pointer;
+}
+
+.devbook-c4-embed__open:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
 /* The way across from a domain chapter to the architecture model. A row of links
    under the file rather than a nav of cards: the domain pane is narrow, and this is
    one or two entries, not a list to choose from. */

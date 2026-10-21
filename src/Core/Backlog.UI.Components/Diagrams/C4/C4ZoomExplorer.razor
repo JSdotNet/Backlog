@@ -137,6 +137,35 @@
     [Parameter]
     public string? TestId { get; set; } = "c4-zoom-explorer";
 
+    /// <summary>
+    /// A view the host asks to have opened — an arc42 chapter's "Open in C4 zoom".
+    /// <para>
+    /// A request rather than a bound view key: the reader moves on from it by zooming,
+    /// and asking for the same view again has to open it again. So each request is a
+    /// new <see cref="C4ZoomOpen"/>, honoured once, and matched by reference.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public C4ZoomOpen? OpenView { get; set; }
+
+    private C4ZoomOpen? _openedRequest;
+
+    /// <summary>Honours a new <see cref="OpenView"/> after the workspace is loaded.
+    /// Its own override, so the load above it reads as it did.</summary>
+    protected override Task OnParametersSetAsync()
+    {
+        HonourOpenRequest();
+        return Task.CompletedTask;
+    }
+
+    private void HonourOpenRequest()
+    {
+        if (OpenView is not { } request || ReferenceEquals(request, _openedRequest)) return;
+
+        _openedRequest = request;
+        Open(request.ViewKey, null);
+    }
+
     /// <summary>The element selected now, by its model identifier. For the host and
     /// for tests; the zoom bar is drawn from it.</summary>
     public string? SelectedElementId => _selectedId;
