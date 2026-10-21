@@ -513,6 +513,97 @@ public sealed class C4SvgWriterTests
         }
     }
 
+    // ---- group bands ------------------------------------------------------------
+
+    private static string Banded(string key, C4LayoutOptions? options = null) =>
+        C4SvgWriter.Write(C4LayoutGroupTests.Layout(key, options), "diag", "A view");
+
+    /// <summary>Each band is a labelled frame of its own, named for its group, as the
+    /// design's landscape draws the capture sources, work tracking and operations.</summary>
+    [Fact]
+    public void Each_group_is_drawn_as_a_labelled_band()
+    {
+        var svg = Banded("landscape", C4LayoutGroupTests.Bands);
+
+        foreach (var name in new[] { "Capture sources", "Work tracking", "Operations" })
+        {
+            Assert.Contains($"<g class=\"c4-diagram__group\" data-c4-group=\"{name}\">", svg, StringComparison.Ordinal);
+            Assert.Contains($"class=\"c4-diagram__group-name\">{name}</text>", svg, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(3, Occurrences(svg, "class=\"c4-diagram__group\""));
+    }
+
+    /// <summary>A band is a heading, not an element: it carries no <c>node</c> class and
+    /// no id, so the viewer can never select, dim or drill it.</summary>
+    [Fact]
+    public void A_band_is_not_a_node_the_viewer_can_select()
+    {
+        var document = System.Xml.Linq.XDocument.Parse(Banded("landscape", C4LayoutGroupTests.Bands));
+
+        var bands = document.Descendants()
+            .Where(element => element.Attribute("data-c4-group") is not null && element.Attribute("class")?.Value == "c4-diagram__group")
+            .ToList();
+
+        Assert.Equal(3, bands.Count);
+        Assert.All(bands, band => Assert.Null(band.Attribute("id")));
+    }
+
+    /// <summary>Bands are painted first, under the cards they hold, so a card is never
+    /// hidden behind the band it sits in.</summary>
+    [Fact]
+    public void Bands_are_painted_under_the_cards()
+    {
+        var svg = Banded("landscape", C4LayoutGroupTests.Bands);
+
+        var lastBand = svg.LastIndexOf("class=\"c4-diagram__group\"", StringComparison.Ordinal);
+        var firstCard = svg.IndexOf("c4-diagram__node", StringComparison.Ordinal);
+
+        Assert.True(lastBand < firstCard);
+    }
+
+    /// <summary>The line standing for several relationships into a group says which
+    /// group it reaches; an ordinary line says nothing of the kind.</summary>
+    [Fact]
+    public void A_line_drawn_to_a_band_names_its_group()
+    {
+        var svg = Banded("landscape", C4LayoutGroupTests.Bands);
+
+        Assert.Contains("<g class=\"c4-diagram__edge c4-diagram__edge--group\" data-c4-group=\"Capture sources\">", svg, StringComparison.Ordinal);
+        Assert.Contains("<g class=\"c4-diagram__edge c4-diagram__edge--group\" data-c4-group=\"Operations\">", svg, StringComparison.Ordinal);
+        Assert.Contains("<g class=\"c4-diagram__edge\">", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_banded_svg_is_well_formed_enough_to_parse()
+    {
+        foreach (var key in new[] { "landscape", "context-backlog", "containers-backlog" })
+        {
+            var document = System.Xml.Linq.XDocument.Parse(Banded(key, C4LayoutGroupTests.Bands));
+
+            Assert.Equal("svg", document.Root!.Name.LocalName);
+        }
+    }
+
+    /// <summary>
+    /// The C4 tab's explorer asks the layout for no options, and its picture must be the
+    /// one it was even on a model full of groups: no options and the empty options lay
+    /// out and write the same string, with no band and no line to one in it.
+    /// </summary>
+    [Fact]
+    public void Without_the_band_option_a_grouped_model_draws_no_band()
+    {
+        foreach (var key in new[] { "landscape", "context-backlog", "containers-backlog" })
+        {
+            var plain = Banded(key);
+
+            Assert.Equal(plain, Banded(key, C4LayoutOptions.None));
+            Assert.Equal(plain, Banded(key, new C4LayoutOptions(GroupBands: false)));
+            Assert.DoesNotContain("c4-diagram__group", plain, StringComparison.Ordinal);
+            Assert.DoesNotContain("data-c4-group", plain, StringComparison.Ordinal);
+        }
+    }
+
     private static int Occurrences(string haystack, string needle)
     {
         var count = 0;

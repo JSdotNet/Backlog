@@ -98,10 +98,11 @@ public static class C4SvgWriter
             return svg.ToString();
         }
 
-        // Frames, then edges, then labels, then cards. Painting order is the reading
-        // order: a card is never behind the line that leaves it, and a label is never
-        // under the card it points at.
+        // Bands, then frames, then edges, then labels, then cards. Painting order is the
+        // reading order: a card is never behind the line that leaves it, and a label is
+        // never under the card it points at.
         options ??= C4SvgOptions.None;
+        foreach (var group in diagram.Groups) WriteGroup(svg, group);
         foreach (var boundary in diagram.Boundaries) WriteBoundary(svg, id, boundary, options);
         foreach (var edge in diagram.Edges) WriteEdge(svg, id, edge, options);
         foreach (var edge in diagram.Edges) WriteEdgeLabel(svg, edge, options);
@@ -124,9 +125,32 @@ public static class C4SvgWriter
             .Append("</g>");
     }
 
+    /// <summary>
+    /// A group band: a dashed, lightly filled frame with the group's name in its top
+    /// corner, as the design's landscape draws the outside systems grouped by role.
+    /// <para>
+    /// No <c>node</c> class and no id: a band is a heading, not an element, so the
+    /// viewer never selects, dims or drills it. <c>data-c4-group</c> names it for a
+    /// host and a test. Only a layout asked for bands produces any, so a diagram without
+    /// them writes exactly what it wrote before.
+    /// </para>
+    /// </summary>
+    private static void WriteGroup(StringBuilder svg, C4PlacedGroup group) =>
+        svg.Append(Invariant($"<g class=\"c4-diagram__group\" data-c4-group=\"{Escape(group.Name)}\">"))
+            .Append(Invariant($"<rect x=\"{group.X:0.##}\" y=\"{group.Y:0.##}\" width=\"{group.Width:0.##}\" height=\"{group.Height:0.##}\" rx=\"12\" />"))
+            .Append(Invariant($"<text x=\"{group.X + 14:0.##}\" y=\"{group.Y + 22:0.##}\" class=\"c4-diagram__group-name\">{Escape(Truncate(group.Name, GroupNameFits(group)))}</text>"))
+            .Append("</g>");
+
+    /// <summary>How many characters of a group's name fit across its band at the name's
+    /// 12px size, so a long name ends in an ellipsis inside the frame rather than
+    /// running out past its dashed edge.</summary>
+    private static int GroupNameFits(C4PlacedGroup group) => Math.Max(8, (int)((group.Width - 28) / 6.6));
+
     private static void WriteEdge(StringBuilder svg, string id, C4PlacedEdge edge, C4SvgOptions options)
     {
-        svg.Append("<g class=\"c4-diagram__edge").Append(StepModifiers(edge, options, "c4-diagram__edge")).Append('"')
+        svg.Append("<g class=\"c4-diagram__edge").Append(StepModifiers(edge, options, "c4-diagram__edge"))
+            .Append(edge.Group is null ? string.Empty : " c4-diagram__edge--group").Append('"')
+            .Append(edge.Group is null ? string.Empty : Invariant($" data-c4-group=\"{Escape(edge.Group)}\""))
             .Append(StepAttribute(edge, options)).Append('>')
             .Append(Invariant($"<path d=\"{Escape(edge.Path)}\" marker-end=\"url(#{Escape(id)}-arrow)\" />"))
             .Append("</g>");

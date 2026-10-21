@@ -17389,6 +17389,21 @@ select.field__input {
     opacity: 0.7;
 }
 
+/* ---- group bands: the outside systems a group block gathered, by role ---- */
+
+.c4-diagram__group rect {
+    fill: var(--chart-track);
+    fill-opacity: 0.35;
+    stroke: var(--color-border);
+    stroke-width: 1;
+    stroke-dasharray: 6 5;
+}
+
+.c4-diagram__group-name {
+    fill: var(--chart-ink-muted);
+    font-size: 12px;
+}
+
 /* ---- edges ---- */
 
 .c4-diagram__edge path {
