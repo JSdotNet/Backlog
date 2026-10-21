@@ -932,9 +932,18 @@ the service can move its contract past an app still installed somewhere. An app
 that went on syncing against it would lose the fields it does not know. **The
 service's version alone decides whether an app may sync.**
 
+*Amended 2026-10-21: the infrastructure still ships by hand, but the service now
+ships with every Release All run, under the number the desktop and the phone
+carry (`.devbook/arc42/07-deployment-view.md#release`). That number is not the
+version below, and a release never moves the version. The reasoning stands,
+because an app installed from an older release can still meet a newer service.*
+
 - **The service says its version.** The anonymous root, `GET /`, reports it as
   `version`. The number is the `<Version>` in `Backlog.Modules.Sync.Api.csproj`,
-  not the SDK default.
+  not the SDK default. *Amended 2026-10-21:* beside it, `GET /` reports the
+  release the service was deployed under as `release`, stamped by Release All
+  through the MSBuild property `BacklogRelease`, and null on a service deployed
+  any other way. No client reads `release` to decide whether to sync.
 - **The app compares before it sends.** Each sync client compares that number with
   its own app version, part by part, a missing part counting as zero. While the
   service's is higher, the client sends nothing, the token request included. It
