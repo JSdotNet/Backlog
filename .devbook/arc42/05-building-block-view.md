@@ -133,6 +133,8 @@ The desktop app is the local-first Windows client, and the one channel that serv
 every domain. It runs in the two modes the glossary defines, **Standalone** and
 **Connected** (`.devbook/arc42/12-glossary.md#terms`).
 
+![Component Diagram — Desktop App](c4:components-desktop)
+
 ```mermaid
 graph TB
   McpCallers["MCP clients\n(agents, IDE extensions)"]
