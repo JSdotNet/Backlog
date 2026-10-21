@@ -11,9 +11,9 @@
  *     ![Container Diagram — Backlog](c4:container-view)
  *
  * The devbook graph reads each embed as an `embeds` edge from that section to the
- * view. The app's C4 tab reads which chapters a view documents from the authored
- * `_c4/references.json`, a separate statement that may list chapters that only
- * link a view.
+ * view, and the app draws the view there. Which chapters a view documents is read
+ * from those embeds, merged with the older, authored `_c4/references.json` until
+ * that file is retired.
  *
  * Editing: open this folder in c4hero, which writes the file back and keeps node
  * positions in a c4hero sidecar file beside it. The app does not read
