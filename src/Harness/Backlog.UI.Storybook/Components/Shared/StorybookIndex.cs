@@ -367,7 +367,7 @@ internal static class StorybookIndex
 
             // After Domain units, whose chapter bar offers it: the Glossary unit read
             // whole, with its filters and its Easily confused pairs.
-            new("devbook/domain-glossary", "Domain glossary", "DomainGlossary: every term and model chapter of a context, A–Z, with its kind, its aliases as code chips and its first sentence — a filter box that matches aliases too, kind filters, deprecated terms struck through, and Easily confused for two terms that name each other."),
+            new("devbook/domain-glossary", "Domain glossary", "DomainGlossary: every term and model chapter of a context, A–Z, with its kind, its aliases as code chips and its first sentence — a find box that matches aliases too, All / Model / Terms / Borrowed pills with counts, proposed and deprecated badges, and Easily confused beside the list for terms that name each other."),
 
             // The Domain view's Flow page (local ADR 0037): a lifecycle drawn as one
             // row of states, flowcharts and sequences in the same style; a diagram

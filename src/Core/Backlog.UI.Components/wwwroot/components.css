@@ -21149,73 +21149,167 @@ select.field__input {
 
 /* --- Domain view: Glossary ------------------------------------------------- */
 /*
-  The Glossary unit of the Domain page (local ADR 0037): a filter box and the
-  kind filters over every term and model chapter of the context, A-Z. Each row
-  is its mark, its heading, its kind in words, its aliases as code chips and its
-  first sentence. Monochrome, as the rest of the view: the mark and the word say
-  the kind.
+  The Glossary unit of the Domain page (local ADR 0037). A fixed lead, then a
+  labelled find box that fills the row beside the Show pills — All, Model, Terms,
+  Borrowed, one choice, each with its count. Under them two columns that wrap
+  under each other on a narrow pane: the A–Z card, a bordered list of divided
+  rows (mark, heading, kind in words, status badge, borrowed link, notes and
+  alias chips on one line, the first sentence below), and the aside, whose
+  Easily confused cards set each group of terms side by side as tiles and whose
+  dashed Across contexts card links each borrowed term to its counterpart.
+  Monochrome but for the value-object kind word, which color-scheme.md gives its
+  own tone beside its name.
 */
+
+/* The unit's title on this page reads as the page's heading, and the Glossary
+   says what it is in words, so its type marker is not drawn here. */
+.domain-unit--ubiquitous-language > .domain-unit__title {
+    font-family: var(--font-family-heading);
+    font-size: 2rem;
+    line-height: 2.5rem;
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-unit--ubiquitous-language > .domain-unit__title .devbook-type-marker {
+    display: none;
+}
+
+.domain-glossary__lead {
+    margin: 0;
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
 
 .domain-glossary__filters {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
+    align-items: flex-end;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.domain-glossary__find {
+    display: grid;
+    gap: var(--spacing-xs);
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+.domain-glossary__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 .domain-glossary__search {
-    flex: 1 1 14rem;
-    max-width: 24rem;
+    width: 100%;
 }
 
-.domain-glossary__kinds {
+.domain-glossary__show {
     flex-wrap: wrap;
+    gap: var(--spacing-sm);
 }
 
-.domain-glossary__kinds .btn {
+/* Pills rather than a joined strip: each choice stands alone with its count. */
+.domain-glossary__show.btn-group > .btn.domain-glossary__pill {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-2xs);
+    gap: var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+}
+
+/* The chosen pill is filled with the brand, as a primary button is. */
+.domain-glossary__show.btn-group > .btn.domain-glossary__pill.btn--pressed {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-glossary__count {
+    font-variant-numeric: tabular-nums;
+}
+
+.domain-glossary__layout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+}
+
+.domain-glossary__main {
+    flex: 999 1 36rem;
+    min-width: 0;
+}
+
+.domain-glossary__list {
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    overflow: hidden;
+}
+
+.domain-glossary__list-heading {
+    margin: 0;
+    padding: 0.875rem 1.25rem;
+    border-bottom: var(--border-width) solid var(--color-border-strong);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .domain-glossary__entries {
-    display: grid;
-    gap: var(--spacing-sm);
     margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .domain-glossary__entry {
     display: grid;
-    grid-template-columns: minmax(10rem, 16rem) 1fr;
-    gap: var(--spacing-sm);
-    align-items: baseline;
+    gap: var(--spacing-xs);
+    padding: 0.875rem 1.25rem;
+}
+
+.domain-glossary__entry + .domain-glossary__entry {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-glossary__entry--deprecated {
+    background: var(--color-background);
 }
 
 .domain-glossary__title {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--spacing-2xs);
-    font-weight: var(--font-weight-semibold);
+    gap: var(--spacing-xs) var(--spacing-sm);
     overflow-wrap: anywhere;
 }
 
-.domain-glossary__entry--deprecated .domain-glossary__name {
+.domain-glossary__name {
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-glossary__entry--deprecated .domain-glossary__name,
+.domain-glossary__side s {
     color: var(--color-text-secondary);
 }
 
 .domain-glossary__kind {
-    margin-inline-start: var(--spacing-2xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-normal);
 }
 
-.domain-glossary__body {
-    display: grid;
-    gap: var(--spacing-2xs);
-    margin: 0;
-    min-width: 0;
+.domain-glossary__entry[data-kind="value-object"] .domain-glossary__kind {
+    color: var(--color-domain-value-object);
+}
+
+.domain-glossary__borrowed .devbook-ref {
+    font-family: inherit;
+    font-size: var(--font-size-xs);
 }
 
 .domain-glossary__aliases {
@@ -21243,6 +21337,54 @@ select.field__input {
     margin: 0;
 }
 
+.domain-glossary__more {
+    display: block;
+    width: 100%;
+    padding: 0.875rem 1.25rem;
+    border: 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-glossary__more:hover {
+    color: var(--color-text-primary);
+}
+
+.domain-glossary__more:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.domain-glossary__aside {
+    display: grid;
+    gap: var(--spacing-md);
+    flex: 1 1 22rem;
+    min-width: 0;
+}
+
+.domain-glossary__confused {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.domain-glossary__aside-heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-glossary__aside-intro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 .domain-glossary__pairs {
     display: grid;
     gap: var(--spacing-sm);
@@ -21253,29 +21395,83 @@ select.field__input {
 
 .domain-glossary__pair {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
+    padding: 1.125rem 1.25rem;
     border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-md);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
 }
 
 .domain-glossary__side {
     display: grid;
+    align-content: start;
     gap: var(--spacing-2xs);
     min-width: 0;
+    padding: 0.625rem;
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    overflow-wrap: anywhere;
 }
 
-.domain-glossary__side .domain-glossary__name {
-    font-weight: var(--font-weight-semibold);
+.domain-glossary__side .domain-glossary__summary {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
-@media (max-width: 40rem) {
-    .domain-glossary__entry,
-    .domain-glossary__pair {
-        grid-template-columns: 1fr;
-        gap: var(--spacing-2xs);
-    }
+.domain-glossary__hint {
+    justify-self: start;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* proposed / deprecated are information about the chapter: a neutral outline
+   (color-scheme.md, Information badges are neutral outlines). The Across
+   contexts card is not a control, so its dashed edge is not gold either. */
+.badge--tone.domain-glossary__status {
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+.domain-glossary__across {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: 1.125rem 1.25rem;
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-glossary__across-heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+    font-weight: var(--font-weight-normal);
+}
+
+.domain-glossary__across-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-glossary__across-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    padding-block: var(--spacing-sm);
+}
+
+.domain-glossary__across-row + .domain-glossary__across-row {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-glossary__across-row .devbook-ref {
+    font-family: inherit;
+    font-size: var(--font-size-sm);
 }
 
 /* --- Domain view: Flow ----------------------------------------------------- */
