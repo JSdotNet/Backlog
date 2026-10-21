@@ -86,7 +86,8 @@
            so the list could not be reached. The pane's menu is that list, and
            nothing the list said is missing without it — a chapter's status is in
            the file view's own header and its diagrams are in the chapter. *@
-        <div class="arc42-devbook-layout">
+        @{ var recordPlacement = RecordPlacement(); }
+        <div class="arc42-devbook-layout @(recordPlacement is null ? null : "arc42-devbook-layout--record")">
             @* No longer a card. This article always holds a file view now, and the
                file view draws its own edge, so a card here framed a framed
                document — the nesting that was reported. It stays as an element
@@ -199,6 +200,17 @@
                     </nav>
                 }
             </article>
+
+            @* Where a decision or debt record lands on the model, beside it, while
+               `c4-zoom` is on (the design's ADR screen). Absent, not empty, with the
+               switch off or for any other chapter. *@
+            @if (recordPlacement is not null)
+            {
+                <C4RecordPanel Placement="@recordPlacement"
+                               ZoomAvailable="@(_c4.Workspaces.Count > 0)"
+                               OnOpenInZoom="OpenRecordInC4Zoom"
+                               OnNavigate="NavigateRecordReferenceAsync" />
+            }
         </div>
             </TabPanel>
 
@@ -1076,6 +1088,46 @@
     /// the way a reference in a chapter is, which brings the Chapters tab with it.</summary>
     private Task OpenInspectedRecordAsync(string path) =>
         DevbookReference.Parse(path) is { } reference ? NavigateDevbookReferenceAsync(reference) : Task.CompletedTask;
+
+    // ---- where a decision or debt record lands on the model ----------------
+
+    private C4RecordPlacement? _recordPlacement;
+    private (Arc42DevbookCatalog? Catalog, C4Catalog C4, DevbookDocument? Record) _recordPlacementFor;
+
+    /// <summary>
+    /// The open record's placement on the model, while <c>c4-zoom</c> is on and the
+    /// chapter open is an ADR or a TDR; null otherwise, which leaves the layout as it
+    /// was. Worked out again only when the catalog, the model or the record changed.
+    /// </summary>
+    private C4RecordPlacement? RecordPlacement()
+    {
+        if (_c4Store is not { ZoomEnabled: true } || _catalog is null || _selected is null) return null;
+
+        if (!ReferenceEquals(_recordPlacementFor.Catalog, _catalog)
+            || !ReferenceEquals(_recordPlacementFor.C4, _c4)
+            || !ReferenceEquals(_recordPlacementFor.Record, _selected))
+        {
+            _recordPlacement = C4RecordPlacement.For(_catalog, _c4, _selected);
+            _recordPlacementFor = (_catalog, _c4, _selected);
+        }
+
+        return _recordPlacement;
+    }
+
+    /// <summary>"Open in C4 zoom" on a record's map: the zoom tab, on the workspace
+    /// the record's links resolve in, at the container view with the element the
+    /// request names selected.</summary>
+    private void OpenRecordInC4Zoom(C4ZoomOpen request)
+    {
+        if (_recordPlacement?.Map is { } map) _selectedWorkspace = map.Workspace;
+        _zoomOpen = request;
+        _tab = C4ZoomTab;
+    }
+
+    /// <summary>A record in the chain or a chapter that cites it, followed the way a
+    /// reference in the prose is.</summary>
+    private Task NavigateRecordReferenceAsync(string reference) =>
+        DevbookReference.Parse(reference) is { } parsed ? NavigateDevbookReferenceAsync(parsed) : Task.CompletedTask;
 
     // ---- the C4 model beside the chapters ----------------------------------
 
