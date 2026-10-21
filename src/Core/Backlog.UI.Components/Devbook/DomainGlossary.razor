@@ -10,7 +10,8 @@
     - The A–Z card: every term chapter beside every model chapter of the context's
       domain files. A row's first line is its mark, its heading, its kind in words,
       a proposed or deprecated badge, where a borrowed term comes from, its Brain
-      notes and its aliases as code chips; the second its first sentence. A
+      notes and its aliases as code chips; the second its first sentence; then,
+      where the invariants name it, its rule count, which opens them in place. A
       deprecated chapter is struck through on a sunken row. A long list shows
       fifteen rows and the rest behind "n more" until the reader filters or picks.
     - The aside: "Easily confused", one card per group of terms that name each
@@ -116,6 +117,29 @@
                                     {
                                         <p class="domain-glossary__summary">@entry.Summary</p>
                                     }
+                                    @{
+                                        var rules = RulesOf(entry);
+                                    }
+                                    @if (rules.Count > 0)
+                                    {
+                                        var shown = _rulesShown.Contains(entry.Reference);
+                                        var listId = $"{_id}-rules-{DomainUnits.Slug(entry.Reference)}";
+                                        <AppButton Variant="ButtonVariant.None"
+                                                   BaseClass="domain-glossary__rules"
+                                                   TestId="domain-glossary-rules"
+                                                   OnClick="@(() => ToggleRules(entry))"
+                                                   aria-expanded="@(shown ? "true" : "false")"
+                                                   aria-controls="@listId">@DomainRuleText.Count(rules.Count)</AppButton>
+                                        @if (shown)
+                                        {
+                                            <DomainRuleList Rules="@rules"
+                                                            OnOpen="OnOpenRule"
+                                                            AriaLabel="@($"Rules about {entry.Title}")"
+                                                            CssClass="domain-glossary__rule-list"
+                                                            TestId="domain-glossary-rule-list"
+                                                            id="@listId" />
+                                        }
+                                    }
                                     <DomainChapterNotes References="@([entry.Reference])" />
                                 </li>
                             }
@@ -207,6 +231,16 @@
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
 
+    /// <summary>The rules about a chapter, by its reference
+    /// (<see cref="DomainRuleCatalog.About(string)"/>): a row's rule count, which
+    /// opens them in place. Unset, no row counts rules.</summary>
+    [Parameter]
+    public Func<string, IReadOnlyList<DomainRule>>? RulesAbout { get; set; }
+
+    /// <summary>A rule's link to its row on Always true, followed.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenRule { get; set; }
+
     /// <summary>What the filter box opens with; blank is every row.</summary>
     [Parameter]
     public string? Filter { get; set; }
@@ -290,6 +324,17 @@
     }
 
     private void ShowAll() => _expanded = true;
+
+    // The rows whose rules the reader opened, by the row's reference.
+    private readonly HashSet<string> _rulesShown = new(StringComparer.Ordinal);
+
+    private IReadOnlyList<DomainRule> RulesOf(DomainGlossaryEntry entry) =>
+        RulesAbout is { } about && entry.Reference.Length > 0 ? about(entry.Reference) : [];
+
+    private void ToggleRules(DomainGlossaryEntry entry)
+    {
+        if (!_rulesShown.Remove(entry.Reference)) _rulesShown.Add(entry.Reference);
+    }
 
     private bool InShow(DomainGlossaryEntry entry) => _show switch
     {

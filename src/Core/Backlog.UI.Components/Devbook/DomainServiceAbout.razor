@@ -3,7 +3,8 @@
     summary, not the chapter. The kind and status as a kicker, the heading as
     written, the chapter's first sentence as its lead (§5), the requirements it
     is held to as "You can count on" — each opening on the Requirements page —
-    the links out, and the events it raises.
+    what is always true of the units it touches, their rules in place
+    (DomainRuleList), the links out, and the events it raises.
 
     The chapter's further prose is not drawn. It says how the service is invoked
     and which fields it carries over, and invocation semantics and fields are
@@ -44,6 +45,17 @@
             </section>
         }
 
+        @if (Rules.Count > 0)
+        {
+            <section class="domain-about__promises" data-testid="domain-unit-rules" aria-labelledby="@($"{_id}-rules")">
+                <h3 class="domain-about__subheading" id="@($"{_id}-rules")">What is always true of what it touches</h3>
+                <DomainRuleList Rules="@Rules"
+                                OnOpen="OnOpenRule"
+                                AriaLabel="@($"What is always true of what {Chapter.Title} touches")"
+                                TestId="domain-unit-rule-list" />
+            </section>
+        }
+
         <DomainLinkRow Links="@Links" />
         @HeroFooter
     </section>
@@ -75,6 +87,15 @@
     /// <summary>What closes the article: the reader's Brain notes on the unit.</summary>
     [Parameter]
     public RenderFragment? HeroFooter { get; set; }
+
+    /// <summary>The rules of the units the service touches — those its
+    /// <c>related</c> names — and those enforced at the service itself.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainRule> Rules { get; set; } = [];
+
+    /// <summary>A rule's link to its row on Always true, followed.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenRule { get; set; }
 
     /// <summary>A requirement the reader followed.</summary>
     [Parameter]

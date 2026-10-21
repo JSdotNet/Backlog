@@ -47,10 +47,10 @@
     </Story>
 
     <Story Name="Flow page"
-           Description="A whole `flow.md`: the lifecycle titles the page with its lead and legend, the row and its prose beneath; what sits beside the status as cards; the intake as a sequence, readiness as a flowchart. The model chapter's class diagram is none of the three, so it stays in the prose and renders as Mermaid always does."
+           Description="A whole `flow.md`: the lifecycle titles the page with its lead and legend, the row and its prose beneath; what sits beside the status as cards; the intake as a sequence, readiness as a flowchart. The model chapter's class diagram is none of the three, so it stays in the prose and renders as Mermaid always does. Where the invariants name a chapter, its rules show in place: How a task moves under the lifecycle's row, and Readiness's behind its card's rule count."
            Code="@PageCode"
            Source="@FlowFile">
-        <DomainFlowPage File="@File" />
+        <DomainFlowPage File="@File" RulesAbout="@Catalog.About" TestId="story-domain-flows-page" />
     </Story>
 </StoryPage>
 
@@ -246,12 +246,100 @@
     private static readonly DomainFlowDiagram InboxDiagram = DomainFlows.Parse(InboxLifecycle)!;
     private static readonly DomainChapterFile File = DomainUnits.Parse(FlowFile, ".devbook/domain/tasks/flow.md");
 
+    // The rules the invariants write about the lifecycle and the Readiness card,
+    // by the group's related.
+    private const string TaskDomain = """
+        # Tasks
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        A refined, actionable item.
+        """;
+
+    private const string TaskInvariants = """
+        # Invariants
+
+        ## Task
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/tasks/domain.md#task]
+        ```
+
+        ### How a task moves
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/flow.md#task-lifecycle]
+        ```
+
+        #### Invariant: A new task starts in draft
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskTests.A_new_task_is_draft]
+        ```
+
+        A task is created in `draft`.
+
+        Enforced at: constructor
+
+        #### Invariant: Status changes follow the lifecycle
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskTests.Status_moves_along_the_lifecycle]
+        ```
+
+        `ChangeStatus()` refuses a move the lifecycle does not draw.
+
+        Enforced at: `ChangeStatus()`
+
+        ### Readiness and dependencies
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/flow.md#readiness]
+        ```
+
+        #### Invariant: Readiness is derived and never stored
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskChainTests.Readiness_is_derived]
+        ```
+
+        Readiness is worked out on every read.
+
+        Enforced at: `TaskChain.Resolve()`
+
+        #### Invariant: A dependency naming no task still blocks
+
+        ```meta
+        type: invariant
+        ```
+
+        A missing task still blocks the one waiting on it.
+
+        Enforced at: `TaskChain.Resolve()`
+        """;
+
+    private static readonly DomainRuleCatalog Catalog = DomainRuleCatalog.Of(
+        [DomainUnits.Parse(TaskDomain, ".devbook/domain/tasks/domain.md")],
+        [DomainUnits.Parse(TaskInvariants, ".devbook/domain/tasks/domain.invariants.md")]);
+
     private const string RowCode = """
         <DomainFlowRow Diagram="@DomainFlows.Parse(mermaidSource)" AriaLabel="Task lifecycle" />
         """;
 
     private const string PageCode = """
         <DomainFlowPage File="@DomainUnits.Parse(markdown, ".devbook/domain/tasks/flow.md")"
+                        RulesAbout="@DomainRuleCatalog.Of(domainFiles, invariantFiles).About"
+                        OnOpenRule="OpenAlwaysTrueAsync"
                         OnNavigate="OpenAsync" />
         """;
 }

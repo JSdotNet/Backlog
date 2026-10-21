@@ -109,6 +109,42 @@ public sealed class DomainFeaturesTests
         A customer's request for goods.
         """;
 
+    internal const string Invariants = """
+        # Invariants
+
+        ```meta
+        type: invariants
+        ```
+
+        ## Order
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        ### Invariant: A paid order is not paid again
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.Tests.A_paid_order_is_refused]
+        ```
+
+        A paid order refuses a second payment.
+
+        Enforced at: `Order.Pay()`
+
+        ### Invariant: An order holds a line
+
+        ```meta
+        type: invariant
+        ```
+
+        An order is never placed empty.
+
+        Enforced at: `Order.Place()`
+        """;
+
     internal const string Requirements = """
         # Requirements
 
@@ -172,6 +208,7 @@ public sealed class DomainFeaturesTests
     [
         DomainUnits.Parse(Context, ".devbook/domain/ordering/context.md"),
         DomainUnits.Parse(Domain, ".devbook/domain/ordering/domain.md"),
+        DomainUnits.Parse(Invariants, ".devbook/domain/ordering/domain.invariants.md"),
         FeaturesFile,
         DomainUnits.Parse(Requirements, ".devbook/domain/ordering/requirements.md")
     ];

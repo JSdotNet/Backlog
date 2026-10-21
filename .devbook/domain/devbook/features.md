@@ -855,7 +855,7 @@ sentence. It then lists the root's fields in the purpose groups the model file's
 `## Fields` chapter writes: one `###` per group, its first paragraph the question
 the group answers, and one bullet per field naming it in backticks with what it
 means. A bullet that ends in `Rules:` and links to invariants shows how many it
-points at. A field no group names stands under *Other fields*. A model file with
+points at, and the count opens them under the row. A field no group names stands under *Other fields*. A model file with
 no `## Fields` chapter is grouped by what the types say. Beside the groups,
 *Owned by the …* lists the root's entities, value objects, enums with their
 values, and domain services.
@@ -875,7 +875,8 @@ summary of its chapter, not its prose. A card at the top holds the kind and
 status, the heading, the chapter's first sentence, a tile per group of its rules,
 and links to **Always true**, the lifecycle on Flow and the Glossary. Below it
 sit a card per entity or value object it owns, with its first sentence and how
-many rules are about it, its enums as rows of values read as words, and the
+many rules are about it, a count that opens them on the card, its enums as rows
+of values read as words, and the
 events it raises with who hears them. A summary that closes on a list of fields
 reads as far as the colon, so no field shows.
 **Always true** sits beside it, read from the invariants file beside the page
@@ -893,11 +894,26 @@ sentence and where it is enforced name fields and code, so they show only once
 shared value object's or enum's rules show on the base page, as a **Shared Value
 Objects** or **Shared Enums** unit in its chapter bar. A domain service's page is its kind and status, its
 heading and first sentence, the requirements it is held to under **You can count
-on**, each opening on Requirements, links to its promises, the aggregate it names
+on**, each opening on Requirements, what is always true of the units its
+`related` names, links to its promises, the aggregate it names
 and how it runs on Model, and the events it raises. The rest of its prose says how
 it is invoked, which is Model's. A unit's events are the domain-event
 chapters whose `related` names it, and a service's requirements are those whose
 `related` names it or that its own `related` names.
+
+**A unit's rules show wherever they apply.** Always true is the full list; every
+other page that draws a thing the invariants constrain shows the rules about it
+in place, in one list. A rule is about a thing when a group of the invariants
+names it in `related`, when its `Enforced at:` line names its type, or when the
+thing is the unit itself. Features shows them under a feature's promises,
+Requirements under a feature's heading, Model behind a field's rule count on
+Fields and a part's on Diagram, About behind a member card's count, a domain
+service's page for the units it names, the Glossary behind a row's count, and
+Flow under a lifecycle and behind a card's count. Each rule reads as Always true
+draws it, its claim behind its ✓, ○ or ? mark; pressing it shows its first
+sentence and where it is enforced, and a link to its row on its unit's Always
+true tab, which opens with the row marked and focused. A list shows three rules
+and the rest behind *n more*, or all four when there are four.
 
 **Flow draws each lifecycle as one row.** A `stateDiagram-v2` in a flow file is
 drawn as one row of states. The forward transitions run above the row, the ways
@@ -929,15 +945,16 @@ feature is dashed, and the deprecated ones are gathered, struck through, in one
 box at the end of the last column. Picking a card shows what it builds on, the
 flag it is gated by or the setting it is configured by, the model chapters its
 `related` names and its sub-features, and beside them what it promises: its
-requirement count, how many a test proves as a bar, and a link to Requirements.
+requirement count, how many a test proves as a bar, a link to Requirements, and
+what is always true of what it uses — the rules its requirements lean on.
 
 **Requirements read per feature.** The Requirements page shows each requirement
 with its SHALL sentence set apart and whether it is proved, and each scenario as
 Given, When and Then rows, a row that joins clauses with ", and" read as one
 bullet each. Where a feature's requirements rest on an aggregate's rules — they
-name the aggregate, a chapter inside it, or a concept its rules are about — a
-link counting those rules opens that aggregate's **Always true** tab instead of a
-sentence explaining them.
+name the aggregate, a chapter inside it, or a concept its rules are about —
+**What is always true** lists those rules under the feature's heading, counted,
+instead of a sentence explaining them.
 A split `features.<name>.md` or `requirements.<name>.md` reads the same way for
 its one feature. The page opens on a card saying what a requirement is, with
 how many are tested; each requirement is a card with a *Test linked* or dashed

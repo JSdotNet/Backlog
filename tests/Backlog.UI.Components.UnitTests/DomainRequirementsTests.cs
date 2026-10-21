@@ -282,17 +282,40 @@ public sealed class DomainRequirementsTests
     }
 
     [Fact]
-    public void The_always_true_card_counts_the_rules_it_opens_on()
+    public void What_is_always_true_lists_the_rules_in_place_and_counts_them()
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         var view = context.Render<DomainRequirementsView>(parameters => parameters
             .Add(p => p.Groups, PlanningGroups(".devbook/domain/planning/domain.md#my-day")));
 
-        var card = view.Find("[data-testid='domain-requirements-always-true-link']");
-        Assert.Equal("2 rules · on Domain", card.QuerySelector("[data-testid='domain-requirements-always-true-meta']")!.TextContent.Trim());
-        Assert.Contains("whoever changes the Task.", card.TextContent, StringComparison.Ordinal);
-        Assert.Equal("What is always true for Task, on Domain", card.GetAttribute("aria-label"));
+        var section = view.Find("[data-testid='domain-requirements-always-true']");
+        Assert.Equal("2 rules · on Domain", section.QuerySelector("[data-testid='domain-requirements-always-true-meta']")!.TextContent.Trim());
+        Assert.Contains("whoever changes the Task.", section.TextContent, StringComparison.Ordinal);
+        Assert.Equal(
+            ["A task outside My Day holds no agenda time.", "An agenda duration is positive."],
+            section.QuerySelectorAll("[data-testid='domain-rule-list-claim']").Select(claim => claim.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void A_rule_shown_in_place_opens_on_where_it_is_enforced_and_links_to_its_row_on_always_true()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        DomainAlwaysTrueLink? opened = null;
+        var view = context.Render<DomainRequirementsView>(parameters => parameters
+            .Add(p => p.Groups, PlanningGroups(".devbook/domain/planning/domain.md#my-day"))
+            .Add(p => p.OnOpenAlwaysTrue, link => opened = link));
+
+        Assert.Empty(view.FindAll("[data-testid='domain-rule-list-detail']"));
+        view.FindAll("[data-testid='domain-rule-list-toggle']")[0].Click();
+        Assert.Equal("true", view.FindAll("[data-testid='domain-rule-list-toggle']")[0].GetAttribute("aria-expanded"));
+        Assert.Contains("A task with no My Day date has no agenda time.", view.Find("[data-testid='domain-rule-list-detail']").TextContent, StringComparison.Ordinal);
+
+        view.Find("[data-testid='domain-rule-list-open']").Click();
+
+        Assert.Equal("task", opened!.UnitKey);
+        Assert.Equal(".devbook/domain/planning/domain.invariants.md#invariant-a-task-outside-my-day-holds-no-agenda-time", opened.Rule);
     }
 
     [Fact]

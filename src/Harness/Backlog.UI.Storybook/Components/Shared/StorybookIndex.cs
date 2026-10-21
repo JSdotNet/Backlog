@@ -355,6 +355,9 @@ internal static class StorybookIndex
             // Card, EmptyState and MarkdownView from groups above, and its own
             // renderers.
             new("devbook/domain-units", "Domain units", "DomainUnitPage, DomainAggregateAbout, DomainServiceAbout, DomainEventList, DomainLinkRow and DomainGlossary: a `domain.md` read one unit at a time — a captioned chapter bar over an unsplit file, About as a summary for an aggregate, You can count on for a domain service."),
+            // Features and Requirements draw DomainRuleList, which Always true below
+            // introduces: the list is that tab's rows shown elsewhere, so the order bends
+            // the way it does for the tab itself.
             new("devbook/domain-features", "Domain features", "DomainFeatureBoard: a context's features in columns by what they build on, each card with its sub-features, flag or setting and proved requirements, and the detail picking one opens."),
             new("devbook/domain-requirements", "Domain requirements", "DomainRequirementsView, as the design lays it out: the summary cards, features by tested, each requirement a card with its SHALL sentence, proof mark and Given / When / Then rows, and a long feature's rest as rows."),
 
@@ -363,7 +366,7 @@ internal static class StorybookIndex
             // Always true tab is this page's DomainAlwaysTrue, before this page
             // introduces it. It bends that way because the tab is a part of the unit
             // page — read the page first, then the tab — as Model's tabs follow it.
-            new("devbook/domain-always-true", "Always true", "DomainAlwaysTrue: an aggregate's Always true tab — each rule's claim marked by its proof and counted, in a card per group the chapter writes or else per concept it is enforced at, where each is enforced folded until asked for."),
+            new("devbook/domain-always-true", "Always true", "DomainAlwaysTrue and DomainRuleList: an aggregate's Always true tab — each rule's claim marked by its proof and counted, in a card per group the chapter writes or else per concept it is enforced at, where each is enforced folded until asked for — and the list every other page shows a unit's rules with in place, each linking back to its row."),
 
             // After Domain units, whose chapter bar offers it: the Glossary unit read
             // whole, with its filters and its Easily confused pairs.

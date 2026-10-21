@@ -60,6 +60,11 @@ public sealed record DomainFeature(
     int Depth,
     DomainChapter Chapter)
 {
+    /// <summary>What is always true of what the feature uses: the rules its
+    /// requirements lean on, as Requirements lists them under its group, else
+    /// the rules about the feature and the chapters its <c>related</c> names.</summary>
+    public IReadOnlyList<DomainRule> Rules { get; init; } = [];
+
     /// <summary>Proposed and not yet agreed: drawn dashed.</summary>
     public bool IsProposed => string.Equals(Status, "proposed", StringComparison.OrdinalIgnoreCase);
 
@@ -130,6 +135,8 @@ public static class DomainFeatures
         var depths = new Dictionary<string, int>(StringComparer.Ordinal);
 
         var requirementFiles = files.Where(file => KindOf(file.Path) == "requirements").ToList();
+        var catalog = DomainRuleCatalog.Of(files);
+        var groupsOf = new Dictionary<string, IReadOnlyList<DomainRequirementGroup>>(StringComparer.Ordinal);
         var keys = new HashSet<string>(StringComparer.Ordinal);
         var result = new List<DomainFeature>();
         foreach (var chapter in page.AllChapters().Where(IsFeature))
@@ -162,9 +169,43 @@ public static class DomainFeatures
                 requirements.Group is { } group ? index.Name(group) : null,
                 new DomainProofTally(requirements.Requirements.Count, requirements.Requirements.Count(requirement => requirement.Proved)),
                 Depth(reference, everyFeature, depths, []),
-                chapter));
+                chapter)
+            {
+                Rules = RulesOf(reference, chapter, page, requirements.Group, requirementFiles, files, catalog, groupsOf)
+            });
         }
         return result;
+    }
+
+    /// <summary>The rules a feature shows: those its requirements group lists
+    /// (<see cref="DomainRequirements.Groups"/>), else those about the feature or
+    /// a chapter its <c>related</c> names.</summary>
+    private static IReadOnlyList<DomainRule> RulesOf(
+        string reference,
+        DomainChapter chapter,
+        DomainChapterFile page,
+        string? group,
+        IReadOnlyList<DomainChapterFile> requirementFiles,
+        IReadOnlyList<DomainChapterFile> files,
+        DomainRuleCatalog catalog,
+        Dictionary<string, IReadOnlyList<DomainRequirementGroup>> groupsOf)
+    {
+        if (catalog.Units.Count == 0) return [];
+        if (group is not null)
+        {
+            var path = DomainUnits.PathOf(group);
+            var file = requirementFiles.FirstOrDefault(candidate => DomainUnits.Normalize(candidate.Path) == path);
+            if (file is not null)
+            {
+                if (!groupsOf.TryGetValue(path, out var groups)) groupsOf[path] = groups = DomainRequirements.Groups(file, files);
+                var listed = catalog.InOrder(groups
+                    .Where(candidate => candidate.Reference == group)
+                    .SelectMany(candidate => candidate.AlwaysTrue)
+                    .SelectMany(unit => unit.Listed));
+                if (listed.Count > 0) return listed;
+            }
+        }
+        return catalog.About(chapter.Related.Select(related => DomainUnits.Resolve(related, page.Path)).Prepend(reference));
     }
 
     private static DomainFeatureGate? Gate(DomainChapter chapter, string path, DomainChapterIndex index)

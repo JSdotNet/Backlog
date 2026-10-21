@@ -12,7 +12,8 @@
     board: what it builds on, its flag or setting, the model chapters its
     `related` names and its sub-features, and beside them what it promises —
     its requirement count, how many a test proves as a bar, and a way onto
-    Requirements.
+    Requirements — and what is always true of what it uses, the rules its
+    requirements lean on shown in place (DomainRuleList).
 
     Pure: the host hands over the columns DomainFeatures read, so the storybook
     draws the same board from a sample string.
@@ -185,6 +186,15 @@
                             <span class="domain-feature-detail__promise-link">@Link(group with { Title = "Open them on Requirements" })<span aria-hidden="true"> →</span></span>
                         }
                     </div>
+                    @if (active.Rules.Count > 0)
+                    {
+                        <h4 class="domain-feature-detail__promises-label domain-feature-detail__rules-label">What is always true</h4>
+                        <DomainRuleList @key="active.Key"
+                                        Rules="@active.Rules"
+                                        OnOpen="OnOpenAlwaysTrue"
+                                        AriaLabel="@($"What is always true of what {active.Title} uses")"
+                                        TestId="domain-feature-rules" />
+                    }
                 </div>
             </section>
         }
@@ -212,6 +222,11 @@
     /// <summary>A chapter the detail names that the reader followed.</summary>
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    /// <summary>A rule's link to its row on Always true, followed: the host
+    /// opens that unit there.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
 
     [Parameter]
     public string AriaLabel { get; set; } = "Features";

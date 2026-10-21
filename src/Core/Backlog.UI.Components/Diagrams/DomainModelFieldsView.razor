@@ -5,7 +5,8 @@
     A fence with an aggregate root reads as that root's fields in groups, beside
     what it owns. The groups are the model file's own purpose groups when it
     writes a Fields chapter (DomainFieldPurposes) — each field with its meaning and
-    how many invariants it points at — and the kinds the types say when it writes
+    how many invariants it points at, a count that opens them in place
+    (DomainRuleList) — and the kinds the types say when it writes
     none. Fields the chapter does not group stand under "Other fields", so nothing
     the diagram holds goes missing. The side column lists the owned entities and
     value objects, the enumerations with their values, and the domain services.
@@ -57,7 +58,24 @@
                                 </span>
                                 @if (row.Rules.Count > 0)
                                 {
-                                    <span class="domain-field-rules" data-testid="domain-field-rules" title="@string.Join("\n", row.Rules)" aria-label="@($"{RuleCount(row.Rules.Count)}: {string.Join("; ", row.Rules)}")">@RuleCount(row.Rules.Count)</span>
+                                    var rowKey = $"{owner}-{Slug(group.Title)}-{Slug(string.Join("-", row.Names))}";
+                                    var shown = _rulesShown.Contains(rowKey);
+                                    <AppButton Variant="ButtonVariant.None"
+                                               BaseClass="domain-field-rules"
+                                               TestId="domain-field-rules"
+                                               OnClick="@(() => ToggleRules(rowKey))"
+                                               aria-expanded="@(shown ? "true" : "false")"
+                                               aria-controls="@($"{rowKey}-rules")"
+                                               aria-label="@($"{DomainRuleText.Count(row.Rules.Count)} on {string.Join(", ", row.Names)}")">@DomainRuleText.Count(row.Rules.Count)</AppButton>
+                                    @if (shown)
+                                    {
+                                        <DomainRuleList Rules="@RulesOf(row, root)"
+                                                        OnOpen="OnOpenRule"
+                                                        AriaLabel="@($"Rules on {string.Join(", ", row.Names)}")"
+                                                        CssClass="domain-field-row__rules"
+                                                        TestId="domain-field-rule-list"
+                                                        id="@($"{rowKey}-rules")" />
+                                    }
                                 }
                             </li>
                         }
@@ -228,6 +246,16 @@ else
     [Parameter]
     public IReadOnlyDictionary<string, IReadOnlyList<string>>? Rules { get; set; }
 
+    /// <summary>Every rule of the context with its mark and its place on Always
+    /// true, which a field's rule count opens in place. Unset, the rows read
+    /// as their headings alone, unmarked.</summary>
+    [Parameter]
+    public DomainRuleCatalog? RuleCatalog { get; set; }
+
+    /// <summary>A rule's link to its row on Always true, followed.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenRule { get; set; }
+
     /// <summary>The context's class chapters by model name
     /// (<see cref="DomainFieldBoards.Profiles"/>).</summary>
     [Parameter]
@@ -262,7 +290,37 @@ else
         _classes = _boards is { Count: > 0 } ? null : DomainModelFields.TryRead(Source);
     }
 
-    private static string RuleCount(int count) => count == 1 ? "1 rule" : $"{count} rules";
+    // The rows whose rules the reader opened, by the row's place on the board.
+    private readonly HashSet<string> _rulesShown = new(StringComparer.Ordinal);
+    private DomainRuleCatalog? _catalogRead;
+    private ILookup<string, DomainRule> _byTitle = Array.Empty<DomainRule>().ToLookup(rule => rule.Title, StringComparer.OrdinalIgnoreCase);
+
+    private void ToggleRules(string row)
+    {
+        if (!_rulesShown.Remove(row)) _rulesShown.Add(row);
+    }
+
+    /// <summary>A row's rules as Always true marks them, found by the heading the
+    /// rule index names each by: the root's own unit's rule where two units share
+    /// a heading. One no catalog holds, or two units hold alike, reads as its
+    /// heading, unmarked.</summary>
+    private IReadOnlyList<DomainRule> RulesOf(DomainFieldRow row, string root)
+    {
+        if (!ReferenceEquals(_catalogRead, RuleCatalog))
+        {
+            _catalogRead = RuleCatalog;
+            _byTitle = (RuleCatalog?.Units.SelectMany(unit => unit.Rules) ?? []).ToLookup(rule => rule.Title.Trim(), StringComparer.OrdinalIgnoreCase);
+        }
+        return [.. row.Rules.Select(title => Match(title.Trim(), root) ?? new DomainRule(title, title, null, DomainRuleProof.Unproved) { Marked = false })];
+    }
+
+    private DomainRule? Match(string title, string root)
+    {
+        var found = _byTitle[title].ToList();
+        return found.Count == 1
+            ? found[0]
+            : found.Where(rule => string.Equals(rule.Place?.Title, root, StringComparison.OrdinalIgnoreCase)).Take(2).ToList() is [var own] ? own : null;
+    }
 
     private static string ToneKey(DomainFieldTone tone) => tone switch
     {

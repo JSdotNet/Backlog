@@ -42,6 +42,33 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
         Turns repeating tasks on.
         """;
 
+    private const string Invariants = """
+        # Invariants
+
+        ```meta
+        type: invariants
+        status: draft
+        ```
+
+        ## Task
+
+        ```meta
+        type: invariants
+        related: [.domain/tasks/domain.md#task]
+        ```
+
+        ### Invariant: A new task starts in draft
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskTests.A_new_task_is_draft]
+        ```
+
+        A task is created in draft.
+
+        Enforced at: constructor
+        """;
+
     private const string Domain = """
         # Domain: Tasks
 
@@ -212,7 +239,7 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
     }
 
     [Fact]
-    public async Task Requirements_read_as_rows_and_the_Always_true_link_opens_the_aggregates_tab()
+    public async Task Requirements_read_as_rows_and_a_rule_shown_in_place_opens_its_row_on_Always_true()
     {
         await using var harness = CreateHarness();
 
@@ -229,11 +256,15 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
             component.FindAll("[data-keyword='Then'] li[data-testid='domain-scenario-clause']").Select(clause => clause.TextContent.Trim()));
         Assert.DoesNotContain("invariants", component.Find("[data-testid='domain-requirements-intro']").TextContent, StringComparison.OrdinalIgnoreCase);
 
-        await component.InvokeAsync(() => component.Find("[data-testid='domain-requirements-always-true-link']").Click());
+        // The rule the requirements lean on shows in place, and opens Always true on its row.
+        Assert.Equal("A new task starts in draft.", component.Find("[data-testid='domain-requirements-always-true'] [data-testid='domain-rule-list-claim']").TextContent.Trim());
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-rule-list-toggle']").Click());
+        await component.InvokeAsync(() => component.Find("[data-testid='domain-rule-list-open']").Click());
 
         component.WaitForAssertion(() => Assert.Equal("domain", component.Find("[data-testid='domain-view']").GetAttribute("data-page")), Patience);
         component.WaitForAssertion(() => Assert.Equal("task", component.Find("[data-testid='domain-unit']").GetAttribute("data-unit")), Patience);
         Assert.Equal("true", component.Find("[data-testid='domain-unit-always-true-tab']").GetAttribute("aria-selected"));
+        component.WaitForAssertion(() => Assert.EndsWith("domain.invariants.md#invariant-a-new-task-starts-in-draft", component.Find("[data-testid='domain-rule'][data-focused='true']").GetAttribute("data-rule"), StringComparison.Ordinal), Patience);
     }
 
     [Fact]
@@ -292,6 +323,7 @@ public sealed class DomainViewFeaturesPageTests : IDisposable
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts and what joins them.\n");
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "context.md"), Context);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), Domain);
+        File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.invariants.md"), Invariants);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "features.md"), Features);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "features.recurring.md"), SplitFeatures);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "requirements.md"), Requirements);

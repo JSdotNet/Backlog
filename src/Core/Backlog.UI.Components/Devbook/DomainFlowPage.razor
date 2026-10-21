@@ -11,6 +11,10 @@
     rather than in it. A Mermaid diagram none of them can read stays in the prose
     and keeps the rendering it has everywhere else.
 
+    Where the invariants name a chapter — a group's `related` names the
+    lifecycle, or a card beside it — its rules show in place (DomainRuleList):
+    a lifecycle's under its drawing, a card's behind its rule count.
+
     Pure: the host hands over the file it read, so the storybook draws the same
     page from a sample string.
 *@
@@ -100,9 +104,44 @@
                                 {
                                     <footer class="domain-flow-card__footer" data-testid="domain-flow-card-footer">@Markdown(card.Footer)</footer>
                                 }
+                                @{
+                                    var cardRules = RulesOf($"{File.Path}#{card.Anchor}");
+                                }
+                                @if (cardRules.Count > 0)
+                                {
+                                    var shown = _rulesShown.Contains(card.Anchor);
+                                    var listId = $"{_id}-rules-{i}-{card.Anchor}";
+                                    <AppButton Variant="ButtonVariant.None"
+                                               BaseClass="domain-flow-card__rules"
+                                               TestId="domain-flow-card-rules"
+                                               OnClick="@(() => ToggleRules(card.Anchor))"
+                                               aria-expanded="@(shown ? "true" : "false")"
+                                               aria-controls="@listId">@DomainRuleText.Count(cardRules.Count)</AppButton>
+                                    @if (shown)
+                                    {
+                                        <DomainRuleList Rules="@cardRules"
+                                                        OnOpen="OnOpenRule"
+                                                        AriaLabel="@($"Rules about {card.Title}")"
+                                                        TestId="domain-flow-card-rule-list"
+                                                        id="@listId" />
+                                    }
+                                }
                             </article>
                         }
                     </div>
+                }
+                @{
+                    var sectionRules = RulesOf(File.ReferenceTo(section.Chapter));
+                }
+                @if (sectionRules.Count > 0)
+                {
+                    <section class="domain-flows__rules" data-testid="domain-flow-rules" aria-label="@($"What is always true of {section.Chapter.Title}")">
+                        <h3 class="domain-flows__rules-title">What is always true of it</h3>
+                        <DomainRuleList Rules="@sectionRules"
+                                        OnOpen="OnOpenRule"
+                                        AriaLabel="@($"What is always true of {section.Chapter.Title}")"
+                                        TestId="domain-flow-rule-list" />
+                    </section>
                 }
                 @if (section.Prose.Length > 0)
                 {
@@ -122,6 +161,16 @@
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
 
+    /// <summary>The rules about a chapter, by its reference
+    /// (<see cref="DomainRuleCatalog.About(string)"/>): a lifecycle's, shown
+    /// under its row, and a card's, behind its rule count. Unset, none show.</summary>
+    [Parameter]
+    public Func<string, IReadOnlyList<DomainRule>>? RulesAbout { get; set; }
+
+    /// <summary>A rule's link to its row on Always true, followed.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenRule { get; set; }
+
     [Parameter]
     public string AriaLabel { get; set; } = "Flow";
 
@@ -131,6 +180,18 @@
     private IReadOnlyList<DomainFlowSection> _sections = [];
     private readonly Dictionary<string, IReadOnlyList<MdBlock>> _markdown = new(StringComparer.Ordinal);
     private DomainChapterFile? _read;
+    private readonly string _id = $"domain-flows-{Guid.NewGuid():N}";
+
+    // The cards whose rules the reader opened, by the card's anchor.
+    private readonly HashSet<string> _rulesShown = new(StringComparer.Ordinal);
+
+    private IReadOnlyList<DomainRule> RulesOf(string reference) =>
+        RulesAbout is { } about ? about(reference) : [];
+
+    private void ToggleRules(string anchor)
+    {
+        if (!_rulesShown.Remove(anchor)) _rulesShown.Add(anchor);
+    }
 
     protected override void OnParametersSet()
     {

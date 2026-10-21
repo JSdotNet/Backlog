@@ -7,12 +7,12 @@
            Guidelines="@Rules">
 
     <Story Name="Fields in purpose groups"
-           Description="The model file's ## Fields chapter: one ### per group, its first paragraph the question it answers, one bullet per field — `name` — what it means — ending in Rules: and links to invariants, counted as the rule badge. A type of the model takes its kind's tone; dates, instants and ids are the legend's neutral badges; a field the diagram draws only as a dashed dependency reads as derived. Fields no group names stand under Other fields. The side column lists what the root owns."
+           Description="The model file's ## Fields chapter: one ### per group, its first paragraph the question it answers, one bullet per field — `name` — what it means — ending in Rules: and links to invariants, counted as the rule badge. Press the badge to open the field's rules in place, each marked as Always true marks it and opening on where it is enforced. A type of the model takes its kind's tone; dates, instants and ids are the legend's neutral badges; a field the diagram draws only as a dashed dependency reads as derived. Fields no group names stand under Other fields. The side column lists what the root owns."
            Code="@FieldsCode"
            Source="@Purposes"
            SourceLabel="model.md"
            SourceLanguage="markdown">
-        <DomainModelFieldsView Source="@Tasks" Title="Model diagram" Purposes="@PurposeChapters" Rules="@RuleIndex" Services="@Services" TestId="story-domain-fields" />
+        <DomainModelFieldsView Source="@Tasks" Title="Model diagram" Purposes="@PurposeChapters" Rules="@RuleIndex" RuleCatalog="@Catalog" Services="@Services" TestId="story-domain-fields" />
     </Story>
 
     <Story Name="No Fields chapter"
@@ -40,9 +40,9 @@
     </Story>
 
     <Story Name="On the Model page"
-           Description="Fields as the Model page lays it out: the fields of each fence, the model file's relationship notes beneath, then how the services run."
+           Description="Fields as the Model page lays it out: the fields of each fence, the model file's relationship notes beneath, then how the services run. On Diagram, the Sub-Item part counts the rule the invariants write about it, and the count opens it under the card."
            Code="@PageCode">
-        <DomainModelView Fences="@Fences" Markdown="@Purposes" Rules="@RuleIndex" RelationshipNotes="@Notes" Chapters="@Chapters" Title="Tasks" AriaLabel="Model of Tasks" TestId="story-domain-model-fields-view" />
+        <DomainModelView Fences="@Fences" Markdown="@Purposes" Rules="@RuleIndex" RuleCatalog="@Catalog" ChapterReferences="@References" RelationshipNotes="@Notes" Chapters="@Chapters" Title="Tasks" AriaLabel="Model of Tasks" TestId="story-domain-model-fields-view" />
     </Story>
 
 </StoryPage>
@@ -143,6 +143,91 @@
         ["domain.invariants.md#invariant-effort-is-never-negative"] = ["Effort is never negative"]
     };
 
+    // The context's domain and invariants files, which give each rule its mark
+    // and its row on Always true.
+    private const string TaskDomain = """
+        # Tasks
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        A refined, actionable item.
+
+        ### Sub-Item
+
+        ```meta
+        type: entity
+        aliases: [SubItem]
+        ```
+
+        An ordered step.
+        """;
+
+    private const string TaskInvariants = """
+        # Invariants
+
+        ## Task
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/tasks/domain.md#task]
+        ```
+
+        ### Invariant: A new task starts in draft
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskTests.A_new_task_is_draft]
+        ```
+
+        A task is created in `draft`.
+
+        Enforced at: constructor
+
+        ### Invariant: Status changes follow the lifecycle
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskTests.Status_moves_along_the_lifecycle]
+        ```
+
+        `ChangeStatus()` refuses a move the lifecycle does not draw.
+
+        Enforced at: `ChangeStatus()`
+
+        ### Invariant: Effort is never negative
+
+        ```meta
+        type: invariant
+        ```
+
+        `SetEffort()` refuses a negative number.
+
+        Enforced at: `SetEffort()`
+
+        ### Invariant: Steps change through the task
+
+        ```meta
+        type: invariant
+        ```
+
+        A step changes only through its task.
+
+        Enforced at: `SubItem`
+        """;
+
+    private static readonly DomainRuleCatalog Catalog = DomainRuleCatalog.Of(
+        [DomainUnits.Parse(TaskDomain, ".devbook/domain/tasks/domain.md")],
+        [DomainUnits.Parse(TaskInvariants, ".devbook/domain/tasks/domain.invariants.md")]);
+
+    private static readonly IReadOnlyDictionary<string, string> References = new Dictionary<string, string>
+    {
+        ["SubItem"] = ".devbook/domain/tasks/domain.md#sub-item"
+    };
+
     private const string Broken = """
         classDiagram
             Task <--> Other
@@ -171,6 +256,8 @@
                                Title="Model diagram"
                                Purposes="@DomainFieldPurposes.Read(modelMarkdown)"
                                Rules="@DomainFieldBoards.RuleIndex(invariantFiles)"
+                               RuleCatalog="@DomainRuleCatalog.Of(domainFiles, invariantFiles)"
+                               OnOpenRule="OpenAlwaysTrueAsync"
                                Profiles="@DomainFieldBoards.Profiles(domainFiles)"
                                Services="@reading.Services" />
         """;
@@ -186,6 +273,7 @@
 
     private const string PageCode = """
         <DomainModelView Fences="@fences" Markdown="@modelMarkdown" Rules="@rules" Profiles="@profiles"
+                         RuleCatalog="@catalog" ChapterReferences="@references" OnOpenAlwaysTrue="OpenAlwaysTrueAsync"
                          RelationshipNotes="@notes" Chapters="@reading" Title="Tasks" AriaLabel="Model of Tasks" />
         """;
 }

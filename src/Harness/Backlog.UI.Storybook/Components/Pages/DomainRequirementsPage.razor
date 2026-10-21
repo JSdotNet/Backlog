@@ -3,17 +3,17 @@
 <PageTitle>Domain requirements — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain requirements"
-           Summary="A subpage of Devbook: the Requirements page of the Domain view (local ADR 0037), laid out as the design board “Requirements — requirements.md”. It opens on a card saying what a requirement is, with how many the file holds and how many a test proves, and a dashed What is always true card per unit the open feature rests on — the link that replaces the sentence explaining its invariants. An unsplit `requirements.md` lists its features By feature · tested, each with a bar; a split `requirements.<name>.md` opens on its one feature. Each requirement is a card: its title and a Test linked or dashed No test linked mark, its SHALL sentence set larger with SHALL in the requirement tone, the tasks referencing it, and each scenario as GIVEN / WHEN / THEN rows on the card's foot, a row joining its clauses with “, and” read as one bullet per clause. A feature with more than three requirements opens the first two and lists the rest as rows."
+           Summary="A subpage of Devbook: the Requirements page of the Domain view (local ADR 0037), laid out as the design board “Requirements — requirements.md”. It opens on a card saying what a requirement is, with how many the file holds and how many a test proves. Under the open feature's heading, What is always true lists the rules of the units its chapters name, in place — the list that replaces the sentence explaining its invariants — each opening on where it is enforced and linking to its row on Always true. An unsplit `requirements.md` lists its features By feature · tested, each with a bar; a split `requirements.<name>.md` opens on its one feature. Each requirement is a card: its title and a Test linked or dashed No test linked mark, its SHALL sentence set larger with SHALL in the requirement tone, the tasks referencing it, and each scenario as GIVEN / WHEN / THEN rows on the card's foot, a row joining its clauses with “, and” read as one bullet per clause. A feature with more than three requirements opens the first two and lists the rest as rows."
            Guidelines="@Rules">
 
     <Story Name="Features beside the page"
-           Description="An unsplit `requirements.md` with two features. The list names each with how many of its requirements are tested, and a bar; Checkout is open. Its intro no longer says where the invariants are — the dashed What is always true card for Order does that."
+           Description="An unsplit `requirements.md` with two features. The list names each with how many of its requirements are tested, and a bar; Checkout is open. Its intro no longer says where the invariants are — What is always true lists the Order's rules under its heading, three before the rest. Press a rule to read where it is enforced and follow it to its row on Always true."
            Code="@ListCode"
            Source="@Unsplit">
         <DomainRequirementsView Groups="@DomainRequirements.Groups(UnsplitFile, Files)" @bind-ActiveGroup="_active" OnOpenAlwaysTrue="Open" TestId="story-domain-requirements-list" />
         @if (_opened is { } opened)
         {
-            <p>Opened <code>@opened.Reference</code> on Always true.</p>
+            <p>Opened <code>@opened.Reference</code> on Always true, at <code>@opened.Rule</code>.</p>
         }
     </Story>
 

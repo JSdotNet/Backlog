@@ -14,10 +14,14 @@
     </Story>
 
     <Story Name="Detail"
-           Description="Checkout picked: what it builds on, the flag it is gated by, the model chapters its `related` names as chips, and its sub-features; beside them, what it promises — its two requirements, a bar of the one a test proves, and a link onto the Requirements page."
+           Description="Checkout picked: what it builds on, the flag it is gated by, the model chapters its `related` names as chips, and its sub-features; beside them, what it promises — its two requirements, a bar of the one a test proves, and a link onto the Requirements page — and what is always true of what it uses: the Order's rules its requirements lean on, in place, three before the rest, each opening on where it is enforced."
            Code="@DetailCode"
            Source="@Requirements">
-        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" ActiveFeature="checkout" TestId="story-domain-features-detail" />
+        <DomainFeatureBoard Columns="@DomainFeatures.Columns(FeaturesFile, Files)" ContextName="Ordering" ActiveFeature="checkout" OnOpenAlwaysTrue="@(link => _openedRule = link.Rule)" TestId="story-domain-features-detail" />
+        @if (_openedRule is { } openedRule)
+        {
+            <p>Opened Always true on <code>@openedRule</code>.</p>
+        }
     </Story>
 
     <Story Name="Proposed card picked"
@@ -52,6 +56,7 @@
     ];
 
     private string? _active;
+    private string? _openedRule;
 
     private const string Path = ".devbook/domain/ordering/features.md";
 
@@ -178,6 +183,63 @@
         A customer's request for goods.
         """;
 
+    internal const string Invariants = """
+        # Invariants
+
+        ```meta
+        type: invariants
+        ```
+
+        ## Order
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        ### Invariant: A paid order is not paid again
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.Tests.A_paid_order_is_refused]
+        ```
+
+        A paid order refuses a second payment.
+
+        Enforced at: `Order.Pay()`
+
+        ### Invariant: An order holds a line
+
+        ```meta
+        type: invariant
+        ```
+
+        An order is never placed empty.
+
+        Enforced at: `Order.Place()`
+
+        ### Invariant: A cancelled order stays on record
+
+        ```meta
+        type: invariant
+        ```
+
+        Cancelling an order keeps it, marked cancelled.
+
+        Enforced at: open
+
+        ### Invariant: A total is worked out, never typed
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.Tests.Total_is_the_sum]
+        ```
+
+        The total is the sum of the lines.
+
+        Enforced at: `Order.Total`
+        """;
+
     internal const string Requirements = """
         # Requirements
 
@@ -233,6 +295,7 @@
     [
         DomainUnits.Parse(Context, ".devbook/domain/ordering/context.md"),
         DomainUnits.Parse(Domain, ".devbook/domain/ordering/domain.md"),
+        DomainUnits.Parse(Invariants, ".devbook/domain/ordering/domain.invariants.md"),
         FeaturesFile,
         DomainUnits.Parse(Requirements, ".devbook/domain/ordering/requirements.md")
     ];

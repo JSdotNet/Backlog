@@ -226,7 +226,7 @@ public sealed class DomainViewModelPageTests : IDisposable
         // what the root owns, read from the files as written.
         view.WaitForAssertion(() => Assert.Equal(["Links", "Other fields"], view.FindAll("[data-testid='domain-fields-group']").Select(c => c.GetAttribute("data-title"))), Patience);
         Assert.Equal("Task", view.Find("[data-testid='domain-model-title']").TextContent.Trim());
-        Assert.Equal("1 rule", view.Find("[data-testid='domain-field'][data-name='depends_on'] [data-testid='domain-field-rules']").TextContent);
+        Assert.Equal("1 rule", view.Find("[data-testid='domain-field'][data-name='depends_on'] [data-testid='domain-field-rules']").TextContent.Trim());
         Assert.Equal("SubItem", view.Find("[data-testid='domain-fields-owned-entities'] [data-testid='domain-fields-owned-part']").GetAttribute("data-name"));
         Assert.Contains("only consistency boundary", view.Find("[data-testid='domain-model-relationship-notes']").TextContent);
         var service = view.Find("[data-testid='domain-service-invocation']");

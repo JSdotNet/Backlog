@@ -288,17 +288,19 @@ public sealed class DomainFeatureBoardTests
     }
 
     [Fact]
-    public void The_always_true_link_replaces_the_invariants_sentence_and_tells_the_host()
+    public void The_rules_in_place_replace_the_invariants_sentence_and_link_each_to_its_row()
     {
         using var context = new BunitContext();
         DomainAlwaysTrueLink? opened = null;
         var view = Requirements(context, parameters => parameters.Add(p => p.OnOpenAlwaysTrue, unit => opened = unit));
 
         Assert.DoesNotContain("invariants", view.Find("[data-testid='domain-requirements-intro']").TextContent, StringComparison.OrdinalIgnoreCase);
-        view.Find("[data-testid='domain-requirements-always-true-link']").Click();
+        view.FindAll("[data-testid='domain-rule-list-toggle']")[0].Click();
+        view.Find("[data-testid='domain-rule-list-open']").Click();
 
         Assert.Equal("order", opened!.UnitKey);
         Assert.Equal(".devbook/domain/ordering/domain.md", opened.DocumentPath);
+        Assert.EndsWith("domain.invariants.md#invariant-a-paid-order-is-not-paid-again", opened.Rule, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -335,7 +337,7 @@ public sealed class DomainFeatureBoardTests
         var view = Requirements(context);
 
         Assert.Equal("3 · 2 tested", view.Find("[data-testid='domain-requirements-tally']").TextContent.Trim());
-        Assert.Contains("whoever changes the Order.", view.Find("[data-testid='domain-requirements-always-true-link']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("whoever changes the Order.", view.Find("[data-testid='domain-requirements-always-true']").TextContent, StringComparison.Ordinal);
         Assert.Equal(["1 / 2", "1 / 1"], view.FindAll(".domain-requirements__feature-tally [aria-hidden]").Select(tally => tally.TextContent.Trim()));
         Assert.Equal("width: 50%", view.Find(".domain-requirements__feature-fill").GetAttribute("style"));
 

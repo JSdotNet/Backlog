@@ -29,7 +29,9 @@
     {
         <DomainViewDomainPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter"
                               OpenUnit="@Asked?.Anchor"
-                              OpenUnitPage="@(Asked is { AlwaysTrue: true } ? DomainUnitPage.AlwaysTruePage : null)" />
+                              OpenUnitPage="@(Asked is { AlwaysTrue: true } ? DomainUnitPage.AlwaysTruePage : null)"
+                              OpenRule="@Asked?.Rule"
+                              OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
     }
     else if (Page == DomainViewPage.Features)
     {
@@ -39,6 +41,7 @@
                                 ActiveFeature="@Asked?.Anchor"
                                 ActiveFeatureChanged="Picked"
                                 OnNavigate="NavigateAsync"
+                                OnOpenAlwaysTrue="OpenAlwaysTrueAsync"
                                 AriaLabel="@($"Features of {context.ContextName}")" />
         </DomainViewContextFilesPage>
     }
@@ -60,11 +63,11 @@
     }
     else if (Page == DomainViewPage.Model)
     {
-        <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" />
+        <DomainViewModelPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
     }
     else if (Page == DomainViewPage.Flow)
     {
-        <DomainViewFlowPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" />
+        <DomainViewFlowPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
     }
     else
     {
@@ -248,7 +251,7 @@
     /// the pane has moved to that file — Requirements then opens on the feature's
     /// group, Features on the feature, Domain on the unit's Always true tab.
     /// </summary>
-    private sealed record AskedChapter(string RelativePath, string Anchor, bool AlwaysTrue);
+    private sealed record AskedChapter(string RelativePath, string Anchor, bool AlwaysTrue, string? Rule = null);
 
     private AskedChapter? _asked;
     private string? _shownPath;
@@ -271,11 +274,11 @@
         DevbookChapterLink.From(reference) is { } target ? FollowAsync(target, alwaysTrue: false) : Task.CompletedTask;
 
     private Task OpenAlwaysTrueAsync(DomainAlwaysTrueLink unit) =>
-        DevbookChapterLink.From(unit.Reference) is { } target ? FollowAsync(target, alwaysTrue: true) : Task.CompletedTask;
+        DevbookChapterLink.From(unit.Reference) is { } target ? FollowAsync(target, alwaysTrue: true, unit.Rule) : Task.CompletedTask;
 
-    private Task FollowAsync(DevbookChapterLink target, bool alwaysTrue)
+    private Task FollowAsync(DevbookChapterLink target, bool alwaysTrue, string? rule = null)
     {
-        _asked = target.Anchor is { Length: > 0 } anchor ? new AskedChapter(target.RelativePath, anchor, alwaysTrue) : null;
+        _asked = target.Anchor is { Length: > 0 } anchor ? new AskedChapter(target.RelativePath, anchor, alwaysTrue, rule) : null;
         return OnNavigateToChapter.InvokeAsync(target);
     }
 

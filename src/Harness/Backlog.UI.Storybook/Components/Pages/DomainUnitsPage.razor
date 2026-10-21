@@ -10,7 +10,7 @@
            Description="An unsplit `domain.md` holding an aggregate, a domain service and its Ubiquitous Language grouping. The bar lists them in file order, the grouping read as Glossary, and the first is open. Pick another to read it; the page reports the pick so the host can keep it."
            Code="@ChapterBarCode"
            Source="@Domain">
-        <DomainUnitPage File="@UnsplitFile" RequirementFiles="@RequirementFiles" @bind-ActiveUnit="_active" TestId="story-domain-units-bar" />
+        <DomainUnitPage File="@UnsplitFile" RequirementFiles="@RequirementFiles" InvariantFiles="@InvariantFiles" @bind-ActiveUnit="_active" TestId="story-domain-units-bar" />
     </Story>
 
     <Story Name="Split file"
@@ -24,14 +24,14 @@
            Description="A hero with the kind and status as a kicker, the heading, and the chapter's first sentence — the rest of its prose stays in the chapter; one card per entity or value object it owns, with its heading, its first sentence up to any list of fields, the model's name small beneath, and a dashed edge when it is proposed; its enums as rows of values read as words, with the next sentence beside them when it names no field; and the events it raises, a row each with who hears them. In the page the hero also carries a tile per group of rules and its links out. The payload under `### Payload` is not drawn — that is Model's."
            Code="@AboutCode"
            Source="@Domain">
-        <DomainAggregateAbout Chapter="@Order.Chapter" Events="@DomainUnits.EventsRaisedBy(Order.Reference, [UnsplitFile])" Links="@AboutLinks" Model="@ModelLink" />
+        <DomainAggregateAbout Chapter="@Order.Chapter" Events="@DomainUnits.EventsRaisedBy(Order.Reference, [UnsplitFile])" Links="@AboutLinks" Model="@ModelLink" RulesOf="@(member => Catalog.About($"{DomainPath}#{member.Anchor}"))" />
     </Story>
 
     <Story Name="Domain service"
            Description="The kind and status, the heading and the chapter's first sentence, then You can count on: every requirement whose `related` names the service, and every one the service's own `related` names, each a link that opens it on the Requirements page. The rest of the prose — how the service is invoked, which fields it carries — is not shown here; that is Model's."
            Code="@ServiceCode"
            Source="@Requirements">
-        <DomainServiceAbout Chapter="@Pricing.Chapter" Guarantees="@DomainUnits.Guarantees(Pricing, RequirementFiles)" Events="@DomainUnits.EventsRaisedBy(Pricing.Reference, [UnsplitFile])" Links="@ServiceLinks" Model="@ModelLink" />
+        <DomainServiceAbout Chapter="@Pricing.Chapter" Guarantees="@DomainUnits.Guarantees(Pricing, RequirementFiles)" Events="@DomainUnits.EventsRaisedBy(Pricing.Reference, [UnsplitFile])" Links="@ServiceLinks" Model="@ModelLink" Rules="@Catalog.About(Order.Reference)" />
     </Story>
 
     <Story Name="Link row"
@@ -202,6 +202,54 @@
     private static readonly DomainChapterFile UnsplitFile = DomainUnits.Parse(Domain, DomainPath);
     private static readonly DomainChapterFile SplitFile = DomainUnits.Parse(SplitDomain, ".devbook/domain/ordering/domain.order.md");
     private static readonly IReadOnlyList<DomainChapterFile> RequirementFiles = [DomainUnits.Parse(Requirements, RequirementsPath)];
+
+    // The Order's rules: what a member's card counts and opens, and what the
+    // Pricing service, which touches the Order, shows as always true.
+    private const string Invariants = """
+        # Invariants
+
+        ## Order
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        ### Invariant: An order is placed once
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Placing_twice_is_refused]
+        ```
+
+        A placed order cannot be placed again.
+
+        Enforced at: `Place()`
+
+        ### Invariant: A line has a quantity
+
+        ```meta
+        type: invariant
+        ```
+
+        Every order line holds one or more of its product.
+
+        Enforced at: `OrderLine.SetQuantity()`
+
+        ### Invariant: A line changes through the order
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Lines_are_read_only]
+        ```
+
+        A line changes only through its order.
+
+        Enforced at: `OrderLine`
+        """;
+
+    private static readonly IReadOnlyList<DomainChapterFile> InvariantFiles = [DomainUnits.Parse(Invariants, ".devbook/domain/ordering/domain.invariants.md")];
+    private static readonly DomainRuleCatalog Catalog = DomainRuleCatalog.Of([UnsplitFile], InvariantFiles);
 
     private static DomainUnit Order => DomainUnits.Of(UnsplitFile)[0];
     private static DomainUnit Pricing => DomainUnits.Of(UnsplitFile)[1];
