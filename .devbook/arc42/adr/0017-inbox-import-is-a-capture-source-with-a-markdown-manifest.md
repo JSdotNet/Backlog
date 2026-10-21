@@ -2,6 +2,7 @@
 
 ```meta
 related: [".devbook/domain/capture/domain.md#capture-source", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/capture/features.md#import-manifest", ".devbook/domain/inbox/domain.md#capture-source", ".devbook/domain/inbox/domain.md#inbox-list", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md"]
+c4: [backlog.desktop.inbox]
 ```
 
 ## Status

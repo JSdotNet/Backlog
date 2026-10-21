@@ -2,6 +2,8 @@
 
 ```meta
 related: [".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/domain.md#task", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
+c4: [backlog.desktop.backlogModule]
+c4-touches: [backlog.taskStore, backlog.cloud]
 ```
 
 ## Status
@@ -305,3 +307,13 @@ Neutral:
   own stated exception, the same way Import's is stated in
   `.devbook/domain/tasks/features.md#repository-resolution-on-import`, rather than
   inheriting Import's behavior implicitly.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-09-08 | Re-import clears the plan's not-yet-started entries, then writes the new version. | The plain upsert matched nothing for an entry without an `id:`, so it arrived again on every import. |
+| 2026-08-31 | Import reuses the entry text grammar, and a re-import upserts by plan tag and entry `id:`. | A second file format would drift from the entry grammar. |

@@ -2,6 +2,8 @@
 
 ```meta
 related: [".devbook/domain/tasks/domain.md", ".devbook/domain/context-map.md", ".devbook/arc42/05-building-block-view.md"]
+c4: [backlog.desktop.backlogModule]
+c4-touches: [backlog.desktop.devbook]
 ```
 
 ## Status

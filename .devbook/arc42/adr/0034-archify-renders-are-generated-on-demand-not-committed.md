@@ -4,6 +4,8 @@
 date: 2026-10-15
 status: proposed
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/tdr/0001-archify-artifacts-are-invisible-on-a-branch-snapshot.md", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/tech/tooling.md#archify"]
+c4: [backlog.desktop.devbook]
+c4-touches: [github]
 ```
 
 The repository commits an Archify diagram's specification and its index entry, and

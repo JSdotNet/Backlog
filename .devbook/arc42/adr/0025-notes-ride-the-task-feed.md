@@ -3,6 +3,7 @@
 ```meta
 date: 2026-10-12
 related: [".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/06-runtime-view.md#mobile-note-sync", ".devbook/domain/inbox/domain.md#note", ".devbook/domain/inbox/features.md#notes", ".devbook/domain/capture/features.md#talk-note"]
+c4: [backlog.desktop.inbox, backlog.mobile, backlog.cloud]
 ```
 
 A note is an Inbox item of content kind `note`. It travels between the desktop

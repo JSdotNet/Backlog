@@ -2,6 +2,8 @@
 
 ```meta
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/07-deployment-view.md#provisioning-and-delivery", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/11-risks-and-technical-debt.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/dependencies.md", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.md#device"]
+c4: [backlog.cloud, backlog.cloudDb]
+c4-touches: [backlog.taskStore, backlog.mobile, backlog.ide, backlog.desktop.sessions]
 ```
 
 ## Status
@@ -1119,3 +1121,14 @@ Neutral:
   that change is judged entirely by which rows it stops writing.
 - **Recovering the six conflicted copies** is a data-recovery task, not an
   architecture one, and is tracked separately.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-09-23 | A replicated session record carries its title, cut to 500 characters. | The replica is the owner's alone, and an id does not let a person recognise a session once its transcript is cleaned away. |
+| 2026-09-05 | Session records ride the replica under a field whitelist, and the title stays home. | A title is a fragment of a prompt, and prompts stay on the machine. |
+| 2026-09-03 | An Azure-hosted replica carries multi-device sync; the local store stays canonical. | Two machines writing `backlog.db` through file sync produced conflicted copies and reverted edits. |

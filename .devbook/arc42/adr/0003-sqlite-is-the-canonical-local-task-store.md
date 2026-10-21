@@ -2,6 +2,8 @@
 
 ```meta
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/07-deployment-view.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/domain/tasks/domain.md#task"]
+c4: [backlog.taskStore, backlog.desktop.persistence]
+c4-touches: [backlog.desktop.backlogModule]
 ```
 
 ## Status
@@ -169,3 +171,13 @@ Neutral:
   already means something narrower. The `.devbook/domain` vocabulary has not been renamed
   to match yet; that is a governed-vocabulary change and belongs to `flow-domain`
   (the `devbook-flows` plugin).
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-08-20 | One SQLite database is the canonical task store; a task's content stays markdown, in a text column. | Three files disagreed about the same task once the app owned the editing. |
+| 2026-08-03 | Markdown with YAML frontmatter, one file per task, is the canonical format. | A task was a document a person might open in an editor. |

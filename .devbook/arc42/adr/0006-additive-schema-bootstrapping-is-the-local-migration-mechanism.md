@@ -4,6 +4,7 @@
 status: proposed
 date: 2026-10-13
 related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/11-risks-and-technical-debt.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/tech/shared.md#sqlite"]
+c4: [backlog.taskStore, backlog.desktop.persistence]
 ```
 
 ## Status

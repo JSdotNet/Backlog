@@ -60,12 +60,20 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
             attachments = container "Attachments" "Capture attachments, owner-scoped, beside the replica" "Azure Blob Storage, container attachments" "Database"
         }
 
-        github = softwareSystem "GitHub" "Issue tracking, repository management and webhook events." "External"
-        youtube = softwareSystem "YouTube" "Subscription feed for content capture." "External"
-        email = softwareSystem "Email / IMAP" "Email capture inbox." "External"
-        websites = softwareSystem "Websites / RSS" "Web content monitoring by RSS and DOM diff." "External"
-        appInsights = softwareSystem "Application Insights" "Telemetry behind the monitoring dashboards." "External"
-        pushProvider = softwareSystem "Push Provider" "FCM, for Android alerts." "External"
+        group "Capture sources" {
+            youtube = softwareSystem "YouTube" "Subscription feed for content capture." "External"
+            email = softwareSystem "Email / IMAP" "Email capture inbox." "External"
+            websites = softwareSystem "Websites / RSS" "Web content monitoring by RSS and DOM diff." "External"
+        }
+
+        group "Work tracking" {
+            github = softwareSystem "GitHub" "Issue tracking, repository management and webhook events." "External"
+        }
+
+        group "Operations" {
+            appInsights = softwareSystem "Application Insights" "Telemetry behind the monitoring dashboards." "External"
+            pushProvider = softwareSystem "Push Provider" "FCM, for Android alerts." "External"
+        }
 
         # --- how the channels are used -------------------------------------------
 
