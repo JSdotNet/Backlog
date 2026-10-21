@@ -21,6 +21,7 @@ const check = (ok, name, detail) => {
 };
 
 const fence = (body) => "```meta\n" + body + "```\n";
+const journeyFile = (meta) => `# Scenarios\n\n${fence("type: scenarios\n")}\nLead.\n\n## Set up\n\n${fence(meta)}\nLead.\n\n### Done\n\n- **Then** it is done\n`;
 const counts = (issues) => ({
     errors: issues.filter((i) => i.severity === "error").length,
     warnings: issues.filter((i) => i.severity === "warning").length,
@@ -115,33 +116,33 @@ const lints = [
         errors: 0,
         warnings: 1,
     },
-    // A scenario page: absent means the journey is in force, and only the two
-    // words for a journey still in transition may be written.
+    // A journey: absent means it is in force, and only the two words for a
+    // journey still in transition may be written.
     {
-        name: ".domain: a scenario page omitting status is clean",
-        path: ".devbook/domain/work/set-up.md",
-        markdown: `# Set up\n\n${fence("type: scenario\n")}\nLead.\n\n## Done\n\n- **Then** it is done\n`,
+        name: ".domain: a journey omitting status is clean",
+        path: ".devbook/domain/work/scenarios.md",
+        markdown: journeyFile("type: scenario\n"),
         errors: 0,
         warnings: 0,
     },
     {
-        name: ".domain: a scenario page at `status: proposed` is clean",
-        path: ".devbook/domain/work/set-up.md",
-        markdown: `# Set up\n\n${fence("type: scenario\nstatus: proposed\n")}\nLead.\n`,
+        name: ".domain: a journey at `status: proposed` is clean",
+        path: ".devbook/domain/work/scenarios.md",
+        markdown: journeyFile("type: scenario\nstatus: proposed\n"),
         errors: 0,
         warnings: 0,
     },
     {
-        name: ".domain: a scenario page states no resting value — `active` is off its ladder",
-        path: ".devbook/domain/work/set-up.md",
-        markdown: `# Set up\n\n${fence("type: scenario\nstatus: active\n")}\nLead.\n`,
+        name: ".domain: a journey states no resting value — `active` is off its ladder",
+        path: ".devbook/domain/work/scenarios.md",
+        markdown: journeyFile("type: scenario\nstatus: active\n"),
         errors: 1,
         warnings: 0,
     },
     {
-        name: ".domain: a scenario page has no decision rung",
-        path: ".devbook/domain/work/set-up.md",
-        markdown: `# Set up\n\n${fence("type: scenario\nstatus: approved\napproved-by: someone\napproved-at: 2026-10-07\n")}\nLead.\n`,
+        name: ".domain: a journey has no decision rung",
+        path: ".devbook/domain/work/scenarios.md",
+        markdown: journeyFile("type: scenario\nstatus: approved\napproved-by: someone\napproved-at: 2026-10-07\n"),
         errors: 1,
         warnings: 0,
     },

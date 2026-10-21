@@ -43,7 +43,7 @@
     </dl>
 
     <ol class="devbook-scenario-page__parts" data-testid="devbook-scenario-parts">
-        @foreach (var part in Scenario.Page.Parts)
+        @foreach (var part in Scenario.Journey.Parts)
         {
             var outcome = Scenario.Run?.Part(part.Anchor);
             var slug = OutcomeSlug(outcome);
@@ -116,7 +116,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (Focus is not { } focus || focus == _revealed) return;
-        if (!Scenario.Page.Parts.Any(IsFocused)) return;
+        if (!Scenario.Journey.Parts.Any(IsFocused)) return;
 
         _revealed = focus;
 
@@ -135,7 +135,7 @@
 
     private IEnumerable<(string Field, string Value)> SetupFields()
     {
-        var setup = Scenario.Page.Setup;
+        var setup = Scenario.Journey.Setup;
         if (!string.IsNullOrWhiteSpace(setup.Start)) yield return ("start", setup.Start);
         if (setup.Actor.Count > 0) yield return ("actor", string.Join(", ", setup.Actor));
         yield return ("profile", setup.Profile ?? "default");

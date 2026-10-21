@@ -10,18 +10,20 @@ using Microsoft.AspNetCore.Components;
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// The scenario pages of one repository's domain area, each with its last run and the
-/// state the dot shows: what the Devbook menu marks, what a scenario page shows above its
-/// body, and what a <c>scenario:&lt;stem&gt;#&lt;label&gt;</c> image in any chapter resolves to.
+/// The journeys of one repository's domain area, each with its last run and the state
+/// the dot shows: what the Devbook menu marks on a scenarios file, what a scenarios file
+/// shows above its body, and what a <c>scenario:&lt;scenarios file&gt;#&lt;label&gt;</c>
+/// image in any chapter resolves to.
 /// <para>
-/// Which files are scenario pages comes from devbook's committed register,
-/// <c>_meta/scenarios.json</c> (BL1), when the repository has one at schema version 1 —
+/// Which journeys there are comes from devbook's committed register,
+/// <c>_meta/scenarios.json</c> (BL1), when the repository has one at schema version 2 —
 /// the domain folder's own, else the repository-wide rollup under <c>.devbook/_meta/</c>.
-/// A repository that commits no register is not left without: the pages say so
-/// themselves, in their file-level <c>type: scenario</c>, and the domain folder is read
-/// for it once per load. Either way each page is then read, because the state is
-/// computed rather than stored — the page's signature now, by devbook's algorithm,
-/// against the one its committed <c>run.json</c> executed.
+/// A repository that commits no register is not left without: every scenarios file —
+/// <c>scenarios.md</c>, or a split <c>scenarios.&lt;name&gt;.md</c> — says so itself, in
+/// each journey's <c>type: scenario</c>, and the domain folder is read for them once per
+/// load. Either way each file is then read, because the state is computed rather than
+/// stored — the journey's signature now, by devbook's algorithm, against the one its
+/// committed <c>run.json</c> executed.
 /// </para>
 /// <para>
 /// One catalog per repository, kept until the folder source says the content moved:
@@ -126,20 +128,24 @@ public sealed class DevbookScenarioStore
         {
             var register = ScenarioRegister.TryRead(Path.Combine(domainRoot, "_meta", ScenarioRegister.FileName))
                 ?? ScenarioRegister.TryRead(rollup);
-            // Each page read once: the register names the files, or — with none —
-            // every Markdown file in the folder is read and kept when it says it is a
-            // scenario page.
-            var pages = (register is not null
+            var listed = register?.Scenarios.Select(entry => Normalize(entry.Address)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // Each scenarios file read once: the register names the files, or — with
+            // none — every file in the folder named as a scenarios file is read. A
+            // journey is kept when its block says it is one, and, with a register,
+            // when the register lists it.
+            var journeys = (register is not null
                     ? register.Scenarios
                         .Select(entry => FullPathWithin(repositoryRoot, domainRoot, entry.Path))
                         .OfType<string>()
                         .Where(ScenarioFiles.Exists)
                         .Distinct(StringComparer.OrdinalIgnoreCase)
-                    : ScenarioFiles.MarkdownFiles(domainRoot))
-                .Select(path => (FullPath: path, Page: ScenarioFiles.ReadPage(path, Relative(repositoryRoot, path))))
-                .Where(entry => entry.Page.IsScenario)
+                    : ScenarioFiles.MarkdownFiles(domainRoot).Where(ScenarioPageParser.IsScenariosFileName))
+                .SelectMany(path => ScenarioFiles.ReadFile(path, Relative(repositoryRoot, path)).Scenarios
+                    .Select(journey => (FullPath: path, Journey: journey)))
+                .Where(entry => listed is null || listed.Contains(Normalize(entry.Journey.Address)))
                 .ToList();
-            if (pages.Count == 0) return DevbookScenarioCatalog.Empty with { FromRegister = register is not null };
+            if (journeys.Count == 0) return DevbookScenarioCatalog.Empty with { FromRegister = register is not null };
 
             var scenarioFolder = ScenarioFolderOf(tree, repositoryRoot);
             var fromBranch = location.Source is DevbookSourceKind.Branch;
@@ -149,9 +155,9 @@ public sealed class DevbookScenarioStore
             // screenshots are not fetched here: ImageAsync fetches the ones drawn.
             if (fromBranch)
             {
-                var wanted = pages
-                    .SelectMany(entry => new[] { Path.Combine(repositoryRoot, scenarioFolder, entry.Page.Stem, "run.json") }
-                        .Concat(entry.Page.Setup.Data
+                var wanted = journeys
+                    .SelectMany(entry => new[] { Path.Combine(RunFolderOf(repositoryRoot, entry.Journey), "run.json") }
+                        .Concat(entry.Journey.Setup.Data
                             .Select(ScenarioPageParser.Collapse)
                             .Where(ScenarioSignature.IsDataSetName)
                             .Select(name => Path.Combine(repositoryRoot, scenarioFolder, "data", name))
@@ -164,42 +170,44 @@ public sealed class DevbookScenarioStore
                 if (wanted.Count > 0) await _source.PrepareContentAsync(".domain", repositoryAlias, wanted).ConfigureAwait(false);
             }
 
-            var stems = pages.GroupBy(entry => entry.Page.Stem, StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
-            var scenarios = pages
+            var scenarios = journeys
                 .Select(entry =>
                 {
-                    var runFolder = Path.Combine(repositoryRoot, scenarioFolder, entry.Page.Stem);
+                    var runFolder = RunFolderOf(repositoryRoot, entry.Journey);
                     var run = ScenarioFiles.ReadRun(runFolder);
 
-                    // Two pages sharing a stem share a run folder; a run that names
-                    // the page it executed belongs to that page alone.
-                    if (run?.Page is { } ranPage && !SamePath(ranPage, entry.Page.Path)) run = null;
+                    // A run that names the journey it executed belongs to that journey alone.
+                    if (run?.Journey is { } ranJourney && !SamePath(ranJourney, entry.Journey.Address)) run = null;
 
-                    var signature = ScenarioSignature.OfPage(entry.Page, repositoryRoot, scenarioFolder);
+                    var signature = ScenarioSignature.OfJourney(entry.Journey, repositoryRoot, scenarioFolder);
                     return new DevbookScenario(
-                        entry.Page,
+                        entry.Journey,
                         Relative(domainRoot, entry.FullPath),
                         signature,
                         run,
-                        ScenarioEvidence.StateOf(entry.Page, signature, run),
-                        runFolder,
-                        stems[entry.Page.Stem] > 1)
+                        ScenarioEvidence.StateOf(entry.Journey, signature, run),
+                        runFolder)
                     {
                         RepositoryAlias = repositoryAlias,
                         RepositoryRoot = repositoryRoot,
                         FromBranch = fromBranch
                     };
                 })
-                .OrderBy(scenario => scenario.Stem, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(scenario => scenario.Page.Path, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(scenario => scenario.Journey.Path, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(scenario => scenario.Journey.Line)
                 .ToList();
 
             return new DevbookScenarioCatalog(scenarios, register is not null);
         }).ConfigureAwait(false);
     }
 
-    /// <summary>The scenario folder: <c>.devbook/scenarios</c>, or the classic layout's
-    /// <c>.domain/_tests</c> when only that one exists.</summary>
+    /// <summary>A journey's run folder on disk: beside its scenarios file, named for
+    /// the journey.</summary>
+    private static string RunFolderOf(string repositoryRoot, ScenarioJourney journey) =>
+        Path.Combine(repositoryRoot, journey.RunFolder.Replace('/', Path.DirectorySeparatorChar));
+
+    /// <summary>The scenario folder the data sets are in: <c>.devbook/scenarios</c>, or
+    /// the classic layout's <c>.domain/_tests</c> when only that one exists.</summary>
     private static string ScenarioFolderOf(IDevbookFileTree tree, string repositoryRoot)
     {
         if (tree.DirectoryExists(Path.Combine(repositoryRoot, ScenarioPageParser.ScenarioFolder))) return ScenarioPageParser.ScenarioFolder;
@@ -210,7 +218,7 @@ public sealed class DevbookScenarioStore
 
     /// <summary>A register path as a full path, or null when it does not land inside
     /// the domain folder — a register is committed text, and a path out of the folder
-    /// names no scenario page.</summary>
+    /// names no scenarios file.</summary>
     private static string? FullPathWithin(string repositoryRoot, string domainRoot, string relative)
     {
         try
@@ -252,31 +260,29 @@ public sealed class DevbookScenarioStore
     }
 }
 
-/// <summary>One scenario page with its last run.</summary>
-/// <param name="DomainPath">The page's path inside the domain folder —
-/// <c>work/set-up-and-fill-the-backlog.md</c> — which is how the menu and the panel
+/// <summary>One journey with its last run.</summary>
+/// <param name="DomainPath">The path of the scenarios file the journey is in, inside
+/// the domain folder — <c>work/scenarios.md</c> — which is how the menu and the panel
 /// name it.</param>
-/// <param name="Signature">The page's signature now.</param>
-/// <param name="RunFolder">Where its run lives on disk:
-/// <c>&lt;scenario folder&gt;/&lt;stem&gt;/</c>.</param>
-/// <param name="SharesStem">Whether another page has the same stem, which makes a
-/// <c>scenario:</c> reference to it ambiguous.</param>
+/// <param name="Signature">The journey's signature now.</param>
+/// <param name="RunFolder">Where its run lives on disk: beside its scenarios file,
+/// <c>&lt;scenarios file without .md&gt;/&lt;journey&gt;/</c>.</param>
 public sealed record DevbookScenario(
-    ScenarioPage Page,
+    ScenarioJourney Journey,
     string DomainPath,
     string Signature,
     ScenarioRun? Run,
     ScenarioState State,
-    string RunFolder,
-    bool SharesStem = false)
+    string RunFolder)
 {
-    public string Stem => Page.Stem;
+    /// <summary>The journey's anchor in its scenarios file.</summary>
+    public string Slug => Journey.Slug;
 
-    public string Title => Page.Title ?? Page.Stem;
+    public string Title => Journey.Title;
 
-    /// <summary>The part's title as the page writes it, or the anchor.</summary>
+    /// <summary>The part's title as the journey writes it, or the anchor.</summary>
     public string PartTitle(string? anchor) =>
-        Page.Parts.FirstOrDefault(part => string.Equals(part.Anchor, anchor, StringComparison.OrdinalIgnoreCase))?.Title ?? anchor ?? string.Empty;
+        Journey.Parts.FirstOrDefault(part => string.Equals(part.Anchor, anchor, StringComparison.OrdinalIgnoreCase))?.Title ?? anchor ?? string.Empty;
 
     /// <summary>The repository the page was read from, as the store was asked for it.</summary>
     public string? RepositoryAlias { get; init; }
@@ -325,13 +331,13 @@ public sealed record DevbookScenario(
         {
             var parts = new List<string>
             {
-                Count(Page.Parts.Count, "part"),
-                Count(Page.Labels.Count, "screenshot")
+                Count(Journey.Parts.Count, "part"),
+                Count(Journey.Labels.Count, "screenshot")
             };
             if (Run is { } run)
             {
-                var failed = Page.Parts.Count(part => run.Part(part.Anchor)?.Outcome == ScenarioOutcome.Failed);
-                if (failed > 0) parts.Add($"{failed} of {Page.Parts.Count} failed");
+                var failed = Journey.Parts.Count(part => run.Part(part.Anchor)?.Outcome == ScenarioOutcome.Failed);
+                if (failed > 0) parts.Add($"{failed} of {Journey.Parts.Count} failed");
                 if (run.RanAt is { } ranAt) parts.Add($"ran {DevbookScenarioFormat.Time(ranAt)}");
                 if (run.Version == 1) parts.Add("version 1 run");
             }
@@ -347,47 +353,48 @@ public sealed record DevbookScenario(
     private static string Count(int count, string noun) => $"{count} {noun}{(count == 1 ? string.Empty : "s")}";
 }
 
-/// <summary>The scenario pages of one repository.</summary>
+/// <summary>The journeys of one repository.</summary>
 public sealed record DevbookScenarioCatalog(IReadOnlyList<DevbookScenario> Scenarios, bool FromRegister = false)
 {
     public static DevbookScenarioCatalog Empty { get; } = new([]);
 
-    /// <summary>The scenario page a document or menu path names, or null.</summary>
-    public DevbookScenario? ForPath(string? path) =>
+    /// <summary>The journeys of the scenarios file a document or menu path names, in
+    /// file order; empty for any other path.</summary>
+    public IReadOnlyList<DevbookScenario> ForPath(string? path) =>
         string.IsNullOrWhiteSpace(path)
-            ? null
-            : Scenarios.FirstOrDefault(scenario => DevbookPath.Matches(path, scenario.DomainPath));
+            ? []
+            : [.. Scenarios.Where(scenario => DevbookPath.Matches(path, scenario.DomainPath))];
 
     /// <summary>
-    /// What an image target in a chapter shows: <c>scenario:&lt;stem&gt;#&lt;label&gt;</c>
-    /// anywhere, or <c>shot:&lt;label&gt;</c> on the scenario page itself. Null for any
-    /// other target, so the chapter's own image rules apply.
+    /// What an image target in a chapter shows: <c>scenario:&lt;scenarios file&gt;#&lt;label&gt;</c>
+    /// anywhere — the file as a path inside the domain folder, <c>work/scenarios.md</c> —
+    /// or <c>shot:&lt;label&gt;</c> in the scenarios file itself. A label is unique in
+    /// its file, so it names the one journey it sits in. Null for any other target, so
+    /// the chapter's own image rules apply.
     /// </summary>
     public DevbookScenarioShotResolution? Resolve(string target, string? documentPath)
     {
         if (string.IsNullOrWhiteSpace(target)) return null;
         var trimmed = target.Trim();
 
-        string stem;
+        string file;
         string label;
-        DevbookScenario? scenario;
+        IReadOnlyList<DevbookScenario> journeys;
         if (trimmed.StartsWith("scenario:", StringComparison.OrdinalIgnoreCase))
         {
             var reference = trimmed["scenario:".Length..];
             var hash = reference.IndexOf('#', StringComparison.Ordinal);
-            stem = (hash < 0 ? reference : reference[..hash]).Trim();
+            file = (hash < 0 ? reference : reference[..hash]).Trim();
             label = hash < 0 ? string.Empty : reference[(hash + 1)..].Trim();
 
-            var matches = Scenarios.Where(candidate => string.Equals(candidate.Stem, stem, StringComparison.OrdinalIgnoreCase)).ToList();
-            if (matches.Count == 0) return new DevbookScenarioShotResolution(DevbookScenarioShotKind.UnknownPage, stem, label, null, []);
-            if (matches.Count > 1) return new DevbookScenarioShotResolution(DevbookScenarioShotKind.AmbiguousStem, stem, label, null, [.. matches.Select(match => match.Page.Path)]);
-            scenario = matches[0];
+            journeys = ForPath(file);
+            if (journeys.Count == 0) return new DevbookScenarioShotResolution(DevbookScenarioShotKind.UnknownPage, file, label, null, []);
         }
         else if (trimmed.StartsWith("shot:", StringComparison.OrdinalIgnoreCase))
         {
-            scenario = ForPath(documentPath);
-            if (scenario is null) return null;
-            stem = scenario.Stem;
+            journeys = ForPath(documentPath);
+            if (journeys.Count == 0) return null;
+            file = journeys[0].DomainPath;
             label = trimmed["shot:".Length..].Trim();
         }
         else
@@ -395,17 +402,18 @@ public sealed record DevbookScenarioCatalog(IReadOnlyList<DevbookScenario> Scena
             return null;
         }
 
-        if (!scenario.Page.Labels.Contains(label, StringComparer.Ordinal))
+        var labels = journeys.SelectMany(journey => journey.Journey.Labels).Distinct(StringComparer.Ordinal).ToList();
+        if (journeys.FirstOrDefault(journey => journey.Journey.Labels.Contains(label, StringComparer.Ordinal)) is not { } scenario)
         {
-            return new DevbookScenarioShotResolution(DevbookScenarioShotKind.UnknownLabel, stem, label, scenario, scenario.Page.Labels);
+            return new DevbookScenarioShotResolution(DevbookScenarioShotKind.UnknownLabel, file, label, journeys[0], labels);
         }
 
         return new DevbookScenarioShotResolution(
             scenario.ShotFile(label) is null ? DevbookScenarioShotKind.NotCaptured : DevbookScenarioShotKind.Shown,
-            stem,
+            file,
             label,
             scenario,
-            scenario.Page.Labels);
+            labels);
     }
 }
 
@@ -414,15 +422,16 @@ public enum DevbookScenarioShotKind
     Shown,
     NotCaptured,
     UnknownLabel,
-    UnknownPage,
-    AmbiguousStem
+    UnknownPage
 }
 
-/// <param name="Alternatives">The labels the page has, for an unknown label; the
-/// pages sharing the stem, for an ambiguous one.</param>
+/// <param name="File">The scenarios file the target named, inside the domain folder.</param>
+/// <param name="Scenario">The journey the label sits in; for an unknown label, the
+/// file's first journey.</param>
+/// <param name="Alternatives">The labels the scenarios file has.</param>
 public sealed record DevbookScenarioShotResolution(
     DevbookScenarioShotKind Kind,
-    string Stem,
+    string File,
     string Label,
     DevbookScenario? Scenario,
     IReadOnlyList<string> Alternatives)

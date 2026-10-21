@@ -4,18 +4,19 @@ using System.Text;
 namespace Backlog.Infrastructure.Devbook.Scenarios;
 
 /// <summary>
-/// The scenario page signature: what a derived spec records in its header and a run
-/// in <c>run.json</c>, so a reader can tell a run that proves today's page from one
-/// that proves an older text.
+/// The journey signature: what a derived spec records in its header and a run in
+/// <c>run.json</c>, so a reader can tell a run that proves today's journey from one
+/// that proves an older text. A journey is one <c>##</c> in a scenarios file, and the
+/// text is built from that journey alone.
 /// <para>
 /// A port of devbook's <c>signature.mjs</c>. The canonical text, one line each, joined
 /// by <c>\n</c> with no trailing newline: <c>start</c>, <c>actor</c>, <c>data</c>
 /// (each <c>name@hash</c>) when set; <c>profile</c> always (absent reads as
 /// <c>default</c>); <c>flags</c>, <c>settings</c> when set; a <c>shot</c> line per
-/// screenshot point above the first part; then per part a <c>part</c> line and, in
-/// document order, a <c>step</c> line per step and a <c>shot</c> line per point.
-/// sha256 over that text in UTF-8, first 8 hex. Captions, the lead and prose do not
-/// count. <c>scenario-page.vector.json</c> is the shared vector every implementation
+/// screenshot point above the journey's first part; then per <c>###</c> part a
+/// <c>part</c> line and, in document order, a <c>step</c> line per step and a
+/// <c>shot</c> line per point. sha256 over that text in UTF-8, first 8 hex. Captions,
+/// the journey's heading and lead, and prose do not count. <c>scenario-page.vector.json</c> is the shared vector every implementation
 /// — devbook's, spec-manager's and this one — is tested against.
 /// </para>
 /// </summary>
@@ -24,10 +25,11 @@ public static class ScenarioSignature
     /// <summary>What a data set hashes to when its folder does not exist.</summary>
     public const string MissingData = "missing";
 
-    public static string CanonicalText(ScenarioPage page, Func<string, string>? dataHash = null)
+    public static string CanonicalText(ScenarioJourney journey, Func<string, string>? dataHash = null)
     {
+        ArgumentNullException.ThrowIfNull(journey);
         dataHash ??= static _ => MissingData;
-        var setup = page.Setup;
+        var setup = journey.Setup;
         var lines = new List<string>();
 
         void List(string key, IReadOnlyList<string> values)
@@ -42,8 +44,8 @@ public static class ScenarioSignature
         List("flags", setup.Flags);
         List("settings", setup.Settings);
 
-        foreach (var shot in page.Shots.Where(shot => shot.Part is null)) lines.Add($"shot: {shot.Label}");
-        foreach (var part in page.Parts)
+        foreach (var shot in journey.Shots.Where(shot => shot.Part is null)) lines.Add($"shot: {shot.Label}");
+        foreach (var part in journey.Parts)
         {
             lines.Add($"part: {ScenarioPageParser.Collapse(part.Title)}");
             var entries = part.Steps
@@ -60,9 +62,9 @@ public static class ScenarioSignature
     public static string ShortHash(string text) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)))[..8];
 
-    /// <summary>A parsed page's signature.</summary>
-    public static string Of(ScenarioPage page, Func<string, string>? dataHash = null) =>
-        ShortHash(CanonicalText(page, dataHash));
+    /// <summary>A parsed journey's signature.</summary>
+    public static string Of(ScenarioJourney journey, Func<string, string>? dataHash = null) =>
+        ShortHash(CanonicalText(journey, dataHash));
 
     /// <summary>
     /// A data set's content hash: for each file in ordinal POSIX path order, the path, a
@@ -99,20 +101,21 @@ public static class ScenarioSignature
         return HashFiles(files);
     }
 
-    /// <summary>A page's signature with its data sets hashed from
+    /// <summary>A journey's signature with its data sets hashed from
     /// <c>&lt;repositoryRoot&gt;/&lt;scenarioFolder&gt;/data/&lt;name&gt;/</c>.</summary>
-    public static string OfPage(ScenarioPage page, string repositoryRoot, string scenarioFolder)
+    public static string OfJourney(ScenarioJourney journey, string repositoryRoot, string scenarioFolder)
     {
-        var hashes = page.Setup.Data
+        ArgumentNullException.ThrowIfNull(journey);
+        var hashes = journey.Setup.Data
             .Select(ScenarioPageParser.Collapse)
             .Distinct(StringComparer.Ordinal)
             .ToDictionary(name => name, name => IsDataSetName(name) ? HashDataSet(Path.Combine(repositoryRoot, scenarioFolder, "data", name)) : MissingData, StringComparer.Ordinal);
-        return Of(page, name => hashes.GetValueOrDefault(name, MissingData));
+        return Of(journey, name => hashes.GetValueOrDefault(name, MissingData));
     }
 
     /// <summary>
     /// Whether a <c>data</c> entry names a folder under <c>data/</c> and nothing else.
-    /// A page is text anybody can push, and an entry written <c>../..</c> or as a
+    /// A scenarios file is text anybody can push, and an entry written <c>../..</c> or as a
     /// rooted path would have the reader walk and load whatever folder it names; one
     /// that is not a plain name is hashed as missing instead — the run cannot have
     /// imported it either.

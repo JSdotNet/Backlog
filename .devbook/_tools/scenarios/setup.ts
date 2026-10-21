@@ -1,15 +1,15 @@
 // setup.ts — the scenario runner a derived spec imports.
 //
-//   // scenario: .devbook/domain/work/set-up-and-fill-the-backlog.md
+//   // scenario: .devbook/domain/work/scenarios.md#set-up-and-fill-the-backlog
 //   // signature: 9c41e2a0
-//   import { scenario, shot } from '../../.devbook/_tools/scenarios/setup';
+//   import { scenario, shot } from '../../../.devbook/_tools/scenarios/setup';
 //
 //   scenario('set-up-and-fill-the-backlog', ({ part }) => {
 //     part('Statuses are set up', async ({ page, step }) => { … await shot(page, 'statuses-set-up'); });
 //   });
 //
-// One serial group per page, one test per part. Before the first part it reads
-// the page, resolves the effective configuration, calls the repository's setup
+// One serial group per journey, one test per part. Before the first part it
+// reads the journey the spec header names, resolves the effective configuration, calls the repository's setup
 // hook — tenant, data sets, flags, settings, then sign-in per portal — and
 // opens `start`. It keeps one browser context per portal for the whole
 // journey, so moving between portals keeps each session. A part that fails
@@ -18,15 +18,15 @@
 // Options, set under `use` in the Playwright config:
 //   scenarioHook    the setup hook, from the repository root; default e2e/scenario-setup.ts
 //   scenarioFolder  where profiles.json and data/ live; default .devbook/scenarios
-// SCENARIO_PROFILE in the environment runs every page under that profile instead of its own.
+// SCENARIO_PROFILE in the environment runs every journey under that profile instead of its own.
 
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Browser, BrowserContext, BrowserContextOptions, Page } from '@playwright/test';
-import { dataFolder, listScenarioPages, normalizePath, parseSpecHeader, readProfiles, resolveInside, SCENARIO_FOLDER } from './parse.mjs';
+import { dataFolder, listJourneys, parseSpecHeader, readProfiles, resolveInside, SCENARIO_FOLDER, splitAddress } from './parse.mjs';
 import { playwrightTest } from './playwright.mjs';
-import { effectiveConfig, findRepoRoot, resolveEnv, runSetup } from './setup.mjs';
+import { effectiveConfig, findRepoRoot, resolveEnv, runSetup, specFile } from './setup.mjs';
 import { failureShot, shot } from './shot';
 
 export { shot };
@@ -65,9 +65,9 @@ function contextOptionsOf(use: Record<string, unknown>): BrowserContextOptions {
   return options as BrowserContextOptions;
 }
 
-/** Declare a scenario page's spec: `stem` is the page's file name without `.md`. */
-export function scenario(stem: string, body: (api: { part: Part }) => void): void {
-  test.describe.serial(stem, () => {
+/** Declare a journey's spec: `name` is the journey's anchor; the header's address finds it. */
+export function scenario(name: string, body: (api: { part: Part }) => void): void {
+  test.describe.serial(name, () => {
     const pages = new Map<string, Page>();
     const contexts: BrowserContext[] = [];
     let browser: Browser | undefined;
@@ -91,16 +91,15 @@ export function scenario(stem: string, body: (api: { part: Part }) => void): voi
       browser = shared;
       contextOptions = contextOptionsOf(info.project.use as Record<string, unknown>);
       const root = findRepoRoot(process.cwd());
-      // The page the spec header names; the stem only when the header names none.
-      const header = parseSpecHeader(await readFile(info.file, 'utf8'));
-      const pages = await listScenarioPages(root);
-      const page = header.page
-        ? pages.find((candidate) => candidate.path === normalizePath(header.page))
-        : pages.find((candidate) => candidate.stem === stem);
-      if (!page) throw new Error(`no scenario page ${header.page ? `at ${header.page}` : `has the stem "${stem}"`}`);
+      // The journey the spec header names, as `<scenarios file>#<journey>`.
+      const header = parseSpecHeader(await readFile(specFile(info), 'utf8'));
+      if (!header.page) throw new Error('the spec has no `// scenario: <scenarios file>#<journey>` header');
+      const { path: file, anchor } = splitAddress(header.page);
+      const journey = (await listJourneys(root)).find((candidate) => candidate.path === file && candidate.slug === anchor);
+      if (!journey) throw new Error(`no journey at ${header.page}`);
       const profiles = await readProfiles(root, scenarioFolder);
       if (!profiles.map) throw new Error(`${path.join(scenarioFolder, 'profiles.json')} ${profiles.error ?? 'does not exist'}`);
-      const config = effectiveConfig(page, profiles.map, { override: process.env.SCENARIO_PROFILE });
+      const config = effectiveConfig(journey, profiles.map, { override: process.env.SCENARIO_PROFILE });
       portals = config.portals;
 
       let hookPath: string;
@@ -135,7 +134,7 @@ export function scenario(stem: string, body: (api: { part: Part }) => void): voi
     body({
       part: (title, run) =>
         test(title, async () => {
-          if (!current) throw new Error(`scenario "${stem}" has no page open: its profile defines no portal`);
+          if (!current) throw new Error(`scenario "${name}" has no page open: its profile defines no portal`);
           await run({
             page: current,
             portal: async (name) => (current = await open(name)),

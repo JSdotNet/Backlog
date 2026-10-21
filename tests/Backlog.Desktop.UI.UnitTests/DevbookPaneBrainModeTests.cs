@@ -171,12 +171,13 @@ public sealed class DevbookPaneBrainModeTests
     }
 
     /// <summary>What a repository needs before its chrome has anything to draw: a
-    /// scenario page in its domain folder, and a sync verdict on every chapter.</summary>
+    /// scenarios file with a journey in its domain folder, and a sync verdict on every
+    /// chapter.</summary>
     private static void GiveTheRepositoryItsChrome(DevbookPaneBrainHarness harness)
     {
-        var page = Path.Combine(harness.Root, "clone", ".domain", "intake", "specs", "spec.md");
+        var page = Path.Combine(harness.Root, "clone", ".domain", "intake", "specs", "scenarios.md");
         Directory.CreateDirectory(Path.GetDirectoryName(page)!);
-        File.WriteAllText(page, "# Specs\n\n```meta\ntype: scenario\n```\n\n## Done\n- **Then** it is done\n");
+        File.WriteAllText(page, "# Specs\n\n## Done\n\n```meta\ntype: scenario\n```\n\n### Done\n- **Then** it is done\n");
 
         harness.Context.Services.AddSingleton<IDevbookSyncVerdicts>(new EveryChapterVerdict());
 

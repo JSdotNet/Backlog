@@ -80,16 +80,16 @@ const dump = (list) => JSON.stringify(list, null, 2);
 }
 
 {
-    // A scenario page is an additional page whose type is `scenario`, not its
-    // filename: the one file type a context page may carry beside its name.
+    // A journey is a `##` of a scenarios file, never a page of its own: an
+    // additional page typed `scenario` is the shape before contract 32.
     const e = errors(".devbook/domain/financieel/close-the-books.md", "scenario");
-    check(e.length === 0, "an additional page typed scenario is accepted", dump(e));
+    check(e.some((i) => i.message.includes("032-scenarios-md")), "an additional page typed scenario is an error naming the migration", dump(e));
 }
 
 {
-    // The freedom stays `.domain`'s: elsewhere the type is an error.
+    // Outside `.domain` the type is an error of its own.
     const e = errors(".devbook/design/close-the-books.md", "scenario");
-    check(e.some((i) => i.message.includes("lives only in .devbook/domain/")), "a scenario page outside .domain is an error", dump(e));
+    check(e.some((i) => i.message.includes("a scenarios file in .devbook/domain/")), "a journey type outside .domain is an error", dump(e));
 }
 
 {

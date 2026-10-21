@@ -1,5 +1,5 @@
-// setup.mjs — what runs before a scenario page's first part, without a
-// browser: the effective configuration (the profile, then the page's `flags`
+// setup.mjs — what runs before a journey's first part, without a
+// browser: the effective configuration (the profile, then the journey's `flags`
 // and `settings` on top) and the order the repository's setup hook is called
 // in. `setup.ts` binds it to Playwright; keeping the logic here keeps it
 // testable with plain `node --test`.
@@ -40,16 +40,16 @@ export function resolveEnv(value, env = process.env) {
 }
 
 /**
- * The effective configuration a page runs under.
+ * The effective configuration a journey runs under.
  *
- * The profile is `override`, else the page's `profile`, else `default`; it must
+ * The profile is `override`, else the journey's `profile`, else `default`; it must
  * exist in `profiles`. Its tenant, portals, flags, and settings come first; the
- * page's `flags` switch a flag on (`-` switches it off) and its `settings` set
+ * journey's `flags` switch a flag on (`-` switches it off) and its `settings` set
  * `<chapter>#<key>=<value>` on top. `start` and each `actor` name a portal, or
  * the profile's first one.
  */
-export function effectiveConfig(page, profiles, { override } = {}) {
-    const name = override || page.setup.profile || "default";
+export function effectiveConfig(journey, profiles, { override } = {}) {
+    const name = override || journey.setup.profile || "default";
     const profile = profiles?.[name];
     if (!profile || typeof profile !== "object") {
         throw new Error(`profile "${name}" is not defined — profiles: ${Object.keys(profiles ?? {}).join(", ") || "none"}`);
@@ -58,36 +58,36 @@ export function effectiveConfig(page, profiles, { override } = {}) {
     const defaultPortal = Object.keys(portals)[0] ?? null;
     const portalOf = (entry) => {
         const { portal, rest } = splitPortal(entry);
-        if (!portal && !defaultPortal) throw new Error(`${page.path} names "${entry}" without a portal, and profile "${name}" defines none`);
+        if (!portal && !defaultPortal) throw new Error(`${journey.id} names "${entry}" without a portal, and profile "${name}" defines none`);
         return { portal: portal ?? defaultPortal, rest };
     };
 
     const flags = { ...(profile.flags ?? {}) };
-    for (const entry of page.setup.flags) {
+    for (const entry of journey.setup.flags) {
         const off = entry.trim().startsWith("-");
         flags[keyOf(entry.trim().replace(/^-/, ""))] = !off;
     }
     const settings = { ...(profile.settings ?? {}) };
-    for (const entry of page.setup.settings) {
+    for (const entry of journey.setup.settings) {
         const at = entry.indexOf("=");
-        if (at <= 0) throw new Error(`setting "${entry}" on ${page.path} is not <chapter>=<value>`);
+        if (at <= 0) throw new Error(`setting "${entry}" on ${journey.id} is not <chapter>=<value>`);
         settings[keyOf(entry.slice(0, at))] = settingValue(entry.slice(at + 1));
     }
 
     let start = null;
-    if (page.setup.start) {
-        const { portal, rest } = portalOf(page.setup.start);
+    if (journey.setup.start) {
+        const { portal, rest } = portalOf(journey.setup.start);
         start = { portal, route: rest };
     }
     const actors = {};
-    for (const entry of page.setup.actor) {
+    for (const entry of journey.setup.actor) {
         const { portal, rest } = portalOf(entry);
-        if (portal in actors) throw new Error(`${page.path} names two actors on portal "${portal}"; each portal signs in one actor`);
+        if (portal in actors) throw new Error(`${journey.id} names two actors on portal "${portal}"; each portal signs in one actor`);
         actors[portal] = keyOf(rest);
     }
     for (const portal of [start?.portal, ...Object.keys(actors)]) {
         if (portal && !(portal in portals)) {
-            throw new Error(`${page.path} names portal "${portal}", which profile "${name}" does not define — portals: ${Object.keys(portals).join(", ") || "none"}`);
+            throw new Error(`${journey.id} names portal "${portal}", which profile "${name}" does not define — portals: ${Object.keys(portals).join(", ") || "none"}`);
         }
     }
 
@@ -98,7 +98,7 @@ export function effectiveConfig(page, profiles, { override } = {}) {
         defaultPortal,
         flags,
         settings,
-        data: [...page.setup.data],
+        data: [...journey.setup.data],
         start,
         actors,
     };
@@ -114,8 +114,8 @@ export function recordedConfig(config) {
  * data set, set each flag and setting, then sign in once per portal an actor
  * names. `open(portal)` returns the signed-in page for a portal — one browser
  * context each, kept for the whole journey. `dataFolder(name)` is where a data
- * set lives. A hook method the page needs and the hook lacks is an error; one
- * the page does not need may be absent.
+ * set lives. A hook method the journey needs and the hook lacks is an error; one
+ * the journey does not need may be absent.
  *
  * The parameter type is written out because a consumer's `tsc` reads this
  * file through `setup.ts`, and would otherwise infer `dataFolder` as `() => null`.
@@ -143,6 +143,16 @@ export async function runSetup({ hook, config, open, dataFolder = () => null, en
         const signIn = need("signIn", `actor "${actor}" on portal "${portal}" needs`);
         await signIn(await open(portal), portal, actor);
     }
+}
+
+/**
+ * The spec file a test or hook belongs to. Not `info.file`: that is where the
+ * test or hook is declared, which for a spec built by `scenario()` is setup.ts.
+ * The first entry of `titlePath` is the spec, relative to the project's testDir.
+ */
+export function specFile({ titlePath, project }) {
+    if (!titlePath?.[0]) throw new Error("the test has no title path to find its spec file by");
+    return path.resolve(project.testDir, titlePath[0]);
 }
 
 /** The repository root: the nearest folder from `start` upward that holds `.devbook/`. */

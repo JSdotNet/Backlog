@@ -43,8 +43,8 @@ already treat as an addressable unit:
   `technology-graph.md`, and `ai/` `adoption-map.md` are strategic/structural
   artifacts; their `##` sections do **not** carry per-chapter metadata blocks,
   and the check asks for none. Never demote such a section to a bold label.
-- A scenario page's `##` parts are the same: they carry no block and stay
-  addressable as `<page>.md#<part>`, per "[Scenario pages](#scenario-pages)".
+- A journey's `###` parts are the same: they carry no block and stay
+  addressable as `<scenarios file>#<part>`, per "[Journeys](#journeys)".
 
 ## Chapter metadata block format
 
@@ -193,7 +193,7 @@ move and does not index it. Derived `_meta/` folders are written beside the
 chapters they index, and the repository-wide rollup under `.devbook/_meta/`.
 
 A proposed change lives outside the parent, in `openspec/changes/<name>/`; its
-`proposal.md` and deltas are chapters too, indexed into the rollup alone. Their
+`proposal.md` and deltas are checked but are no part of the graph. Their
 shape is `devbook-changes.md`'s.
 
 ### Chapter and file references
@@ -213,6 +213,10 @@ way but without a heading slug: `<path>`, e.g.
 Use the `<path>#<heading-slug>` (chapter) or `<path>` (file) form as the
 entries in `related` and in any folder-specific relation field (`depends-on`).
 
+A reference runs from a change to the devbook, never the reverse: a devbook
+chapter's `related`, `depends-on`, or prose link into `openspec/changes/` is an
+error. A delta may name a chapter its own change adds, by the path it lands at.
+
 ### Fields
 
 - **status** (required in `tech/`, `ai/`; optional in `domain/`,
@@ -223,11 +227,14 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   written by *omitting the field*. A chapter states its status only while it is
   in transition (`draft`, `proposed`) or carries a standing warning
   (`deprecated`); once it settles, the line comes out. Writing `active`
-  explicitly is reported, so one state does not end up with two spellings.
+  explicitly is reported, so one state does not end up with two spellings. A
+  debt record under `arc42/tdr/` rests at `identified` instead, on its own
+  ladder, per `devbook-arc42.md`.
 
   | Folder | `status` | Absence means |
   |---|---|---|
   | `domain/`, `arc42/`, `design/` | optional | `active` — settled content |
+  | `arc42/tdr/` debt records | optional | `identified` — the debt's own ladder, per `devbook-arc42.md` |
   | `tech/`, `ai/` | **required** | nothing; the value is a *rating* on an adoption ladder, and an unrated technology is not the same as a `candidate` one |
 
   Spell the absence by leaving the field out, never as `status: null` — same
@@ -368,7 +375,7 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
 
   | Folder | Chapter values | File values |
   |---|---|---|
-  | `domain/` | `bounded-context`, `aggregate`, `entity`, `value-object`, `enum`, `shared-value-objects`, `shared-enums`, `ubiquitous-language`, `domain-service`, `domain-event`, `feature`, `sub-feature`, `requirements`, `requirement`, `invariants`, `invariant`, `feature-flag`, `setting`, `user`, `organisation`, `technical`, `term` | `context-map`, `context`, `domain`, `actors`, `features`, `skills`, `requirements`, `invariants`, `model`, `flow`, `dependencies`, `scenario`, or an additional page's own filename |
+  | `domain/` | `bounded-context`, `aggregate`, `entity`, `value-object`, `enum`, `shared-value-objects`, `shared-enums`, `ubiquitous-language`, `domain-service`, `domain-event`, `feature`, `sub-feature`, `requirements`, `requirement`, `invariants`, `invariant`, `scenario`, `feature-flag`, `setting`, `user`, `organisation`, `technical`, `term` | `context-map`, `context`, `domain`, `actors`, `features`, `skills`, `requirements`, `invariants`, `scenarios`, `model`, `flow`, `dependencies`, or an additional page's own filename |
   | `tech/` | `language`, `runtime`, `framework`, `library`, `package`, `tool`, `service`, `platform`, `protocol`, `format` | none |
   | `ai/` | `practice`, `agent`, `skill`, `plugin`, `mcp-server`, `hook`, `workflow`, `model`, `concept`, `guardrail` | `adoption-map`, `stage`, `concepts` |
   | `design/` | `requirement` | none |
@@ -434,7 +441,7 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   Entries are test identifiers, **not** `<path>#<heading-slug>` chapter
   references — like `roadmap` they stay node attributes and produce no graph
   edges. Available in every folder, at chapter and file level, except on a
-  scenario page, where it is refused: the page is the test. Omit the field
+  journey, where it is refused: the journey is the test. Omit the field
   entirely when nothing is linked. See
   "[Linking test cases](#linking-test-cases)" for the format, the level and
   runner vocabularies, and why this field exists where a code-path field
@@ -455,15 +462,16 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   - A **free** walkthrough carries its own `text` per step. A requirement names
     one per inline Given/When/Then scenario, beside its `tests`: the walkthrough
     shows the case, the test proves it, and its id is that scenario's slug.
-  - A **linked** walkthrough shares its journey with a scenario page part. It
-    keeps its own `id` and adds `part: "<page>.md#<part>"`, the link, and
-    `signature: "<8 hex>"`, the page signature its text was copied at. Each step
+  - A **linked** walkthrough shares its journey with a journey's part. It
+    keeps its own `id` and adds `part: "<scenarios file>#<part>"`, the link,
+    written from the demo's folder or as a repository path, and
+    `signature: "<8 hex>"`, the journey signature its text was copied at. Each step
     adds `step`, the 1-based index of the part step it shows — ascending, and
     a part step may be left out — and keeps
     `screen`, `anchor`, `role`, `flags`, and `text` — an embedded copy of that
     step's English text, so the demo plays with nothing fetched. Its screens'
     copy still follows `domain.md`'s language. A `signature` that is not the
-    page's current one makes it stale until its text is re-copied.
+    journey's current one makes it stale until its text is re-copied.
   - A requirement whose `#### Scenario:` is a `Proved by:` line gets its
     walkthroughs derived, the way its `e2e` test is: every walkthrough in any
     `*.demo.html` under `domain/` whose `part` names that part. A hand-written
@@ -473,7 +481,7 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   The shape is the authoring reference opening the demo template. Quote an
   address whose `flags` lists more than one key, since a comma otherwise ends
   the entry. Links run from Markdown to the demo; the one link out of a demo
-  is a linked walkthrough's `part`, which names the scenario page part it
+  is a linked walkthrough's `part`, which names the journey part it
   plays. Beyond it a demo names no chapter, and its own metadata script,
   `<script type="application/json" id="demo-meta">`, holds `question` — the one
   question it was prototyped to answer — and nothing else: no stage, status,
@@ -500,6 +508,23 @@ entries in `related` and in any folder-specific relation field (`depends-on`).
   Set only at the four levels in
   "[Sync direction](#sync-direction)", which also says how a unit resolves it.
   Omit it to inherit.
+- **c4** (optional, `arc42/`, `domain/`) — the C4 model elements this chapter or
+  file is about, as bare identifiers of `.devbook/arc42/workspace.dsl`:
+  `c4: [backlog.cloud.api]`. Each must name an element the workspace defines.
+  Like `tests`, the entries are not `<path>#<heading-slug>` references; each one
+  is an edge to an element, and an element's chapters, records, and code are
+  read back along those edges, never stored on it.
+- **c4-touches** (optional, `arc42/`, `domain/`) — the elements this chapter's
+  consequences name but its decision is not about, in the form of `c4`. An
+  element belongs in one of the two fields, never both.
+- **code** (optional, an `arc42/building-blocks/<slug>.md` file only) — the
+  repository-relative folders that hold the block's code:
+  `code: [plugins/devbook/tools/devbook-meta]`. Folders, never files. The block
+  names its element in `c4` beside it, per `devbook-arc42.md`.
+- **severity** (required on an `arc42/tdr/` debt record, and nowhere else) — `low`, `medium`, `high`, or
+  `critical`: what the debt costs while it stands. A record without it is reported as a
+  warning, never an error, so a debt set written before the field keeps validating until each is ranked. The record's `status` takes
+  the debt ladder there, per `devbook-arc42.md`.
 
 - **ext** (optional) — the extension namespace: state owned by a plugin layered
   on top of devbook, not by devbook itself. Keys are dotted and namespaced by
@@ -535,7 +560,9 @@ domain `bounded-context` chapters and on a domain `context.md`,
 `version`/`alternatives` on tech chapters, `stage` on ai chapters and never on an ai file) are
 documented in that folder's
 own instructions file, not here — this file only defines the fields common
-to every folder.
+to every folder. The C4 fields above are the exception: `c4` and `c4-touches`
+span two folders, and `code` and `severity` sit beside them so the model's
+fields are read in one place.
 
 A chapter that is estimated and carried by a roadmap item therefore reads:
 
@@ -610,12 +637,15 @@ capability is covered end to end, and a viewer can offer to run the thing.
 
 ### Why a test link and not a code link
 
-This schema deliberately has **no field linking a chapter to a source path** —
+This schema deliberately has **no field linking a chapter to a source file** —
 see "Counterpart resolution" in the devbook plugin's `assets/code-sync-protocol.md` — never
 materialized into a repository — shared by
 `capture-specs`, `apply-change`, and `verify-change`. A path in a metadata block rots on the first refactor
 and gives no signal when it does, so a chapter and its implementation are paired
-through naming instead.
+through naming instead. The one exception is a building block's `code`: a
+folder outlives the files in it, the block is already the chapter that
+documents its element's code, and a listed folder that no longer exists is
+reported as drift.
 
 A test link is admissible for exactly the reason a code link is not: **it is
 executable**. An entry that stops resolving fails a run, out loud, in the same CI
@@ -772,32 +802,37 @@ a config flag wraps that argv. The reference identifies the test; how this
 repository invokes its runners is a property of the repository, not of the
 chapter.
 
-## Scenario pages
+## Journeys
 
-A **scenario page** is one end-to-end journey written as a `domain/` page of its
-own, beside the chapter it demonstrates. Its `##` headings are the journey's
-**parts**, and its steps are list items under them. Keep two words apart in every
-rule: the page is the journey; a **scenario case** is a `#### Scenario:` under a
-requirement, which points at one part with `Proved by:` per `devbook-domain.md`.
+A **journey** is one end-to-end walk through the product, written as a `##`
+chapter typed `scenario` in its bounded context's scenarios file —
+`scenarios.md`, or a split `scenarios.<name>.md`. Its `###` headings are the
+journey's **parts**, and its steps are list items under them. Keep two words apart
+in every rule: the journey is the `scenario` chapter; a **scenario case** is a
+`#### Scenario:` under a requirement, which points at one part with `Proved by:`
+per `devbook-domain.md`. Because a journey is a chapter, any number of features and
+requirements point at it through `related`, and it points back.
 
 | Element | Convention | Checked |
 |---|---|---|
-| Recognition | File-level `type: scenario` in the block under `#`. A chapter-level `type: scenario` is an error. | Yes |
-| Location | Only in `.devbook/domain/`, inside a bounded context folder at any depth, beside the chapter it demonstrates. Anywhere in `arc42/`, `design/`, `tech/`, or `ai/` it is an error. Never in `.devbook/scenarios/`, which holds runs, profiles, and data sets and no page. | Yes |
-| Stem | The file name without `.md`, kebab-case, unique across every bounded context, per `devbook-naming.md`. It is the scenario's identity for every tool. | Yes, a duplicate is an error |
+| Recognition | `type: scenario` in the block under a `##` of a scenarios file. Every `##` there is a journey. The type on a file-level block, or on a chapter of any other file, is an error; `032-scenarios-md` folds the pages of contract 31 into `scenarios.md`. | Yes |
+| Location | `.devbook/domain/<context>/scenarios.md` or `scenarios.<name>.md`, in the context holding most of the requirements whose cases point at its parts, any of them on a tie. Another context is a warning; any other folder an error. `.devbook/scenarios/` holds profiles and data sets, never a journey. | Yes |
+| Address | `<scenarios file>#<journey>`, the journey's anchor in its file. It is the journey's identity for every tool; the same name in two files is two journeys. | Yes |
+| Anchors | Every journey and part heading is unique in its file, so `<scenarios file>#<anchor>` names one. | Yes, a repeat is an error |
 | Language | English only: headings, steps, captions, labels, and every keyword. | The keywords only |
-| Lead | One paragraph under the file-level block: who does what, and why it matters. | No |
-| Setup fields | `start`, `actor`, `data`, `profile`, `flags`, `settings` on the file-level block, per the table below. | Yes, the references resolve |
-| Parts | Each `##` is one part, titled as an outcome the actor reaches. A part carries no `meta` block and stays addressable as `<page>.md#<part>`. | Yes, the exemption |
+| Lead | One paragraph under the journey's block: who does what, and why it matters. | No |
+| Setup fields | `start`, `actor`, `data`, `profile`, `flags`, `settings` on the journey's block, per the table below. | Yes, the references resolve |
+| Parts | Each `###` under a journey is one part, titled as an outcome the actor reaches. A part, and any heading under it, carries no `meta` block; a part stays addressable as `<scenarios file>#<part>`. | Yes, the exemption |
 | Steps | List items opening with a bold **Given**, **When**, **Then**, or **And**. One action or one observable outcome per step, and no other keyword. | Yes, the keyword set |
-| Screenshot point | `![caption](shot:<label>)` between step lists, never inside one. The label is `[a-z0-9-]+`, unique in the page. | No: the tool that takes it checks it |
-| Reference elsewhere | `![caption](scenario:<stem>#<label>)` shows a screenshot on another page; `related: [<page>.md#<part>]` links a part. | The reference resolves |
-| Fields | `related`, `roadmap`, `issue`, `effort`, `date`, `change`, `aliases`, `status`, `ext.*`, and the six setup fields. `tests` is an error: the page is the test. | Yes |
+| Screenshot point | `![caption](shot:<label>)` between step lists, never inside one, and inside a journey. The label is `[a-z0-9-]+`, unique in the file. | No: the tool that takes it checks it |
+| Reference elsewhere | `![caption](scenario:<context>/<scenarios file>#<label>)` shows a screenshot on another page; `related: [<scenarios file>#<journey>]` links a journey and `#<part>` a part. | The reference resolves |
+| Fields | `related`, `roadmap`, `issue`, `effort`, `date`, `change`, `aliases`, `status`, `ext.*`, and the six setup fields. `tests` is an error: the journey is the test. | Yes |
 | Status | Optional. When present, `draft` or `proposed`; absent means the journey is in force. No decision rung: what proves a journey is its run. | Yes |
+| Runs | `<scenarios file without .md>/<journey>/`: `run.json` and one PNG per label, beside the file. | By the scenario tools |
 
 The setup fields say where the journey starts and in which configuration it runs.
-They are legal on a scenario page's file-level block and nowhere else. A reference
-is written from the page, from its bounded context, or from the repository root.
+They are legal on a journey's block and nowhere else. A reference is written from
+the scenarios file's folder — its bounded context — or from the repository root.
 
 | Field | Meaning | Resolves to |
 |---|---|---|
@@ -808,17 +843,26 @@ is written from the page, from its bounded context, or from the repository root.
 | `flags` | The feature flags switched on for this journey; a leading `-` switches one off. A switch modelled as a `setting` goes under `settings` as `=true` or `=false`. | A `feature-flag` chapter |
 | `settings` | The settings set for this journey, as `<path>#<slug>=<value>`. | A `setting` chapter |
 
-The effective configuration is the profile with the page's `flags` and `settings`
-on top. Put a flag or a setting on the page only when this journey depends on it;
-one that describes the environment belongs in the profile. Never write a secret or
-a URL as a value: the profile names an environment variable as `env:<NAME>`.
+The effective configuration is the profile with the journey's `flags` and
+`settings` on top. Put a flag or a setting on the journey only when it depends on
+it; one that describes the environment belongs in the profile. Never write a
+secret or a URL as a value: the profile names an environment variable as
+`env:<NAME>`.
 
 ```markdown
-# Set up and fill the backlog
+# Scenarios
+
+\`\`\`meta
+type: scenarios
+\`\`\`
+
+The end-to-end journeys of the work context.
+
+## Set up and fill the backlog
 
 \`\`\`meta
 type: scenario
-related: [features.md#backlog-board]
+related: [features.md#backlog-board, features.md#backlog-items]
 start: /products/webshop/backlog
 actor: actors.md#product-owner
 data: [webshop-without-statuses]
@@ -827,7 +871,7 @@ flags: [context.md#new-board]
 
 A product owner sets up the backlog of a new product, adds the first item and moves it on.
 
-## Statuses are set up
+### Statuses are set up
 
 - **Given** a product "Webshop" with no backlog statuses
 - **When** I create the statuses "New", "Doing" and "Done"

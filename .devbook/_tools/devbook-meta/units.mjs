@@ -18,6 +18,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { WORKSPACE } from "./c4-graph.mjs";
 import { buildGraph } from "./graph.mjs";
 import { DEFAULT_SYNC_DIRECTION, SYNC_DIRECTIONS, domainFileName, slugify, syncSources } from "./metadata.mjs";
 
@@ -168,11 +169,19 @@ export function collectUnits(graph) {
         return null;
     };
 
-    // 2. A building block holds every chapter of its file and its row in the
-    // building block view; a design component every chapter under it.
+    // 2. A building block holds every chapter of its file, its row in the
+    // building block view, and — where arc42 has one — the workspace with the
+    // files it includes, per "The workspace is part of the kind" in
+    // spec-kinds/building-block.md; a design component every chapter under it.
+    const workspaceFiles = new Set();
+    for (const node of nodes.values()) {
+        if (node.folder === "arc42" && (node.type === "element" || node.type === "view") && node.path) workspaceFiles.add(node.path);
+    }
+    if (workspaceFiles.size) workspaceFiles.add(WORKSPACE);
     for (const unit of units.values()) {
         if (unit.kind === "building-block") {
             unit.files.add(".devbook/arc42/05-building-block-view.md");
+            for (const file of workspaceFiles) unit.files.add(file);
             for (const node of nodes.values()) {
                 if (node.type === "chapter" && node.path === unit.root) assign(node.id, unit.id);
             }

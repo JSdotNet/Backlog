@@ -6,8 +6,8 @@ namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// One <see cref="DevbookScenarioImages"/> per repository, for a host that draws
-/// <c>scenario:&lt;stem&gt;#&lt;label&gt;</c> images outside the Devbook pane — the shell,
-/// answering the Tasks pane, which may not reach the scenario pages itself.
+/// <c>scenario:&lt;scenarios file&gt;#&lt;label&gt;</c> images outside the Devbook pane — the
+/// shell, answering the Tasks pane, which may not reach the scenarios files itself.
 /// <para>
 /// <see cref="For"/> answers at once with the repository's source and fills its
 /// catalog from <see cref="DevbookScenarioStore"/> behind it, so a render never waits

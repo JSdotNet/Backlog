@@ -18,48 +18,7 @@ The desktop's canonical store is one SQLite database, `backlog.db` (local ADR 00
 a task's content is markdown text held in it. The cloud keeps the replica in Cosmos DB
 (local ADR 0005) and attachments in a Blob container beside it (local ADR 0014).
 
-```mermaid
-C4Container
-    title Container Diagram — Backlog
-
-    Person(user, "ME", "Personal owner of the system")
-
-    System_Boundary(b0, "Backlog") {
-        Container(desktop, "Desktop App", ".NET MAUI Blazor Hybrid, SQLite", "Local-first Windows client — runs all fetch workers and manages all domains")
-        Container(mobile, "Mobile App", ".NET MAUI / Blazor Hybrid, SQLite", "Capture-first mobile client with offline storage")
-        Container(ide, "IDE Extensions", "TypeScript", "VS Code extension; agent sessions use the desktop's MCP server")
-        Container(cloud, "Cloud Service", ".NET / ASP.NET Core", "Thin optional sync layer: device sync, webhook forwarding, push, PC registry")
-        ContainerDb(localStore, "Local Storage", "SQLite (backlog.db)", "Desktop canonical data store — tasks, inbox and roadmap plans; task content is markdown text in the database")
-        ContainerDb(cloudDb, "Cloud Database", "Cosmos DB", "Task, session and annotation replicas; device registry")
-        ContainerDb(attachments, "Attachments", "Azure Blob Storage, container attachments", "Capture attachments, owner-scoped, beside the replica")
-    }
-
-    System_Ext(github, "GitHub", "Issues and webhooks")
-    System_Ext(pushProvider, "Push Provider", "FCM")
-    System_Ext(externalSources, "External Sources", "YouTube, Email, Websites / RSS")
-    System_Ext(azureFoundry, "Azure AI Foundry", "Chat, embeddings and plan drafting; resource cost")
-    System_Ext(claude, "Claude", "Usage and cost reporting")
-
-    Rel(user, desktop, "Uses — capture, backlog, knowledge, monitoring", "local")
-    Rel(user, mobile, "Captures on mobile", "touch / voice")
-    Rel(user, ide, "Browses backlog and knowledge; captures from IDE and Copilot sessions", "IDE commands / session prompts")
-
-    Rel(desktop, localStore, "Reads and writes", "SQLite")
-    Rel(desktop, github, "Syncs issues", "HTTPS / gh CLI")
-    Rel(desktop, externalSources, "Polls for new content", "HTTPS / IMAP")
-    Rel(desktop, cloud, "Pushes state snapshots", "HTTPS, optional")
-    Rel(desktop, azureFoundry, "Drafts plans and reads cost", "HTTPS, optional")
-    Rel(desktop, claude, "Reads usage", "HTTPS, optional")
-
-    Rel(mobile, cloud, "Syncs items and pulls state", "HTTPS")
-    Rel(ide, cloud, "Reads and posts inbox items as a paired device", "HTTPS /api/sync/inbox, Bearer")
-
-    Rel(cloud, cloudDb, "Reads and writes sync state", "")
-    Rel(cloud, attachments, "Stores and serves attachments", "Blob SDK")
-    Rel(cloud, pushProvider, "Sends notifications", "HTTPS")
-    Rel(cloud, github, "Receives webhooks", "HTTPS")
-    Rel(cloud, desktop, "Forwards webhook events", "SSE / WebSocket, optional")
-```
+![Container Diagram — Backlog](c4:container-view)
 
 ### System-level flow
 

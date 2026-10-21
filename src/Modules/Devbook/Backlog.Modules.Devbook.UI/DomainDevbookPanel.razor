@@ -1267,17 +1267,18 @@
                state, a failed write, the Copilot launch, and the linked knowledge
                issue. *@
             <Alert Message="@_chapterSaveError" TestId="domain-chapter-save-error" Role="status" />
-            @* A scenario page's run, above the page it proves: the setup it ran
-               under, how each part went, and the screenshots each part took. The
-               body below stays the page as written. *@
-            @if (_scenarios.ForPath(document.Path) is { } scenario)
+            @* A scenarios file's runs, above the file they prove: for each journey,
+               the setup it ran under, how each part went, and the screenshots each
+               part took. The body below stays the file as written. *@
+            @foreach (var scenario in _scenarios.ForPath(document.Path))
             {
-                <DevbookScenarioPage Scenario="@scenario"
+                <DevbookScenarioPage @key="scenario.Journey.Address"
+                                     Scenario="@scenario"
                                      Images="@_scenarioImages"
                                      Store="@_scenarioStore"
                                      Focus="@Focus" />
             }
-            @* Every `scenario:` image in the chapter, and a scenario page's own
+            @* Every `scenario:` image in the chapter, and a scenarios file's own
                `shot:` points, resolve through this. *@
             <CascadingValue TValue="IDevbookImageSource" Value="@_scenarioImages" IsFixed="true">
             <CascadingValue Value="@_syncScope" IsFixed="false">
@@ -1319,7 +1320,7 @@
                `.domain` carries no C4 model of its own — Structurizr cannot say
                aggregate root, value object or `0..*`, so there is nothing here for it
                to describe. What it can have is the way across: a view under
-               `.devbook/arc42/_c4/` that says it documents this chapter is offered here, and
+               `.devbook/arc42/workspace.dsl` that says it documents this chapter is offered here, and
                following it hands the pane an arc42 target with that view named, the
                same as any other cross-section reference. *@
             @if (C4ViewsDocumenting(document) is { Count: > 0 } c4Views)

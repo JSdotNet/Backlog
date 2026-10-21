@@ -120,9 +120,30 @@ internal sealed record DevbookBuildLayout(
     public string? ConventionFolderForPath(string relativePath) =>
         IsBrain ? null : FolderKindForPath(relativePath);
 
-    /// <summary>The status a folder's chapters rest at and so omit.</summary>
-    public static string? RestingStatusFor(string? folder) =>
-        folder is "domain" or "arc42" or "design" ? "active" : null;
+    /// <summary>The status a folder's chapters rest at and so omit — or, for a debt
+    /// record's top-level block, <c>identified</c>, where its own ladder rests
+    /// (contract 33).</summary>
+    public static string? RestingStatusFor(string? folder, bool debtRecord = false) =>
+        debtRecord ? "identified"
+        : folder is "domain" or "arc42" or "design" ? "active"
+        : null;
+
+    /// <summary>
+    /// Whether a file's top-level block is a debt record's: a file under
+    /// <c>.devbook/arc42/tdr/</c> other than the folder's index (metadata.mjs
+    /// <c>isDebtRecord</c>). The generator knows the devbook layout's path alone, so
+    /// a root layout's <c>.arc42/tdr/</c> keeps the folder's ladder.
+    /// </summary>
+    public static bool IsDebtRecord(DevbookBuildLayout layout, string relativePath, IReadOnlyDictionary<string, object?>? fileMeta)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        if (!layout.IsDevbookLayout || layout.IsBrain) return false;
+
+        var normalized = relativePath.Replace('\\', '/');
+        return normalized.StartsWith(DevbookFolderSetting.DevbookRoot + "/arc42/tdr/", StringComparison.Ordinal)
+            && normalized.EndsWith(".md", StringComparison.Ordinal)
+            && !(fileMeta?.GetValueOrDefault("index") is string index && index == "root");
+    }
 
     /// <summary>
     /// The chapter's <c>type</c>, falling back to <c>kind</c> in <c>tech</c>, where

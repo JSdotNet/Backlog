@@ -96,18 +96,6 @@
       "checksPassed": 9,
       "checkCount": 9
     },
-    "594761d7112f805b6b0d65fe6311257da7b40900272f95a7d78286904ba4df20": {
-      "chapter": "03-context-and-scope.md",
-      "ordinal": 1,
-      "type": "architecture",
-      "quality": "showcase",
-      "kind": "c4context",
-      "spec": "03-context-and-scope.1.architecture.json",
-      "specSha256": "06c4dcf6d336cd7d1013df9fb8c6c9ac650b211514ac410d589724f7fe16fe9c",
-      "artifact": "03-context-and-scope.1.architecture.html",
-      "checksPassed": 9,
-      "checkCount": 9
-    },
     "5f6722885c17c26f454d2f0ab46deef7a7a7a958558e59e65c6707cc2c97cbb7": {
       "chapter": "06-runtime-view.md",
       "ordinal": 12,

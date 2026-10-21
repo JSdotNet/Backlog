@@ -1,8 +1,8 @@
 // The coverage check: one clean repository, then each check on its own — a
-// page without a spec, a spec without a page, a signature mismatch, label
-// drift both ways, an image inside a step list, a bad label, a duplicate stem,
-// a dangling scenario: reference, and an unknown profile — plus the CLI's exit
-// codes.
+// journey without a spec, a spec without a journey, a signature mismatch, label
+// drift both ways, an image inside a step list, a bad label, a repeated anchor,
+// a shot outside a journey, a dangling scenario: reference, an unknown profile,
+// and a page of the old shape — plus the CLI's exit codes.
 //
 // Run: `node --test check.test.mjs`
 import { test } from "node:test";
@@ -13,20 +13,27 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { coverage } from "./check.mjs";
-import { parseScenarioPage } from "./parse.mjs";
+import { parseScenariosFile } from "./parse.mjs";
 import { signatureOf } from "./signature.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const F = "```";
-const PAGE_PATH = ".devbook/domain/work/move-an-item.md";
-const PAGE = `# Move an item
+const FILE = ".devbook/domain/work/scenarios.md";
+const ADDRESS = `${FILE}#move-an-item`;
+const SCENARIOS = `# Scenarios
+
+${F}meta
+type: scenarios
+${F}
+
+## Move an item
 
 ${F}meta
 type: scenario
 start: /board
 ${F}
 
-## The item is moved
+### The item is moved
 - **When** I drag it to "Doing"
 - **Then** it shows in "Doing"
 
@@ -38,19 +45,20 @@ ${F}meta
 type: features
 ${F}
 
-![After](scenario:move-an-item#after-drag)
+![After](scenario:work/scenarios.md#after-drag)
 `;
-const signature = signatureOf(parseScenarioPage(PAGE, PAGE_PATH));
-const spec = (sig = signature, labels = ["after-drag"], page = PAGE_PATH) =>
-    [`// scenario: ${page}`, `// signature: ${sig}`, "scenario('move-an-item', ({ part }) => {", "  part('The item is moved', async ({ page }) => {", ...labels.map((label) => `    await shot(page, '${label}');`), "  });", "});", ""].join("\n");
+const signOf = (markdown) => signatureOf(parseScenariosFile(markdown, FILE).journeys[0]);
+const signature = signOf(SCENARIOS);
+const spec = (sig = signature, labels = ["after-drag"], address = ADDRESS) =>
+    [`// scenario: ${address}`, `// signature: ${sig}`, "scenario('move-an-item', ({ part }) => {", "  part('The item is moved', async ({ page }) => {", ...labels.map((label) => `    await shot(page, '${label}');`), "  });", "});", ""].join("\n");
 
 async function repo(files) {
     const root = await mkdtemp(path.join(tmpdir(), "scenarios-check-"));
     const all = {
-        [PAGE_PATH]: PAGE,
+        [FILE]: SCENARIOS,
         ".devbook/domain/work/features.md": FEATURES,
         ".devbook/scenarios/profiles.json": JSON.stringify({ default: { portals: { app: "env:APP_URL" } } }),
-        "e2e/tests/move-an-item.spec.ts": spec(),
+        "e2e/tests/work/scenarios/move-an-item.spec.ts": spec(),
         ...files,
     };
     for (const [rel, content] of Object.entries(all)) {
@@ -70,56 +78,57 @@ async function findings(files, options = {}) {
     }
 }
 
-test("a repository whose specs match its pages has no findings", async () => {
+const SPEC = "e2e/tests/work/scenarios/move-an-item.spec.ts";
+
+test("a repository whose specs match its journeys has no findings", async () => {
     assert.deepEqual(await findings({}), []);
 });
 
-test("page-without-spec", async () => {
-    assert.deepEqual(await findings({ "e2e/tests/move-an-item.spec.ts": null }), [["page-without-spec", PAGE_PATH]]);
+test("journey-without-spec", async () => {
+    assert.deepEqual(await findings({ [SPEC]: null }), [["journey-without-spec", `${FILE}:7`]]);
 });
 
-test("spec-without-page", async () => {
-    const gone = ".devbook/domain/work/gone.md";
-    assert.deepEqual(await findings({ "e2e/tests/gone.spec.ts": spec(signature, [], gone) }), [["spec-without-page", "e2e/tests/gone.spec.ts"]]);
+test("spec-without-journey, for an address that names no journey and for a bare file", async () => {
+    assert.deepEqual(await findings({ "e2e/tests/gone.spec.ts": spec(signature, [], `${FILE}#gone`) }), [["spec-without-journey", "e2e/tests/gone.spec.ts"]]);
+    assert.deepEqual(await findings({ "e2e/tests/bare.spec.ts": spec(signature, [], FILE) }), [["spec-without-journey", "e2e/tests/bare.spec.ts"]]);
 });
 
-test("signature-mismatch, for a changed page and for a missing signature line", async () => {
-    assert.deepEqual(await findings({ "e2e/tests/move-an-item.spec.ts": spec("00000000") }), [["signature-mismatch", "e2e/tests/move-an-item.spec.ts"]]);
-    assert.deepEqual(await findings({ [PAGE_PATH]: PAGE.replace("I drag it", "I move it") }), [["signature-mismatch", "e2e/tests/move-an-item.spec.ts"]]);
-    assert.deepEqual(await findings({ "e2e/tests/move-an-item.spec.ts": spec().replace(/^\/\/ signature:.*\n/m, "") }), [["signature-mismatch", "e2e/tests/move-an-item.spec.ts"]]);
+test("signature-mismatch, for a changed journey and for a missing signature line", async () => {
+    assert.deepEqual(await findings({ [SPEC]: spec("00000000") }), [["signature-mismatch", SPEC]]);
+    assert.deepEqual(await findings({ [FILE]: SCENARIOS.replace("I drag it", "I move it") }), [["signature-mismatch", SPEC]]);
+    assert.deepEqual(await findings({ [SPEC]: spec().replace(/^\/\/ signature:.*\n/m, "") }), [["signature-mismatch", SPEC]]);
 });
 
-test("label-drift, a label the spec never captures and one the page does not have", async () => {
-    assert.deepEqual(await findings({ "e2e/tests/move-an-item.spec.ts": spec(signature, ["before-drag"]) }), [
-        ["label-drift", "e2e/tests/move-an-item.spec.ts"],
-        ["label-drift", "e2e/tests/move-an-item.spec.ts"],
+test("label-drift, a label the spec never captures and one the journey does not have", async () => {
+    assert.deepEqual(await findings({ [SPEC]: spec(signature, ["before-drag"]) }), [
+        ["label-drift", SPEC],
+        ["label-drift", SPEC],
     ]);
 });
 
 test("image-in-steps", async () => {
-    const page = PAGE.replace('"Doing"\n\n![After', '"Doing"\n![After');
-    const sig = signatureOf(parseScenarioPage(page, PAGE_PATH));
-    assert.deepEqual(await findings({ [PAGE_PATH]: page, "e2e/tests/move-an-item.spec.ts": spec(sig) }), [["image-in-steps", `${PAGE_PATH}:11`]]);
+    const file = SCENARIOS.replace('"Doing"\n\n![After', '"Doing"\n![After');
+    assert.deepEqual(await findings({ [FILE]: file, [SPEC]: spec(signOf(file)) }), [["image-in-steps", `${FILE}:17`]]);
 });
 
 test("bad-label", async () => {
-    const page = PAGE.replace("shot:after-drag", "shot:After_Drag");
-    const sig = signatureOf(parseScenarioPage(page, PAGE_PATH));
-    const result = await findings({ [PAGE_PATH]: page, "e2e/tests/move-an-item.spec.ts": spec(sig, ["After_Drag"]), ".devbook/domain/work/features.md": null });
-    assert.deepEqual(result, [["bad-label", `${PAGE_PATH}:12`]]);
+    const file = SCENARIOS.replace("shot:after-drag", "shot:After_Drag");
+    const result = await findings({ [FILE]: file, [SPEC]: spec(signOf(file), ["After_Drag"]), ".devbook/domain/work/features.md": null });
+    assert.deepEqual(result, [["bad-label", `${FILE}:18`]]);
 });
 
-test("duplicate-stem", async () => {
-    const result = await findings({ ".devbook/domain/shop/move-an-item.md": PAGE });
+test("duplicate-anchor and shot-outside-journey", async () => {
+    const file = SCENARIOS.replace("## Move an item", "![Early](shot:early)\n\n## Move an item") + "\n### Move an item\n- **When** again\n";
+    const result = await findings({ [FILE]: file, [SPEC]: spec(signOf(file)) });
     assert.deepEqual(result, [
-        ["duplicate-stem", PAGE_PATH],
-        ["page-without-spec", ".devbook/domain/shop/move-an-item.md"],
+        ["duplicate-anchor", `${FILE}:22`],
+        ["shot-outside-journey", `${FILE}:7`],
     ]);
 });
 
-test("dangling-reference, to a stem and to a label", async () => {
+test("dangling-reference, to a file and to a label", async () => {
     const result = await findings({
-        ".devbook/domain/work/features.md": FEATURES + "\n![x](scenario:no-such-page#a)\n\n![y](scenario:move-an-item#no-such-label)\n\n`![z](scenario:quoted#x)`\n",
+        ".devbook/domain/work/features.md": FEATURES + "\n![x](scenario:work/nowhere.md#a)\n\n![y](scenario:.devbook/domain/work/scenarios.md#no-such-label)\n\n`![z](scenario:quoted#x)`\n",
     });
     assert.deepEqual(result, [
         ["dangling-reference", ".devbook/domain/work/features.md:9"],
@@ -127,15 +136,19 @@ test("dangling-reference, to a stem and to a label", async () => {
     ]);
 });
 
-test("unknown-profile, named on the page or with no profile file", async () => {
-    const page = PAGE.replace("start: /board", "start: /board\nprofile: tenant-acme");
-    const sig = signatureOf(parseScenarioPage(page, PAGE_PATH));
-    assert.deepEqual(await findings({ [PAGE_PATH]: page, "e2e/tests/move-an-item.spec.ts": spec(sig) }), [["unknown-profile", PAGE_PATH]]);
-    assert.deepEqual(await findings({ ".devbook/scenarios/profiles.json": null }), [["unknown-profile", PAGE_PATH]]);
+test("unknown-profile, named on the journey or with no profile file", async () => {
+    const file = SCENARIOS.replace("start: /board", "start: /board\nprofile: tenant-acme");
+    assert.deepEqual(await findings({ [FILE]: file, [SPEC]: spec(signOf(file)) }), [["unknown-profile", ADDRESS]]);
+    assert.deepEqual(await findings({ ".devbook/scenarios/profiles.json": null }), [["unknown-profile", ADDRESS]]);
+});
+
+test("legacy-page, a whole file typed scenario", async () => {
+    const old = `# Move an item\n\n${F}meta\ntype: scenario\n${F}\n\n## The item is moved\n- **When** I drag it\n`;
+    assert.deepEqual(await findings({ ".devbook/domain/work/journeys/old.md": old }), [["legacy-page", ".devbook/domain/work/journeys/old.md"]]);
 });
 
 test("--specs limits where specs are looked for", async () => {
-    assert.deepEqual(await findings({}, { specRoots: ["elsewhere"] }), [["page-without-spec", PAGE_PATH]]);
+    assert.deepEqual(await findings({}, { specRoots: ["elsewhere"] }), [["journey-without-spec", `${FILE}:7`]]);
 });
 
 test("the CLI exits 0 when clean and 1 with findings", async () => {
@@ -143,7 +156,7 @@ test("the CLI exits 0 when clean and 1 with findings", async () => {
     try {
         const clean = spawnSync(process.execPath, [path.join(here, "check.mjs"), "--root", root], { encoding: "utf8" });
         assert.equal(clean.status, 0, clean.stderr);
-        await writeFile(path.join(root, "e2e/tests/move-an-item.spec.ts"), spec("00000000"));
+        await writeFile(path.join(root, SPEC), spec("00000000"));
         const drift = spawnSync(process.execPath, [path.join(here, "check.mjs"), "--root", root, "--json"], { encoding: "utf8" });
         assert.equal(drift.status, 1);
         assert.equal(JSON.parse(drift.stdout).findings[0].check, "signature-mismatch");
@@ -157,7 +170,7 @@ test("a spec folder or a scenario folder outside the repository is never read", 
     const root = await repo({});
     try {
         const result = await coverage({ repoRoot: root, specRoots: [".."], scenarioFolder: "../elsewhere" });
-        assert.deepEqual(result.map((finding) => finding.check), ["page-without-spec", "unknown-profile"]);
+        assert.deepEqual(result.map((finding) => finding.check), ["journey-without-spec", "unknown-profile"]);
         assert.match(result[1].what, /\.\.\/elsewhere\/profiles\.json resolves outside the repository/);
     } finally {
         await rm(root, { recursive: true, force: true });

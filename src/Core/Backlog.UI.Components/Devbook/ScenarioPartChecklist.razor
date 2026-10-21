@@ -1,6 +1,6 @@
 @*
     Scenario parts as a checklist: one row per part with the four-state dot, the
-    part, and under it a quiet line naming the page by its stem and when it last ran — and,
+    part, and under it a quiet line naming its journey by its anchor and when it last ran — and,
     for a failed part, the step it stopped on — under a count of how many pass.
     What a task shows as its acceptance evidence, and what a delivery run shows
     against the verify stage that ran them.
@@ -100,10 +100,10 @@
     }
 
     /// <summary>
-    /// A row's quiet line: the page's stem, when the part last ran — "Never run"
+    /// A row's quiet line: the journey's anchor, when the part last ran — "Never run"
     /// when it never has — and " · step N" for a failed part whose run recorded the
-    /// step. Only a failed part carries a step: a stale run's step numbers a page
-    /// that has changed since, so it names nothing on the page as it stands.
+    /// step. Only a failed part carries a step: a stale run's step numbers a journey
+    /// that has changed since, so it names nothing in the journey as it stands.
     /// </summary>
     public static string LineOf(ScenarioChecklistPart part)
     {

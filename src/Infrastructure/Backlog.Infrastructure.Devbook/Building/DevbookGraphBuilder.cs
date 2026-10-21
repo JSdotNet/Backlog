@@ -41,6 +41,7 @@ internal static partial class DevbookGraphBuilder
         var byId = new Dictionary<string, DevbookGraphNode>(StringComparer.Ordinal);
         var edges = new List<DevbookGraphEdge>();
         var headingIndex = new Dictionary<string, (DevbookGraphNode Node, string Parent)>(StringComparer.Ordinal);
+        var documents = new List<DevbookC4Graph.Document>();
 
         void Add(DevbookGraphNode node)
         {
@@ -60,6 +61,8 @@ internal static partial class DevbookGraphBuilder
                 var markdown = DevbookBuildFiles.ReadHydratedText(repositoryRoot, relativePath);
                 var document = markdown is null ? new DevbookParsedDocument(null, null, []) : DevbookMarkdown.Parse(markdown);
 
+                if (markdown is not null) documents.Add(new DevbookC4Graph.Document(relativePath, markdown, document.Chapters));
+
                 var fileMeta = document.Chapters.FirstOrDefault(chapter => chapter.Level == 1)?.Meta;
                 var fileNode = new DevbookGraphNode(relativePath, "file")
                 {
@@ -67,7 +70,7 @@ internal static partial class DevbookGraphBuilder
                     Folder = folderKind,
                     Path = relativePath
                 };
-                ApplyMeta(fileNode, fileMeta, conventionFolder);
+                ApplyMeta(fileNode, fileMeta, conventionFolder, DevbookBuildLayout.IsDebtRecord(layout, relativePath, fileMeta));
                 if (layout.IsBrain) ApplyBrainFields(fileNode, fileMeta, folderKind);
                 Add(fileNode);
 
@@ -175,15 +178,22 @@ internal static partial class DevbookGraphBuilder
             }
         }
 
+        // The C4 model last, against every node the chapters made (contract 33).
+        var (c4Nodes, c4Edges) = DevbookC4Graph.Build(repositoryRoot, layout, documents, [.. nodes], byId);
+        foreach (var node in c4Nodes) Add(node);
+        edges.AddRange(c4Edges);
+
         return new DevbookGraph(nodes, edges);
     }
 
-    private static void ApplyMeta(DevbookGraphNode node, IReadOnlyDictionary<string, object?>? meta, string? folder)
+    /// <param name="debtRecord">Whether the block is a debt record's top-level one,
+    /// which rests at <c>identified</c> rather than its folder's value.</param>
+    private static void ApplyMeta(DevbookGraphNode node, IReadOnlyDictionary<string, object?>? meta, string? folder, bool debtRecord = false)
     {
         if (meta is null) return;
 
         var declared = meta.GetValueOrDefault("status");
-        node.Status = declared is not null ? Scalar(declared) : DevbookBuildLayout.RestingStatusFor(folder);
+        node.Status = declared is not null ? Scalar(declared) : DevbookBuildLayout.RestingStatusFor(folder, debtRecord);
 
         if (DevbookBuildLayout.ResolveType(folder, meta) is { } type) node.Kind = Scalar(type);
         if (meta.GetValueOrDefault("version") is { } version) node.Version = Scalar(version);
@@ -215,6 +225,13 @@ internal static partial class DevbookGraphBuilder
         foreach (var name in (string[])["aliases", "alternatives"])
         {
             if (meta.GetValueOrDefault(name) is { } value) node.Attributes.Add((name, DevbookMarkdown.AsList(value)));
+        }
+
+        // The workspace elements a block names: edges, drawn once the model is read.
+        foreach (var field in DevbookC4Graph.Fields)
+        {
+            var entries = DevbookMarkdown.AsList(meta.GetValueOrDefault(field));
+            if (entries.Count > 0) node.C4Fields[field] = entries;
         }
     }
 
@@ -309,6 +326,10 @@ internal sealed class DevbookGraphNode(string id, string type)
 
     /// <summary>The <c>node_attribute</c> rows, one list per attribute name.</summary>
     public List<(string Name, IReadOnlyList<string> Values)> Attributes { get; } = [];
+
+    /// <summary>The <c>c4</c> and <c>c4-touches</c> entries, as written: no row of
+    /// their own, the source of an edge each to the element they name.</summary>
+    public Dictionary<string, IReadOnlyList<string>> C4Fields { get; } = new(StringComparer.Ordinal);
 }
 
 internal sealed record DevbookGraphEdge(string Id, string Type, string Source, string Target);
