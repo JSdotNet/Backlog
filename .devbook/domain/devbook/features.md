@@ -850,8 +850,16 @@ instances it runs, each a way into the containers view.
 The landscape draws the groups the DSL declares as bands.
 
 **From the chapters.** While `c4-zoom` is on, an ADR or a TDR opened in the
-**Chapters** tab shows where it lands on the container view and its decision chain:
-what it builds on and what builds on it. An arc42 chapter embeds the views it
+**Chapters** tab has a panel beside it. A compact container view rings the
+containers the record decides (`c4`), marks those it touches (`c4-touches`, a
+component landing on its container), dims the rest, and opens in the zoom tab with
+the decided element selected. The decision chain lists what the record supersedes
+and what supersedes it, read from the `## History` rows below the standing choice
+that open by naming another ADR; what it builds on, its `related:` ADRs; and what
+builds on it, the ADRs whose `related:` name it. A proposed ADR is drawn dashed.
+The panel also lists the arc42 sections whose `related:` cite the record and, for
+an ADR, the TDRs that name it. A TDR shows its severity and its rung on the debt
+ladder in place of the chain. An arc42 chapter embeds the views it
 documents. Where the chapter's own mermaid fence and the model disagree, it flags
 the elements in the model but missing from the fence, and the reverse. The chapter
 stays the text that is read; the model is what is drawn.
