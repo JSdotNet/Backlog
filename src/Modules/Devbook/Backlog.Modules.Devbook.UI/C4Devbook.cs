@@ -266,10 +266,27 @@ public sealed class C4DevbookStore : IDisposable
 
         var unlinked = new C4Catalog(true, directory, views, problems, [entry])
         {
-            LinkSource = new C4LinkSource(workspace, linking, [.. problems])
+            LinkSource = new C4LinkSource(workspace, linking, [.. problems]),
+            RepositoryRoot = RepositoryRootOf(directory, location.RootPath)
         };
 
         return Relink(unlinked);
+    }
+
+    /// <summary>The repository the folder sits in, which a building block's <c>code</c>
+    /// folders are spelled from — or null for a folder configured off any clone, whose
+    /// code folders name nothing that can be found.</summary>
+    private static string? RepositoryRootOf(string directory, string? rootPath)
+    {
+        if (string.IsNullOrWhiteSpace(rootPath)) return null;
+
+        var root = Arc42DevbookReader.ResolveRoot(directory, rootPath);
+        return string.Equals(
+            Path.TrimEndingDirectorySeparator(root),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath)),
+            StringComparison.OrdinalIgnoreCase)
+            ? root
+            : null;
     }
 
     /// <summary>The catalog with its record links read afresh from the chapters, over
@@ -733,6 +750,11 @@ public sealed record C4Catalog(
     /// zoom stops at the component level.</summary>
     public IReadOnlyList<string> CodeOf(string? elementId) =>
         elementId is not null && Code.TryGetValue(elementId, out var folders) ? folders : [];
+
+    /// <summary>The repository root the <see cref="Code"/> folders are spelled from:
+    /// the clone, or a branch snapshot, which holds the devbook and not the source.
+    /// Null when the folder sits on no repository.</summary>
+    public string? RepositoryRoot { get; init; }
 
     /// <summary>The workspace a view belongs to, or null. What the explorer is opened
     /// on when a chapter reference names a view.</summary>

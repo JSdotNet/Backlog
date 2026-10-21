@@ -20,8 +20,9 @@ public enum C4ZoomLevel
 /// while it is not known: "pick a container", "pick a component".</param>
 /// <param name="Current">Whether the open view is this level. Ringed on the bar.</param>
 /// <param name="ViewKey">The view picking the step opens, or null when there is none
-/// to open — an unknown scope, a level the workspace declares no view for, or Code,
-/// which is never authored.</param>
+/// to open — an unknown scope, or a level the workspace declares no view for. Code is
+/// never authored, so its step carries <see cref="C4ZoomNavigation.CodeKey"/> of the
+/// component instead, and only while that component has code to read.</param>
 /// <param name="SelectId">The element left selected on arriving: the one the reader
 /// zoomed out of, so they can see where they came from.</param>
 public sealed record C4ZoomStep(
@@ -104,10 +105,25 @@ public static class C4ZoomNavigation
         };
     }
 
+    /// <summary>What a Code step's <see cref="C4ZoomStep.ViewKey"/> holds: no view of
+    /// the workspace, but the component whose code it opens, marked so it can never be
+    /// mistaken for a view key.</summary>
+    public static string CodeKey(string componentId) => "code:" + componentId;
+
     /// <summary>
     /// The zoom bar for a view and the element selected on it.
     /// </summary>
-    public static C4ZoomBarState Bar(C4Workspace workspace, C4View view, string? selectedId)
+    /// <param name="hasCode">Whether a component has code to read — a code folder its
+    /// building block names. Null, as a host with no code source passes, is none:
+    /// step 4 then names the component and stays grey.</param>
+    /// <param name="codeOpen">Whether the Code level of the selected component is on
+    /// screen over <paramref name="view"/>, the components view it was opened from.</param>
+    public static C4ZoomBarState Bar(
+        C4Workspace workspace,
+        C4View view,
+        string? selectedId,
+        Func<string, bool>? hasCode = null,
+        bool codeOpen = false)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentNullException.ThrowIfNull(view);
@@ -122,6 +138,9 @@ public static class C4ZoomNavigation
                 ? selected
                 : null;
 
+        var withCode = component is not null && hasCode?.Invoke(component.Id) == true;
+        if (codeOpen && withCode) level = C4ZoomLevel.Code;
+
         var contextView = system is null ? null : ContextViewOf(workspace, system.Id);
         var containersView = system is null ? null : C4Exploration.DrillViewKey(workspace, system.Id);
         var componentsView = container is null ? null : C4Exploration.DrillViewKey(workspace, container.Id);
@@ -133,9 +152,9 @@ public static class C4ZoomNavigation
             Step(C4ZoomLevel.Components, "Components", container, PickContainer, level, componentsView, component?.Id),
 
             // Code is generated from the source, never authored, so no view of the
-            // workspace opens it. Until the code view exists the step names the
-            // component and stays grey.
-            Step(C4ZoomLevel.Code, "Code", component, PickComponent, level, null, null)
+            // workspace opens it: the step opens the component's code, and stays grey
+            // for a component no building block names a code folder for.
+            Step(C4ZoomLevel.Code, "Code", component, PickComponent, level, withCode ? CodeKey(component!.Id) : null, component?.Id)
         ];
 
         return new C4ZoomBarState(steps, AlsoFor(workspace, view, system));

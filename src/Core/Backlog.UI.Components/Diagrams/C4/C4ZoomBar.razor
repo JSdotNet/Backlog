@@ -88,5 +88,6 @@
         step.Current ? $"{step.Label}: where you are"
         : step.Waiting ? $"{step.Label}: {step.Placeholder} first"
         : step.Enabled ? $"Open {step.Label} of {step.Scope}"
+        : step.Level == C4ZoomLevel.Code ? $"{step.Scope} has no code folder: no building block names one in code"
         : $"{step.Label} of {step.Scope} has no view yet";
 }

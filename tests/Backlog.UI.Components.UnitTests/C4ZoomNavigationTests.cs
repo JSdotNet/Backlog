@@ -132,7 +132,7 @@ public sealed class C4ZoomNavigationTests
     }
 
     [Fact]
-    public void Selecting_a_component_names_step_four_which_stays_grey_until_the_code_view_exists()
+    public void Selecting_a_component_with_no_code_folder_names_step_four_which_stays_grey()
     {
         var bar = C4ZoomNavigation.Bar(Workspace, View("components-desktop"), "backlog.desktop.devbook");
 
@@ -142,7 +142,60 @@ public sealed class C4ZoomNavigationTests
         var code = Step(bar, C4ZoomLevel.Code);
         Assert.Equal("Devbook", code.Scope);
         Assert.False(code.Enabled);
+
+        // A host that has a code source, but none for this component, says the same.
+        Assert.False(Step(C4ZoomNavigation.Bar(Workspace, View("components-desktop"), "backlog.desktop.devbook", _ => false), C4ZoomLevel.Code).Enabled);
     }
+
+    /// <summary>Requirement "Code is drawn from the source on demand": a component whose
+    /// building block names code folders opens level 4.</summary>
+    [Fact]
+    public void Selecting_a_component_with_a_code_folder_lets_step_four_open_its_code()
+    {
+        var bar = C4ZoomNavigation.Bar(Workspace, View("components-desktop"), "backlog.desktop.devbook", HasDevbookCode);
+
+        var code = Step(bar, C4ZoomLevel.Code);
+        Assert.True(code.Enabled);
+        Assert.Equal("Devbook", code.Scope);
+        Assert.Equal(C4ZoomNavigation.CodeKey("backlog.desktop.devbook"), code.ViewKey);
+        Assert.Equal("backlog.desktop.devbook", code.SelectId);
+        Assert.True(Step(bar, C4ZoomLevel.Components).Current);
+    }
+
+    /// <summary>On the Code level step 4 is ringed, and every step behind it jumps back —
+    /// step 3 to the components with the component still selected.</summary>
+    [Fact]
+    public void On_the_code_level_step_four_is_ringed_and_the_steps_behind_it_jump_back()
+    {
+        var bar = C4ZoomNavigation.Bar(Workspace, View("components-desktop"), "backlog.desktop.devbook", HasDevbookCode, codeOpen: true);
+
+        Assert.True(Step(bar, C4ZoomLevel.Code).Current);
+        Assert.False(Step(bar, C4ZoomLevel.Code).Enabled);
+
+        var components = Step(bar, C4ZoomLevel.Components);
+        Assert.False(components.Current);
+        Assert.True(components.Enabled);
+        Assert.Equal("components-desktop", components.ViewKey);
+        Assert.Equal("backlog.desktop.devbook", components.SelectId);
+
+        var containers = Step(bar, C4ZoomLevel.Containers);
+        Assert.True(containers.Enabled);
+        Assert.Equal("backlog.desktop", containers.SelectId);
+    }
+
+    /// <summary>The code being open says nothing about a component with none: the bar
+    /// stays on the components level.</summary>
+    [Fact]
+    public void Code_open_for_a_component_without_code_leaves_the_components_step_current()
+    {
+        var bar = C4ZoomNavigation.Bar(Workspace, View("components-desktop"), "backlog.desktop.shell", HasDevbookCode, codeOpen: true);
+
+        Assert.True(Step(bar, C4ZoomLevel.Components).Current);
+        Assert.False(Step(bar, C4ZoomLevel.Code).Enabled);
+    }
+
+    private static bool HasDevbookCode(string elementId) =>
+        string.Equals(elementId, "backlog.desktop.devbook", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Steps behind the reader always work, and each leaves the element the
     /// reader is coming out of selected.</summary>

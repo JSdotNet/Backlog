@@ -257,6 +257,7 @@
                                     HintDismissed="@C4ZoomHintDismissed"
                                     OnHintDismissed="DismissC4ZoomHint"
                                     OpenView="@_zoomOpen"
+                                    Code="@ZoomCode"
                                     TestId="arc42-c4-zoom-explorer" />
                 </TabPanel>
             }
@@ -451,11 +452,44 @@
     /// </summary>
     private C4DevbookStore? _c4Store;
 
+    /// <summary>The Code level's reader, optional for the same reason the store is.</summary>
+    private C4DevbookCode? _c4Code;
+    private C4ZoomCode? _zoomCode;
+    private C4Catalog? _zoomCodeFor;
+
+    /// <summary>What the zoom tab is handed to open level 4: made once per catalog, so
+    /// a render hands the same one and only a reload reads an open level again.</summary>
+    private C4ZoomCode? ZoomCode
+    {
+        get
+        {
+            if (_c4Code is null) return null;
+            if (!ReferenceEquals(_zoomCodeFor, _c4))
+            {
+                _zoomCodeFor = _c4;
+                _zoomCode = _c4Code.For(_c4, OpenCodeRecordAsync);
+            }
+
+            return _zoomCode;
+        }
+    }
+
+    /// <summary>A decision record picked on the Code level's type panel: its chapter,
+    /// on the Chapters tab, as any reference to it opens.</summary>
+    private async Task OpenCodeRecordAsync(C4CodeRecord record)
+    {
+        if (DevbookReference.Parse(record.Path) is not { } reference) return;
+
+        await NavigateDevbookReferenceAsync(reference);
+        StateHasChanged();
+    }
+
     protected override void OnInitialized()
     {
         Devbook.Changed += OnDevbookChanged;
         _chapterReader = Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk;
 
+        _c4Code = Services.GetService<C4DevbookCode>();
         _c4Store = Services.GetService<C4DevbookStore>();
         if (_c4Store is not null) _c4Store.Changed += OnDevbookChanged;
 
