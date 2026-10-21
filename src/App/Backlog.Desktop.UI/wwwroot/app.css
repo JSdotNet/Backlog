@@ -6990,6 +6990,286 @@ a.pull-request-detail-checks__name:hover {
     outline-offset: 2px;
 }
 
+/* Where an ADR or a TDR lands on the model, beside the record while `c4-zoom` is
+   on (the design's ADR screen). A column of its own beside the chapter, which keeps
+   scrolling on its own; in a narrow pane it goes under the chapter, capped so the
+   chapter still has the room. */
+.arc42-devbook-layout--record {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
+    align-items: start;
+}
+
+.devbook-stack__section > .devbook-pane--arc42 .arc42-devbook-layout.arc42-devbook-layout--record {
+    flex-direction: row;
+    align-items: stretch;
+}
+
+.devbook-stack__section > .devbook-pane--arc42 .arc42-devbook-layout--record > .devbook-record-model {
+    flex: 0 0 20rem;
+    max-height: 100%;
+    overflow: auto;
+}
+
+@container devbook-stack (max-width: 48rem) {
+    .arc42-devbook-layout--record {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .devbook-stack__section > .devbook-pane--arc42 .arc42-devbook-layout.arc42-devbook-layout--record {
+        flex-direction: column;
+    }
+
+    .devbook-stack__section > .devbook-pane--arc42 .arc42-devbook-layout--record > .devbook-record-model {
+        flex: 0 1 auto;
+        max-height: 40%;
+    }
+}
+
+.devbook-record-model {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    box-sizing: border-box;
+}
+
+.devbook-record-model__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.devbook-record-model__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.devbook-record-model__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.devbook-record-model__label {
+    margin: var(--spacing-xs) 0 0;
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+    color: var(--color-text-secondary);
+}
+
+.devbook-record-model__note {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+}
+
+.devbook-record-model__note b {
+    color: var(--color-text-primary);
+}
+
+.devbook-record-model__open {
+    border: 0;
+    background: transparent;
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.devbook-record-model__map {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: var(--spacing-sm);
+    list-style: none;
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.devbook-record-model__tile {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 3rem;
+    padding: var(--spacing-sm) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    font-size: var(--font-size-xs);
+    line-height: 1.3;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+
+.devbook-record-model__tile-button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 0;
+    text-align: center;
+}
+
+.devbook-record-model__tile-button:focus-visible,
+.devbook-record-model__open:focus-visible,
+.devbook-record-model__citation:focus-visible,
+.devbook-record-model__chip:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.devbook-record-model__role {
+    color: var(--color-primary);
+}
+
+/* Decides: ringed in the primary colour and set bold. Touches: a plain tile with
+   its word in the primary colour. Outside: dimmed. */
+.devbook-record-model__tile--decides {
+    border: 2px solid var(--color-primary);
+    background: var(--color-background-raised);
+    font-weight: 600;
+}
+
+.devbook-record-model__tile--decides .devbook-record-model__role {
+    font-weight: 400;
+    color: var(--color-primary-light);
+}
+
+.devbook-record-model__tile--outside {
+    border-color: var(--color-background-raised);
+    background: var(--color-background);
+    color: var(--color-text-disabled);
+}
+
+.devbook-record-model__beyond--decides {
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.devbook-record-model__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.devbook-record-model__citations {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.devbook-record-model__chip {
+    font: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    max-width: 14rem;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+}
+
+.devbook-record-model__chip--proposed {
+    border: var(--border-width) dashed var(--color-border-strong);
+    background: transparent;
+    color: var(--color-text-primary);
+}
+
+.devbook-record-model__chip-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.devbook-record-model__number {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-secondary);
+}
+
+.devbook-record-model__chip .devbook-record-model__number {
+    color: inherit;
+}
+
+.devbook-record-model__citation {
+    border: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    display: flex;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    font-size: var(--font-size-sm);
+    text-align: left;
+}
+
+.devbook-record-model__facts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.devbook-record-model__facts dt {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.devbook-record-model__facts dd {
+    margin: 0;
+}
+
+.devbook-record-model__ladder {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-xs);
+}
+
+.devbook-record-model__rung {
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+}
+
+.devbook-record-model__rung--current {
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+    font-weight: 600;
+}
+
 /* The way across from a domain chapter to the architecture model. A row of links
    under the file rather than a nav of cards: the domain pane is narrow, and this is
    one or two entries, not a list to choose from. */

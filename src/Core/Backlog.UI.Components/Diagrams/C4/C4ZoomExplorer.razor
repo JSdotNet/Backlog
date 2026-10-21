@@ -255,7 +255,7 @@
         if (OpenView is not { } request || ReferenceEquals(request, _openedRequest)) return;
 
         _openedRequest = request;
-        Open(request.ViewKey, null);
+        Open(request.ViewKey, request.SelectId);
     }
 
     /// <summary>The element selected now, by its model identifier. For the host and

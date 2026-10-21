@@ -1,5 +1,7 @@
 ﻿using Backlog.Infrastructure.GitHub;
+using Backlog.UI.Components.Diagrams.C4;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -578,6 +580,309 @@ public sealed class Arc42DevbookPanelTests : IDisposable
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-chapter-file-edit']")));
         Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']"));
+    }
+
+    // ---- where a decision or debt record lands on the model (c4-zoom) -------------
+
+    /// <summary>
+    /// The switch off, and the C4 tab still on: the record reads as it always did, with
+    /// no map, no chain and no layout of its own (requirement "The switch off").
+    /// </summary>
+    [Fact]
+    public async Task With_c4_zoom_off_a_decision_record_shows_no_model_panel()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: false);
+
+        var component = harness.Render(ModelDecisionPath);
+        component.WaitForAssertion(() => Assert.Contains("The replica decision.", component.Markup, StringComparison.Ordinal));
+
+        Assert.Empty(component.FindAll("[data-testid='arc42-record-model']"));
+        Assert.Empty(component.FindAll(".arc42-devbook-layout--record"));
+    }
+
+    [Fact]
+    public async Task With_c4_zoom_on_a_chapter_that_is_no_record_shows_no_model_panel()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+
+        var component = harness.Render(".arc42/05-building-block-view.md");
+        component.WaitForAssertion(() => Assert.Contains("The static decomposition.", component.Markup, StringComparison.Ordinal));
+
+        Assert.Empty(component.FindAll("[data-testid='arc42-record-model']"));
+    }
+
+    /// <summary>
+    /// The map: every container of the container view, the ones the record is about
+    /// ringed as "decides", the ones its consequences name as "touches" — a component
+    /// landing on the container it sits in — and the rest dimmed. What it names that is
+    /// no container is said under the map rather than dropped.
+    /// </summary>
+    [Fact]
+    public async Task With_c4_zoom_on_a_decision_record_marks_what_it_decides_and_touches()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+
+        var component = harness.Render(ModelDecisionPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-model']")));
+
+        var roles = component.FindAll("[data-testid='arc42-record-tile']")
+            .ToDictionary(tile => tile.GetAttribute("data-element")!, tile => tile.GetAttribute("data-role"));
+
+        Assert.Equal("decides", roles["backlog.cloud"]);
+        Assert.Equal("decides", roles["backlog.cloudDb"]);
+        Assert.Equal("touches", roles["backlog.store"]);
+        Assert.Equal("touches", roles["backlog.desktop"]);
+        Assert.Equal("outside", roles["backlog.mobile"]);
+        Assert.Contains("GitHub (touches)", component.Find("[data-testid='arc42-record-beyond']").TextContent, StringComparison.Ordinal);
+        Assert.Single(component.FindAll(".arc42-devbook-layout--record"));
+    }
+
+    /// <summary>
+    /// The chain: an earlier History row naming ADR 0004 is the choice this record
+    /// superseded, its <c>related:</c> ADRs are what it builds on, and the ADRs whose
+    /// <c>related:</c> name it build on it — a proposed one drawn dashed. The other side
+    /// of supersession reads back from ADR 0004.
+    /// </summary>
+    [Fact]
+    public async Task With_c4_zoom_on_a_decision_record_shows_its_decision_chain()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+
+        var component = harness.Render(ModelDecisionPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-chain']")));
+
+        Assert.Equal(["0004"], Numbers(component, "supersedes"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-record-superseded-by']"));
+        Assert.Equal(["0003"], Numbers(component, "builds-on"));
+        Assert.Equal(["0006", "0007"], Numbers(component, "built-on-by"));
+
+        var builtOnBy = component.FindAll("[data-testid='arc42-record-built-on-by'] [data-testid='arc42-record-chip']");
+        Assert.Equal("true", builtOnBy[0].GetAttribute("data-proposed"));
+        Assert.Contains("devbook-record-model__chip--proposed", builtOnBy[0].ClassName, StringComparison.Ordinal);
+        Assert.Equal("false", builtOnBy[1].GetAttribute("data-proposed"));
+
+        Assert.Equal(["0001"], Numbers(component, "debt"));
+
+        var older = harness.Render(".arc42/adr/0004-older.md");
+        older.WaitForAssertion(() => Assert.Equal(["0005"], Numbers(older, "superseded-by")));
+    }
+
+    /// <summary>A guideline numbers from 0001 as the local records do, so local ADR
+    /// 0005's History row naming ADR 0004 must not read as superseding guideline 0004.
+    /// A chip in the chain is a way to that record, asked of the host.</summary>
+    [Fact]
+    public async Task A_guideline_sharing_a_local_number_is_superseded_by_nothing_and_a_chip_opens_its_record()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        var asked = new List<DevbookChapterLink>();
+
+        var guideline = harness.Render(".arc42/adr/guidelines/0004-guide.md", asked);
+        guideline.WaitForAssertion(() => Assert.Single(guideline.FindAll("[data-testid='arc42-record-chain']")));
+
+        Assert.Empty(guideline.FindAll("[data-testid='arc42-record-superseded-by']"));
+        Assert.Equal(["0005"], Numbers(guideline, "builds-on"));
+
+        await guideline.Find("[data-testid='arc42-record-builds-on'] [data-testid='arc42-record-chip']").ClickAsync(new());
+
+        var link = Assert.Single(asked);
+        Assert.EndsWith("adr/0005-replica.md", link.Path, StringComparison.Ordinal);
+    }
+
+    /// <summary>The arc42 sections whose <c>related:</c> name the record, each a way to
+    /// that section: a request to the host, which owns the selection.</summary>
+    [Fact]
+    public async Task With_c4_zoom_on_a_decision_record_lists_the_chapters_that_cite_it()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+        var asked = new List<DevbookChapterLink>();
+
+        var component = harness.Render(ModelDecisionPath, asked);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-citation']")));
+
+        var citation = component.Find("[data-testid='arc42-record-citation']");
+        Assert.Contains("05", citation.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Building Block View › Containers", citation.TextContent, StringComparison.Ordinal);
+
+        await citation.ClickAsync(new());
+
+        var link = Assert.Single(asked);
+        Assert.EndsWith("05-building-block-view.md", link.Path, StringComparison.Ordinal);
+        Assert.Equal("containers", link.Anchor);
+    }
+
+    /// <summary>"Open in C4 zoom" goes to the zoom tab, on the container view, with
+    /// the element the record decides selected.</summary>
+    [Fact]
+    public async Task Open_in_C4_zoom_opens_the_container_view_with_the_decided_element_selected()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+
+        var component = harness.Render(ModelDecisionPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-open-zoom']")));
+
+        await component.Find("[data-testid='arc42-record-open-zoom']").ClickAsync(new());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("[data-testid='arc42-c4-zoom-tab']").GetAttribute("aria-selected"));
+            var zoom = component.FindComponent<C4ZoomExplorer>().Instance;
+            Assert.Equal("containers-backlog", zoom.ViewKey);
+            Assert.Equal("backlog.cloud", zoom.SelectedElementId);
+        });
+    }
+
+    /// <summary>A TDR shows the same map, with its severity and where it stands on the
+    /// debt ladder, and no decision chain.</summary>
+    [Fact]
+    public async Task With_c4_zoom_on_a_debt_record_shows_the_map_with_its_severity_and_lifecycle()
+    {
+        await using var harness = CreateModelHarness(c4ZoomEnabled: true);
+
+        var component = harness.Render(".arc42/tdr/0001-debt.md");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='arc42-record-model']")));
+
+        Assert.Equal("High", component.Find("[data-testid='arc42-record-severity']").TextContent);
+        Assert.Equal("Planned", component.Find("[data-testid='arc42-record-lifecycle'] [aria-current='step']").TextContent);
+
+        var mobile = component.FindAll("[data-testid='arc42-record-tile']")
+            .Single(tile => tile.GetAttribute("data-element") == "backlog.mobile");
+        Assert.Equal("decides", mobile.GetAttribute("data-role"));
+
+        Assert.Empty(component.FindAll("[data-testid='arc42-record-chain']"));
+    }
+
+    private static List<string> Numbers(IRenderedComponent<Arc42DevbookPanel> component, string key) =>
+        [.. component.FindAll($"[data-testid='arc42-record-{key}'] [data-testid='arc42-record-chip'] .devbook-record-model__number")
+            .Select(chip => chip.TextContent)];
+
+    private const string ModelDecisionPath = ".arc42/adr/0005-replica.md";
+
+    private const string ModelWorkspace = """
+        workspace "Test Backlog" "A workspace for the record panel" {
+            !identifiers hierarchical
+            model {
+                me = person "ME" "The owner"
+                backlog = softwareSystem "Prompt Backlog" "The system" {
+                    desktop = container "Desktop App" "Windows client" ".NET MAUI" {
+                        sessions = component "Sessions" "Session records"
+                    }
+                    mobile = container "Mobile App" "Capture" ".NET MAUI"
+                    cloud = container "Cloud Service" "Sync" "ASP.NET Core"
+                    cloudDb = container "Cloud Database" "Replica" "Cosmos DB" "Database"
+                    store = container "Local Task Store" "Canonical" "SQLite" "Database"
+                }
+                github = softwareSystem "GitHub" "Issues" "External"
+                me -> backlog.desktop "Captures work"
+                backlog.desktop -> backlog.store "Reads and writes"
+                backlog.desktop -> backlog.cloud "Syncs"
+                backlog.mobile -> backlog.cloud "Syncs"
+                backlog.cloud -> backlog.cloudDb "Stores"
+                backlog.desktop -> github "Syncs issues" "HTTPS"
+            }
+            views {
+                systemContext backlog "context-backlog" "System Context" { include * }
+                container backlog "containers-backlog" "Container Diagram" { include * }
+            }
+        }
+        """;
+
+    /// <summary>
+    /// A folder with a workspace and a small decision log: ADR 0005 is about the cloud
+    /// pair and touches the store, a component of the desktop and GitHub; its History
+    /// carries an earlier choice from ADR 0004; it builds on ADR 0003; ADR 0006
+    /// (proposed) and ADR 0007 build on it; TDR 0001 names it and the mobile app; and
+    /// chapter 05's Containers section cites it.
+    /// </summary>
+    private ModelHarness CreateModelHarness(bool c4ZoomEnabled)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-panel-tests", Guid.NewGuid().ToString("N"));
+        _roots.Add(root);
+
+        var arc42 = Path.Combine(root, ".arc42");
+        Directory.CreateDirectory(Path.Combine(arc42, "adr"));
+        Directory.CreateDirectory(Path.Combine(arc42, "tdr"));
+        Directory.CreateDirectory(Path.Combine(arc42, C4DevbookStore.ReferenceDirectory));
+
+        void Write(string relative, string text) =>
+            File.WriteAllText(Path.Combine(arc42, relative.Replace('/', Path.DirectorySeparatorChar)), text);
+
+        Write(C4DevbookStore.WorkspaceFile, ModelWorkspace);
+        Write("01-introduction.md", "# Introduction\n\nGoals.\n");
+        Write("05-building-block-view.md",
+            "# 05. Building Block View\n\nThe static decomposition.\n\n## Containers\n\n```meta\nrelated: [\".arc42/adr/0005-replica.md\"]\n```\n\nThe containers.\n");
+        Directory.CreateDirectory(Path.Combine(arc42, "adr", "guidelines"));
+        Write("adr/guidelines/0004-guide.md",
+            "# ADR 0004: A guideline adopted from elsewhere\n\n```meta\nrelated: [\".arc42/adr/0005-replica.md\"]\n```\n\nThe guideline.\n");
+        Write("adr/0003-store.md", "# ADR 0003: SQLite is the canonical store\n\nThe store decision.\n");
+        Write("adr/0004-older.md", "# ADR 0004: An older sync choice\n\nThe older decision.\n");
+        Write("adr/0005-replica.md",
+            "# ADR 0005: An Azure-hosted replica carries sync\n\n```meta\n" +
+            "related: [\".arc42/adr/0003-store.md\"]\n" +
+            "c4: [backlog.cloud, backlog.cloudDb]\n" +
+            "c4-touches: [backlog.store, backlog.desktop.sessions, github]\n```\n\n" +
+            "The replica decision.\n\n## History\n\n| Date | Change | Why |\n| --- | --- | --- |\n" +
+            "| 2026-09-03 | An Azure-hosted replica carries sync. | File sync lost edits. |\n" +
+            "| 2026-08-27 | ADR 0004: the database syncs through a shared folder. | It needed no service. |\n");
+        Write("adr/0006-schema.md",
+            "# ADR 0006: Additive schema bootstrapping\n\n```meta\nstatus: proposed\nrelated: [\".arc42/adr/0005-replica.md\"]\n```\n\nThe schema decision.\n");
+        Write("adr/0007-later.md",
+            "# ADR 0007: A later decision\n\n```meta\nrelated: [\".arc42/adr/0005-replica.md\"]\n```\n\nThe later decision.\n");
+        Write("tdr/0001-debt.md",
+            "# TDR 0001: The mobile app has no offline queue\n\n```meta\nstatus: planned\nseverity: high\n" +
+            "related: [\".arc42/adr/0005-replica.md\"]\nc4: [backlog.mobile]\n```\n\nThe debt.\n");
+
+        var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
+        var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
+        Assert.Null(features.SetEnabled(DevbookFeatures.C4Diagrams, true));
+        if (c4ZoomEnabled) Assert.Null(features.SetEnabled(DevbookFeatures.C4Zoom, true));
+
+        var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
+        var (repositories, errors) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        Assert.Empty(errors);
+
+        var repository = repositories[0] with
+        {
+            CloneDirectory = root,
+            DevbookFolders =
+            [
+                .. DevbookFolderSetting.Defaults().Select(folder =>
+                    string.Equals(folder.Key, ".arc42", StringComparison.OrdinalIgnoreCase)
+                        ? folder with { Path = arc42 }
+                        : folder)
+            ]
+        };
+        Assert.Null(gitHub.SetRepositories([repository]));
+
+        var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        context.Services.AddSingleton(settings);
+        context.Services.AddSingleton<IAppFeatureSettings>(features);
+        context.Services.AddSingleton(gitHub);
+        context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHub, settings));
+        context.Services.AddSingleton<Arc42DevbookStore>();
+        context.Services.AddSingleton<DevbookChapterWriter>();
+        context.Services.AddSingleton<C4DevbookStore>();
+
+        return new ModelHarness(context, repository.Alias);
+    }
+
+    private sealed record ModelHarness(BunitContext Context, string RepositoryAlias) : IAsyncDisposable
+    {
+        public IRenderedComponent<Arc42DevbookPanel> Render(string selectedPath, List<DevbookChapterLink>? asked = null) =>
+            Context.Render<Arc42DevbookPanel>(parameters =>
+            {
+                parameters
+                    .Add(panel => panel.RepositoryAlias, RepositoryAlias)
+                    .Add(panel => panel.SelectedPath, selectedPath);
+
+                if (asked is not null)
+                {
+                    parameters.Add(panel => panel.OnNavigateToChapter, EventCallback.Factory.Create<DevbookChapterLink>(this, asked.Add));
+                }
+            });
+
+        public async ValueTask DisposeAsync() => await Context.DisposeAsync();
     }
 
     /// <summary>

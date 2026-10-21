@@ -2,7 +2,8 @@ namespace Backlog.UI.Components.Diagrams.C4;
 
 /// <summary>
 /// One request to open a view in the C4 zoom tab, made by a host — an arc42 chapter
-/// offering "Open in C4 zoom" on the view it embeds.
+/// offering "Open in C4 zoom" on the view it embeds, or a decision record on the
+/// element it lands on.
 /// <para>
 /// A class matched by reference, not a key: asking twice for the same view, after the
 /// reader zoomed elsewhere in between, has to open it twice. A new instance is a new
@@ -10,7 +11,11 @@ namespace Backlog.UI.Components.Diagrams.C4;
 /// </para>
 /// </summary>
 /// <param name="ViewKey">The view to open, by its key in the workspace.</param>
-public sealed class C4ZoomOpen(string ViewKey)
+/// <param name="SelectId">The element to leave selected on it, by its identifier in
+/// the workspace, or null to select nothing.</param>
+public sealed class C4ZoomOpen(string ViewKey, string? SelectId = null)
 {
     public string ViewKey { get; } = ViewKey;
+
+    public string? SelectId { get; } = SelectId;
 }
