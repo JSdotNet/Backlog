@@ -247,8 +247,13 @@ forbids it another module's implementation.
 
 **Devbook database** is `Backlog.Infrastructure.Devbook`: the builder that indexes
 a repository's devbook folders in C#, and the read-only reader over the result.
-It indexes the chapters, the reference graph, the outline, the Archify artifacts
-and the click demos. The `demo` and `demo_link` tables (schema 5) pair each
+It indexes the chapters, the reference graph, the outline, the Archify artifacts,
+the click demos and the C4 model. `DevbookC4Workspace` reads
+the arc42 folder's `workspace.dsl` and `DevbookC4Graph` adds an `element` node per
+element and a `view` node per view to the graph. Between them run `contains` and
+`relationship` edges, an `embeds` edge from each section that embeds a view, and a
+`c4` or `c4-touches` edge for each element an arc42 or domain chapter's metadata
+names. The `demo` and `demo_link` tables (schema 5) pair each
 `*.demo.html` with its page by name and with every chapter whose `demo` field
 names it. The pairing rule itself lives in `DevbookReadingConvention`, in the
 Devbook module's Abstractions, so the builder, the MCP chapter read and the
@@ -333,11 +338,13 @@ flowchart LR
   dashed where the link does not resolve. `GraphAtlas` in the component library
   draws an edge's optional `label` and `dashed`.
 
-The same project reads scenario pages, outside the database. `Scenarios/` ports
-devbook's page parser and page signature, and `ScenarioSignatureVectorTests` holds
-the port to devbook's shared vector. It also reads a committed `run.json` in both
-of its versions and devbook's `_meta/scenarios.json` register, and it does the
-disk reads behind them. The Devbook UI's `DevbookScenarioStore` keeps one catalog
+The same project reads scenarios files, outside the database. `Scenarios/` ports
+devbook's scenarios-file parser and journey signature: each `##` journey of a
+`scenarios.md` or `scenarios.<name>.md` with its `###` parts.
+`ScenarioSignatureVectorTests` holds the port to devbook's shared vector. It also
+reads each journey's committed `run.json` beside its scenarios file in all three
+versions, and devbook's `_meta/scenarios.json` register at schema 2, and it does
+the disk reads behind them. The Devbook UI's `DevbookScenarioStore` keeps one catalog
 per repository from those reads. The menu, the Domain panel, and every chapter's
 `scenario:` images draw from that catalog. So does a task entry's text, which the
 Tasks pane is not allowed to reach on its own. The shell answers the pane's
@@ -345,10 +352,10 @@ Tasks pane is not allowed to reach on its own. The shell answers the pane's
 `IDevbookImageSource` per repository over the same store. `IDevbookImageSource`
 lives in the component library, so Tasks.UI still references no Devbook project.
 Outside a knowledge document, `MarkdownView` asks that source about images and
-nothing else. A followed reference's `#anchor` reaches a scenario page as a
-`DevbookFocus`, passed from `DevbookPane` through `DomainDevbookPanel` to
-`DevbookScenarioPage`. The page marks that part and reveals it with
-`backlogRevealRow`.
+nothing else. A followed reference's `#anchor` reaches a scenarios file as a
+`DevbookFocus`, passed from `DevbookPane` through `DomainDevbookPanel` to the
+`DevbookScenarioPage` of each journey in the file. The journey holding that part
+marks it and reveals it with `backlogRevealRow`.
 
 **Inbox Service** is `Backlog.Modules.Inbox`, a module with its own `Abstractions`
 project and its own tables in `backlog.db` (`inbox_items`, `inbox_lists`,

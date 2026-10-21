@@ -472,7 +472,8 @@ A browser-based visual editor for C4 architecture diagrams that saves Structuriz
 DSL, under the Apache-2.0 licence. It is **not vendored and not a runtime
 dependency**.
 
-- **Used for** — authoring `.devbook/arc42/workspace.dsl`, the C4 model kept beside
+- **Used for** — authoring `.devbook/arc42/workspace.dsl` and the files it includes
+  from `.devbook/arc42/c4/`, the C4 model kept beside
   the architecture chapters. The desktop app reads that DSL and draws it itself
   on the Architecture panel's C4 tab, behind the `c4-diagrams` flag.
   [C4 workspaces](../design/component-libraries.md#c4-workspaces) holds the
@@ -484,7 +485,7 @@ dependency**.
   rather than one of our own, because Structurizr Lite, Studio and the JSON
   exporters already read it.
 - **How** — a person opens it at `app.c4hero.com`, or runs it from a clone
-  (Node 22+), and points it at the `_c4` folder. Nothing here installs it,
+  (Node 22+), and points it at the `.devbook/arc42/` folder. Nothing here installs it,
   vendors it, or shells out to it, and it has no CLI. The app reads the DSL with
   its own reader in `src/Core/Backlog.UI.Components/Diagrams/C4/`, not through
   anything c4hero ships. That reader is a second implementation of c4hero's

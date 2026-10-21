@@ -2,7 +2,8 @@
  * The C4 model of Prompt Backlog.
  *
  * Authored in c4hero (https://github.com/c4hero/c4hero) and read by the desktop
- * app, which draws each view from this file.
+ * app, which draws each view from this file. It is the only place an element or
+ * a view is defined: the arc42 chapters carry no C4 fences of their own.
  *
  * Every view is embedded in the one chapter section it documents, by its key:
  *
@@ -12,8 +13,9 @@
  * round to show, on a view, which chapter documents it.
  *
  * Editing: open this folder in c4hero, which writes the file back and keeps node
- * positions in a `backlog.c4hero.json` sidecar beside it. The app does not read
- * that sidecar and does not need it.
+ * positions in a c4hero sidecar file beside it. The app does not read
+ * that sidecar and does not need it. A large model may split into files under
+ * `c4/`, which this workspace includes; none exist yet.
  *
  * See tools/diagrams/C4.md.
  */
