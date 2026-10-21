@@ -32,6 +32,16 @@ public sealed record C4SvgOptions(
 {
     /// <summary>No additions: the picture every view drew before options existed.</summary>
     public static C4SvgOptions None { get; } = new();
+
+    /// <summary>
+    /// The frames, by the alias of the element each is drawn for, that a reader can
+    /// select as well as look at. Such a frame is written as a <c>g.node</c> with the
+    /// card's id contract, <c>&lt;svg id&gt;-&lt;alias&gt;</c>, so the zoom tab's viewer
+    /// selects it the way it selects a card. The zoom tab sets it on a deployment
+    /// view, where a deployment node that runs something is drawn as a frame and is
+    /// still the thing a reader asks about.
+    /// </summary>
+    public IReadOnlySet<string>? SelectableBoundaryAliases { get; init; }
 }
 
 /// <summary>
@@ -91,8 +101,8 @@ public static class C4SvgWriter
         // Frames, then edges, then labels, then cards. Painting order is the reading
         // order: a card is never behind the line that leaves it, and a label is never
         // under the card it points at.
-        foreach (var boundary in diagram.Boundaries) WriteBoundary(svg, boundary);
         options ??= C4SvgOptions.None;
+        foreach (var boundary in diagram.Boundaries) WriteBoundary(svg, id, boundary, options);
         foreach (var edge in diagram.Edges) WriteEdge(svg, id, edge, options);
         foreach (var edge in diagram.Edges) WriteEdgeLabel(svg, edge, options);
         foreach (var node in diagram.Nodes) WriteNode(svg, id, node, options);
@@ -101,9 +111,13 @@ public static class C4SvgWriter
         return svg.ToString();
     }
 
-    private static void WriteBoundary(StringBuilder svg, C4PlacedBoundary boundary)
+    private static void WriteBoundary(StringBuilder svg, string id, C4PlacedBoundary boundary, C4SvgOptions options)
     {
-        svg.Append("<g class=\"c4-diagram__boundary\">")
+        var alias = C4MermaidWriter.AliasOf(boundary.Id);
+
+        svg.Append(options.SelectableBoundaryAliases?.Contains(alias) == true
+            ? Invariant($"<g class=\"c4-diagram__boundary c4-diagram__boundary--selectable node\" id=\"{Escape(id)}-{Escape(alias)}\">")
+            : "<g class=\"c4-diagram__boundary\">")
             .Append(Invariant($"<rect x=\"{boundary.X:0.##}\" y=\"{boundary.Y:0.##}\" width=\"{boundary.Width:0.##}\" height=\"{boundary.Height:0.##}\" rx=\"10\" />"))
             .Append(Invariant($"<text x=\"{boundary.X + 16:0.##}\" y=\"{boundary.Y + 22:0.##}\" class=\"c4-diagram__boundary-name\">{Escape(boundary.Label)}</text>"))
             .Append(Invariant($"<text x=\"{boundary.X + 16:0.##}\" y=\"{boundary.Y + 38:0.##}\" class=\"c4-diagram__boundary-kind\">[{Escape(boundary.Kind)}]</text>"))

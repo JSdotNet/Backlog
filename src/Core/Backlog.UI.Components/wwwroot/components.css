@@ -18024,6 +18024,86 @@ select.field__input {
     list-style: none;
 }
 
+/* ---- the zoom tab's deployment view ---- */
+
+/* A deployment node drawn as a frame is selectable on the zoom tab: solid, because a
+   frame here is a node and not a boundary, and filled with nothing that still takes a
+   press, so its empty inside selects it. The ring of a selected or focused frame is the
+   card's, so it is restated after the frame's own stroke, which would otherwise win at
+   the same specificity. */
+.c4-zoom-explorer__frame g.node.c4-diagram__boundary--selectable > rect {
+    stroke-dasharray: none;
+    stroke: var(--color-border-strong);
+    pointer-events: all;
+}
+
+.c4-zoom-explorer__frame g.node.c4-diagram__boundary--selectable:focus-visible > rect,
+.c4-zoom-explorer__frame g.node.c4-diagram__boundary--selectable.c4-selected > rect {
+    stroke: var(--color-primary);
+    stroke-width: 2.5px;
+}
+
+.c4-zoom-explorer__environments {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-self: flex-start;
+    padding: var(--spacing-2xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.c4-zoom-explorer__environment-tab {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.c4-zoom-explorer__environment-tab:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-zoom-explorer__environment-tab--active {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+    cursor: default;
+}
+
+.c4-zoom-explorer__environment {
+    display: flex;
+    flex-direction: column;
+}
+
+/* The tab panel's own display would otherwise beat the hidden attribute, and every
+   environment not open would stand as an empty panel in the column. */
+.c4-zoom-explorer__environment[hidden] {
+    display: none;
+}
+
+.c4-zoom-explorer__deployment {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+}
+
+.c4-deployment-doors {
+    display: flex;
+    flex: 1 1 14rem;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
 .c4-dynamic-steps__step {
     display: flex;
     gap: var(--spacing-sm);
@@ -18082,6 +18162,136 @@ select.field__input {
     .c4-zoom-explorer--dynamic > .c4-dynamic-steps {
         grid-column: 1;
     }
+}
+
+.c4-deployment-doors__door {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    width: 100%;
+    padding: var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    text-align: center;
+    cursor: pointer;
+}
+
+.c4-deployment-doors__door:hover {
+    border-color: var(--color-primary);
+}
+
+.c4-deployment-doors__door:focus-visible {
+    border-color: var(--color-primary);
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-deployment-doors__environment {
+    font-size: var(--font-size-xs);
+}
+
+.c4-deployment-doors__runs {
+    color: var(--color-text-primary);
+}
+
+.c4-deployment-doors__open {
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+}
+
+.c4-deployment-inspector {
+    display: flex;
+    flex: 1 1 20rem;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.c4-deployment-inspector__kicker {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.c4-deployment-inspector__name {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-deployment-inspector__description {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.c4-deployment-inspector__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.c4-deployment-inspector__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-deployment-inspector__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-deployment-inspector__runs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-deployment-inspector__run {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+}
+
+.c4-deployment-inspector__run-tech {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-deployment-inspector__open {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.c4-deployment-inspector__open:hover,
+.c4-deployment-inspector__open:focus-visible {
+    text-decoration: underline;
 }
 
 /* Narrow: the panels stack above the stage rather than squeezing it. */

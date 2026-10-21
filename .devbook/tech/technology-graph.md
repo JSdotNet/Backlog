@@ -127,6 +127,7 @@ flowchart LR
             Workers["Background Workers"]:::candidate
             ProtectedData["System.Security.Cryptography.ProtectedData"]:::adopted
             McpSdk["Model Context Protocol C# SDK"]:::adopted
+            Roslyn["Microsoft.CodeAnalysis.CSharp"]:::adopted
             GhCli["GitHub CLI"]:::adopted
             MSIX["MSIX Packaging"]:::adopted
             AppInstaller["App Installer (.appinstaller)"]:::adopted
@@ -250,6 +251,7 @@ flowchart LR
     ProtectedData --> DotNet
     McpSdk --> AspNetCore
     McpSdk --> DotNet
+    Roslyn --> DotNet
     GhCli --> GitHubPlatform
     MSIX --> WinAppSDK
     AppInstaller --> MSIX
