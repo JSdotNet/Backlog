@@ -17871,6 +17871,159 @@ select.field__input {
     fill: var(--color-text-inverse);
 }
 
+/* ---- a dynamic view played step by step ----
+   The picture and the steps panel side by side; every other part of the tab spans
+   both columns. The current step — its arrow, its badge, its row — is drawn in the
+   primary colour and every other step stays grey. Drawn only when the zoom tab asks
+   C4SvgWriter for step badges, so nothing here reaches the C4 tab. */
+.c4-zoom-explorer--dynamic {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    align-items: start;
+}
+
+.c4-zoom-explorer--dynamic > * {
+    grid-column: 1 / -1;
+}
+
+.c4-zoom-explorer--dynamic > .c4-zoom-explorer__frame {
+    grid-column: 1;
+}
+
+.c4-zoom-explorer--dynamic > .c4-dynamic-steps {
+    grid-column: 2;
+}
+
+.c4-diagram__edge--step path {
+    stroke: var(--color-text-disabled);
+}
+
+.c4-diagram__edge--current path {
+    stroke: var(--color-primary);
+    stroke-width: 2.5;
+}
+
+.c4-diagram__step-badge circle {
+    fill: var(--color-background-alt);
+    stroke: var(--color-border-strong);
+    stroke-width: 1;
+}
+
+.c4-diagram__step-badge text {
+    fill: var(--color-text-primary);
+    stroke: none;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.c4-diagram__edge-label--current .c4-diagram__step-badge circle {
+    fill: var(--color-primary);
+    stroke: var(--color-primary);
+}
+
+.c4-diagram__edge-label--current .c4-diagram__step-badge text {
+    fill: var(--color-text-inverse);
+}
+
+.c4-diagram__edge-label--current > text {
+    fill: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-dynamic-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.c4-dynamic-steps__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.c4-dynamic-steps__kicker {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.c4-dynamic-steps__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-dynamic-steps__controls {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.c4-dynamic-steps__move {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--border-radius-sm);
+    font: inherit;
+    cursor: pointer;
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+}
+
+.c4-dynamic-steps__move[aria-disabled="true"] {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
+.c4-dynamic-steps__play {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--border-radius-sm);
+    font: inherit;
+    cursor: pointer;
+    padding: 0 var(--spacing-md);
+    border: 0;
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-dynamic-steps__move:focus-visible,
+.c4-dynamic-steps__play:focus-visible,
+.c4-dynamic-steps__step:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-dynamic-steps__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-dynamic-steps__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
 /* ---- the zoom tab's deployment view ---- */
 
 /* A deployment node drawn as a frame is selectable on the zoom tab: solid, because a
@@ -17949,6 +18102,66 @@ select.field__input {
     margin: 0;
     padding: 0;
     list-style: none;
+}
+
+.c4-dynamic-steps__step {
+    display: flex;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-dynamic-steps__step--current {
+    background: var(--color-background-alt);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.c4-dynamic-steps__number {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-dynamic-steps__step--current .c4-dynamic-steps__number {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.c4-dynamic-steps__text {
+    display: flex;
+    flex-direction: column;
+    line-height: var(--line-height-normal);
+}
+
+.c4-dynamic-steps__ends {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+@media (max-width: 60rem) {
+    .c4-zoom-explorer--dynamic {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .c4-zoom-explorer--dynamic > .c4-dynamic-steps {
+        grid-column: 1;
+    }
 }
 
 .c4-deployment-doors__door {

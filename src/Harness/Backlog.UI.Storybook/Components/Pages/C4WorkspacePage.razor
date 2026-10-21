@@ -63,6 +63,14 @@ The chip is the one thing the zoom tab asks of the shared renderer, and it is an
         </div>
     </Story>
 
+    <Story Name="A dynamic view, step by step"
+           Description="`C4DynamicSteps`, the panel the zoom tab sets beside a dynamic view: **Step 2 of 3**, Previous / Play / Next, and every step in order — from → to, what it does, and the technology read from the model relationship between the same two elements, since a dynamic step carries none of its own. Open **Dynamic** under *Also* in the zoom tab above to play it: each arrow carries its number in a badge, and the current step's arrow, badge and row are drawn in the primary colour while the rest stay grey.
+
+Previous is disabled on the first step and Next on the last. Play walks forward and stops on the last step; with reduced motion asked for, it moves one step per press and says so. The badges and the current step are options of `C4SvgWriter` (`NumberSteps`, `CurrentStep`) that the C4 tab never passes."
+           Code="@DynamicUsage">
+        <C4DynamicSteps Steps="@DynamicSteps" Current="1" TestId="sb-c4-dynamic-steps" />
+    </Story>
+
     <Story Name="A deployment view"
            Description="On a deployment view the zoom tab puts the scope's environments behind **one tab list**, and draws every other environment as a **dashed door** naming what runs there; opening the door is the same move as its tab. Open *Deployment* under Also in the zoom tab above to walk it: Local machine and Staging.
 
@@ -216,6 +224,21 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                         HintDismissed="@preferences.C4ZoomHintDismissed"
                         OnHintDismissed="preferences.DismissC4ZoomHint" />
         """;
+
+    private const string DynamicUsage = """
+        <C4DynamicSteps Steps="@C4DynamicPlayback.Steps(workspace, view)"
+                        Current="@stepIndex"
+                        Playing="@playing"
+                        ReducedMotion="@reducedMotion"
+                        OnPrevious="Previous"
+                        OnNext="Next"
+                        OnPlay="Play"
+                        OnPick="Pick" />
+        """;
+
+    /// <summary>The sample's dynamic view, as the zoom tab's steps panel lists it.</summary>
+    private static IReadOnlyList<C4PlaybackStep> DynamicSteps =>
+        C4DynamicPlayback.Steps(Parsed, Parsed.View("capture-to-issue")!);
 
     private const string DeploymentUsage = """
         <C4DeploymentDoors Doors="@doors" OnOpen="OpenEnvironment" />

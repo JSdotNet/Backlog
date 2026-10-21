@@ -5526,6 +5526,15 @@
             return true;
         },
 
+        /**
+         * Whether the reader asked for reduced motion. Read when a dynamic view's
+         * steps panel is first drawn; Play then steps once per press instead of
+         * walking on a timer.
+         */
+        reducedMotion() {
+            return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        },
+
         /** Moves the selection ring without a new picture. */
         select(id, alias) {
             const state = zooms.get(id);
