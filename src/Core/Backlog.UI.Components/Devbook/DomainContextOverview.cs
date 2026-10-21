@@ -74,7 +74,7 @@ public sealed record DomainContextSwitch(string Title, bool IsSetting, string? K
 }
 
 /// <summary>
-/// What the Domain view's Overview tab says about one bounded context (local ADR
+/// What the Domain view's Overview says about one bounded context (local ADR
 /// 0037): the boundary <c>context.md</c> draws above its first chapter — its lead,
 /// what is inside and what is answered outside — how many chapters of each kind
 /// the context's files hold, how well its requirements and invariants are proved,

@@ -143,8 +143,8 @@ settings screen lists it from the feature catalog in `AppFeatures.cs`, and a
 person's choice is kept in `features.json` beside the app's other per-device
 choices.
 
-The plan has built every page: the Context map, a context's **Overview** and
-**Neighbours**, Domain, Features, Requirements, Model and Flow, with the Brain
+The plan has built every page: the Context map, a context's page with its
+neighbours and its **Overview**, Domain, Features, Requirements, Model and Flow, with the Brain
 notes and tasks that link to each. Only the **Demo** button for a click demo is
 still to come, and a file of no known kind opens a placeholder.
 

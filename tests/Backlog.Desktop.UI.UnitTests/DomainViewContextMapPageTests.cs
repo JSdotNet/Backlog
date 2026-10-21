@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The Domain view's Context map page, reached the way a reader reaches it: the
 /// New domain view switch on, the Context map row picked (local ADR 0037). Map
 /// draws the contexts with a line per pair worded from each context's dependency
-/// tables; List names them in reading order; a card opens its context on Neighbours.
+/// tables; List names them in reading order; a card opens its context's page.
 /// </summary>
 public sealed class DomainViewContextMapPageTests : IDisposable
 {
@@ -111,12 +111,12 @@ public sealed class DomainViewContextMapPageTests : IDisposable
     }
 
     /// <summary>The Zoom: a card follows its context's dependencies.md, which has no
-    /// row of its own, so the pane selects the context's row and tells its page which
-    /// file was asked for — and the page opens on Neighbours, not Overview.</summary>
+    /// row of its own, so the pane selects the context's row — the one page that
+    /// opens on its neighbours, the same page the reader's own pick of the row opens.</summary>
     [Theory]
     [InlineData("Tasks", "tasks")]
     [InlineData("Sync", "sync")]
-    public async Task Picking_a_card_opens_that_context_on_its_Neighbours_tab(string id, string slug)
+    public async Task Picking_a_card_opens_that_contexts_one_page_as_the_menu_does(string id, string slug)
     {
         await using var harness = CreateHarness();
 
@@ -127,16 +127,17 @@ public sealed class DomainViewContextMapPageTests : IDisposable
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context-page']")), Patience);
         Assert.Equal("context", component.Find("[data-testid='domain-view']").GetAttribute("data-page"));
-        Assert.Equal("true", component.Find("[data-testid='domain-context-page-tab-neighbours']").GetAttribute("aria-selected"));
-        Assert.Equal($"{slug}/dependencies.md", component.FindComponent<DomainView>().Instance.SelectedPath);
+        Assert.Empty(component.FindAll("[data-testid='domain-context-page'] [role='tab']"));
+        Assert.Single(component.FindAll("[data-testid='domain-context-page'] > [data-testid='domain-neighbours']"));
+        Assert.Equal($"{slug}/context.md", component.FindComponent<DomainView>().Instance.SelectedPath);
 
-        // The reader's own pick of the same row afterwards opens it on Overview.
+        // The reader's own pick of the same row afterwards opens the same page.
         await ClickMenuItemAsync(component, "Context Map");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='context-map-page']")), Patience);
         component.WaitForAssertion(() => Assert.NotNull(MenuItem(component, id)), Patience);
         await ClickMenuItemAsync(component, id);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context-page']")), Patience);
-        Assert.Equal("true", component.Find("[data-testid='domain-context-page-tab-overview']").GetAttribute("aria-selected"));
+        Assert.Single(component.FindAll("[data-testid='domain-context-page'] > [data-testid='domain-neighbours']"));
     }
 
     /// <summary>The repository's own map, read the way the page reads it: every

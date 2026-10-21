@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// What the Domain view's Overview tab reads about a bounded context (local ADR
+/// What the Domain view's Overview reads about a bounded context (local ADR
 /// 0037): the boundary prose above <c>context.md</c>'s first chapter, the chapters
 /// per kind across the context's files, how many requirements and rules name a
 /// test, the status spread, and the context's switches and settings.

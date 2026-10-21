@@ -2,13 +2,13 @@
 @inject IServiceProvider Services
 
 @*
-    The Domain view's page for one bounded context — its folder's row, its
-    context.md, or a dependencies.md a followed reference or a Context map card
-    named, which the pane hands on in place of the row (local ADR 0037). It reads the context's files through the domain store and hands
-    them to the library's DomainContextView: Overview from context.md and the
-    chapters of every file beside it, Neighbours from dependencies.md or, failing
-    that, context.md's own Dependencies chapter. A dependencies.md path opens on
-    Neighbours.
+    The Domain view's page for one bounded context — its folder's row, which the
+    menu, a followed reference to its context.md or dependencies.md and a Context
+    map card all select (local ADR 0037). It reads the context's files through the
+    domain store and hands them to the library's DomainContextView, one page
+    however it was reached: the neighbours from dependencies.md or, failing that,
+    context.md's own Dependencies chapter, and below them the Overview from
+    context.md and the chapters of every file beside it.
 *@
 
 @if (_read is { Problem: null } read)
@@ -19,7 +19,6 @@
                        Overview="@read.Overview"
                        Neighbours="@read.Neighbours"
                        DocumentPath="@read.DocumentPath"
-                       InitialTab="@read.InitialTab"
                        OnNavigate="NavigateAsync"
                        OnOpenAlwaysTrue="OnOpenAlwaysTrue" />
 }
@@ -110,16 +109,15 @@ else if (_read?.Problem is { } problem)
         DomainContextOverview Overview,
         DomainNeighbourhood Neighbours,
         string? DocumentPath,
-        string InitialTab,
         string? Problem,
         string? Summary = null)
     {
         public static ContextReading Failed(string problem) =>
-            new("the context", DomainContextOverview.Empty, DomainNeighbourhood.Empty, null, "overview", problem);
+            new("the context", DomainContextOverview.Empty, DomainNeighbourhood.Empty, null, problem);
     }
 
-    /// <summary>The context the menu path names, read into its Overview and its
-    /// Neighbours.</summary>
+    /// <summary>The context the menu path names, read into its neighbours and its
+    /// Overview.</summary>
     internal static ContextReading Read(DomainDevbookView view, string? selectedPath)
     {
         if (view.Error is { } error) return ContextReading.Failed(error);
@@ -143,8 +141,6 @@ else if (_read?.Problem is { } problem)
                 ? DomainNeighbours.Read(DependenciesChapter(rootText), root.Path)
                 : DomainNeighbourhood.Empty;
 
-        var opensNeighbours = DomainDevbookStore.KindFromFile(relative) == DomainDevbookDocumentKind.Dependencies;
-
         // Each neighbour that is a context is named as its context.md heads it and
         // tagged Core when the context map's Subdomain landscape says so.
         var kinds = Kinds(view);
@@ -158,7 +154,6 @@ else if (_read?.Problem is { } problem)
             DomainContextOverview.Read(rootText, root?.Path, others) with { Subdomain = kinds.GetValueOrDefault(context.Slug)?.Kind },
             neighbours.Describe(named),
             root?.Path,
-            opensNeighbours ? "neighbours" : "overview",
             null,
             Summary(kinds.GetValueOrDefault(context.Slug)?.Kind, context.Status));
     }

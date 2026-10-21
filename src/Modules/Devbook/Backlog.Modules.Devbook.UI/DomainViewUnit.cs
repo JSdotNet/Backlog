@@ -2,7 +2,7 @@ namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// The page a Domain menu row opens in the new domain view: one per kind of file a
-/// row can be (local ADR 0037). A file that is a tab or a button on another page —
+/// row can be (local ADR 0037). A file shown on another page —
 /// <c>dependencies.md</c>, a <c>domain.&lt;name&gt;.invariants.md</c> — answers the page
 /// it shows on, so a path that reaches the view some other way still lands on a page.
 /// </summary>
@@ -14,7 +14,7 @@ public enum DomainViewPage
     /// <summary><c>context-map.md</c>: Map and List.</summary>
     ContextMap,
 
-    /// <summary>A context's folder or its <c>context.md</c>: Overview and Neighbours.</summary>
+    /// <summary>A context's folder or its <c>context.md</c>: its neighbours, and its Overview below.</summary>
     Context,
 
     /// <summary><c>domain.md</c> and its splits: a unit picker, About and Always true.</summary>
@@ -96,7 +96,7 @@ public static class DomainViewUnit
     {
         DomainViewPage.None => "Choose the context map, a context, or a file inside one from the menu.",
         DomainViewPage.ContextMap => "Map draws the contexts and their relations; List names them in reading order.",
-        DomainViewPage.Context => "Overview is the context's boundary; Neighbours is its dependencies.",
+        DomainViewPage.Context => "The context's neighbours, and below them its boundary.",
         DomainViewPage.Domain => "A unit picker. An aggregate opens About and Always true; a domain service opens one page.",
         DomainViewPage.Features => "The features and their sub-features.",
         DomainViewPage.Requirements => "Each requirement and its scenarios.",
