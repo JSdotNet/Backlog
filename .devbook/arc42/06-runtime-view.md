@@ -13,6 +13,8 @@ related: [".devbook/arc42/05-building-block-view.md#desktop-app"]
 Creating a task writes its SQLite row locally first (local ADR 0003), then asynchronously creates
 one GitHub issue per targeted repo.
 
+![Capturing an item and pushing it to GitHub](c4:capture-to-issue)
+
 ```mermaid
 sequenceDiagram
     actor ME

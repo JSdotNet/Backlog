@@ -320,6 +320,19 @@ public sealed record AgentSession(
     /// </para>
     /// </summary>
     public string? ScheduledTask { get; init; }
+
+    /// <summary>
+    /// The name the Claude desktop app's sidebar shows for this session — the record's
+    /// <c>title</c>, whether the app, a tool or the person gave it — or null where the
+    /// record names none or there is no record.
+    /// <para>
+    /// What a surface calls the session where it is set, ahead of <see cref="Title"/>,
+    /// which is the transcript's and often only the worktree folder's name. It never
+    /// replaces <see cref="Title"/>: that is what a session record keeps and sync
+    /// carries, and this is local-only on the same terms as <see cref="Archived"/>.
+    /// </para>
+    /// </summary>
+    public string? DesktopTitle { get; init; }
 }
 
 /// <summary>

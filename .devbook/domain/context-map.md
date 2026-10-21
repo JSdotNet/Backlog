@@ -10,7 +10,7 @@ status: draft
 > standards, and signals across the system.
 
 > See also: `.devbook/arc42/03-context-and-scope.md` for the system-level context this
-> map's bounded contexts sit inside, and `.devbook/arc42/05-building-block-view.md` for
+> map's bounded contexts sit inside, and `.devbook/arc42/05-building-block-view.md#container-view` for
 > how these contexts are realized across the desktop, mobile, IDE, and cloud
 > containers.
 

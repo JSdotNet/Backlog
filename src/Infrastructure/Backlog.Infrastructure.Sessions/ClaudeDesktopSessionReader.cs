@@ -5,7 +5,7 @@ using Backlog.Modules.Sessions.Abstractions;
 namespace Backlog.Infrastructure.Sessions;
 
 /// <summary>
-/// What the Claude desktop app's session store says about one of its sessions: the two
+/// What the Claude desktop app's session store says about one of its sessions: the three
 /// facts the session list reads from it, and what the record is keyed and ranked on.
 /// </summary>
 /// <param name="DesktopId">The desktop app's own id for the session —
@@ -20,12 +20,15 @@ namespace Backlog.Infrastructure.Sessions;
 /// <param name="ScheduledTask">The record's <c>scheduledTaskId</c>, or null.</param>
 /// <param name="LastActivityAt">The record's <c>lastActivityAt</c>, or null. Only
 /// ranks two records that name one CLI session.</param>
+/// <param name="Title">The record's <c>title</c> — the name the sidebar shows, whatever
+/// its <c>titleSource</c> — or null where it is absent or blank.</param>
 internal sealed record ClaudeDesktopSession(
     string? DesktopId,
     string? CliSessionId,
     bool? Archived,
     string? ScheduledTask,
-    DateTimeOffset? LastActivityAt);
+    DateTimeOffset? LastActivityAt,
+    string? Title);
 
 /// <summary>
 /// One reading of the desktop app's session store, looked up by the CLI session id the
@@ -110,7 +113,8 @@ internal sealed class ClaudeDesktopSessions
 /// Nothing under <c>~/.claude</c> does: the desktop app ends an idle session's CLI
 /// process, so a session open in the sidebar has no live marker and reads Finished, and
 /// the transcript says nothing about the sidebar either. This store does, as
-/// <c>isArchived</c>, along with the <c>scheduledTaskId</c> of a routine's run.
+/// <c>isArchived</c>, along with the <c>scheduledTaskId</c> of a routine's run and the
+/// <c>title</c> the sidebar shows.
 /// </para>
 /// <para>
 /// <b>The format is the desktop app's private one</b>, read the way the
@@ -277,6 +281,7 @@ internal sealed class ClaudeDesktopSessionReader
         bool? archived = null;
         string? scheduledTask = null;
         DateTimeOffset? lastActivityAt = null;
+        string? title = null;
 
         try
         {
@@ -293,6 +298,7 @@ internal sealed class ClaudeDesktopSessionReader
                     : reader.ValueTextEquals("isArchived"u8) ? Field.Archived
                     : reader.ValueTextEquals("scheduledTaskId"u8) ? Field.ScheduledTask
                     : reader.ValueTextEquals("lastActivityAt"u8) ? Field.LastActivityAt
+                    : reader.ValueTextEquals("title"u8) ? Field.Title
                     : Field.None;
 
                 if (!reader.Read()) return null;
@@ -321,6 +327,9 @@ internal sealed class ClaudeDesktopSessionReader
                             ? DateTimeOffset.FromUnixTimeMilliseconds(milliseconds)
                             : null;
                         break;
+                    case Field.Title:
+                        title = Text(ref reader);
+                        break;
                 }
 
                 // Leaves the reader on the value's last token, whatever it was: a no-op
@@ -337,7 +346,7 @@ internal sealed class ClaudeDesktopSessionReader
 
         return string.IsNullOrWhiteSpace(desktopId) && string.IsNullOrWhiteSpace(cliSessionId)
             ? null
-            : new ClaudeDesktopSession(desktopId, cliSessionId, archived, scheduledTask, lastActivityAt);
+            : new ClaudeDesktopSession(desktopId, cliSessionId, archived, scheduledTask, lastActivityAt, title);
     }
 
     /// <summary>A blank string states nothing, here as in <see cref="ClaudeJson.NonBlankText"/>.</summary>
@@ -353,7 +362,8 @@ internal sealed class ClaudeDesktopSessionReader
         CliSessionId,
         Archived,
         ScheduledTask,
-        LastActivityAt
+        LastActivityAt,
+        Title
     }
 
     private sealed record Remembered(long Length, DateTime WrittenAt, bool Settled, ClaudeDesktopSession? Record);

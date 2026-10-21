@@ -153,14 +153,14 @@ public sealed class CompositeAgentSessionSourceTests
         var composite = new CompositeAgentSessionSource(
         [
             new StubSource(new AgentSessionCatalog(
-                [Session("both") with { Archived = false, ScheduledTask = "nightly-sweep" }],
+                [Session("both") with { Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name" }],
                 [],
                 1)),
             new StubSource(new AgentSessionCatalog(
                 [
                     Session("both") with { Origin = AgentSessionOrigin.Recorded, Archived = true },
-                    Session("recorded") with { Origin = AgentSessionOrigin.Recorded, Archived = false, ScheduledTask = "nightly-sweep" },
-                    Session("replicated") with { Origin = AgentSessionOrigin.Replicated, Archived = false, ScheduledTask = "nightly-sweep" }
+                    Session("recorded") with { Origin = AgentSessionOrigin.Recorded, Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name" },
+                    Session("replicated") with { Origin = AgentSessionOrigin.Replicated, Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "Sidebar name" }
                 ],
                 [],
                 3))
@@ -169,8 +169,8 @@ public sealed class CompositeAgentSessionSourceTests
         var catalog = await composite.GetSessionsAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(
-            ["both False nightly-sweep", "recorded  ", "replicated  "],
-            catalog.Sessions.Select(session => $"{session.Id} {session.Archived} {session.ScheduledTask}"));
+            ["both False nightly-sweep Sidebar name", "recorded   ", "replicated   "],
+            catalog.Sessions.Select(session => $"{session.Id} {session.Archived} {session.ScheduledTask} {session.DesktopTitle}"));
     }
 
     /// <summary>The local reading's count of open sessions listed past its cap reaches

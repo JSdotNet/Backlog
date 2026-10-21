@@ -964,6 +964,30 @@ public sealed class SessionsPaneTests
     }
 
     /// <summary>
+    /// A session the Claude desktop app names in its sidebar is called that here, in its
+    /// row and its detail, rather than by the worktree folder its transcript is titled
+    /// after. A session with no sidebar name keeps its own title.
+    /// </summary>
+    [Fact]
+    public void A_session_the_desktop_app_names_is_called_by_its_sidebar_name()
+    {
+        using var context = Context([Sample[0] with { DesktopTitle = "DESIGN: Finance app design" }, Sample[1]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                ["DESIGN: Finance app design", "JSdotNet/Backlog"],
+                pane.FindAll(".sessions-row__title").Select(title => title.TextContent.Trim()));
+            Assert.Equal("DESIGN: Finance app design", pane.Find(".sessions-row__title").GetAttribute("title"));
+            Assert.Equal("DESIGN: Finance app design", pane.Find("[data-testid='sessions-detail-title']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
     /// The two absences stay different. A replicated row's missing folder is the
     /// boundary — the agent did record one and it deliberately stayed behind — while
     /// a repository and a branch the agent never recorded are still em dashes on the

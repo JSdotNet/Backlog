@@ -3,17 +3,14 @@
  *
  * Authored in c4hero (https://github.com/c4hero/c4hero) and read by the desktop
  * app, which draws each view from this file. It is the only place an element or
- * a view is defined: the arc42 chapters carry no C4 fences of their own. Nothing
- * here is generated from the chapters and nothing here generates them.
+ * a view is defined: the arc42 chapters carry no C4 fences of their own.
  *
- * A chapter embeds a view by key, in the one section that documents it:
+ * Every view is embedded in the one chapter section it documents, by its key:
  *
  *     ![Container Diagram — Backlog](c4:container-view)
  *
- * The devbook graph reads each embed as an `embeds` edge from that section to the
- * view, and the app draws the view there. Which chapters a view documents is read
- * from those embeds, merged with the older, authored `_c4/references.json` until
- * that file is retired.
+ * That embed is the only statement of the link. The app reads it the other way
+ * round to show, on a view, which chapter documents it.
  *
  * Editing: open this folder in c4hero, which writes the file back and keeps node
  * positions in a c4hero sidecar file beside it. The app does not read
@@ -168,11 +165,6 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
     }
 
     views {
-
-        systemLandscape "landscape" "Everything Prompt Backlog touches" {
-            include *
-            autolayout lr
-        }
 
         component backlog.desktop "components-desktop" "Component Diagram — Desktop App" {
             include *

@@ -80,9 +80,10 @@ public sealed class AgentSessionAssistantSessionSource(IAgentSessionSource sessi
             // nothing rather than one that fails.
             Id = session.Id,
 
-            // Sessions' own title, unchanged: the longest-sessions list names a session
-            // the way the Sessions pane does, so a reader finds it there by the same words.
-            Title = string.IsNullOrWhiteSpace(session.Title) ? null : session.Title,
+            // The longest-sessions list names a session the way the Sessions pane does, so
+            // a reader finds it there by the same words: the desktop app's sidebar name
+            // where it gives one, else Sessions' own title, unchanged.
+            Title = session.DesktopTitle ?? (string.IsNullOrWhiteSpace(session.Title) ? null : session.Title),
 
             // A turn is one prompt the person sent — that is how Sessions defines it,
             // and the Dashboard says "prompts" because that is the word a reader has.
