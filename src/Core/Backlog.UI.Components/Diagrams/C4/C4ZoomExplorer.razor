@@ -6,8 +6,10 @@
     tab (C4Explorer) lists views one by one. Both stand side by side behind the c4-zoom
     switch until the zoom tab is validated (local ADR 0037), so this shares the
     renderer — C4LayoutEngine, C4SvgWriter, C4Exploration — and changes nothing about
-    how the C4 tab draws: the one addition to the shared writer, the Zoom in chip, is
-    an option only this component sets.
+    how the C4 tab draws: the additions to the shared writer, the Zoom in chip and the
+    selectable deployment-node frame, are options only this component sets. (The one
+    shared change both tabs see is a layout fix: a deployment instance is drawn inside
+    the deployment node that runs it, where the node used to be dropped.)
 
     It holds two things, the open view and the selected element. Everything the zoom
     bar says and everywhere a move goes is C4ZoomNavigation's, derived from those two.
@@ -60,7 +62,7 @@
 
         @* Focusable as a whole, so Backspace has somewhere to land on a view with no
            card focused. Every card is made focusable by the viewer. *@
-        <div class="c4-zoom-explorer__frame"
+        RenderFragment frame = @<div class="c4-zoom-explorer__frame"
              id="@_frameId"
              tabindex="0"
              role="group"
@@ -71,10 +73,59 @@
                            AriaLabel="@C4Exploration.Label(Workspace, _view)"
                            Options="@_options"
                            TestId="c4-zoom-diagram" />
-        </div>
+        </div>;
+
+        @* A deployment view whose scope is deployed to more than one environment puts
+           the picture behind one tab per environment; the frame is the open tab's
+           panel. Any other view is the frame alone. *@
+        @if (_environments.Count > 1)
+        {
+            <Tabs Bare="true"
+                  ActiveId="@EnvironmentTabId(_environments.First(environment => environment.Current))"
+                  ActiveIdChanged="OpenEnvironmentTabAsync"
+                  AriaLabel="Deployment environment"
+                  ListCssClass="c4-zoom-explorer__environments"
+                  TabCssClass="c4-zoom-explorer__environment-tab"
+                  ActiveTabCssClass="c4-zoom-explorer__environment-tab c4-zoom-explorer__environment-tab--active"
+                  ListTestId="c4-zoom-environments">
+                @foreach (var environment in _environments)
+                {
+                    @* Out of the Tab order: the frame inside it is the stop. *@
+                    <TabPanel @key="environment.ViewKey"
+                              Id="@EnvironmentTabId(environment)"
+                              Title="@environment.Name"
+                              BaseClass="c4-zoom-explorer__environment"
+                              TabTestId="c4-zoom-environment-tab"
+                              tabindex="-1">
+                        @frame
+                    </TabPanel>
+                }
+            </Tabs>
+        }
+        else
+        {
+            @frame
+        }
+
+        @if (_doors.Count > 0 || _deploymentNode is not null)
+        {
+            <div class="c4-zoom-explorer__deployment" data-testid="c4-zoom-deployment">
+                <C4DeploymentDoors Doors="@_doors" OnOpen="OpenEnvironmentAsync" />
+
+                @if (_deploymentNode is not null)
+                {
+                    <C4DeploymentInspector Details="@_deploymentNode" OnOpenContainer="OpenContainerAsync" />
+                }
+            </div>
+        }
 
         <footer class="c4-zoom-explorer__foot">
             <p class="c4-zoom-explorer__legend" data-testid="c4-zoom-legend">Double-click an element, or its Zoom in chip, to open the next level. Backspace goes back up.</p>
+
+            @if (_view.Kind == C4ViewKind.Deployment)
+            {
+                <p class="c4-zoom-explorer__legend" data-testid="c4-zoom-deployment-legend">Frame: deployment node, select it to see what it runs. Dashed: another environment, drawn as a door.</p>
+            }
 
             @if (Problems.Count > 0)
             {
@@ -102,6 +153,13 @@
     private C4SvgOptions _options = C4SvgOptions.None;
     private bool _hintClosed;
     private bool _attached;
+
+    /// <summary>On a deployment view: the environments of its scope, the doors to the
+    /// other ones, and the deployment node selected, if one is. Empty and null on any
+    /// other view.</summary>
+    private IReadOnlyList<C4DeploymentEnvironment> _environments = [];
+    private IReadOnlyList<C4DeploymentEnvironment> _doors = [];
+    private C4DeploymentNodeDetails? _deploymentNode;
 
     /// <summary>Set by a move the viewer reported — a zoom from the picture — so the
     /// next picture takes the keyboard focus back. A move from the bar leaves the focus
@@ -168,6 +226,9 @@
         {
             _nodes = [];
             _bar = C4ZoomBarState.Empty;
+            _environments = [];
+            _doors = [];
+            _deploymentNode = null;
             return;
         }
 
@@ -182,10 +243,74 @@
             .Select(node => node.Alias)
             .ToHashSet(StringComparer.Ordinal);
 
-        if (_options.ZoomInAliases is null || !_options.ZoomInAliases.SetEquals(zoomable))
+        // A deployment node that runs something is drawn as a frame; on a deployment
+        // view the frame is selectable, because the node is what a reader asks about.
+        var frames = _view.Kind == C4ViewKind.Deployment
+            ? C4ZoomDeployment.SelectableFrames(DiagramFor(_view))
+            : null;
+
+        if (_options.ZoomInAliases is null || !_options.ZoomInAliases.SetEquals(zoomable)
+            || !SameSet(_options.SelectableBoundaryAliases, frames))
         {
-            _options = new C4SvgOptions(zoomable);
+            _options = new C4SvgOptions(zoomable) { SelectableBoundaryAliases = frames };
         }
+
+        _environments = C4ZoomDeployment.Environments(Workspace, _view);
+        _doors = [.. _environments.Where(environment => !environment.Current)];
+        _deploymentNode = _view.Kind == C4ViewKind.Deployment ? C4ZoomDeployment.Details(Workspace, _selectedId) : null;
+    }
+
+    private static bool SameSet(IReadOnlySet<string>? left, IReadOnlySet<string>? right) =>
+        left is null ? right is null : right is not null && left.SetEquals(right);
+
+    // ---- deployment ------------------------------------------------------------
+
+    /// <summary>A tab's id: unique on the page, because the tab list writes it into
+    /// the DOM. By position rather than by view key, because two keys can slug alike;
+    /// the list only changes with the scope, and the tabs go with it.</summary>
+    private string EnvironmentTabId(C4DeploymentEnvironment environment) =>
+        $"{_frameId}-environment-{IndexOf(environment)}";
+
+    private int IndexOf(C4DeploymentEnvironment environment)
+    {
+        for (var index = 0; index < _environments.Count; index++)
+        {
+            if (string.Equals(_environments[index].ViewKey, environment.ViewKey, StringComparison.OrdinalIgnoreCase)) return index;
+        }
+
+        return -1;
+    }
+
+    private Task OpenEnvironmentTabAsync(string tabId)
+    {
+        if (_environments.FirstOrDefault(environment => string.Equals(EnvironmentTabId(environment), tabId, StringComparison.Ordinal)) is { } environment)
+        {
+            return OpenEnvironmentAsync(environment);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>A tab or a door: the view of that environment, nothing selected, since
+    /// a node of one environment is not drawn in another.</summary>
+    private Task OpenEnvironmentAsync(C4DeploymentEnvironment environment)
+    {
+        if (environment.Current) return Task.CompletedTask;
+
+        Open(environment.ViewKey, null);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>"Show in containers" on an instance the selected node runs: the
+    /// containers view with that container selected.</summary>
+    private Task OpenContainerAsync(C4DeploymentInstance instance)
+    {
+        Open(instance.ContainersViewKey, instance.ContainerId);
+
+        // The button goes with the inspector, so the keyboard goes to the container
+        // card it named rather than falling to the page.
+        _refocus = true;
+        return Task.CompletedTask;
     }
 
     private C4Diagram DiagramFor(C4View view)

@@ -843,8 +843,10 @@ with no code link stops at level 3. Nothing at this level is written by hand, so
 it cannot drift from the source it shows.
 
 **The supplementary views.** A dynamic view plays its numbered steps one by one,
-the current step drawn apart from the others. A deployment view switches between
-environments, and draws another environment as a dashed door into its own view.
+the current step drawn apart from the others. A deployment view puts its
+environments behind one tab list, and draws another environment as a dashed door
+into its own view. A selected deployment node shows what it is, and the container
+instances it runs, each a way into the containers view.
 The landscape draws the groups the DSL declares as bands.
 
 **From the chapters.** While `c4-zoom` is on, an ADR or a TDR opened in the
