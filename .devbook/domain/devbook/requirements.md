@@ -1521,7 +1521,7 @@ type: requirement
 status: draft
 ```
 
-The system SHALL play a dynamic view one numbered step at a time, switch a deployment view between its environments with another environment drawn as a dashed door into its own view, and draw the landscape's DSL groups as bands.
+The system SHALL play a dynamic view one numbered step at a time, switch a deployment view between its environments behind one tab list with another environment drawn as a dashed door into its own view, show a selected deployment node's description, technology and the container instances it runs, each opening the container view, and draw the landscape's DSL groups as bands.
 
 #### Scenario: Stepping a dynamic view
 
@@ -1534,6 +1534,12 @@ The system SHALL play a dynamic view one numbered step at a time, switch a deplo
 - **Given** the Local machine deployment view is open
 - **When** the reader opens the dashed Azure door
 - **Then** the deployment view switches to the Azure environment
+
+#### Scenario: A deployment node
+
+- **Given** the Local machine deployment view is open
+- **When** the reader selects the MSIX package node
+- **Then** the inspector shows its description and MSIX, lists Desktop App as the container instance it runs, and Show in containers opens the Containers view with Desktop App selected
 
 #### Scenario: Landscape groups
 

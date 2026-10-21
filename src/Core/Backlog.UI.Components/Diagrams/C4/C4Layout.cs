@@ -205,12 +205,21 @@ public static class C4LayoutEngine
         var cells = new List<Cell>();
         var byBoundary = new Dictionary<string, Cell>(StringComparer.OrdinalIgnoreCase);
 
+        // The element each card is drawn for, by the card's alias. A deployment
+        // instance's node carries the id of the container it instantiates, so looking
+        // the card up by that id found the container, whose parent is its system and
+        // never the deployment node the instance sits in: the instance came out as a
+        // bare card and the node around it was not drawn at all.
+        var drawn = elements.Values
+            .GroupBy(element => C4MermaidWriter.AliasOf(element.Id), StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
         foreach (var node in nodes)
         {
             // A boundary is drawn as a frame, never as a card of its own.
             if (boundaries.Contains(node.ElementId)) continue;
 
-            var element = elements.GetValueOrDefault(node.ElementId);
+            var element = drawn.GetValueOrDefault(node.Alias) ?? elements.GetValueOrDefault(node.ElementId);
             var parent = element?.ParentId;
 
             if (parent is not null && boundaries.Contains(parent))

@@ -63,6 +63,20 @@ The chip is the one thing the zoom tab asks of the shared renderer, and it is an
         </div>
     </Story>
 
+    <Story Name="A deployment view"
+           Description="On a deployment view the zoom tab puts the scope's environments behind **one tab list**, and draws every other environment as a **dashed door** naming what runs there; opening the door is the same move as its tab. Open *Deployment* under Also in the zoom tab above to walk it: Local machine and Staging.
+
+A deployment node is drawn as the frame round what it runs, and on the zoom tab the frame is **selectable**: `C4SvgWriter` writes it as a `g.node` for the frames named in `C4SvgOptions.SelectableBoundaryAliases`, which the C4 tab never sets. Selecting one opens the inspector below — its kind, technology and description, and the container instances it runs, each with *Show in containers*, which opens the container view with that container selected."
+           Code="@DeploymentUsage">
+        <div class="sb-c4-zoom-moments">
+            <p class="sb-c4-zoom-moments__label">The door from Local machine</p>
+            <C4DeploymentDoors Doors="@StagingDoor" TestId="sb-c4-deployment-doors" />
+
+            <p class="sb-c4-zoom-moments__label">MSIX package selected</p>
+            <C4DeploymentInspector Details="@MsixPackage" TestId="sb-c4-deployment-inspector" />
+        </div>
+    </Story>
+
     <Story Name="What a level means"
            Description="`include *` does not mean every element in the model — it means the default set for that kind of view, which is what keeps a container view of one system from being a drawing of all of them. All people and top-level systems for a landscape; the scope plus its direct neighbours for a context; the scope's own containers plus the neighbours of those, with other systems left closed, for a container view.
 
@@ -203,6 +217,19 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                         OnHintDismissed="preferences.DismissC4ZoomHint" />
         """;
 
+    private const string DeploymentUsage = """
+        <C4DeploymentDoors Doors="@doors" OnOpen="OpenEnvironment" />
+        <C4DeploymentInspector Details="@C4ZoomDeployment.Details(workspace, selectedElementId)"
+                               OnOpenContainer="OpenContainer" />
+        """;
+
+    /// <summary>The doors the Local machine view draws: Staging.</summary>
+    private static readonly IReadOnlyList<C4DeploymentEnvironment> StagingDoor =
+        [.. C4ZoomDeployment.Environments(Parsed, Parsed.View("deployment-local")!).Where(environment => !environment.Current)];
+
+    /// <summary>The inspector of the MSIX package node.</summary>
+    private static readonly C4DeploymentNodeDetails MsixPackage = C4ZoomDeployment.Details(Parsed, "pc.msix")!;
+
     private const string ZoomBarUsage = """
         <C4ZoomBar State="@C4ZoomNavigation.Bar(workspace, view, selectedElementId)"
                    OnStep="OpenStep"
@@ -328,7 +355,9 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                 }
 
                 deploymentEnvironment "Staging" {
-                    vm = deploymentNode "Test VM" "Not on the local diagram." "Linux"
+                    vm = deploymentNode "Test VM" "Not on the local diagram." "Linux" {
+                        containerInstance backlog.cloud
+                    }
                 }
             }
 
@@ -361,6 +390,11 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                 }
 
                 deployment backlog "Local machine" "deployment-local" "Local Deployment" {
+                    include *
+                    autolayout tb
+                }
+
+                deployment backlog "Staging" "deployment-staging" "Staging Deployment" {
                     include *
                     autolayout tb
                 }
