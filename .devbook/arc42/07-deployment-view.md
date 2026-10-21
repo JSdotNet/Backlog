@@ -441,9 +441,15 @@ flowchart LR
   workflow-wide, so two runs never number a release at once.
 - **The server before the clients** — the sync job starts only after both
   packages built, so a broken app build never moves the server. It calls Deploy
-  Sync in `service` mode with `Version` set to `X.Y.Z`, which runs `azd deploy`
-  alone. Deploy Sync then reads `GET /` until the service reports that version
-  at the run's commit, and fails after ten minutes otherwise.
+  Sync in `service` mode with its `release` input set to `X.Y.Z`, which runs
+  `azd deploy` alone. The deploy stamps that number as the MSBuild property
+  `BacklogRelease`, assembly metadata that `GET /` reports as `release` beside
+  `version` and `commit`. Deploy Sync then reads `GET /` until `release` and
+  `commit` match the run, and fails after ten minutes otherwise.
+- **The release never moves `version`** — `version` is the compatibility number
+  every client stops syncing above, and only the project's `<Version>` sets it
+  ([The service version is a release decision](#provisioning-and-delivery)). A
+  service deployed outside Release All reports `release` as null.
 - **Publishing** — the publish job runs only after the service took the number,
   and refuses a release with any asset missing. A failed sync deploy therefore
   publishes nothing and takes no number. An explicit release always takes
