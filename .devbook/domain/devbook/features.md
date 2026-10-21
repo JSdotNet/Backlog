@@ -300,6 +300,84 @@ why it cannot be followed. Selecting a note offers to open it in the pane. Both
 close the map. With no Brain index built yet, the atlas says so rather than
 drawing an empty map.
 
+## Lobes atlas
+
+```meta
+type: feature
+status: draft
+depends-on: [.devbook/domain/devbook/features.md#atlas-edges]
+feature-flag: .devbook/domain/devbook/context.md#lobes-atlas
+related: [.devbook/domain/devbook/requirements.md#lobes-atlas, .devbook/domain/devbook/features.md#para-organization, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/design/color-scheme.md#the-brains-accent]
+```
+
+See the Brain and every devbook on this machine in one picture. One atlas maps
+the Brain and the devbook of every registered repository. It opens full-window
+from the shell header and draws each of them as a brain: drag to rotate it,
+scroll to zoom.
+
+**Scopes.** A switch at the top picks what the atlas shows.
+
+| Scope | The atlas shows |
+| --- | --- |
+| **All** | The Brain in the middle, each devbook as a smaller brain around it |
+| **Brain** | The Brain alone, by region |
+| One per devbook | That devbook alone, by region, with a Brain hub beside it |
+
+A repository alias the Brain links to that is not registered on this machine
+is a **ghost devbook**. It has a scope of its own and is drawn dashed: its
+outline, and only the chapters the notes name, in the link's own words. The
+atlas reads no repository, as [Atlas edges](#atlas-edges) already says.
+
+**Brain regions.** A note's region comes from its PARA area. Its `para` field
+wins over its folder, as [PARA organization](#para-organization) says.
+
+| Region | Brain notes |
+| --- | --- |
+| Frontal | Projects |
+| Parietal | Areas, Resources, and any area `CONVENTIONS.md` declares beyond PARA |
+| Temporal | People |
+| Occipital | The repository chapters the notes link to |
+| Cerebellum | Journal and the inbox |
+| Brain stem | The area roots and `CONVENTIONS.md` |
+
+Archive is no region: its notes are the faint dust around the outside.
+
+**Devbook regions.** A chapter's region comes from its folder.
+
+| Region | Devbook folder |
+| --- | --- |
+| Frontal | `arc42/` |
+| Parietal | `tech/` |
+| Temporal | `domain/` |
+| Occipital | `design/` |
+| Cerebellum | `ai/` |
+| Brain stem | Each folder's convention root and the reading-order roots |
+
+**Colour and bundles.** Brain marks wear the Brain's accent, `color-band-2`;
+devbook marks are gold. In All, bundles run from the Brain's repository hubs
+to the chapters the notes link. In a devbook's scope, a Brain hub floats beside
+the devbook with those same bundles. A bundle is solid when the link resolves
+and dashed when it does not, as in [Atlas edges](#atlas-edges).
+
+**The left panel.** In All it lists the scopes; in a single scope it lists that
+scope's six regions. The region chips, **Labels**, **All** and **None** act on
+the current scope only. Below the list, a scope card names the scope with its
+counts and offers one action:
+
+| Scope | The card's action |
+| --- | --- |
+| The Brain | **Open in the pane** |
+| A devbook | **Open devbook** |
+| A ghost devbook | **Register repository** |
+
+**No index yet.** With no Brain index built yet, the atlas says so and offers
+to build it, rather than drawing an empty map.
+
+**Where it opens.** While the flag is on, the Devbook pane's **Atlas** button
+opens this atlas at the pane's scope: the Brain, or that repository. While it
+is off, the button opens today's atlas. The technology atlas on the Tech tab
+keeps its layered layout either way.
+
 ## Capture into the Brain
 
 ```meta
