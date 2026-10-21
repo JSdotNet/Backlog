@@ -420,6 +420,7 @@ rather than offering an empty tab strip.
 ```meta
 type: sub-feature
 status: draft
+feature-flag: [.devbook/domain/devbook/context.md#devbook-editing, .devbook/domain/devbook/context.md#devbook-status]
 related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
 ```
 
@@ -429,6 +430,14 @@ between knowledge documents, and embedded diagrams rendered as diagrams. A
 cross-reference may name a chapter in the repository's backlog folder, even though
 that folder is not a browsable area. It is read with that folder's own status
 vocabulary rather than as an unknown one.
+
+Two parts of this are switches of their own, both off by default.
+[Devbook status](context.md#devbook-status) draws the status and decision state
+beside each file and chapter, and
+[Devbook editing](context.md#devbook-editing) offers Edit on a repository
+chapter; a Brain note keeps Edit either way. What follows about showing a status
+or a decision holds while status is on. Off, the file still states them and the
+app draws neither.
 
 Documents appear in the order the convention gives them:
 
@@ -453,7 +462,7 @@ checks reject:
   that are simply current carry no status at all and are shown as current.
   Choosing "current" for one removes the word rather than writing it, and a
   chapter that spells it out anyway is pointed out. Technology and AI-adoption
-  chapters are ratings, so theirs is always stated.
+  chapters are ratings, so the file always states theirs.
 - **A decision is state, not content.** A domain chapter can stand approved
   (someone agreed it), and above that accepted (someone saw the built work
   against it and accepted it). Where a review stands on the way there is state

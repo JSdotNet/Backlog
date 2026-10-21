@@ -1,6 +1,7 @@
 @implements IDisposable
 @inject TechnologyDevbookService TechnologyDevbook
 @inject DevbookFolderOpenService DevbookFolderOpen
+@inject IServiceProvider Services
 
 @*
     The "Devbook" eyebrow is gone from both branches: the tab strip above
@@ -142,7 +143,10 @@
                                 <h3>@activeLayer.Title</h3>
                                 <p>@activeLayer.FileName</p>
                             </div>
-                            @RenderStatusSelect(LayerPath(activeLayer), activeLayer.Title, activeLayer.Metadata.Status ?? "draft")
+                            @if (_switches.StatusShown)
+                            {
+                                @RenderStatusSelect(LayerPath(activeLayer), activeLayer.Title, activeLayer.Metadata.Status ?? "draft")
+                            }
                         </header>
 
                         <div class="tech-node-grid">
@@ -158,7 +162,10 @@
                                     </header>
 
                                     <div class="tech-node__meta">
-                                        @RenderStatusSelect(node.Id, node.Label, node.Status)
+                                        @if (_switches.StatusShown)
+                                        {
+                                            @RenderStatusSelect(node.Id, node.Label, node.Status)
+                                        }
                                         <MetadataScalar Value="@node.Metadata.Version" Prefix="@MetadataScalar.VersionPrefix(node.Metadata.Version)"Title="@($"version: {node.Metadata.Version}")" />
                                     </div>
 
@@ -250,6 +257,21 @@
     protected override void OnInitialized()
     {
         TechnologyDevbook.Changed += OnDevbookChanged;
+
+        // Resolved optionally, as the other areas do: a host with no scope shows
+        // the status as the panel always did.
+        _switches = DevbookScope.Watch(Services.GetService<DevbookScope>(), InvokeAsync, RedrawAsync);
+    }
+
+    /// <summary>Whether the layer's and each technology's stated status is shown,
+    /// as Devbook answers. A rating drawn in the graph is not a status and does
+    /// not ask.</summary>
+    private DevbookViewerSwitches _switches = null!;
+
+    private Task RedrawAsync()
+    {
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -488,6 +510,7 @@
     public void Dispose()
     {
         TechnologyDevbook.Changed -= OnDevbookChanged;
+        _switches?.Dispose();
     }
 }
 
