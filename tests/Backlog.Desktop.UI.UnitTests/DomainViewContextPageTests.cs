@@ -138,9 +138,12 @@ public sealed class DomainViewContextPageTests : IDisposable
         Assert.Equal("context", component.Find("[data-testid='domain-view']").GetAttribute("data-page"));
         Assert.Equal(["Overview", "Neighbours"], component.FindAll("[data-testid='domain-context-page-tabs'] [role='tab']").Select(tab => tab.TextContent.Trim()));
         Assert.Equal("true", component.Find("[data-testid='domain-context-page-tab-overview']").GetAttribute("aria-selected"));
-        Assert.Contains("personal backlog", component.Find("[data-testid='domain-context-page-boundary']").TextContent);
-        Assert.Equal("2", component.Find("[data-testid='domain-context-page-count'][data-type='requirement']").QuerySelector(".domain-context-page__count-value")!.TextContent.Trim());
-        Assert.Contains("1 of 2 name a test", component.Find("[data-testid='domain-context-page-proof']").TextContent);
+        Assert.Equal("Tasks", component.Find("[data-testid='domain-context-page-title']").TextContent);
+        Assert.Contains("personal backlog", component.Find("[data-testid='domain-context-page-lead']").TextContent);
+        var requirements = component.Find("[data-testid='domain-context-page-proof-requirements']");
+        Assert.Contains("2 requirements", requirements.TextContent);
+        Assert.Contains("1 of 2 name a test", requirements.TextContent);
+        Assert.Single(component.FindAll("[data-testid='domain-context-page-lens']"), lens => lens.TextContent.Contains("Requirements", StringComparison.Ordinal));
         var flag = component.Find("[data-testid='domain-context-page-switch']");
         Assert.Equal("github-integration", flag.GetAttribute("data-key"));
         Assert.Contains("Turning it on offers GitHub access in settings.", flag.TextContent);

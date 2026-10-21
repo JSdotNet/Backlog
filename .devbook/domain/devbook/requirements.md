@@ -1496,16 +1496,16 @@ The system SHALL show a context's `dependencies.md` as the Neighbours tab of the
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_Overview_with_the_boundary_counts_proof_and_flags, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_Overview_with_the_boundary_counts_proof_and_flags, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.An_outside_answer_a_tile_a_gate_and_a_lens_each_follow_their_reference, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_invariants_card_opens_its_units_Always_true_tab]
 ```
 
-The system SHALL open a context's row on an Overview tab that shows the prose above the first chapter of its `context.md`, its chapters counted per kind, how many of its requirements and always-true rules name a test, its chapters per status, and its feature flags and settings.
+The system SHALL open a context's row on an Overview tab that shows the context's subdomain, deployment and status, its name, and the prose above the first chapter of its `context.md` as a lead, an Inside card and an Outside card. Each question the Outside card asks links to the contexts its sentence says answer it. Below them the tab shows its domain and feature chapters counted per kind, each count opening its first unit, and its requirements and invariants as two cards that say how many name a test. It also shows its chapters per status as one bar, its feature flags and settings with the features each gates, and the context's other pages with the question each answers.
 
 #### Scenario: A context's Overview
 
 - **Given** a context whose `context.md` holds the feature flag `github-integration` and whose `requirements.md` holds two requirements, one with `tests`
 - **When** the reader opens the context
-- **Then** Overview is the open tab, it counts two Requirements, says one of two name a test, and lists `github-integration` among the flags and settings
+- **Then** Overview is the open tab, its Requirements card counts two requirements and says one of two name a test, Requirements is among its pages, and `github-integration` is among its switches
 
 ### Requirement: Underscore files stay hidden
 
@@ -1582,16 +1582,23 @@ The system SHALL show field types, invocation semantics and event payloads on th
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.The_page_opens_on_Diagram_with_Fields_and_Events_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_arranged_fence_draws_the_band_its_parts_references_and_services, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_fence_that_does_not_parse_is_drawn_with_mermaid, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.The_root_sits_in_its_band_with_its_composed_parts_and_their_multiplicity, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.The_Model_row_opens_on_Diagram_with_the_aggregate_in_its_band]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.The_page_opens_on_Diagram_with_Fields_and_Events_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_arranged_fence_draws_the_band_its_parts_references_and_services, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_fence_that_does_not_parse_is_drawn_with_mermaid, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.The_root_sits_in_its_band_with_its_composed_parts_and_their_multiplicity, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.The_Model_row_opens_on_Diagram_with_the_aggregate_in_its_band, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Diagram_is_headed_by_the_root_and_draws_its_parts_as_a_tree_around_its_card, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.All_fields_on_the_root_card_opens_Fields, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.Each_type_the_root_names_by_id_sits_outside_the_band_once, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.A_part_s_own_ids_are_the_part_s_detail_not_the_aggregate_s_references, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.An_id_points_at_the_chapter_whose_alias_or_heading_names_it]
 ```
 
-The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, beside Fields and Events, that draws each aggregate root inside its consistency boundary with its composed parts and their multiplicity, places the references by identity outside the boundary and the domain services below it, and draws the diagram with mermaid when it cannot be read that way.
+The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, beside Fields and Events, that draws each aggregate root inside its consistency boundary with its key fields and its composed parts and their multiplicity, places outside the boundary one entry per type the root names by id, places the context's domain services below it, and draws the diagram with mermaid when it cannot be read that way.
 
 #### Scenario: An aggregate with parts and references
 
 - **Given** a `model.md` whose `classDiagram` composes *SubItem* into the aggregate root *Task* as `"0..*"` and draws a dashed line from *Task* to *Task*
 - **When** the reader opens Model
 - **Then** Diagram is open, *SubItem* sits inside *Task*'s boundary marked `0..*`, and the dashed reference sits outside it
+
+#### Scenario: Each type named by id once
+
+- **Given** a root *Task* with a `List~Id~ depends_on` attribute and a dashed `depends on` line to *Task*, a `repo_ids` attribute, a dashed line to the enumeration *Readiness*, and a part *ProjectionRef* with its own `repo_id`
+- **And** a *Repository* entity chapter whose `aliases` hold `repo_ids`
+- **When** the reader opens Model
+- **Then** outside the boundary sit *Task* by `depends_on` and *Repository* by `repo_ids`, once each, and neither *Readiness* nor *ProjectionRef*'s `repo_id`
 
 #### Scenario: A diagram the view cannot read
 
@@ -1785,10 +1792,10 @@ The system SHALL draw each `stateDiagram-v2` of a `flow.md` or `flow.<name>.md` 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Lists_every_term_and_model_chapter_of_the_context_a_to_z, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Each_row_shows_its_kind_its_aliases_as_code_chips_and_its_first_sentence, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_deprecated_term_is_struck_through_and_says_so_in_words, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_filter_matches_a_heading_or_an_alias, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_kind_filters_narrow_to_the_kinds_pressed_beside_the_filter, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Two_terms_that_name_each_other_are_easily_confused_and_a_one_way_pointer_is_not, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Reached_from_the_domain_chapter_bar_it_lists_the_split_files_too]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Lists_every_term_and_model_chapter_of_the_context_a_to_z, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Each_row_shows_its_kind_its_aliases_as_code_chips_and_its_first_sentence, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_deprecated_term_is_struck_through_and_says_so_in_words, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_proposed_term_carries_a_proposed_badge, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_filter_matches_a_heading_or_an_alias, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_glossary_opens_on_its_lead_and_a_labelled_find_box_hinting_at_aliases, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.The_show_pills_count_and_narrow_to_model_terms_or_borrowed, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_term_naming_its_own_heading_in_another_context_is_borrowed, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.A_long_list_shows_fifteen_and_the_rest_behind_more, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Terms_that_name_each_other_are_easily_confused_as_one_card_and_a_one_way_pointer_is_not, unit:dotnet:Backlog.UI.Components.UnitTests.DomainGlossaryTests.Reached_from_the_domain_chapter_bar_it_lists_the_split_files_too]
 ```
 
-The system SHALL offer, from the Domain page's chapter bar, a Glossary that lists every term chapter under `## Ubiquitous Language` and every model chapter of the context's domain files A to Z, each with its kind, its aliases as code chips and its first sentence; that filters by heading or alias and by kind; that strikes a deprecated chapter through; and that lists as easily confused every two term chapters that name each other in `related`.
+The system SHALL offer, from the Domain page's chapter bar, a Glossary that lists every term chapter under `## Ubiquitous Language` and every model chapter of the context's domain files A to Z, each with its kind, a proposed or deprecated badge, its aliases as code chips and its first sentence; that filters by heading or alias and by one choice of All, Model, Terms or Borrowed, each with its count; that strikes a deprecated chapter through; that marks as borrowed, linking there, a term whose `related` names its own heading in another context; and that sets beside the list, as one Easily confused card per group, the term chapters that name each other in `related`.
 
 #### Scenario: Filtering by an alias
 
@@ -1800,7 +1807,13 @@ The system SHALL offer, from the Domain page's chapter bar, a Glossary that list
 
 - **Given** a term *Basket* whose `related` names *Draft Order*, and *Draft Order*'s names *Basket*
 - **When** the reader opens the Glossary
-- **Then** Easily confused sets *Basket* beside *Draft Order*, each with its first sentence
+- **Then** Easily confused sets *Basket* beside *Draft Order* in one card, each with its first sentence
+
+#### Scenario: A borrowed word
+
+- **Given** a term *Roadmap Tag* whose `related` names `.devbook/domain/roadmap/domain.md#roadmap-tag`
+- **When** the reader presses Borrowed
+- **Then** *Roadmap Tag* is listed, reading *borrowed from roadmap*, and following that opens the roadmap context's chapter
 
 ### Requirement: A unit, feature or term shows the Brain notes linking to it
 

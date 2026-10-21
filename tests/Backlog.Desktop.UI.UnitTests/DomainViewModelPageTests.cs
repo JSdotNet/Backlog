@@ -43,6 +43,7 @@ public sealed class DomainViewModelPageTests : IDisposable
                 <<aggregate root>>
                 +Id id
                 +List~Id~ depends_on
+                +List~String~ repo_ids
             }
             class SubItem {
                 <<entity>>
@@ -102,6 +103,26 @@ public sealed class DomainViewModelPageTests : IDisposable
         - Monitoring & Dashboard.
         """;
 
+    private const string Repositories = """
+        # Domain: Repository Management
+
+        ```meta
+        status: draft
+        ```
+
+        The repositories.
+
+        ## Repository
+
+        ```meta
+        type: entity
+        status: draft
+        aliases: [repo_id, repo_ids]
+        ```
+
+        One registered repository.
+        """;
+
     private const string Split = """
         # Model: Scheduling
 
@@ -140,7 +161,14 @@ public sealed class DomainViewModelPageTests : IDisposable
         Assert.Equal(["Diagram", "Fields", "Events"], component.FindAll("[data-testid='domain-model-tabs'] [role='tab']").Select(tab => tab.TextContent.Trim()));
         Assert.Equal("true", component.Find("[data-testid='domain-model-tab-diagram']").GetAttribute("aria-selected"));
         Assert.Equal("SubItem", component.Find("[data-testid='domain-model-part']").GetAttribute("data-part"));
-        Assert.Equal("depends_on", component.Find("[data-testid='domain-model-reference']").GetAttribute("data-target"));
+        Assert.Equal("Task model", component.Find("[data-testid='domain-model-title']").TextContent);
+
+        // repo_ids names another context's entity by its alias; depends_on, with no
+        // line and no stem, stays as written.
+        Assert.Equal(
+            ["depends_on", "Repository"],
+            component.FindAll("[data-testid='domain-model-reference']").Select(r => r.GetAttribute("data-target")));
+        Assert.Equal("Occurrence Spawning", component.Find("[data-testid='domain-model-service']").GetAttribute("data-name"));
         Assert.Empty(component.FindAll("[data-testid='domain-view-placeholder']"));
     }
 
@@ -209,6 +237,8 @@ public sealed class DomainViewModelPageTests : IDisposable
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), Domain);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "model.md"), Model);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "model.scheduling.md"), Split);
+        Directory.CreateDirectory(Path.Combine(root, ".domain", "repository-management"));
+        File.WriteAllText(Path.Combine(root, ".domain", "repository-management", "domain.md"), Repositories);
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));

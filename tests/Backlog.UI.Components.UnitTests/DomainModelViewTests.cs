@@ -25,6 +25,53 @@ public sealed class DomainModelViewTests
             Order "1" *-- "1..*" OrderLine : lines
         """;
 
+    private const string Tasks = """
+        classDiagram
+            class Task {
+                <<aggregate root>>
+                +Id id
+                +String title
+                +Date due_on
+                +TaskStatus status
+                +List~String~ repo_ids
+                +List~Id~ depends_on
+            }
+            class SubItem {
+                <<entity>>
+                +Id id
+                +String title
+                +String status
+            }
+            class UsageEvent {
+                <<value object>>
+                +String action
+            }
+            class ProjectionRef {
+                <<value object>>
+                +String repo_id
+                +String external_id
+            }
+            class Recurrence {
+                <<value object>>
+                +Integer interval
+            }
+            class TaskStatus {
+                <<enumeration>>
+                draft
+            }
+            class Readiness {
+                <<enumeration>>
+                ready
+            }
+            Task "1" *-- "0..*" SubItem : contains
+            Task "1" *-- "0..*" UsageEvent : records
+            Task "1" *-- "0..*" ProjectionRef : projects to
+            Task "1" *-- "0..1" Recurrence : repeats by
+            Task --> TaskStatus : has status
+            Task "0..*" ..> "0..*" Task : depends on
+            Task ..> Readiness : derived as
+        """;
+
     [Fact]
     public void The_page_opens_on_Diagram_with_Fields_and_Events_beside_it()
     {
@@ -129,10 +176,64 @@ public sealed class DomainModelViewTests
 
         // Outside the band, not inside it.
         Assert.Empty(band.QuerySelectorAll("[data-testid='domain-model-reference']"));
-        Assert.Equal("customer_id", diagram.Find("[data-testid='domain-model-reference']").GetAttribute("data-target"));
+        var reference = diagram.Find("[data-testid='domain-model-reference']");
+        Assert.Equal("Customer", reference.GetAttribute("data-target"));
+        Assert.Equal("customer_id", reference.QuerySelector("[data-testid='domain-model-reference-via'] code")!.TextContent);
 
         Assert.Contains("Pricing", diagram.Find("[data-testid='domain-model-services']").TextContent);
         Assert.Empty(context.JSInterop.Invocations["backlogDiagrams.render"]);
+    }
+
+    [Fact]
+    public void Diagram_is_headed_by_the_root_and_draws_its_parts_as_a_tree_around_its_card()
+    {
+        using var context = Context();
+        var chapters = new DomainChapterReading(
+            [new DomainServiceInvocation("Projection", "#projection", "Creates one GitHub issue per target repository.", null)],
+            []);
+
+        var view = context.Render<DomainModelView>(p => p
+            .Add(v => v.Fences, [new DomainModelFence("Model diagram", Tasks)])
+            .Add(v => v.Chapters, chapters));
+
+        Assert.Equal("Task model", view.Find("[data-testid='domain-model-title']").TextContent);
+        Assert.StartsWith("What the Task owns sits inside the boundary", view.Find("[data-testid='domain-model-intro']").TextContent);
+        Assert.Contains("names by id", view.Find("[data-testid='domain-model-legend']").TextContent);
+
+        // Four parts: two in the row above the root, two below, each saying its kind
+        // and multiplicity and what it is made of.
+        var tiers = view.FindAll("[data-testid='domain-model-tier']");
+        Assert.Equal(["above", "below"], tiers.Select(t => t.GetAttribute("data-side")));
+        Assert.Equal(
+            [["SubItem", "UsageEvent"], ["ProjectionRef", "Recurrence"]],
+            tiers.Select(t => t.QuerySelectorAll("[data-testid='domain-model-part']").Select(p => p.GetAttribute("data-part")).ToArray()));
+        var subItem = view.Find("[data-part='SubItem']");
+        Assert.Contains("entity", subItem.TextContent);
+        Assert.Equal("title · status", subItem.QuerySelector(".domain-model__element-fields")!.TextContent);
+
+        // The root card names its key fields; ids and parts are drawn elsewhere.
+        Assert.Equal(["status", "due_on", "title"], view.Find("[data-testid='domain-model-key-fields']").TextContent.Split('·', StringSplitOptions.TrimEntries));
+
+        // depends_on once, Readiness and ProjectionRef's own ids not at all.
+        Assert.Equal(
+            ["Task", "Repo"],
+            view.FindAll("[data-testid='domain-model-reference']").Select(r => r.GetAttribute("data-target")));
+
+        var service = view.Find("[data-testid='domain-model-service']");
+        Assert.Equal("Projection", service.GetAttribute("data-name"));
+        Assert.Contains("Domain services that act on the Task", view.Find("[data-testid='domain-model-services']").TextContent);
+    }
+
+    [Fact]
+    public void All_fields_on_the_root_card_opens_Fields()
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainModelView>(p => p.Add(v => v.Fences, [new DomainModelFence("Model diagram", Tasks)]));
+        view.Find("[data-testid='domain-model-all-fields']").Click();
+
+        Assert.Equal("true", view.Find("[data-testid='domain-model-tab-fields']").GetAttribute("aria-selected"));
+        Assert.Empty(view.FindAll("[data-testid='domain-model-title']"));
     }
 
     [Fact]

@@ -3,25 +3,25 @@
 <PageTitle>Domain model — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain model"
-           Summary="DomainModelView is the Domain view's Model page: a Diagram | Fields | Events bar that opens on Diagram. DomainModelDiagram draws a bounded context's classDiagram as each aggregate root's consistency-boundary band, what the band holds only by identity beside it, and the domain services below — and hands a fence it cannot arrange back to mermaid."
+           Summary="DomainModelView is the Domain view's Model page: a Diagram | Fields | Events switch that opens on Diagram, headed by the model's name. DomainModelDiagram draws a bounded context's classDiagram as each aggregate root's consistency-boundary band, its parts as a tree around the root card, the types it names by id in a column beside it, and the domain services that act on it below — and hands a fence it cannot arrange back to mermaid."
            Guidelines="@Rules">
 
     <Story Name="Model page"
-           Description="The page a Model row opens. Diagram is first and open; Fields lists each class's attributes by kind (Domain model fields) and Events each event as a contract (Domain events). With no domain chapters handed in, Events says it has none."
+           Description="The page a Model row opens. Diagram is first and open, headed by the root's name, how to read the drawing and its legend; All fields on the root card opens Fields, which lists each class's attributes by kind (Domain model fields), and Events each event as a contract (Domain events). The services strip is the context's domain-service chapters."
            Code="@PageCode"
            Source="@Tasks"
            SourceLabel="classDiagram"
            SourceLanguage="mermaid">
-        <DomainModelView Fences="@TaskFences" AriaLabel="Model of Tasks" TestId="story-domain-model-view" />
+        <DomainModelView Fences="@TaskFences" Identities="@Identities" Chapters="@Chapters" AriaLabel="Model of Tasks" TestId="story-domain-model-view" />
     </Story>
 
     <Story Name="One aggregate"
-           Description="The root sits in the band with the parts composed into it, each with its relation and multiplicity. A dashed line, a List~Id~ attribute and an attribute named *_id are held by identity, so they sit outside the band. Enumerations have no place on the picture and are named under it, for Fields."
+           Description="The root card sits in the band with its key fields, the parts composed into it drawn above and below it, each with its kind, multiplicity and fields. What the root names by id sits outside the band, one card per type: depends_on folds into the dashed depends on line, repo_ids reads as the Repository chapter that has it as an alias, source_inbox_id as the Inbox Item heading. Enumerations have no place on the picture and are named under it, for Fields."
            Code="@DiagramCode"
            Source="@Tasks"
            SourceLabel="classDiagram"
            SourceLanguage="mermaid">
-        <DomainModelDiagram Source="@Tasks" Title="Tasks" TestId="story-domain-model-tasks" />
+        <DomainModelDiagram Source="@Tasks" Title="Tasks" Identities="@Identities" TestId="story-domain-model-tasks" />
     </Story>
 
     <Story Name="Several aggregates and their services"
@@ -60,6 +60,8 @@
                 +List~String~ repo_ids
                 +String source_inbox_id
                 +TaskStatus status
+                +Date due_on
+                +Integer order
                 +List~Id~ depends_on
             }
             class SubItem {
@@ -69,7 +71,13 @@
             }
             class ProjectionRef {
                 <<value object>>
+                +String repo_id
                 +String external_id
+            }
+            class UsageEvent {
+                <<value object>>
+                +Timestamp timestamp
+                +String action
             }
             class Recurrence {
                 <<value object>>
@@ -86,6 +94,7 @@
                 done
             }
             Task "1" *-- "0..*" SubItem : contains
+            Task "1" *-- "0..*" UsageEvent : records
             Task "1" *-- "0..*" ProjectionRef : projects to
             Task "1" *-- "0..1" Recurrence : repeats by
             Recurrence --> RecurrenceUnit : counted in
@@ -135,18 +144,33 @@
             PlanSequencing --> RoadmapItem : orders
         """;
 
+    private static readonly IReadOnlyList<DomainModelIdentity> Identities =
+    [
+        new("Inbox Item", "aggregate", ["InboxItem"], "inbox/domain.md#inbox-item"),
+        new("Repository", "entity", ["repo_id", "repo_ids"], "repository-management/domain.md#repository")
+    ];
+
+    private static readonly DomainChapterReading Chapters = new(
+        [
+            new DomainServiceInvocation("Projection", "#projection", "Creates one GitHub issue per target repository and records a Projection Ref.", null),
+            new DomainServiceInvocation("Occurrence Spawning", "#occurrence-spawning", "Creates the next task, which points back through recurrence_source_id.", null)
+        ],
+        []);
+
     private static readonly IReadOnlyList<DomainModelFence> TaskFences = [new DomainModelFence("Model diagram", Tasks)];
 
     private const string PageCode = """
-        <DomainModelView Fences="@fences" AriaLabel="Model of Tasks" />
+        <DomainModelView Fences="@fences" Identities="@identities" Chapters="@chapters" AriaLabel="Model of Tasks" />
 
         @code {
             // One per classDiagram fence in model.md, with the heading it sits under.
             private IReadOnlyList<DomainModelFence> fences = [new("Model diagram", source)];
+            // Every aggregate and entity chapter an id can point at: DomainUnits.ModelIdentities.
+            private IReadOnlyList<DomainModelIdentity> identities = DomainUnits.ModelIdentities(own, others);
         }
         """;
 
     private const string DiagramCode = """
-        <DomainModelDiagram Source="@classDiagramFenceBody" Title="Tasks" />
+        <DomainModelDiagram Source="@classDiagramFenceBody" Title="Tasks" Identities="@identities" />
         """;
 }

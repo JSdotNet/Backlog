@@ -16,6 +16,8 @@
                      RelationshipNotes="@_notes"
                      Chapters="@_chapters"
                      ChapterReferences="@_references"
+                     Identities="@_identities"
+                     Title="@_title"
                      AriaLabel="@($"Model of {_title}")" />
 }
 else if (_problem is not null)
@@ -42,6 +44,7 @@ else if (_problem is not null)
     private string? _notes;
     private DomainChapterReading _chapters = DomainChapterReading.Empty;
     private IReadOnlyDictionary<string, string>? _references;
+    private IReadOnlyList<DomainModelIdentity>? _identities;
     private string? _problem;
     private string _title = "Model";
     private (string? Alias, string? Path)? _loaded;
@@ -91,7 +94,7 @@ else if (_problem is not null)
         }
 
         if (_disposed || _loaded != (alias, path)) return;
-        (_fences, _title, _problem, _notes, _chapters, _references) = (read.Fences, read.Title, read.Problem, read.Notes, read.Chapters, read.References);
+        (_fences, _title, _problem, _notes, _chapters, _references, _identities) = (read.Fences, read.Title, read.Problem, read.Notes, read.Chapters, read.References, read.Identities);
     }
 
     /// <summary>What the Model page shows of one model file: its class diagrams,
@@ -101,6 +104,10 @@ else if (_problem is not null)
     /// by the name the model gives it, where a part's Brain notes are looked up.</param>
     internal sealed record ModelReading(IReadOnlyList<DomainModelFence>? Fences, string Title, string? Problem, string? Notes, DomainChapterReading Chapters, IReadOnlyDictionary<string, string>? References = null)
     {
+        /// <summary>The aggregate and entity chapters of every context an id
+        /// attribute can point at, the ones this context's aggregates relate to first.</summary>
+        public IReadOnlyList<DomainModelIdentity> Identities { get; init; } = [];
+
         public static ModelReading Failed(string problem) => new(null, "Model", problem, null, DomainChapterReading.Empty);
     }
 
@@ -134,9 +141,21 @@ else if (_problem is not null)
             .OfType<DomainChapterSource>()
             .ToList();
         var chapters = DomainChapterContracts.Read(sources);
-        var references = DomainUnits.ModelReferences(sources.Select(source => DomainUnits.Parse(source.Markdown, source.Path)));
+        var own = sources.Select(source => DomainUnits.Parse(source.Markdown, source.Path)).ToList();
+        var references = DomainUnits.ModelReferences(own);
 
-        return new(fences, document.Title, null, notes, chapters, references);
+        // What an id attribute points at may be another context's aggregate —
+        // repo_ids at Repository Management's Repository — so every context's
+        // domain files are read for the chapters an id can name. Another context's
+        // file that cannot be read only leaves its chapters unnamed.
+        var others = view.Contexts
+            .Where(other => !ReferenceEquals(other, context))
+            .SelectMany(other => other.Documents.Where(d => d.Kind == DomainDevbookDocumentKind.Domain))
+            .Select(d => TryReadText(view, d.Path) is { } text ? DomainUnits.Parse(text, d.Path) : null)
+            .OfType<DomainChapterFile>();
+        var identities = DomainUnits.ModelIdentities(own, others);
+
+        return new(fences, document.Title, null, notes, chapters, references) { Identities = identities };
     }
 
     /// <summary>The body of the model file's <em>Relationship notes</em> chapter,
@@ -153,6 +172,18 @@ else if (_problem is not null)
 
     private static string? ReadText(DomainDevbookView view, string documentPath) =>
         DomainDevbookStore.ReadText(view, documentPath);
+
+    private static string? TryReadText(DomainDevbookView view, string documentPath)
+    {
+        try
+        {
+            return ReadText(view, documentPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
 
     private void OnStoreChanged()
     {

@@ -148,10 +148,13 @@ The plan has built every page: the Context map, a context's **Overview** and
 notes and tasks that link to each. Only the **Demo** button for a click demo is
 still to come, and a file of no known kind opens a placeholder.
 
-Model opens on **Diagram**, which draws each `classDiagram` of the model file
-as the aggregate's consistency boundary: the
-root and its composed parts inside the band, what it holds by identity outside
-it, and the domain services below. A diagram that cannot be read that way, has
+Model opens on **Diagram**, headed by the root's name, which draws each
+`classDiagram` of the model file as the aggregate's consistency boundary: the
+root card with its key fields and a link to Fields in the middle of the band,
+its composed parts as a tree joined to it above and below, and outside the band
+one card per type the root names by id — the class a dashed line reaches, or
+the aggregate or entity chapter whose alias or heading the id attribute spells.
+The context's domain-service chapters sit below it. A diagram that cannot be read that way, has
 no aggregate root, or holds structure no boundary shows is drawn with mermaid as
 before. **Fields** lists each class's attributes grouped by kind, with the
 model's relationship notes beneath and how each domain service runs, read from
