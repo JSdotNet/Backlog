@@ -38,7 +38,51 @@ public sealed record C4PlacedEdge(
     string? Technology,
     int? Order,
     double LabelX,
-    double LabelY);
+    double LabelY)
+{
+    /// <summary>The group this edge was drawn to or from as a whole, when it stands for
+    /// several relationships between one element and members of that group; otherwise
+    /// <see langword="null"/>. Only a layout with <see cref="C4LayoutOptions.GroupBands"/>
+    /// draws such an edge.</summary>
+    public string? Group { get; init; }
+}
+
+/// <summary>
+/// A group band: the labelled frame drawn around the elements a <c>group</c> block in
+/// the model gathered, kept together by the layout.
+/// <para>
+/// Not a boundary. A boundary is an element the view opened up; a group is only a
+/// heading the author put several elements under, so it has no kind, no alias of its
+/// own in the model and nothing to select.
+/// </para>
+/// </summary>
+/// <param name="Name">The group's name, as the model wrote it.</param>
+/// <param name="MemberAliases">The cards drawn inside the band, in drawing order.</param>
+public sealed record C4PlacedGroup(
+    string Name,
+    double X,
+    double Y,
+    double Width,
+    double Height,
+    IReadOnlyList<string> MemberAliases);
+
+/// <summary>
+/// What a host may ask the layout for beyond what every C4 view is laid out as.
+/// <para>
+/// Off by default, and a layout handed no options places exactly what it placed before
+/// options existed. The C4 tab's explorer never passes any; the C4 zoom tab passes
+/// <see cref="GroupBands"/> - the rule local ADR 0037 sets for the two tabs while they
+/// stand side by side, as <see cref="C4SvgOptions"/> does for the writer.
+/// </para>
+/// </summary>
+/// <param name="GroupBands">Whether elements that share a <see cref="C4Element.Group"/>,
+/// and sit in no boundary, are kept together in one band per group, and whether a
+/// relationship to several members of one group is drawn once, to the band.</param>
+public sealed record C4LayoutOptions(bool GroupBands = false)
+{
+    /// <summary>No additions: the layout every view had before options existed.</summary>
+    public static C4LayoutOptions None { get; } = new();
+}
 
 /// <summary>Everything needed to draw one view, in one coordinate space.</summary>
 public sealed record C4Diagram(
@@ -49,6 +93,10 @@ public sealed record C4Diagram(
     IReadOnlyList<C4PlacedEdge> Edges)
 {
     public static C4Diagram Empty { get; } = new(0, 0, [], [], []);
+
+    /// <summary>The group bands, drawn under everything else. Empty unless the layout
+    /// was asked for <see cref="C4LayoutOptions.GroupBands"/>.</summary>
+    public IReadOnlyList<C4PlacedGroup> Groups { get; init; } = [];
 
     public bool HasContent => Nodes.Count > 0;
 }
@@ -92,21 +140,29 @@ public static class C4LayoutEngine
     /// is the shape that fits a pane.</summary>
     private const int BoundaryColumns = 4;
 
-    public static C4Diagram Build(C4Workspace workspace, C4View view)
+    /// <summary>The space between a group band's edge and the cards it holds, the room
+    /// its name takes above them, and the gap between two cards stacked in it. Tighter
+    /// than a boundary's: a band is a heading over a short list, not a frame around a
+    /// system that was opened up.</summary>
+    private const double GroupPadding = 14;
+    private const double GroupHeader = 22;
+    private const double GroupGap = 12;
+
+    public static C4Diagram Build(C4Workspace workspace, C4View view, C4LayoutOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentNullException.ThrowIfNull(view);
+        options ??= C4LayoutOptions.None;
 
         var nodes = C4Exploration.Nodes(workspace, view);
         if (nodes.Count == 0) return C4Diagram.Empty;
 
-        var byId = nodes.ToDictionary(node => node.ElementId, StringComparer.OrdinalIgnoreCase);
         var elements = C4MermaidWriter.VisibleElements(workspace, view)
             .ToDictionary(element => element.Id, StringComparer.OrdinalIgnoreCase);
 
         // A cell is either one card or one boundary full of cards. Layering happens
         // over cells, so a system that was opened up moves as a whole.
-        var cells = BuildCells(workspace, view, nodes, elements);
+        var cells = BuildCells(workspace, nodes, elements, options.GroupBands);
         var edges = C4MermaidWriter.VisibleRelationships(workspace, view);
 
         AssignRanks(cells, edges);
@@ -114,9 +170,23 @@ public static class C4LayoutEngine
 
         var placedNodes = new List<C4PlacedNode>();
         var placedBoundaries = new List<C4PlacedBoundary>();
+        var bands = new List<Band>();
 
         foreach (var cell in cells)
         {
+            if (cell.Group is not null)
+            {
+                bands.Add(new Band(
+                    new C4PlacedGroup(
+                        cell.Group,
+                        cell.X,
+                        cell.Y,
+                        cell.Width,
+                        cell.Height,
+                        [.. cell.Members.Select(member => member.Node.Alias)]),
+                    cell.Ids));
+            }
+
             if (cell.Boundary is not null)
             {
                 placedBoundaries.Add(new C4PlacedBoundary(
@@ -143,7 +213,7 @@ public static class C4LayoutEngine
             }
         }
 
-        var placedEdges = Route(edges, byId, placedNodes, workspace);
+        var placedEdges = Route(edges, placedNodes, bands);
 
         var width = placedNodes.Count == 0 ? 0 : placedNodes.Max(node => node.X + node.Width) + Margin;
         var height = placedNodes.Count == 0 ? 0 : placedNodes.Max(node => node.Y + node.Height) + Margin;
@@ -156,7 +226,16 @@ public static class C4LayoutEngine
             height = Math.Max(height, boundary.Y + boundary.Height + Margin);
         }
 
-        return new C4Diagram(width, height, placedBoundaries, placedNodes, placedEdges);
+        foreach (var band in bands)
+        {
+            width = Math.Max(width, band.Placed.X + band.Placed.Width + Margin);
+            height = Math.Max(height, band.Placed.Y + band.Placed.Height + Margin);
+        }
+
+        return new C4Diagram(width, height, placedBoundaries, placedNodes, placedEdges)
+        {
+            Groups = [.. bands.Select(band => band.Placed)]
+        };
     }
 
     // ---- cells -----------------------------------------------------------------
@@ -168,9 +247,17 @@ public static class C4LayoutEngine
         public double OffsetY { get; set; }
     }
 
+    /// <summary>A placed group band and the ids of the elements drawn in it.</summary>
+    private sealed record Band(C4PlacedGroup Placed, IReadOnlySet<string> Ids);
+
     private sealed class Cell
     {
         public C4Element? Boundary { get; init; }
+
+        /// <summary>The group this cell gathers, when it is a band rather than a card or
+        /// a boundary.</summary>
+        public string? Group { get; init; }
+
         public List<Member> Members { get; } = [];
         public double Width { get; set; }
         public double Height { get; set; }
@@ -182,7 +269,8 @@ public static class C4LayoutEngine
 
     /// <summary>
     /// Groups the drawn cards into cells: one per boundary, plus one per card that is
-    /// in no boundary.
+    /// in no boundary - or, with <paramref name="groupBands"/>, one per model group for
+    /// the cards in no boundary that a <c>group</c> block gathered.
     /// <para>
     /// A boundary is an element the view draws something <em>inside</em> — the same
     /// test the mermaid writer makes when it chooses between a frame and a card, so the
@@ -191,9 +279,9 @@ public static class C4LayoutEngine
     /// </summary>
     private static List<Cell> BuildCells(
         C4Workspace workspace,
-        C4View view,
         IReadOnlyList<C4Node> nodes,
-        Dictionary<string, C4Element> elements)
+        Dictionary<string, C4Element> elements,
+        bool groupBands)
     {
         var boundaries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -204,6 +292,7 @@ public static class C4LayoutEngine
 
         var cells = new List<Cell>();
         var byBoundary = new Dictionary<string, Cell>(StringComparer.OrdinalIgnoreCase);
+        var byGroup = new Dictionary<string, Cell>(StringComparer.Ordinal);
 
         // The element each card is drawn for, by the card's alias. A deployment
         // instance's node carries the id of the container it instantiates, so looking
@@ -236,6 +325,22 @@ public static class C4LayoutEngine
                 continue;
             }
 
+            // A band sits where its first member would have, so the rest of the row
+            // keeps the order the model declared it in.
+            if (groupBands && element?.Group is { } group && !string.IsNullOrWhiteSpace(group))
+            {
+                if (!byGroup.TryGetValue(group, out var band))
+                {
+                    band = new Cell { Group = group };
+                    byGroup[group] = band;
+                    cells.Add(band);
+                }
+
+                band.Members.Add(new Member { Node = node });
+                band.Ids.Add(node.ElementId);
+                continue;
+            }
+
             var own = new Cell();
             own.Members.Add(new Member { Node = node });
             own.Ids.Add(node.ElementId);
@@ -247,9 +352,26 @@ public static class C4LayoutEngine
     }
 
     /// <summary>Sizes a cell and places its members inside it: a bare card is its own
-    /// size, and a boundary wraps its cards into a grid with room for its label.</summary>
+    /// size, a boundary wraps its cards into a grid with room for its label, and a
+    /// group band stacks its cards in one column under its name.</summary>
     private static void Size(Cell cell)
     {
+        if (cell.Group is not null)
+        {
+            // One column, as the design's landscape draws it: a band reads as a short
+            // list under a heading, and a column keeps a row of bands as narrow as a
+            // row of cards.
+            for (var index = 0; index < cell.Members.Count; index++)
+            {
+                cell.Members[index].OffsetX = GroupPadding;
+                cell.Members[index].OffsetY = GroupPadding + GroupHeader + index * (CardHeight + GroupGap);
+            }
+
+            cell.Width = GroupPadding * 2 + CardWidth;
+            cell.Height = GroupPadding * 2 + GroupHeader + cell.Members.Count * CardHeight + (cell.Members.Count - 1) * GroupGap;
+            return;
+        }
+
         if (cell.Boundary is null)
         {
             cell.Width = CardWidth;
@@ -322,7 +444,11 @@ public static class C4LayoutEngine
         var queue = new Queue<Cell>();
         foreach (var cell in cells)
         {
-            var isPerson = cell.Boundary is null && cell.Members[0].Node.Kind == C4ElementKind.Person;
+            // A band holding a person is pinned like the person, wherever in the band
+            // the person was declared.
+            var isPerson = cell.Group is not null
+                ? cell.Members.Any(member => member.Node.Kind == C4ElementKind.Person)
+                : cell.Boundary is null && cell.Members[0].Node.Kind == C4ElementKind.Person;
             if (isPerson || incoming[cell] == 0)
             {
                 cell.Rank = 0;
@@ -417,21 +543,39 @@ public static class C4LayoutEngine
     /// </summary>
     private static List<C4PlacedEdge> Route(
         IReadOnlyList<C4VisibleRelationship> edges,
-        Dictionary<string, C4Node> byId,
         List<C4PlacedNode> placed,
-        C4Workspace workspace)
+        List<Band> bands)
     {
         var positions = placed.ToDictionary(node => node.Node.ElementId, StringComparer.OrdinalIgnoreCase);
         var routed = new List<C4PlacedEdge>();
+        var bundles = Bundle(edges, bands);
+        var drawnBundles = new HashSet<EdgeBundle>(ReferenceEqualityComparer.Instance);
 
         foreach (var edge in edges)
         {
             if (!positions.TryGetValue(edge.FromId, out var from)) continue;
             if (!positions.TryGetValue(edge.ToId, out var to)) continue;
 
+            var bundle = bundles.GetValueOrDefault(edge);
+            if (bundle is not null)
+            {
+                // Drawn once, at the first of its relationships, between the other end
+                // and the band itself; the rest of the bundle is that same line.
+                if (!drawnBundles.Add(bundle)) continue;
+
+                if (bundle.Inward) to = BandAsCard(bundle.Band, to);
+                else from = BandAsCard(bundle.Band, from);
+            }
+
+            var inside = bundle?.Band.Placed.MemberAliases;
             var obstacles = placed
                 .Where(node => !ReferenceEquals(node, from) && !ReferenceEquals(node, to))
+                .Where(node => inside is null || !inside.Contains(node.Alias, StringComparer.Ordinal))
                 .ToList();
+
+            var label = bundle is null ? edge.Description : bundle.Description;
+            var technology = bundle is null ? edge.Technology : bundle.Technology;
+            var group = bundle?.Band.Placed.Name;
 
             var (x1, y1, x2, y2) = Anchors(from, to);
 
@@ -485,11 +629,12 @@ public static class C4LayoutEngine
                             from.Alias,
                             to.Alias,
                             C4Router.Path(around),
-                            edge.Description,
-                            edge.Technology,
+                            label,
+                            technology,
                             edge.Order,
                             aroundX,
-                            aroundY));
+                            aroundY)
+                        { Group = group });
 
                         continue;
                     }
@@ -510,15 +655,100 @@ public static class C4LayoutEngine
                 from.Alias,
                 to.Alias,
                 path,
-                edge.Description,
-                edge.Technology,
+                label,
+                technology,
                 edge.Order,
                 labelX,
-                labelY));
+                labelY)
+            { Group = group });
         }
 
         return Spread(routed, placed);
     }
+
+    /// <summary>
+    /// Several relationships between one element and members of one group band, drawn
+    /// as a single line to the band.
+    /// <para>
+    /// <paramref name="Inward"/> when the line runs from the element into the band. Its
+    /// label is the relationships' own when they all say the same thing, and none when
+    /// they differ: a band's line stands for the set, and any one member's wording would
+    /// be wrong for the rest.
+    /// </para>
+    /// </summary>
+    private sealed record EdgeBundle(Band Band, bool Inward, string? Description, string? Technology);
+
+    /// <summary>
+    /// Which relationships are drawn once, to a band.
+    /// <para>
+    /// Those that join one element outside a band to two or more different members of
+    /// it, in the same direction. One relationship to one member stays its own line to
+    /// that card, because there is nothing to fold into it. A numbered step is never
+    /// folded: a dynamic view plays its arrows one by one, and a shared line could not
+    /// say which step it was.
+    /// </para>
+    /// </summary>
+    private static Dictionary<C4VisibleRelationship, EdgeBundle> Bundle(
+        IReadOnlyList<C4VisibleRelationship> edges,
+        List<Band> bands)
+    {
+        var bundled = new Dictionary<C4VisibleRelationship, EdgeBundle>(ReferenceEqualityComparer.Instance);
+        if (bands.Count == 0) return bundled;
+
+        Band? BandOf(string id) => bands.FirstOrDefault(band => band.Ids.Contains(id));
+
+        var candidates = new List<(C4VisibleRelationship Edge, Band Band, bool Inward, string Other, string Member)>();
+
+        foreach (var edge in edges)
+        {
+            if (edge.Order is not null) continue;
+
+            var fromBand = BandOf(edge.FromId);
+            var toBand = BandOf(edge.ToId);
+            if (ReferenceEquals(fromBand, toBand)) continue;
+
+            if (toBand is not null) candidates.Add((edge, toBand, true, edge.FromId, edge.ToId));
+            else if (fromBand is not null) candidates.Add((edge, fromBand, false, edge.ToId, edge.FromId));
+        }
+
+        var sets = candidates.GroupBy(
+            candidate => (candidate.Band, candidate.Inward, Other: candidate.Other.ToUpperInvariant()));
+
+        foreach (var set in sets)
+        {
+            var members = set.Select(candidate => candidate.Member).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+            if (members < 2) continue;
+
+            var descriptions = set.Select(candidate => candidate.Edge.Description).Distinct(StringComparer.Ordinal).ToList();
+            var technologies = set.Select(candidate => candidate.Edge.Technology).Distinct(StringComparer.Ordinal).ToList();
+
+            var bundle = new EdgeBundle(
+                set.Key.Band,
+                set.Key.Inward,
+                descriptions.Count == 1 ? descriptions[0] : null,
+                technologies.Count == 1 ? technologies[0] : null);
+
+            foreach (var candidate in set) bundled[candidate.Edge] = bundle;
+        }
+
+        return bundled;
+    }
+
+    /// <summary>The band drawn as though it were one big card, so the edge routing
+    /// can anchor a line on its sides the way it anchors one on a card's.</summary>
+    private static C4PlacedNode BandAsCard(Band band, C4PlacedNode member) =>
+        new(member.Node,
+            GroupAlias(band.Placed.Name),
+            band.Placed.X,
+            band.Placed.Y,
+            band.Placed.Width,
+            band.Placed.Height,
+            External: false,
+            Drillable: false);
+
+    /// <summary>The alias an edge drawn to a band names as its end. Never a card's
+    /// alias: those are model identifiers, which cannot carry a space or a colon.</summary>
+    public static string GroupAlias(string name) => $"group:{name}";
 
     /// <summary>
     /// Every way round the thing that was in the way, in the order worth trying.

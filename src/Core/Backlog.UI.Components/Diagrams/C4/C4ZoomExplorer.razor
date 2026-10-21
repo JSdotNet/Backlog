@@ -7,7 +7,8 @@
     switch until the zoom tab is validated (local ADR 0037), so this shares the
     renderer — C4LayoutEngine, C4SvgWriter, C4Exploration — and changes nothing about
     how the C4 tab draws: the additions to the shared writer, the Zoom in chip and the
-    selectable deployment-node frame, are options only this component sets. (The one
+    selectable deployment-node frame, are options only this component sets, as is
+    the layout's group bands (C4LayoutOptions.GroupBands). (The one
     shared change both tabs see is a layout fix: a deployment instance is drawn inside
     the deployment node that runs it, where the node used to be dropped.)
 
@@ -179,6 +180,11 @@
     /// next picture takes the keyboard focus back. A move from the bar leaves the focus
     /// on the bar. Cleared on the attach that honours it.</summary>
     private bool _refocus;
+
+    /// <summary>The layout this tab asks for: outside systems a <c>group</c> block
+    /// gathered are kept together in a labelled band, as the design's landscape draws
+    /// them. The C4 tab asks for none and draws what it always drew.</summary>
+    private static readonly C4LayoutOptions ZoomLayout = new(GroupBands: true);
 
     private C4Diagram? _diagram;
     private C4Workspace? _diagramWorkspace;
@@ -523,7 +529,7 @@
             || !ReferenceEquals(_diagramWorkspace, Workspace)
             || !string.Equals(_diagramViewKey, view.Key, StringComparison.OrdinalIgnoreCase))
         {
-            _diagram = C4LayoutEngine.Build(Workspace, view);
+            _diagram = C4LayoutEngine.Build(Workspace, view, ZoomLayout);
             _diagramWorkspace = Workspace;
             _diagramViewKey = view.Key;
         }
