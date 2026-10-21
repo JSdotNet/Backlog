@@ -39,7 +39,7 @@ related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
 All tokens below are the **dark-mode** values. These are the only color values
-the product uses, beside the four values
+the product uses, beside the five values
 [Domain View Element Tones](#domain-view-element-tones) adds.
 
 ### Brand
@@ -639,7 +639,8 @@ dashed.
 
 **Information badges are neutral outlines.** On the Domain view's pages, the
 `DEV` mark, a chapter's date, a chapter's feature switch, a feature's
-*Proposed* or *Deprecated* mark on Features, a requirement's *Test linked* or
+*Proposed* or *Deprecated* mark on Features, a term's *proposed* or
+*deprecated* mark on the Glossary, a requirement's *Test linked* or
 dashed *No test linked* mark on Requirements and an event's *Documented* or *Emitted* mark on
 Model's Events tab are information about the
 chapter, not something the product acts on. Each is drawn as a neutral
