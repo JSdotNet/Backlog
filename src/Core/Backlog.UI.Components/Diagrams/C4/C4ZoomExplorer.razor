@@ -6,8 +6,9 @@
     tab (C4Explorer) lists views one by one. Both stand side by side behind the c4-zoom
     switch until the zoom tab is validated (local ADR 0037), so this shares the
     renderer — C4LayoutEngine, C4SvgWriter, C4Exploration — and changes nothing about
-    how the C4 tab draws: the additions to the shared writer, the Zoom in chip and the
-    selectable deployment-node frame, are options only this component sets, as is
+    how the C4 tab draws: the additions to the shared writer, the Zoom in chip, the
+    selectable deployment-node frame and the overlay's record chips, are options only
+    this component sets, as is
     the layout's group bands (C4LayoutOptions.GroupBands). (The one
     shared change both tabs see is a layout fix: a deployment instance is drawn inside
     the deployment node that runs it, where the node used to be dropped.)
@@ -81,6 +82,29 @@
         <header class="c4-zoom-explorer__head">
             <p class="c4-zoom-explorer__title" data-testid="c4-zoom-title">@C4Exploration.Label(Workspace, _view)</p>
             <p class="c4-zoom-explorer__key" data-testid="c4-zoom-key">@_view.Key</p>
+
+            @* The overlay switch: which records the cards carry. Offered only by a
+               host with records to count, as the inspector's record sections are. *@
+            @if (RecordsFor is not null)
+            {
+                <div class="c4-zoom-explorer__overlay">
+                    <span class="c4-zoom-explorer__overlay-label" id="@($"{_frameId}-overlay")">Overlay</span>
+                    <ButtonGroup Radio="true"
+                                 CssClass="c4-zoom-explorer__overlay-choices"
+                                 aria-labelledby="@($"{_frameId}-overlay")"
+                                 TestId="c4-zoom-overlay">
+                        @foreach (var choice in OverlayChoices)
+                        {
+                            <ToggleButton @key="choice"
+                                          Pressed="@(_overlay == choice)"
+                                          PressedChanged="@(pressed => ChooseOverlay(choice, pressed))"
+                                          BaseClass="c4-zoom-explorer__overlay-choice"
+                                          PressedCssClass="c4-zoom-explorer__overlay-choice--active"
+                                          TestId="@($"c4-zoom-overlay-{choice.ToString().ToLowerInvariant()}")">@choice</ToggleButton>
+                        }
+                    </ButtonGroup>
+                </div>
+            }
         </header>
 
         @* Focusable as a whole, so Backspace has somewhere to land on a view with no
@@ -165,6 +189,21 @@
                             OnNext="NextStep"
                             OnPlay="Play"
                             OnPick="PickStep" />
+        }
+
+        @* Under the picture while an overlay is on: what of the overlay's kind sits
+           deeper than this view, and with Debt the debt that names no element. *@
+        @if (_overlay != C4RecordOverlay.None && RecordsFor is not null)
+        {
+            @if (_below is not null)
+            {
+                <p class="c4-zoom-explorer__below" data-testid="c4-zoom-below">@BelowText</p>
+            }
+
+            @if (_overlay == C4RecordOverlay.Debt)
+            {
+                <C4CrossCuttingDebt Records="@OpenCrossCuttingDebt" OnOpenRecord="OpenRecordAsync" />
+            }
         }
 
         <footer class="c4-zoom-explorer__foot">
@@ -399,13 +438,16 @@
             ? C4ZoomDeployment.SelectableFrames(DiagramFor(_view))
             : null;
 
+        var chips = RefreshOverlay();
+
         if (_options.ZoomInAliases is null
             || !_options.ZoomInAliases.SetEquals(zoomable)
             || !SameSet(_options.SelectableBoundaryAliases, frames)
             || _options.NumberSteps != numberSteps
-            || _options.CurrentStep != currentStep)
+            || _options.CurrentStep != currentStep
+            || !SameChips(_options.RecordChips, chips))
         {
-            _options = new C4SvgOptions(zoomable, numberSteps, currentStep) { SelectableBoundaryAliases = frames };
+            _options = new C4SvgOptions(zoomable, numberSteps, currentStep) { SelectableBoundaryAliases = frames, RecordChips = chips };
         }
 
         _environments = C4ZoomDeployment.Environments(Workspace, _view);
@@ -480,6 +522,216 @@
     }
 
     private Task OpenRecordAsync(string path) => OnOpenRecord.InvokeAsync(path);
+
+    // ---- the record overlay ----------------------------------------------------
+
+    private static readonly C4RecordOverlay[] OverlayChoices = [C4RecordOverlay.None, C4RecordOverlay.Decisions, C4RecordOverlay.Debt];
+
+    /// <summary>The overlay chosen. Kept across moves, so Debt stays on as the reader
+    /// zooms — the tray says it is shown on every view.</summary>
+    private C4RecordOverlay _overlay = C4RecordOverlay.None;
+
+    /// <summary>How many of the overlay's records sit only below this view; null with no
+    /// overlay.</summary>
+    private int? _below;
+
+    /// <summary>The overlay chosen now. For the host and for tests.</summary>
+    public C4RecordOverlay Overlay => _overlay;
+
+    /// <summary>
+    /// The debt records that name no element of the model, open or not; the tray lists
+    /// those still open. A record that names nothing is reachable from no card, so the
+    /// host hands these over beside <see cref="RecordsFor"/> rather than through it.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<C4InspectorRecord> CrossCuttingDebt { get; set; } = [];
+
+    private IReadOnlyList<C4InspectorRecord>? _openCrossCuttingOf;
+    private IReadOnlyList<C4InspectorRecord> _openCrossCutting = [];
+
+    /// <summary>The tray's rows: the host's cross-cutting debt still open. The same list
+    /// while the host hands the same one, so the tray is not re-rendered for nothing.</summary>
+    private IReadOnlyList<C4InspectorRecord> OpenCrossCuttingDebt
+    {
+        get
+        {
+            if (!ReferenceEquals(_openCrossCuttingOf, CrossCuttingDebt))
+            {
+                _openCrossCuttingOf = CrossCuttingDebt;
+                _openCrossCutting = [.. CrossCuttingDebt.Where(record => record.OpenDebt)];
+            }
+
+            return _openCrossCutting;
+        }
+    }
+
+    private (string? View, C4RecordOverlay Overlay, Func<string, C4ElementRecords>? Records, C4Workspace? Workspace) _overlayFor;
+    private Dictionary<string, C4CardRecords>? _chips;
+
+    /// <summary>The chips and the below-view count, worked out again only when the view,
+    /// the overlay, the workspace or the host's records changed: a refresh runs on every
+    /// parent render and every Play step, and the count walks the whole model.</summary>
+    private Dictionary<string, C4CardRecords>? RefreshOverlay()
+    {
+        var key = (_view?.Key, _overlay, RecordsFor, Workspace);
+        if (key == _overlayFor) return _chips;
+
+        _overlayFor = key;
+        _chips = RecordChips();
+        _below = BelowCount();
+        return _chips;
+    }
+
+    private void ChooseOverlay(C4RecordOverlay choice, bool pressed)
+    {
+        if (!pressed || _overlay == choice) return;
+
+        _overlay = choice;
+        Refresh();
+    }
+
+    private Func<string, C4ElementRecords>? _cardRecordsOf;
+    private readonly Dictionary<string, C4ElementRecords> _cardRecords = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The host's records for any element, the same source the inspector
+    /// reads, kept per element until the host hands a new delegate: the overlay asks
+    /// about every card and every element below them on each refresh.</summary>
+    private C4ElementRecords CardRecords(string elementId)
+    {
+        if (!ReferenceEquals(_cardRecordsOf, RecordsFor))
+        {
+            _cardRecordsOf = RecordsFor;
+            _cardRecords.Clear();
+        }
+
+        if (RecordsFor is null) return C4ElementRecords.None;
+
+        if (!_cardRecords.TryGetValue(elementId, out var records))
+        {
+            records = RecordsFor(elementId);
+            _cardRecords[elementId] = records;
+        }
+
+        return records;
+    }
+
+    /// <summary>The records of the overlay's kind that name an element: its decisions,
+    /// or its open debt.</summary>
+    private IEnumerable<C4InspectorRecord> OverlayRecords(string elementId)
+    {
+        var records = CardRecords(elementId);
+        return _overlay switch
+        {
+            C4RecordOverlay.Decisions => records.Decisions,
+            C4RecordOverlay.Debt => records.Debt.Where(record => record.OpenDebt),
+            _ => []
+        };
+    }
+
+    /// <summary>The counts the cards carry under the chosen overlay, by alias; null with
+    /// none chosen, which leaves the picture exactly as it is drawn without one.</summary>
+    private Dictionary<string, C4CardRecords>? RecordChips()
+    {
+        if (_overlay == C4RecordOverlay.None || RecordsFor is null) return null;
+
+        var chips = new Dictionary<string, C4CardRecords>(StringComparer.Ordinal);
+
+        foreach (var node in _nodes)
+        {
+            if (chips.ContainsKey(node.Alias)) continue;
+
+            var count = OverlayRecords(node.ElementId).Select(record => record.Path).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+            if (count == 0) continue;
+
+            chips[node.Alias] = _overlay == C4RecordOverlay.Decisions ? new C4CardRecords(count, 0) : new C4CardRecords(0, count);
+        }
+
+        return chips;
+    }
+
+    /// <summary>
+    /// How many of the overlay's records name no element on this view — no card and not
+    /// the view's scope — but at least one element nested below a card: the records a
+    /// reader finds by zooming in. A record that names only elements elsewhere is not
+    /// counted; it is no deeper, only aside.
+    /// <para>
+    /// Null on a deployment view, which draws instances rather than the elements the
+    /// records name, so nothing on it is "below" in the sense of a zoom.
+    /// </para>
+    /// </summary>
+    private int? BelowCount()
+    {
+        if (_overlay == C4RecordOverlay.None || RecordsFor is null || _view is null) return null;
+        if (_view.Kind == C4ViewKind.Deployment) return null;
+
+        var cards = new HashSet<string>(_nodes.Select(node => node.ElementId), StringComparer.OrdinalIgnoreCase);
+        var onView = new HashSet<string>(cards, StringComparer.OrdinalIgnoreCase);
+        if (_view.ScopeId is { } scope && Workspace.Element(scope) is { } scoped) onView.Add(scoped.Id);
+
+        var named = new HashSet<string>(onView.SelectMany(OverlayRecords).Select(record => record.Path), StringComparer.OrdinalIgnoreCase);
+
+        return Workspace.Elements
+            .Where(element => !onView.Contains(element.Id) && IsBelow(element, cards))
+            .SelectMany(element => OverlayRecords(element.Id))
+            .Select(record => record.Path)
+            .Where(path => !named.Contains(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+    }
+
+    /// <summary>Whether an element is nested, at any depth, inside one of
+    /// <paramref name="cards"/>. The walk is bounded by the model's depth, so a parent
+    /// chain that loops back on itself stops rather than spinning.</summary>
+    private bool IsBelow(C4Element element, HashSet<string> cards)
+    {
+        var parent = element.ParentId;
+
+        for (var depth = 0; parent is not null && depth < MaxDepth; depth++)
+        {
+            if (cards.Contains(parent)) return true;
+            parent = Workspace.Element(parent)?.ParentId;
+        }
+
+        return false;
+    }
+
+    /// <summary>Deeper than any C4 model nests: system, container, component, with
+    /// deployment nodes inside one another.</summary>
+    private const int MaxDepth = 16;
+
+    /// <summary>The line under the picture: the overlay's records a reader finds only by
+    /// zooming in.</summary>
+    private string BelowText
+    {
+        get
+        {
+            var noun = _overlay == C4RecordOverlay.Decisions ? "ADR" : "open TDR";
+            return _below is > 0 and var count
+                ? $"Not on this view: {count} {noun}{(count == 1 ? string.Empty : "s")} {(count == 1 ? "links" : "link")} only to elements below it."
+                : $"Not on this view: no {noun} links only to elements below it.";
+        }
+    }
+
+    /// <summary>A card's accessible name: its full name, and the overlay's count on it
+    /// when it carries one — "Devbook, 1 open TDR".</summary>
+    private string AccessibleName(string alias, string name)
+    {
+        if (_options.RecordChips is not { } chips || !chips.TryGetValue(alias, out var records)) return name;
+
+        var said = new List<string> { name };
+        if (records.Decisions > 0) said.Add($"{records.Decisions} ADR{(records.Decisions == 1 ? string.Empty : "s")}");
+        if (records.OpenDebt > 0) said.Add($"{records.OpenDebt} open TDR{(records.OpenDebt == 1 ? string.Empty : "s")}");
+
+        return string.Join(", ", said);
+    }
+
+    private static bool SameChips(IReadOnlyDictionary<string, C4CardRecords>? left, IReadOnlyDictionary<string, C4CardRecords>? right)
+    {
+        if (left is null || right is null) return left is null && right is null;
+        if (left.Count != right.Count) return false;
+
+        return left.All(pair => right.TryGetValue(pair.Key, out var other) && other == pair.Value);
+    }
 
     private static bool SameSet(IReadOnlySet<string>? left, IReadOnlySet<string>? right) =>
         left is null ? right is null : right is not null && left.SetEquals(right);
@@ -972,10 +1224,11 @@
         _refocus = false;
 
         // The full names, because a card's drawn name is cut to fit it and the
-        // accessible name should not be.
+        // accessible name should not be. The overlay's counts are said with the name:
+        // the viewer's label replaces the chips' own titles for a screen reader.
         var names = _nodes
             .GroupBy(node => node.Alias, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.First().Name, StringComparer.Ordinal);
+            .ToDictionary(group => group.Key, group => AccessibleName(group.Key, group.First().Name), StringComparer.Ordinal);
 
         try
         {

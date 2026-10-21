@@ -40,7 +40,28 @@ public sealed record C4InspectorRecord(
     bool Proposed = false,
     string? Severity = null,
     string? Lifecycle = null,
-    bool Touches = false);
+    bool Touches = false)
+{
+    /// <summary>A debt record not yet at the ladder's last rung, <c>resolved</c>: what
+    /// the Debt overlay counts and the cross-cutting tray lists. Always false for a
+    /// decision.</summary>
+    public bool OpenDebt =>
+        Kind == C4InspectorRecordKind.Debt && !string.Equals(Lifecycle?.Trim(), "resolved", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>Which records the zoom tab's overlay draws on the cards.</summary>
+public enum C4RecordOverlay
+{
+    /// <summary>No records on the cards: the picture as it is drawn without one.</summary>
+    None,
+
+    /// <summary>An <c>n ADR</c> chip on each card that decision records name.</summary>
+    Decisions,
+
+    /// <summary>An <c>n TDR</c> chip, on the debt surface, on each card that open debt
+    /// records name, and the cross-cutting tray of open debt that names no element.</summary>
+    Debt
+}
 
 /// <summary>
 /// What the knowledge folders say about one element, as the inspector shows it.

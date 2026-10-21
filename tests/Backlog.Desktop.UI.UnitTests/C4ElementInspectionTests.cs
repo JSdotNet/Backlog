@@ -138,6 +138,39 @@ public sealed class C4ElementInspectionTests
         Assert.Empty(records.Debt);
     }
 
+    /// <summary>The Debt overlay's tray: every debt record no <c>c4</c> or
+    /// <c>c4-touches</c> field links to an element, in file order, with its severity and
+    /// rung — a resolved one included, for the explorer to leave out — and no decision
+    /// or linked debt among them.</summary>
+    [Fact]
+    public void Cross_cutting_debt_is_the_debt_records_that_name_no_element()
+    {
+        var linked = Debt(".devbook/arc42/tdr/0001-renders.md", "TDR 0001: Renders vanish on a snapshot", DevbookDebtSeverity.Medium, DevbookDebtLifecycle.Identified);
+
+        IReadOnlyList<DevbookDocument> chapters =
+        [
+            .. Chapters,
+            DevbookMarkdownParser.Parse(".devbook/arc42/tdr/0001-renders.md", "# TDR 0001: Renders vanish on a snapshot\n\n```meta\nseverity: medium\n```\n\nText.\n"),
+            DevbookMarkdownParser.Parse(".devbook/arc42/tdr/0003-zero-warning.md", "# TDR 0003: The check is not a zero-warning signal\n\n```meta\nseverity: low\nstatus: resolved\n```\n\nText.\n"),
+            DevbookMarkdownParser.Parse(".devbook/arc42/tdr/0002-conventions.md", "# TDR 0002: Conventions have no checked-in home\n\n```meta\nseverity: medium\n```\n\nText.\n"),
+            DevbookMarkdownParser.Parse(".devbook/arc42/tdr/README.md", "# Technical debt\n\nThe index.\n"),
+            DevbookMarkdownParser.Parse(".devbook/arc42/adr/0009-unlinked.md", "# ADR 0009: Names nothing\n\nText.\n"),
+        ];
+
+        var crossCutting = C4ElementInspection.CrossCuttingDebt(
+            CatalogWith(new C4ElementLink("backlog.desktop", C4LinkKind.About, linked)),
+            chapters);
+
+        Assert.Equal(["0002 Conventions have no checked-in home", "0003 The check is not a zero-warning signal"],
+            crossCutting.Select(record => $"{record.Number} {record.Title}"));
+        Assert.All(crossCutting, record => Assert.Equal(C4InspectorRecordKind.Debt, record.Kind));
+        Assert.Equal("Medium", crossCutting[0].Severity);
+        Assert.Equal("identified", crossCutting[0].Lifecycle);
+        Assert.True(crossCutting[0].OpenDebt);
+        Assert.Equal("resolved", crossCutting[1].Lifecycle);
+        Assert.False(crossCutting[1].OpenDebt);
+    }
+
     [Fact]
     public void A_chapter_the_folder_does_not_hold_is_listed_by_its_file_name()
     {

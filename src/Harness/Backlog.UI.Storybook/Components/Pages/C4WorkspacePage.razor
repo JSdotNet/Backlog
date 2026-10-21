@@ -61,7 +61,7 @@ The chip is the one thing the zoom tab asks of the shared renderer, and it is an
 Here the Devbook component has code folders, so it carries a chip on the Desktop App components view and step 4 opens its **Code level** — the story below. Shell and Fetch Workers have none: no chip, and step 4 stays grey."
            Code="@ZoomUsage">
         <div class="sb-c4-stage sb-c4-stage--zoom">
-            <C4ZoomExplorer Workspace="@Parsed" Problems="@Parsed.Problems" Code="@SampleCode" TestId="sb-c4-zoom-explorer" />
+            <C4ZoomExplorer Workspace="@Parsed" Problems="@Parsed.Problems" Code="@SampleCode" RecordsFor="@SampleRecords" CrossCuttingDebt="@SampleCrossCuttingDebt" TestId="sb-c4-zoom-explorer" />
         </div>
     </Story>
 
@@ -98,6 +98,22 @@ An element nothing names says so in each section; with no host behind it at all 
 
             <p class="sb-c4-zoom-moments__label">An element nothing names</p>
             <C4ElementInspector Element="@LocalTaskStore" Records="@C4ElementRecords.None" TestId="sb-c4-element-inspector-none" />
+        </div>
+    </Story>
+
+    <Story Name="The record overlays"
+           Description="The **Overlay** switch in the zoom tab's head: None, Decisions or Debt, one choice, kept as the reader zooms. **Decisions** puts an *n ADR* chip on each card that decision records name; **Debt** puts an *n TDR* chip on each card that open debt names — debt not yet `resolved` — and draws that card on the `color-error` surface. The counts come from the same `RecordsFor` the inspector reads, so a card and its inspector never disagree.
+
+Under the picture, a line counts the overlay's records that name no element on the view but one nested below it — the ones a reader finds by zooming in. With Debt on, the **cross-cutting tray**, `C4CrossCuttingDebt`, lists the open debt that names no element at all, which has no card to sit on; each opens its record. The chips are an option of `C4SvgWriter` (`C4SvgOptions.RecordChips`) that the C4 tab never passes. Pick an overlay in the zoom tab above to see it live; below, the Desktop App components view as Debt draws it."
+           Code="@OverlayUsage">
+        <div class="sb-c4-zoom-moments">
+            <p class="sb-c4-zoom-moments__label">Debt on the Desktop App components view</p>
+            <div class="sb-c4-stage">
+                <C4DiagramView Diagram="@ComponentsDiagram" Id="sb-c4-overlay" AriaLabel="Components with the Debt overlay" Options="@DebtOverlayOptions" TestId="sb-c4-overlay-diagram" />
+            </div>
+
+            <p class="sb-c4-zoom-moments__label">The cross-cutting tray</p>
+            <C4CrossCuttingDebt Records="@SampleCrossCuttingDebt" TestId="sb-c4-cross-cutting" />
         </div>
     </Story>
 
@@ -294,6 +310,48 @@ That behaviour is the whole safeguard. This reader is a second implementation of
         [
             new C4InspectorRecord(".devbook/arc42/tdr/0001-branch-snapshots.md", "0001", "Artifacts are invisible on a branch snapshot", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified")
         ]);
+
+    private const string OverlayUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        RecordsFor="@(elementId => C4ElementInspection.For(c4, workspaceEntry, chapters, elementId))"
+                        CrossCuttingDebt="@C4ElementInspection.CrossCuttingDebt(c4, chapters)"
+                        OnOpenRecord="OpenInChapters" />
+        """;
+
+    /// <summary>What a host might say about each element of the sample: Desktop App
+    /// as the inspector story shows it, one open debt on the Devbook component and a
+    /// decision on Shell. A sample, not this repository's own records.</summary>
+    private static C4ElementRecords SampleRecords(string elementId) => elementId switch
+    {
+        "backlog.desktop" => DesktopRecords,
+        DevbookComponent => new C4ElementRecords([], [],
+        [
+            new C4InspectorRecord(".devbook/arc42/tdr/0001-branch-snapshots.md", "0001", "Artifacts are invisible on a branch snapshot", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified")
+        ]),
+        "backlog.desktop.shell" => new C4ElementRecords([],
+        [
+            new C4InspectorRecord(".devbook/arc42/adr/0022-one-main-view.md", "0022", "The shell shows one main view", C4InspectorRecordKind.Decision)
+        ], []),
+        _ => C4ElementRecords.None
+    };
+
+    /// <summary>Open debt that names no element, as the Debt overlay's tray lists it.</summary>
+    private static readonly IReadOnlyList<C4InspectorRecord> SampleCrossCuttingDebt =
+    [
+        new C4InspectorRecord(".devbook/arc42/tdr/0002-conventions.md", "0002", "Coding and testing conventions have no checked-in home", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified"),
+        new C4InspectorRecord(".devbook/arc42/tdr/0003-zero-warning.md", "0003", "The devbook check is not a zero-warning signal", C4InspectorRecordKind.Debt, Severity: "Low", Lifecycle: "planned")
+    ];
+
+    private static readonly Lazy<C4Diagram> LazyComponentsDiagram =
+        new(() => C4LayoutEngine.Build(Parsed, Parsed.View("components-desktop")!));
+
+    private static C4Diagram ComponentsDiagram => LazyComponentsDiagram.Value;
+
+    /// <summary>The Desktop App components view as the Debt overlay draws it.</summary>
+    private static readonly C4SvgOptions DebtOverlayOptions = new()
+    {
+        RecordChips = new Dictionary<string, C4CardRecords> { [C4MermaidWriter.AliasOf(DevbookComponent)] = new(0, 1) }
+    };
 
     private const string DeploymentUsage = """
         <C4DeploymentDoors Doors="@doors" OnOpen="OpenEnvironment" />

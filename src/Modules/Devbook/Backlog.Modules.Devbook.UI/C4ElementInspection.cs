@@ -43,6 +43,32 @@ public static partial class C4ElementInspection
             Records(catalog, elementId, C4RecordKind.Debt, C4InspectorRecordKind.Debt));
     }
 
+    /// <summary>
+    /// The debt records that name no element of the model — neither in <c>c4</c> nor in
+    /// <c>c4-touches</c> — for the zoom tab's cross-cutting tray, in file order. Read off
+    /// the arc42 folder's documents, because a record that links to nothing is in no
+    /// link of <paramref name="catalog"/>; the tray lists those still open.
+    /// </summary>
+    public static IReadOnlyList<C4InspectorRecord> CrossCuttingDebt(C4Catalog catalog, IReadOnlyList<DevbookDocument> chapters)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(chapters);
+
+        return
+        [
+            .. chapters
+                .Where(document => Arc42DevbookCatalog.IsDebtRecord(document.Path) && catalog.ElementsOf(document.Path).Count == 0)
+                .OrderBy(document => C4ViewEntry.FileOf(document.Path), StringComparer.OrdinalIgnoreCase)
+                .Select(document => new C4InspectorRecord(
+                    document.Path,
+                    NumberOf(document.Path),
+                    WithoutNumber(document.Title),
+                    C4InspectorRecordKind.Debt,
+                    Severity: document.Severity?.ToString(),
+                    Lifecycle: LifecycleLabel(document.DebtLifecycle)))
+        ];
+    }
+
     /// <summary>The chapters the views map lists against any view that draws the
     /// element, each once — by file and heading — and in file order, which is the
     /// arc42 chapters' own numbered order.</summary>
