@@ -467,9 +467,16 @@ resource alone.
 
 ## The service version stops older clients
 
-The service reports its version from the anonymous root (`GET /`, the `version` field),
-and that number is the `<Version>` in `Backlog.Modules.Sync.Api.csproj`, not the SDK
-default. Every desktop and phone compares it with its own app version, numerically, a
+The anonymous root (`GET /`) says which build is running in three fields, each with its
+own job:
+
+| Field | Comes from | What reads it |
+| --- | --- | --- |
+| `version` | `<Version>` in `Backlog.Modules.Sync.Api.csproj` (`0.1.0`) | every desktop and phone: the compatibility check below |
+| `release` | the release number Release All deployed the build under (`0.1.123`), `null` when none did | Release All's post-deploy check, and anyone asking which release is live |
+| `commit` | the sha the build was cut from | `build/Get-SyncServiceVersion.ps1` and the System tools row: is a deploy due |
+
+`version` is the compatibility number, not the SDK default and not the release number. Every desktop and phone compares it with its own app version, numerically, a
 missing part counting as zero. When the service's is higher, the app stops syncing:
 it sends no sync request, the desktop footer and Devices settings and the phone's
 shell say "The sync service is newer than this version of Backlog. Update Backlog to
@@ -480,7 +487,12 @@ root that does not answer, or reports a version the app cannot read, stops nothi
 
 So bump `<Version>` deliberately, and only in the change that breaks older clients: a
 version above what the released clients carry (desktop `0.1.x`, phone `0.1.x`)
-stops all of them the moment it is deployed. An ordinary deploy leaves it as it is.
+stops all of them the moment it is deployed. An ordinary deploy leaves it as it is — and
+so does every release. Release All deploys the service under each release number, but it
+stamps that number as `release` (the MSBuild property `BacklogRelease`, written into the
+assembly's metadata) and never sets `Version`. Were the release number the service's
+`version`, every release would raise it past the apps phones and desktops still have
+installed, and stop them all until they updated.
 
 **Deploy the service before the first client that carries the check ships.** A
 service built before `<Version>` was set reports the SDK default `1.0.0`, which is
@@ -489,7 +501,8 @@ desktop or phone release that carries this check pauses sync on every device tha
 installs it, until the service is redeployed. Deploy the service at `0.1.0` first,
 or later at any version no higher than every released client, and only then release
 the desktop and the phone. After that, deploy order does not matter until
-`<Version>` is raised.
+`<Version>` is raised. Release All keeps the order anyway: it deploys the service before it
+publishes the apps of the same release.
 
 ## Run from GitHub Actions
 
@@ -502,22 +515,24 @@ release goes out. The push-to-`main` trigger this workflow used to carry stays p
 
 A `service` run:
 
-1. verifies the target as every mode does, and checks `version` is `MAJOR.MINOR.PATCH`;
+1. verifies the target as every mode does, and checks `release` is `MAJOR.MINOR.PATCH`;
    when Release All passes its `release_tag` and that tag already exists at another commit,
    it stops there — a re-run of an older run never puts older service code into production
    under a number a newer run released;
 2. signs in and recreates the azd environment;
 3. reads the last provision's outputs back with `azd env refresh` — no preview, no
    provision;
-4. runs `azd deploy sync` with the MSBuild property `Version` set to the release number in
-   that step's environment. azd builds the image with `dotnet publish /t:PublishContainer`
-   in its own process environment, and MSBuild reads environment variables as properties,
-   so the assembly's informational version becomes `<version>+<sha>`;
-5. reads `GET /` back until it reports that version at the run's commit, and fails after ten
-   minutes otherwise. Release All publishes nothing until this passes.
+4. runs `azd deploy sync` with the MSBuild property `BacklogRelease` set to the release
+   number in that step's environment. azd builds the image with
+   `dotnet publish /t:PublishContainer` in its own process environment, and MSBuild reads
+   environment variables as properties, so the project writes the number into the
+   assembly's `BacklogRelease` metadata. `Version`, and so `GET /`'s `version`, stays the
+   project's compatibility number (see *The service version stops older clients*);
+5. reads `GET /` back until its `release` is that number and its `commit` the run's, and
+   fails after ten minutes otherwise. Release All publishes nothing until this passes.
 
-The image tag stays azd's own (`azd-deploy-<timestamp>`); the version is what `GET /`
-reports.
+The image tag stays azd's own (`azd-deploy-<timestamp>`); the release number is what
+`GET /` reports as `release`.
 
 Open **Actions -> Deploy Sync -> Run workflow**:
 
@@ -527,9 +542,10 @@ Open **Actions -> Deploy Sync -> Run workflow**:
 | `environment_name` | `backlog-sync` | Selects the GitHub environment and names the azd environment. |
 
 Every infrastructure mode runs the preview first, so a `deploy` run still shows what it is
-about to change before it changes it. A dispatched run carries no version, so a `deploy`
-or `service` run from here reports `1.0.0` on `GET /` — visibly not a release; the release
-number comes only through Release All's call (`version` input).
+about to change before it changes it. A dispatched run carries no release number, so a
+`deploy` or `service` run from here reports `"release": null` on `GET /` — visibly not a
+release; the number comes only through Release All's call (`release` input). Its `version`
+is the project's `<Version>` either way.
 
 ## Run locally
 

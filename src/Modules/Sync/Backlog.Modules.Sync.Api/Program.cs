@@ -104,11 +104,14 @@ sync.MapAttachmentSyncEndpoints();
 // nothing to protect — the commit is public history, and it is what lets a
 // developer machine see that the deployed service is behind the repository
 // without signing in to Azure to ask (see build/Get-SyncServiceVersion.ps1).
+// `version` is the compatibility number clients compare against; `release` is the
+// release the deploy shipped this build under, null when none did.
 app.MapGet("/", () => Results.Ok(new
     {
         service = "Backlog Sync",
         role = "thin sync layer",
         version = BuildInformation.Version,
+        release = BuildInformation.Release,
         commit = BuildInformation.Commit
     }))
     .AllowAnonymous();

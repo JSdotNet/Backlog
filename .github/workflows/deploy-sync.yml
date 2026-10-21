@@ -13,7 +13,8 @@ name: Deploy Sync
 # No trigger of its own: a person starts every infrastructure run, here or
 # through Deploy All. The service, though, deploys unattended: every Release All
 # run that publishes a release calls this workflow in `service` mode, nightly
-# included, so the running service carries the release number the apps do. That
+# included, so the running service reports the release number the apps carry
+# (GET /'s `release`; its `version` is the compatibility number, untouched). That
 # mode deploys the container and provisions nothing; infrastructure stays a
 # deliberate run. The push-to-main trigger this workflow used to carry stays
 # parked.
@@ -29,8 +30,8 @@ on:
           - preview
           - provision
           - deploy
-          # The service alone: no preview, no provision. Run by hand it deploys an
-          # unversioned service (1.0.0 on GET /), visibly not a release.
+          # The service alone: no preview, no provision. Run by hand it deploys a
+          # service with no release (`release: null` on GET /), visibly not one.
           - service
       environment_name:
         description: 'GitHub environment; also names the azd environment'
@@ -51,13 +52,16 @@ on:
         required: false
         default: backlog-sync
         type: string
-      # The release number the service reports on GET /, MAJOR.MINOR.PATCH. Blank
-      # keeps the SDK default. Release All passes the number it publishes.
-      version:
+      # The release number the service reports as `release` on GET /,
+      # MAJOR.MINOR.PATCH; blank deploys no release. Release All passes the number
+      # it publishes. Not the service's `version`: that is the compatibility number
+      # every client stops syncing above (docs/deployment/sync.md), and only the
+      # project's <Version> moves it.
+      release:
         required: false
         default: ''
         type: string
-      # The release tag the version belongs to, vX.Y.Z. When the tag already exists,
+      # The release tag the number belongs to, vX.Y.Z. When the tag already exists,
       # the service is deployed only from the commit it points at.
       release_tag:
         required: false
@@ -107,7 +111,7 @@ jobs:
       # says nothing changes nothing.
       DEPLOY_MODE: ${{ inputs.mode }}
       # Through env, never spliced into a script; Verify checks its shape.
-      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_NUMBER: ${{ inputs.release }}
       RELEASE_TAG: ${{ inputs.release_tag }}
       AZURE_ENV_NAME: ${{ inputs.environment_name || 'backlog-sync' }}
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
@@ -144,12 +148,12 @@ jobs:
             exit 1
           }
 
-          if ($env:RELEASE_VERSION -and $env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+$') {
-            Write-Output "::error::version must be MAJOR.MINOR.PATCH (got '$env:RELEASE_VERSION')."
+          if ($env:RELEASE_NUMBER -and $env:RELEASE_NUMBER -notmatch '^\d+\.\d+\.\d+$') {
+            Write-Output "::error::release must be MAJOR.MINOR.PATCH (got '$env:RELEASE_NUMBER')."
             exit 1
           }
-          if ($env:RELEASE_VERSION -and $env:DEPLOY_MODE -notin @('deploy', 'service')) {
-            Write-Output "::error::version is set but mode '$env:DEPLOY_MODE' deploys no service."
+          if ($env:RELEASE_NUMBER -and $env:DEPLOY_MODE -notin @('deploy', 'service')) {
+            Write-Output "::error::release is set but mode '$env:DEPLOY_MODE' deploys no service."
             exit 1
           }
 
@@ -382,12 +386,13 @@ jobs:
 
           # azd builds the image with `dotnet publish /t:PublishContainer` in its own
           # process environment, and MSBuild reads environment variables as
-          # properties: Version here makes the assembly's informational version
-          # '<version>+<sha>', which GET / reports. Set on this step alone, so no
-          # other build in the job is stamped.
-          if ($env:RELEASE_VERSION) {
-            $env:Version = $env:RELEASE_VERSION
-            Write-Output "Deploying the sync service as version $env:RELEASE_VERSION."
+          # properties: BacklogRelease here becomes the assembly metadata GET /
+          # reports as `release`. Version is left alone - it is the compatibility
+          # number clients stop syncing above. Set on this step alone, so no other
+          # build in the job is stamped.
+          if ($env:RELEASE_NUMBER) {
+            $env:BacklogRelease = $env:RELEASE_NUMBER
+            Write-Output "Deploying the sync service as release $env:RELEASE_NUMBER."
           }
 
           azd deploy sync --no-prompt
@@ -395,14 +400,14 @@ jobs:
 
       # The proof that the number reached the running service, and that the revision
       # serving is this run's: Release All publishes only after this passes.
-      - name: Check the deployed version
-        if: env.RELEASE_VERSION != ''
+      - name: Check the deployed release
+        if: env.RELEASE_NUMBER != ''
         run: |
           $ErrorActionPreference = 'Stop'
 
           $values = azd env get-values --output json | ConvertFrom-Json
           $endpoint = "$($values.SYNC_SERVICE_URI)".TrimEnd('/')
-          if (-not $endpoint) { throw "SYNC_SERVICE_URI is not in the azd environment; cannot check the deployed version." }
+          if (-not $endpoint) { throw "SYNC_SERVICE_URI is not in the azd environment; cannot check the deployed release." }
 
           # The new revision takes a moment to serve, and the app scales from zero.
           $deadline = (Get-Date).AddMinutes(10)
@@ -410,13 +415,13 @@ jobs:
           while ((Get-Date) -lt $deadline) {
             try {
               $identity = Invoke-RestMethod -Uri "$endpoint/" -TimeoutSec 30
-              if ($identity.version -eq $env:RELEASE_VERSION -and $identity.commit -eq $env:GITHUB_SHA) {
+              if ($identity.release -eq $env:RELEASE_NUMBER -and $identity.commit -eq $env:GITHUB_SHA) {
                 "### Sync service" >> $env:GITHUB_STEP_SUMMARY
-                "$endpoint/ reports version ``$($identity.version)`` at commit ``$($identity.commit)``." >> $env:GITHUB_STEP_SUMMARY
-                Write-Output "The sync service reports $($identity.version) at $($identity.commit)."
+                "$endpoint/ reports release ``$($identity.release)`` at commit ``$($identity.commit)``, compatibility version ``$($identity.version)``." >> $env:GITHUB_STEP_SUMMARY
+                Write-Output "The sync service reports release $($identity.release) at $($identity.commit), version $($identity.version)."
                 return
               }
-              $last = "version '$($identity.version)', commit '$($identity.commit)'"
+              $last = "release '$($identity.release)', commit '$($identity.commit)', version '$($identity.version)'"
             }
             catch {
               $last = $_.Exception.Message
@@ -424,7 +429,7 @@ jobs:
             Start-Sleep -Seconds 15
           }
 
-          throw "The sync service at $endpoint/ never reported version $env:RELEASE_VERSION at commit $env:GITHUB_SHA; last answer: $last."
+          throw "The sync service at $endpoint/ never reported release $env:RELEASE_NUMBER at commit $env:GITHUB_SHA; last answer: $last."
 
       - name: Write deployment summary
         id: summary
@@ -444,7 +449,7 @@ jobs:
             "### Sync deployment"
             ""
             "- Mode: ``$env:DEPLOY_MODE``"
-            "- Version: ``$(if ($env:RELEASE_VERSION) { $env:RELEASE_VERSION } else { 'SDK default' })``"
+            "- Release: ``$(if ($env:RELEASE_NUMBER) { $env:RELEASE_NUMBER } else { 'none' })``"
             "- Environment: ``$env:AZURE_ENV_NAME``"
             "- Subscription: ``$env:AZURE_SUBSCRIPTION_ID``"
             "- Resource group: ``$env:AZURE_RESOURCE_GROUP``"

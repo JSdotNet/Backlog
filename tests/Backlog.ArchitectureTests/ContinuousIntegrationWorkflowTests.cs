@@ -326,7 +326,8 @@ public class ContinuousIntegrationWorkflowTests
         Assert.Contains("mode: service", sync, StringComparison.Ordinal);
         Assert.Contains("environment_name: ${{ inputs.sync_environment || 'backlog-sync' }}", sync, StringComparison.Ordinal);
         Assert.Contains("release_tag: ${{ needs.plan.outputs.tag }}", sync, StringComparison.Ordinal);
-        Assert.Contains("version: ${{ needs.plan.outputs.display }}", sync, StringComparison.Ordinal);
+        Assert.Contains("release: ${{ needs.plan.outputs.display }}", sync, StringComparison.Ordinal);
+        Assert.DoesNotMatch(new Regex(@"^      version:", RegexOptions.Multiline), sync);
         Assert.Contains("id-token: write", sync, StringComparison.Ordinal);
         Assert.Contains("secrets: inherit", sync, StringComparison.Ordinal);
 
@@ -455,31 +456,37 @@ public class ContinuousIntegrationWorkflowTests
 
     /// <summary>
     /// The release number reaches the service's assembly as the MSBuild
-    /// <c>Version</c> property, through the environment of the one step that
-    /// publishes the container (azd runs <c>dotnet publish</c> in its own process
-    /// environment), and the deployed <c>GET /</c> is read back before the release
-    /// publishes: its version is the number and its commit the run's.
+    /// <c>BacklogRelease</c> property (assembly metadata GET / reports as
+    /// <c>release</c>), through the environment of the one step that publishes the
+    /// container (azd runs <c>dotnet publish</c> in its own process environment).
+    /// <c>Version</c> is never set: it is the compatibility number every client stops
+    /// syncing above, so a release that moved it would stop every installed app. The
+    /// deployed <c>GET /</c> is read back before the release publishes: its
+    /// <c>release</c> is the number and its commit the run's.
     /// </summary>
     [Fact]
-    public void The_sync_service_is_stamped_with_the_release_version_and_checked()
+    public void The_sync_service_is_stamped_with_the_release_number_and_checked()
     {
+        var workflow = Workflow(DeploySyncWorkflow);
         var job = JobText(DeploySyncWorkflow, "sync");
         var deploy = Step(job, "Deploy the sync service");
 
-        Assert.Contains("$env:Version = $env:RELEASE_VERSION", deploy, StringComparison.Ordinal);
-        Assert.Contains("RELEASE_VERSION: ${{ inputs.version }}", job, StringComparison.Ordinal);
+        Assert.Contains("$env:BacklogRelease = $env:RELEASE_NUMBER", deploy, StringComparison.Ordinal);
+        Assert.Contains("RELEASE_NUMBER: ${{ inputs.release }}", job, StringComparison.Ordinal);
         Assert.Contains(@"'^\d+\.\d+\.\d+$'", Step(job, "Verify deployment target"), StringComparison.Ordinal);
+        Assert.DoesNotMatch(new Regex(@"\$env:Version\s*="), workflow);
+        Assert.DoesNotMatch(new Regex(@"^      version:", RegexOptions.Multiline), workflow);
 
         var others = Regex.Matches(job, @"^      - name: .*?(?=^      - name: |\z)", RegexOptions.Multiline | RegexOptions.Singleline)
             .Select(match => match.Value)
             .Where(step => !step.StartsWith("      - name: Deploy the sync service", StringComparison.Ordinal));
-        Assert.All(others, step => Assert.DoesNotContain("$env:Version", step, StringComparison.Ordinal));
+        Assert.All(others, step => Assert.DoesNotContain("$env:BacklogRelease", step, StringComparison.Ordinal));
 
-        var check = Step(job, "Check the deployed version");
-        Assert.Contains("if: env.RELEASE_VERSION != ''", check, StringComparison.Ordinal);
-        Assert.Contains("$env:GITHUB_SHA", check, StringComparison.Ordinal);
-        Assert.Contains(".version", check, StringComparison.Ordinal);
-        Assert.Contains(".commit", check, StringComparison.Ordinal);
+        var check = Step(job, "Check the deployed release");
+        Assert.Contains("if: env.RELEASE_NUMBER != ''", check, StringComparison.Ordinal);
+        Assert.Contains("$identity.release -eq $env:RELEASE_NUMBER", check, StringComparison.Ordinal);
+        Assert.Contains("$identity.commit -eq $env:GITHUB_SHA", check, StringComparison.Ordinal);
+        Assert.DoesNotContain("$identity.version -eq", check, StringComparison.Ordinal);
         Assert.Contains("throw", check, StringComparison.Ordinal);
     }
 

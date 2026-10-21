@@ -467,7 +467,9 @@ installed" after a key rotation, uninstall the old copy first.
 Every release — the nightly off `main`, a pushed `v*` tag, or a manual run of
 **Release All** — carries both the desktop MSIX and the Android APK under one
 `v*` tag, numbered one past the highest release so far, and deploys the sync
-service under the same number (its `GET /` reports it). Nightlies published before
+service under the same number (its `GET /` reports it as `release`; the
+service's `version` is the compatibility number apps check, which releases
+leave alone). Nightlies published before
 the two channels were aligned are under `mobile-v*` tags; the in-app update reads
 both and offers the highest version.
 

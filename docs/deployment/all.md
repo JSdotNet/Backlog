@@ -25,10 +25,12 @@ well as from here.
 ## The release ships both apps and the sync service
 
 `release-all.yml` builds the desktop MSIX and the Android APK from one commit, deploys the
-sync service from it under the same number, and publishes the packages as one GitHub
-Release, so the release component ships all three or none. The sync component here is
-therefore the infrastructure alone: Deploy Sync's `deploy` mode would push the service a
-second time in the same run, unversioned. A mobile build
+sync service from it under the same number — its `GET /` reports it as `release`, beside
+the `version` clients check compatibility against, which a release never moves (see
+[`sync.md`](sync.md#the-service-version-stops-older-clients)) — and publishes the packages
+as one GitHub Release, so the release component ships all three or none. The sync
+component here is therefore the infrastructure alone: Deploy Sync's `deploy` mode would
+push the service a second time in the same run, with no release number. A mobile build
 failure now reddens a run that also deployed Foundry and sync; it no longer can leave the
 two apps on different numbers. Before Release All, the Android head was held out of this
 workflow until it was trusted enough for that, and released from its own workflow under

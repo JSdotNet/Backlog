@@ -16,6 +16,14 @@
     <Version>0.1.0</Version>
   </PropertyGroup>
 
+  <!-- The release the build ships under, which GET / reports as `release`. Release
+       All sets the BacklogRelease property, through the environment of the
+       `azd deploy` step (MSBuild reads environment variables as properties), and
+       never touches Version above. Absent, there is no release. -->
+  <ItemGroup Condition="'$(BacklogRelease)' != ''">
+    <AssemblyMetadata Include="BacklogRelease" Value="$(BacklogRelease)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
     <!-- The Cosmos-backed ITaskReplica. A host is what picks an adapter for a

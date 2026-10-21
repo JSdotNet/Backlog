@@ -616,7 +616,7 @@ jobs:
 
   # The sync service under the release number, through Deploy Sync's `service` mode:
   # the container only, never a preview or provision. Deploy Sync reads GET / back
-  # and fails unless it reports this version at this commit, so publish never runs
+  # and fails unless it reports this release at this commit, so publish never runs
   # against a service that did not take the number.
   sync:
     name: Deploy the sync service
@@ -636,7 +636,9 @@ jobs:
       # Deploy Sync refuses the deploy when this tag already exists at another
       # commit: a re-run of failed jobs repeats that job, not this run's plan.
       release_tag: ${{ needs.plan.outputs.tag }}
-      version: ${{ needs.plan.outputs.display }}
+      # GET /'s `release`, not its `version`: that is the compatibility number
+      # clients stop syncing above, and a release never moves it.
+      release: ${{ needs.plan.outputs.display }}
 
   # Runs only when every channel built and the service took the number, so a release
   # is never published with one package missing.
