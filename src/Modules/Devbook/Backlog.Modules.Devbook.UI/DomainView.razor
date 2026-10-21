@@ -55,7 +55,7 @@
     }
     else if (Page == DomainViewPage.Context)
     {
-        <DomainViewContextPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="OnNavigateToChapter" />
+        <DomainViewContextPage @key="SelectedPath" RepositoryAlias="@RepositoryAlias" SelectedPath="@SelectedPath" OnNavigateToChapter="@(target => FollowAsync(target, alwaysTrue: false))" OnOpenAlwaysTrue="OpenAlwaysTrueAsync" />
     }
     else if (Page == DomainViewPage.Model)
     {
