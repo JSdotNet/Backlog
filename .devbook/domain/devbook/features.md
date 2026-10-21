@@ -493,44 +493,54 @@ chip moves the demo there. Notes on a demo are placed in spec-manager, the
 specification review tool, so the pane neither pins notes nor follows where the
 reader clicks inside the demo.
 
-A scenario page is listed in the bounded context it lives in, at whatever depth,
-like any page beside it. A scenario page is one end-to-end journey that says
-`type: scenario` in its file-level metadata, and its parts are the outcomes the
-actor reaches. Which pages are journeys comes from the scenario register the
+A scenarios file is listed in the bounded context it lives in, at whatever depth,
+like any page beside it. It is the context's `scenarios.md`, or a split
+`scenarios.<name>.md`. Each `##` chapter that says `type: scenario` in its own
+metadata is one end-to-end journey, and its `###` parts are the outcomes the actor
+reaches. Which files hold journeys comes from the scenario register the
 repository's devbook commits. A repository that commits no register is read for
-the pages that say so themselves. In the menu each journey carries the scenario
-mark and a dot for its last run: passed, failed, stale, or never run. The dot
-differs by shape as well as by colour, and a screen reader hears its state.
-Under the menu a legend draws the four dots, each beside its word, so a reader
-who has not learned the shapes can tell them apart. The legend is there only
-while the repository has at least one scenario page, and never for a Brain, which
-has none.
+the scenarios files whose journeys say so themselves.
 
-The run is the one committed beside the scenario folder's copy of the page,
-`<scenario folder>/<stem>/run.json`. The app reads both the current run format
-and the older one spec-manager's test tooling writes. Whether a run is stale is
-worked out, never stored. The app signs the page as it reads now, the way devbook
-computes a page signature. A run that proved a different signature is stale, and
-so is an older run that proves no signature at all.
+In the menu each scenarios file carries the scenario mark and one dot for the last
+runs of all its journeys: passed, failed, stale, or never run. The dot takes the
+first of never run, stale and failed that any journey is, and reads passed only
+when every journey passed. The dot differs by shape as well as by colour, and a
+screen reader hears its state. Under the menu a legend draws the four dots, each
+beside its word, so a reader who has not learned the shapes can tell them apart.
+The legend is there only while the repository has at least one journey, and never
+for a Brain, which has none.
 
-Opening a journey shows its run above the page. The run shows the setup the
-journey runs under: where it starts, who is signed in, the profile, the data sets,
-and the flag and setting overrides. Under the setup is a summary line, then each
-part with its outcome and the screenshots it took. A failed part also shows the
-screenshot taken where it failed. A journey opened from a reference that names one
-of its parts, such as a part pressed in a task's acceptance checklist, opens at that
-part, marks it as the one asked for, and scrolls it into view. The mark stays until
-the reader picks another chapter, and it belongs to the repository the reference
-named.
+Each journey's run is committed beside its scenarios file, at
+`<scenarios file without .md>/<journey>/run.json`. The app reads all three run
+versions: version 3 names the journey, version 2 names the journey page it ran
+before journeys moved into scenarios files, and version 1 is the older format
+spec-manager's test tooling writes. It reads the register at schema 2 only, and
+treats any other register as none. Whether a run is stale is worked out, never
+stored. The app signs each journey as it reads now, the way devbook computes a
+journey signature. A run that proved a different signature is stale, and so is a
+version 1 run, which proves no signature at all.
 
-An image written `scenario:<stem>#<label>` in any chapter, or in a task's own text
+Opening a scenarios file shows each journey's run above the file. The run shows
+the setup the journey runs under: where it starts, who is signed in, the profile,
+the data sets, and the flag and setting overrides. Under the setup is a summary
+line, then each part with its outcome and the screenshots it took. A failed part
+also shows the screenshot taken where it failed. A journey opened from a reference
+that names one of its parts, such as a part pressed in a task's acceptance
+checklist, opens at that part, marks it as the one asked for, and scrolls it into
+view. The mark stays until the reader picks another chapter, and it belongs to the
+repository the reference named.
+
+An image written `scenario:<scenarios file>#<label>` in any chapter, or in a task's
+own text
 ([Acceptance from scenario parts](../tasks/features.md#acceptance-from-scenario-parts)),
-shows that screenshot from the journey's last run, with a source line under it naming the journey, the
-part, the run's state and the time of the capture. Two such images in one
-paragraph sit side by side. A label the journey does not have lists the labels
-it does have. A journey that does not exist, or a name two journeys share, says
-so. A label the run never captured says that too. A capture older than the last
-run says so on its source line.
+shows that screenshot from the last run of the journey that holds the label. The
+file is named by its path inside the domain folder, such as `work/scenarios.md`,
+and a label is unique in its file. Inside the scenarios file itself, `shot:<label>`
+is enough. A source line under the image names the journey, the part, the run's
+state and the time of the capture. Two such images in one paragraph sit side by
+side. A label the file does not have lists the labels it does have. A scenarios
+file that does not exist says so. A label the run never captured says that too. A
+capture older than the last run says so on its source line.
 
 ### Remarks on a chapter
 

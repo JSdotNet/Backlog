@@ -312,7 +312,7 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
 
 - **Markdown is canonical and the layer over it is generated.** The graph between
   chapters, the resolved reading outline, the retrieval indexes, the diagram
-  artifact index and the click demo index are all derived. Nothing derived is
+  artifact index, the click demo index and the C4 nodes and edges are all derived. Nothing derived is
   authoritative, and nothing authored lives only in the derived layer.
 - **One generated SQLite database per repository path, in the app's storage.** It
   sits at `_databases/<name>-<hash>/devbook.db` under the devbook cache folder the
@@ -321,16 +321,17 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
   and a repository the app reads is left as it was found. It is per path, so two
   worktrees of one repository, and a branch snapshot, each get their own.
 - **The authored half stays text.** The hand-written Archify specifications and
-  the Structurizr C4 workspace under `.devbook/arc42/_c4/` are committed and
-  reviewed in diffs. Only what a generator produces goes into the database. The
+  the Structurizr C4 workspace, `workspace.dsl` in the arc42 folder with any files
+  it includes from its `c4/` folder, are committed and reviewed in diffs. Only what a generator produces goes into the database. The
   rendered Archify pages are not committed at all: the app draws them on demand
   from the specifications into `_archify-renders/` beside `_databases/` (local
   ADR 0034). The
   reading order is not authored at all. Both writers derive it the way the devbook
   generator does, from `index: root`, the folder's convention root and the numbers
-  in filenames (local ADR 0016). The C4 workspace has no derived half. It is not
-  attached to a fence and nothing is rendered from it ahead of time, so an index
-  has nothing to hold or to go stale.
+  in filenames (local ADR 0016). The C4 workspace's derived half is its graph:
+  both writers add an `element` node per element and a `view` node per view, with
+  `contains`, `relationship`, `embeds`, `c4` and `c4-touches` edges. The app draws
+  each view from the DSL on demand, so no rendering of it is stored.
 - **Structural first, semantic optional.** The structural tier is deterministic and
   builds offline. Embeddings are keyed by chapter content hash, need a model, and
   are versioned by it. A reader must work correctly with the semantic tier absent,

@@ -31,10 +31,10 @@
     "landscape": [
       ".devbook/arc42/03-context-and-scope.md"
     ],
-    "context-backlog": [
+    "business-context": [
       ".devbook/arc42/03-context-and-scope.md#business-context"
     ],
-    "containers-backlog": [
+    "container-view": [
       ".devbook/arc42/05-building-block-view.md#container-view",
       ".devbook/domain/context-map.md"
     ],
