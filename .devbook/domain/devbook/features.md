@@ -890,8 +890,10 @@ the model chapters its `related` names and its requirements.
 **Requirements read per feature.** The Requirements page shows each requirement
 with its SHALL sentence set apart and whether it is proved, and each scenario as
 Given, When and Then rows, a row that joins clauses with ", and" read as one
-bullet each. Where a feature's requirements rest on an aggregate's rules, a link
-opens that aggregate's **Always true** tab instead of a sentence explaining them.
+bullet each. Where a feature's requirements rest on an aggregate's rules — they
+name the aggregate, a chapter inside it, or a concept its rules are about — a
+link counting those rules opens that aggregate's **Always true** tab instead of a
+sentence explaining them.
 A split `features.<name>.md` or `requirements.<name>.md` reads the same way for
 its one feature. The page opens on a card saying what a requirement is, with
 how many are tested; each requirement is a card with a *Test linked* or dashed

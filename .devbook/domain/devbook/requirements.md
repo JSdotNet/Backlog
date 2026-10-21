@@ -1720,16 +1720,22 @@ The system SHALL open the Requirements page on a card saying what a requirement 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_sentence_explaining_invariants_gives_way_to_the_units_always_true_link, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_group_with_no_invariants_explained_or_aggregate_named_links_no_unit, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_sentence_naming_rules_no_unit_here_holds_stays, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_always_true_link_replaces_the_invariants_sentence_and_tells_the_host, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.An_aggregate_can_be_opened_on_always_true, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.Requirements_read_as_rows_and_the_Always_true_link_opens_the_aggregates_tab]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_sentence_explaining_invariants_gives_way_to_the_units_always_true_link, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_group_with_no_invariants_explained_or_aggregate_named_links_no_unit, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_sentence_naming_rules_no_unit_here_holds_stays, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_always_true_link_replaces_the_invariants_sentence_and_tells_the_host, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.An_aggregate_can_be_opened_on_always_true, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.Requirements_read_as_rows_and_the_Always_true_link_opens_the_aggregates_tab, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_term_an_aggregates_rules_are_about_links_that_aggregate_with_its_rule_count, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_chapter_inside_an_aggregate_links_that_aggregate, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_chapter_inside_an_aggregate_with_no_rules_links_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.The_always_true_card_counts_the_rules_it_opens_on, unit:dotnet:Backlog.UI.Components.UnitTests.DomainRequirementsTests.A_file_outside_the_domain_its_rules_are_about_links_the_aggregate]
 ```
 
-The system SHALL show, in place of a requirements group's sentence explaining invariants, a link that opens the aggregate the group, its requirements, its feature or that sentence names on the aggregate's Always true tab, and keep the sentence where no aggregate of the context matches.
+The system SHALL show, in place of a requirements group's sentence explaining invariants, a link that opens the aggregate the group, its requirements, its feature or that sentence names on the aggregate's Always true tab, and keep the sentence where no aggregate of the context matches. Where they name a chapter inside an aggregate, or a concept or file one of the aggregate's invariants groups is about, that aggregate is linked too when it has rules. The link counts the rules it opens on.
 
 #### Scenario: The rules a task keeps
 
 - **Given** a requirements group whose text says *The rules a task keeps are its invariants*, linking `domain.invariants.md#task`
 - **When** the reader opens Requirements and presses Always true for Task
 - **Then** the sentence is not shown, and the Domain page opens on *Task* with Always true picked
+
+#### Scenario: A feature naming a term the rules are about
+
+- **Given** a feature whose `related` names the term *My Day*, and a group of *Task*'s invariants whose `related` names it too
+- **When** the reader opens the feature on Requirements
+- **Then** a What is always true card reads the number of *Task*'s rules *· on Domain*, and pressing it opens *Task* with Always true picked
 
 ### Requirement: The context map reads as a map and as a list
 

@@ -165,7 +165,7 @@ public sealed class DomainFeatureBoardTests
         var view = Requirements(context);
 
         Assert.Equal("3 · 2 tested", view.Find("[data-testid='domain-requirements-tally']").TextContent.Trim());
-        Assert.Contains("for Order", view.Find("[data-testid='domain-requirements-always-true-link']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("whoever changes the Order.", view.Find("[data-testid='domain-requirements-always-true-link']").TextContent, StringComparison.Ordinal);
         Assert.Equal(["1 / 2", "1 / 1"], view.FindAll(".domain-requirements__feature-tally [aria-hidden]").Select(tally => tally.TextContent.Trim()));
         Assert.Equal("width: 50%", view.Find(".domain-requirements__feature-fill").GetAttribute("style"));
 
