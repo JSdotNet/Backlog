@@ -132,6 +132,7 @@ public sealed class ShellNavigationStore
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
+        C4ZoomHintDismissed = dto?.C4ZoomHintDismissed ?? false;
         GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
         GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
             ? start
@@ -209,6 +210,10 @@ public sealed class ShellNavigationStore
     /// <summary>The system tools pane's host filter, by the pane's own id; null until
     /// one was chosen.</summary>
     public string? ToolsHostFilter { get; private set; }
+
+    /// <summary>Whether the ways-to-move hint of the C4 zoom tab was dismissed on this
+    /// device. Read through Devbook's <c>IDevbookViewPreferences</c>.</summary>
+    public bool C4ZoomHintDismissed { get; private set; }
 
     /// <summary>Whether the archived repositories are shown where they are otherwise
     /// hidden — show archived (local ADR 0029, §3): off until turned on on this device.
@@ -366,6 +371,16 @@ public sealed class ShellNavigationStore
         if (hostFilter == ToolsHostFilter) return;
 
         ToolsHostFilter = hostFilter;
+        Save();
+    }
+
+    /// <summary>Remembers that the C4 zoom tab's hint was dismissed. There is no way to
+    /// undo it: the hint is a first-run aid, and the zoom bar says the same things.</summary>
+    public void DismissC4ZoomHint()
+    {
+        if (C4ZoomHintDismissed) return;
+
+        C4ZoomHintDismissed = true;
         Save();
     }
 
@@ -650,6 +665,9 @@ public sealed class ShellNavigationStore
                 // Left out while off, the default. The key is a stored name: never
                 // rename it without reading the old one.
                 ShowArchivedRepositories = ShowArchivedRepositories ? true : null,
+                // Left out until dismissed. The key is a stored name: never rename it
+                // without reading the old one.
+                C4ZoomHintDismissed = C4ZoomHintDismissed ? true : null,
                 // Left out until chosen. Both keys are stored names: never rename them
                 // without reading the old ones.
                 GoalsIterationLength = GoalsIterationLength,
@@ -722,6 +740,10 @@ public sealed class ShellNavigationStore
         /// <summary>Written as <c>showArchivedRepositories</c>, and only while on.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? ShowArchivedRepositories { get; init; }
+
+        /// <summary>Written as <c>c4ZoomHintDismissed</c>, and only once dismissed.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? C4ZoomHintDismissed { get; init; }
 
         /// <summary>Written as <c>goalsIterationLength</c>: <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

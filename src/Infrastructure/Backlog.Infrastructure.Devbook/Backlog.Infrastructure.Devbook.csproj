@@ -25,6 +25,9 @@
          losing it. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- The Code level of the C4 zoom tab (local ADR 0037 §3): Code/CSharpCodeReader
+         parses a component's C# files into syntax trees, never a compilation. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
   </ItemGroup>
 
   <ItemGroup>

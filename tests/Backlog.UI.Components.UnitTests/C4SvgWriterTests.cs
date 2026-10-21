@@ -376,6 +376,138 @@ public sealed class C4SvgWriterTests
         }
     }
 
+    // ---- the zoom tab's option ---------------------------------------------------
+
+    /// <summary>The C4 tab passes no options, and its picture must be the one it was:
+    /// no options and the empty options write the same string, with no chip in it.</summary>
+    [Fact]
+    public void Without_options_the_picture_is_unchanged_and_carries_no_zoom_chip()
+    {
+        foreach (var key in new[] { "landscape", "context", "containers", "components" })
+        {
+            var plain = C4SvgWriter.Write(Layout(key), "diag", "A view");
+
+            Assert.Equal(plain, C4SvgWriter.Write(Layout(key), "diag", "A view", C4SvgOptions.None));
+            Assert.Equal(plain, C4SvgWriter.Write(Layout(key), "diag", "A view", new C4SvgOptions(new HashSet<string>())));
+            Assert.DoesNotContain("data-c4-zoom-in", plain, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>The chip goes on the named cards and only on them, inside the card's own
+    /// group so a press on it still resolves to that card.</summary>
+    [Fact]
+    public void A_zoom_chip_is_drawn_inside_each_named_card_only()
+    {
+        var desktop = C4MermaidWriter.AliasOf("backlog.desktop");
+        var svg = C4SvgWriter.Write(Layout("containers"), "diag", "A view", new C4SvgOptions(new HashSet<string> { desktop }));
+
+        Assert.Equal(1, Occurrences(svg, "data-c4-zoom-in=\"true\""));
+
+        // The card that opened last before the chip is the one it belongs to.
+        var chip = svg.IndexOf("data-c4-zoom-in", StringComparison.Ordinal);
+        var owner = svg.LastIndexOf("<g class=\"node ", chip, StringComparison.Ordinal);
+
+        Assert.True(owner >= 0);
+        Assert.StartsWith($"<g class=\"node ", svg[owner..]);
+        Assert.Contains($"id=\"diag-{desktop}\"", svg[owner..chip], StringComparison.Ordinal);
+        Assert.Contains("<title>Zoom in</title>", svg, StringComparison.Ordinal);
+    }
+
+    // ---- the zoom tab's record overlay --------------------------------------------
+
+    /// <summary>The C4 tab never sets <see cref="C4SvgOptions.RecordChips"/>, and an
+    /// overlay with nothing to count must not change the picture either: no option, a
+    /// null map and an empty one all write the same string, with no chip and no debt
+    /// surface in it.</summary>
+    [Fact]
+    public void Without_record_chips_the_picture_is_unchanged()
+    {
+        foreach (var key in new[] { "landscape", "context", "containers", "components" })
+        {
+            var plain = C4SvgWriter.Write(Layout(key), "diag", "A view");
+
+            Assert.Equal(plain, C4SvgWriter.Write(Layout(key), "diag", "A view", new C4SvgOptions { RecordChips = null }));
+            Assert.Equal(plain, C4SvgWriter.Write(Layout(key), "diag", "A view", new C4SvgOptions { RecordChips = new Dictionary<string, C4CardRecords>() }));
+            Assert.DoesNotContain("data-c4-records", plain, StringComparison.Ordinal);
+            Assert.DoesNotContain("c4-diagram__node--debt", plain, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>A card with nothing to count is drawn as it was, even when it is named:
+    /// a zero draws no chip and no surface.</summary>
+    [Fact]
+    public void A_card_counted_at_zero_is_drawn_as_it_was()
+    {
+        var desktop = C4MermaidWriter.AliasOf("backlog.desktop");
+        var plain = C4SvgWriter.Write(Layout("containers"), "diag", "A view");
+
+        var zero = C4SvgWriter.Write(Layout("containers"), "diag", "A view",
+            new C4SvgOptions { RecordChips = new Dictionary<string, C4CardRecords> { [desktop] = new(0, 0) } });
+
+        Assert.Equal(plain, zero);
+    }
+
+    /// <summary>Decisions: an <c>n ADR</c> chip inside the named card's own group, so a
+    /// press on it still selects the card, and no debt surface.</summary>
+    [Fact]
+    public void A_decision_count_draws_an_adr_chip_inside_its_card()
+    {
+        var desktop = C4MermaidWriter.AliasOf("backlog.desktop");
+        var svg = C4SvgWriter.Write(Layout("containers"), "diag", "A view",
+            new C4SvgOptions { RecordChips = new Dictionary<string, C4CardRecords> { [desktop] = new(2, 0) } });
+
+        Assert.Equal(1, Occurrences(svg, "data-c4-records=\"adr\""));
+        Assert.Equal(0, Occurrences(svg, "data-c4-records=\"tdr\""));
+        Assert.Contains(">2 ADR</text>", svg, StringComparison.Ordinal);
+        Assert.Contains("<title>2 decision records name this element</title>", svg, StringComparison.Ordinal);
+        Assert.DoesNotContain("c4-diagram__node--debt", svg, StringComparison.Ordinal);
+
+        var chip = svg.IndexOf("data-c4-records", StringComparison.Ordinal);
+        var owner = svg.LastIndexOf("<g class=\"node ", chip, StringComparison.Ordinal);
+
+        Assert.True(owner >= 0);
+        Assert.Contains($"id=\"diag-{desktop}\"", svg[owner..chip], StringComparison.Ordinal);
+    }
+
+    /// <summary>Debt: an <c>n TDR</c> chip, and the card itself on the debt surface —
+    /// the class the stylesheet fills with <c>color-error</c>. Only the counted card.</summary>
+    [Fact]
+    public void An_open_debt_count_draws_a_tdr_chip_on_the_debt_surface()
+    {
+        var store = C4MermaidWriter.AliasOf("backlog.store");
+        var desktop = C4MermaidWriter.AliasOf("backlog.desktop");
+        var svg = C4SvgWriter.Write(Layout("containers"), "diag", "A view",
+            new C4SvgOptions { RecordChips = new Dictionary<string, C4CardRecords> { [store] = new(0, 1) } });
+
+        Assert.Equal(1, Occurrences(svg, "data-c4-records=\"tdr\""));
+        Assert.Equal(0, Occurrences(svg, "data-c4-records=\"adr\""));
+        Assert.Contains(">1 TDR</text>", svg, StringComparison.Ordinal);
+        Assert.Contains("<title>1 open debt record names this element</title>", svg, StringComparison.Ordinal);
+        Assert.Equal(1, Occurrences(svg, "c4-diagram__node--debt"));
+
+        var debtCard = svg.IndexOf("c4-diagram__node--debt", StringComparison.Ordinal);
+        var cardEnd = svg.IndexOf('>', debtCard);
+        Assert.Contains($"id=\"diag-{store}\"", svg[debtCard..cardEnd], StringComparison.Ordinal);
+        Assert.DoesNotContain($"c4-diagram__node--debt\" id=\"diag-{desktop}\"", svg, StringComparison.Ordinal);
+    }
+
+    /// <summary>A card with both counts carries both chips side by side, the decision
+    /// chip first, and beside a Zoom in chip it already carries.</summary>
+    [Fact]
+    public void Both_counts_draw_both_chips_beside_the_zoom_chip()
+    {
+        var desktop = C4MermaidWriter.AliasOf("backlog.desktop");
+        var svg = C4SvgWriter.Write(Layout("containers"), "diag", "A view",
+            new C4SvgOptions(new HashSet<string> { desktop })
+            {
+                RecordChips = new Dictionary<string, C4CardRecords> { [desktop] = new(3, 2) }
+            });
+
+        Assert.Equal(1, Occurrences(svg, "data-c4-zoom-in=\"true\""));
+        Assert.True(svg.IndexOf(">3 ADR<", StringComparison.Ordinal) < svg.IndexOf(">2 TDR<", StringComparison.Ordinal));
+        Assert.Equal(1, Occurrences(svg, "c4-diagram__node--debt"));
+    }
+
     /// <summary>Walks an emitted <c>M … C …</c> path and hands back points along the
     /// curve.</summary>
     private static IEnumerable<(double X, double Y)> SamplePath(string path) => C4PathSampler.Along(path);
@@ -473,6 +605,97 @@ public sealed class C4SvgWriterTests
             var document = System.Xml.Linq.XDocument.Parse(svg);
 
             Assert.Equal("svg", document.Root!.Name.LocalName);
+        }
+    }
+
+    // ---- group bands ------------------------------------------------------------
+
+    private static string Banded(string key, C4LayoutOptions? options = null) =>
+        C4SvgWriter.Write(C4LayoutGroupTests.Layout(key, options), "diag", "A view");
+
+    /// <summary>Each band is a labelled frame of its own, named for its group, as the
+    /// design's landscape draws the capture sources, work tracking and operations.</summary>
+    [Fact]
+    public void Each_group_is_drawn_as_a_labelled_band()
+    {
+        var svg = Banded("landscape", C4LayoutGroupTests.Bands);
+
+        foreach (var name in new[] { "Capture sources", "Work tracking", "Operations" })
+        {
+            Assert.Contains($"<g class=\"c4-diagram__group\" data-c4-group=\"{name}\">", svg, StringComparison.Ordinal);
+            Assert.Contains($"class=\"c4-diagram__group-name\">{name}</text>", svg, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(3, Occurrences(svg, "class=\"c4-diagram__group\""));
+    }
+
+    /// <summary>A band is a heading, not an element: it carries no <c>node</c> class and
+    /// no id, so the viewer can never select, dim or drill it.</summary>
+    [Fact]
+    public void A_band_is_not_a_node_the_viewer_can_select()
+    {
+        var document = System.Xml.Linq.XDocument.Parse(Banded("landscape", C4LayoutGroupTests.Bands));
+
+        var bands = document.Descendants()
+            .Where(element => element.Attribute("data-c4-group") is not null && element.Attribute("class")?.Value == "c4-diagram__group")
+            .ToList();
+
+        Assert.Equal(3, bands.Count);
+        Assert.All(bands, band => Assert.Null(band.Attribute("id")));
+    }
+
+    /// <summary>Bands are painted first, under the cards they hold, so a card is never
+    /// hidden behind the band it sits in.</summary>
+    [Fact]
+    public void Bands_are_painted_under_the_cards()
+    {
+        var svg = Banded("landscape", C4LayoutGroupTests.Bands);
+
+        var lastBand = svg.LastIndexOf("class=\"c4-diagram__group\"", StringComparison.Ordinal);
+        var firstCard = svg.IndexOf("c4-diagram__node", StringComparison.Ordinal);
+
+        Assert.True(lastBand < firstCard);
+    }
+
+    /// <summary>The line standing for several relationships into a group says which
+    /// group it reaches; an ordinary line says nothing of the kind.</summary>
+    [Fact]
+    public void A_line_drawn_to_a_band_names_its_group()
+    {
+        var svg = Banded("landscape", C4LayoutGroupTests.Bands);
+
+        Assert.Contains("<g class=\"c4-diagram__edge c4-diagram__edge--group\" data-c4-group=\"Capture sources\">", svg, StringComparison.Ordinal);
+        Assert.Contains("<g class=\"c4-diagram__edge c4-diagram__edge--group\" data-c4-group=\"Operations\">", svg, StringComparison.Ordinal);
+        Assert.Contains("<g class=\"c4-diagram__edge\">", svg, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_banded_svg_is_well_formed_enough_to_parse()
+    {
+        foreach (var key in new[] { "landscape", "context-backlog", "containers-backlog" })
+        {
+            var document = System.Xml.Linq.XDocument.Parse(Banded(key, C4LayoutGroupTests.Bands));
+
+            Assert.Equal("svg", document.Root!.Name.LocalName);
+        }
+    }
+
+    /// <summary>
+    /// The C4 tab's explorer asks the layout for no options, and its picture must be the
+    /// one it was even on a model full of groups: no options and the empty options lay
+    /// out and write the same string, with no band and no line to one in it.
+    /// </summary>
+    [Fact]
+    public void Without_the_band_option_a_grouped_model_draws_no_band()
+    {
+        foreach (var key in new[] { "landscape", "context-backlog", "containers-backlog" })
+        {
+            var plain = Banded(key);
+
+            Assert.Equal(plain, Banded(key, C4LayoutOptions.None));
+            Assert.Equal(plain, Banded(key, new C4LayoutOptions(GroupBands: false)));
+            Assert.DoesNotContain("c4-diagram__group", plain, StringComparison.Ordinal);
+            Assert.DoesNotContain("data-c4-group", plain, StringComparison.Ordinal);
         }
     }
 

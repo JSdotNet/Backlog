@@ -91,7 +91,8 @@
            so the list could not be reached. The pane's menu is that list, and
            nothing the list said is missing without it — a chapter's status is in
            the file view's own header and its diagrams are in the chapter. *@
-        <div class="arc42-devbook-layout">
+        @{ var recordPlacement = RecordPlacement(); }
+        <div class="arc42-devbook-layout @(recordPlacement is null ? null : "arc42-devbook-layout--record")">
             @* No longer a card. This article always holds a file view now, and the
                file view draws its own edge, so a card here framed a framed
                document — the nesting that was reported. It stays as an element
@@ -161,6 +162,7 @@
                           DevbookFolder="DevbookFolder.Arc42"
                           DevbookDocumentPath="@DocumentPath(_selected)"
                           ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, Folders, RepositoryAlias, DocumentPath(_selected))"
+                          ChapterInsert="@ChapterC4Views()"
                           CanEditDevbookStatus="@CanEdit"
                           OnDevbookStatusChanged="ChangeChapterStatusAsync"
                           OnDevbookNavigate="NavigateDevbookReferenceAsync"
@@ -203,6 +205,17 @@
                     </nav>
                 }
             </article>
+
+            @* Where a decision or debt record lands on the model, beside it, while
+               `c4-zoom` is on (the design's ADR screen). Absent, not empty, with the
+               switch off or for any other chapter. *@
+            @if (recordPlacement is not null)
+            {
+                <C4RecordPanel Placement="@recordPlacement"
+                               ZoomAvailable="@(_c4.Workspaces.Count > 0)"
+                               OnOpenInZoom="OpenRecordInC4Zoom"
+                               OnNavigate="NavigateRecordReferenceAsync" />
+            }
         </div>
             </TabPanel>
 
@@ -215,35 +228,7 @@
                           TabTestId="arc42-c4-tab"
                           aria-label="C4 model">
 
-                    @* More than one workspace is possible and not expected, so the
-                       picker appears only when there is a choice to make. *@
-                    @if (_c4.Workspaces.Count > 1)
-                    {
-                        <nav class="devbook-chapters" aria-label="C4 workspaces" data-testid="arc42-c4-workspaces">
-                            @foreach (var entry in _c4.Workspaces)
-                            {
-                                <div class="devbook-chapter" data-testid="arc42-c4-workspace">
-                                    <AppButton BaseClass="devbook-chapter__button"
-                                               Variant="ButtonVariant.None"
-                                               aria-current="@(ReferenceEquals(entry, Workspace) ? "page" : null)"
-                                               OnClick="() => SelectWorkspace(entry)">
-                                        <span class="devbook-chapter__title">@entry.Name</span>
-                                    </AppButton>
-                                </div>
-                            }
-                        </nav>
-                    }
-
-                    @* Said, because a model drawn from the fences is only as complete as
-                       the fences are, and nothing else on screen tells it apart from one
-                       somebody authored. A status rather than a warning: nothing is
-                       wrong, there is simply a fuller model to be had. *@
-                    @if (Workspace is { Derived: true })
-                    {
-                        <Alert Message="This model is drawn from the C4 diagrams in the chapters. A workspace.dsl beside the chapters gives a fuller model."
-                               TestId="arc42-c4-derived"
-                               Role="status" />
-                    }
+                    @C4WorkspaceChoice
 
                     @if (Workspace is { } workspace)
                     {
@@ -254,6 +239,34 @@
                                     ViewFooter="@ViewReferences"
                                     TestId="arc42-c4-explorer" />
                     }
+                </TabPanel>
+            }
+
+            @* The C4 zoom tab, beside the C4 tab rather than in place of it, while
+               both switches are on (local ADR 0037). The same model, walked one
+               level at a time; it replaces the C4 tab only once it is validated, so
+               until then the C4 tab above is left exactly as it was. *@
+            @if (_c4.Workspaces.Count > 0 && _c4Store is { ZoomEnabled: true } && Workspace is { } zoomWorkspace)
+            {
+                <TabPanel Id="@C4ZoomTab"
+                          Title="C4 zoom"
+                          Element="section"
+                          TestId="arc42-c4-zoom-panel"
+                          TabTestId="arc42-c4-zoom-tab"
+                          KeepAlive="true"
+                          aria-label="C4 zoom">
+                    @C4WorkspaceChoice
+
+                    <C4ZoomExplorer Workspace="@zoomWorkspace.Workspace"
+                                    Problems="@zoomWorkspace.Problems"
+                                    HintDismissed="@C4ZoomHintDismissed"
+                                    OnHintDismissed="DismissC4ZoomHint"
+                                    OpenView="@_zoomOpen"
+                                    RecordsFor="@InspectorRecords(zoomWorkspace)"
+                                    CrossCuttingDebt="@CrossCuttingDebt()"
+                                    OnOpenRecord="OpenInspectedRecordAsync"
+                                    Code="@ZoomCode"
+                                    TestId="arc42-c4-zoom-explorer" />
                 </TabPanel>
             }
         </Tabs>
@@ -319,6 +332,58 @@
 
     private const string ChaptersTab = "chapters";
     private const string C4Tab = "c4";
+    private const string C4ZoomTab = "c4-zoom";
+
+    /// <summary>
+    /// The workspace picker and the derived-model note, the same over both C4 tabs:
+    /// either tab reads the workspace chosen here.
+    /// </summary>
+    private RenderFragment C4WorkspaceChoice => @<text>
+    @* More than one workspace is possible and not expected, so the
+       picker appears only when there is a choice to make. *@
+    @if (_c4.Workspaces.Count > 1)
+    {
+        <nav class="devbook-chapters" aria-label="C4 workspaces" data-testid="arc42-c4-workspaces">
+            @foreach (var entry in _c4.Workspaces)
+            {
+                <div class="devbook-chapter" data-testid="arc42-c4-workspace">
+                    <AppButton BaseClass="devbook-chapter__button"
+                               Variant="ButtonVariant.None"
+                               aria-current="@(ReferenceEquals(entry, Workspace) ? "page" : null)"
+                               OnClick="() => SelectWorkspace(entry)">
+                        <span class="devbook-chapter__title">@entry.Name</span>
+                    </AppButton>
+                </div>
+            }
+        </nav>
+    }
+
+    @* Said, because a model drawn from the fences is only as complete as
+       the fences are, and nothing else on screen tells it apart from one
+       somebody authored. A status rather than a warning: nothing is
+       wrong, there is simply a fuller model to be had. *@
+    @if (Workspace is { Derived: true })
+    {
+        <Alert Message="This model is drawn from the C4 diagrams in the chapters. A workspace.dsl beside the chapters gives a fuller model."
+               TestId="arc42-c4-derived"
+               Role="status" />
+    }
+    </text>;
+
+    /// <summary>Where the C4 zoom tab's dismissed hint is remembered: the host's
+    /// per-device preferences, or nowhere when the host composed none — then the
+    /// dismissal holds for the life of the panel.</summary>
+    private IDevbookViewPreferences? _viewPreferences;
+
+    private bool _c4ZoomHintDismissed;
+
+    private bool C4ZoomHintDismissed => _c4ZoomHintDismissed || _viewPreferences?.C4ZoomHintDismissed == true;
+
+    private void DismissC4ZoomHint()
+    {
+        _c4ZoomHintDismissed = true;
+        _viewPreferences?.DismissC4ZoomHint();
+    }
 
     /// <summary>The knowledge area this panel's own chapters belong to. A reference
     /// into another section is the host's to follow and leaves this panel's tab
@@ -396,13 +461,48 @@
     /// </summary>
     private C4DevbookStore? _c4Store;
 
+    /// <summary>The Code level's reader, optional for the same reason the store is.</summary>
+    private C4DevbookCode? _c4Code;
+    private C4ZoomCode? _zoomCode;
+    private C4Catalog? _zoomCodeFor;
+
+    /// <summary>What the zoom tab is handed to open level 4: made once per catalog, so
+    /// a render hands the same one and only a reload reads an open level again.</summary>
+    private C4ZoomCode? ZoomCode
+    {
+        get
+        {
+            if (_c4Code is null) return null;
+            if (!ReferenceEquals(_zoomCodeFor, _c4))
+            {
+                _zoomCodeFor = _c4;
+                _zoomCode = _c4Code.For(_c4, OpenCodeRecordAsync);
+            }
+
+            return _zoomCode;
+        }
+    }
+
+    /// <summary>A decision record picked on the Code level's type panel: its chapter,
+    /// on the Chapters tab, as any reference to it opens.</summary>
+    private async Task OpenCodeRecordAsync(C4CodeRecord record)
+    {
+        if (DevbookReference.Parse(record.Path) is not { } reference) return;
+
+        await NavigateDevbookReferenceAsync(reference);
+        StateHasChanged();
+    }
+
     protected override void OnInitialized()
     {
         Devbook.Changed += OnDevbookChanged;
         _chapterReader = Services.GetService<DevbookChapterFileReader>() ?? DevbookChapterFileReader.Disk;
 
+        _c4Code = Services.GetService<C4DevbookCode>();
         _c4Store = Services.GetService<C4DevbookStore>();
         if (_c4Store is not null) _c4Store.Changed += OnDevbookChanged;
+
+        _viewPreferences = Services.GetService<IDevbookViewPreferences>();
 
         _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
         _annotations.Changed += OnAnnotationsChanged;
@@ -945,11 +1045,161 @@
     /// the writer is matched back against the slug the writer derives from the file,
     /// and a chapter whose status could not be found is a control that writes
     /// nowhere.</summary>
-    private static string Slug(string heading)
+    private static string Slug(string heading) => C4ChapterViews.Slug(heading);
+
+    // ---- the C4 views a chapter documents, drawn in it --------------------
+
+    /// <summary>The last request to open a view in the C4 zoom tab, made from a
+    /// view drawn in a chapter. A new one per click; see <see cref="C4ZoomOpen"/>.</summary>
+    private C4ZoomOpen? _zoomOpen;
+
+    private IReadOnlyList<C4ChapterEmbed> _chapterEmbeds = [];
+    private C4Catalog? _embedsCatalog;
+    private string? _embedsText;
+    private string? _embedsPath;
+
+    /// <summary>
+    /// The views this chapter documents, drawn under the sections that name them,
+    /// while <c>c4-zoom</c> is on (the design's arc42 screen). Null with it off, so
+    /// the file view is handed no hook and draws the chapter exactly as before.
+    /// <para>
+    /// Worked out again only when the catalog, the chapter's text or its path
+    /// changed: the file view asks once per heading on every render.
+    /// </para>
+    /// </summary>
+    private Func<int, string, int, RenderFragment?>? ChapterC4Views()
     {
-        var chars = heading.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray();
-        return string.Join('-', new string(chars).Split('-', StringSplitOptions.RemoveEmptyEntries));
+        if (_c4Store is not { ZoomEnabled: true } || _selected is null) return null;
+
+        // Only once the selected chapter's own text has landed: between a switch and
+        // its read, _chapter is still the last chapter's.
+        if (!string.Equals(_chapterPath, _selected.Path, StringComparison.OrdinalIgnoreCase)) return null;
+
+        var path = _selected.Path;
+        if (!ReferenceEquals(_embedsCatalog, _c4)
+            || !string.Equals(_embedsText, _chapter.Text, StringComparison.Ordinal)
+            || !string.Equals(_embedsPath, path, StringComparison.Ordinal))
+        {
+            _chapterEmbeds = C4ChapterViews.For(_c4, path, _chapter.Text);
+            _embedsCatalog = _c4;
+            _embedsText = _chapter.Text;
+            _embedsPath = path;
+        }
+
+        if (_chapterEmbeds.Count == 0) return null;
+
+        var embeds = _chapterEmbeds;
+        return (position, title, level) => C4ChapterViews.Under(embeds, position, title, level) is { Count: > 0 } under
+            ? ChapterEmbeds(under)
+            : null;
     }
+
+    private RenderFragment ChapterEmbeds(IReadOnlyList<C4ChapterEmbed> embeds) => @<text>
+    @foreach (var embed in embeds)
+    {
+        <C4ChapterView @key="embed.View.Reference"
+                       Embed="@embed"
+                       ZoomAvailable="@(_c4.Workspaces.Count > 0)"
+                       OnOpenInZoom="OpenInC4Zoom" />
+    }
+    </text>;
+
+    /// <summary>"Open in C4 zoom" on a view drawn in a chapter: the zoom tab, on that
+    /// view's workspace, at that view.</summary>
+    private void OpenInC4Zoom(C4ChapterEmbed embed)
+    {
+        _selectedWorkspace = embed.Workspace;
+        _zoomOpen = new C4ZoomOpen(embed.View.Key);
+        _tab = C4ZoomTab;
+    }
+
+    private Func<string, C4ElementRecords>? _inspectorRecords;
+    private C4Catalog? _inspectorCatalog;
+    private Arc42DevbookCatalog? _inspectorChapters;
+    private C4WorkspaceEntry? _inspectorWorkspace;
+
+    /// <summary>What the zoom tab's inspector is told about an element. One delegate
+    /// while the model, the chapters and the workspace stay the same, so the explorer
+    /// asks again only when one of them changed rather than on every render.</summary>
+    private Func<string, C4ElementRecords> InspectorRecords(C4WorkspaceEntry workspace)
+    {
+        if (_inspectorRecords is null
+            || !ReferenceEquals(_inspectorCatalog, _c4)
+            || !ReferenceEquals(_inspectorChapters, _catalog)
+            || !ReferenceEquals(_inspectorWorkspace, workspace))
+        {
+            var c4 = _c4;
+            var chapters = _catalog?.Documents ?? [];
+            _inspectorCatalog = _c4;
+            _inspectorChapters = _catalog;
+            _inspectorWorkspace = workspace;
+            _inspectorRecords = elementId => C4ElementInspection.For(c4, workspace, chapters, elementId);
+        }
+
+        return _inspectorRecords;
+    }
+
+    private IReadOnlyList<C4InspectorRecord> _crossCuttingDebt = [];
+    private (C4Catalog? C4, Arc42DevbookCatalog? Chapters) _crossCuttingDebtFor;
+
+    /// <summary>The debt records that name no element, for the zoom tab's Debt overlay
+    /// tray. Read again only when the model or the chapters changed, so the explorer
+    /// is handed the same list on every other render.</summary>
+    private IReadOnlyList<C4InspectorRecord> CrossCuttingDebt()
+    {
+        if (!ReferenceEquals(_crossCuttingDebtFor.C4, _c4) || !ReferenceEquals(_crossCuttingDebtFor.Chapters, _catalog))
+        {
+            _crossCuttingDebtFor = (_c4, _catalog);
+            _crossCuttingDebt = C4ElementInspection.CrossCuttingDebt(_c4, _catalog?.Documents ?? []);
+        }
+
+        return _crossCuttingDebt;
+    }
+
+    /// <summary>A chapter or a record picked in the zoom tab's inspector: followed
+    /// the way a reference in a chapter is, which brings the Chapters tab with it.</summary>
+    private Task OpenInspectedRecordAsync(string path) =>
+        DevbookReference.Parse(path) is { } reference ? NavigateDevbookReferenceAsync(reference) : Task.CompletedTask;
+
+    // ---- where a decision or debt record lands on the model ----------------
+
+    private C4RecordPlacement? _recordPlacement;
+    private (Arc42DevbookCatalog? Catalog, C4Catalog C4, DevbookDocument? Record) _recordPlacementFor;
+
+    /// <summary>
+    /// The open record's placement on the model, while <c>c4-zoom</c> is on and the
+    /// chapter open is an ADR or a TDR; null otherwise, which leaves the layout as it
+    /// was. Worked out again only when the catalog, the model or the record changed.
+    /// </summary>
+    private C4RecordPlacement? RecordPlacement()
+    {
+        if (_c4Store is not { ZoomEnabled: true } || _catalog is null || _selected is null) return null;
+
+        if (!ReferenceEquals(_recordPlacementFor.Catalog, _catalog)
+            || !ReferenceEquals(_recordPlacementFor.C4, _c4)
+            || !ReferenceEquals(_recordPlacementFor.Record, _selected))
+        {
+            _recordPlacement = C4RecordPlacement.For(_catalog, _c4, _selected);
+            _recordPlacementFor = (_catalog, _c4, _selected);
+        }
+
+        return _recordPlacement;
+    }
+
+    /// <summary>"Open in C4 zoom" on a record's map: the zoom tab, on the workspace
+    /// the record's links resolve in, at the container view with the element the
+    /// request names selected.</summary>
+    private void OpenRecordInC4Zoom(C4ZoomOpen request)
+    {
+        if (_recordPlacement?.Map is { } map) _selectedWorkspace = map.Workspace;
+        _zoomOpen = request;
+        _tab = C4ZoomTab;
+    }
+
+    /// <summary>A record in the chain or a chapter that cites it, followed the way a
+    /// reference in the prose is.</summary>
+    private Task NavigateRecordReferenceAsync(string reference) =>
+        DevbookReference.Parse(reference) is { } parsed ? NavigateDevbookReferenceAsync(parsed) : Task.CompletedTask;
 
     // ---- the C4 model beside the chapters ----------------------------------
 
@@ -966,7 +1216,14 @@
         _viewKey = null;
     }
 
-    private void OnTabChanged(string tab) => _tab = tab;
+    private void OnTabChanged(string tab)
+    {
+        _tab = tab;
+
+        // A request to open a view in the zoom tab is spent once the reader leaves
+        // it, so a zoom explorer created again later opens where it always opens.
+        if (tab != C4ZoomTab) _zoomOpen = null;
+    }
 
     /// <summary>The view the host asked for, if it names one these workspaces have.
     /// A reference that resolves to nothing leaves the panel where it was rather than

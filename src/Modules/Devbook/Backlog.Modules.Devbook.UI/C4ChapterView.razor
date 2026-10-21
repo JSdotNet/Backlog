@@ -1,0 +1,122 @@
+@*
+    One C4 view drawn inside the arc42 chapter that documents it, under the section
+    references.json names (the design's arc42 screen, plan c4-zoom-navigation).
+
+    The model is drawn by default and the chapter's own C4 fence in that section one
+    toggle away, both through the product's C4 renderer so the two pictures differ in
+    what they draw and in nothing else. Where they draw different elements a note
+    says which, by name, both ways round. The chapter stays canonical: its fence is
+    still drawn where it is written, and nothing here edits either side.
+*@
+
+<figure class="devbook-c4-insert" data-testid="arc42-chapter-c4-embed" data-view="@Embed.View.Key">
+    <div class="devbook-c4-insert__head">
+        <span class="devbook-c4-insert__title">
+            <span class="devbook-c4-insert__badge" aria-hidden="true">C4</span>
+            <b>@Embed.View.Title</b>
+        </span>
+        @if (Embed.FenceView is not null)
+        {
+            <ButtonGroup AriaLabel="Source" CssClass="devbook-c4-insert__source" TestId="arc42-chapter-c4-source">
+                <ToggleButton Pressed="@(!_showFence)"
+                              PressedChanged="_ => _showFence = false"
+                              TestId="arc42-chapter-c4-model">Model</ToggleButton>
+                <ToggleButton Pressed="@_showFence"
+                              PressedChanged="_ => _showFence = true"
+                              TestId="arc42-chapter-c4-fence">Chapter fence</ToggleButton>
+            </ButtonGroup>
+        }
+    </div>
+
+    <div class="devbook-c4-insert__canvas" data-testid="arc42-chapter-c4-canvas" data-source="@(Showing == Source.Fence ? "fence" : "model")">
+        @if (Showing == Source.Fence)
+        {
+            <C4DiagramView Diagram="@FenceDiagram()"
+                           Id="@($"{IdStem}-fence")"
+                           AriaLabel="@($"{Embed.View.Title}, as the chapter's fence draws it")"
+                           TestId="arc42-chapter-c4-fence-diagram" />
+        }
+        else
+        {
+            <C4DiagramView Diagram="@ModelDiagram()"
+                           Id="@($"{IdStem}-model")"
+                           AriaLabel="@($"{Embed.View.Title}, from the C4 model")"
+                           TestId="arc42-chapter-c4-model-diagram" />
+        }
+    </div>
+
+    <figcaption class="devbook-c4-insert__caption">
+        <span>
+            From <code>@($"{Embed.View.WorkspaceFile}#{Embed.View.Key}")</code>
+        </span>
+        @if (ZoomAvailable)
+        {
+            <AppButton BaseClass="devbook-c4-insert__open"
+                       Variant="ButtonVariant.None"
+                       TestId="arc42-chapter-c4-open-zoom"
+                       OnClick="() => OnOpenInZoom.InvokeAsync(Embed)">Open in C4 zoom →</AppButton>
+        }
+    </figcaption>
+</figure>
+
+@if (Embed.Disagrees)
+{
+    <Callout Tone="warning"
+             Heading="Model and chapter disagree."
+             CssClass="devbook-c4-drift"
+             TestId="arc42-chapter-c4-drift">
+        @if (Embed.OnlyInFence.Count > 0)
+        {
+            <span data-testid="arc42-chapter-c4-only-in-fence">Only in the chapter's fence: @Names(Embed.OnlyInFence). </span>
+        }
+        @if (Embed.OnlyInModel.Count > 0)
+        {
+            <span data-testid="arc42-chapter-c4-only-in-model">Only in the model: @Names(Embed.OnlyInModel). </span>
+        }
+        <span>The model is drawn; the chapter stays canonical.</span>
+    </Callout>
+}
+
+@code {
+    private enum Source { Model, Fence }
+
+    [Parameter, EditorRequired]
+    public C4ChapterEmbed Embed { get; set; } = null!;
+
+    /// <summary>Whether the C4 zoom tab is there to open the view in.</summary>
+    [Parameter]
+    public bool ZoomAvailable { get; set; }
+
+    [Parameter]
+    public EventCallback<C4ChapterEmbed> OnOpenInZoom { get; set; }
+
+    private bool _showFence;
+
+    private C4ChapterEmbed? _laidOutFor;
+    private C4Diagram? _model;
+    private C4Diagram? _fence;
+
+    private Source Showing => _showFence && Embed.FenceView is not null ? Source.Fence : Source.Model;
+
+    private string IdStem => $"c4-chapter-{C4ChapterViews.Slug(Embed.View.WorkspaceFile)}-{C4ChapterViews.Slug(Embed.View.Key)}";
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_laidOutFor, Embed)) return;
+
+        _laidOutFor = Embed;
+        _showFence = false;
+        _model = null;
+        _fence = null;
+    }
+
+    private C4Diagram ModelDiagram() =>
+        _model ??= C4LayoutEngine.Build(Embed.Workspace.Workspace, Embed.ModelView);
+
+    private C4Diagram FenceDiagram() =>
+        _fence ??= Embed.Fence is { } fence && Embed.FenceView is { } view
+            ? C4LayoutEngine.Build(fence, view)
+            : C4Diagram.Empty;
+
+    private static string Names(IReadOnlyList<string> names) => string.Join(", ", names);
+}

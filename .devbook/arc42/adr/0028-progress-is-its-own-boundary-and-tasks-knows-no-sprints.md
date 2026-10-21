@@ -4,6 +4,7 @@
 date: 2026-10-13
 status: proposed
 related: [".devbook/domain/progress/context.md", ".devbook/domain/context-map.md", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/roadmap/domain.md#roadmap-tag", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
+c4: [backlog.desktop.backlogModule]
 ```
 
 Sprints get a bounded context of their own, **Progress**. It names a task by its

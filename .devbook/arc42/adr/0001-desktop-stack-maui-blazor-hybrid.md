@@ -2,6 +2,8 @@
 
 ```meta
 related: [".devbook/arc42/04-solution-strategy.md", ".devbook/arc42/02-constraints.md", ".devbook/arc42/09-architecture-decisions.md"]
+c4: [backlog.desktop]
+c4-touches: [backlog.mobile, backlog.cloud]
 ```
 
 ## Status
@@ -130,3 +132,13 @@ e2e testing and dropping single-AppHost startup for the desktop client.
 - `.devbook/arc42/02-constraints.md` — local-first, markdown-canonical, native
   background-worker constraints this decision preserves.
 - `.devbook/arc42/09-architecture-decisions.md` — local system decisions section.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-08-05 | .NET MAUI Blazor Hybrid replaces plain WinUI 3 for the desktop channel. | Aspire must start the whole stack and Playwright must drive the UI, and plain WinUI 3 allows neither. |
+| 2026-08-03 | Plain WinUI 3, in C#. | It was the preferred native Windows stack of the first solution strategy. |
