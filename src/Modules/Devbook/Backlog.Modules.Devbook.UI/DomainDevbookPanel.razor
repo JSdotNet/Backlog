@@ -742,7 +742,13 @@
     /// <summary>Everything the panel derives from the chapter — the status beside
     /// the title, the metadata rows, the section list — is read from the file, so
     /// a save makes all of it stale at once.</summary>
-    private Task OnChapterSavedAsync() => ReloadAsync();
+    private Task OnChapterSavedAsync()
+    {
+        // A domain chapter's `c4` and `c4-touches` fields link it to the model, so the
+        // links the C4 store holds may be stale too; the reload asks it again.
+        _c4Store?.ChapterSaved();
+        return ReloadAsync();
+    }
 
     /// <summary>
     /// Into the editor, or back out of it.
