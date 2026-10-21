@@ -24237,7 +24237,32 @@ select.field__input {
 .context-map-page {
     display: flex;
     flex-direction: column;
+    gap: var(--spacing-sm);
     min-width: 0;
+}
+
+.context-map-page__header {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.context-map-page__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.context-map-page__intro {
+    margin: 0;
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.context-map-page__intro strong {
+    color: var(--color-text-primary);
 }
 
 .context-map {
@@ -24257,7 +24282,7 @@ select.field__input {
 
 .context-map__canvas {
     position: relative;
-    min-width: 56rem;
+    min-width: 52rem;
     width: 100%;
 }
 
@@ -24356,6 +24381,22 @@ select.field__input {
     background: var(--color-background-raised);
 }
 
+/* The card a pick would open: a followable edge and its "zoom in" words. */
+.context-map__card--active:not([aria-disabled="true"]) {
+    border-color: var(--color-primary);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-background-alt));
+}
+
+.context-map__zoom {
+    display: none;
+    color: var(--color-primary);
+}
+
+.context-map__card--active .context-map__zoom {
+    display: inline;
+}
+
 .context-map__card:focus-visible {
     outline: 2px solid var(--color-border-focus);
     outline-offset: 2px;
@@ -24370,44 +24411,53 @@ select.field__input {
 }
 
 .context-map__name {
+    overflow: hidden;
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
     line-height: 1.2;
-    overflow-wrap: anywhere;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .context-map__facts {
     display: flex;
     justify-content: center;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-2xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.context-map__card--core .context-map__facts {
+    color: var(--color-domain-core-line);
 }
 
 .context-map__legend {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-sm) var(--spacing-lg);
-    margin: 0;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-lg);
     padding-top: var(--spacing-sm);
-    border-top: var(--border-width) solid var(--color-border);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
 }
 
-.context-map__legend-item {
+.context-map__legend-lines {
     display: flex;
-    gap: var(--spacing-2xs);
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
-.context-map__legend dt {
+.context-map__legend-lines li {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-2xs);
-    font-weight: var(--font-weight-semibold);
+    gap: var(--spacing-xs);
 }
 
-.context-map__legend dd {
+.context-map__legend-note {
     margin: 0;
 }
 
@@ -24443,9 +24493,36 @@ select.field__input {
 
 .context-map-list__heading {
     margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* A group's kind and count in small capitals, with what the kind is for. */
+.context-map-list__kind {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+}
+
+.context-map-list__kind-name {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.context-map-list__kind--core .context-map-list__kind-name {
+    color: var(--color-domain-core-line);
+}
+
+.context-map-list__tagline {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
 }
 
 .context-map-list__none {
@@ -24456,7 +24533,7 @@ select.field__input {
 
 .context-map-list__cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
     gap: var(--spacing-sm);
     margin: 0;
     padding: 0;
@@ -24467,11 +24544,12 @@ select.field__input {
     display: grid;
 }
 
+/* Name, why, and the count at the foot, however long the why runs. */
 .context-map-list__card {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto 1fr auto;
     align-content: start;
-    gap: var(--spacing-2xs) var(--spacing-sm);
+    gap: var(--spacing-xs);
     padding: var(--spacing-sm) var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
@@ -24483,11 +24561,22 @@ select.field__input {
 }
 
 .context-map-list__card--core {
-    border-left: 3px solid var(--color-domain-core-line);
+    border-top: 3px solid var(--color-domain-core-line);
 }
 
 .context-map-list__card:hover:not([aria-disabled="true"]) {
+    border-color: var(--color-primary);
     background: var(--color-background-raised);
+}
+
+.context-map-list__open {
+    display: none;
+    color: var(--color-primary);
+}
+
+.context-map-list__card:hover .context-map-list__open,
+.context-map-list__card:focus-visible .context-map-list__open {
+    display: inline;
 }
 
 .context-map-list__card:focus-visible {
@@ -24507,13 +24596,98 @@ select.field__input {
 .context-map-list__count {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    white-space: nowrap;
 }
 
 .context-map-list__why {
-    grid-column: 1 / -1;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+}
+
+/* The published languages: who owns each contract, its short names, who conforms. */
+.context-map-contracts {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.context-map-contracts__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.context-map-contracts__table th {
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.context-map-contracts__table td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+    vertical-align: top;
+}
+
+.context-map-contracts__name {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.context-map-contracts__name:hover {
+    text-decoration: underline;
+}
+
+.context-map-contracts__name:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.context-map-contracts__dot {
+    color: var(--color-text-secondary);
+}
+
+/* The strategic rules: a card each, its first sentence the title. */
+.context-map-rules {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.context-map-rules__card {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    font-size: var(--font-size-sm);
+}
+
+.context-map-rules__title {
+    font-weight: var(--font-weight-semibold);
+}
+
+.context-map-rules__body {
+    color: var(--color-text-secondary);
+}
+
+.context-map-rules__title > *,
+.context-map-rules__body > * {
+    margin: 0;
 }
 
 /* The Domain view's Model page (local ADR 0037): a class diagram drawn as each
