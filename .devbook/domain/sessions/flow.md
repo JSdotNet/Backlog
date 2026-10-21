@@ -44,6 +44,8 @@ stateDiagram-v2
   is not showing is finished, not in a fourth state and not in transit towards one.
   Whether a row is on screen is a property of the reading being displayed. Putting it
   here would turn the reader's own choice into something that happens to a session.
+  The Open view and its Idle badge are off it for the same reason: an Idle row still
+  reads Finished.
 
 ## How an environment's sessions are read
 
@@ -51,13 +53,16 @@ stateDiagram-v2
 sequenceDiagram
     participant Reader
     participant Log as Session Log
+    participant Desktop as Claude desktop app's store
     participant Claude as Claude records
     participant Copilot as Copilot records
     participant Liveness as Liveness Assessment
 
     Reader->>Log: what has been running here?
+    Log->>Desktop: which sessions are still open?
+    Desktop-->>Log: archived flag and scheduled task per session
     par per agent, independently
-        Log->>Claude: live records, then recent history
+        Log->>Claude: live records, then recent history plus every open one
         Claude-->>Log: sessions found + how many exist
     and
         Log->>Copilot: recent records
@@ -74,6 +79,11 @@ sequenceDiagram
   [one unreadable source costs only its own sessions](requirements.md#requirement-one-unreadable-source-costs-only-its-own-sessions).
   Each source either
   contributes its sessions or contributes its name to `unreadable`.
+- **The desktop app's store is read once per reading, before the agents.** It is the
+  only record of which Claude sessions the desktop app still holds open. A store that
+  cannot be walked costs only its two facts: "Claude desktop app" goes on
+  `unreadable`, and the Claude sessions still answer, unstamped. A malformed record
+  costs only itself, and a missing store is a machine without the desktop app.
 - **Duplicates are collapsed before anything else.** One session can leave more than
   one record. It may leave a live marker per process beside its own transcript, or two
   transcripts when it changed folder and was filed under both. The aggregate's first
@@ -86,8 +96,10 @@ sequenceDiagram
   reading is what makes two sessions in the same list comparable. Assessing each
   against its own would let one row be stale relative to another.
 - **How many exist travels back with what was described.** A reading for a list may
-  stop at the most recent sessions per agent. So the count of what it found is part of
-  the answer, not something the reader has to go and check. A reading since a horizon
+  stop at the most recent sessions per agent, except for the open ones, which it reads
+  whatever their age. So the count of what it found is part of the answer, not
+  something the reader has to go and check. The answer also says how many of the open
+  ones are older than the newest session it left out. A reading since a horizon
   stops nowhere inside it, which makes it the shape a count reads.
 
 ## How optional session activity reporting works

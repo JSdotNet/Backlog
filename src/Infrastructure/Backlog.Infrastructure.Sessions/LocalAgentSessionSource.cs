@@ -54,17 +54,29 @@ namespace Backlog.Infrastructure.Sessions;
 /// from this source outward. With no resolver composed nothing is placed, which
 /// is the true answer on a head without a repository list.
 /// </para>
+/// <para>
+/// The Claude desktop app's session store is read first, beside the two agents' folders,
+/// because it is the only record of which sessions the desktop app still holds open —
+/// see <see cref="ClaudeDesktopSessionReader"/>. Its answer goes to the Claude reader,
+/// which stamps <see cref="AgentSession.Archived"/> and
+/// <see cref="AgentSession.ScheduledTask"/> on the sessions it names and exempts the open
+/// ones from the cap. A store that cannot be walked is named on the unreadable list and
+/// costs only those two facts: the Claude sessions still answer, unstamped.
+/// </para>
 /// </summary>
 internal sealed class LocalAgentSessionSource : IAgentSessionSource
 {
     private readonly ClaudeSessionReader _claude;
     private readonly CopilotSessionReader _copilot;
+    private readonly ClaudeDesktopSessionReader? _desktop;
     private readonly ISessionRepositoryResolver? _repositories;
 
     /// <summary>What a host composes: the two agents' own folders in the profile of
-    /// whoever is signed in, this device's identity, the wall clock, and — when the
+    /// whoever is signed in, the Claude desktop app's session store in that profile's
+    /// roaming application data, this device's identity, the wall clock, and — when the
     /// host has one — the cache that spares the Claude reader a pass over every
-    /// transcript it has already read.</summary>
+    /// transcript it has already read. Off Windows the store's folder is not there,
+    /// which the reader answers as no store.</summary>
     internal LocalAgentSessionSource(
         IDeviceIdentitySource identity,
         ITranscriptFactsCache? facts = null,
@@ -76,13 +88,18 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
             identity.Current.Name,
             TimeProvider.System,
             facts,
-            repositories)
+            repositories,
+            desktopHome: Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Claude",
+                "claude-code-sessions"))
     {
     }
 
     /// <summary>Every input named, so the mapping can be tested against fixture
     /// folders and a fixed clock rather than against whatever this machine happens
-    /// to have been doing.</summary>
+    /// to have been doing. No <paramref name="desktopHome"/> is no desktop store: every
+    /// session's <see cref="AgentSession.Archived"/> stays null.</summary>
     internal LocalAgentSessionSource(
         string claudeHome,
         string copilotHome,
@@ -91,10 +108,12 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
         TimeProvider clock,
         ITranscriptFactsCache? facts = null,
         ISessionRepositoryResolver? repositories = null,
-        Func<string, Stream>? openTranscript = null)
+        Func<string, Stream>? openTranscript = null,
+        string? desktopHome = null)
     {
         _claude = new ClaudeSessionReader(claudeHome, environmentId, environment, clock, facts, openTranscript);
         _copilot = new CopilotSessionReader(copilotHome, environmentId, environment, clock);
+        _desktop = desktopHome is null ? null : new ClaudeDesktopSessionReader(desktopHome, clock);
         _repositories = repositories;
     }
 
@@ -119,16 +138,19 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
         var sessions = new List<AgentSession>();
         var unreadable = new List<string>();
         var discovered = 0;
+        var openBeyondCap = 0;
+        var desktop = await ReadDesktopAsync(unreadable, cancellationToken).ConfigureAwait(false);
 
-        foreach (var reader in Readers(query, cancellationToken))
+        foreach (var reader in Readers(query, desktop, cancellationToken))
         {
             var reading = await Collect(reader.Name, reader.Read, unreadable).ConfigureAwait(false);
 
             sessions.AddRange(reading.Sessions.Select(Placed));
             discovered += reading.Discovered;
+            openBeyondCap += reading.OpenBeyondCap;
         }
 
-        return new AgentSessionCatalog(sessions, unreadable, discovered);
+        return new AgentSessionCatalog(sessions, unreadable, discovered) { OpenBeyondCap = openBeyondCap };
     }
 
     /// <summary>
@@ -145,9 +167,34 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
         return repository is null ? session : session with { ResolvedRepository = repository };
     }
 
-    private (string Name, Func<Task<SessionReading>> Read)[] Readers(AgentSessionQuery query, CancellationToken cancellationToken) =>
+    /// <summary>
+    /// The desktop app's store, or no records: none when no store is composed, and none
+    /// — with the store named on the unreadable list — when its folders cannot be walked.
+    /// The three caught types are <see cref="Collect"/>'s, for its reasons; a record the
+    /// reader cannot parse costs only that record and never reaches here.
+    /// </summary>
+    private async Task<ClaudeDesktopSessions> ReadDesktopAsync(List<string> unreadable, CancellationToken cancellationToken)
+    {
+        if (_desktop is null) return ClaudeDesktopSessions.None;
+
+        try
+        {
+            return await _desktop.ReadAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
+        {
+            unreadable.Add(ClaudeDesktopSessionReader.Name);
+
+            return ClaudeDesktopSessions.None;
+        }
+    }
+
+    private (string Name, Func<Task<SessionReading>> Read)[] Readers(
+        AgentSessionQuery query,
+        ClaudeDesktopSessions desktop,
+        CancellationToken cancellationToken) =>
     [
-        (ClaudeSessionReader.Name, () => _claude.ReadAsync(query, cancellationToken)),
+        (ClaudeSessionReader.Name, () => _claude.ReadAsync(query, desktop, cancellationToken)),
         (CopilotSessionReader.Name, () => _copilot.ReadAsync(query, cancellationToken))
     ];
 

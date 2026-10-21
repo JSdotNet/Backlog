@@ -86,11 +86,65 @@ public sealed class AgentSessionViewTests
 
     [Theory]
     [InlineData(AgentSessionView.Live, "Live")]
+    [InlineData(AgentSessionView.Open, "Open")]
     [InlineData(AgentSessionView.All, "All")]
     public void A_view_has_one_name_on_screen(AgentSessionView view, string label) =>
         // One label function, so the strip's button and anything that names the
         // view in a sentence cannot disagree about what it is called.
         Assert.Equal(label, AgentSessionViews.Label(view));
+
+    /// <summary>The strip draws the views in the order the enum declares them, so the
+    /// declaration is the screen order: Open sits between Live and All.</summary>
+    [Fact]
+    public void The_views_are_live_open_and_all_in_that_order() =>
+        Assert.Equal(
+            [AgentSessionView.Live, AgentSessionView.Open, AgentSessionView.All],
+            Enum.GetValues<AgentSessionView>());
+
+    /// <summary>
+    /// Open is a question about the desktop app's record, not about liveness: it keeps
+    /// every row the desktop app has not archived, Finished ones included, and nothing
+    /// else — in the order it was given, like Live.
+    /// </summary>
+    [Fact]
+    public void The_open_view_keeps_exactly_the_unarchived_rows_whatever_their_state() =>
+        Assert.Equal(
+            ["open-stalled", "open-finished", "open-running"],
+            AgentSessionViews.Of(Rows(DesktopSample), AgentSessionView.Open).Select(row => row.Id));
+
+    /// <summary>Unknown is never open. A session with no desktop record behind it — a
+    /// CLI-only one, any Copilot or replicated one — has nothing that says it is open,
+    /// and a run with no session has no record at all.</summary>
+    [Fact]
+    public void The_open_view_never_keeps_an_archived_unknown_or_run_only_row()
+    {
+        var run = SessionRowsTests.Run("run-1", "elsewhere-0a1b2c3d", Noon.AddHours(-3), Noon.AddHours(-2));
+
+        var rows = SessionRows.Of(DesktopSample, [run]);
+
+        Assert.Contains(rows, row => row.RunOnly);
+        Assert.DoesNotContain(
+            AgentSessionViews.Of(rows, AgentSessionView.Open),
+            row => row.RunOnly || row.Session!.Archived is not false);
+    }
+
+    /// <summary>The invariant Live rests on, re-proved with the desktop record present:
+    /// an open session with no live marker reads Finished, and Finished is never
+    /// live.</summary>
+    [Fact]
+    public void An_open_finished_session_is_not_live() =>
+        Assert.DoesNotContain(
+            AgentSessionViews.Of(Rows(DesktopSample), AgentSessionView.Live),
+            row => row.Id == "open-finished");
+
+    private static readonly IReadOnlyList<AgentSession> DesktopSample =
+    [
+        Session("open-stalled", AgentSessionState.Stalled, Noon.AddMinutes(-40)) with { Archived = false },
+        Session("archived", AgentSessionState.Finished, Noon.AddMinutes(-30)) with { Archived = true },
+        Session("open-finished", AgentSessionState.Finished, Noon.AddMinutes(-20)) with { Archived = false },
+        Session("unknown", AgentSessionState.Running, Noon.AddMinutes(-5)),
+        Session("open-running", AgentSessionState.Running, Noon.AddMinutes(-2)) with { Archived = false }
+    ];
 
     /// <summary>
     /// Deliberately not in activity order, so the order test above is measuring

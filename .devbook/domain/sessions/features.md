@@ -32,6 +32,7 @@ inventories.
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions]
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.An_empty_open_view_names_all_as_the_way_out
 ```
 
 A session that is running now and a session that finished last week are rows in the
@@ -44,8 +45,8 @@ it. One list narrowed by a control is still one list:
 
 - the rows left out are one press away under the same heading;
 - the count beside the title names both numbers whenever any rows are left out;
-- the empty state the narrowing can produce says which states it kept, and how many
-  sessions are on the other side.
+- the empty state the narrowing can produce says what it kept, and how many sessions
+  are on the other side.
 
 A reader looking for a session has one place to look and one control to move.
 
@@ -53,10 +54,11 @@ A reader looking for a session has one place to look and one control to move.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#session-view, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/domain/sessions/domain.md#session-view]
+related: [.devbook/domain/sessions/domain.md#session-view, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/domain/sessions/domain.md#session-grouping]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_show_strip_offers_open_between_live_and_all_with_its_own_tally, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.An_open_finished_row_reads_idle_in_open_and_finished_everywhere_else, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Scheduled_runs_sit_in_one_folded_section_at_the_end_of_open, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_panel_never_shows_a_folded_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.With_only_scheduled_rows_folded_away_there_is_no_panel]
 ```
 
-The list opens on the sessions that are still going. A `Live` / `All` choice sits
+The list opens on the sessions that are still going. A `Live` / `Open` / `All` choice sits
 first in the row of controls above it, before the grouping, because it decides which
 rows exist before the grouping decides where they sit. "What is going on right now" is
 the question somebody opens this for. Several hundred finished records answer a
@@ -66,6 +68,20 @@ Live means running **or** stalled. Stalled is computed from silence rather than
 declared by the agent, because nothing writes "I have stopped". So a stalled session is
 one nobody can show has ended. A default that dropped it would hide the row most worth
 looking at: the one that may be sitting there waiting on the reader.
+
+**Open lists what the Claude desktop app still holds in its sidebar.** It keeps the
+sessions the desktop app has not archived, whether or not a process runs for them. The
+desktop app ends idle processes, so most of these read Finished, which is why Live
+misses them. Open draws a quiet **Idle** badge where the Finished chip would stand. Its
+title says what it means: "Open in the Claude desktop app with no process running;
+reads Finished". The desktop app's scheduled routine runs sit in one folded
+**Scheduled** section at the end of the list.
+
+Open reads only this PC's desktop app. A session from another machine, a CLI-only
+session, and a running session the desktop app keeps no record of, such as a side
+session, are never in it. The desktop app's store is a private format this product
+conforms to ([dependencies](dependencies.md)). Each row keeps the title the transcript
+gives it, not the title the desktop app shows.
 
 The choice is not remembered. Every open starts on `Live`, the way Group by starts at
 When. A reader should not have to remember having already answered "what is going on
@@ -93,11 +109,12 @@ type: sub-feature
 related: [.devbook/domain/sessions/domain.md#environment, .devbook/domain/sessions/features.md#group-by-environment]
 ```
 
-A machine filter sits beside `Live` / `All` and opens on "All machines". Choosing a
+A machine filter sits beside `Live` / `Open` / `All` and opens on "All machines". Choosing a
 machine keeps only the rows that machine gathered. The count beside the title names
 both numbers, such as "1 of 4 sessions", so the rows on the other machines are counted
 rather than forgotten. It composes with the view: `Live` on one machine is the running
-and stalled sessions there and nothing else.
+and stalled sessions there and nothing else. `Open` on another machine is empty, because
+Open reads only this PC's desktop app, and its empty state says so.
 
 A list rather than a row of buttons, because the options are however many machines
 have reported, which is not this list's decision. An option is offered exactly when
@@ -350,13 +367,19 @@ one of them is worth investigating.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#session-limit]
+related: [.devbook/domain/sessions/domain.md#session-limit, .devbook/domain/sessions/domain.md#session-catalog]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_capped_subtitle_names_the_older_open_sessions_apart, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_capped_subtitle_with_no_older_open_session_reads_as_before]
 ```
 
 An environment can hold hundreds of session records. Reading all of them costs real
 time, and showing all of them buries the handful that are running. A reading for a
 list therefore describes the most recent sessions per agent, up to the
 [Session Limit](domain.md#session-limit), and when it does, it states how many exist.
+
+The sessions still open in the Claude desktop app are listed whatever their age, and the
+subtitle names the older ones apart. It reads "The N most recent of D sessions this PC
+has a record of, plus K older ones still open in Claude". Counted among "the most
+recent", a months-old open session would make that number untrue.
 
 A reading for a count takes the other shape: everything since a horizon, with no
 limit. A count over the most recent hundred per agent is the limit wearing a total's
@@ -706,22 +729,24 @@ shown that the agent or the dashboard did not record.
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#narrow-to-one-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run]
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_show_strip_offers_open_between_live_and_all_with_its_own_tally
 ```
 
 The controls that narrow the list sit together in one filter bar above it. From left to
-right the bar shows Show (Live or All), With delivery runs, and Machine. Group by sits
+right the bar shows Show (Live, Open or All), With delivery runs, and Machine. Group by sits
 beside them, and Update records and Refresh at the end. One bar, because a reader who
 wonders why a session is missing should find every reason in one place. Each filter
 only removes rows, so the order on screen does not change what the list shows. The
 order the surface applies them in is the [Session View](domain.md#session-view)'s.
 
-Live carries how many rows it would show under the other filters, so pressing it is
-never a guess. Every filter comes back to its first option on every opening, and Group
+Live and Open each carry how many rows they would show under the other filters, so
+pressing one is never a guess. Every filter comes back to its first option on every opening, and Group
 by comes back to When.
 
 The count beside the title keeps its promise from
 [Grouping never hides a session](#grouping-never-hides-a-session): it names both numbers
-whenever the bar leaves rows out. The heading reads "Running now" while Show is on Live.
+whenever the bar leaves rows out. The heading reads "Running now" while Show is on Live,
+and "Open in Claude" while it is on Open.
 
 ### Grouped rows that show how each session ran
 
