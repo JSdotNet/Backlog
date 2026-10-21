@@ -3,7 +3,7 @@
 <PageTitle>Domain glossary — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain glossary"
-           Summary="A subpage of Devbook: the Glossary the Domain page's chapter bar offers (local ADR 0037). It lists every term under `## Ubiquitous Language` and every model chapter of the context's domain files, A–Z, each with its kind, its aliases as code chips and its first sentence. A filter box matches headings and aliases, the kind filters beside it narrow to the kinds pressed, a deprecated chapter is struck through, and Easily confused sets side by side two terms that name each other in `related`."
+           Summary="A subpage of Devbook: the Glossary the Domain page's chapter bar offers (local ADR 0037). It lists every term under `## Ubiquitous Language` and every model chapter of the context's domain files, A–Z, each with its kind, its status, its aliases as code chips and its first sentence. A labelled find box matches headings and aliases, the Show pills beside it — All, Model, Terms and, when a term is borrowed from another context, Borrowed — narrow to one choice with its count, a deprecated chapter is struck through on a sunken row, and Easily confused sets side by side, one card per group, the terms that name each other in `related`."
            Guidelines="@Rules">
 
     <Story Name="Glossary"
@@ -14,14 +14,14 @@
     </Story>
 
     <Story Name="Filtered"
-           Description="The same Glossary with the filter set to `line`. The filter matches the heading or any alias, so `Order Line` stays and so does `Customer`, whose alias is `Buyer Line`. The kind filters narrow on top of it, and nothing matching reads as a sentence rather than an empty list."
+           Description="The same Glossary with the filter set to `line`. The filter matches the heading or any alias, so `Order Line` stays and so does `Customer`, whose alias is `Buyer Line`. A Show pill narrows on top of it, and nothing matching reads as a sentence rather than an empty list."
            Code="@FilteredCode"
            Source="@Domain">
         <DomainGlossary Chapter="@Language" Files="@Files" DocumentPath="@DomainPath" Filter="line" DebounceMilliseconds="0" />
     </Story>
 
     <Story Name="Easily confused"
-           Description="`Basket` and `Draft Order` name each other in `related`, so they are set side by side under Easily confused, each with its first sentence. Filtered to `basket`, the list holds only the struck-through `Basket`, while the pair stays whatever the filter shows. A one-way `related` is a pointer, not a confusion, and makes no pair: `Price List` names `Basket`, and nothing pairs them."
+           Description="`Basket` and `Draft Order` name each other in `related`, so they are set side by side on one Easily confused card, each with its first sentence and its first alias. Filtered to `basket`, the list holds only the struck-through `Basket`, while the card stays whatever the filter shows. A one-way `related` is a pointer, not a confusion, and makes no pair: `Price List` names `Basket`, and nothing pairs them."
            Code="@ConfusedCode"
            Source="@Domain">
         <DomainGlossary Chapter="@Language" Files="@Files" DocumentPath="@DomainPath" Filter="basket" DebounceMilliseconds="0" />

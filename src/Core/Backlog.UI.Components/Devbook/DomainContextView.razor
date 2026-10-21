@@ -1,10 +1,14 @@
 @*
     A bounded context's page in the Domain view (local ADR 0037): an Overview |
-    Neighbours bar that opens on Overview. Overview is the context's boundary as
-    context.md writes it, how many chapters of each kind its files hold, how many
-    of its requirements and rules name a test, how settled its chapters are, and
-    its switches and settings. Neighbours is its dependency tables, drawn by
-    DomainNeighboursView.
+    Neighbours bar that opens on Overview. Overview is drawn after its board
+    (Context.dc.html): the context's subdomain, deployment and status, its name and
+    the lead of its boundary, the From your Brain box, the boundary as an Inside and
+    an Outside card, what its files hold as tiles in their kind's tone, how well it
+    is proved as a Requirements and an Invariants card, how settled it is as one
+    stacked bar, its switches with what each gates, and its pages, each with the
+    question it answers. Every word is the chapters' except the headings and the
+    lens questions, which are the page's own. Neighbours is its dependency tables,
+    drawn by DomainNeighboursView.
 *@
 
 <section class="domain-context-page" data-testid="@TestId" aria-label="@($"Context {ContextName}")">
@@ -14,19 +18,93 @@
           ActiveIdChanged="@(id => _tab = id)">
         <TabPanel Id="overview" Title="Overview" TabTestId="domain-context-page-tab-overview" TestId="domain-context-page-overview-panel">
             <div class="domain-context-page__overview">
-                @if (Overview.Boundary.Length > 0)
+                <header class="domain-context-page__intro" data-testid="domain-context-page-header">
+                    @if (SubdomainLabel is not null || DeploymentLabel is not null || Overview.Status is not null)
+                    {
+                        <div class="domain-context-page__badges">
+                            @if (SubdomainLabel is { } subdomain)
+                            {
+                                <span class="@($"domain-context-page__badge domain-context-page__badge--{Overview.Subdomain}")" data-testid="domain-context-page-subdomain">@subdomain</span>
+                            }
+                            @if (DeploymentLabel is { } deployment)
+                            {
+                                <span class="domain-context-page__badge" data-testid="domain-context-page-deployment">@deployment</span>
+                            }
+                            @if (Overview.Status is { } status)
+                            {
+                                <DevbookStatusPill Status="@status" Folder="DevbookFolder.Domain" />
+                            }
+                        </div>
+                    }
+                    <h2 class="domain-context-page__title" data-testid="domain-context-page-title">@ContextName</h2>
+                    @if (Overview.Lead.Length > 0)
+                    {
+                        <div class="domain-context-page__lead" data-testid="domain-context-page-lead">
+                            @Markdown(Overview.Lead)
+                        </div>
+                    }
+                    else if (Overview.Boundary.Length == 0)
+                    {
+                        <p class="domain-context-page__none" data-testid="domain-context-page-boundary-none">context.md draws no boundary above its first chapter.</p>
+                    }
+                    @if (Overview.Chapters.Count > 0)
+                    {
+                        <DomainChapterNotes References="@Overview.Chapters" />
+                    }
+                </header>
+
+                @if (Overview.Inside.Length > 0 || Overview.Outside.Count > 0 || Overview.OutsideNote.Length > 0 || Overview.More.Length > 0)
                 {
-                    <div class="domain-context-page__boundary" data-testid="domain-context-page-boundary">
-                        <MarkdownView Blocks="@_boundary"
-                                      Source="@Overview.Boundary"
-                                      DevbookDocumentPath="@DocumentPath"
-                                      DevbookFolder="DevbookFolder.Domain"
-                                      OnDevbookNavigate="OnNavigate" />
-                    </div>
-                }
-                else
-                {
-                    <p class="domain-context-page__none" data-testid="domain-context-page-boundary-none">context.md draws no boundary above its first chapter.</p>
+                    <section class="domain-context-page__section" data-testid="domain-context-page-boundary" aria-labelledby="@($"{_id}-boundary")">
+                        <h3 class="domain-context-page__heading" id="@($"{_id}-boundary")">The boundary</h3>
+                        <div class="domain-context-page__boundary">
+                            @if (Overview.Inside.Length > 0)
+                            {
+                                <div class="domain-context-page__card" data-testid="domain-context-page-inside">
+                                    <p class="domain-context-page__card-label domain-context-page__card-label--inside">Inside — @ContextName decides</p>
+                                    @Markdown(Overview.Inside)
+                                </div>
+                            }
+                            @if (Overview.Outside.Count > 0 || Overview.OutsideNote.Length > 0)
+                            {
+                                <div class="domain-context-page__card" data-testid="domain-context-page-outside">
+                                    <p class="domain-context-page__card-label">Outside — answered elsewhere</p>
+                                    @if (Overview.Outside.Count > 0)
+                                    {
+                                        <ul class="domain-context-page__questions">
+                                            @foreach (var question in Overview.Outside)
+                                            {
+                                                <li class="domain-context-page__question" data-testid="domain-context-page-question">
+                                                    <span class="domain-context-page__question-text">@Markdown(question.Question)</span>
+                                                    @if (question.Answers.Count > 0)
+                                                    {
+                                                        <span class="domain-context-page__answers">
+                                                            @foreach (var answer in question.Answers)
+                                                            {
+                                                                <button type="button"
+                                                                        class="domain-context-page__answer"
+                                                                        data-testid="domain-context-page-answer"
+                                                                        data-reference="@answer.Reference"
+                                                                        @onclick="@(() => FollowAsync(answer.Reference))">@answer.Title <span aria-hidden="true">→</span></button>
+                                                            }
+                                                        </span>
+                                                    }
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                    @if (Overview.OutsideNote.Length > 0)
+                                    {
+                                        <div class="domain-context-page__outside-note" data-testid="domain-context-page-outside-note">@Markdown(Overview.OutsideNote)</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        @if (Overview.More.Length > 0)
+                        {
+                            <div class="domain-context-page__more" data-testid="domain-context-page-more">@Markdown(Overview.More)</div>
+                        }
+                    </section>
                 }
 
                 <section class="domain-context-page__section" data-testid="domain-context-page-counts" aria-labelledby="@($"{_id}-counts")">
@@ -40,64 +118,92 @@
                         <ul class="domain-context-page__counts">
                             @foreach (var count in Overview.Counts)
                             {
-                                <li class="domain-context-page__count" data-testid="domain-context-page-count" data-type="@count.Type">
-                                    <span class="domain-context-page__count-value">@count.Count</span>
-                                    <span class="domain-context-page__count-label">
-                                        <DevbookTypeMarker Value="@count.Type" CssClass="devbook-type-marker--leads" Labelled="false" ShowTooltip="false" />@count.Label
-                                    </span>
+                                <li class="domain-context-page__count-item">
+                                    <button type="button"
+                                            class="domain-context-page__count"
+                                            data-testid="domain-context-page-count"
+                                            data-type="@count.Type"
+                                            data-reference="@count.Reference"
+                                            aria-disabled="@(Followable(count.Reference) ? null : "true")"
+                                            @onclick="@(() => FollowAsync(count.Reference))">
+                                        <span class="domain-context-page__count-value">@count.Count</span>
+                                        <span class="domain-context-page__count-label">@count.Label</span>
+                                    </button>
                                 </li>
                             }
                         </ul>
                     }
                 </section>
 
-                <div class="domain-context-page__measures">
-                    <section class="domain-context-page__section" data-testid="domain-context-page-proof" aria-labelledby="@($"{_id}-proof")">
-                        <h3 class="domain-context-page__heading" id="@($"{_id}-proof")">Proved by a test</h3>
-                        @if (Overview.Provable == 0)
-                        {
-                            <p class="domain-context-page__none">No requirement or always-true rule to prove.</p>
-                        }
-                        else
-                        {
-                            <MetricMeter Value="@Overview.Proved"
-                                         Max="@Overview.Provable"
-                                         Label="Requirements and always-true rules"
-                                         FormatValue="@(value => value.ToString("0", System.Globalization.CultureInfo.InvariantCulture))"
-                                         Caption="@($"{Overview.Proved} of {Overview.Provable} name a test.")"
-                                         TestId="domain-context-page-proof-meter" />
-                        }
-                    </section>
+                <section class="domain-context-page__section" data-testid="domain-context-page-proof" aria-labelledby="@($"{_id}-proof")">
+                    <h3 class="domain-context-page__heading" id="@($"{_id}-proof")">How well it is proved</h3>
+                    @if (Overview.Provable == 0)
+                    {
+                        <p class="domain-context-page__none">No requirement or invariant to prove.</p>
+                    }
+                    else
+                    {
+                        <div class="domain-context-page__proof">
+                            @if (Overview.Requirements.Count > 0)
+                            {
+                                @ProofCard("requirements", "Requirements", Overview.Requirements,
+                                    $"{Overview.Requirements.Count} {Plural(Overview.Requirements.Count, "requirement", "requirements")} · {Overview.Requirements.Extra} {Plural(Overview.Requirements.Extra, "scenario", "scenarios")}",
+                                    Overview.Requirements.Reference is { } requirements ? () => FollowAsync(requirements) : null)
+                            }
+                            @if (Overview.Invariants.Count > 0)
+                            {
+                                @ProofCard("invariants", "Invariants", Overview.Invariants,
+                                    $"{Overview.Invariants.Count} {Plural(Overview.Invariants.Count, "invariant", "invariants")} · {Overview.Invariants.Extra} open",
+                                    Overview.Invariants.Reference is { } unit ? () => OpenAlwaysTrueAsync(unit) : null)
+                            }
+                        </div>
+                    }
+                </section>
 
-                    <section class="domain-context-page__section" data-testid="domain-context-page-settled" aria-labelledby="@($"{_id}-settled")">
-                        <h3 class="domain-context-page__heading" id="@($"{_id}-settled")">How settled</h3>
-                        @if (Overview.Statuses.Count == 0)
-                        {
-                            <p class="domain-context-page__none">No chapter states a status.</p>
-                        }
-                        else
-                        {
+                <section class="domain-context-page__section" data-testid="domain-context-page-settled" aria-labelledby="@($"{_id}-settled")">
+                    <h3 class="domain-context-page__heading" id="@($"{_id}-settled")">How settled</h3>
+                    @if (Overview.Statuses.Count == 0)
+                    {
+                        <p class="domain-context-page__none">No chapter states a status.</p>
+                    }
+                    else
+                    {
+                        <div class="domain-context-page__settled">
+                            <div class="domain-context-page__bar" role="img" aria-label="@SettledLabel" data-testid="domain-context-page-settled-bar">
+                                @foreach (var status in Overview.Statuses)
+                                {
+                                    <span class="@($"domain-context-page__bar-part domain-context-page__tone--{ToneOf(status.Status)}")"
+                                          data-testid="domain-context-page-settled-part"
+                                          data-status="@status.Status"
+                                          style="@($"flex-grow: {status.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)}")"></span>
+                                }
+                            </div>
                             <ul class="domain-context-page__statuses">
                                 @foreach (var status in Overview.Statuses)
                                 {
                                     <li class="domain-context-page__status" data-testid="domain-context-page-status" data-status="@status.Status">
                                         <DevbookStatusPill Status="@status.Status" Folder="DevbookFolder.Domain" />
-                                        <span class="domain-context-page__status-count">@status.Count</span>
+                                        <b class="domain-context-page__status-count">@status.Count</b>
                                     </li>
                                 }
+                                @if (Overview.Statuses.Any(status => IsResting(status.Status)))
+                                {
+                                    <li class="domain-context-page__status domain-context-page__status--note" data-testid="domain-context-page-settled-note">No status = the current model</li>
+                                }
                             </ul>
-                        }
-                    </section>
-                </div>
+                        </div>
+                    }
+                </section>
 
                 <section class="domain-context-page__section" data-testid="domain-context-page-switches" aria-labelledby="@($"{_id}-switches")">
-                    <h3 class="domain-context-page__heading" id="@($"{_id}-switches")">Flags and settings</h3>
+                    <h3 class="domain-context-page__heading" id="@($"{_id}-switches")">Switches</h3>
                     @if (Overview.Switches.Count == 0)
                     {
                         <p class="domain-context-page__none" data-testid="domain-context-page-switches-none">The context has no flag or setting.</p>
                     }
                     else
                     {
+                        <p class="domain-context-page__note">A flag is decided at release. A setting is chosen by a person.</p>
                         <div class="domain-context-page__table-scroll">
                             <table class="domain-context-page__table">
                                 <thead>
@@ -106,20 +212,37 @@
                                         <th scope="col">Kind</th>
                                         <th scope="col">Key</th>
                                         <th scope="col">Default</th>
-                                        <th scope="col">Status</th>
-                                        <th scope="col">What it does</th>
+                                        <th scope="col">Gates</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach (var item in Overview.Switches)
                                     {
                                         <tr data-testid="domain-context-page-switch" data-key="@item.Key">
-                                            <th scope="row">@item.Title</th>
-                                            <td><Badge Kind="tone" CssClass="domain-context-page__kind" TestId="domain-context-page-switch-kind">@(item.IsSetting ? "Setting" : "Flag")</Badge></td>
+                                            <th scope="row">
+                                                <span class="domain-context-page__switch-name">@item.Title</span>
+                                                @if (item.Summary.Length > 0)
+                                                {
+                                                    <span class="domain-context-page__switch-summary" data-testid="domain-context-page-switch-summary">@item.Summary</span>
+                                                }
+                                            </th>
+                                            <td data-testid="domain-context-page-switch-kind">@KindOf(item)</td>
                                             <td>@if (item.Key is { } key) { <code>@key</code> }</td>
                                             <td>@(item.Default ?? "—")</td>
-                                            <td><DevbookStatusPill Status="@item.Status" Folder="DevbookFolder.Domain" /></td>
-                                            <td>@item.Summary</td>
+                                            <td>
+                                                @if (item.Gates.Count == 0)
+                                                {
+                                                    <span class="domain-context-page__none">—</span>
+                                                }
+                                                @foreach (var gate in item.Gates)
+                                                {
+                                                    <button type="button"
+                                                            class="domain-context-page__gate"
+                                                            data-testid="domain-context-page-gate"
+                                                            data-reference="@gate.Reference"
+                                                            @onclick="@(() => FollowAsync(gate.Reference))">@gate.Title</button>
+                                                }
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -127,6 +250,28 @@
                         </div>
                     }
                 </section>
+
+                @if (Overview.Lenses.Count > 0)
+                {
+                    <section class="domain-context-page__section" data-testid="domain-context-page-lenses" aria-labelledby="@($"{_id}-lenses")">
+                        <h3 class="domain-context-page__heading" id="@($"{_id}-lenses")">Read it through a question</h3>
+                        <ul class="domain-context-page__lenses">
+                            @foreach (var lens in Overview.Lenses)
+                            {
+                                <li class="domain-context-page__lens-item">
+                                    <button type="button"
+                                            class="domain-context-page__lens"
+                                            data-testid="domain-context-page-lens"
+                                            data-reference="@lens.Reference"
+                                            @onclick="@(() => FollowAsync(lens.Reference))">
+                                        <span class="domain-context-page__lens-title">@lens.Title</span>
+                                        <span class="domain-context-page__lens-question">@lens.Question</span>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                }
             </div>
         </TabPanel>
         <TabPanel Id="neighbours" Title="Neighbours" TabTestId="domain-context-page-tab-neighbours" TestId="domain-context-page-neighbours-panel">
@@ -161,25 +306,117 @@
     [Parameter]
     public string InitialTab { get; set; } = "overview";
 
-    /// <summary>A link in the boundary, or a neighbour, the reader followed.</summary>
+    /// <summary>A link in the boundary, a tile, a card, a gate or a neighbour the
+    /// reader followed.</summary>
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    /// <summary>The Invariants card followed: the unit whose Always true tab holds
+    /// the rules. Unset, the card follows the unit through <see cref="OnNavigate"/>.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
 
     [Parameter]
     public string? TestId { get; set; } = "domain-context-page";
 
     private readonly string _id = $"domain-context-page-{Guid.NewGuid():N}";
     private string? _tab;
-    private IReadOnlyList<MdBlock> _boundary = [];
-    private string? _parsed;
+    private readonly Dictionary<string, IReadOnlyList<MdBlock>> _parsed = new(StringComparer.Ordinal);
+    private DomainContextOverview? _parsedFor;
 
     protected override void OnParametersSet()
     {
         _tab ??= InitialTab;
-        if (!string.Equals(_parsed, Overview.Boundary, StringComparison.Ordinal))
+        if (!ReferenceEquals(_parsedFor, Overview))
         {
-            _parsed = Overview.Boundary;
-            _boundary = MarkdownPreview.ParseDocument(Overview.Boundary);
+            _parsedFor = Overview;
+            _parsed.Clear();
         }
     }
+
+    private string? SubdomainLabel => Overview.Subdomain is { Length: > 0 } kind
+        ? $"{char.ToUpperInvariant(kind[0])}{kind[1..]} subdomain"
+        : null;
+
+    private string? DeploymentLabel => Overview.Deployment switch
+    {
+        "module" => "Module",
+        "service" => "Service",
+        { Length: > 0 } other => $"{char.ToUpperInvariant(other[0])}{other[1..]}",
+        _ => null
+    };
+
+    private string SettledLabel =>
+        string.Join(", ", Overview.Statuses.Select(status => $"{status.Count} {status.Status}")) + " chapters";
+
+    private static bool IsResting(string status) =>
+        string.Equals(status, DevbookSchema.RestingStatus, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The status badge a status wears in the domain folder, so a bar
+    /// part and its status pill share one tone (color-scheme.md#badge-and-chip-tones).
+    /// A status the folder does not know is archived.</summary>
+    private static string ToneOf(string status) => DevbookStatus.Tone(DevbookFolder.Domain, status) switch
+    {
+        DevbookStatusTone.Provisional => "draft",
+        DevbookStatusTone.Planned => "ready",
+        DevbookStatusTone.Active => "active",
+        DevbookStatusTone.Complete => "done",
+        DevbookStatusTone.Attention => "blocked",
+        _ => "archived"
+    };
+
+    private static string KindOf(DomainContextSwitch item) =>
+        item.IsSetting ? item.Scope is { Length: > 0 } scope ? $"Setting · {scope}" : "Setting" : "Flag";
+
+    private static string Plural(int count, string one, string many) => count == 1 ? one : many;
+
+    private bool Followable(string? reference) =>
+        OnNavigate.HasDelegate && DevbookReference.Parse(reference) is not null;
+
+    private Task FollowAsync(string? reference) =>
+        OnNavigate.HasDelegate && DevbookReference.Parse(reference) is { } target
+            ? OnNavigate.InvokeAsync(target)
+            : Task.CompletedTask;
+
+    private Task OpenAlwaysTrueAsync(string unit)
+    {
+        var hash = unit.IndexOf('#');
+        return !OnOpenAlwaysTrue.HasDelegate || hash < 0
+            ? FollowAsync(unit)
+            : OnOpenAlwaysTrue.InvokeAsync(new DomainAlwaysTrueLink("Always true", unit[..hash], unit[(hash + 1)..]));
+    }
+
+    private RenderFragment Markdown(string source) => __builder =>
+    {
+        if (!_parsed.TryGetValue(source, out var blocks))
+        {
+            blocks = MarkdownPreview.ParseDocument(source);
+            _parsed[source] = blocks;
+        }
+        <MarkdownView Blocks="@blocks"
+                      Source="@source"
+                      DevbookDocumentPath="@DocumentPath"
+                      DevbookFolder="DevbookFolder.Domain"
+                      OnDevbookNavigate="OnNavigate" />
+    };
+
+    private RenderFragment ProofCard(string kind, string title, DomainProof proof, string facts, Func<Task>? open) => __builder =>
+    {
+        var percent = proof.Count == 0 ? 0 : proof.Proved * 100.0 / proof.Count;
+        var followable = open is not null && (OnNavigate.HasDelegate || OnOpenAlwaysTrue.HasDelegate);
+        <button type="button"
+                class="@($"domain-context-page__proof-card domain-context-page__proof-card--{kind}")"
+                data-testid="@($"domain-context-page-proof-{kind}")"
+                aria-disabled="@(followable ? null : "true")"
+                @onclick="@(() => open is null ? Task.CompletedTask : open())">
+            <span class="domain-context-page__proof-head">
+                <b>@title</b>
+                <span class="domain-context-page__proof-facts">@facts</span>
+            </span>
+            <span class="domain-context-page__proof-bar" role="img" aria-label="@($"{proof.Proved} of {proof.Count} name a test")">
+                <span class="domain-context-page__proof-fill" style="@($"width: {percent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}%")"></span>
+            </span>
+            <span class="domain-context-page__proof-caption"><b>@proof.Proved of @proof.Count</b> name a test</span>
+        </button>
+    };
 }

@@ -133,6 +133,11 @@
        Brain's. */
     --color-domain-value-object: #C3D96B;
 
+    /* Entities on the Model diagram: the kind line and the card's top edge, beside
+       the glyph and the word entity, never alone. A clay of its own, apart from the
+       value objects' yellow-green and the root's gold. */
+    --color-domain-entity: #E5A15F;
+
     /* The Context map's line between two core contexts, and a core card's edge,
        beside the word Core on the card and the legend's words, never alone. An
        amber of its own rather than color-primary, which says "followable". */
@@ -21149,73 +21154,167 @@ select.field__input {
 
 /* --- Domain view: Glossary ------------------------------------------------- */
 /*
-  The Glossary unit of the Domain page (local ADR 0037): a filter box and the
-  kind filters over every term and model chapter of the context, A-Z. Each row
-  is its mark, its heading, its kind in words, its aliases as code chips and its
-  first sentence. Monochrome, as the rest of the view: the mark and the word say
-  the kind.
+  The Glossary unit of the Domain page (local ADR 0037). A fixed lead, then a
+  labelled find box that fills the row beside the Show pills — All, Model, Terms,
+  Borrowed, one choice, each with its count. Under them two columns that wrap
+  under each other on a narrow pane: the A–Z card, a bordered list of divided
+  rows (mark, heading, kind in words, status badge, borrowed link, notes and
+  alias chips on one line, the first sentence below), and the aside, whose
+  Easily confused cards set each group of terms side by side as tiles and whose
+  dashed Across contexts card links each borrowed term to its counterpart.
+  Monochrome but for the value-object kind word, which color-scheme.md gives its
+  own tone beside its name.
 */
+
+/* The unit's title on this page reads as the page's heading, and the Glossary
+   says what it is in words, so its type marker is not drawn here. */
+.domain-unit--ubiquitous-language > .domain-unit__title {
+    font-family: var(--font-family-heading);
+    font-size: 2rem;
+    line-height: 2.5rem;
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-unit--ubiquitous-language > .domain-unit__title .devbook-type-marker {
+    display: none;
+}
+
+.domain-glossary__lead {
+    margin: 0;
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
 
 .domain-glossary__filters {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
+    align-items: flex-end;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.domain-glossary__find {
+    display: grid;
+    gap: var(--spacing-xs);
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+.domain-glossary__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 .domain-glossary__search {
-    flex: 1 1 14rem;
-    max-width: 24rem;
+    width: 100%;
 }
 
-.domain-glossary__kinds {
+.domain-glossary__show {
     flex-wrap: wrap;
+    gap: var(--spacing-sm);
 }
 
-.domain-glossary__kinds .btn {
+/* Pills rather than a joined strip: each choice stands alone with its count. */
+.domain-glossary__show.btn-group > .btn.domain-glossary__pill {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-2xs);
+    gap: var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+}
+
+/* The chosen pill is filled with the brand, as a primary button is. */
+.domain-glossary__show.btn-group > .btn.domain-glossary__pill.btn--pressed {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-glossary__count {
+    font-variant-numeric: tabular-nums;
+}
+
+.domain-glossary__layout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+}
+
+.domain-glossary__main {
+    flex: 999 1 36rem;
+    min-width: 0;
+}
+
+.domain-glossary__list {
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    overflow: hidden;
+}
+
+.domain-glossary__list-heading {
+    margin: 0;
+    padding: 0.875rem 1.25rem;
+    border-bottom: var(--border-width) solid var(--color-border-strong);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .domain-glossary__entries {
-    display: grid;
-    gap: var(--spacing-sm);
     margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .domain-glossary__entry {
     display: grid;
-    grid-template-columns: minmax(10rem, 16rem) 1fr;
-    gap: var(--spacing-sm);
-    align-items: baseline;
+    gap: var(--spacing-xs);
+    padding: 0.875rem 1.25rem;
+}
+
+.domain-glossary__entry + .domain-glossary__entry {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-glossary__entry--deprecated {
+    background: var(--color-background);
 }
 
 .domain-glossary__title {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--spacing-2xs);
-    font-weight: var(--font-weight-semibold);
+    gap: var(--spacing-xs) var(--spacing-sm);
     overflow-wrap: anywhere;
 }
 
-.domain-glossary__entry--deprecated .domain-glossary__name {
+.domain-glossary__name {
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-glossary__entry--deprecated .domain-glossary__name,
+.domain-glossary__side s {
     color: var(--color-text-secondary);
 }
 
 .domain-glossary__kind {
-    margin-inline-start: var(--spacing-2xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-normal);
 }
 
-.domain-glossary__body {
-    display: grid;
-    gap: var(--spacing-2xs);
-    margin: 0;
-    min-width: 0;
+.domain-glossary__entry[data-kind="value-object"] .domain-glossary__kind {
+    color: var(--color-domain-value-object);
+}
+
+.domain-glossary__borrowed .devbook-ref {
+    font-family: inherit;
+    font-size: var(--font-size-xs);
 }
 
 .domain-glossary__aliases {
@@ -21243,6 +21342,54 @@ select.field__input {
     margin: 0;
 }
 
+.domain-glossary__more {
+    display: block;
+    width: 100%;
+    padding: 0.875rem 1.25rem;
+    border: 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-glossary__more:hover {
+    color: var(--color-text-primary);
+}
+
+.domain-glossary__more:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.domain-glossary__aside {
+    display: grid;
+    gap: var(--spacing-md);
+    flex: 1 1 22rem;
+    min-width: 0;
+}
+
+.domain-glossary__confused {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.domain-glossary__aside-heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-glossary__aside-intro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 .domain-glossary__pairs {
     display: grid;
     gap: var(--spacing-sm);
@@ -21253,29 +21400,83 @@ select.field__input {
 
 .domain-glossary__pair {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
+    padding: 1.125rem 1.25rem;
     border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-md);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
 }
 
 .domain-glossary__side {
     display: grid;
+    align-content: start;
     gap: var(--spacing-2xs);
     min-width: 0;
+    padding: 0.625rem;
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    overflow-wrap: anywhere;
 }
 
-.domain-glossary__side .domain-glossary__name {
-    font-weight: var(--font-weight-semibold);
+.domain-glossary__side .domain-glossary__summary {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
-@media (max-width: 40rem) {
-    .domain-glossary__entry,
-    .domain-glossary__pair {
-        grid-template-columns: 1fr;
-        gap: var(--spacing-2xs);
-    }
+.domain-glossary__hint {
+    justify-self: start;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* proposed / deprecated are information about the chapter: a neutral outline
+   (color-scheme.md, Information badges are neutral outlines). The Across
+   contexts card is not a control, so its dashed edge is not gold either. */
+.badge--tone.domain-glossary__status {
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+.domain-glossary__across {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: 1.125rem 1.25rem;
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-glossary__across-heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+    font-weight: var(--font-weight-normal);
+}
+
+.domain-glossary__across-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-glossary__across-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    padding-block: var(--spacing-sm);
+}
+
+.domain-glossary__across-row + .domain-glossary__across-row {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-glossary__across-row .devbook-ref {
+    font-family: inherit;
+    font-size: var(--font-size-sm);
 }
 
 /* --- Domain view: Flow ----------------------------------------------------- */
@@ -23827,9 +24028,11 @@ select.field__input {
     min-width: 0;
 }
 
-/* The Domain view's context page (local ADR 0037): Overview is the boundary,
-   what the context holds, how much of it is proved and settled, and its flags
-   and settings; Neighbours is its dependency tables drawn as a board. */
+/* The Domain view's context page (local ADR 0037): Overview after its board —
+   the context's badges, name and lead, the boundary as an Inside and an Outside
+   card, what it holds as tiles, how well it is proved as two cards, how settled
+   it is as one stacked bar, its switches, and its pages read through a
+   question; Neighbours is its dependency tables drawn as a board. */
 .domain-context-page {
     display: flex;
     flex-direction: column;
@@ -23838,14 +24041,14 @@ select.field__input {
 
 .domain-context-page__overview {
     display: grid;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-md) 0;
+    gap: var(--spacing-xl);
+    padding: var(--spacing-lg) 0;
     min-width: 0;
 }
 
 .domain-context-page__section {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-md);
     min-width: 0;
 }
 
@@ -23857,6 +24060,13 @@ select.field__input {
     font-weight: var(--font-weight-semibold);
 }
 
+/* The Overview's section headings are the board's: a heading face, not a label. */
+.domain-context-page__overview .domain-context-page__heading {
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+}
+
 .domain-context-page__none,
 .domain-neighbours__none {
     margin: 0;
@@ -23864,98 +24074,390 @@ select.field__input {
     font-size: var(--font-size-sm);
 }
 
-.domain-context-page__counts {
+.domain-context-page__intro {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-context-page__badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* Information about the context, not something the product acts on: a neutral
+   outline (color-scheme.md#domain-view-element-tones). The word says Core. */
+.domain-context-page__badge {
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-context-page__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-4xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-context-page__lead {
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.domain-context-page__lead > :first-child p:first-child,
+.domain-context-page__lead > :first-child > p:first-of-type {
+    font-size: var(--font-size-lg);
+}
+
+.domain-context-page__intro .domain-chapter-notes {
+    max-width: 48rem;
+}
+
+.domain-context-page__boundary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+    gap: var(--spacing-md);
+}
+
+.domain-context-page__card {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-context-page__card-label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.domain-context-page__questions {
+    display: grid;
     gap: var(--spacing-sm);
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
+.domain-context-page__question {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--spacing-md);
+}
+
+.domain-context-page__question-text p,
+.domain-context-page__outside-note p {
+    margin: 0;
+}
+
+/* A clause is written mid-sentence; the card raises its first letter without
+   rewriting the chapter's words. */
+.domain-context-page__question-text p::first-letter,
+.domain-context-page__outside-note > :first-child p:first-child::first-letter,
+.domain-context-page__card > .domain-context-page__card-label + * p:first-child::first-letter {
+    text-transform: uppercase;
+}
+
+.domain-context-page__more {
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.domain-context-page__answers {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+/* A link drawn as a button: the Outside card's answers are bold, the
+   Switches table's gates are underlined, like a link in prose. */
+.domain-context-page__answer {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-weight: var(--font-weight-semibold);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__gate {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    text-align: left;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.domain-context-page__answer:hover,
+.domain-context-page__gate:hover {
+    color: var(--color-primary-light);
+}
+
+.domain-context-page__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(7.5rem, 100%), 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* A tile's top edge is its kind's tone where the view already gives the kind
+   one — the aggregate root's gold on Model, the value object's own tone
+   (color-scheme.md#domain-view-element-tones) — and the strong border
+   otherwise; its label says the kind, so the tone is never the only thing that
+   does. */
 .domain-context-page__count {
+    --domain-context-tone: var(--color-border-strong);
     display: grid;
     gap: var(--spacing-2xs);
-    padding: var(--spacing-sm) var(--spacing-md);
+    width: 100%;
+    height: 100%;
+    padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
+    border-top: 3px solid var(--domain-context-tone);
     border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__count[data-type="aggregate"] { --domain-context-tone: var(--color-primary); }
+.domain-context-page__count[data-type="value-object"] { --domain-context-tone: var(--color-domain-value-object); }
+
+.domain-context-page__count:hover:not([aria-disabled="true"]),
+.domain-context-page__proof-card:hover:not([aria-disabled="true"]),
+.domain-context-page__lens:hover {
+    border-color: var(--color-border-strong);
     background: var(--color-background-raised);
 }
 
+.domain-context-page__count[aria-disabled="true"],
+.domain-context-page__proof-card[aria-disabled="true"] {
+    cursor: default;
+}
+
 .domain-context-page__count-value {
-    font-size: var(--font-size-xl);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
     font-weight: var(--font-weight-semibold);
     font-variant-numeric: tabular-nums;
 }
 
 .domain-context-page__count-label {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.domain-context-page__measures {
+.domain-context-page__proof {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+    gap: var(--spacing-md);
 }
+
+.domain-context-page__proof-card {
+    --domain-context-tone: var(--color-domain-requirement);
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__proof-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-md);
+}
+
+.domain-context-page__proof-facts {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__proof-bar,
+.domain-context-page__bar {
+    display: flex;
+    height: 0.625rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+}
+
+.domain-context-page__proof-fill {
+    background: var(--domain-context-tone);
+}
+
+.domain-context-page__proof-caption {
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__settled {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md) var(--spacing-xl);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-context-page__settled .domain-context-page__bar {
+    flex: 1 1 20rem;
+}
+
+/* Each part wears the fill of the status badge its status wears
+   (color-scheme.md#badge-and-chip-tones), so a part and the pill under the bar
+   read as one; a strong edge keeps the dark fills apart, and the pill's word
+   says the status, so the tone is never the only thing that does. */
+.domain-context-page__bar-part {
+    flex-basis: 0;
+    min-width: 4px;
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.domain-context-page__tone--draft { background: var(--color-background-raised); }
+.domain-context-page__tone--ready { background: var(--color-info); }
+.domain-context-page__tone--active { background: var(--color-primary); }
+.domain-context-page__tone--done { background: var(--color-success); }
+.domain-context-page__tone--blocked { background: var(--color-error); }
+.domain-context-page__tone--archived { background: transparent; }
 
 .domain-context-page__statuses {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-sm) var(--spacing-md);
     margin: 0;
     padding: 0;
     list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 .domain-context-page__status {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-2xs);
+    gap: var(--spacing-xs);
 }
 
 .domain-context-page__status-count {
+    color: var(--color-text-primary);
     font-variant-numeric: tabular-nums;
 }
 
 .domain-context-page__table-scroll {
     overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
 }
 
 .domain-context-page__table {
     width: 100%;
+    min-width: 40rem;
     border-collapse: collapse;
     font-size: var(--font-size-sm);
 }
 
 .domain-context-page__table th,
 .domain-context-page__table td {
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-bottom: var(--border-width) solid var(--color-border);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
     text-align: left;
     vertical-align: top;
 }
 
-/* What a flag does is prose: it keeps a readable measure and the table
-   scrolls inside its own box on a narrow pane. */
-.domain-context-page__table td:last-child {
-    min-width: 16rem;
+.domain-context-page__table thead th {
+    border-top: 0;
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
-.domain-context-page__table thead th {
-    color: var(--color-text-secondary);
+.domain-context-page__table tbody th {
+    font-weight: normal;
+}
+
+.domain-context-page__switch-name {
+    display: block;
     font-weight: var(--font-weight-semibold);
 }
 
-/* Information about the chapter, not something the product acts on: a neutral
-   outline (color-scheme.md#domain-view-element-tones). */
-.badge--tone.domain-context-page__kind {
-    background: transparent;
-    border-color: var(--color-border-strong);
+.domain-context-page__switch-summary {
+    display: block;
+    max-width: 28rem;
     color: var(--color-text-secondary);
+}
+
+.domain-context-page__lenses {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-context-page__lens {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-xs);
+    width: 100%;
+    height: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__lens-title {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
 }
 
 .domain-neighbours {
@@ -24741,16 +25243,124 @@ select.field__input {
 }
 
 /* The Domain view's Model page (local ADR 0037): a class diagram drawn as each
-   aggregate's consistency-boundary band, what it holds by identity beside the
-   band, and the context's domain services below. Markup rather than lines: each
-   part says its relation and multiplicity in words. */
+   aggregate's consistency-boundary band — the root in the middle, its composed
+   parts as a tree above and below it joined by lines with the gold "owns" diamond
+   on the root, what it names by id in a column outside the band on a dashed line,
+   and the domain services that act on it beneath. The lines are the stylesheet's:
+   the markup stays boxes in reading order, each part saying its kind and
+   multiplicity in words. Under 56rem the tree folds into rows with no lines. */
 .domain-model-view {
     display: flex;
     flex-direction: column;
     min-width: 0;
 }
 
+/* The heading on the left, the Diagram | Fields | Events switch on the right. */
+.domain-model-view__strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.domain-model-view__title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: calc(var(--font-size-2xl) * 4 / 3);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.25;
+}
+
+/* One fused set (interaction-guidelines.md, "Fused means one set"): the options
+   flush inside one border with hairlines between them, the chosen one tinted and
+   underlined on the group's shared bottom edge. */
+.domain-model-view__switch {
+    display: inline-flex;
+    margin-left: auto;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-model-view__view {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.domain-model-view__view:hover {
+    color: var(--color-text-primary);
+}
+
+.domain-model-view__view + .domain-model-view__view {
+    border-left: var(--border-width) solid var(--color-border);
+}
+
+.domain-model-view__view:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.domain-model-view__view--active {
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-background-raised));
+    box-shadow: inset 0 calc(var(--border-width-2) * -1) 0 var(--color-primary);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model-view__intro {
+    max-width: 60rem;
+    margin: 0 0 var(--spacing-xs);
+    color: var(--color-text-secondary);
+}
+
+.domain-model-view__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    list-style: none;
+}
+
+.domain-model-view__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.domain-model-view__legend-owns {
+    width: 0.625rem;
+    height: 0.625rem;
+    background: var(--color-primary);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.domain-model-view__legend-id {
+    width: 1.5rem;
+    border-top: var(--border-width-2) dashed var(--color-border-strong);
+}
+
 .domain-model {
+    --domain-model-gap: var(--spacing-md);
+    --domain-model-stem: var(--spacing-xl);
+    --domain-model-line: var(--border-width-2) solid var(--color-border-strong);
+    --domain-model-id-line: var(--border-width-2) dashed var(--color-border-strong);
+    --domain-model-band-pad: var(--spacing-lg);
+    --domain-model-outside: 15rem;
+    --domain-model-column-gap: var(--spacing-md);
+    --domain-model-spine: calc(var(--domain-model-gap) * 2);
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
@@ -24764,35 +25374,41 @@ select.field__input {
 }
 
 .domain-model__aggregate {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: var(--spacing-md);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    column-gap: var(--domain-model-column-gap);
+    row-gap: var(--domain-model-gap);
+}
+
+.domain-model__aggregate--references {
+    grid-template-columns: minmax(0, 1fr) var(--domain-model-outside);
 }
 
 /* The consistency boundary: what changes together, in one transaction. */
 .domain-model__band {
     position: relative;
-    display: flex;
-    flex: 1 1 22rem;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-md);
+    display: grid;
+    grid-column: 1;
+    grid-row: 1 / 4;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: subgrid;
+    row-gap: 0;
     min-width: 0;
-    padding: var(--spacing-lg) var(--spacing-md) var(--spacing-md);
-    border: var(--border-width) solid var(--color-border-strong);
-    border-radius: var(--border-radius-md);
+    padding: calc(var(--domain-model-band-pad) + var(--spacing-md)) var(--domain-model-band-pad) var(--domain-model-band-pad);
+    border: var(--border-width) dashed var(--color-primary);
+    border-radius: var(--border-radius-lg);
     background: var(--color-background-alt);
 }
 
 .domain-model__band-label {
     position: absolute;
-    top: var(--spacing-xs);
-    left: var(--spacing-md);
-    color: var(--color-text-secondary);
+    top: var(--spacing-sm);
+    left: var(--domain-model-band-pad);
+    color: var(--color-primary);
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
@@ -24800,53 +25416,240 @@ select.field__input {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
-.domain-model__parts {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--spacing-sm);
-    width: 100%;
-    margin: 0;
-    padding: var(--spacing-sm) 0 0;
-    border-top: var(--border-width) dashed var(--color-border);
-    list-style: none;
-}
-
-.domain-model__service-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
+/* A row of parts: equal columns, one bar joining their centres, one stem per part. */
+.domain-model__tier {
+    --domain-model-columns: 1;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--domain-model-columns), minmax(0, 1fr));
+    gap: var(--domain-model-gap);
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.domain-model__part,
-.domain-model__reference {
+.domain-model__tier::after {
+    content: "";
+    position: absolute;
+    left: calc((100% - (var(--domain-model-columns) - 1) * var(--domain-model-gap)) / var(--domain-model-columns) / 2);
+    right: calc((100% - (var(--domain-model-columns) - 1) * var(--domain-model-gap)) / var(--domain-model-columns) / 2);
+    border-top: var(--domain-model-line);
+}
+
+.domain-model__tier--above {
+    grid-row: 1;
+}
+
+.domain-model__tier--below {
+    grid-row: 3;
+}
+
+.domain-model__tier--above::after {
+    bottom: 0;
+}
+
+.domain-model__tier--below::after {
+    top: 0;
+}
+
+.domain-model__part {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
     gap: var(--spacing-xs);
     min-width: 0;
 }
 
-.domain-model__part[data-depth="2"],
-.domain-model__part[data-depth="3"] {
-    padding-left: var(--spacing-sm);
-    border-left: var(--border-width) solid var(--color-border);
+.domain-model__tier > .domain-model__part::before,
+.domain-model__tier > .domain-model__part::after {
+    align-self: center;
+    border-left: var(--domain-model-line);
 }
 
-.domain-model__edge {
+.domain-model__tier--above > .domain-model__part::after {
+    content: "";
+    flex: 1 0 var(--domain-model-stem);
+}
+
+.domain-model__tier--below > .domain-model__part::before {
+    content: "";
+    flex: 0 0 var(--domain-model-stem);
+}
+
+.domain-model__subparts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0 0 0 var(--spacing-md);
+    border-left: var(--domain-model-line);
+    list-style: none;
+}
+
+/* The root row: the card centred between a spacer and the dashed line out to
+   what it names by id. The line runs on past the band's padding, its border and
+   the column gap to the column's spine — lengths this stylesheet sets, so it
+   ends exactly there. The stems fill the row above and below the card. */
+.domain-model__root {
+    display: grid;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 20rem) minmax(0, 1fr);
+    align-items: center;
+}
+
+.domain-model__root-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    align-self: stretch;
+    justify-content: center;
+    grid-column: 2;
+}
+
+.domain-model__root--above .domain-model__root-stack::before,
+.domain-model__root--below .domain-model__root-stack::after {
+    content: "";
+    flex: 1 0 var(--domain-model-stem);
+    border-left: var(--domain-model-line);
+}
+
+.domain-model__id-line {
+    grid-column: 3;
+    margin-right: calc(-1 * (var(--domain-model-band-pad) + var(--border-width) + var(--domain-model-column-gap)));
+    border-top: var(--domain-model-id-line);
+}
+
+.domain-model__owns {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    background: var(--color-primary);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.domain-model__owns--above {
+    margin-bottom: -0.5rem;
+}
+
+.domain-model__owns--below {
+    margin-top: -0.5rem;
+}
+
+.domain-model__element {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-top: var(--border-width-4) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.domain-model__element--entity {
+    border-top-color: var(--color-domain-entity);
+}
+
+.domain-model__element--value-object {
+    border-top-color: var(--color-domain-value-object);
+}
+
+.domain-model__element.domain-model__element--root {
+    position: relative;
+    gap: var(--spacing-xs);
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width-2) solid var(--color-primary);
+    border-radius: var(--border-radius-lg);
+}
+
+.domain-model__element-title {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.domain-model__element-name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-model__element--root .domain-model__element-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    line-height: 1.3;
+}
+
+.domain-model__element-kind {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: baseline;
     gap: var(--spacing-xs);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+}
+
+.domain-model__element--root .domain-model__element-kind,
+.domain-model__element--root .domain-model__element-glyph {
+    color: var(--color-primary);
+}
+
+.domain-model__element--entity .domain-model__element-kind {
+    color: var(--color-domain-entity);
+}
+
+.domain-model__element--value-object .domain-model__element-kind {
+    color: var(--color-domain-value-object);
+}
+
+.domain-model__element-fields {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-model__key-fields {
+    display: flex;
+    flex-direction: column;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+.domain-model__root-links {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.domain-model__all-fields {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.domain-model__all-fields:hover {
+    color: var(--color-primary-light);
+}
+
+.domain-model__all-fields:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .domain-model__edge-owner {
@@ -24855,74 +25658,109 @@ select.field__input {
 
 .domain-model__multiplicity {
     font-family: var(--font-family-mono);
-    color: var(--color-text-primary);
 }
 
-.domain-model__element {
-    display: inline-flex;
-    flex-direction: column;
-    gap: var(--spacing-2xs);
-    min-width: 8rem;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-raised);
-}
-
-.domain-model__element--root {
-    border-color: var(--color-primary);
-}
-
-.domain-model__element-name {
-    color: var(--color-text-primary);
-    font-weight: var(--font-weight-semibold);
-}
-
-.domain-model__element-kind {
-    display: inline-flex;
-    align-items: baseline;
-    gap: var(--spacing-xs);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.domain-model__element--root .domain-model__element-glyph {
-    color: var(--color-primary);
-}
-
-.domain-model__element--value-object .domain-model__element-glyph,
-.domain-model__element--value-object .domain-model__element-kind {
-    color: var(--color-domain-value-object);
-}
-
-/* Held by identity: outside the band, on a dashed edge. */
+/* Named by id: a column outside the band, in the root's row, each type on a
+   dashed arrow off one dashed spine at the column's left edge, which the root's
+   line reaches. The heading sits above the list so the list's middle is the
+   row's middle. */
 .domain-model__references {
+    position: relative;
     display: flex;
-    flex: 0 1 16rem;
     flex-direction: column;
     gap: var(--spacing-sm);
     min-width: 0;
-    padding: var(--spacing-md);
-    border: var(--border-width) dashed var(--color-border-strong);
-    border-radius: var(--border-radius-md);
+}
+
+.domain-model__aggregate--references .domain-model__references {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    padding-left: var(--domain-model-spine);
+}
+
+.domain-model__aggregate--references .domain-model__references > .domain-model__group-label {
+    position: absolute;
+    bottom: calc(100% + var(--spacing-sm));
+    left: var(--domain-model-spine);
 }
 
 .domain-model__reference-list {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-lg);
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.domain-model__reference-name {
-    color: var(--color-text-primary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-sm);
+/* From the first card's middle to the last's — and through the row's middle,
+   where the root's line arrives, since the list is centred on it. */
+.domain-model__aggregate--references .domain-model__reference-list::before {
+    content: "";
+    position: absolute;
+    top: 1.75rem;
+    bottom: 1.75rem;
+    left: calc(var(--domain-model-spine) * -1);
+    border-left: var(--domain-model-id-line);
 }
 
-.domain-model__reference-type {
+.domain-model__reference {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.domain-model__aggregate--references .domain-model__reference::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--domain-model-spine) * -1);
+    width: calc(var(--domain-model-spine) - var(--spacing-xs));
+    border-top: var(--domain-model-id-line);
+}
+
+.domain-model__aggregate--references .domain-model__reference::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--spacing-xs) * -1 - 1px);
+    width: 0.375rem;
+    height: 0.5rem;
+    background: var(--color-border-strong);
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+    transform: translateY(-50%);
+}
+
+.domain-model__reference-head {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.domain-model__reference-name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model__reference-head .domain-model__multiplicity,
+.domain-model__reference-owner {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-model__reference-via {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
@@ -24932,13 +25770,87 @@ select.field__input {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-    padding-top: var(--spacing-md);
-    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-model__service-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-model__service {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-model__service-name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model__service-summary {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 .domain-model__unplaced {
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
+}
+
+/* Narrow: the column of ids goes under the band and the rows of parts wrap, so
+   the lines that would no longer meet are not drawn. */
+@container (max-width: 56rem) {
+    .domain-model__aggregate--references {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto auto auto;
+    }
+
+    .domain-model__aggregate--references .domain-model__references {
+        grid-column: 1;
+        grid-row: 4;
+        padding-left: 0;
+    }
+
+    .domain-model__aggregate--references .domain-model__references > .domain-model__group-label {
+        position: static;
+    }
+
+    .domain-model__id-line,
+    .domain-model__owns,
+    .domain-model__root--above .domain-model__root-stack::before,
+    .domain-model__root--below .domain-model__root-stack::after {
+        display: none;
+    }
+
+    .domain-model__tier {
+        grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    }
+
+    .domain-model__tier::after,
+    .domain-model__tier > .domain-model__part::before,
+    .domain-model__tier > .domain-model__part::after,
+    .domain-model__aggregate--references .domain-model__reference-list::before,
+    .domain-model__aggregate--references .domain-model__reference::before,
+    .domain-model__aggregate--references .domain-model__reference::after {
+        display: none;
+    }
+
+    .domain-model__tier--above {
+        padding-bottom: var(--spacing-md);
+    }
+
+    .domain-model__tier--below {
+        padding-top: var(--spacing-md);
+    }
 }
 
 /* The Model page's Fields and Events tabs (local ADR 0037 §6): the technical half
@@ -25020,6 +25932,10 @@ select.field__input {
 
 .domain-fields__class-kind.domain-model__element--root .domain-model__element-glyph {
     color: var(--color-primary);
+}
+
+.domain-fields__class-kind.domain-model__element--entity {
+    color: var(--color-domain-entity);
 }
 
 .domain-fields__class-kind.domain-model__element--value-object {

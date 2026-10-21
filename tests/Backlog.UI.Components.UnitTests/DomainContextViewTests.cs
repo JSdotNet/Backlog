@@ -1,3 +1,5 @@
+using Backlog.UI.Components.Brain;
+
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
@@ -168,5 +170,121 @@ public sealed class DomainContextViewTests
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         return context;
+    }
+
+    private static DomainContextOverview Board() =>
+        DomainContextOverview.Read(DomainContextOverviewTests.Boundary, DomainContextOverviewTests.Root, DomainContextOverviewTests.Files)
+            with { Subdomain = "core" };
+
+    [Fact]
+    public void Overview_opens_on_the_contexts_badges_name_and_lead()
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainContextView>(p => p
+            .Add(v => v.ContextName, "Tasks")
+            .Add(v => v.Overview, Board()));
+
+        Assert.Equal("Core subdomain", view.Find("[data-testid='domain-context-page-subdomain']").TextContent);
+        Assert.Equal("Module", view.Find("[data-testid='domain-context-page-deployment']").TextContent);
+        Assert.Equal("Tasks", view.Find("[data-testid='domain-context-page-title']").TextContent);
+        Assert.StartsWith("Tasks keeps a personal backlog.", view.Find("[data-testid='domain-context-page-lead']").TextContent.Trim(), StringComparison.Ordinal);
+        Assert.Contains("Inside — Tasks decides", view.Find("[data-testid='domain-context-page-inside']").TextContent, StringComparison.Ordinal);
+        Assert.Equal(3, view.FindAll("[data-testid='domain-context-page-question']").Count);
+    }
+
+    [Fact]
+    public void An_outside_answer_a_tile_a_gate_and_a_lens_each_follow_their_reference()
+    {
+        using var context = Context();
+        var followed = new List<string>();
+
+        var view = context.Render<DomainContextView>(p => p
+            .Add(v => v.ContextName, "Tasks")
+            .Add(v => v.Overview, Board())
+            .Add(v => v.OnNavigate, reference => followed.Add(reference.Raw)));
+
+        view.Find("[data-testid='domain-context-page-answer']").Click();
+        view.Find("[data-testid='domain-context-page-count'][data-type='term']").Click();
+        view.Find("[data-testid='domain-context-page-gate']").Click();
+        view.Find("[data-testid='domain-context-page-lens']").Click();
+        view.Find("[data-testid='domain-context-page-proof-requirements']").Click();
+
+        Assert.Equal(
+            [
+                ".devbook/domain/inbox/domain.md#inbox-item",
+                ".devbook/domain/tasks/domain.md#ubiquitous-language",
+                ".devbook/domain/tasks/features.md#issue-projection",
+                ".devbook/domain/tasks/features.md",
+                ".devbook/domain/tasks/requirements.md"
+            ],
+            followed);
+    }
+
+    [Fact]
+    public void The_invariants_card_opens_its_units_Always_true_tab()
+    {
+        using var context = Context();
+        DomainAlwaysTrueLink? opened = null;
+
+        var view = context.Render<DomainContextView>(p => p
+            .Add(v => v.Overview, Board())
+            .Add(v => v.OnOpenAlwaysTrue, link => opened = link));
+
+        Assert.Contains("2 invariants · 1 open", view.Find("[data-testid='domain-context-page-proof-invariants']").TextContent, StringComparison.Ordinal);
+        view.Find("[data-testid='domain-context-page-proof-invariants']").Click();
+
+        Assert.NotNull(opened);
+        Assert.Equal(".devbook/domain/tasks/domain.md#task", opened!.Reference);
+    }
+
+    [Fact]
+    public void How_settled_is_one_bar_with_a_part_per_status()
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainContextView>(p => p.Add(v => v.Overview, Board()));
+
+        var bar = view.Find("[data-testid='domain-context-page-settled-bar']");
+        Assert.Equal("img", bar.GetAttribute("role"));
+        Assert.Equal(
+            Board().Statuses.Select(status => status.Status),
+            view.FindAll("[data-testid='domain-context-page-settled-part']").Select(part => part.GetAttribute("data-status")));
+        Assert.Single(view.FindAll("[data-testid='domain-context-page-settled-note']"));
+        Assert.Equal(
+            Board().Statuses.Count,
+            view.FindAll("[data-testid='domain-context-page-status']").Count);
+    }
+
+    [Fact]
+    public void The_switches_table_names_what_each_switch_gates()
+    {
+        using var context = Context();
+
+        var view = context.Render<DomainContextView>(p => p.Add(v => v.Overview, Board()));
+
+        Assert.Equal(["Name", "Kind", "Key", "Default", "Gates"], view.FindAll("[data-testid='domain-context-page-switches'] thead th").Select(th => th.TextContent));
+        Assert.Equal(["Flag", "Setting · user"], view.FindAll("[data-testid='domain-context-page-switch-kind']").Select(td => td.TextContent));
+        Assert.Equal(["Issue projection", "My Day"], view.FindAll("[data-testid='domain-context-page-gate']").Select(gate => gate.TextContent));
+    }
+
+    [Fact]
+    public void The_brain_box_is_drawn_when_a_note_links_to_context_md()
+    {
+        using var context = Context();
+        var links = new DomainChapterLinks
+        {
+            Notes = new Dictionary<string, IReadOnlyList<BrainNoteLink>>
+            {
+                [DomainChapterLinks.Key(DomainContextOverviewTests.Root)] = [new BrainNoteLink("Projects/tasks.md", "Tasks note")]
+            },
+            NotesBox = references => builder => builder.AddMarkupContent(0, "<p data-testid=\"story-brain-box\">From your Brain</p>")
+        };
+
+        var view = context.Render<CascadingValue<DomainChapterLinks>>(p => p
+            .Add(c => c.Value, links)
+            .AddChildContent<DomainContextView>(v => v.Add(c => c.Overview, Board())));
+
+        Assert.Single(view.FindAll("[data-testid='domain-context-page-header'] [data-testid='story-brain-box']"));
     }
 }

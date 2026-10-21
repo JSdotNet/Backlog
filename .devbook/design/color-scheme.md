@@ -39,7 +39,7 @@ related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
 All tokens below are the **dark-mode** values. These are the only color values
-the product uses, beside the two values
+the product uses, beside the five values
 [Domain View Element Tones](#domain-view-element-tones) adds.
 
 ### Brand
@@ -580,13 +580,14 @@ The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
 marks a model element by its kind on the Model page's diagram and beside its
 name, a relation between two core contexts on the Context map, the requirement
 kind on the Requirements page, and a domain service in the Domain page's chapter
-bar. These are the four values this file adds outside the palette. The kind's glyph and word
+bar. These are the five values this file adds outside the palette. The kind's glyph and word
 always say what the element is, and the tone only helps the eye group the same
 kind across a diagram.
 
 | Token | Value | Element | Against `color-background` / `-alt` / `-raised` |
 | --- | --- | --- | --- |
-| `color-domain-value-object` | `#C3D96B` | Value object | 11.99:1 / 10.41:1 / 7.83:1 |
+| `color-domain-entity` | `#E5A15F` | Entity: its kind line and its card's top edge | 8.55:1 / 7.42:1 / 5.58:1 |
+| `color-domain-value-object` | `#C3D96B` | Value object: its kind line and its card's top edge | 11.99:1 / 10.41:1 / 7.83:1 |
 | `color-domain-core-line` | `#F0A33A` | A Context map line between two core contexts, and a core context's card edge | 8.91:1 / 7.74:1 / 5.82:1 |
 | `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar; on Features, a card's requirement tally and the tested part of the detail's promises bar | 8.87:1 / 7.70:1 / 5.79:1 |
 | `color-domain-service` | `#86C98F` | A domain service's outlined square in the Domain page's chapter bar | 9.59:1 / 8.33:1 / 6.26:1 |
@@ -594,6 +595,10 @@ kind across a diagram.
 Value objects take `#C3D96B`, a yellow-green between `color-band-3` and
 `color-primary`. Teal, the value the code theme spends as `code-type`, is not
 available to it, because teal is reserved for [the Brain](#the-brains-accent).
+Entities take `#E5A15F`, a clay that sits apart from the value objects'
+yellow-green and from the root's `color-primary` gold, which the root card's
+edge and the gold *owns* diamond keep. Every other model element keeps the
+neutral `color-border-strong` edge.
 
 The Context map's lines between two core contexts take `#F0A33A`, an amber of
 their own. `color-primary` is the gold that says a thing is followable, and a
@@ -621,7 +626,8 @@ listener is not told the colour at all.
 **Information badges are neutral outlines.** On the Domain view's pages, the
 `DEV` mark, a chapter's date, a chapter's feature switch, a feature's flag or
 setting chip on Features, a feature's
-*Proposed* or *Deprecated* mark on Features, a requirement's *Test linked* or
+*Proposed* or *Deprecated* mark on Features, a term's *proposed* or
+*deprecated* mark on the Glossary, a requirement's *Test linked* or
 dashed *No test linked* mark on Requirements and an event's *Documented* or *Emitted* mark on
 Model's Events tab are information about the
 chapter, not something the product acts on. Each is drawn as a neutral

@@ -228,7 +228,7 @@ public static partial class DomainUnits
     /// <summary>A <c>related</c> entry as a repository-relative reference: a
     /// rooted one as written, an anchor against the document, and a relative one
     /// against the document's folder, as a Markdown viewer reads it.</summary>
-    private static string RepositoryRelative(string related, string fromDocument)
+    internal static string RepositoryRelative(string related, string fromDocument)
     {
         var text = related.Trim().Trim('"', '\'');
         if (text.Length == 0) return string.Empty;

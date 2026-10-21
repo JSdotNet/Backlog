@@ -791,7 +791,7 @@ field types reads Model.
 | Menu row | The file | The page |
 | --- | --- | --- |
 | Context map | `context-map.md` | **Map** draws the contexts and their relations; **List** names them in reading order |
-| A context | `context.md` | **Overview** is the context's boundary; **Neighbours** is its `dependencies.md` |
+| A context | `context.md` | **Overview** is the context's boundary, what it holds, how well it is proved and settled, its switches and its pages; **Neighbours** is its `dependencies.md` |
 | Domain | `domain.md` and its splits | A unit picker. An aggregate opens **About** and **Always true**; a domain service opens one page; the **Glossary**, from the Ubiquitous Language chapter, is the bar's last tab |
 | Features | `features.md` | The features and their sub-features |
 | Requirements | `requirements.md` | Each requirement and its scenarios |
@@ -809,6 +809,17 @@ local [ADR 0037](../../arc42/adr/0037-the-domain-view-reads-by-unit.md).
 row's summary is its chapter's first sentence. A relation on **Neighbours** reads
 the "Why" column of the dependency tables. No chapter gains a field for the view,
 so a devbook reads the same in the app and in a Markdown viewer.
+
+**A context's Overview reads its `context.md` as the board draws it.** The
+name and the boundary's lead come first, under its subdomain, deployment and
+status. The *Inside the boundary:* paragraph becomes the Inside card. The
+*Outside it:* paragraph becomes the Outside card, one question per clause, each
+linked to the contexts its sentence says answer it. Tiles count the domain and
+feature chapters; two cards say how many requirements and invariants name a
+test; one bar shows how settled the chapters are; the switches table links the
+features each switch gates. The page's own words are its section headings, the
+two card labels, the line under Switches, the note under How settled, and the question beside each page it
+offers; every other word is a chapter's.
 
 **Technical detail lives on Model.** Field types, how a domain service is invoked
 and what an event carries are shown on Model only. The functional pages, from the
@@ -855,12 +866,18 @@ the outside. The chapter's prose follows the row. Every other Mermaid diagram in
 the file renders as it does elsewhere, and so does a state diagram the row cannot
 hold, such as one with composite states.
 
-**The Glossary is the context's words, A to Z.** The chapter bar's Glossary lists
-every term under `## Ubiquitous Language` and every model chapter of the
-context's domain files. Each row shows its kind, its aliases as code chips and its
-first sentence. A filter box matches a heading or an alias, kind filters sit
-beside it, and a `deprecated` chapter is struck through. **Easily confused** sets
-two terms side by side when each names the other in `related`.
+**The Glossary is the context's words, A to Z.** The chapter bar's Glossary
+lists every term under `## Ubiquitous Language` and every model chapter of the
+context's domain files in one card, under a lead that says so. Each row shows
+its kind, a `proposed` or `deprecated` badge, its aliases as code chips and its
+first sentence, and a `deprecated` chapter is struck through. A find box matches
+a heading or an alias. Beside it, one-choice pills with counts show All, Model,
+Terms or Borrowed, the last only when a term is borrowed. A term is **borrowed**
+when its `related` names its own heading in another context; its row links
+there. With All picked and nothing typed, a list of more than twenty rows shows
+its first fifteen and the rest behind *n more*. Beside the list, **Easily
+confused** gives one card to each group of terms that name each other in
+`related`, and **Across contexts** lists the borrowed words.
 
 **Features stand by what they build on.** The Features page sets a context's
 features in columns by how many of its features each builds on through
