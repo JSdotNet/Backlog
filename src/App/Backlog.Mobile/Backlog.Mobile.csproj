@@ -59,6 +59,9 @@
              store over MAUI SecureStorage (Services/SecureStorageDeviceCredentialStore);
              DPAPI is Windows and Android has its own. -->
         <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+        <!-- Notifications as a viewer (local ADR 0038): the phone shows notifications and
+             replies, and never publishes or changes one. -->
+        <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
     </ItemGroup>
 
     <!-- BacklogSyncServiceUrl is the sync service the APK talks to when nothing in

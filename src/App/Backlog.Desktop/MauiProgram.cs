@@ -233,6 +233,11 @@ public static class MauiProgram
         // task marked blocked (local ADR 0035), and a watcher nobody resolves hears nothing.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
 
+        // And the notifications startup pass (local ADR 0038): it closes the open notifications
+        // whose subject ended while the app was closed, and hands every stored answer no handler
+        // took yet to its handler. Started on the thread pool, never ahead of the first window.
+        _ = app.Services.GetRequiredService<Backlog.Modules.Notifications.Services.NotificationsStartup>().Start();
+
         // And the MCP listener, on the same terms again - its constructor is
         // what queues the bind, so a singleton nobody resolves is a server no
         // session can reach. Queues, not performs: building the ASP.NET host

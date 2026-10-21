@@ -410,7 +410,9 @@ publishes through one port, `INotifications`, in
 `Backlog.Modules.Notifications.Abstractions`. No context builds its own channel
 between devices. Local ADR 0038 records the decision, and the
 [Notifications context](../domain/notifications/context.md) owns the model.
-Nothing here is built yet.
+The owner's side is built: the port, the handler and probe contracts, the
+`notifications` table in `backlog.db`, the answer replay and the startup probe
+pass. The screens, the replica container and the realtime nudge are not yet.
 
 | Concern | How it works |
 |---|---|

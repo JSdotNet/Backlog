@@ -36,9 +36,9 @@ public class InfrastructureGraphTests
             + "Workspace/ by module is what brings it under the cap. The ninth is Progress's published "
             + "surface, for the cross-context join under Progress/ that reads the tasks goals name through "
             + "Tasks' ITaskItems, beside the Roadmap and Inbox joins of the same kind."),
-        ("Backlog.Infrastructure.Sqlite", 5,
+        ("Backlog.Infrastructure.Sqlite", 6,
             "The canonical local store: one table per owning module in one backlog.db — Tasks, Roadmap "
-            + "Planning, the Inbox, Sessions and Progress — each answering that module's own repository "
+            + "Planning, the Inbox, Sessions, Progress and Notifications — each answering that module's own repository "
             + "port. The tables share a file, not a schema (inherited ADR 0014)."),
         ("Backlog.Infrastructure.GitHub", 5,
             "The repository registry and its GitHub client answer each context that asks about a "

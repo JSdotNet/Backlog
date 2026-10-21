@@ -127,6 +127,9 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Progress/Backlog.Modules.Progress` | Progress module — the sprint series and their sprints, the series assignment and sprint progress services, and the `ISprintSeriesRepository` port |
 | `src/Modules/Progress/Backlog.Modules.Progress.Abstractions` | The Progress module's published surface — the sprint DTOs, `ISprintSeriesPlanning`, `ISprintProgress`, the `ISprintTaskSource` and `IGoalPullRequestReader` ports, and `ProgressFeatures` |
 | `src/Modules/Progress/Backlog.Modules.Progress.UI` | Progress's desktop face — today the `ProgressOnly` switch every sprint screen is drawn under |
+| `src/Modules/Notifications/Backlog.Modules.Notifications` | Notifications module — the Notification aggregate and its reply rules, the owner's and the viewer's ports, answer delivery and replay, the startup subject probes, and the `INotificationRepository` port |
+| `src/Modules/Notifications/Backlog.Modules.Notifications.Abstractions` | The Notifications module's published surface — `INotifications`, `INotificationReplies`, `INotificationAnswerHandler`, `INotificationSubjectProbe`, the draft and answer records, and `NotificationsFeatures` |
+| `src/Modules/Notifications/Backlog.Modules.Notifications.UI` | Notifications' screens — empty until the notification centre lands |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.Abstractions` | Sessions' published surface — the session record, its states and groupings, and the `IAgentSessionSource` port |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions' desktop face — the full-screen session list over the readers `Backlog.Infrastructure.Sessions` provides |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.Abstractions` | Dev PC Management's published surface — `DevPcFeatures` and the types its screens exchange |
@@ -174,6 +177,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
 | `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
 | `tests/Backlog.Modules.Progress.UnitTests` | Unit tests for the Progress module — one per sprint series invariant, the sprint progress reading, and the published ports behind the `progress` switch |
+| `tests/Backlog.Modules.Notifications.UnitTests` | Unit tests for the Notifications module — one or more per notification and reply invariant, answer delivery and replay, and the startup subject probes |
 | `tests/Backlog.Modules.DevPc.UnitTests` | Unit tests for the Dev PC Management module — the tools pane and its tabs, overview, run states and rail layout, the Ask AI source, the tool output parsers, the catalog and command specs, and MCP endpoint expansion |
 | `tests/Backlog.Modules.Sessions.UnitTests` | Unit tests for the Sessions module — the grouping, views and environments, delivery-run merging, the Sessions pane and its run stages, the economics page, the Ask AI source, and the two settings pages |
 | `tests/Backlog.Infrastructure.Sqlite.UnitTests` | Unit tests for the SQLite store — round-tripping a task aggregate and rank order, and round-tripping the roadmap plan document, its `updated_at` stamp, and the two tables coexisting in one file |

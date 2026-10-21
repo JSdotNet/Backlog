@@ -1,8 +1,10 @@
 using Backlog.Infrastructure.Sqlite.Inbox;
+using Backlog.Infrastructure.Sqlite.Notifications;
 using Backlog.Infrastructure.Sqlite.Progress;
 using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Infrastructure.Sqlite.Sessions;
 using Backlog.Modules.Inbox;
+using Backlog.Modules.Notifications;
 using Backlog.Modules.Progress;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Sessions.Abstractions;
@@ -20,7 +22,7 @@ namespace Backlog.Infrastructure.Sqlite;
 public static class SqliteRegistration
 {
     /// <summary>
-    /// Registers the task repository, the roadmap plan, the goals, the impediments, the inbox tables and the
+    /// Registers the task repository, the roadmap plan, the goals, the impediments, the inbox tables, the notifications and the
     /// Claude Code api_request table, each a
     /// singleton rooted at <paramref name="rootDirectory"/>.
     /// <para>
@@ -77,6 +79,11 @@ public static class SqliteRegistration
             new RootedSqliteInboxRepository(() => rootDirectory(sp)));
         services.AddSingleton<IInboxItemRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
         services.AddSingleton<IInboxOrganizerRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
+
+        // The notifications this desktop owns (local ADR 0038 §3): one row per notification in
+        // the notifications table, its accepted answer kept there until its handler takes it.
+        services.AddSingleton<INotificationRepository>(sp =>
+            new RootedSqliteNotificationRepository(() => rootDirectory(sp)));
 
         // The Claude Code api_request events the /v1/logs endpoint keeps (local ADR
         // 0024): the Sessions context's table, in the same file and following the

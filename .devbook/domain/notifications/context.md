@@ -42,7 +42,10 @@ the realtime nudge is
 The module is `Backlog.Modules.Notifications`, published to other contexts through
 `Backlog.Modules.Notifications.Abstractions`, with its screens in
 `Backlog.Modules.Notifications.UI`. The delivery technology sits behind ports in
-`Backlog.Infrastructure.Notifications`. None of these projects exists yet.
+`Backlog.Infrastructure.Notifications`. The module, its abstractions and an empty
+UI project exist, with the owner's store as the `notifications` table in
+`backlog.db`; the screens, the sync exchange and the infrastructure project do not
+yet.
 
 ## Dependencies
 

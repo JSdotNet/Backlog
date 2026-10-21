@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Notifications module's UI (.devbook/domain/notifications/features.md): the
+    notification centre and the question card the shells will draw. Empty in this
+    step on purpose — the module core lands first, and the screens follow in their
+    own plan entry.
+
+    It references the shared control library rather than growing its own controls,
+    which is the rule every module UI project follows, and the module's published
+    surface only — never a notification, its repository or the services.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Notifications.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

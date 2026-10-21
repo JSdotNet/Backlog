@@ -26,6 +26,7 @@ using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
+using Backlog.Modules.Notifications.Extensions;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
@@ -144,6 +145,12 @@ public static class DesktopCompositionRegistration
         // Progress (local ADR 0035): goals, impediments and the stand-up, always on
         // (§10).
         services.AddProgressModule();
+
+        // Notifications (local ADR 0038): this desktop owns what it publishes, kept in the
+        // notifications table AddSqlite registered above. Each context that asks questions adds
+        // its handler with AddNotificationAnswerHandler<T>(); none does yet. The heads start
+        // NotificationsStartup once the container is built.
+        services.AddNotificationsModule();
         // The stand-up behind the shell's Ask AI port on the Goals view, after the
         // module so the scoped stand-up port it holds exists.
         services.AddGoalsAiContentSource();
