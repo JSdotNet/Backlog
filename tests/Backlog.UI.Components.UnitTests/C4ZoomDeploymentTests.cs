@@ -81,6 +81,16 @@ public sealed class C4ZoomDeploymentTests : IDisposable
     // ---- environments --------------------------------------------------------------
 
     [Fact]
+    public void Also_opens_the_deployment_view_the_workspace_declares_first()
+    {
+        // "deployment-azure" sorts first by key; the canonical Local machine view is
+        // declared first, and it is the one the environment tabs lead with.
+        var bar = C4ZoomNavigation.Bar(Workspace, View("containers-backlog"), null);
+
+        Assert.Equal("deployment-local", bar.Also.Single(also => also.Kind == C4ViewKind.Deployment).ViewKey);
+    }
+
+    [Fact]
     public void A_deployment_view_lists_every_environment_of_its_scope_with_the_open_one_current()
     {
         var environments = C4ZoomDeployment.Environments(Workspace, View("deployment-local"));
@@ -225,13 +235,8 @@ public sealed class C4ZoomDeploymentTests : IDisposable
             .Add(c => c.Workspace, Workspace)
             .Add(c => c.HintDismissed, true));
 
-        // Also offers one deployment view, the first by key; the Local machine tab is
-        // then one press away whichever it was.
+        // Also opens the deployment view the workspace declares first: Local machine.
         explorer.FindAll("[data-testid='c4-zoom-also-link']").Single(link => link.TextContent.Trim() == "Deployment").Click();
-        if (explorer.Instance.ViewKey != "deployment-local")
-        {
-            explorer.FindAll("[data-testid='c4-zoom-environment-tab']").Single(tab => tab.TextContent.Trim() == "Local machine").Click();
-        }
 
         Assert.Equal("deployment-local", explorer.Instance.ViewKey);
         return explorer;
