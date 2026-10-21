@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 ```
 
 - **Local-first, one canonical local store.** The desktop's own store is the single
@@ -41,6 +41,7 @@ Optional cloud sync carries this state between a person's devices:
 | Impediment | kind `impediment` in `tasks`, one document per impediment under its own id; the phone's edits go through the device outbox | last-write-wins per impediment on its `updated_at` | local ADR 0018's arrangement, local ADR 0035 |
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
+| Notifications and replies (not built) | a document in the `notifications` container | not reconciled: the owner instance writes each notification, and a viewer writes each reply once ([Notifications](#notifications)) | local ADR 0038 |
 
 - **A capture is a task-shaped document with its own kind token.** On the desktop
   it is handed to the Inbox's intake before the task merge. It becomes an inbox
@@ -396,6 +397,47 @@ flowchart TB
   because scanning the corpus per query is a hang, not a fallback.
 - **One artifact, every channel.** Desktop, mobile and the IDE extensions read the
   same schema rather than each carrying its own markdown parser.
+
+## Notifications
+
+```meta
+status: proposed
+related: [".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/context.md", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
+```
+
+Every context that needs to tell the person something, or ask them a question,
+publishes through one port, `INotifications`, in
+`Backlog.Modules.Notifications.Abstractions`. No context builds its own channel
+between devices. Local ADR 0038 records the decision, and the
+[Notifications context](../domain/notifications/context.md) owns the model.
+Nothing here is built yet.
+
+| Concern | How it works |
+|---|---|
+| Publishing | A source on a desktop calls `PublishAsync` with an alert or a question. That desktop becomes the notification's owner instance. |
+| Answering | A source that asks questions registers an `INotificationAnswerHandler` for its source name. The owner hands it the accepted answer, at least once. |
+| Ending | The context that owns a notification's subject calls `CloseForSubjectAsync` when the subject ends. Its `INotificationSubjectProbe` answers at startup and after a sync, to catch an end the owner missed. |
+| Storage | The owner keeps SQLite as its local store. Notifications and replies replicate through the `notifications` container, which expires them 30 days after they close. |
+| Realtime | A nudge only says "pull now". Desktops get it through Azure Web PubSub, and the Android phone through Azure Notification Hubs to FCM. |
+
+- **One writer per document.** Only the owner instance writes a notification. A
+  viewer writes a reply document once, and the owner accepts or rejects it. The
+  first valid reply the owner processes wins.
+- **Push payloads hold no body.** A push or an OS notification carries the id,
+  the title and the summary. A source can mark a notification private, and the
+  summary is then replaced by a fixed text.
+- **Logs never hold content.** The service and the apps never log a body or the
+  text of an open answer. One trace follows each notification from publish to
+  answer, with the reply hop as a linked span. The metrics are time to first
+  view, time to answer, rejected replies and push failures.
+- **Who may answer.** The sync API accepts a reply only from a device under the
+  same owner, and the owner checks again. Any paired viewer may answer, critical
+  questions included, unless the question says `answerOn: owner`.
+- **The flag is per device.** Off on a phone means no push and no list. Off on a
+  desktop means its sources fall back to toasts, and an MCP `ask` answers that
+  notifications are not available.
+- **The sync service still scales to zero.** No connection to the sync service
+  stays open. Web PubSub holds the desktop connections instead.
 
 ## Feature Enablement
 
