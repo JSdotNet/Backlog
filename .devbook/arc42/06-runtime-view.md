@@ -738,3 +738,52 @@ sequenceDiagram
   that names it, and the desktop fetches it from the attachment store. An edit
   uploads only the files it added. The service releases a note's files when it
   takes the note's tombstone, as it does a capture's.
+
+## Notification Reply
+
+```meta
+status: proposed
+related: [".devbook/domain/notifications/domain.md#reply", ".devbook/domain/notifications/requirements.md#answering-from-another-device", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/06-runtime-view.md#mobile-note-sync"]
+```
+
+A question raised on a desktop is answered from the phone. Desktop A owns the
+notification, so the phone's reply only proposes an answer, and Desktop A decides.
+Nothing in this scenario is built yet; local ADR 0038 records the decision.
+
+```mermaid
+sequenceDiagram
+    participant Source as Source on Desktop A
+    participant Owner as Notifications on Desktop A
+    participant Sync as Sync Service
+    participant Phone as Phone
+
+    Source->>Owner: PublishAsync(question)
+    Owner->>Owner: Store locally, show a Windows notification
+    Owner->>Sync: POST notification
+    Sync-->>Phone: Push "pull now", with title and summary
+    Phone->>Sync: GET notifications feed
+    Phone->>Sync: POST reply through the device outbox
+    Sync-->>Owner: Web PubSub nudge
+    Owner->>Sync: GET replies
+    Owner->>Owner: Check the reply against the answer spec, accept the first valid one
+    Owner->>Source: HandleAnswerAsync(answer)
+    Owner->>Sync: POST notification, state Answered
+    Sync-->>Phone: Push "pull now"
+    Phone->>Sync: GET notifications feed, shows "Answered from this phone"
+```
+
+- **The push carries no body.** The phone's OS notification shows the title and
+  summary from the push. The phone pulls the body when the person opens it. Set
+  choices become notification actions, up to three, and an open answer uses
+  inline reply.
+- **An offline owner delays the answer, not the reply.** The reply waits in the
+  `notifications` container. The phone shows "delivers on wake" until Desktop A
+  wakes, pulls the reply and accepts it.
+- **A missed nudge costs only time.** While a question is open, Desktop A also
+  polls for replies every two minutes, so a lost Web PubSub message delays the
+  answer and never loses it.
+- **The answer survives a restart.** Desktop A stores the accepted answer in
+  SQLite before it calls the source's handler. It replays the answer to a handler
+  that was not running, so the handler must accept the same answer twice.
+- **A late reply is rejected with its reason.** A reply to a question that was
+  already answered or closed is rejected, and the phone shows which answer won.

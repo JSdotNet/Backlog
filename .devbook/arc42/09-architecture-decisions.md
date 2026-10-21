@@ -123,3 +123,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0033 — The Dashboard sends its figures to Foundry, whichever part was pressed](adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md)
 - [ADR 0034 — Archify renders are generated on demand into app storage, not committed](adr/0034-archify-renders-are-generated-on-demand-not-committed.md)
 - [ADR 0035 — Goals and impediments replace sprints](adr/0035-goals-and-impediments-replace-sprints.md)
+- [ADR 0038 — Notifications are an owned document kind on their own replica container, and the realtime channel only nudges](adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md) (proposed)

@@ -18,7 +18,9 @@ These are still `candidate`:
 - the Visual Studio channel (`Visual Studio Extensibility` and `WPF`) and the
   VS Code webview UI;
 - the desktop's background workers, which are designed but not yet implemented;
-- `Firebase Cloud Messaging`, the push transport to the phone;
+- `Azure Web PubSub` and `Azure Notification Hubs`, the realtime nudge to the
+  desktops and the phone, and `Firebase Cloud Messaging`, the push transport
+  behind the hub;
 - the `Anthropic Claude Platform` and the `GitHub Copilot Usage APIs`, the two
   sources of measured AI usage.
 
@@ -154,6 +156,8 @@ flowchart LR
             AzureIdentity["Azure.Identity"]:::adopted
             BlobStorage["Azure Blob Storage"]:::trial
             ACA["Azure Container Apps"]:::trial
+            WebPubSub["Azure Web PubSub"]:::candidate
+            NotificationHubs["Azure Notification Hubs"]:::candidate
         end
     end
 
@@ -278,6 +282,9 @@ flowchart LR
     AzureIdentity --> DotNet
     ACA --> MinimalApis
     BlobStorage --> MinimalApis
+    WebPubSub --> MinimalApis
+    NotificationHubs --> MinimalApis
+    NotificationHubs --> FCM
 
     XUnit --> DotNet
     XUnit --> CSharp
