@@ -26,6 +26,7 @@
           IsNodeExpanded="node => IsNodeExpanded(Original(node))"
           NodeClass="node => NodeClass(Original(node))"
           NodeMark="@(NodeMark is null ? null : MarkFor)"
+          NodeTrail="@CountFor"
           IsFolderOpening="node => IsFolderOpening(Original(node))"
           OnNodeSelected="node => OnNodeSelected.InvokeAsync(Original(node))"
           OnOpenFolder="node => OnOpenFolder.InvokeAsync(Original(node))" />
@@ -122,6 +123,12 @@
     }
 
     private RenderFragment? MarkFor(TreeNode node) => NodeMark?.Invoke(Original(node));
+
+    /// <summary>A kind row's count in the New domain view: how many rows it
+    /// holds, read with the label ("Domain, 13 items").</summary>
+    private RenderFragment? CountFor(TreeNode node) => Original(node).Count is { } count
+        ? @<span data-testid="devbook-menu-count"><span class="sr-only">, </span>@count<span class="sr-only">@(count == 1 ? " item" : " items")</span></span>
+        : null;
 
     private DevbookMenuNode Original(TreeNode node) =>
         _originals.TryGetValue(node.Id, out var original)

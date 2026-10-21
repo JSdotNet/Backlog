@@ -1397,6 +1397,22 @@ The system SHALL list a file named `<kind>.<name>.md` under its kind's row, titl
 - **When** the reader opens the context in the Domain view
 - **Then** *Order line* is a child of the *Order* row
 
+### Requirement: A kind's row reads its heading and counts its pages
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.A_kind_row_counts_the_rows_under_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.A_kind_row_is_labelled_by_its_base_file_s_heading_from_the_database, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuDomainUnitsTests.The_assets_folder_draws_no_row_but_another_folder_does, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuTreeViewTests.A_counted_row_shows_its_count_after_its_label]
+```
+
+The system SHALL title a kind's row by its base file's heading unless that heading only repeats the context's name, show beside it how many rows it holds, and draw no row for the context's `assets` folder.
+
+#### Scenario: A split context in its own words
+
+- **Given** a context whose `flow.md` is headed *Flows* and which holds ten `flow.<name>.md` files
+- **When** the reader opens the context in the Domain view
+- **Then** the menu has a *Flows* row showing 10, and no *Assets* row
+
 ### Requirement: The rules are the Always true tab
 
 ```meta

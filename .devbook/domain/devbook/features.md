@@ -802,8 +802,14 @@ The menu lists files in the devbook reading order, and a split file nests under
 its kind's row. A rules file, a click demo and `dependencies.md` get no row of
 their own. Each one shows on the page it belongs to: the rules as the **Always
 true** tab, the demo as a **Demo** button, the dependencies as **Neighbours**. A
-file whose name starts with `_` stays hidden. How each file maps to a row is
+file whose name starts with `_` stays hidden, and so does the `assets` folder,
+whose images the chapters show. How each file maps to a row is
 local [ADR 0037](../../arc42/adr/0037-the-domain-view-reads-by-unit.md).
+
+A kind's row is titled by its base file's heading, so Fincent's `actors.md`
+reads *Actoren* and its `flow.md` *Flows*, and it counts the rows under it at
+its far edge. A heading that only repeats the context's name keeps the kind's
+own name, as every row does before the devbook database is built.
 
 **Wording comes from the chapters.** A page shows the headings as written, and a
 row's summary is its chapter's first sentence. A relation on **Neighbours** reads

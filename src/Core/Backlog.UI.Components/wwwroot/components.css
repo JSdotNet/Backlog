@@ -3437,6 +3437,17 @@ button.devbook-chip__label:focus-visible {
     color: var(--color-text-secondary);
 }
 
+/* What a row shows after its label — a kind row's count in the New domain view —
+   pushed to the row's far edge so a column of them lines up. */
+.devbook-menu__trail,
+.folder-tree__trail {
+    flex: none;
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
 /* --- Scenario pages ---------------------------------------------------- */
 /* A scenario page's mark in the Devbook menu: its glyph and its run's dot. */
 .devbook-scenario-mark {

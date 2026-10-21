@@ -643,6 +643,10 @@ public sealed record DevbookMenuNode(
     string? Message = null)
 {
     public bool HasChildren => Children.Count > 0;
+
+    /// <summary>The number the row shows beside its label, or null for none —
+    /// how many pages a kind's row holds in the New domain view (local ADR 0037).</summary>
+    public int? Count { get; init; }
 }
 
 public enum DevbookMenuNodeKind
