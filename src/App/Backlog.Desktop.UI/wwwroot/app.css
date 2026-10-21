@@ -6913,6 +6913,33 @@ a.pull-request-detail-checks__name:hover {
     margin-top: var(--spacing-sm);
 }
 
+/* A C4 view a chapter embeds as ![…](c4:<key>), drawn where the image was. A block
+   inside the paragraph, the full width of the chapter, framed like the explorer's
+   stage; the diagram's inline host keeps the picture's own aspect ratio. */
+.devbook-c4-embed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-sm) 0;
+}
+
+.devbook-c4-embed .c4-diagram-host--inline {
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+}
+
+.devbook-c4-embed__caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: 0.85em;
+}
+
 /* The way across from a domain chapter to the architecture model. A row of links
    under the file rather than a nav of cards: the domain pane is narrow, and this is
    one or two entries, not a list to choose from. */

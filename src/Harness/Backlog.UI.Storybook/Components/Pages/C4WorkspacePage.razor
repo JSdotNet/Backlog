@@ -34,6 +34,15 @@ Every card is a `g.node` whose id is `<svg id>-<alias>`, which is exactly what t
         </div>
     </Story>
 
+    <Story Name="Inside running text"
+           Description="`Inline` makes the host a span, for a diagram drawn inside a paragraph — where a chapter's `![…](c4:<view key>)` embed was written. A div there is invalid, and an HTML parser closes the paragraph on it. The span is a block the width of the text and as tall as the picture's aspect ratio makes it, where the default host fills its frame for the explorer to pan and zoom."
+           Code="@InlineUsage">
+        <p>
+            The containers, as the chapter embeds them:
+            <C4DiagramView Diagram="@ContainerDiagram" Id="sb-c4-inline" AriaLabel="Container Diagram" Inline="true" TestId="sb-c4-inline" />
+        </p>
+    </Story>
+
     <Story Name="What a level means"
            Description="`include *` does not mean every element in the model — it means the default set for that kind of view, which is what keeps a container view of one system from being a drawing of all of them. All people and top-level systems for a landscape; the scope plus its direct neighbours for a context; the scope's own containers plus the neighbours of those, with other systems left closed, for a container view.
 
@@ -120,6 +129,15 @@ That behaviour is the whole safeguard. This reader is a second implementation of
         <C4DiagramView Diagram="@C4LayoutEngine.Build(workspace, view)"
                        Id="@svgId"
                        AriaLabel="@C4Exploration.Label(workspace, view)" />
+        """;
+
+    private const string InlineUsage = """
+        <p>
+            <C4DiagramView Diagram="@C4LayoutEngine.Build(workspace, view)"
+                           Id="@svgId"
+                           AriaLabel="@caption"
+                           Inline="true" />
+        </p>
         """;
 
     /// <summary>

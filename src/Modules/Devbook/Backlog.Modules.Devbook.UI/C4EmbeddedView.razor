@@ -1,0 +1,70 @@
+@*
+    A C4 view a chapter embeds as `![alt](c4:<view key>)`, drawn where the image was.
+
+    The picture is the C4 tab's own C4DiagramView, without the explorer's pan, zoom
+    and facets: a chapter shows the view to be read beside its prose, and the C4 tab
+    is one click away for exploring it.
+
+    Spans throughout with role="figure", and the diagram's inline host, for the
+    reason DevbookScenarioShot gives: it sits inside the paragraph the image was
+    written in.
+*@
+<span class="devbook-c4-embed" role="figure" aria-label="@Caption" data-testid="devbook-c4-embed" data-c4-view="@View.Key">
+    <C4DiagramView Diagram="@Diagram()"
+                   Id="@_id"
+                   AriaLabel="@Caption"
+                   Inline="true"
+                   TestId="devbook-c4-embed-diagram" />
+    <span class="devbook-c4-embed__caption">
+        <span>@Caption</span>
+        @if (OnOpen.HasDelegate)
+        {
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="devbook-c4-embed-open"
+                       OnClick="() => OnOpen.InvokeAsync(View)">Open in C4 tab</AppButton>
+        }
+    </span>
+</span>
+
+@code {
+    /// <summary>Unique per embed, because every card's id in the SVG is this plus
+    /// the node's alias, and two embeds of one view on screen must not share them.</summary>
+    private readonly string _id = "c4-embed-" + Guid.NewGuid().ToString("N")[..8];
+
+    private C4Diagram? _diagram;
+    private C4Workspace? _laidOutWorkspace;
+    private C4View? _laidOutView;
+
+    /// <summary>The workspace the view is read from.</summary>
+    [Parameter, EditorRequired]
+    public C4Workspace Workspace { get; set; } = null!;
+
+    /// <summary>The view, as the workspace defines it.</summary>
+    [Parameter, EditorRequired]
+    public C4View View { get; set; } = null!;
+
+    /// <summary>The embed's alt text, or the view's own title when it has none.</summary>
+    [Parameter]
+    public string? Caption { get; set; }
+
+    /// <summary>Opens the view in the C4 tab. Without one the figure offers no way
+    /// across.</summary>
+    [Parameter]
+    public EventCallback<C4View> OnOpen { get; set; }
+
+    /// <summary>Laid out again only when the workspace or the view changed; the
+    /// diagram view writes the SVG again only when the layout did, as it does for the
+    /// explorer.</summary>
+    private C4Diagram Diagram()
+    {
+        if (_diagram is null || !ReferenceEquals(_laidOutWorkspace, Workspace) || !ReferenceEquals(_laidOutView, View))
+        {
+            _diagram = C4LayoutEngine.Build(Workspace, View);
+            _laidOutWorkspace = Workspace;
+            _laidOutView = View;
+        }
+
+        return _diagram;
+    }
+}
