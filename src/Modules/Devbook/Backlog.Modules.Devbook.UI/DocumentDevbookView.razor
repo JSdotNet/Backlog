@@ -89,7 +89,10 @@
                        badge it replaced could not do. *@
                     <a href="#@FileAnchor(file)" class="folder-devbook__nav-link">
                         <span>@file.Title</span>
-                        <DevbookStatusPill Status="@file.Meta.Status" Folder="@Folder.Folder" />
+                        @if (StatusShown)
+                        {
+                            <DevbookStatusPill Status="@file.Meta.Status" Folder="@Folder.Folder" />
+                        }
                     </a>
                 }
             </nav>
@@ -136,6 +139,7 @@
                                                Vocabulary="@DevbookStatus.Vocabulary(Folder.Folder)"
                                                ShowFields="false"
                                                CanEditStatus="@CanEdit"
+                                               ShowStatus="@StatusShown"
                                                AriaLabel="@($"{file.Title} metadata")"
                                                CssClass="folder-document__record"
                                                Heading="@DocumentHeading(file)"
@@ -255,10 +259,11 @@
                                   DevbookDocumentPath="@DocumentPath(file)"
                                   ChapterAdornment="@DevbookSyncAdornment.For(_syncVerdicts, _folders, RepositoryAlias, DocumentPath(file))"
                                   CanEditDevbookStatus="@CanEdit"
+                                  ShowDevbookStatus="@StatusShown"
                                   OnDevbookStatusChanged="change => ChangeChapterStatusAsync(file, change)"
                                   OnDevbookNavigate="NavigateDevbookReferenceAsync"
-                                  CanEdit="@(chapter is { CanEdit: true })"
-                                  Editing="@(_editing && chapter is { CanEdit: true })"
+                                  CanEdit="@(EditOffered && chapter is { CanEdit: true })"
+                                  Editing="@(EditOffered && _editing && chapter is { CanEdit: true })"
                                   EditingChanged="OnEditingChangedAsync"
                                   EditBodyContent="@ChapterEditor(chapter, file)" />
                         </CascadingValue>
@@ -294,6 +299,7 @@
                                                        Vocabulary="@DevbookStatus.Vocabulary(Folder.Folder)"
                                                        ShowFields="false"
                                                        CanEditStatus="@CanEdit"
+                                                       ShowStatus="@StatusShown"
                                                        AriaLabel="@($"{section.Heading} metadata")"
                                                        CssClass="folder-section__record"
                                                        Heading="@SectionHeading(section)"
@@ -446,11 +452,31 @@
         _folders = Services.GetService<IDevbookFolderSource>();
         _syncVerdicts = Services.GetService<IDevbookSyncVerdicts>();
         if (_syncVerdicts is not null) _syncVerdicts.Changed += OnSyncVerdictsChanged;
+
+        // Optional: a host with no scope offers Edit and shows status as the view
+        // always did — DevbookScope.EditOfferedBy states the rule.
+        _switches = DevbookScope.Watch(Services.GetService<DevbookScope>(), InvokeAsync, OnSwitchesChangedAsync);
     }
 
     /// <summary>A sweep recorded verdicts while the view was open: redraw, so the
     /// badges beside the headings are the latest.</summary>
     private void OnSyncVerdictsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>Whether Edit is offered and status shown, as Devbook answers.</summary>
+    private DevbookViewerSwitches _switches = null!;
+
+    private bool EditOffered => _switches.EditOffered;
+
+    private bool StatusShown => _switches.StatusShown;
+
+    /// <summary>A switch changed while the view was open: leave edit mode
+    /// through the path that flushes the editor when Edit is no longer offered,
+    /// so nothing typed is lost with the control, then redraw.</summary>
+    private async Task OnSwitchesChangedAsync()
+    {
+        if (_editing && !EditOffered) await OnEditingChangedAsync(false);
+        StateHasChanged();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -952,5 +978,6 @@
         _chapterBusyWait = null;
         Provider.Changed -= OnDevbookChanged;
         if (_syncVerdicts is not null) _syncVerdicts.Changed -= OnSyncVerdictsChanged;
+        _switches?.Dispose();
     }
 }

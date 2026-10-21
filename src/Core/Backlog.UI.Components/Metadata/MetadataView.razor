@@ -94,15 +94,17 @@
                                 Slug="@Vocabulary.SlugFor(_status)"
                                 OnChanged="SelectStatus" />
             }
-            else
+            else if (ShowStatus)
             {
                 <MetadataStatusBadge Status="@_status" Vocabulary="@Vocabulary" />
             }
             @* Decision and review state goes beside the status and nowhere else:
                it says who signed that status off, or who owes the next move
                towards it, and none of it is chapter content. In a code block so a
-               record with no state renders the headline it always did. *@
-            @if (!Metadata.State.IsEmpty)
+               record with no state renders the headline it always did. It goes
+               with the status when a host hides that: a sign-off with no status
+               beside it says who approved nothing on screen. *@
+            @if (ShowStatus && !Metadata.State.IsEmpty)
             {
                 <MetadataStateLine State="@Metadata.State" />
             }
@@ -276,7 +278,13 @@
 
     protected override void OnParametersSet()
     {
-        _findings = DevbookMetadataFindings.For(Folder, Level, Metadata, FileName);
+        var findings = DevbookMetadataFindings.For(Folder, Level, Metadata, FileName);
+
+        // A finding about the status or its sign-off prints the very word the
+        // host hid, so it goes with the status.
+        _findings = ShowStatus
+            ? findings
+            : [.. findings.Where(finding => !IsAboutStatus(finding.Field))];
         _sync = Folder != DevbookFolder.Unknown ? SyncScope?.Describe(Level, HeadingText) : null;
 
         if (Equals(_seeded, Metadata)) return;
@@ -310,7 +318,26 @@
     [Parameter]
     public bool CanEditStatus { get; set; } = true;
 
-    private bool StatusIsSelectable => CanEditStatus && Vocabulary.Selectable(_status);
+    /// <summary>
+    /// Whether the status is drawn at all — the select or the badge, and the
+    /// decision state that qualifies it. On by default.
+    /// <para>
+    /// Separate from <see cref="CanEditStatus"/>, which keeps the status and takes
+    /// away only the means of changing it. This takes the status away, for a
+    /// surface whose host has switched the status display off; the heading, the
+    /// sync direction and the fields stay.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public bool ShowStatus { get; set; } = true;
+
+    /// <summary>Whether a finding is about the status or the decision and review
+    /// state that qualifies it — the findings <see cref="ShowStatus"/> off
+    /// hides.</summary>
+    private static bool IsAboutStatus(string field) =>
+        string.Equals(field, "status", StringComparison.OrdinalIgnoreCase) || DevbookSchema.IsStateField(field);
+
+    private bool StatusIsSelectable => ShowStatus && CanEditStatus && Vocabulary.Selectable(_status);
 
     /// <summary>The options the vocabulary offers, in the order it lists them —
     /// its words, led by an explicit "no status" entry on a surface that allows
@@ -367,14 +394,18 @@
     /// nothing in it — and a record that stood down for that would take the
     /// heading and the select away with it, leaving a reader who cleared a status
     /// no way to set one again after the file was re-read.</para>
+    /// <para>A hidden status keeps the heading for the same reason: the select
+    /// that held an emptied fence's heading on the page is gone with the status,
+    /// and the host handed the heading here rather than drawing it itself.</para>
     private bool RendersAnything =>
         StatusIsSelectable
+        || (!ShowStatus && Heading is not null)
         || _sync is not null
         || _findings.Count > 0
         || (!Metadata.IsEmpty
             && (Heading is not null
-                || !string.IsNullOrWhiteSpace(_status)
-                || !Metadata.State.IsEmpty
+                || (ShowStatus && !string.IsNullOrWhiteSpace(_status))
+                || (ShowStatus && !Metadata.State.IsEmpty)
                 || (ShowFields && HasSecondaryFields)));
 
     /// <summary>Whether anything but the status has a value. Status is drawn in
