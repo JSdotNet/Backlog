@@ -138,6 +138,79 @@ public sealed class GitHubClientPullRequestStatusTests
         Assert.Contains("reviewDecision", Sent(transport).Query, StringComparison.Ordinal);
     }
 
+    /// <summary>The branch it merges into and the repository's default branch ride
+    /// along in the same round trip — what says whether a merge landed the work or
+    /// only folded it into a stacked parent's branch.</summary>
+    [Fact]
+    public async Task A_status_reads_the_base_branch_and_the_default_branch()
+    {
+        var status = await Client(Status(state: "MERGED", baseRef: "\"plan/devbook-domain-view\"", defaultBranch: "\"main\""))
+            .GetPullRequestStatusAsync(Repository, 708, TestContext.Current.CancellationToken);
+
+        Assert.Equal("plan/devbook-domain-view", status.BaseRefName);
+        Assert.Equal("main", status.DefaultBranch);
+    }
+
+    /// <summary>An answer without either — an older shape, a repository with no
+    /// default branch, a stub — reads as unknown rather than failing the read.</summary>
+    [Fact]
+    public async Task A_status_without_a_base_or_default_branch_reads_them_as_unknown()
+    {
+        var status = await Client(Status(baseRef: "null", defaultBranch: "null"))
+            .GetPullRequestStatusAsync(Repository, 708, TestContext.Current.CancellationToken);
+
+        Assert.Null(status.BaseRefName);
+        Assert.Null(status.DefaultBranch);
+    }
+
+    [Fact]
+    public async Task The_status_query_asks_for_the_base_and_the_default_branch()
+    {
+        var transport = new RoutingTransport().Returns("graphql", Status());
+
+        await new GitHubClient(transport).GetPullRequestStatusAsync(Repository, 708, TestContext.Current.CancellationToken);
+
+        var query = Sent(transport).Query;
+        Assert.Contains("baseRefName", query, StringComparison.Ordinal);
+        Assert.Contains("defaultBranchRef { name }", query, StringComparison.Ordinal);
+    }
+
+    /// <summary>The REST read a failed status query falls back to answers both as
+    /// well, so the fallback path can still tell where a merge landed.</summary>
+    [Fact]
+    public async Task The_rest_read_carries_the_base_and_the_default_branch()
+    {
+        var transport = new RoutingTransport().Returns("pulls/708", """
+            {
+              "number": 708,
+              "html_url": "https://github.com/JSdotNet/Backlog/pull/708",
+              "title": "A pull request",
+              "state": "closed",
+              "merged_at": "2026-10-21T01:22:00Z",
+              "base": { "ref": "plan/devbook-domain-view", "repo": { "default_branch": "main" } }
+            }
+            """);
+
+        var pull = await new GitHubClient(transport).GetPullRequestAsync(Repository, 708, TestContext.Current.CancellationToken);
+
+        Assert.Equal(GitHubItemState.Merged, pull.State);
+        Assert.Equal("plan/devbook-domain-view", pull.BaseRefName);
+        Assert.Equal("main", pull.DefaultBranch);
+    }
+
+    [Fact]
+    public async Task A_rest_read_without_a_base_reads_the_branches_as_unknown()
+    {
+        var transport = new RoutingTransport().Returns("pulls/708", """
+            { "number": 708, "state": "open" }
+            """);
+
+        var pull = await new GitHubClient(transport).GetPullRequestAsync(Repository, 708, TestContext.Current.CancellationToken);
+
+        Assert.Null(pull.BaseRefName);
+        Assert.Null(pull.DefaultBranch);
+    }
+
     /// <summary>The repository's own settings decide the method, in the order the
     /// merge button offers them. There is no picker; the one GitHub already lists
     /// first is the one a person pressing the button would get.</summary>
@@ -361,7 +434,9 @@ public sealed class GitHubClientPullRequestStatusTests
         bool mergeAllowed = true,
         bool squashAllowed = true,
         bool rebaseAllowed = true,
-        string reviewDecision = "null")
+        string reviewDecision = "null",
+        string baseRef = "\"main\"",
+        string defaultBranch = "\"main\"")
     {
         var commit = rollup == "null"
             ? """{ "commit": { "statusCheckRollup": null } }"""
@@ -374,11 +449,13 @@ public sealed class GitHubClientPullRequestStatusTests
               "mergeCommitAllowed": {{Bool(mergeAllowed)}},
               "squashMergeAllowed": {{Bool(squashAllowed)}},
               "rebaseMergeAllowed": {{Bool(rebaseAllowed)}},
+              "defaultBranchRef": {{(defaultBranch == "null" ? "null" : "{ \"name\": " + defaultBranch + " }")}},
               "pullRequest": {
                 "id": "PR_kwDOabc",
                 "number": 708,
                 "state": "{{state}}",
                 "isDraft": {{Bool(isDraft)}},
+                "baseRefName": {{baseRef}},
                 "mergeStateStatus": "{{mergeStateStatus}}",
                 "reviewDecision": {{reviewDecision}},
                 "autoMergeRequest": {{autoMerge}},

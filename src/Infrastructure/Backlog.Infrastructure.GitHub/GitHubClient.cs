@@ -432,11 +432,13 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             mergeCommitAllowed
             squashMergeAllowed
             rebaseMergeAllowed
+            defaultBranchRef { name }
             pullRequest(number: $number) {
               id
               number
               state
               isDraft
+              baseRefName
               mergeStateStatus
               reviewDecision
               autoMergeRequest { enabledAt }
@@ -1858,7 +1860,11 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
             String(pull, "mergeStateStatus") is { } mergeState && MergeableNow.Contains(mergeState),
             PreferredMergeMethod(repository))
         {
-            ReviewState = ReadReviewState(pull)
+            ReviewState = ReadReviewState(pull),
+            BaseRefName = String(pull, "baseRefName"),
+            DefaultBranch = repository.TryGetProperty("defaultBranchRef", out var defaultRef) && defaultRef.ValueKind == JsonValueKind.Object
+                ? String(defaultRef, "name")
+                : null
         };
     }
 
@@ -2554,12 +2560,22 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                     ? GitHubItemState.Draft
                     : GitHubItemState.Open;
 
+        // The base names the branch it merges into, and the base repository's own
+        // default branch rides along on it — what the status query reads as
+        // baseRefName and defaultBranchRef, so the fallback can answer the same.
+        var hasBase = element.TryGetProperty("base", out var baseRef) && baseRef.ValueKind == JsonValueKind.Object;
+        JsonElement? baseRepo = hasBase && baseRef.TryGetProperty("repo", out var repo) && repo.ValueKind == JsonValueKind.Object ? repo : null;
+
         return new GitHubPullRequest(
             number,
             String(element, "html_url") ?? $"https://github.com/{repositoryFullName}/pull/{number}",
             String(element, "title") ?? string.Empty,
             state,
-            repositoryFullName);
+            repositoryFullName)
+        {
+            BaseRefName = hasBase ? String(baseRef, "ref") : null,
+            DefaultBranch = baseRepo is { } read ? String(read, "default_branch") : null
+        };
     }
 
     /// <summary>

@@ -37,7 +37,18 @@ public sealed record GitHubPullRequest(
     string Url,
     string Title,
     GitHubItemState State,
-    string? RepositoryFullName);
+    string? RepositoryFullName)
+{
+    /// <summary>The branch it merges into, or null where the read did not say. An
+    /// init property for the reason <see cref="GitHubPullRequestStatus.ReviewState"/>
+    /// is one.</summary>
+    public string? BaseRefName { get; init; }
+
+    /// <summary>The repository's default branch, read in the same round trip, or
+    /// null where the read did not say. With <see cref="BaseRefName"/>, what tells a
+    /// merge that landed from one into a stacked parent's branch.</summary>
+    public string? DefaultBranch { get; init; }
+}
 
 /// <summary>
 /// The combined result of every check and commit status on a pull request's head
@@ -100,6 +111,14 @@ public sealed record GitHubPullRequestStatus(
     /// one, so every construction written before it existed still compiles and
     /// reads as no decision.</summary>
     public GitHubReviewState ReviewState { get; init; } = GitHubReviewState.None;
+
+    /// <summary>The branch it merges into, or null where the read did not say. Init
+    /// for the reason <see cref="ReviewState"/> is.</summary>
+    public string? BaseRefName { get; init; }
+
+    /// <summary>The repository's default branch, read in the same round trip, or
+    /// null where the read did not say. See <see cref="GitHubPullRequest.DefaultBranch"/>.</summary>
+    public string? DefaultBranch { get; init; }
 }
 
 /// <summary>

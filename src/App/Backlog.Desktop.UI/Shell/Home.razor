@@ -510,12 +510,13 @@
            band AppFooter mounts under all of them. The sync control stayed, because
            checking GitHub is a thing you do to the list in front of you. *@
         <div class="app-header__status">
-            @* Monitoring is a deliberate act, not a background poll: the backlog has
-               to open instantly and offline, so nothing here waits on GitHub until
-               somebody asks it to. This re-reads everything; the only read made
-               unasked is CheckPullRequestsAfterLoad's, which asks about pull
-               requests not yet landed once the list is already showing, and blocks
-               nothing when GitHub cannot be reached.
+            @* Nothing on screen waits on GitHub: the backlog has to open instantly
+               and offline. This button re-reads everything, on demand. Beside it
+               runs one background poll, CheckPullRequestsAfterLoad's: once the list
+               is showing, after every reload, and on the state's recheck tick every
+               PullRequestRecheckInterval while the window is open and the GitHub
+               integration is on, it asks about pull requests not yet landed. It
+               blocks nothing when GitHub cannot be reached.
 
                Only while the task list is on screen — the list is what a check
                refreshes, and the dashboard fetches from GitHub on its own.
@@ -895,6 +896,7 @@
             _ = ReadBrainNotesByTaskAsync();
         }
         State.WrittenElsewhere += HandleTasksWrittenElsewhere;
+        State.PullRequestRecheckDue += HandlePullRequestRecheckDue;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
         InboxState.BatchRouted += HandleInboxBatchRouted;
@@ -930,8 +932,10 @@
     /// Has the Tasks state read, in the background, the entries' pull requests it
     /// does not know to have landed — never read, or last read open and not re-read
     /// for a while — so work that merged shows merged without the sync button,
-    /// whatever the entry's status. Called after the list loads and after every
-    /// reload of it.
+    /// whatever the entry's status, and a prompt entry whose pull request merged into
+    /// the default branch or a <c>plan/</c> branch goes Done. Called after the list
+    /// loads, after every reload of it, and on the state's recheck tick
+    /// (<see cref="HandlePullRequestRecheckDue"/>), so an idle window still notices.
     /// <para>
     /// Not awaited: the list is already on screen and must stay usable offline, and
     /// the state keeps its own one-at-a-time guard and stays quiet on failure. The
@@ -945,6 +949,10 @@
 
         _ = State.CheckPullRequestsAsync();
     }
+
+    /// <summary>The state's recheck tick, raised on a timer thread: the check runs on
+    /// this dispatcher, behind the same feature switch as every other.</summary>
+    private void HandlePullRequestRecheckDue() => _ = InvokeAsync(CheckPullRequestsAfterLoad);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -2894,6 +2902,7 @@
         if (_brainSettings is not null) _brainSettings.Changed -= HandleBrainSettingsChanged;
         if (_brainFolders is not null && _brainTaskLinks is not null) _brainFolders.Changed -= HandleBrainFoldersChanged;
         State.WrittenElsewhere -= HandleTasksWrittenElsewhere;
+        State.PullRequestRecheckDue -= HandlePullRequestRecheckDue;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;
         InboxState.BatchRouted -= HandleInboxBatchRouted;
