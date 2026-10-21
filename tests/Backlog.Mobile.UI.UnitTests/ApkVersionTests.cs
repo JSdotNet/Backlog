@@ -4,7 +4,7 @@ namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
 /// The versionCode a release APK carries, packed from its MAJOR.MINOR.PATCH the
-/// way release-mobile.yml's "Derive version numbers" step packs it — the phone
+/// way build/Get-NextReleaseVersion.ps1 packs it for Release All — the phone
 /// compares against the installed versionCode, so the two packings must agree to
 /// the digit, limits included.
 /// </summary>

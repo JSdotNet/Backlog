@@ -1,11 +1,15 @@
 using Backlog.UI.Components.Diagrams.C4;
 using Backlog.UI.Components.Markdown;
 
+using DevbookC4Graph = Backlog.Infrastructure.Devbook.Building.DevbookC4Graph;
+using DevbookMarkdown = Backlog.Infrastructure.Devbook.Building.DevbookMarkdown;
+
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// One C4 view drawn inside the arc42 chapter that documents it, under the section
-/// <c>references.json</c> names, beside the chapter's own C4 fence in that section.
+/// the view map names, beside the chapter's own C4 fence in that section. A view the
+/// chapter embeds itself is drawn by its embed instead.
 /// </summary>
 /// <param name="View">The view, as the catalog lists it.</param>
 /// <param name="Workspace">The authored workspace the view is read from.</param>
@@ -78,11 +82,13 @@ public static class C4ChapterViews
         if (chapters.Count == 0) return [];
 
         var wanted = C4ViewEntry.FileOf(chapterPath);
+        var embedded = EmbeddedKeys(chapterText);
         var embeds = new List<C4ChapterEmbed>();
 
         foreach (var view in catalog.Views)
         {
             if (catalog.WorkspaceOf(view) is not { Derived: false } workspace) continue;
+            if (embedded.Contains(view.Key)) continue;
             if (workspace.Workspace.View(view.Key) is not { } modelView) continue;
 
             var reference = view.Documents.FirstOrDefault(entry =>
@@ -94,6 +100,23 @@ public static class C4ChapterViews
         }
 
         return embeds;
+    }
+
+    /// <summary>The views the chapter already draws itself, as a
+    /// <c>![…](c4:&lt;view key&gt;)</c> embed, read the way the store reads them. Such a
+    /// view is drawn where the chapter put it, so it is not drawn a second time under
+    /// its section.</summary>
+    private static HashSet<string> EmbeddedKeys(string chapterText)
+    {
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!chapterText.Contains("c4:", StringComparison.OrdinalIgnoreCase)) return keys;
+
+        foreach (var (key, _) in DevbookC4Graph.Embeds(chapterText, DevbookMarkdown.Parse(chapterText).Chapters))
+        {
+            if (key.Length > 0) keys.Add(key);
+        }
+
+        return keys;
     }
 
     /// <summary>The embeds drawn under one heading, matched on its position, title and

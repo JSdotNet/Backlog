@@ -9,15 +9,15 @@
     still drawn where it is written, and nothing here edits either side.
 *@
 
-<figure class="devbook-c4-embed" data-testid="arc42-chapter-c4-embed" data-view="@Embed.View.Key">
-    <div class="devbook-c4-embed__head">
-        <span class="devbook-c4-embed__title">
-            <span class="devbook-c4-embed__badge" aria-hidden="true">C4</span>
+<figure class="devbook-c4-insert" data-testid="arc42-chapter-c4-embed" data-view="@Embed.View.Key">
+    <div class="devbook-c4-insert__head">
+        <span class="devbook-c4-insert__title">
+            <span class="devbook-c4-insert__badge" aria-hidden="true">C4</span>
             <b>@Embed.View.Title</b>
         </span>
         @if (Embed.FenceView is not null)
         {
-            <ButtonGroup AriaLabel="Source" CssClass="devbook-c4-embed__source" TestId="arc42-chapter-c4-source">
+            <ButtonGroup AriaLabel="Source" CssClass="devbook-c4-insert__source" TestId="arc42-chapter-c4-source">
                 <ToggleButton Pressed="@(!_showFence)"
                               PressedChanged="_ => _showFence = false"
                               TestId="arc42-chapter-c4-model">Model</ToggleButton>
@@ -28,7 +28,7 @@
         }
     </div>
 
-    <div class="devbook-c4-embed__canvas" data-testid="arc42-chapter-c4-canvas" data-source="@(Showing == Source.Fence ? "fence" : "model")">
+    <div class="devbook-c4-insert__canvas" data-testid="arc42-chapter-c4-canvas" data-source="@(Showing == Source.Fence ? "fence" : "model")">
         @if (Showing == Source.Fence)
         {
             <C4DiagramView Diagram="@FenceDiagram()"
@@ -45,13 +45,13 @@
         }
     </div>
 
-    <figcaption class="devbook-c4-embed__caption">
+    <figcaption class="devbook-c4-insert__caption">
         <span>
             From <code>@($"{Embed.View.WorkspaceFile}#{Embed.View.Key}")</code>
         </span>
         @if (ZoomAvailable)
         {
-            <AppButton BaseClass="devbook-c4-embed__open"
+            <AppButton BaseClass="devbook-c4-insert__open"
                        Variant="ButtonVariant.None"
                        TestId="arc42-chapter-c4-open-zoom"
                        OnClick="() => OnOpenInZoom.InvokeAsync(Embed)">Open in C4 zoom →</AppButton>

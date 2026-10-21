@@ -237,6 +237,7 @@ The local orchestration and diagnostics entry point.
 status: adopted
 type: service
 depends-on: [".devbook/tech/shared.md#github-platform"]
+related: [".devbook/arc42/07-deployment-view.md#release"]
 ```
 
 The CI/CD automation platform.
@@ -251,7 +252,8 @@ The CI/CD automation platform.
   - `codeql`.
   - `devbook-meta` and `devbook-metadata`: the two halves of the devbook gate.
   - `deploy-foundry`, `deploy-sync`, and `deploy-all`.
-  - `release-desktop` and `release-mobile`.
+  - `release-all`: one release of the desktop MSIX, the Android APK, and the
+    sync service under one `vX.Y.Z` number, nightly and on demand.
   - `app-insights-exceptions`: the scheduled exceptions report.
 - **Why** — native to the repository host, with least-privilege and OIDC support.
 - **How** — every third-party action is pinned to a full commit SHA with the

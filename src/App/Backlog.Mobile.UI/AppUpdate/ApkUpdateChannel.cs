@@ -6,7 +6,7 @@ namespace Backlog.Mobile.UI.AppUpdate;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The repository is compiled in, the way the sync address is: release-mobile.yml
+/// The repository is compiled in, the way the sync address is: release-all.yml
 /// passes <c>-p:BacklogUpdateRepository=</c> to the head's publish, and the head turns
 /// it into a constant. Every other build leaves it empty — <c>build/Install-AndroidApp.ps1</c>
 /// and a debug deploy alike — and an empty channel is the one and only sign of a build

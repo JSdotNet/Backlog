@@ -6913,8 +6913,35 @@ a.pull-request-detail-checks__name:hover {
     margin-top: var(--spacing-sm);
 }
 
+/* A C4 view a chapter embeds as ![…](c4:<key>), drawn where the image was. A block
+   inside the paragraph, the full width of the chapter, framed like the explorer's
+   stage; the diagram's inline host keeps the picture's own aspect ratio. */
+.devbook-c4-embed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-sm) 0;
+}
+
+.devbook-c4-embed .c4-diagram-host--inline {
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+}
+
+.devbook-c4-embed__caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: 0.85em;
+}
+
 /* A C4 view drawn inside the arc42 chapter that documents it, under the section
-   references.json names, while c4-zoom is on (plan c4-zoom-navigation, the design's
+   the view map names, while c4-zoom is on (plan c4-zoom-navigation, the design's
    arc42 screen). A figure with its own edge: it is not part of the chapter's text,
    and the chapter's own fence is still drawn where the chapter writes it. */
 .md-chapter-insert {
@@ -6924,7 +6951,7 @@ a.pull-request-detail-checks__name:hover {
     margin: var(--spacing-sm) 0 var(--spacing-md);
 }
 
-.devbook-c4-embed {
+.devbook-c4-insert {
     margin: 0;
     display: flex;
     flex-direction: column;
@@ -6934,7 +6961,7 @@ a.pull-request-detail-checks__name:hover {
     background: var(--color-background-alt);
 }
 
-.devbook-c4-embed__head {
+.devbook-c4-insert__head {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -6944,7 +6971,7 @@ a.pull-request-detail-checks__name:hover {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
-.devbook-c4-embed__caption {
+.devbook-c4-insert__caption {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -6956,13 +6983,13 @@ a.pull-request-detail-checks__name:hover {
     color: var(--color-text-secondary);
 }
 
-.devbook-c4-embed__title {
+.devbook-c4-insert__title {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
 }
 
-.devbook-c4-embed__badge {
+.devbook-c4-insert__badge {
     padding: 0 var(--spacing-xs);
     border-radius: var(--border-radius-full);
     background: var(--color-primary);
@@ -6971,13 +6998,13 @@ a.pull-request-detail-checks__name:hover {
     font-weight: 600;
 }
 
-.devbook-c4-embed__canvas {
+.devbook-c4-insert__canvas {
     padding: var(--spacing-md);
     background: var(--color-background);
     overflow-x: auto;
 }
 
-.devbook-c4-embed__open {
+.devbook-c4-insert__open {
     border: 0;
     background: transparent;
     color: var(--color-text-link);
@@ -6985,7 +7012,7 @@ a.pull-request-detail-checks__name:hover {
     cursor: pointer;
 }
 
-.devbook-c4-embed__open:focus-visible {
+.devbook-c4-insert__open:focus-visible {
     outline: 2px solid var(--color-border-focus);
     outline-offset: 2px;
 }
