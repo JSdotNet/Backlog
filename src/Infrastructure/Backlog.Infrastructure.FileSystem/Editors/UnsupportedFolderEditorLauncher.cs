@@ -12,4 +12,7 @@ public sealed class UnsupportedFolderEditorLauncher : IFolderEditorLauncher
 {
     public Task OpenFolderAsync(string folderPath, CancellationToken cancellationToken = default) =>
         throw new FolderEditorLaunchException("Opening folders in VS Code is only available in the desktop app.");
+
+    public Task OpenFileAsync(string filePath, CancellationToken cancellationToken = default) =>
+        throw new FolderEditorLaunchException("Opening files in VS Code is only available in the desktop app.");
 }

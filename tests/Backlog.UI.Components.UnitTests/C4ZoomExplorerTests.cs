@@ -285,4 +285,222 @@ public sealed class C4ZoomExplorerTests : IDisposable
         var selects = _context.JSInterop.Invocations[Select];
         Assert.Equal(Alias("backlog.cloud"), selects[^1].Arguments[1]);
     }
+
+    // ---- the Code level ------------------------------------------------------------
+
+    private const string Devbook = "backlog.desktop.devbook";
+
+    /// <summary>The explorer with a code source in which only the Devbook component has
+    /// code folders, as a building block naming them would make it. Every opening is
+    /// counted, so a re-read is visible.</summary>
+    private IRenderedComponent<C4ZoomExplorer> RenderWithCode(List<string>? reads = null) =>
+        _context.Render<C4ZoomExplorer>(parameters => parameters
+            .Add(c => c.Workspace, Workspace)
+            .Add(c => c.HintDismissed, true)
+            .Add(c => c.Code, new C4ZoomCode(
+                elementId => string.Equals(elementId, Devbook, StringComparison.OrdinalIgnoreCase),
+                (elementId, _) =>
+                {
+                    reads?.Add(elementId);
+                    return Task.FromResult(C4CodeViewTests.Level);
+                })));
+
+    private static async Task<IRenderedComponent<C4ZoomExplorer>> OnComponentsAsync(IRenderedComponent<C4ZoomExplorer> explorer)
+    {
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias("backlog"), "context-backlog"));
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias("backlog.desktop"), "containers-backlog"));
+        Assert.Equal("components-desktop", Key(explorer));
+        return explorer;
+    }
+
+    /// <summary>Requirement "Code is drawn from the source on demand", scenario "A
+    /// component with a code link": zooming into Devbook opens its Code level.</summary>
+    [Fact]
+    public async Task Zooming_into_a_component_with_code_opens_its_code_level()
+    {
+        var reads = new List<string>();
+        var explorer = await OnComponentsAsync(RenderWithCode(reads));
+
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias(Devbook), "components-desktop"));
+
+        Assert.Equal(Devbook, explorer.Instance.CodeComponentId);
+        Assert.Equal([Devbook], reads);
+        Assert.Contains("Code — Devbook component", explorer.Find("[data-testid='c4-code-title']").TextContent, StringComparison.Ordinal);
+        Assert.Equal(3, explorer.FindAll("[data-testid='c4-code-type']").Count);
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-diagram']"));
+
+        var code = Step(explorer, 4);
+        Assert.Contains("c4-zoom-bar__step--current", code.ClassList);
+        Assert.Contains("Devbook", code.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Only Devbook carries a chip on the components view: Shell has no code
+    /// folder and nothing deeper.</summary>
+    [Fact]
+    public async Task Only_a_component_with_code_carries_a_zoom_in_chip()
+    {
+        var explorer = await OnComponentsAsync(RenderWithCode());
+        var markup = explorer.Find("[data-testid='c4-zoom-diagram']").InnerHtml;
+
+        Assert.Equal(1, markup.Split("data-c4-zoom-in", StringSplitOptions.None).Length - 1);
+        Assert.Contains($"-{Alias(Devbook)}\"", markup[..markup.IndexOf("data-c4-zoom-in", StringComparison.Ordinal)], StringComparison.Ordinal);
+    }
+
+    /// <summary>Scenario "A component with no code link": step 4 names it and stays grey,
+    /// and zooming into it only selects it.</summary>
+    [Fact]
+    public async Task A_component_without_code_keeps_step_four_grey()
+    {
+        var explorer = await OnComponentsAsync(RenderWithCode());
+
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias("backlog.desktop.shell"), "components-desktop"));
+
+        Assert.Null(explorer.Instance.CodeComponentId);
+        Assert.Equal("backlog.desktop.shell", explorer.Instance.SelectedElementId);
+        Assert.True(Step(explorer, 4).HasAttribute("disabled"));
+        Assert.Contains("Shell", Step(explorer, 4).TextContent, StringComparison.Ordinal);
+        Assert.Equal("Shell has no code folder: no building block names one in code", Step(explorer, 4).GetAttribute("title"));
+    }
+
+    [Fact]
+    public async Task Step_four_opens_the_selected_components_code()
+    {
+        var explorer = await OnComponentsAsync(RenderWithCode());
+        await explorer.InvokeAsync(() => explorer.Instance.NodeSelected(Alias(Devbook), "components-desktop"));
+
+        Assert.False(Step(explorer, 4).HasAttribute("disabled"));
+        await Step(explorer, 4).ClickAsync(new());
+
+        Assert.Equal(Devbook, explorer.Instance.CodeComponentId);
+        Assert.Single(explorer.FindAll("[data-testid='c4-zoom-code']"));
+    }
+
+    /// <summary>Backspace on the Code level is one level up: the components view, with
+    /// the component still selected and the picture handed back to the viewer.</summary>
+    [Fact]
+    public async Task Backspace_on_the_code_level_goes_back_to_the_components_with_it_selected()
+    {
+        var explorer = await OnComponentsAsync(RenderWithCode());
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias(Devbook), "components-desktop"));
+        var attaches = _context.JSInterop.Invocations[Attach].Count;
+
+        explorer.Find("[data-testid='c4-zoom-code']").KeyDown(new KeyboardEventArgs { Key = "Backspace" });
+
+        Assert.Null(explorer.Instance.CodeComponentId);
+        Assert.Equal("components-desktop", Key(explorer));
+        Assert.Equal(Devbook, explorer.Instance.SelectedElementId);
+        Assert.Contains("c4-zoom-bar__step--current", Step(explorer, 3).ClassList);
+        Assert.True(_context.JSInterop.Invocations[Attach].Count > attaches);
+    }
+
+    /// <summary>Scenario "Zoom out from the bar": from the Code view of Devbook, step 2
+    /// opens the containers with Desktop App selected.</summary>
+    [Fact]
+    public async Task Step_two_from_the_code_level_opens_the_containers_with_the_container_selected()
+    {
+        var explorer = await OnComponentsAsync(RenderWithCode());
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias(Devbook), "components-desktop"));
+
+        await Step(explorer, 2).ClickAsync(new());
+
+        Assert.Null(explorer.Instance.CodeComponentId);
+        Assert.Equal("containers-backlog", Key(explorer));
+        Assert.Equal("backlog.desktop", explorer.Instance.SelectedElementId);
+    }
+
+    /// <summary>Scenario "The source changed": each opening reads the level again.</summary>
+    [Fact]
+    public async Task Opening_the_code_level_again_reads_it_again()
+    {
+        var reads = new List<string>();
+        var explorer = await OnComponentsAsync(RenderWithCode(reads));
+
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias(Devbook), "components-desktop"));
+        explorer.Find("[data-testid='c4-zoom-code']").KeyDown(new KeyboardEventArgs { Key = "Backspace" });
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias(Devbook), "components-desktop"));
+
+        Assert.Equal([Devbook, Devbook], reads);
+    }
+
+    /// <summary>A read that fails is shown as the problem it was.</summary>
+    [Fact]
+    public async Task A_code_level_that_cannot_be_read_says_why()
+    {
+        var explorer = _context.Render<C4ZoomExplorer>(parameters => parameters
+            .Add(c => c.Workspace, Workspace)
+            .Add(c => c.HintDismissed, true)
+            .Add(c => c.Code, new C4ZoomCode(_ => true, (_, _) => throw new IOException("The disk went away."))));
+        await OnComponentsAsync(explorer);
+
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias(Devbook), "components-desktop"));
+
+        Assert.Contains("The disk went away.", explorer.Find("[data-testid='c4-code-problem']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>A read that lands after the reader left the level is dropped: the
+    /// level shown is the one opened last, and a closed level stays closed.</summary>
+    [Fact]
+    public async Task A_read_that_lands_after_the_reader_moved_on_is_dropped()
+    {
+        var pending = new Queue<TaskCompletionSource<C4CodeLevel>>();
+        var explorer = _context.Render<C4ZoomExplorer>(parameters => parameters
+            .Add(c => c.Workspace, Workspace)
+            .Add(c => c.HintDismissed, true)
+            .Add(c => c.Code, new C4ZoomCode(_ => true, (_, _) =>
+            {
+                var read = new TaskCompletionSource<C4CodeLevel>(TaskCreationOptions.RunContinuationsAsynchronously);
+                pending.Enqueue(read);
+                return read.Task;
+            })));
+        await OnComponentsAsync(explorer);
+
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias(Devbook), "components-desktop"));
+        var first = pending.Dequeue();
+        explorer.Find("[data-testid='c4-zoom-code']").KeyDown(new KeyboardEventArgs { Key = "Backspace" });
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias(Devbook), "components-desktop"));
+        var second = pending.Dequeue();
+
+        first.SetResult(C4CodeViewTests.Level with { Component = "Stale" });
+        explorer.WaitForAssertion(() => Assert.Single(explorer.FindAll("[data-testid='c4-code-loading']")));
+
+        second.SetResult(C4CodeViewTests.Level);
+        explorer.WaitForAssertion(() => Assert.Equal(3, explorer.FindAll("[data-testid='c4-code-type']").Count));
+        Assert.DoesNotContain("Stale", explorer.Find("[data-testid='c4-code-title']").TextContent, StringComparison.Ordinal);
+
+        // Closed, a read still out comes to nothing.
+        explorer.Find("[data-testid='c4-zoom-code']").KeyDown(new KeyboardEventArgs { Key = "Backspace" });
+        Assert.Null(explorer.Instance.CodeComponentId);
+        Assert.Empty(explorer.FindAll("[data-testid='c4-zoom-code']"));
+    }
+
+    /// <summary>Opened from the picture, the level takes the keyboard the card had, so
+    /// Backspace works at once; opened from the bar, the focus stays on the bar.</summary>
+    [Fact]
+    public async Task The_code_level_takes_the_focus_when_opened_from_the_picture_and_not_from_the_bar()
+    {
+        const string Focus = "Blazor._internal.domWrapper.focus";
+        var fromBar = await OnComponentsAsync(RenderWithCode());
+        await fromBar.InvokeAsync(() => fromBar.Instance.NodeSelected(Alias(Devbook), "components-desktop"));
+        await Step(fromBar, 4).ClickAsync(new());
+
+        Assert.Single(fromBar.FindAll("[data-testid='c4-zoom-code']"));
+        Assert.Empty(_context.JSInterop.Invocations[Focus]);
+
+        fromBar.Find("[data-testid='c4-zoom-code']").KeyDown(new KeyboardEventArgs { Key = "Backspace" });
+        await fromBar.InvokeAsync(() => fromBar.Instance.ZoomIn(Alias(Devbook), "components-desktop"));
+
+        Assert.Single(_context.JSInterop.Invocations[Focus]);
+    }
+
+    /// <summary>With no code source every component stops at level 3.</summary>
+    [Fact]
+    public async Task Without_a_code_source_nothing_opens_a_code_level()
+    {
+        var explorer = await OnComponentsAsync(Render(hintDismissed: true));
+
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(Alias(Devbook), "components-desktop"));
+
+        Assert.Null(explorer.Instance.CodeComponentId);
+        Assert.True(Step(explorer, 4).HasAttribute("disabled"));
+    }
 }

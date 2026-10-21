@@ -27,6 +27,11 @@
     - Zoom out: an earlier step on the bar, or Backspace. Backspace and Enter are
       listened for on the diagram's own frame, never on the document, so typing
       anywhere else in the app is never taken as a move.
+
+    Level 4, Code, is no view of the workspace: C4CodeView draws it from the source,
+    over the components view it was opened from, for a component the host's Code
+    names code folders for. A zoom into such a component, or step 4 of the bar, opens
+    it; Backspace on it, or any other step, leaves it.
 *@
 
 <div class="c4-zoom-explorer@(_playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty)" data-testid="@TestId" role="region" aria-label="C4 zoom">
@@ -59,6 +64,20 @@
             </Callout>
         }
 
+        @* The Code level stands in for everything below while it is open. The views'
+           markup is left at its own indent under the else, so it reads as it did. *@
+        @if (_codeFor is not null && Code is not null)
+        {
+            <C4CodeView Level="@_codeLevel"
+                        Component="@(Workspace.Element(_codeFor)?.Name ?? _codeFor)"
+                        OpenInEditor="@Code.OpenInEditor"
+                        OpenRecord="@Code.OpenRecord"
+                        OnZoomOut="CloseCode"
+                        FocusOnOpen="@_focusCode"
+                        TestId="c4-zoom-code" />
+        }
+        else
+        {
         <header class="c4-zoom-explorer__head">
             <p class="c4-zoom-explorer__title" data-testid="c4-zoom-title">@C4Exploration.Label(Workspace, _view)</p>
             <p class="c4-zoom-explorer__key" data-testid="c4-zoom-key">@_view.Key</p>
@@ -163,6 +182,7 @@
                        Role="status" />
             }
         </footer>
+        }
     }
 </div>
 
@@ -278,6 +298,23 @@
     [Parameter]
     public C4ZoomOpen? OpenView { get; set; }
 
+    /// <summary>
+    /// Which components have code to read and how to read it: what makes level 4 open.
+    /// Null — a host with no source to read — leaves step 4 grey everywhere.
+    /// </summary>
+    [Parameter]
+    public C4ZoomCode? Code { get; set; }
+
+    /// <summary>The component whose Code level is open, or null on a view.</summary>
+    private string? _codeFor;
+    private C4CodeLevel? _codeLevel;
+    private C4ZoomCode? _codeSource;
+    private CancellationTokenSource? _codeLoad;
+
+    /// <summary>The component whose Code level is open now, or null. For the host and
+    /// for tests.</summary>
+    public string? CodeComponentId => _codeFor;
+
     private C4ZoomOpen? _openedRequest;
 
     /// <summary>Honours a new <see cref="OpenView"/> after the workspace is loaded.
@@ -310,12 +347,15 @@
         var key = $"{Workspace.Name}#{Workspace.Views.Count}#{Workspace.Elements.Count}";
         if (string.Equals(_loadedFor, key, StringComparison.Ordinal) && _view is not null && Workspace.View(_view.Key) is not null)
         {
+            RefreshCode();
             Refresh();
             return;
         }
 
         _loadedFor = key;
         _selectedId = null;
+        CloseCodeLevel();
+        _codeSource = Code;
         _view = C4ZoomNavigation.StartView(Workspace);
         Refresh();
     }
@@ -341,10 +381,10 @@
         // from the workspace that is current now.
         _view = Workspace.View(_view.Key) ?? _view;
         _nodes = C4Exploration.Nodes(Workspace, _view);
-        _bar = C4ZoomNavigation.Bar(Workspace, _view, _selectedId);
+        _bar = C4ZoomNavigation.Bar(Workspace, _view, _selectedId, Code is null ? null : HasCode, _codeFor is not null);
 
         var zoomable = _nodes
-            .Where(node => C4ZoomNavigation.ZoomInView(Workspace, _view, node.ElementId) is not null)
+            .Where(node => C4ZoomNavigation.ZoomInView(Workspace, _view, node.ElementId) is not null || HasCode(node.ElementId))
             .Select(node => node.Alias)
             .ToHashSet(StringComparer.Ordinal);
 
@@ -654,6 +694,7 @@
     {
         if (Workspace.View(viewKey) is not { } next) return;
 
+        CloseCodeLevel();
         _view = next;
         _selectedId = selectId;
         Refresh();
@@ -662,6 +703,12 @@
     private Task OpenStepAsync(C4ZoomStep step)
     {
         if (!step.Enabled) return Task.CompletedTask;
+
+        if (step.Level == C4ZoomLevel.Code)
+        {
+            if (step.SelectId is { } component) OpenCode(component, focus: false);
+            return Task.CompletedTask;
+        }
 
         Open(step.ViewKey, step.SelectId);
         return Task.CompletedTask;
@@ -705,6 +752,10 @@
         {
             Open(next, null);
             _refocus = true;
+        }
+        else if (HasCode(node.ElementId))
+        {
+            OpenCode(node.ElementId, focus: true);
         }
         else
         {
@@ -750,10 +801,129 @@
         await OnHintDismissed.InvokeAsync();
     }
 
+    // ---- the Code level --------------------------------------------------------
+
+    /// <summary>Whether zooming into an element opens its Code level: a component the
+    /// host's <see cref="Code"/> names code folders for.</summary>
+    private bool HasCode(string elementId) =>
+        Code is not null
+        && Workspace.Element(elementId) is { Kind: C4ElementKind.Component }
+        && Code.Has(elementId);
+
+    /// <summary>Whether the open Code level takes the keyboard: opened from the picture
+    /// it does, since the card that had it is gone; opened from the bar the focus stays
+    /// on the bar, as it does for every view.</summary>
+    private bool _focusCode;
+
+    /// <summary>Opens a component's Code level over the view it is drawn on, with the
+    /// component selected, and reads it afresh.</summary>
+    private void OpenCode(string componentId, bool focus)
+    {
+        if (!HasCode(componentId)) return;
+
+        _focusCode = focus;
+        _selectedId = componentId;
+        _codeFor = componentId;
+        _codeLevel = null;
+        Refresh();
+        LoadCode();
+    }
+
+    /// <summary>Backspace on the Code level: back to the components view it was opened
+    /// over, the component still selected and the picture taking the keyboard.</summary>
+    private void CloseCode()
+    {
+        if (_codeFor is null) return;
+
+        CloseCodeLevel();
+        _refocus = true;
+        Refresh();
+    }
+
+    private void CloseCodeLevel()
+    {
+        _codeLoad?.Cancel();
+        _codeLoad?.Dispose();
+        _codeLoad = null;
+        _codeFor = null;
+        _codeLevel = null;
+    }
+
+    /// <summary>A new code source — the host read its folders again — re-reads an open
+    /// level; a component that lost its code folders closes it.</summary>
+    private void RefreshCode()
+    {
+        if (_codeFor is not null && !HasCode(_codeFor)) CloseCodeLevel();
+
+        if (_codeFor is null)
+        {
+            _codeSource = Code;
+            return;
+        }
+
+        if (!ReferenceEquals(_codeSource, Code)) LoadCode();
+    }
+
+    private void LoadCode()
+    {
+        if (_codeFor is not { } component || Code is not { } source) return;
+
+        _codeLoad?.Cancel();
+        _codeLoad?.Dispose();
+        _codeLoad = new CancellationTokenSource();
+        _codeSource = source;
+
+        // A re-read of the open level keeps the picture on screen until the new one
+        // arrives, so a devbook edit elsewhere does not blank it.
+
+        _ = ReadCodeAsync(source, component, _codeLoad.Token);
+    }
+
+    /// <summary>Reads the level and draws it, unless the reader moved on meanwhile. A
+    /// read that fails is drawn as the problem it was, never as an empty component.</summary>
+    private async Task ReadCodeAsync(C4ZoomCode source, string component, CancellationToken token)
+    {
+        C4CodeLevel level;
+        try
+        {
+            level = await source.Load(component, token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception exception) when (!token.IsCancellationRequested)
+        {
+            // Whatever the source threw, the reader is told rather than left reading.
+            level = new C4CodeLevel(Workspace.Element(component)?.Name ?? component, [], [], [], [])
+            {
+                Problem = $"The code could not be read: {exception.Message}"
+            };
+        }
+
+        if (token.IsCancellationRequested) return;
+
+        await InvokeAsync(() =>
+        {
+            if (token.IsCancellationRequested || !string.Equals(_codeFor, component, StringComparison.OrdinalIgnoreCase)) return;
+
+            _codeLevel = level;
+            StateHasChanged();
+        });
+    }
+
     // ---- the viewer ------------------------------------------------------------
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // The Code level draws no C4 picture. The viewer is handed the picture again
+        // when the reader comes back to it.
+        if (_codeFor is not null)
+        {
+            _attachedDiagram = null;
+            return;
+        }
+
         if (_view is null || _diagram is null)
         {
             _attachedDiagram = null;
@@ -843,6 +1013,7 @@
     {
         _disposed = true;
         StopPlaying();
+        CloseCodeLevel();
 
         // Only after a viewer was asked for: a prerender disposes the component
         // without ever reaching OnAfterRender.

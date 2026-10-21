@@ -240,6 +240,42 @@ public sealed class VsCodeFolderEditorLauncherTests : IDisposable
         Assert.Equal([folder], started.ArgumentList);
     }
 
+    /// <summary>The C4 zoom tab's "Open in editor": one file, handed over the way a
+    /// folder is, with the same check that the process did not fail outright.</summary>
+    [Fact]
+    public async Task Opens_a_file_as_the_only_argument_and_reports_an_early_failure_naming_the_file()
+    {
+        var file = Path.Combine(TempDir(), "Refresher.cs");
+        await File.WriteAllTextAsync(file, "class Refresher {}", TestContext.Current.CancellationToken);
+        ProcessStartInfo? started = null;
+        var launcher = new VsCodeFolderEditorLauncher(
+            () => ToolsExecutable,
+            (startInfo, _) =>
+            {
+                started = startInfo;
+                return Task.FromResult(new VsCodeLaunchOutcome(Exited: false, ExitCode: 0));
+            });
+
+        await launcher.OpenFileAsync(file, TestContext.Current.CancellationToken);
+
+        Assert.Equal([file], started!.ArgumentList);
+
+        var failing = new VsCodeFolderEditorLauncher(
+            () => ToolsExecutable,
+            (_, _) => Task.FromResult(new VsCodeLaunchOutcome(Exited: true, ExitCode: 1)));
+        var error = await Assert.ThrowsAsync<FolderEditorLaunchException>(() => failing.OpenFileAsync(file, TestContext.Current.CancellationToken));
+        Assert.Contains("without opening the file", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Throws_when_the_file_does_not_exist()
+    {
+        var missing = Path.Combine(TempDir(), "Missing.cs");
+        var launcher = new VsCodeFolderEditorLauncher(() => ToolsExecutable, NeverStarted);
+
+        await Assert.ThrowsAsync<FolderEditorLaunchException>(() => launcher.OpenFileAsync(missing, TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task Throws_when_the_folder_does_not_exist()
     {
