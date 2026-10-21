@@ -10,11 +10,14 @@ name: Deploy Sync
 # signs device tokens with. The federated credential, the resource group and that
 # secret are created by hand once — see docs/deployment/sync.md.
 
-# Manual only for now: a person starts every run, here or through Deploy All.
-# The push-to-main trigger it used to carry (path-filtered to infra/sync/, the
-# Sync module, the service defaults and the props files) is parked until the
-# first deploy has been watched succeed by hand; bring it back deliberately,
-# not by accident.
+# No trigger of its own: a person starts every infrastructure run, here or
+# through Deploy All. The service, though, deploys unattended: every Release All
+# run that publishes a release calls this workflow in `service` mode, nightly
+# included, so the running service reports the release number the apps carry
+# (GET /'s `release`; its `version` is the compatibility number, untouched). That
+# mode deploys the container and provisions nothing; infrastructure stays a
+# deliberate run. The push-to-main trigger this workflow used to carry stays
+# parked.
 on:
   workflow_dispatch:
     inputs:
@@ -27,14 +30,18 @@ on:
           - preview
           - provision
           - deploy
+          # The service alone: no preview, no provision. Run by hand it deploys a
+          # service with no release (`release: null` on GET /), visibly not one.
+          - service
       environment_name:
         description: 'GitHub environment; also names the azd environment'
         required: true
         default: backlog-sync
         type: string
 
-  # Called by Deploy All. `mode` is a string here because workflow_call has no
-  # choice type; the values it accepts are the same three.
+  # Called by Deploy All (infrastructure) and Release All (`service`). `mode` is a
+  # string here because workflow_call has no choice type; the values it accepts
+  # are the same four.
   workflow_call:
     inputs:
       mode:
@@ -44,6 +51,21 @@ on:
       environment_name:
         required: false
         default: backlog-sync
+        type: string
+      # The release number the service reports as `release` on GET /,
+      # MAJOR.MINOR.PATCH; blank deploys no release. Release All passes the number
+      # it publishes. Not the service's `version`: that is the compatibility number
+      # every client stops syncing above (docs/deployment/sync.md), and only the
+      # project's <Version> moves it.
+      release:
+        required: false
+        default: ''
+        type: string
+      # The release tag the number belongs to, vX.Y.Z. When the tag already exists,
+      # the service is deployed only from the commit it points at.
+      release_tag:
+        required: false
+        default: ''
         type: string
     # An environment secret cannot be passed by name from a caller, because the
     # caller's job has no environment: it is resolved here, by the job that
@@ -88,6 +110,9 @@ jobs:
       # Both triggers supply a mode and default it to preview, so a run that
       # says nothing changes nothing.
       DEPLOY_MODE: ${{ inputs.mode }}
+      # Through env, never spliced into a script; Verify checks its shape.
+      RELEASE_NUMBER: ${{ inputs.release }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
       AZURE_ENV_NAME: ${{ inputs.environment_name || 'backlog-sync' }}
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
@@ -95,7 +120,7 @@ jobs:
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
       # SYNC_TOKEN_SIGNING_KEY is deliberately not here: it is set on the steps
-      # that read it (Verify, Preview, Provision, Deploy), so the third-party
+      # that read it (Verify, Preview, Provision, Load, Deploy), so the third-party
       # actions and the other steps never run with it in their environment.
 
     steps:
@@ -115,6 +140,22 @@ jobs:
           SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
+
+          # An unknown mode would fall through every step's `if:` and report a
+          # green run that changed nothing.
+          if ($env:DEPLOY_MODE -notin @('preview', 'provision', 'deploy', 'service')) {
+            Write-Output "::error::Unknown mode '$env:DEPLOY_MODE'. Use preview, provision, deploy or service."
+            exit 1
+          }
+
+          if ($env:RELEASE_NUMBER -and $env:RELEASE_NUMBER -notmatch '^\d+\.\d+\.\d+$') {
+            Write-Output "::error::release must be MAJOR.MINOR.PATCH (got '$env:RELEASE_NUMBER')."
+            exit 1
+          }
+          if ($env:RELEASE_NUMBER -and $env:DEPLOY_MODE -notin @('deploy', 'service')) {
+            Write-Output "::error::release is set but mode '$env:DEPLOY_MODE' deploys no service."
+            exit 1
+          }
 
           # Fail before touching Azure, with the name of the variable that is
           # missing, rather than letting azd fail on a half-configured environment.
@@ -164,6 +205,41 @@ jobs:
             exit 1
           }
 
+      # Numbers come from the tags, so two Release All runs can plan the same one. A
+      # re-run of an older failed run re-runs this job, but reuses every job of its
+      # own that passed, its plan included: without this check it would put older
+      # service code into production under a number a newer run already published.
+      # Checked here, inside the job a re-run always repeats, and before Azure is
+      # touched. The publish job keeps its own check for the packages.
+      - name: Check the release tag
+        if: env.RELEASE_TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') {
+            Write-Output "::error::release_tag must be vMAJOR.MINOR.PATCH (got '$env:RELEASE_TAG')."
+            exit 1
+          }
+
+          $tagCommit = (gh api "repos/$env:GH_REPO/commits/refs/tags/$env:RELEASE_TAG" --jq .sha 2>&1 | Out-String).Trim()
+          if ($LASTEXITCODE -eq 0) {
+            if ($tagCommit -ne $env:GITHUB_SHA) {
+              Write-Output "::error::$env:RELEASE_TAG already exists at $tagCommit, not at this run's commit $env:GITHUB_SHA. A newer run has released this number; deploying here would put older service code into production under it."
+              exit 1
+            }
+            Write-Output "$env:RELEASE_TAG exists at this run's commit: a re-run of the same release."
+          }
+          elseif ($tagCommit -match 'No commit found') {
+            Write-Output "$env:RELEASE_TAG is not published yet."
+          }
+          else {
+            Write-Output "::error::Could not resolve the commit of $env:RELEASE_TAG ($tagCommit)."
+            exit 1
+          }
+
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -203,7 +279,66 @@ jobs:
           azd env set AZURE_RESOURCE_GROUP $env:AZURE_RESOURCE_GROUP
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
+      # infra/sync/main.parameters.json passes containerImage from
+      # SERVICE_SYNC_IMAGE_NAME, and the template falls back to a public placeholder
+      # when it is empty. On a fresh runner it always is, so without this every
+      # provision would swap the running service for the placeholder until the next
+      # service deploy. The running app's image is read back and handed to the
+      # template instead; only a first provision, with no app yet, keeps the
+      # placeholder. azd's own sign-in has no command that reads a resource, so the
+      # Azure CLI signs in with the same federated credential.
+      - name: Keep the running service image
+        if: env.DEPLOY_MODE != 'service'
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $request = "$($env:ACTIONS_ID_TOKEN_REQUEST_URL)&audience=api://AzureADTokenExchange"
+          $oidc = Invoke-RestMethod -Uri $request -Headers @{ Authorization = "Bearer $env:ACTIONS_ID_TOKEN_REQUEST_TOKEN" }
+          az login --service-principal `
+            --username $env:AZURE_CLIENT_ID `
+            --tenant $env:AZURE_TENANT_ID `
+            --federated-token $oidc.value `
+            --allow-no-subscriptions `
+            --output none
+          if ($LASTEXITCODE -ne 0) { throw "The Azure CLI could not sign in with the federated credential." }
+          az account set --subscription $env:AZURE_SUBSCRIPTION_ID
+          if ($LASTEXITCODE -ne 0) { throw "Could not select subscription $env:AZURE_SUBSCRIPTION_ID." }
+
+          # The app azd matches to the `sync` service, in this azd environment.
+          $apps = az resource list `
+            --resource-group $env:AZURE_RESOURCE_GROUP `
+            --resource-type 'Microsoft.App/containerApps' `
+            --output json | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Could not list the container apps in $env:AZURE_RESOURCE_GROUP." }
+          $sync = @($apps | Where-Object {
+              $_.tags.'azd-service-name' -eq 'sync' -and $_.tags.'azd-env-name' -eq $env:AZURE_ENV_NAME
+            })
+
+          if ($sync.Count -gt 1) {
+            throw "Found $($sync.Count) container apps tagged as the sync service of '$env:AZURE_ENV_NAME' in $env:AZURE_RESOURCE_GROUP; expected one."
+          }
+
+          if ($sync.Count -eq 0) {
+            $kept = 'none - no sync app exists yet, so this first provision runs the placeholder image'
+          }
+          else {
+            $app = az resource show --ids $sync[0].id --output json | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw "Could not read the container app $($sync[0].name)." }
+            $image = "$($app.properties.template.containers[0].image)".Trim()
+            if (-not $image) { throw "The container app $($sync[0].name) reports no image." }
+
+            azd env set SERVICE_SYNC_IMAGE_NAME $image
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $kept = $image
+          }
+
+          "### Sync service image" >> $env:GITHUB_STEP_SUMMARY
+          "Kept for this run's provision: ``$kept``." >> $env:GITHUB_STEP_SUMMARY
+          Write-Output "Service image kept for the provision: $kept"
+
+      # Every infrastructure mode previews first; `service` touches no infrastructure.
       - name: Preview infrastructure changes
+        if: env.DEPLOY_MODE != 'service'
         env:
           # Read from the process environment by azd; see Verify deployment target.
           SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
@@ -224,16 +359,77 @@ jobs:
           azd provision --no-prompt
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Deploy the sync service
-        if: env.DEPLOY_MODE == 'deploy'
+      # Without a provision in this run the fresh azd environment knows none of the
+      # template's outputs (the registry azd pushes to, SYNC_SERVICE_URI). They are
+      # read back from the last provision of this resource group instead.
+      - name: Load the provisioned environment
+        if: env.DEPLOY_MODE == 'service'
         env:
           # Read from the process environment by azd; see Verify deployment target.
           SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
 
+          azd env refresh --no-prompt
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::error::Could not read the provisioned environment back. Provision it first: Deploy Sync, mode provision."
+            exit 1
+          }
+
+      - name: Deploy the sync service
+        if: env.DEPLOY_MODE == 'deploy' || env.DEPLOY_MODE == 'service'
+        env:
+          # Read from the process environment by azd; see Verify deployment target.
+          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # azd builds the image with `dotnet publish /t:PublishContainer` in its own
+          # process environment, and MSBuild reads environment variables as
+          # properties: BacklogRelease here becomes the assembly metadata GET /
+          # reports as `release`. Version is left alone - it is the compatibility
+          # number clients stop syncing above. Set on this step alone, so no other
+          # build in the job is stamped.
+          if ($env:RELEASE_NUMBER) {
+            $env:BacklogRelease = $env:RELEASE_NUMBER
+            Write-Output "Deploying the sync service as release $env:RELEASE_NUMBER."
+          }
+
           azd deploy sync --no-prompt
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      # The proof that the number reached the running service, and that the revision
+      # serving is this run's: Release All publishes only after this passes.
+      - name: Check the deployed release
+        if: env.RELEASE_NUMBER != ''
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $values = azd env get-values --output json | ConvertFrom-Json
+          $endpoint = "$($values.SYNC_SERVICE_URI)".TrimEnd('/')
+          if (-not $endpoint) { throw "SYNC_SERVICE_URI is not in the azd environment; cannot check the deployed release." }
+
+          # The new revision takes a moment to serve, and the app scales from zero.
+          $deadline = (Get-Date).AddMinutes(10)
+          $last = 'no answer'
+          while ((Get-Date) -lt $deadline) {
+            try {
+              $identity = Invoke-RestMethod -Uri "$endpoint/" -TimeoutSec 30
+              if ($identity.release -eq $env:RELEASE_NUMBER -and $identity.commit -eq $env:GITHUB_SHA) {
+                "### Sync service" >> $env:GITHUB_STEP_SUMMARY
+                "$endpoint/ reports release ``$($identity.release)`` at commit ``$($identity.commit)``, compatibility version ``$($identity.version)``." >> $env:GITHUB_STEP_SUMMARY
+                Write-Output "The sync service reports release $($identity.release) at $($identity.commit), version $($identity.version)."
+                return
+              }
+              $last = "release '$($identity.release)', commit '$($identity.commit)', version '$($identity.version)'"
+            }
+            catch {
+              $last = $_.Exception.Message
+            }
+            Start-Sleep -Seconds 15
+          }
+
+          throw "The sync service at $endpoint/ never reported release $env:RELEASE_NUMBER at commit $env:GITHUB_SHA; last answer: $last."
 
       - name: Write deployment summary
         id: summary
@@ -253,6 +449,7 @@ jobs:
             "### Sync deployment"
             ""
             "- Mode: ``$env:DEPLOY_MODE``"
+            "- Release: ``$(if ($env:RELEASE_NUMBER) { $env:RELEASE_NUMBER } else { 'none' })``"
             "- Environment: ``$env:AZURE_ENV_NAME``"
             "- Subscription: ``$env:AZURE_SUBSCRIPTION_ID``"
             "- Resource group: ``$env:AZURE_RESOURCE_GROUP``"
