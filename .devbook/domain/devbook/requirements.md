@@ -1776,20 +1776,32 @@ The system SHALL offer the context map, under its file's heading and a sentence 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Forward_arcs_are_drawn_above_the_row_the_ways_back_below_and_the_restore_loop_outermost, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_flow_page_draws_the_row_with_the_prose_beneath_and_mermaid_for_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_diagram_the_row_cannot_hold_is_left_to_mermaid, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlowPageTests.The_Flow_row_draws_the_lifecycle_as_one_row_and_keeps_every_other_diagram]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Moves_between_neighbours_run_straight_forward_on_top_and_back_underneath_and_the_restore_loop_runs_outermost_above, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_back_over_a_state_runs_in_a_lane_below_the_row, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_state_box_reads_its_alias_its_description_and_its_class, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.An_event_in_a_label_is_a_chip_under_its_transition_dashed_until_it_is_emitted, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_way_in_from_several_states_under_one_label_is_one_note_not_an_arc_each, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_one_line_note_is_a_caption_under_its_state_and_a_start_into_the_first_state_is_not_drawn, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_row_scales_to_its_column_rather_than_scrolling, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.Marks_that_would_meet_under_the_row_take_separate_lines, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_first_chapter_titles_the_page_with_its_lead_and_a_legend_and_untyped_sub_chapters_read_as_cards, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.The_flow_page_draws_the_row_with_the_prose_beneath_and_mermaid_for_the_rest, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFlowsTests.A_diagram_the_row_cannot_hold_is_left_to_mermaid, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFlowPageTests.The_Flow_row_draws_the_lifecycle_as_one_row_and_keeps_every_other_diagram]
 ```
 
-The system SHALL draw each `stateDiagram-v2` of a `flow.md` or `flow.<name>.md` row as one row of states, with the forward transitions above the row, the ways back below it, the way from the last state back to the first as a loop round the outside, and the chapter's prose beneath, and SHALL render every other Mermaid diagram of the file as it renders elsewhere.
+The system SHALL draw each `stateDiagram-v2` of a `flow.md` or `flow.<name>.md` row as one row of states that fits the column without scrolling sideways: each state a box with its label and its description, a move to the next state on top and a move back to the one before underneath, every other forward move above the row and every other way back below it, the way from the last state back to the first as a loop round the outside above it, the event a transition raises as a chip under it that is dashed while the event is documented but not yet emitted and that opens Model, where the events are read, a way in from several states under one label as one note under the row, and a one-line note as a caption under its state. The first chapter SHALL title the page, a chapter's markdown before its first diagram SHALL be its lead, and a state row SHALL carry a legend. A chapter that draws no diagram and holds only untyped sub-chapters SHALL show them as cards. The system SHALL render every other Mermaid diagram of the file as it renders elsewhere.
 
 #### Scenario: A lifecycle with a restore
 
 - **Given** a `flow.md` chapter whose `stateDiagram-v2` runs *Draft* to *Ready* to *Done* and back from *Done* to *Draft* as *Restored*
 - **When** the reader opens Flow
-- **Then** *Draft*, *Ready* and *Done* stand in one row, *Restored* loops round the outside below it, and the chapter's prose follows the row
+- **Then** *Draft*, *Ready* and *Done* stand in one row, *Restored* loops round the outside above it, and the chapter's prose follows the row
 
-#### Scenario: A sequence diagram beside it
+#### Scenario: An event and a drop
 
-- **Given** the same `flow.md` holds a chapter with a `sequenceDiagram`
+- **Given** a lifecycle whose *Ready* to *In progress* label reads *started (TaskProjected, not yet emitted)*, and whose *Draft*, *Ready* and *In progress* each go to *Archived* under one label
+- **When** the reader opens Flow
+- **Then** the move reads *started* with a dashed *TaskProjected* chip under it, and one note says *Also into Archived: Draft, Ready and In progress* in place of three arcs
+
+#### Scenario: What sits beside the status
+
+- **Given** a chapter *Beside the status, not states* holding `### The tick`, `### Readiness` and `### Time`
+- **When** the reader opens Flow
+- **Then** each of the three is a card with its title, its tag and its link
+
+#### Scenario: A class diagram beside it
+
+- **Given** the same `flow.md` holds a chapter with a `classDiagram`
 - **When** the reader opens Flow
 - **Then** that chapter's diagram renders as Mermaid, as it does on every other page
 
