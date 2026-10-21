@@ -4,20 +4,21 @@ namespace Backlog.Infrastructure.Devbook.Scenarios;
 
 /// <summary>
 /// The scenario register devbook commits as <c>_meta/scenarios.json</c> (BL1): every
-/// <c>type: scenario</c> page in a scope, by stem and path, so a reader lists the
-/// journeys without parsing the corpus.
+/// journey in a scope — a <c>##</c> typed <c>scenario</c> in a scenarios file — by its
+/// address, file and anchor, so a reader lists the journeys without parsing the corpus.
 /// <para>
-/// Read at its own <c>schemaVersion: 1</c> and nothing else: a register at another
-/// version is read as no register, and the caller falls back to finding the pages
-/// itself — the same rung the outline's <c>_meta/index.json</c> has under the devbook
+/// Read at its own <c>schemaVersion: 2</c> and nothing else: a register at another
+/// version — 1 listed journey pages by stem, before journeys moved into scenarios
+/// files — is read as no register, and the caller falls back to finding the files
+/// itself, the same rung the outline's <c>_meta/index.json</c> has under the devbook
 /// database. What the register carries beyond the list — setup, labels, parts — is
-/// re-read from the page, because the signature is computed from the page text and
-/// the page on the branch being shown is the one that has to be current.
+/// re-read from the file, because the signature is computed from the journey text and
+/// the file on the branch being shown is the one that has to be current.
 /// </para>
 /// </summary>
 public sealed record ScenarioRegister(IReadOnlyList<ScenarioRegisterEntry> Scenarios)
 {
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     /// <summary>The register's file name inside a <c>_meta/</c> folder.</summary>
     public const string FileName = "scenarios.json";
@@ -62,8 +63,9 @@ public sealed record ScenarioRegister(IReadOnlyList<ScenarioRegisterEntry> Scena
                 {
                     if (entry.ValueKind != JsonValueKind.Object) continue;
                     if (Text(entry, "path") is not { Length: > 0 } path) continue;
+                    if (Text(entry, "anchor") is not { Length: > 0 } anchor) continue;
                     entries.Add(new ScenarioRegisterEntry(
-                        Text(entry, "stem") ?? ScenarioPageParser.StemOf(path),
+                        anchor,
                         path.Replace('\\', '/'),
                         Text(entry, "title"),
                         Text(entry, "status")));
@@ -82,6 +84,11 @@ public sealed record ScenarioRegister(IReadOnlyList<ScenarioRegisterEntry> Scena
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 }
 
-/// <param name="Path">Repository-relative, as the register writes it:
-/// <c>.devbook/domain/work/set-up-and-fill-the-backlog.md</c>.</param>
-public sealed record ScenarioRegisterEntry(string Stem, string Path, string? Title, string? Status);
+/// <param name="Anchor">The journey heading's anchor in its file.</param>
+/// <param name="Path">The scenarios file, repository-relative, as the register writes
+/// it: <c>.devbook/domain/work/scenarios.md</c>.</param>
+public sealed record ScenarioRegisterEntry(string Anchor, string Path, string? Title, string? Status)
+{
+    /// <summary>The journey's address, <c>&lt;scenarios file&gt;#&lt;journey&gt;</c>.</summary>
+    public string Address => $"{Path}#{Anchor}";
+}

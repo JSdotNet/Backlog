@@ -9,8 +9,8 @@ namespace Backlog.EndToEndTests;
 ///
 /// <para>The repository is <c>tests/Fixtures/scenario-repository</c> copied to a
 /// folder under the temp folder — outside every repository, so no git checkout is
-/// mistaken for it — holding one scenario page, <c>place-an-order.md</c>, and its
-/// committed run: the first part passed, the second failed on step 1, with a label
+/// mistaken for it — holding one journey, <c>shop/scenarios.md#place-an-order</c>, and
+/// its committed run: the first part passed, the second failed on step 1, with a label
 /// screenshot and a failure screenshot. It is registered under an alias and an
 /// <c>owner/name</c> nobody else uses, and removed again on dispose, pass or fail,
 /// through the same page. A row a crashed earlier run left behind is removed before
@@ -23,8 +23,11 @@ internal sealed class ScenarioRepository : IAsyncDisposable
 
     public const string FullName = "JSdotNet/backlog-scenarios-e2e";
 
-    public const string PagePath = ".devbook/domain/place-an-order.md";
+    /// <summary>The scenarios file the fixture's one journey is written in.</summary>
+    public const string PagePath = ".devbook/domain/shop/scenarios.md";
 
+    /// <summary>The journey's anchor: its run folder's name and what its evidence is
+    /// filed under.</summary>
     public const string Stem = "place-an-order";
 
     public const string PassedPart = "the-cart-is-filled";

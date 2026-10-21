@@ -3,15 +3,18 @@ using System.Text.Json;
 namespace Backlog.Infrastructure.Devbook.Scenarios;
 
 /// <summary>
-/// The last run of one scenario page, as <c>&lt;scenario folder&gt;/&lt;stem&gt;/run.json</c>
-/// records it: when, under which profile, the signature of the page text it ran,
-/// each part's outcome, and the screenshot each label captured.
+/// The last run of one journey, as <c>run.json</c> in the journey's run folder records
+/// it (<see cref="ScenarioJourney.RunFolder"/>): when, under which profile, the
+/// signature of the journey text it ran, each part's outcome, and the screenshot each
+/// label captured.
 /// <para>
-/// Two shapes are read. Version 2 is devbook's run reporter (<c>report.mjs</c>), with
-/// English fields and the page's own signature. Version 1 is spec-manager's classic
+/// Three shapes are read. Version 3 is devbook's run reporter (<c>report.mjs</c>) since
+/// journeys moved into scenarios files: English fields, the journey's own signature, and
+/// the journey's address. Version 2 is the same reporter from when a journey was a page
+/// of its own, and names that page instead. Version 1 is spec-manager's classic
 /// <c>.test</c> reporter, Dutch fields and one Gherkin signature per scenario: it says
-/// nothing about the page's signature, so a version 1 run can show its outcomes and
-/// screenshots but never proves the page current — <see cref="Signature"/> is null and
+/// nothing about the journey's signature, so a version 1 run can show its outcomes and
+/// screenshots but never proves the journey current — <see cref="Signature"/> is null and
 /// <see cref="ScenarioEvidence.StateOf"/> reads it as stale.
 /// </para>
 /// </summary>
@@ -24,8 +27,13 @@ public sealed record ScenarioRun(
     IReadOnlyDictionary<string, ScenarioRunShot> Shots)
 {
     /// <summary>The page the run executed, repository-relative, as a version 2 run
-    /// records it; null for a version 1 run, which names a feature instead.</summary>
+    /// records it; null for any other version.</summary>
     public string? Page { get; init; }
+
+    /// <summary>The journey the run executed, as its address
+    /// <c>&lt;scenarios file&gt;#&lt;journey&gt;</c>, as a version 3 run records it; null
+    /// for any other version.</summary>
+    public string? Journey { get; init; }
 
     /// <summary>The part the run recorded under this anchor, or null.</summary>
     public ScenarioRunPart? Part(string anchor) =>
@@ -80,7 +88,7 @@ public static class ScenarioRunReader
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return null;
 
-            if (Number(root, "version") == 2) return ReadVersion2(root);
+            if (Number(root, "version") is (2 or 3) and var version) return ReadReporterRun(root, (int)version);
             if (Number(root, "versie") == 1) return ReadVersion1(root);
             return null;
         }
@@ -90,7 +98,9 @@ public static class ScenarioRunReader
         }
     }
 
-    private static ScenarioRun ReadVersion2(JsonElement root)
+    /// <summary>A run devbook's reporter wrote: version 2 or 3, which differ only in
+    /// naming the page or the journey it executed.</summary>
+    private static ScenarioRun ReadReporterRun(JsonElement root, int version)
     {
         var parts = new List<ScenarioRunPart>();
         if (root.TryGetProperty("parts", out var list) && list.ValueKind == JsonValueKind.Array)
@@ -127,9 +137,10 @@ public static class ScenarioRunReader
             }
         }
 
-        return new ScenarioRun(2, Text(root, "signature")?.ToLowerInvariant(), Time(root, "ranAt"), Text(root, "profile"), parts, shots)
+        return new ScenarioRun(version, Text(root, "signature")?.ToLowerInvariant(), Time(root, "ranAt"), Text(root, "profile"), parts, shots)
         {
-            Page = Text(root, "page")
+            Page = version == 2 ? Text(root, "page") : null,
+            Journey = version == 3 ? Text(root, "journey") : null
         };
     }
 
@@ -194,8 +205,8 @@ public static class ScenarioRunReader
             : null;
 }
 
-/// <summary>A scenario page's state, in the dot's precedence: never run, then stale,
-/// then failed, then passed.</summary>
+/// <summary>A journey's state, in the dot's precedence: never run, then stale, then
+/// failed, then passed.</summary>
 public enum ScenarioState
 {
     NeverRun,
@@ -207,20 +218,31 @@ public enum ScenarioState
 public static class ScenarioEvidence
 {
     /// <summary>
-    /// The page's state against its last run. Stale is computed, never stored: the
-    /// page's signature now against the one the run executed. A run that proves no
+    /// The journey's state against its last run. Stale is computed, never stored: the
+    /// journey's signature now against the one the run executed. A run that proves no
     /// signature — version 1 — is stale. Otherwise any part that did not pass, or a
-    /// part of the page the run does not mention, is a failed run.
+    /// part of the journey the run does not mention, is a failed run.
     /// </summary>
-    public static ScenarioState StateOf(ScenarioPage page, string pageSignature, ScenarioRun? run)
+    public static ScenarioState StateOf(ScenarioJourney journey, string journeySignature, ScenarioRun? run)
     {
+        ArgumentNullException.ThrowIfNull(journey);
         if (run is null) return ScenarioState.NeverRun;
-        if (run.Signature is null || !string.Equals(run.Signature, pageSignature, StringComparison.OrdinalIgnoreCase)) return ScenarioState.Stale;
+        if (run.Signature is null || !string.Equals(run.Signature, journeySignature, StringComparison.OrdinalIgnoreCase)) return ScenarioState.Stale;
 
-        // A page with no parts proves nothing, so a run of it passes nothing.
-        return page.Parts.Count > 0 && page.Parts.All(part => run.Part(part.Anchor)?.Outcome == ScenarioOutcome.Passed)
+        // A journey with no parts proves nothing, so a run of it passes nothing.
+        return journey.Parts.Count > 0 && journey.Parts.All(part => run.Part(part.Anchor)?.Outcome == ScenarioOutcome.Passed)
             ? ScenarioState.Passed
             : ScenarioState.Failed;
+    }
+
+    /// <summary>The state several journeys read as together — a scenarios file's row in
+    /// the menu — in the dot's precedence: the first of never run, stale, failed that
+    /// any of them is, and passed only when every one passed.</summary>
+    public static ScenarioState Combined(IEnumerable<ScenarioState> states)
+    {
+        ArgumentNullException.ThrowIfNull(states);
+        var all = states.ToList();
+        return all.Count == 0 ? ScenarioState.NeverRun : all.Min();
     }
 
     public static string Slug(ScenarioState state) => state switch

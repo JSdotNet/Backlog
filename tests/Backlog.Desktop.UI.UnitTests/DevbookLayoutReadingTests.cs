@@ -149,6 +149,60 @@ public sealed class DevbookLayoutReadingTests : IDisposable
         Assert.Equal(relative, link.RelativePath);
     }
 
+    [Theory]
+    [InlineData(".devbook/arc42/workspace.dsl#container-view")]
+    [InlineData(".arc42/workspace.dsl#container-view")]
+    [InlineData(".devbook/arc42/c4/model.dsl#container-view")]
+    [InlineData(".arc42/_c4/backlog.dsl#containers-backlog")]
+    public void A_reference_to_the_C4_workspace_is_a_view_link_into_architecture(string reference)
+    {
+        var link = DevbookChapterLink.From(reference);
+
+        Assert.NotNull(link);
+        Assert.Equal("arc42", link.AreaKey);
+        Assert.True(link.IsC4View);
+    }
+
+    /// <summary>Every spelling a link accepts opens the view: the workspace itself,
+    /// a file it includes from <c>c4/</c>, and a workspace in the <c>_c4/</c> folder
+    /// that held it before contract 33 — all of them the one workspace, by key.</summary>
+    [Theory]
+    [InlineData(".devbook/arc42/workspace.dsl#container-view")]
+    [InlineData(".arc42/workspace.dsl#Container-View")]
+    [InlineData(".devbook/arc42/c4/model.dsl#container-view")]
+    [InlineData(".arc42/_c4/backlog.dsl#container-view")]
+    public void A_link_to_the_C4_workspace_opens_its_view(string reference)
+    {
+        var view = new C4ViewEntry(".arc42/workspace.dsl#container-view", "workspace.dsl", "Backlog", "container-view", default(C4ViewKind), "Containers", string.Empty, []);
+        var catalog = new C4Catalog(true, null, [view], [], []);
+
+        var link = DevbookChapterLink.From(reference);
+
+        Assert.NotNull(link);
+        Assert.Same(view, catalog.Find(link.Reference));
+    }
+
+    /// <summary>A view drawn from a chapter's fence is no workspace's, so no
+    /// <c>.dsl</c> link opens it, and a key no view has opens nothing.</summary>
+    [Theory]
+    [InlineData(".arc42/_c4/backlog.dsl#context")]
+    [InlineData(".arc42/workspace.dsl#no-such-view")]
+    public void A_link_to_no_authored_view_opens_nothing(string reference)
+    {
+        var derived = new C4ViewEntry(".arc42/03-context.md#context", "chapters", "From the chapters", "context", default(C4ViewKind), "Context", string.Empty, []);
+        var catalog = new C4Catalog(true, null, [derived], [], []);
+
+        Assert.Null(catalog.Find(DevbookChapterLink.From(reference)!.Reference));
+    }
+
+    [Theory]
+    [InlineData(".devbook/arc42/other.dsl#view")]
+    [InlineData(".devbook/domain/workspace.dsl#view")]
+    public void A_dsl_outside_the_C4_workspace_layout_stays_text(string reference)
+    {
+        Assert.Null(DevbookChapterLink.From(reference));
+    }
+
     [Fact]
     public void A_relative_link_between_devbook_folders_resolves_from_a_root_spelled_document()
     {
@@ -175,7 +229,7 @@ public sealed class DevbookLayoutReadingTests : IDisposable
     [InlineData(".devbook/arc42/05-building-block-view.md", ".arc42/05-building-block-view.md")]
     public void A_c4_view_documents_a_chapter_whichever_layout_names_either(string documented, string chapter)
     {
-        var view = new C4ViewEntry(".arc42/_c4/workspace.dsl#containers", "workspace.dsl", "Backlog", "containers", default(C4ViewKind), "Containers", string.Empty, [documented]);
+        var view = new C4ViewEntry(".arc42/workspace.dsl#containers", "workspace.dsl", "Backlog", "containers", default(C4ViewKind), "Containers", string.Empty, [documented]);
 
         Assert.True(view.Documented(chapter));
     }

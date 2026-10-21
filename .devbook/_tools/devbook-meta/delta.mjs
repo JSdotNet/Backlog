@@ -28,13 +28,13 @@
 // rules and landed by replacing its target whole. The graph does not index it
 // as a delta, but the change's fingerprint covers it. Any other file is an error.
 //
-// Scenario pages carry rules no single file can check — a stem unique across
-// contexts, setup fields that resolve to chapters, `Proved by:` pointers that
-// name a part. Once every delta resolves, the check lays all of the change's
-// merges over the corpus in memory and runs scenario.mjs's pass over the
-// result, so a pointer to a page the same change adds resolves, and a typo or
-// a colliding stem is reported against the delta that causes it, before either
-// gate rather than at archive.
+// Journeys carry rules no single file can check — setup fields that resolve to
+// chapters, `Proved by:` pointers that name a part, a journey in the context of
+// the requirements it proves. Once every delta resolves, the check lays all of
+// the change's merges over the corpus in memory and runs scenario.mjs's pass
+// over the result, so a pointer to a journey the same change adds resolves,
+// and a typo is reported against the delta that causes it, before either gate
+// rather than at archive.
 
 import { readFile, writeFile, readdir, mkdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";

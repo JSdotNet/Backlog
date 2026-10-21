@@ -323,11 +323,11 @@ public sealed class C4ChapterViewsTests : IDisposable
         _roots.Add(root);
 
         var arc42 = Path.Combine(root, ".arc42");
-        var c4 = Path.Combine(arc42, C4DevbookStore.WorkspaceDirectory);
+        var c4 = Path.Combine(arc42, C4DevbookStore.ReferenceDirectory);
         Directory.CreateDirectory(c4);
 
         File.WriteAllText(Path.Combine(arc42, "05-building-block-view.md"), chapter);
-        if (writeWorkspace) File.WriteAllText(Path.Combine(c4, "backlog.dsl"), Workspace);
+        if (writeWorkspace) File.WriteAllText(Path.Combine(arc42, C4DevbookStore.WorkspaceFile), Workspace);
         if (references is not null) File.WriteAllText(Path.Combine(c4, C4DevbookStore.ReferenceFile), references);
 
         var workspaceSettings = new WorkspaceSettingsStore(Path.Combine(root, "store"));

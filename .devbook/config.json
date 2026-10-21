@@ -104,11 +104,11 @@
   ],
   "components": {
     "delivery": {
-      "pluginVersion": "1.26.0"
+      "pluginVersion": "1.28.0"
     },
     "devbook": {
-      "pluginVersion": "1.26.0",
-      "contractVersion": 30,
+      "pluginVersion": "1.28.0",
+      "contractVersion": 33,
       "adopted": [
         "arc42",
         "domain",
@@ -128,13 +128,13 @@
           "managed": true
         },
         ".agents/rules/devbook-arc42.md": {
-          "from": "1.13.0",
-          "hash": "sha256:028e6835f14e1cd14aa803699c2e4132eeb9c8e5b430d80465d8ebf196d64287",
+          "from": "1.28.0",
+          "hash": "sha256:5486898958ba18a337790c97fbb9dff2778d71e41860f1489969969008ba9b12",
           "managed": true
         },
         ".agents/rules/devbook-chapter-metadata.md": {
-          "from": "1.24.0",
-          "hash": "sha256:207f5c8ded2e8f880a9c7ceee4b7b5dff99fae8ee05b640f621943b60059e40f",
+          "from": "1.28.0",
+          "hash": "sha256:c72f2bad1cfaa3ed9fba5edab26b39db42296b23db0436011035a75c74d48efa",
           "managed": true
         },
         ".agents/rules/devbook-design.md": {
@@ -143,13 +143,13 @@
           "managed": true
         },
         ".agents/rules/devbook-domain.md": {
-          "from": "1.24.0",
-          "hash": "sha256:50877bedfe5667044f35aa0fda6a7bb32b388d97bb0f2ae79df62d51bbe2d956",
+          "from": "1.28.0",
+          "hash": "sha256:86b4db087af8d4e78bdc7c22426f75a68567a1b644de1cd4e4074ad8f889f10f",
           "managed": true
         },
         ".agents/rules/devbook-naming.md": {
-          "from": "1.22.0",
-          "hash": "sha256:f2a8522e16b2fbe8c58fd7d5205387544006824a6dfefb97a7dbc3f21eed6cd0",
+          "from": "1.28.0",
+          "hash": "sha256:bca2c6f51c2fc62b8e0085ac0a680262fa41bf65038e4490bdd8486ea64958b9",
           "managed": true
         },
         ".agents/rules/devbook-tech.md": {
@@ -158,8 +158,8 @@
           "managed": true
         },
         ".agents/rules/devbook-writing.md": {
-          "from": "1.22.0",
-          "hash": "sha256:6986c7fbb380f2cad557f2dd95505246c835f7ba0ce787938420500ff35a4bdf",
+          "from": "1.28.0",
+          "hash": "sha256:76261974360205ca6acbd5f611fdeae0e1391514b0366bfd13ae6a335d56f6fd",
           "managed": true
         },
         ".agents/skills/capture.md": {
@@ -243,8 +243,8 @@
           "managed": false
         },
         ".devbook/_tools/devbook-meta": {
-          "from": "1.26.0",
-          "hash": "sha256:b1cf2cb46e4864e7d6d8bd2a04217f3ff8bb8569bf9d901f08b911770baccd3e",
+          "from": "1.28.0",
+          "hash": "sha256:6e06efceb183aeee1c88cf99bfc0811adac3a07c826d061f981ad843bd6e90ce",
           "managed": true
         },
         ".devbook/_tools/devbook-tech": {
@@ -253,8 +253,8 @@
           "managed": true
         },
         ".devbook/_tools/scenarios": {
-          "from": "1.26.0",
-          "hash": "sha256:9fc07599b7f50c75ba0c20692571463814dd7d7ddcedbbe90ec43366538805f6",
+          "from": "1.28.0",
+          "hash": "sha256:5ab00bd9e4efaf09aeba3891f610f57df85d84c95b371f5eb8f0cedc6f0368be",
           "managed": true
         },
         ".github/copilot-instructions.md": {
@@ -398,6 +398,14 @@
         {
           "id": "030-scenario-tools",
           "applied": "2026-10-13"
+        },
+        {
+          "id": "032-scenarios-md",
+          "applied": "2026-10-20"
+        },
+        {
+          "id": "033-c4-workspace",
+          "applied": "2026-10-20"
         }
       ],
       "procedures": {

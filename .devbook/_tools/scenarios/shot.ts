@@ -1,10 +1,10 @@
-// shot.ts — the screenshot at a page's `shot:<label>` point, and the one taken
+// shot.ts — the screenshot at a journey's `shot:<label>` point, and the one taken
 // when a part fails.
 //
-// Neither writes into the scenario folder. Each is attached to the result as
+// Neither writes into the run folder. Each is attached to the result as
 // bytes — so `preserveOutput` cannot delete it first — and the run reporter
-// (`report.mjs`) writes it to `<scenario folder>/<stem>/` only when the run
-// covered the whole page. That is what keeps a filtered run from writing anything.
+// (`report.mjs`) writes it to the journey's run folder only when the run
+// covered the whole journey. That is what keeps a filtered run from writing anything.
 
 import type { Page, TestInfo } from '@playwright/test';
 import type { Buffer } from 'node:buffer';

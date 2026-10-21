@@ -713,9 +713,14 @@ public static class C4LayoutEngine
     /// Whether a curve passes through any card that is not one of its own ends.
     /// <para>
     /// Sampled along the curve rather than solved. A cubic against a rectangle has a
-    /// closed form and it is not worth writing: these are twenty-odd boxes on a page,
-    /// the samples are a few dozen points, and a miss between two samples is a graze
-    /// nobody would call a crossing.
+    /// closed form and it is not worth writing: these are twenty-odd boxes on a page
+    /// and the samples are a hundred-odd points.
+    /// </para>
+    /// <para>
+    /// A hundred-odd rather than a few dozen because a wide detour is long: the one
+    /// from the actor round the right of the container view runs some two thousand
+    /// pixels, and at twenty-eight samples it stepped clean over the corner of
+    /// <c>External Sources</c> it cut through.
     /// </para>
     /// </summary>
     private static bool Crosses(
@@ -727,7 +732,7 @@ public static class C4LayoutEngine
     {
         if (obstacles.Count == 0) return false;
 
-        const int samples = 28;
+        const int samples = 120;
         const double inset = 4;
 
         for (var step = 1; step < samples; step++)

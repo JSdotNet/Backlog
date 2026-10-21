@@ -3659,8 +3659,7 @@ button.devbook-chip__label:focus-visible {
 }
 
 .devbook-scenario-shot--unknown-label .devbook-scenario-shot__source,
-.devbook-scenario-shot--unknown-page .devbook-scenario-shot__source,
-.devbook-scenario-shot--ambiguous-stem .devbook-scenario-shot__source { color: var(--color-error-text); }
+.devbook-scenario-shot--unknown-page .devbook-scenario-shot__source { color: var(--color-error-text); }
 
 /* --- Devbook type marker ------------------------------------------------ */
 /*

@@ -1,12 +1,12 @@
-// demo-sync.mjs — copies each linked walkthrough's text from the scenario page
-// part it names, and its signature from that page, into the demo's
+// demo-sync.mjs — copies each linked walkthrough's text from the journey part
+// it names, and its signature from that journey, into the demo's
 // `demo-model`.
 //
 // A linked walkthrough embeds a copy of its part's step text so the demo plays
-// with nothing fetched; the copy goes stale whenever the page moves. This tool
-// is the one way it is refreshed: per linked walkthrough, each step's `text`
-// becomes the text of the part step its `step` names, and `signature` the
-// page's current one. Nothing else in the file changes — not a byte of the
+// with nothing fetched; the copy goes stale whenever the journey moves. This
+// tool is the one way it is refreshed: per linked walkthrough, each step's
+// `text` becomes the text of the part step its `step` names, and `signature`
+// the journey's current one. Nothing else in the file changes — not a byte of the
 // JSON around those values, not the markup.
 //
 //   node demo-sync.mjs [<demo.html>…] [--root <dir>] [--scenario-folder <dir>] [--check]
@@ -25,9 +25,9 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { DEMO_MODEL_ID, LINKED_PART, parseDemo, resolveLinkedPage, stepTextMatches } from "../devbook-meta/demo.mjs";
-import { DOMAIN_FOLDER, OUTSIDE_ROOT, SCENARIO_FOLDER, STEP_KEYWORDS, collapse, listScenarioPages, normalizePath, resolveInside } from "./parse.mjs";
-import { pageSignature } from "./signature.mjs";
+import { DEMO_MODEL_ID, LINKED_PART, parseDemo, resolveLinkedPart, stepTextMatches } from "../devbook-meta/demo.mjs";
+import { DOMAIN_FOLDER, OUTSIDE_ROOT, SCENARIO_FOLDER, STEP_KEYWORDS, collapse, listJourneys, normalizePath, resolveInside } from "./parse.mjs";
+import { journeySignature } from "./signature.mjs";
 
 const DEMO_FILE = /\.demo\.html$/i;
 
@@ -117,14 +117,15 @@ function copiedText(current, target) {
 // ── One demo ────────────────────────────────────────────────────────────────
 
 /**
- * Sync one demo's linked walkthroughs. `pages` maps a scenario page's path to
- * `{ path, stem, page, signature }`. Returns `{ html, changes, problems }`:
+ * Sync one demo's linked walkthroughs. `files` maps a scenarios file's path to
+ * its journeys, each `{ id, parts, journey, signature }` — `journey` the parsed
+ * one. Returns `{ html, changes, problems }`:
  * `html` the file with every stale `signature` and drifted `text` replaced and
  * nothing else; `changes` one `{ id, kind, step?, from, to }` per replaced
  * value, `kind` `signature` or `text`; `problems` the walkthroughs it could not
  * resolve, as messages. `only`, a set of walkthrough ids, limits the sync to those.
  */
-export function syncDemo(html, relPath, pages, { only = null } = {}) {
+export function syncDemo(html, relPath, files, { only = null } = {}) {
     const changes = [];
     const problems = [];
     const demo = parseDemo(html);
@@ -146,17 +147,13 @@ export function syncDemo(html, relPath, pages, { only = null } = {}) {
         const at = `${relPath} walkthrough "${id}" (\`part\` "${part}")`;
         const hash = part.indexOf("#");
         const anchor = part.slice(hash + 1);
-        const resolved = resolveLinkedPage(relPath, part.slice(0, hash), pages);
+        const resolved = resolveLinkedPart(relPath, part.slice(0, hash), anchor, files);
         if (resolved.error) {
-            problems.push(`${at}: names no scenario page part — ${resolved.error}.`);
+            problems.push(`${at}: names no journey part — ${resolved.error}.`);
             continue;
         }
-        const entry = pages.get(resolved.path);
-        const partSteps = entry.page.parts.find((p) => p.anchor === anchor)?.steps;
-        if (!partSteps) {
-            problems.push(`${at}: ${resolved.path} has no part "#${anchor}".`);
-            continue;
-        }
+        const entry = resolved.journey;
+        const partSteps = entry.journey.parts.find((p) => p.anchor === anchor).steps;
 
         const signatureNode = node.members.get("signature");
         if (signatureNode?.kind === "string" && signatureNode.value !== entry.signature) {
@@ -208,13 +205,14 @@ async function demosUnder(repoRoot, rel) {
     return out.sort();
 }
 
-/** Every scenario page under `domain/`, keyed by path, with its current signature. */
-export async function scenarioPages(repoRoot, scenarioFolder = SCENARIO_FOLDER) {
-    const pages = new Map();
-    for (const page of await listScenarioPages(repoRoot)) {
-        pages.set(page.path, { path: page.path, stem: page.stem, page, signature: await pageSignature(page, repoRoot, scenarioFolder) });
+/** Every journey under `domain/`, grouped by scenarios file, each with its current signature. */
+export async function scenarioFiles(repoRoot, scenarioFolder = SCENARIO_FOLDER) {
+    const files = new Map();
+    for (const journey of await listJourneys(repoRoot)) {
+        const entry = { id: journey.id, parts: journey.parts, journey, signature: await journeySignature(journey, repoRoot, scenarioFolder) };
+        files.set(journey.path, [...(files.get(journey.path) ?? []), entry]);
     }
-    return pages;
+    return files;
 }
 
 /**
@@ -225,16 +223,14 @@ export async function scenarioPages(repoRoot, scenarioFolder = SCENARIO_FOLDER) 
  */
 export async function syncDemos(repoRoot, { files = [], scenarioFolder = SCENARIO_FOLDER, check = false } = {}) {
     const demos = files.length ? files : await demosUnder(repoRoot, DOMAIN_FOLDER);
-    const pages = await scenarioPages(repoRoot, scenarioFolder);
+    const journeys = await scenarioFiles(repoRoot, scenarioFolder);
     const results = [];
     for (const given of demos) {
         let relPath = normalizePath(given);
-        let file;
         let html;
         try {
-            file = resolveInside(repoRoot, given);
-            relPath = normalizePath(path.relative(repoRoot, file));
-            html = await readFile(file, "utf8");
+            relPath = normalizePath(path.relative(repoRoot, resolveInside(repoRoot, given)));
+            html = await readFile(resolveInside(repoRoot, given), "utf8");
         } catch (error) {
             const why = error.code === "ENOENT" ? "does not exist" : error.code === OUTSIDE_ROOT ? "resolves outside the repository" : error.message;
             results.push({ path: relPath, changes: [], problems: [`${relPath}: ${why}`] });
@@ -242,11 +238,11 @@ export async function syncDemos(repoRoot, { files = [], scenarioFolder = SCENARI
         }
         let synced;
         try {
-            synced = syncDemo(html, relPath, pages);
+            synced = syncDemo(html, relPath, journeys);
         } catch (error) {
             synced = { html, changes: [], problems: [`${relPath}: its \`${DEMO_MODEL_ID}\` is not valid JSON — ${error.message}`] };
         }
-        if (!check && synced.html !== html) await writeFile(file, synced.html, "utf8");
+        if (!check && synced.html !== html) await writeFile(resolveInside(repoRoot, given), synced.html, "utf8");
         results.push({ path: relPath, changes: synced.changes, problems: synced.problems });
     }
     return results;

@@ -4,8 +4,8 @@ namespace Backlog.UI.Components.Devbook;
 
 /// <summary>
 /// A host's answer to an image a knowledge chapter names by something other than a
-/// path — <c>scenario:&lt;stem&gt;#&lt;label&gt;</c>, a scenario page's latest capture of
-/// a screenshot point — cascaded to every chapter view below it.
+/// path — <c>scenario:&lt;scenarios file&gt;#&lt;label&gt;</c>, a journey's latest capture
+/// of a screenshot point — cascaded to every chapter view below it.
 /// <para>
 /// <see cref="DevbookInlineTargets"/> asks it first and keeps its own rule — a relative
 /// image is inert — for every target it answers null to. The library resolves no file

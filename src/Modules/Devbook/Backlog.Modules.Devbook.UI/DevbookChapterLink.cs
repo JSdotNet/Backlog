@@ -70,8 +70,8 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     /// Two things have to hold. The folder at the front must name a section, or
     /// there is nowhere to send the reader; and the target must be something a
     /// section can show — a markdown chapter, or a view of the C4 model kept beside
-    /// the chapters in <c>_c4/</c>. Anything else resolves to nothing rather than to
-    /// a guess.
+    /// the chapters in <c>workspace.dsl</c>. Anything else resolves to nothing rather
+    /// than to a guess.
     /// </para>
     /// <para>
     /// The C4 case is narrow on purpose: a <c>.dsl</c> anywhere else in a knowledge
@@ -118,11 +118,16 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     private static bool IsChapterFile(string path) =>
         path.EndsWith(".md", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>A workspace of the C4 model: a <c>.dsl</c> directly inside a
-    /// <c>_c4/</c> folder, addressed with the view key as its anchor. A workspace
-    /// with no anchor names a file rather than a picture, and there is no whole-file
-    /// view to show, so it does not resolve.</summary>
-    private static bool IsC4Workspace(string path) =>
-        path.EndsWith(".dsl", StringComparison.OrdinalIgnoreCase)
-        && path.Contains($"/{C4DevbookStore.WorkspaceDirectory}/", StringComparison.OrdinalIgnoreCase);
+    /// <summary>A file of the C4 model, addressed with the view key as its anchor: the
+    /// architecture folder's <c>workspace.dsl</c>, a <c>.dsl</c> it includes from
+    /// <c>c4/</c>, or a workspace in the <c>_c4/</c> folder that held them before
+    /// devbook's contract 33.</summary>
+    private static bool IsC4Workspace(string path)
+    {
+        if (!path.EndsWith(".dsl", StringComparison.OrdinalIgnoreCase)) return false;
+
+        return path.EndsWith($"arc42/{C4DevbookStore.WorkspaceFile}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"arc42/{C4DevbookStore.IncludeDirectory}/", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"/{C4DevbookStore.ReferenceDirectory}/", StringComparison.OrdinalIgnoreCase);
+    }
 }

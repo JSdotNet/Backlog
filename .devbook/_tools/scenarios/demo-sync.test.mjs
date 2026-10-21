@@ -1,5 +1,5 @@
 // The demo sync: a current demo is left byte for byte, a stale signature and
-// drifted step text are re-copied from the page and nothing else moves, a copy
+// drifted step text are re-copied from the journey and nothing else moves, a copy
 // keeps its keyword style, a part that does not resolve is reported, `--check`
 // writes nothing and exits 1 while anything is stale, and every `*.demo.html`
 // under `domain/` is taken when no file is named.
@@ -13,28 +13,35 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseWithSpans, syncDemos } from "./demo-sync.mjs";
-import { parseScenarioPage } from "./parse.mjs";
+import { parseScenariosFile } from "./parse.mjs";
 import { signatureOf } from "./signature.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const F = "```";
-const PAGE_PATH = ".devbook/domain/work/set-up-the-board.md";
+const PAGE_PATH = ".devbook/domain/work/scenarios.md";
 const DEMO_PATH = ".devbook/domain/work/features.demo.html";
-const page = (doing = "Doing") => `# Set up the board
+const page = (doing = "Doing") => `# Scenarios
+
+${F}meta
+type: scenarios
+${F}
+
+## Set up the board
 
 ${F}meta
 type: scenario
 ${F}
 
-## Statuses are set up
+### Statuses are set up
 - **Given** a product with no statuses
 - **When** I create "New", "${doing}" and "Done"
 - **Then** they appear as columns in that order
 `;
-const SIGNATURE = signatureOf(parseScenarioPage(page(), PAGE_PATH));
+const journeyOf = (markdown) => parseScenariosFile(markdown, PAGE_PATH).journeys[0];
+const SIGNATURE = signatureOf(journeyOf(page()));
 
 // Hand-formatted on purpose: the sync must keep every byte it does not own.
-const demo = ({ signature = SIGNATURE, part = "set-up-the-board.md#statuses-are-set-up", texts } = {}) => {
+const demo = ({ signature = SIGNATURE, part = "scenarios.md#statuses-are-set-up", texts } = {}) => {
     const [one, two, three] = texts ?? ["a product with no statuses", 'When I create "New", "Doing" and "Done"', "they appear as columns in that order"];
     return `<!doctype html>
 <html><head><title>Work</title>
@@ -97,9 +104,9 @@ test("a current demo is left byte for byte", async () => {
     });
 });
 
-test("a moved page re-copies the signature and the drifted step, and nothing else", async () => {
+test("a moved journey re-copies the signature and the drifted step, and nothing else", async () => {
     const moved = page("In progress");
-    const signature = signatureOf(parseScenarioPage(moved, PAGE_PATH));
+    const signature = signatureOf(journeyOf(moved));
     await withRepo({ [PAGE_PATH]: moved, [DEMO_PATH]: demo() }, async (root) => {
         const check = cli(root, "--check");
         assert.equal(check.status, 1, check.stdout + check.stderr);
@@ -129,7 +136,7 @@ test("a copy keeps its keyword style, and an edited text at the current signatur
 });
 
 test("a part that does not resolve is reported and left alone", async () => {
-    const html = demo({ part: "set-up-the-board.md#no-such-part", signature: "00000000" });
+    const html = demo({ part: "scenarios.md#no-such-part", signature: "00000000" });
     await withRepo({ [PAGE_PATH]: page(), [DEMO_PATH]: html }, async (root) => {
         const run = cli(root);
         assert.equal(run.status, 1);

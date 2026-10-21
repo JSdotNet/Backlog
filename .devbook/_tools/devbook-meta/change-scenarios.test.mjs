@@ -1,5 +1,5 @@
 // change-scenarios.test.mjs — `delta.mjs --check` runs the corpus-wide
-// scenario rules over the corpus as the change would leave it: every delta of
+// journey rules over the corpus as the change would leave it: every delta of
 // the change merged in memory, scenario.mjs's pass over the result, and each
 // problem the change introduces reported against the delta that causes it.
 //
@@ -22,7 +22,7 @@ const errorsOf = (issues) => issues.filter((i) => i.severity === "error");
 
 const CTX = ".devbook/domain/work";
 const REQUIREMENTS = `${CTX}/requirements.md`;
-const PAGE = `${CTX}/set-up-and-fill-the-backlog.md`;
+const PAGE = `${CTX}/scenarios.md`;
 const BASE = `${CHANGES_ROOT}/add-journey`;
 const DELTA = `${BASE}/devbook-delta/domain/work`;
 const header = (delta) => fence(`change: add-journey\ndelta: ${delta}\n`);
@@ -33,16 +33,18 @@ const requirements =
     `# Requirements\n\n${fence("type: requirements\n")}\n## Backlog board\n\n${fence(`type: requirements\nrelated: [${CTX}/features.md#backlog-board]\n`)}\n` +
     `### Requirement: Columns follow the status order\n\n${fence("type: requirement\n")}\nThe board SHALL show one column per status.\n\n` +
     `#### Scenario: Statuses are set up\n\n- **WHEN** a status is created\n- **THEN** a column appears\n`;
+// The journey's parts, at the level a delta's entries sit: one below the target's `###`.
 const PARTS =
-    `### Statuses are set up\n\n- **Given** a product with no statuses\n- **When** I create "New", "Doing" and "Done"\n- **Then** they appear as columns in that order\n\n` +
-    `### An item is moved\n\n- **Given** an item in "New"\n- **When** I drag it to "Doing"\n- **Then** it stays in "Doing"\n`;
+    `#### Statuses are set up\n\n- **Given** a product with no statuses\n- **When** I create "New", "Doing" and "Done"\n- **Then** they appear as columns in that order\n\n` +
+    `#### An item is moved\n\n- **Given** an item in "New"\n- **When** I drag it to "Doing"\n- **Then** it stays in "Doing"\n`;
 const pageDelta = (meta = "type: scenario\n") =>
-    `${header("added")}\n# Set up and fill the backlog\n\n${fence(meta)}\nA product owner sets up the backlog and moves the first item.\n\n## ADDED\n\n${PARTS}`;
+    `${header("added")}\n# Scenarios\n\n${fence("type: scenarios\n")}\nThe journeys of the work context.\n\n## ADDED\n\n` +
+    `### Set up and fill the backlog\n\n${fence(meta)}\nA product owner sets up the backlog and moves the first item.\n\n${PARTS}`;
 const provedBy = (target) =>
     `${header("modified")}\n### Requirement: Columns follow the status order\n\n#### MODIFIED\n\n##### Scenario: Statuses are set up\n\nProved by: ${target}\n`;
 const proposal =
     `# Add journey\n\n${fence("type: change\nstatus: proposed\ncategory: feature\n")}\n` +
-    `## Why\n\nThe board's setup is one journey.\n\n## Scope\n\nThe journey and its requirement.\n\n## Chapters touched\n\n- ${REQUIREMENTS}\n- ${PAGE}\n`;
+    `## Why\n\nThe board's setup is one journey.\n\n## Scope\n\nThe journey and its requirement.\n`;
 
 async function fixture(extra = {}) {
     const root = await mkdtemp(path.join(tmpdir(), "devbook-change-scenarios-"));
@@ -51,8 +53,8 @@ async function fixture(extra = {}) {
         [`${CTX}/features.md`]: FEATURES,
         [REQUIREMENTS]: requirements,
         [`${BASE}/proposal.md`]: proposal,
-        [`${DELTA}/set-up-and-fill-the-backlog.md`]: pageDelta(),
-        [`${DELTA}/requirements.md`]: provedBy("set-up-and-fill-the-backlog.md#statuses-are-set-up"),
+        [`${DELTA}/scenarios.md`]: pageDelta(),
+        [`${DELTA}/requirements.md`]: provedBy("scenarios.md#statuses-are-set-up"),
         ...extra,
     };
     for (const [rel, text] of Object.entries(files)) {
@@ -74,90 +76,86 @@ async function report(extra) {
 const issuesOf = (r, suffix) => r.deltas.find((d) => d.path.endsWith(suffix))?.issues ?? [];
 const all = (r) => [...r.problems, ...r.deltas.flatMap((d) => d.issues)];
 
-// ── A Proved by naming a page the same change adds ─────────────────────────
+// ── A Proved by naming a journey the same change adds ──────────────────────
 {
     const r = await report();
-    check(errorsOf(all(r)).length === 0, "a Proved by pointing at a page added by the same change resolves", dump(all(r)));
+    check(errorsOf(all(r)).length === 0, "a Proved by pointing at a journey added by the same change resolves", dump(all(r)));
     check(
-        issuesOf(r, "/set-up-and-fill-the-backlog.md").some((i) => i.severity === "warning" && i.message.includes('part "#an-item-is-moved" is an unclaimed journey')),
-        "a part the change adds and nothing claims is a warning on the page's delta",
+        issuesOf(r, "/scenarios.md").some((i) => i.severity === "warning" && i.message.includes('part "#an-item-is-moved" of journey "#set-up-and-fill-the-backlog" is unclaimed')),
+        "a part the change adds and nothing claims is a warning on the scenarios file's delta",
         dump(all(r))
     );
 }
 
 // ── A Proved by typo ───────────────────────────────────────────────────────
 {
-    const r = await report({ [`${DELTA}/requirements.md`]: provedBy("set-up-and-fill-the-backlog.md#statuses-are-setup") });
+    const r = await report({ [`${DELTA}/requirements.md`]: provedBy("scenarios.md#statuses-are-setup") });
     const issues = errorsOf(issuesOf(r, "/requirements.md"));
     check(
         issues.length === 1 && issues[0].message.includes('has no part "#statuses-are-setup"'),
         "a Proved by naming a part that does not exist is an error on the requirement's delta",
         dump(all(r))
     );
-    check(errorsOf(issuesOf(r, "/set-up-and-fill-the-backlog.md")).length === 0, "the typo is not blamed on the page's delta", dump(all(r)));
+    check(errorsOf(issuesOf(r, "/scenarios.md")).length === 0, "the typo is not blamed on the scenarios file's delta", dump(all(r)));
 }
 {
-    const r = await report({ [`${DELTA}/requirements.md`]: provedBy("set-up-the-backlog.md#statuses-are-set-up") });
+    const r = await report({ [`${DELTA}/requirements.md`]: provedBy("scenarios.returns.md#statuses-are-set-up") });
     check(
-        errorsOf(issuesOf(r, "/requirements.md")).some((i) => i.message.includes('no scenario page has the stem "set-up-the-backlog"')),
-        "a Proved by naming a stem that does not exist is an error on the requirement's delta",
+        errorsOf(issuesOf(r, "/requirements.md")).some((i) => i.message.includes(".devbook/domain/work/scenarios.returns.md is not a scenarios file")),
+        "a Proved by naming a scenarios file that does not exist is an error on the requirement's delta",
         dump(all(r))
     );
 }
 
-// ── A stem that collides with an existing page ─────────────────────────────
-for (const other of [".devbook/domain/shop/set-up-and-fill-the-backlog.md", ".devbook/domain/accounts/set-up-and-fill-the-backlog.md"]) {
-    const page = `# Set up elsewhere\n\n${fence("type: scenario\n")}\nLead.\n\n## Only part\n\n- **Given** a thing\n- **Then** it holds\n`;
-    const r = await report({ [other]: page });
-    check(
-        errorsOf(issuesOf(r, "/set-up-and-fill-the-backlog.md")).some((i) => i.message.includes('has the stem "set-up-and-fill-the-backlog"')),
-        `a stem colliding with ${other.split("/")[2]}'s page is an error on the page's delta, whichever sorts first`,
-        dump(all(r))
-    );
+// ── A journey name another context's scenarios file already holds ──────────
+{
+    const elsewhere = `# Scenarios\n\n${fence("type: scenarios\n")}\nLead.\n\n## Set up and fill the backlog\n\n${fence("type: scenario\n")}\nLead.\n\n### Only part\n\n- **Given** a thing\n- **Then** it holds\n`;
+    const r = await report({ [".devbook/domain/shop/scenarios.md"]: elsewhere });
+    check(errorsOf(all(r)).length === 0, "a journey name another file holds is no conflict: an address names its file", dump(all(r)));
 }
 
 // ── Setup fields that do not resolve ───────────────────────────────────────
 {
     const r = await report({
-        [`${DELTA}/set-up-and-fill-the-backlog.md`]: pageDelta("type: scenario\nactor: actors.md#nobody\nflags: [features.md#backlog-board]\nsettings: [context.md#max=5]\n"),
+        [`${DELTA}/scenarios.md`]: pageDelta("type: scenario\nactor: actors.md#nobody\nflags: [features.md#backlog-board]\nsettings: [context.md#max=5]\n"),
     });
-    const issues = errorsOf(issuesOf(r, "/set-up-and-fill-the-backlog.md"));
-    check(issues.some((i) => i.message.includes('`actor` entry "actors.md#nobody" that does not resolve')), "an actor that does not resolve is an error on the page's delta", dump(all(r)));
-    check(issues.some((i) => i.message.includes('`flags` entry "features.md#backlog-board" that resolves to a `feature` chapter')), "a flag of the wrong kind is an error on the page's delta", dump(all(r)));
-    check(issues.some((i) => i.message.includes('`settings` entry "context.md#max"')), "a setting that does not resolve is an error on the page's delta", dump(all(r)));
+    const issues = errorsOf(issuesOf(r, "/scenarios.md"));
+    check(issues.some((i) => i.message.includes('`actor` entry "actors.md#nobody" that does not resolve')), "an actor that does not resolve is an error on the scenarios file's delta", dump(all(r)));
+    check(issues.some((i) => i.message.includes('`flags` entry "features.md#backlog-board" that resolves to a `feature` chapter')), "a flag of the wrong kind is an error on the scenarios file's delta", dump(all(r)));
+    check(issues.some((i) => i.message.includes('`settings` entry "context.md#max"')), "a setting that does not resolve is an error on the scenarios file's delta", dump(all(r)));
 }
 {
-    const r = await report({ [`${DELTA}/set-up-and-fill-the-backlog.md`]: pageDelta("type: scenario\nactor: actors.md#product-owner\n") });
+    const r = await report({ [`${DELTA}/scenarios.md`]: pageDelta("type: scenario\nactor: actors.md#product-owner\n") });
     check(errorsOf(all(r)).length === 0, "an actor in the corpus resolves", dump(all(r)));
 }
 
 // ── A part the change removes, under a pointer the change leaves alone ─────
 {
-    const existing = `# Set up and fill the backlog\n\n${fence("type: scenario\n")}\nLead.\n\n${PARTS.replace(/^### /gm, "## ")}`;
-    const removal = `${header("modified")}\n# Set up and fill the backlog\n\n## REMOVED\n\n### Statuses are set up\n`;
+    const existing = `# Scenarios\n\n${fence("type: scenarios\n")}\nLead.\n\n## Set up and fill the backlog\n\n${fence("type: scenario\n")}\nLead.\n\n${PARTS.replace(/^#### /gm, "### ")}`;
+    const removal = `${header("modified")}\n## Set up and fill the backlog\n\n### REMOVED\n\n#### Statuses are set up\n`;
     const r = await report({
         [PAGE]: existing,
-        [REQUIREMENTS]: requirements.replace(/#### Scenario: Statuses are set up\n[\s\S]*$/, "#### Scenario: Statuses are set up\n\nProved by: set-up-and-fill-the-backlog.md#statuses-are-set-up\n"),
-        [`${DELTA}/set-up-and-fill-the-backlog.md`]: removal,
+        [REQUIREMENTS]: requirements.replace(/#### Scenario: Statuses are set up\n[\s\S]*$/, "#### Scenario: Statuses are set up\n\nProved by: scenarios.md#statuses-are-set-up\n"),
+        [`${DELTA}/scenarios.md`]: removal,
         [`${DELTA}/requirements.md`]: header("modified"),
     });
     check(
-        errorsOf(issuesOf(r, "/set-up-and-fill-the-backlog.md")).some((i) => i.message.includes('has no part "#statuses-are-set-up"')),
-        "removing a part a requirement the change leaves alone points at is an error on the page's delta",
+        errorsOf(issuesOf(r, "/scenarios.md")).some((i) => i.message.includes('has no part "#statuses-are-set-up"')),
+        "removing a part a requirement the change leaves alone points at is an error on the scenarios file's delta",
         dump(all(r))
     );
 }
 
 // ── What the corpus already has is not the change's ───────────────────────
 {
-    const stray = `# Elsewhere\n\n${fence("type: features\n")}\nLead.\n\n![Gone](scenario:no-such-page#x)\n`;
+    const stray = `# Elsewhere\n\n${fence("type: features\n")}\nLead.\n\n![Gone](scenario:shop/no-such-page.md#x)\n`;
     const r = await report({ [".devbook/domain/shop/features.md"]: stray });
     check(!all(r).some((i) => i.message.includes("no-such-page")), "a scenario problem the corpus already has is not reported against the change", dump(all(r)));
 }
 
 // ── A delta that does not merge skips the corpus pass ──────────────────────
 {
-    const r = await report({ [`${DELTA}/requirements.md`]: `${header("modified")}\n### Requirement: Nowhere\n\n#### MODIFIED\n\n##### Scenario: X\n\nProved by: set-up-and-fill-the-backlog.md#typo\n` });
+    const r = await report({ [`${DELTA}/requirements.md`]: `${header("modified")}\n### Requirement: Nowhere\n\n#### MODIFIED\n\n##### Scenario: X\n\nProved by: scenarios.md#typo\n` });
     check(!all(r).some((i) => i.message.includes("with the change merged")), "a change whose deltas do not merge is not checked across the corpus", dump(all(r)));
 }
 
@@ -166,8 +164,8 @@ for (const other of [".devbook/domain/shop/set-up-and-fill-the-backlog.md", ".de
     const root = await fixture();
     try {
         const graph = await buildGraph(root);
-        const scenario = errorsOf(graph.problems).filter((p) => /Proved by|scenario page|stem/.test(p.message));
-        check(scenario.length === 0, "an open change adding a page and its pointer indexes with no scenario error", dump(scenario));
+        const scenario = errorsOf(graph.problems).filter((p) => /Proved by|journey|scenarios file/.test(p.message));
+        check(scenario.length === 0, "an open change adding a journey and its pointer indexes with no journey error", dump(scenario));
     } finally {
         await rm(root, { recursive: true, force: true });
     }

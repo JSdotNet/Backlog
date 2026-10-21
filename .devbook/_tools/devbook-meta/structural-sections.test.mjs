@@ -53,16 +53,17 @@ for (const [path, fileMeta] of [
 check(!isStructuralDocument(".devbook/tech/sub/technology-graph.md"), "technology-graph.md below the tech root is not structural");
 check(!isStructuralDocument(".devbook/ai/sub/adoption-map.md"), "adoption-map.md below the ai root is not structural");
 
-// A scenario page's `##` parts are sections too, at any depth inside a bounded
-// context, although no file name marks the page: its `type: scenario` does.
-for (const path of [".devbook/domain/work/set-up.md", ".devbook/domain/work/journeys/set-up.md"]) {
-    const m = missing(path, "type: scenario\n");
-    check(m.length === 0, `${path}: a scenario page's part without a block is not reported`, dump(m));
+// A journey's `###` parts are sections too, although the file is not
+// structural: its `##` journeys are chapters and carry a block.
+{
+    const journeys = "# Scenarios\n\n```meta\ntype: scenarios\n```\n\nProse.\n\n## Set up\n\n```meta\ntype: scenario\n```\n\n### A part\n\n- **Then** done\n\n#### A note\n\nProse.\n";
+    const m = validateDocument(".devbook/domain/work/scenarios.md", journeys).filter((i) => i.message.includes("has no `meta` block"));
+    check(m.length === 0, "a journey's part, and a heading under it, without a block is not reported", dump(m));
 }
-check(!isStructuralDocument(".devbook/domain/work/journeys/set-up.md"), "the path alone does not make a deeper page structural");
+check(!isStructuralDocument(".devbook/domain/work/scenarios.md"), "a scenarios file is not structural: its journeys are chapters");
 {
     const m = missing(".devbook/domain/work/journeys/notes.md", "type: notes\n");
-    check(m.length === 1, "a deeper page that is no scenario page still reports a section without a block", dump(m));
+    check(m.length === 1, "a deeper page still reports a section without a block", dump(m));
 }
 
 // A section that does carry a block is still validated: a `bounded-context`
