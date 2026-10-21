@@ -82,6 +82,16 @@ public sealed record C4LayoutOptions(bool GroupBands = false)
 {
     /// <summary>No additions: the layout every view had before options existed.</summary>
     public static C4LayoutOptions None { get; } = new();
+
+    /// <summary>The width every card is laid out at. Null keeps the C4 card's own
+    /// size; the Code level asks for wider cards, because a class box lists its
+    /// members.</summary>
+    public double? CardWidth { get; init; }
+
+    /// <summary>The height every card is laid out at. Null keeps the C4 card's own
+    /// size; the Code level asks for one tall enough for the longest member list it
+    /// shows.</summary>
+    public double? CardHeight { get; init; }
 }
 
 /// <summary>Everything needed to draw one view, in one coordinate space.</summary>
@@ -127,8 +137,8 @@ public sealed record C4Diagram(
 /// </summary>
 public static class C4LayoutEngine
 {
-    private const double CardWidth = 196;
-    private const double CardHeight = 84;
+    private const double DefaultCardWidth = 196;
+    private const double DefaultCardHeight = 84;
     private const double ColumnGap = 44;
     private const double RowGap = 92;
     private const double BoundaryPadding = 28;
@@ -162,7 +172,8 @@ public static class C4LayoutEngine
 
         // A cell is either one card or one boundary full of cards. Layering happens
         // over cells, so a system that was opened up moves as a whole.
-        var cells = BuildCells(workspace, nodes, elements, options.GroupBands);
+        var card = new CardSize(options.CardWidth ?? DefaultCardWidth, options.CardHeight ?? DefaultCardHeight);
+        var cells = BuildCells(workspace, nodes, elements, options.GroupBands, card);
         var edges = C4MermaidWriter.VisibleRelationships(workspace, view);
 
         AssignRanks(cells, edges);
@@ -206,8 +217,8 @@ public static class C4LayoutEngine
                     member.Node.Alias,
                     cell.X + member.OffsetX,
                     cell.Y + member.OffsetY,
-                    CardWidth,
-                    CardHeight,
+                    card.Width,
+                    card.Height,
                     IsExternal(workspace, view, member.Node.ElementId),
                     member.Node.DrillViewKey is not null));
             }
@@ -239,6 +250,9 @@ public static class C4LayoutEngine
     }
 
     // ---- cells -----------------------------------------------------------------
+
+    /// <summary>The size every card of one layout is placed at.</summary>
+    private readonly record struct CardSize(double Width, double Height);
 
     private sealed class Member
     {
@@ -281,7 +295,8 @@ public static class C4LayoutEngine
         C4Workspace workspace,
         IReadOnlyList<C4Node> nodes,
         Dictionary<string, C4Element> elements,
-        bool groupBands)
+        bool groupBands,
+        CardSize card)
     {
         var boundaries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -347,15 +362,17 @@ public static class C4LayoutEngine
             cells.Add(own);
         }
 
-        foreach (var cell in cells) Size(cell);
+        foreach (var cell in cells) Size(cell, card);
         return cells;
     }
 
     /// <summary>Sizes a cell and places its members inside it: a bare card is its own
     /// size, a boundary wraps its cards into a grid with room for its label, and a
     /// group band stacks its cards in one column under its name.</summary>
-    private static void Size(Cell cell)
+    private static void Size(Cell cell, CardSize card)
     {
+        var (width, height) = (card.Width, card.Height);
+
         if (cell.Group is not null)
         {
             // One column, as the design's landscape draws it: a band reads as a short
@@ -364,18 +381,18 @@ public static class C4LayoutEngine
             for (var index = 0; index < cell.Members.Count; index++)
             {
                 cell.Members[index].OffsetX = GroupPadding;
-                cell.Members[index].OffsetY = GroupPadding + GroupHeader + index * (CardHeight + GroupGap);
+                cell.Members[index].OffsetY = GroupPadding + GroupHeader + index * (height + GroupGap);
             }
 
-            cell.Width = GroupPadding * 2 + CardWidth;
-            cell.Height = GroupPadding * 2 + GroupHeader + cell.Members.Count * CardHeight + (cell.Members.Count - 1) * GroupGap;
+            cell.Width = GroupPadding * 2 + width;
+            cell.Height = GroupPadding * 2 + GroupHeader + cell.Members.Count * height + (cell.Members.Count - 1) * GroupGap;
             return;
         }
 
         if (cell.Boundary is null)
         {
-            cell.Width = CardWidth;
-            cell.Height = CardHeight;
+            cell.Width = width;
+            cell.Height = height;
             cell.Members[0].OffsetX = 0;
             cell.Members[0].OffsetY = 0;
             return;
@@ -389,12 +406,12 @@ public static class C4LayoutEngine
             var column = index % columns;
             var row = index / columns;
 
-            cell.Members[index].OffsetX = BoundaryPadding + column * (CardWidth + ColumnGap);
-            cell.Members[index].OffsetY = BoundaryPadding + BoundaryHeader + row * (CardHeight + RowGap / 2);
+            cell.Members[index].OffsetX = BoundaryPadding + column * (width + ColumnGap);
+            cell.Members[index].OffsetY = BoundaryPadding + BoundaryHeader + row * (height + RowGap / 2);
         }
 
-        cell.Width = BoundaryPadding * 2 + columns * CardWidth + (columns - 1) * ColumnGap;
-        cell.Height = BoundaryPadding * 2 + BoundaryHeader + rows * CardHeight + (rows - 1) * (RowGap / 2);
+        cell.Width = BoundaryPadding * 2 + columns * width + (columns - 1) * ColumnGap;
+        cell.Height = BoundaryPadding * 2 + BoundaryHeader + rows * height + (rows - 1) * (RowGap / 2);
     }
 
     // ---- ranking ---------------------------------------------------------------

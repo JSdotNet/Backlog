@@ -37,7 +37,7 @@ Every card is a `g.node` whose id is `<svg id>-<alias>`, which is exactly what t
     <Story Name="The zoom bar, three moments"
            Description="`C4ZoomBar` as the design's Navigation board draws it. **On Context:** step 1 ringed, step 2 already names the system, steps 3 and 4 grey until something is picked. **Desktop selected** on the container view: step 3 now names Desktop App and can be pressed, step 4 still waits for a component. **On Code:** every step behind the reader names its element and works.
 
-A ringed step is where you are, a plain one jumps, and a grey one is a promise that selecting an element fills it in. The Code view is generated from the source and has not landed yet, so the third moment is a hand-set state: it shows what the bar will say, not a view that opens today."
+A ringed step is where you are, a plain one jumps, and a grey one is a promise that selecting an element fills it in. Step 4 opens only for a component whose building block names its code folders; one with none names the component and stays grey."
            Code="@ZoomBarUsage">
         <div class="sb-c4-zoom-moments">
             <p class="sb-c4-zoom-moments__label">On Context</p>
@@ -56,10 +56,26 @@ A ringed step is where you are, a plain one jumps, and a grey one is a promise t
 
 **Select** a card with a click or by tabbing onto it; the zoom bar fills in the element the next level is about. **Zoom in** with a double-click, the card's *Zoom in* chip, or Enter on the focused card. **Zoom out** with an earlier step on the bar, or Backspace — and the element you came out of stays selected. Enter and Backspace are listened for on the diagram's own frame, never on the page, so a key typed anywhere else is never a move.
 
-The chip is the one thing the zoom tab asks of the shared renderer, and it is an option: `C4SvgWriter` draws it only for the cards named in `C4SvgOptions.ZoomInAliases`, which the C4 tab never passes."
+The chip is the one thing the zoom tab asks of the shared renderer, and it is an option: `C4SvgWriter` draws it only for the cards named in `C4SvgOptions.ZoomInAliases`, which the C4 tab never passes.
+
+Here the Devbook component has code folders, so it carries a chip on the Desktop App components view and step 4 opens its **Code level** — the story below. Shell and Fetch Workers have none: no chip, and step 4 stays grey."
            Code="@ZoomUsage">
         <div class="sb-c4-stage sb-c4-stage--zoom">
-            <C4ZoomExplorer Workspace="@Parsed" Problems="@Parsed.Problems" TestId="sb-c4-zoom-explorer" />
+            <C4ZoomExplorer Workspace="@Parsed" Problems="@Parsed.Problems" Code="@SampleCode" TestId="sb-c4-zoom-explorer" />
+        </div>
+    </Story>
+
+    <Story Name="The Code level"
+           Description="`C4CodeView`, level 4 of the zoom tab: one component's types **drawn from its C# source when it is opened**, never authored (local ADR 0037 §3). Each class box carries its stereotype — the kind with its modifiers and its base list — its name, and its members, the **Public** ones or **All** of them, in UML's marks: + public, # protected, ~ internal, - private. A box lists up to eight members; past eight it lists seven and says how many more there are.
+
+Every use is an arrow, laid out by `C4LayoutEngine` as a relationship is a level up: solid where a type names another, dashed where it inherits it. Pick a box and the panel beside it names the files it is declared in, offers **Open in editor** where the host can open one, and lists the decision records linked to the component — each opens its chapter. Backspace on the picture zooms back out to the components view."
+           Code="@CodeUsage">
+        <div class="sb-c4-stage sb-c4-stage--zoom">
+            <C4CodeView Level="@SampleCodeLevel"
+                        OpenInEditor="OpenInEditorAsync"
+                        OpenRecord="OpenRecordAsync"
+                        TestId="sb-c4-code" />
+            <p class="sb-state" data-testid="sb-c4-code-state">@(_codeAction ?? "nothing opened yet")</p>
         </div>
     </Story>
 
@@ -267,31 +283,96 @@ That behaviour is the whole safeguard. This reader is a second implementation of
     private static C4ZoomBarState DesktopSelected =>
         C4ZoomNavigation.Bar(Parsed, Parsed.View("containers-backlog")!, "backlog.desktop");
 
-    /// <summary>
-    /// The third: on the Code level of the Devbook component. No view of the workspace
-    /// opens Code — it is generated from the source by a later step — so the state is
-    /// the components view's with the ring moved to step 4.
-    /// </summary>
-    private static C4ZoomBarState OnCode
-    {
-        get
-        {
-            var components = C4ZoomNavigation.Bar(Parsed, Parsed.View("components-desktop")!, "backlog.desktop.devbook");
+    /// <summary>The third: on the Code level of the Devbook component, the one
+    /// component of the sample with code folders.</summary>
+    private static C4ZoomBarState OnCode =>
+        C4ZoomNavigation.Bar(Parsed, Parsed.View("components-desktop")!, DevbookComponent, HasCode, codeOpen: true);
 
-            return components with
-            {
-                Steps =
-                [
-                    .. components.Steps.Select(step => step.Level switch
-                    {
-                        C4ZoomLevel.Components => step with { Current = false, ViewKey = "components-desktop" },
-                        C4ZoomLevel.Code => step with { Current = true },
-                        _ => step
-                    })
-                ]
-            };
-        }
+    private const string DevbookComponent = "backlog.desktop.devbook";
+
+    private static bool HasCode(string elementId) => string.Equals(elementId, DevbookComponent, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>What the zoom tab is handed for the sample: the Devbook component's code
+    /// is the level below, and nothing else has any.</summary>
+    private C4ZoomCode SampleCode => _sampleCode ??= new C4ZoomCode(HasCode, (_, _) => Task.FromResult(SampleCodeLevel))
+    {
+        OpenInEditor = OpenInEditorAsync,
+        OpenRecord = OpenRecordAsync
+    };
+
+    private C4ZoomCode? _sampleCode;
+    private string? _codeAction;
+
+    private Task<string?> OpenInEditorAsync(string path)
+    {
+        _codeAction = $"open in editor: {path}";
+        StateHasChanged();
+        return Task.FromResult<string?>(null);
     }
+
+    private Task OpenRecordAsync(C4CodeRecord record)
+    {
+        _codeAction = $"open record: {record.Path}";
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private const string CodeUsage = """
+        <C4ZoomExplorer Workspace="@workspace" Code="@code" />
+
+        // A component has code when its building block names folders; the level
+        // is read from the source each time it is opened.
+        var code = new C4ZoomCode(
+            elementId => catalog.CodeOf(elementId).Count > 0,
+            (elementId, token) => reader.LoadAsync(catalog, elementId, token))
+        {
+            OpenInEditor = path => OpenAsync(path),
+            OpenRecord = record => OpenChapterAsync(record.Path)
+        };
+        """;
+
+    /// <summary>The design's Code screen: the build path of the Devbook component.</summary>
+    private static readonly C4CodeLevel SampleCodeLevel = new(
+        "Devbook",
+        ["src/Infrastructure/Backlog.Infrastructure.Devbook"],
+        [
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher", "DevbookDatabaseRefresher", "sealed class", "«sealed class» : IDisposable",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabaseRefresher.cs"],
+                ["+ Request(string repositoryRoot) : void", "+ NotifyChanged(string root) : void", "+ WatchBrain(string brainRoot) : IDisposable", "+ RefreshAsync(string root, CancellationToken ct) : Task<bool>"],
+                ["+ Request(string repositoryRoot) : void", "+ NotifyChanged(string root) : void", "+ WatchBrain(string brainRoot) : IDisposable", "+ RefreshAsync(string root, CancellationToken ct) : Task<bool>", "- _pending : ConcurrentDictionary<string, byte>", "- _gate : SemaphoreSlim", "- Debounce : TimeSpan"]),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseLocation", "DevbookDatabaseLocation", "static class", "«static class»",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabaseLocation.cs"],
+                ["+ Configure(string cacheDirectory, bool requested) : void", "+ ForRepositoryRoot(string root) : string?", "+ KindFor(string root) : DevbookCorpusKind", "+ PathFor(string databases, string root) : string?"],
+                ["+ Configure(string cacheDirectory, bool requested) : void", "+ ForRepositoryRoot(string root) : string?", "+ KindFor(string root) : DevbookCorpusKind", "+ PathFor(string databases, string root) : string?", "- _cacheDirectory : string?"]),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseBuilder", "DevbookDatabaseBuilder", "static class", "«static class»",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabaseBuilder.cs"],
+                ["+ Build(string root, string target, DevbookCorpusKind kind, CancellationToken ct) : bool", "+ IsCurrent(string root, string databasePath, DevbookCorpusKind kind) : bool", "+ HasDevbook(string root, DevbookCorpusKind kind) : bool"],
+                ["+ Build(string root, string target, DevbookCorpusKind kind, CancellationToken ct) : bool", "+ IsCurrent(string root, string databasePath, DevbookCorpusKind kind) : bool", "+ HasDevbook(string root, DevbookCorpusKind kind) : bool", "- Stamp(string root) : string"]),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabase", "DevbookDatabase", "sealed partial class", "«sealed partial class» : IDisposable",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabase.cs", "src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabase.Retrieval.cs"],
+                ["+ Open(string path) : DevbookDatabase?", "+ Dispose() : void"],
+                ["+ Open(string path) : DevbookDatabase?", "+ Dispose() : void", "- _connection : SqliteConnection"]),
+            new("Backlog.Infrastructure.Devbook.DevbookGraphBuilder", "DevbookGraphBuilder", "internal static class", "«internal static class»",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookGraphBuilder.cs"],
+                [],
+                ["~ Build(string root, DevbookLayout layout) : DevbookGraph"]),
+            new("Backlog.Infrastructure.Devbook.DevbookGraph", "DevbookGraph", "internal sealed record", "«internal sealed record»",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookGraph.cs"],
+                ["+ Nodes : IReadOnlyList<DevbookGraphNode>", "+ Edges : IReadOnlyList<DevbookGraphEdge>"],
+                ["+ Nodes : IReadOnlyList<DevbookGraphNode>", "+ Edges : IReadOnlyList<DevbookGraphEdge>"])
+        ],
+        [
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher", "Backlog.Infrastructure.Devbook.DevbookDatabaseLocation", false),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher", "Backlog.Infrastructure.Devbook.DevbookDatabaseBuilder", false),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseBuilder", "Backlog.Infrastructure.Devbook.DevbookDatabase", false),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseBuilder", "Backlog.Infrastructure.Devbook.DevbookGraphBuilder", false),
+            new("Backlog.Infrastructure.Devbook.DevbookGraphBuilder", "Backlog.Infrastructure.Devbook.DevbookGraph", false)
+        ],
+        [
+            new("0004", "Knowledge index is a generated database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-database.md"),
+            new("0015", "The devbook database lives in app storage", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage.md"),
+            new("0016", "Knowledge folders adopt the devbook convention", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md")
+        ]);
 
     private const string LevelsCode = """
         // Which view opens an element, or null when there is nothing deeper.

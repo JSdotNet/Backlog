@@ -18308,6 +18308,263 @@ select.field__input {
     text-decoration: underline;
 }
 
+/* ---- the Code level of the C4 zoom tab ----
+   A component's types drawn from the source: class boxes laid out by
+   C4LayoutEngine, an arrow per use, and the selected type's panel beside them. */
+.c4-code {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.c4-code:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-code__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.c4-code__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.c4-code__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-code__source,
+.c4-code__legend,
+.c4-code__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-code__folder {
+    font-family: var(--font-family-mono);
+}
+
+.c4-code__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    align-items: start;
+    gap: var(--spacing-md);
+}
+
+.c4-code__frame {
+    height: clamp(24rem, 60vh, 44rem);
+    overflow: auto;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.c4-code__frame:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-code__canvas {
+    position: relative;
+}
+
+.c4-code__uses {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+}
+
+.c4-code__use {
+    fill: none;
+    stroke: var(--color-text-secondary);
+    stroke-width: 1.5;
+}
+
+.c4-code__use--inherits {
+    stroke-dasharray: 6 5;
+}
+
+.c4-code__arrow-head {
+    fill: var(--color-text-secondary);
+}
+
+.c4-code__use-label {
+    fill: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-code__type {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    overflow: hidden;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font: inherit;
+    line-height: 20px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-code__type:hover {
+    border-color: var(--color-primary);
+}
+
+.c4-code__type:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-code__type--selected {
+    border: 2px solid var(--color-primary);
+}
+
+.c4-code__stereotype,
+.c4-code__member,
+.c4-code__more {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.c4-code__name {
+    max-width: 100%;
+    overflow: hidden;
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.c4-code__panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.c4-code__panel-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.c4-code__kicker {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.c4-code__panel-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    overflow-wrap: anywhere;
+}
+
+.c4-code__path {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.c4-code__open {
+    align-self: flex-start;
+    margin-top: var(--spacing-xs);
+}
+
+.c4-code__records {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-code__records-title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-code__record-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-code__record {
+    display: flex;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+}
+
+button.c4-code__record {
+    cursor: pointer;
+}
+
+button.c4-code__record:hover .c4-code__record-title,
+button.c4-code__record:focus-visible .c4-code__record-title {
+    text-decoration: underline;
+}
+
+.c4-code__record-number {
+    color: var(--color-primary);
+    font-family: var(--font-family-mono);
+}
+
+.c4-code__record-title {
+    flex: 1;
+    line-height: 1.4;
+}
+
+/* Narrow: the type panel goes under the picture rather than squeezing it. */
+@media (max-width: 60rem) {
+    .c4-code__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 /* Narrow: the panels stack above the stage rather than squeezing it. */
 @media (max-width: 60rem) {
     .c4-explorer__body {

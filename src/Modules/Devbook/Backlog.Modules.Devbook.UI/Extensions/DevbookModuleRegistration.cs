@@ -1,5 +1,6 @@
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.Devbook.Archify;
+using Backlog.Infrastructure.Devbook.Code;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel;
@@ -96,6 +97,11 @@ public static class DevbookModuleRegistration
         // clone; it reads its own feature key and hands back nothing when that key
         // is off, so registering it does not turn it on.
         services.AddSingleton<C4DevbookStore>();
+        // The Code level of the C4 zoom tab: a component's types read from its C#
+        // source when the level is opened (local ADR 0037 §3). One reader per app,
+        // because it remembers each folder until a file in it moves.
+        services.AddSingleton<CSharpCodeReader>();
+        services.AddSingleton<C4DevbookCode>();
         services.AddSingleton<DevbookChapterWriter>();
         // The scenario pages and their runs: what the menu marks, what a scenario
         // page shows above its body, and what a `scenario:` image resolves to. One

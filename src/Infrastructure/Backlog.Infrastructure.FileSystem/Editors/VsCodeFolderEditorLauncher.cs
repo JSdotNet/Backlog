@@ -78,6 +78,21 @@ public sealed class VsCodeFolderEditorLauncher : IFolderEditorLauncher
         cancellationToken.ThrowIfCancellationRequested();
         if (!Directory.Exists(folderPath)) throw new FolderEditorLaunchException($"The folder does not exist: {folderPath}");
 
+        await LaunchAsync(folderPath, "folder", cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>A file is handed over the way a folder is, as the one argument: VS Code
+    /// opens it in the window already up, or in a new one.</summary>
+    public async Task OpenFileAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!File.Exists(filePath)) throw new FolderEditorLaunchException($"The file does not exist: {filePath}");
+
+        await LaunchAsync(filePath, "file", cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task LaunchAsync(string path, string what, CancellationToken cancellationToken)
+    {
         var executable = _resolveExecutable() ?? throw new FolderEditorLaunchException(NotFoundMessage);
 
         var startInfo = new ProcessStartInfo(executable)
@@ -85,7 +100,7 @@ public sealed class VsCodeFolderEditorLauncher : IFolderEditorLauncher
             UseShellExecute = false,
             CreateNoWindow = true
         };
-        startInfo.ArgumentList.Add(folderPath);
+        startInfo.ArgumentList.Add(path);
 
         VsCodeLaunchOutcome outcome;
         try
@@ -103,7 +118,7 @@ public sealed class VsCodeFolderEditorLauncher : IFolderEditorLauncher
         if (outcome.Exited && outcome.ExitCode != 0)
         {
             throw new FolderEditorLaunchException(
-                $"VS Code exited with code {outcome.ExitCode} without opening the folder. Set {EnvironmentVariable} to the VS Code executable to point Backlog at the right one.");
+                $"VS Code exited with code {outcome.ExitCode} without opening the {what}. Set {EnvironmentVariable} to the VS Code executable to point Backlog at the right one.");
         }
     }
 
