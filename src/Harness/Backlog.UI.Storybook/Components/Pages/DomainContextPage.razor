@@ -3,15 +3,19 @@
 <PageTitle>Domain context — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain context"
-           Summary="A subpage of Devbook: the page a bounded context's row opens in the Domain view (local ADR 0037). DomainContextView is an Overview | Neighbours bar that opens on Overview. Overview reads `context.md` and the files beside it: the boundary prose above the first chapter, how many chapters of each kind the context holds, how many of its requirements and always-true rules name a test, how settled the chapters are, and the flags and settings. Neighbours is the context's dependency tables, drawn by DomainNeighboursView."
+           Summary="A subpage of Devbook: the page a bounded context's row opens in the Domain view (local ADR 0037). DomainContextView is an Overview | Neighbours bar that opens on Overview. Overview reads `context.md` and the files beside it: the context's subdomain, deployment and status as badges, its name and lead, the boundary as an Inside and an Outside card, what it holds as tiles, how well it is proved as a Requirements and an Invariants card, how settled it is as one stacked bar, its switches with what each gates, and its pages, each with the question it answers. Neighbours is the context's dependency tables, drawn by DomainNeighboursView."
            Guidelines="@Rules">
 
     <Story Name="Overview"
-           Description="The boundary as `context.md` writes it, the chapter counts led by each kind's type marker, the share of requirements and rules that name a test as a meter, the status spread least settled first, and the context's `feature-flag` and `setting` chapters as a table. The Flag and Setting marks are information, so they are neutral outlines."
+           Description="The header is `context.md`'s own block and the context map's subdomain type, the name and the boundary's lead. The Inside card is the *Inside the boundary:* paragraph; the Outside card reads each *…, which [X] answers* clause as a question with a link to who answers it. Each tile is a kind in its tone and opens its first unit. The proof cards open Requirements and the Always true tab. How settled is one bar. A switch's Gates are the features its `related` names. The badges are information, so they are neutral outlines. Every link here writes what it followed below the page."
            Code="@ContextCode"
            Source="@Context"
            SourceLabel="context.md">
-        <DomainContextView ContextName="Tasks" Overview="@Overview" Neighbours="@Neighbours" DocumentPath="@ContextPath" TestId="story-domain-context-page" />
+        <DomainContextView ContextName="Tasks" Overview="@Overview" Neighbours="@Neighbours" DocumentPath="@ContextPath"
+                           OnNavigate="@(reference => _followed = reference.Raw)"
+                           OnOpenAlwaysTrue="@(unit => _followed = $"{unit.Reference} (Always true)")"
+                           TestId="story-domain-context-page" />
+        <p data-testid="story-domain-context-followed">Followed: @(_followed ?? "nothing yet")</p>
     </Story>
 
     <Story Name="Opened on Neighbours"
@@ -46,13 +50,21 @@
         status: draft
         index: root
         type: context
+        deployment: module
         ```
 
         Tasks maintains a personal backlog of prompts, tasks, ideas, and tests across
         multiple projects and repos. It converts triaged [Inbox Items](../inbox/domain.md#inbox-item)
         into actionable, prioritized Tasks.
 
-        Outside it: what arrives and how it is triaged, which the Inbox answers.
+        Inside the boundary: a task's status and execution priority, its steps and
+        repeats, and its projection to GitHub.
+
+        Outside it: what arrives and how it is triaged, which the
+        [Inbox](../inbox/domain.md#inbox-item) answers; when planned work happens and in
+        which order, which [Roadmap Planning](../roadmap/domain.md#roadmap-item)
+        answers; and the knowledge a task links to, which
+        [Devbook](../devbook/domain.md#knowledge-note) answers.
 
         ## Task backlog
 
@@ -61,6 +73,7 @@
         type: feature-flag
         key: backlog
         default: on
+        related: [".devbook/domain/tasks/features.md#task-creation"]
         ```
 
         Create, edit, filter, reorder, and store tasks. It is always enabled.
@@ -82,9 +95,23 @@
         status: proposed
         type: setting
         key: week-start
+        scope: user
         ```
 
         The day the Goals view starts a week on.
+        """;
+
+    private const string FeaturesMd = """
+        # Features: Tasks
+
+        ## Task creation
+
+        ```meta
+        type: feature
+        status: draft
+        ```
+
+        Create a task in one step.
         """;
 
     private const string Files = """
@@ -98,6 +125,29 @@
         ```
 
         A refined, actionable item.
+
+        ### Priority
+
+        ```meta
+        type: value-object
+        ```
+
+        How urgent a task is.
+
+        ## Ubiquitous Language
+
+        ```meta
+        type: ubiquitous-language
+        ```
+
+        ### Entry
+
+        ```meta
+        type: term
+        status: draft
+        ```
+
+        One line of the backlog.
 
         ## Requirement: A task has a title
 
@@ -127,9 +177,22 @@
         ```
 
         No cycle.
+
+        Enforced at: open
+
+        #### Scenario: A titled task
+
+        #### Scenario: An untitled task
         """;
 
-    private static readonly DomainContextOverview Overview = DomainContextOverview.Read(Context, [Files]);
+    private static readonly DomainContextOverview Overview =
+        DomainContextOverview.Read(Context, ContextPath,
+        [
+            new(".devbook/domain/tasks/domain.md", Files),
+            new(".devbook/domain/tasks/features.md", FeaturesMd)
+        ]) with { Subdomain = "core" };
+
+    private string? _followed;
 
     private static readonly DomainNeighbourhood Neighbours =
         DomainNeighbours.Read(DomainNeighboursPage.Dependencies, ".devbook/domain/tasks/dependencies.md");
@@ -138,10 +201,11 @@
 
     private const string ContextCode = """
         <DomainContextView ContextName="@context.DisplayName"
-                           Overview="@DomainContextOverview.Read(contextMd, otherFiles)"
+                           Overview="@(DomainContextOverview.Read(contextMd, contextPath, otherFilesWithPaths) with { Subdomain = mapKind })"
                            Neighbours="@DomainNeighbours.Read(dependenciesMd, dependenciesPath)"
                            DocumentPath="@contextPath"
-                           OnNavigate="Follow" />
+                           OnNavigate="Follow"
+                           OnOpenAlwaysTrue="OpenAlwaysTrue" />
         """;
 
     private const string NeighboursTabCode = """

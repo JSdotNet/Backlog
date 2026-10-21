@@ -1496,16 +1496,16 @@ The system SHALL show a context's `dependencies.md` as the Neighbours tab of the
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_Overview_with_the_boundary_counts_proof_and_flags, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_Overview_with_the_boundary_counts_proof_and_flags, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.An_outside_answer_a_tile_a_gate_and_a_lens_each_follow_their_reference, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_invariants_card_opens_its_units_Always_true_tab]
 ```
 
-The system SHALL open a context's row on an Overview tab that shows the prose above the first chapter of its `context.md`, its chapters counted per kind, how many of its requirements and always-true rules name a test, its chapters per status, and its feature flags and settings.
+The system SHALL open a context's row on an Overview tab that shows the context's subdomain, deployment and status, its name, and the prose above the first chapter of its `context.md` as a lead, an Inside card and an Outside card. Each question the Outside card asks links to the contexts its sentence says answer it. Below them the tab shows its domain and feature chapters counted per kind, each count opening its first unit, and its requirements and invariants as two cards that say how many name a test. It also shows its chapters per status as one bar, its feature flags and settings with the features each gates, and the context's other pages with the question each answers.
 
 #### Scenario: A context's Overview
 
 - **Given** a context whose `context.md` holds the feature flag `github-integration` and whose `requirements.md` holds two requirements, one with `tests`
 - **When** the reader opens the context
-- **Then** Overview is the open tab, it counts two Requirements, says one of two name a test, and lists `github-integration` among the flags and settings
+- **Then** Overview is the open tab, its Requirements card counts two requirements and says one of two name a test, Requirements is among its pages, and `github-integration` is among its switches
 
 ### Requirement: Underscore files stay hidden
 

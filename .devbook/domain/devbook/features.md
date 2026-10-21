@@ -791,7 +791,7 @@ field types reads Model.
 | Menu row | The file | The page |
 | --- | --- | --- |
 | Context map | `context-map.md` | **Map** draws the contexts and their relations; **List** names them in reading order |
-| A context | `context.md` | **Overview** is the context's boundary; **Neighbours** is its `dependencies.md` |
+| A context | `context.md` | **Overview** is the context's boundary, what it holds, how well it is proved and settled, its switches and its pages; **Neighbours** is its `dependencies.md` |
 | Domain | `domain.md` and its splits | A unit picker. An aggregate opens **About** and **Always true**; a domain service opens one page; the **Glossary**, from the Ubiquitous Language chapter, is the bar's last tab |
 | Features | `features.md` | The features and their sub-features |
 | Requirements | `requirements.md` | Each requirement and its scenarios |
@@ -809,6 +809,17 @@ local [ADR 0037](../../arc42/adr/0037-the-domain-view-reads-by-unit.md).
 row's summary is its chapter's first sentence. A relation on **Neighbours** reads
 the "Why" column of the dependency tables. No chapter gains a field for the view,
 so a devbook reads the same in the app and in a Markdown viewer.
+
+**A context's Overview reads its `context.md` as the board draws it.** The
+name and the boundary's lead come first, under its subdomain, deployment and
+status. The *Inside the boundary:* paragraph becomes the Inside card. The
+*Outside it:* paragraph becomes the Outside card, one question per clause, each
+linked to the contexts its sentence says answer it. Tiles count the domain and
+feature chapters; two cards say how many requirements and invariants name a
+test; one bar shows how settled the chapters are; the switches table links the
+features each switch gates. The page's own words are its section headings, the
+two card labels, the line under Switches, the note under How settled, and the question beside each page it
+offers; every other word is a chapter's.
 
 **Technical detail lives on Model.** Field types, how a domain service is invoked
 and what an event carries are shown on Model only. The functional pages, from the

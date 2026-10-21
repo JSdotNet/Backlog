@@ -20,7 +20,8 @@
                        Neighbours="@read.Neighbours"
                        DocumentPath="@read.DocumentPath"
                        InitialTab="@read.InitialTab"
-                       OnNavigate="NavigateAsync" />
+                       OnNavigate="NavigateAsync"
+                       OnOpenAlwaysTrue="OnOpenAlwaysTrue" />
 }
 else if (_read?.Problem is { } problem)
 {
@@ -45,6 +46,11 @@ else if (_read?.Problem is { } problem)
     /// <summary>A link in the boundary, or a neighbour, the reader followed.</summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    /// <summary>The Invariants card followed: the unit whose Always true tab
+    /// holds the context's rules.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
 
     private DomainDevbookStore? _store;
     private ContextReading? _read;
@@ -127,8 +133,8 @@ else if (_read?.Problem is { } problem)
         var rootText = root is null ? null : DomainDevbookStore.ReadText(view, root);
         var others = context.Documents
             .Where(d => d.Kind is not (DomainDevbookDocumentKind.Context or DomainDevbookDocumentKind.Dependencies))
-            .Select(d => DomainDevbookStore.ReadText(view, d))
-            .OfType<string>();
+            .Select(d => DomainDevbookStore.ReadText(view, d) is { } text ? new DomainContextFile(d.Path, text) : null)
+            .OfType<DomainContextFile>();
 
         var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies);
         var neighbours = dependencies is not null
@@ -149,7 +155,7 @@ else if (_read?.Problem is { } problem)
 
         return new ContextReading(
             context.DisplayName,
-            DomainContextOverview.Read(rootText, others),
+            DomainContextOverview.Read(rootText, root?.Path, others) with { Subdomain = kinds.GetValueOrDefault(context.Slug)?.Kind },
             neighbours.Describe(named),
             root?.Path,
             opensNeighbours ? "neighbours" : "overview",
