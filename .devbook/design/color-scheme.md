@@ -588,7 +588,7 @@ kind across a diagram.
 | --- | --- | --- | --- |
 | `color-domain-value-object` | `#C3D96B` | Value object | 11.99:1 / 10.41:1 / 7.83:1 |
 | `color-domain-core-line` | `#F0A33A` | A Context map line between two core contexts, and a core context's card edge | 8.91:1 / 7.74:1 / 5.82:1 |
-| `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar | 8.87:1 / 7.70:1 / 5.79:1 |
+| `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar; on Features, a card's requirement tally and the tested part of the detail's promises bar | 8.87:1 / 7.70:1 / 5.79:1 |
 | `color-domain-service` | `#86C98F` | A domain service's outlined square in the Domain page's chapter bar | 9.59:1 / 8.33:1 / 6.26:1 |
 
 Value objects take `#C3D96B`, a yellow-green between `color-band-3` and
@@ -604,10 +604,12 @@ the only thing that says which contexts are core.
 The Requirements page marks the requirement kind in `#8FB4F0`, a soft blue of
 its own: the top edge of the card that says what a requirement is, the word
 *SHALL* in each requirement's sentence, the edge of the open feature in the
-feature list and the tested part of each feature's bar. It is not gold, because
+feature list and the tested part of each feature's bar. The Features page spends
+it the same way: a card's *n req · m tested* tally, and the tested part of the
+bar in the picked feature's *What it promises* pane. It is not gold, because
 none of these is followable, and not teal, which is the Brain's. Each sits beside
-the words *Requirement*, *SHALL* or *n / m* tested, so the blue is never the only
-thing that says it.
+the words *Requirement*, *SHALL*, *req* or *n / m* tested, so the blue is never
+the only thing that says it.
 
 The Domain page's chapter bar leads each aggregate with a square filled in
 `color-primary`, the gold the Model diagram already gives an aggregate root, and
@@ -617,7 +619,8 @@ Brain's. The square sits beside the unit's name, which says what it is, so a
 listener is not told the colour at all.
 
 **Information badges are neutral outlines.** On the Domain view's pages, the
-`DEV` mark, a chapter's date, a chapter's feature switch, a feature's
+`DEV` mark, a chapter's date, a chapter's feature switch, a feature's flag or
+setting chip on Features, a feature's
 *Proposed* or *Deprecated* mark on Features, a requirement's *Test linked* or
 dashed *No test linked* mark on Requirements and an event's *Documented* or *Emitted* mark on
 Model's Events tab are information about the

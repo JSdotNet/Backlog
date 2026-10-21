@@ -250,6 +250,7 @@
     --font-size-lg: 1.125rem;
     --font-size-xl: 1.25rem;
     --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
     --font-size-4xl: 2.25rem;
 
     /* Weights share a table with the line heights below, but were the one
@@ -267,6 +268,10 @@
 
     --line-height-tight: 1.25;
     --line-height-normal: 1.5;
+
+    /* Letter spacing, from the scale typography-and-layout.md tabulates; declared
+       as a rule first asks for a step. Widest tracks the caps labels. */
+    --letter-spacing-widest: 0.1em;
 
     /* Spacing (4px base scale) */
     /* Twelve rules across this file already asked for a step below xs and none
@@ -21433,16 +21438,57 @@ select.field__input {
   The Features page reads a context's features in columns by what they build
   on, one card each; the Requirements page reads one feature's requirements
   with their scenarios as Given / When / Then rows (local ADR 0037). Monochrome,
-  as the Domain page is: a proposed card is dashed and a deprecated one struck
-  through, and each also says so in words. The flag, the status and the proof
-  are information about the chapter, so each is a neutral outline
-  (color-scheme.md#domain-view-element-tones).
+  as the Domain page is: a proposed card is dashed and a deprecated feature
+  struck through in the box that gathers them, and each also says so in words.
+  The flag and the status are information about the chapter, so each is a
+  neutral outline; only the requirement tally and the tested bar take the
+  requirement tone (color-scheme.md#domain-view-element-tones).
 */
 
 .domain-features {
     display: grid;
-    gap: var(--spacing-md);
+    gap: var(--spacing-xl);
     min-width: 0;
+}
+
+/* The page opens on its title, a lead and a legend, as the design board
+   "Tasks — features" does; the title follows the Requirements page's but a
+   step larger, at the H3 size of the type scale. */
+.domain-features__intro {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.domain-features__page-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.domain-features__lead {
+    max-width: 50rem;
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.domain-features__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    list-style: none;
+}
+
+.domain-features__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
 }
 
 .domain-features__board {
@@ -21457,21 +21503,32 @@ select.field__input {
 .domain-features__column {
     display: grid;
     align-content: start;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-sm);
     min-width: 0;
 }
 
-.domain-features__column-title {
+.domain-features__column-title,
+.domain-features__deprecated-title,
+.domain-feature-detail__promises-label {
     margin: 0;
     color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--letter-spacing-widest);
+    text-transform: uppercase;
 }
 
-.domain-features__cards,
 .domain-requirements__feature-list {
     display: grid;
     gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-features__cards {
+    display: grid;
+    gap: var(--spacing-sm);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -21481,14 +21538,18 @@ select.field__input {
     display: grid;
 }
 
+/* A card is compact: its title, one line of facts and, past the first column,
+   what it comes after. It sits on the alternate surface so the picked one can
+   lift onto the raised surface. */
 .domain-feature-card {
-    display: grid;
-    gap: var(--spacing-2xs);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
     min-height: 2.75rem;
-    padding: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
-    background: var(--color-background-raised);
+    background: var(--color-background-alt);
     color: var(--color-text-primary);
     font: inherit;
     text-align: left;
@@ -21500,61 +21561,152 @@ select.field__input {
 }
 
 .domain-feature-card:focus-visible,
-.domain-requirements__feature:focus-visible {
+.domain-requirements__feature:focus-visible,
+.domain-features__deprecated-item:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
-}
-
-.domain-feature-card--selected {
-    border-color: var(--color-primary);
 }
 
 .domain-feature-card--proposed {
     border-style: dashed;
 }
 
-.domain-feature-card--deprecated .domain-feature-card__name {
-    color: var(--color-text-secondary);
-    text-decoration: line-through;
+/* The picked card: a solid 2px brand edge — the 1px border plus a 1px inset
+   ring, so the card does not move — on the raised surface. Written after hover
+   and proposed, and as two classes, so it outranks both: hover is a class and
+   a pseudo-class, and a picked card that is hovered or proposed still reads as
+   picked. */
+.domain-feature-card.domain-feature-card--selected,
+.domain-feature-card.domain-feature-card--selected:hover {
+    border-style: solid;
+    border-color: var(--color-primary);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-primary);
+    background: var(--color-background-raised);
 }
 
-.domain-feature-card__title {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2xs);
-    margin: 0;
-    font-weight: var(--font-weight-semibold);
+.domain-feature-card__name {
+    font-weight: var(--font-weight-bold);
     overflow-wrap: anywhere;
-}
-
-.domain-feature-card__summary {
-    font-size: var(--font-size-sm);
 }
 
 .domain-feature-card__facts {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-2xs) var(--spacing-xs);
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
 }
 
-.badge--tone.domain-feature-card__mark {
+.domain-feature-card__after {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+/* The requirement tally, in the requirement tone beside the words that say
+   req and tested (color-scheme.md#domain-view-element-tones). */
+.domain-feature-card__tally {
+    color: var(--color-domain-requirement);
+    font-size: var(--font-size-xs);
+}
+
+.badge--tone.domain-feature-card__mark,
+.badge--tone.domain-feature-card__gate {
     background: transparent;
     border-color: var(--color-border-strong);
     color: var(--color-text-secondary);
 }
 
-.domain-feature-detail {
-    display: grid;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md);
+.badge--tone.domain-feature-card__mark.domain-features__legend-proposed {
+    border-style: dashed;
+}
+
+/* The deprecated features, gathered at the end of the last column on the
+   sunken surface: struck titles that still open their detail. */
+.domain-features__deprecated {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.domain-features__deprecated-list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Each is a full target (accessibility.md#target-sizes-and-text); the picked
+   one takes the selected card's brand ring, so the pick is not weight or ink
+   alone. */
+.domain-features__deprecated-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0 var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: none;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    text-decoration: line-through;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+.domain-features__deprecated-item:hover {
+    color: var(--color-text-primary);
+}
+
+.domain-features__deprecated-item--selected {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    box-shadow: inset 0 0 0 var(--border-width-2) var(--color-primary);
+}
+
+.domain-features__deprecated-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The detail: what the feature is on the left, what it promises on the
+   right on the sunken surface, stacking under it when the two do not fit. */
+.domain-feature-detail {
+    display: flex;
+    flex-wrap: wrap;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
     background: var(--color-background-alt);
 }
 
-.domain-feature-detail__title,
+.domain-feature-detail__main {
+    display: flex;
+    flex: 999 1 32rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+}
+
+.domain-feature-detail__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
 .domain-requirements__title {
     display: flex;
     align-items: center;
@@ -21567,25 +21719,38 @@ select.field__input {
     overflow-wrap: anywhere;
 }
 
-.domain-feature-detail__summary {
+.domain-feature-detail__title {
     margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.domain-feature-detail__summary {
+    max-width: 42.5rem;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
 }
 
 .domain-feature-detail__facts {
     display: grid;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-sm);
     margin: 0;
+    font-size: var(--font-size-sm);
 }
 
 .domain-feature-detail__fact {
     display: grid;
-    grid-template-columns: 9rem 1fr;
-    gap: var(--spacing-sm);
+    grid-template-columns: 9rem minmax(0, 1fr);
+    gap: var(--spacing-md);
 }
 
 .domain-feature-detail__label {
     color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
 }
 
 .domain-feature-detail__value {
@@ -21599,13 +21764,67 @@ select.field__input {
     gap: var(--spacing-2xs) var(--spacing-sm);
 }
 
+.domain-feature-detail__chapters--chips {
+    gap: var(--spacing-xs);
+}
+
+/* The model chapters as small neutral filled chips holding their links. */
+.domain-feature-detail__chip {
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+}
+
 .domain-feature-detail__gate-word {
-    margin-right: var(--spacing-2xs);
     color: var(--color-text-secondary);
 }
 
 .domain-feature-detail__unsaid {
     color: var(--color-text-secondary);
+}
+
+.domain-feature-detail__promises {
+    display: flex;
+    flex: 1 1 20rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    background: var(--color-background);
+}
+
+.domain-feature-detail__promise {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.domain-feature-detail__promise-count {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-feature-detail__bar {
+    display: flex;
+    height: var(--spacing-sm);
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border);
+}
+
+.domain-feature-detail__fill {
+    background: var(--color-domain-requirement);
+}
+
+.domain-feature-detail__promise-proof {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-feature-detail__promise-link {
+    font-size: var(--font-size-sm);
 }
 
 /* A chapter is named in words, so its link reads as prose. */
@@ -22026,6 +22245,11 @@ select.field__input {
     .domain-feature-detail__fact {
         grid-template-columns: 1fr;
         gap: var(--spacing-2xs);
+    }
+
+    .domain-feature-detail__main,
+    .domain-feature-detail__promises {
+        padding: var(--spacing-md);
     }
 }
 

@@ -1637,43 +1637,59 @@ The system SHALL list on Model's Events tab each `domain-event` chapter of the c
 - **When** the reader opens Model and picks Events
 - **Then** *StatusChanged* is raised by *Task*, shows its payload and consumers, and is marked *Documented*
 
+### Requirement: The Features page opens on its title, lead and legend
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_page_title_names_the_context_and_the_lead_counts_its_features, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Without_a_context_name_the_page_title_is_Features, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.The_Features_row_opens_the_board_in_columns_with_each_cards_proof]
+```
+
+The system SHALL open the Features page of a `features.md` or `features.<name>.md` row on a title naming its context, *What Tasks lets a person do* for Tasks (*Features* when the context has no name), a lead counting its features, and a legend for the flag or setting chip, the requirement tally and the *Proposed* mark.
+
+#### Scenario: Opening the Features of Tasks
+
+- **Given** a context *Tasks* whose `features.md` holds two features
+- **When** the reader opens Features
+- **Then** the page is titled *What Tasks lets a person do*, and its lead begins *2 features and their sub-features*
+
 ### Requirement: Features stand in columns by what they build on
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.Features_stand_in_columns_by_what_they_build_on_in_the_context, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_deprecated_feature_goes_to_the_end_of_its_column_and_a_proposed_one_says_so, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_card_counts_its_sub_features_and_names_its_flag_or_setting, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_card_counts_its_requirements_and_how_many_are_proved_from_their_tests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_split_file_reads_its_one_feature_with_the_depth_the_base_file_gives_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Cards_stand_in_columns_with_their_counts_flag_and_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_proposed_card_is_dashed_and_a_deprecated_one_struck_through_last_in_its_column, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.The_Features_row_opens_the_board_in_columns_with_each_cards_proof, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.A_split_features_file_reads_its_one_feature_in_the_column_the_base_file_gives_it]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.Features_stand_in_columns_by_what_they_build_on_in_the_context, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_deprecated_feature_goes_to_the_end_of_its_column_and_a_proposed_one_says_so, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_card_counts_its_sub_features_and_names_its_flag_or_setting, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_card_counts_its_requirements_and_how_many_are_proved_from_their_tests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.A_split_file_reads_its_one_feature_with_the_depth_the_base_file_gives_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Cards_stand_in_columns_with_their_counts_flag_and_proof, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_proposed_card_is_dashed_and_deprecated_features_gather_at_the_end_of_the_last_column, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_column_left_with_only_deprecated_features_is_not_drawn, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_setting_chip_is_outlined_like_a_flag_and_names_its_kind_only_to_a_listener, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_card_shows_no_summary_and_no_tally_without_requirements, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.A_picked_proposed_card_carries_the_selected_class, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.The_Features_row_opens_the_board_in_columns_with_each_cards_proof, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.A_split_features_file_reads_its_one_feature_in_the_column_the_base_file_gives_it]
 ```
 
-The system SHALL draw the features of a `features.md` or `features.<name>.md` row in columns by how many of the context's features each builds on through `depends-on`, each card showing its sub-feature count, its flag or setting, and its requirement count with how many a linked test proves, a proposed feature dashed and a deprecated one struck through at the end of its column.
+The system SHALL draw the features of a `features.md` or `features.<name>.md` row in columns by how many of the context's features each builds on through `depends-on`, each card showing its title, its sub-feature count, its flag or setting, *n req · m tested* when it has requirements and, past the first column, the features it comes after; a proposed feature dashed, a picked card edged in the brand colour even when proposed or hovered, and the deprecated features gathered, struck through, in one box at the end of the last column, a column they leave empty not drawn.
 
 #### Scenario: Three levels
 
 - **Given** a `features.md` whose *Checkout* depends on *Ordering*, whose *Quotes* depends on *Checkout*, and whose deprecated *Fax orders* depends on nothing
 - **When** the reader opens Features
-- **Then** *Ordering* and *Fax orders* stand in the first column with *Fax orders* last and struck through, *Checkout* in the second, and *Quotes* in the third
+- **Then** *Ordering* stands in the first column, *Checkout* in the second and *Quotes* in the third, and *Fax orders* is struck through in the *Deprecated · 1* box at the end of the third
 
 #### Scenario: A card's proof
 
 - **Given** a feature *Checkout* behind the flag *New checkout*, with two sub-features, whose requirements group holds two requirements of which one names a test
 - **When** the reader opens Features
-- **Then** *Checkout*'s card says 2 sub-features, Flag · New checkout, and 2 requirements · 1 proved
+- **Then** *Checkout*'s card says 2 sub-features, the flag *New checkout*, 2 req · 1 tested and after Ordering, and a feature with no requirements shows no tally
 
 ### Requirement: Picking a feature shows its detail
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.The_detail_names_what_it_builds_on_and_the_model_chapters_its_related_names, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Picking_a_card_opens_its_detail_and_reports_the_pick, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Following_a_chapter_in_the_detail_hands_its_reference_to_the_host, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.A_features_requirements_link_opens_Requirements_on_that_features_group]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeaturesTests.The_detail_names_what_it_builds_on_and_the_model_chapters_its_related_names, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Picking_a_card_opens_its_detail_and_reports_the_pick, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.Following_a_chapter_in_the_detail_hands_its_reference_to_the_host, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_gate_reads_its_link_then_its_kind_as_separate_words, unit:dotnet:Backlog.UI.Components.UnitTests.DomainFeatureBoardTests.The_promises_pane_counts_the_requirements_and_bars_how_many_a_test_proves, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewFeaturesPageTests.A_features_requirements_link_opens_Requirements_on_that_features_group]
 ```
 
-The system SHALL show, for the feature the reader picks on Features, what it builds on, its flag or setting, the model chapters its `related` names, its sub-features and its requirement count, each a link to the chapter it names.
+The system SHALL show, for the feature the reader picks on Features, what it builds on, the flag it is gated by or the setting it is configured by (*Always on* when neither), the model chapters its `related` names and its sub-features, each a link to the chapter it names, and beside them what it promises: its requirement count, a bar of how many a linked test proves, and a link that opens its group on Requirements.
 
 #### Scenario: Picking Checkout
 
-- **Given** a feature *Checkout* that depends on *Ordering* and whose `related` names the aggregate *Order*
+- **Given** a feature *Checkout* behind the flag *New checkout* that depends on *Ordering*, whose `related` names the aggregate *Order*, and whose requirements group holds two requirements of which one names a test
 - **When** the reader picks *Checkout* on Features
-- **Then** the detail names *Ordering* under Builds on and *Order* under Model
+- **Then** the detail names *Ordering* under Builds on, *New checkout · flag* under Gated by and *Order* under Model it uses, and promises 2 requirements, 1 of 2 linked to a test
 
 ### Requirement: Requirements read per feature with their proof
 

@@ -864,11 +864,15 @@ two terms side by side when each names the other in `related`.
 
 **Features stand by what they build on.** The Features page sets a context's
 features in columns by how many of its features each builds on through
-`depends-on`. A card shows the feature's first sentence, its sub-feature count,
-its flag or setting, and how many requirements it has with how many a linked test
-proves. A proposed feature is dashed and a deprecated one is struck through at the
-end of its column. Picking a card shows what it builds on, its flag or setting,
-the model chapters its `related` names and its requirements.
+`depends-on`. The page opens on its title, *What* the context *lets a person
+do*, a lead counting its features, and a legend. A card shows the feature's
+title, its sub-feature count, its flag or setting, *n req · m tested* when it
+has requirements and, past the first column, what it comes after. A proposed
+feature is dashed, and the deprecated ones are gathered, struck through, in one
+box at the end of the last column. Picking a card shows what it builds on, the
+flag it is gated by or the setting it is configured by, the model chapters its
+`related` names and its sub-features, and beside them what it promises: its
+requirement count, how many a test proves as a bar, and a link to Requirements.
 
 **Requirements read per feature.** The Requirements page shows each requirement
 with its SHALL sentence set apart and whether it is proved, and each scenario as

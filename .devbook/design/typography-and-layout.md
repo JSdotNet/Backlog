@@ -329,9 +329,9 @@ rather than transcribing it.
 | Scale | Materialized | Not yet declared in code |
 |---|---|---|
 | Font families | all three | — |
-| Font sizes | `xs`–`2xl`, `4xl` | `3xl`, `5xl` |
+| Font sizes | `xs`–`4xl` | `5xl` |
 | Line heights | `tight`, `normal` | `none`, `relaxed` |
-| Weights, letter spacing | — (set inline where needed) | the whole set |
+| Weights, letter spacing | weights `normal`–`bold`; letter spacing `widest` | weight `light`; the other letter-spacing steps |
 | Spacing | `xs`–`xl` | `0`, `2xl`, `3xl`, `4xl` |
 | Border radius | `none`, `sm`, `md`, `lg`, `full` | `xl` |
 | Border width | all three | — |
@@ -343,7 +343,7 @@ rather than transcribing it.
 Rules and known gaps:
 
 - A scale being **partly** declared is not a violation — the rule is that no size
-  outside the scale may be introduced. A component needing `font-size-3xl` adds
+  outside the scale may be introduced. A component needing `font-size-5xl` adds
   the token from the table above; it MUST NOT invent a value.
 - **Fonts are declared but not loaded.** Nothing in the repository ships Inter,
   Poppins or Fira Code. No host has an `@font-face` rule or a webfont link, so
