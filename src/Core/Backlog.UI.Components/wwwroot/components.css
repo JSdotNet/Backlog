@@ -21276,28 +21276,113 @@ select.field__input {
 /* --- Domain view: Flow ----------------------------------------------------- */
 /*
   The Flow page of the Domain view (local ADR 0037): a stateDiagram-v2 drawn as
-  one row of states. Forward transitions run on the axis or in lanes above, the
-  ways back in lanes below and dashed, the restore loop round the outside. The
-  row scrolls sideways rather than shrinking its words; the prose sits beneath.
+  one row of states, each a box with its description. A move to the next state
+  runs straight to it on top, a move back underneath in a dimmer tone; other
+  forward arcs run in lanes above, other ways back in lanes below, the restore
+  loop round the outside on top. The drawing scales down to the column rather
+  than scrolling sideways, down to 85% of its size; past that it scrolls, so
+  its words never shrink further. An event is a neutral chip under its transition,
+  dashed while documented but not yet emitted (color-scheme.md: information
+  badges are neutral outlines); a way in from several states is one note card.
 */
 
 .domain-flows {
     display: grid;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-xl);
     min-width: 0;
 }
 
 .domain-flows__section {
     display: grid;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-md);
     min-width: 0;
 }
 
+.domain-flows__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+/* The board's page title: larger than the scale's 2xl. */
+.domain-flows__title--page {
+    font-size: 2rem;
+}
+
+.domain-flows__lead {
+    max-width: 56rem;
+    color: var(--color-text-secondary);
+}
+
+.domain-flows__lead p {
+    margin: 0 0 var(--spacing-xs);
+}
+
+.domain-flows__lead > :last-child,
+.domain-flows__lead p:last-child {
+    margin-bottom: 0;
+}
+
+.domain-flows__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-flows__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.domain-flows__key {
+    display: inline-block;
+    width: 24px;
+    height: 0;
+    border-top: 2px solid var(--color-text-secondary);
+}
+
+.domain-flows__key--back {
+    border-top-color: var(--color-border-strong);
+}
+
+.domain-flows__key--documented {
+    height: 12px;
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+}
+
+.domain-flows__key--emitted {
+    height: 12px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+}
+
 .domain-flow {
+    display: grid;
+    gap: var(--spacing-md);
     margin: 0;
     min-width: 0;
 }
 
+/* The drawing and the chips laid over it share one box, so a chip's share of
+   the box is its place on the drawing at any width. */
+.domain-flow__canvas {
+    position: relative;
+    container-type: inline-size;
+    width: 100%;
+    min-width: calc(var(--domain-flow-width, 0) * 0.85px);
+}
+
+/* A flowchart and a sequence scroll sideways at their own size; the row
+   scrolls only once it has shrunk as far as it may. */
 .domain-flow__scroll {
     overflow-x: auto;
     padding-bottom: var(--spacing-2xs);
@@ -21308,10 +21393,25 @@ select.field__input {
     max-width: none;
 }
 
+.domain-flow__svg--fit {
+    width: 100%;
+    height: auto;
+}
+
 .domain-flow__box {
     fill: var(--color-background-raised);
     stroke: var(--color-border-strong);
     stroke-width: 1;
+}
+
+.domain-flow__state--active .domain-flow__box {
+    stroke: var(--color-text-primary);
+    stroke-width: 2;
+}
+
+.domain-flow__state--ended .domain-flow__box {
+    fill: var(--color-background-alt);
+    stroke: var(--color-border);
 }
 
 .domain-flow__name {
@@ -21319,6 +21419,16 @@ select.field__input {
     font-family: var(--font-family-base);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
+}
+
+.domain-flow__svg--fit .domain-flow__name {
+    font-size: 15px;
+}
+
+.domain-flow__description {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: 12px;
 }
 
 .domain-flow__pseudo {
@@ -21334,20 +21444,27 @@ select.field__input {
 .domain-flow__line {
     fill: none;
     stroke: var(--color-text-secondary);
-    stroke-width: 1.25;
+    stroke-width: 2;
 }
 
+/* A reply in a sequence is dashed; on the row a way back is told by where it
+   runs and its dimmer tone, as the board draws it. */
 .domain-flow__transition--back .domain-flow__line {
     stroke-dasharray: 5 3;
 }
 
-.domain-flow__transition--restore .domain-flow__line {
-    stroke-dasharray: 5 3;
-    stroke-width: 1.75;
+.domain-flow__svg--fit .domain-flow__transition--back .domain-flow__line,
+.domain-flow__svg--fit .domain-flow__transition--restore .domain-flow__line {
+    stroke: var(--color-border-strong);
+    stroke-dasharray: none;
 }
 
 .domain-flow__arrow {
     fill: var(--color-text-secondary);
+}
+
+.domain-flow__arrow--back {
+    fill: var(--color-border-strong);
 }
 
 .domain-flow__label {
@@ -21360,9 +21477,118 @@ select.field__input {
     stroke-linejoin: round;
 }
 
+.domain-flow__svg--fit .domain-flow__label {
+    font-size: 13px;
+}
+
+/* Chips and captions scale with the drawing: 12px at its own width, less when
+   the column is narrower than the drawing. */
+.domain-flow__event {
+    position: absolute;
+    box-sizing: border-box;
+    font-size: min(12px, calc(1200cqw / var(--domain-flow-width, 1000)));
+    line-height: 1.5;
+    display: flex;
+    justify-content: center;
+    padding: 0 0.5em;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    white-space: nowrap;
+}
+
+.domain-flow__event--documented {
+    border-style: dashed;
+}
+
+.domain-flow__event .devbook-ref {
+    font: inherit;
+}
+
+.domain-flow__caption {
+    position: absolute;
+    box-sizing: border-box;
+    color: var(--color-text-secondary);
+    font-size: min(13px, calc(1300cqw / var(--domain-flow-width, 1000)));
+    line-height: 1.5;
+}
+
+.domain-flow__caption-code {
+    font-family: var(--font-family-mono);
+    font-size: 0.92em;
+}
+
+.domain-flow__drop {
+    margin: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-flow__drop strong {
+    color: var(--color-text-primary);
+}
+
+/* What sits beside the status rather than in it: one card per sub-chapter. */
+.domain-flows__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+    gap: var(--spacing-lg);
+}
+
+.domain-flow-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-flow-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+}
+
+.domain-flow-card__title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-flow-card__tag {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-flow-card__tag p,
+.domain-flow-card__footer p {
+    margin: 0;
+}
+
+.domain-flow-card__body {
+    font-size: var(--font-size-sm);
+}
+
+.domain-flow-card__footer {
+    margin-top: auto;
+    padding-top: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
 /*
   A flowchart and a sequence on the Flow page wear the row's cards, lines,
-  arrowhead and labels; a dotted link and a reply are dashed as a way back is.
+  arrowhead and labels; a dotted link and a reply are dashed.
 */
 
 .domain-flow__text {
@@ -21376,7 +21602,7 @@ select.field__input {
 }
 
 .domain-flow__link--thick .domain-flow__line {
-    stroke-width: 2.25;
+    stroke-width: 3.5;
 }
 
 .domain-flow__lifeline,

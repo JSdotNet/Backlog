@@ -1,11 +1,15 @@
 @*
     The Flow page of the Domain view (local ADR 0037): a context's flow.md, one
-    section per chapter. Each diagram the page can read is drawn in the
-    lifecycle's cards, lines and type, with the chapter's prose beneath it: a
-    stateDiagram-v2 as one row of states (DomainFlowRow), a flowchart in ranks
-    (DomainFlowchart), a sequenceDiagram as cards and lifelines (DomainSequence).
-    A Mermaid diagram none of them can read stays in the prose and keeps the
-    rendering it has everywhere else.
+    section per chapter. The first chapter is the page's title, as a lifecycle
+    page leads with its lifecycle. A chapter's markdown before its first diagram
+    is its lead, and a state row gets a legend under it. Each diagram the page can
+    read is drawn in the lifecycle's cards, lines and type, with the rest of the
+    chapter's prose beneath it: a stateDiagram-v2 as one row of states
+    (DomainFlowRow), a flowchart in ranks (DomainFlowchart), a sequenceDiagram as
+    cards and lifelines (DomainSequence). A chapter that draws nothing and holds
+    only untyped sub-chapters reads them as cards — what sits beside the status
+    rather than in it. A Mermaid diagram none of them can read stays in the prose
+    and keeps the rendering it has everywhere else.
 
     Pure: the host hands over the file it read, so the storybook draws the same
     page from a sample string.
@@ -24,19 +28,48 @@
         @for (var i = 0; i < _sections.Count; i++)
         {
             var section = _sections[i];
+            var rows = section.Diagrams.OfType<DomainFlowDiagram>().ToList();
             @* Keyed by place: two headings of one text share an anchor. *@
             <section @key="i"
                      class="domain-flows__section"
                      data-testid="domain-flow-section"
                      data-flow="@section.Chapter.Anchor"
                      aria-label="@section.Chapter.Title">
-                <h2 class="domain-unit__title">@section.Chapter.Title</h2>
+                <h2 class="@(i == 0 ? "domain-flows__title domain-flows__title--page" : "domain-flows__title")"
+                    data-testid="domain-flow-title">@section.Chapter.Title</h2>
+                @if (section.Lead.Length > 0)
+                {
+                    <div class="domain-flows__lead" data-testid="domain-flow-lead">
+                        @Markdown(section.Lead)
+                    </div>
+                }
+                @if (rows.Count > 0)
+                {
+                    <ul class="domain-flows__legend" data-testid="domain-flow-legend" aria-label="Legend">
+                        <li><span class="domain-flows__key domain-flows__key--forward" aria-hidden="true"></span>forward</li>
+                        @if (Drawn(rows, t => t.Direction is DomainFlowDirection.Back or DomainFlowDirection.Restore))
+                        {
+                            <li><span class="domain-flows__key domain-flows__key--back" aria-hidden="true"></span>back</li>
+                        }
+                        @if (Drawn(rows, t => t.Event is { Emitted: false }))
+                        {
+                            <li><span class="domain-flows__key domain-flows__key--documented" aria-hidden="true"></span>event, documented but not emitted yet</li>
+                        }
+                        @if (Drawn(rows, t => t.Event is { Emitted: true }))
+                        {
+                            <li><span class="domain-flows__key domain-flows__key--emitted" aria-hidden="true"></span>event, emitted</li>
+                        }
+                    </ul>
+                }
                 @foreach (var figure in section.Diagrams)
                 {
                     @switch (figure)
                     {
                         case DomainFlowDiagram row:
-                            <DomainFlowRow Diagram="@row" AriaLabel="@($"{section.Chapter.Title}, drawn as one row of states")" />
+                            <DomainFlowRow Diagram="@row"
+                                           DocumentPath="@File.Path"
+                                           OnNavigate="OnNavigate"
+                                           AriaLabel="@($"{section.Chapter.Title}, drawn as one row of states")" />
                             break;
                         case DomainFlowchartDiagram chart:
                             <DomainFlowchart Diagram="@chart" AriaLabel="@($"{section.Chapter.Title}, drawn as a flowchart")" />
@@ -46,13 +79,34 @@
                             break;
                     }
                 }
+                @if (section.Cards.Count > 0)
+                {
+                    <div class="domain-flows__cards" data-testid="domain-flow-cards">
+                        @foreach (var card in section.Cards)
+                        {
+                            <article class="domain-flow-card" data-testid="domain-flow-card" data-card="@card.Anchor" aria-label="@card.Title">
+                                <header class="domain-flow-card__header">
+                                    <h3 class="domain-flow-card__title">@card.Title</h3>
+                                    @if (card.Tag.Length > 0)
+                                    {
+                                        <div class="domain-flow-card__tag" data-testid="domain-flow-card-tag">@Markdown(card.Tag)</div>
+                                    }
+                                </header>
+                                @if (card.Body.Length > 0)
+                                {
+                                    <div class="domain-flow-card__body">@Markdown(card.Body)</div>
+                                }
+                                @if (card.Footer.Length > 0)
+                                {
+                                    <footer class="domain-flow-card__footer" data-testid="domain-flow-card-footer">@Markdown(card.Footer)</footer>
+                                }
+                            </article>
+                        }
+                    </div>
+                }
                 @if (section.Prose.Length > 0)
                 {
-                    <MarkdownView Blocks="@ProseOf(section)"
-                                  Source="@section.Prose"
-                                  DevbookDocumentPath="@File.Path"
-                                  DevbookFolder="DevbookFolder.Domain"
-                                  OnDevbookNavigate="OnNavigate" />
+                    @Markdown(section.Prose)
                 }
             </section>
         }
@@ -64,7 +118,7 @@
     [Parameter, EditorRequired]
     public DomainChapterFile File { get; set; } = default!;
 
-    /// <summary>A link in a flow's prose the reader followed.</summary>
+    /// <summary>A link in a flow's prose, or an event chip, the reader followed.</summary>
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
 
@@ -75,20 +129,32 @@
     public string? TestId { get; set; } = "domain-flows";
 
     private IReadOnlyList<DomainFlowSection> _sections = [];
-    private readonly Dictionary<DomainFlowSection, IReadOnlyList<MdBlock>> _prose = [];
+    private readonly Dictionary<string, IReadOnlyList<MdBlock>> _markdown = new(StringComparer.Ordinal);
     private DomainChapterFile? _read;
 
     protected override void OnParametersSet()
     {
         if (ReferenceEquals(_read, File)) return;
         _read = File;
-        _prose.Clear();
+        _markdown.Clear();
         _sections = [.. File.Chapters.Select(DomainFlows.Section)];
     }
 
-    private IReadOnlyList<MdBlock> ProseOf(DomainFlowSection section)
+    /// <summary>Whether any row draws a transition of this kind: the legend names
+    /// only what the drawing holds.</summary>
+    private static bool Drawn(IEnumerable<DomainFlowDiagram> rows, Func<DomainFlowTransition, bool> kind) =>
+        rows.Any(row => row.Transitions.Any(t => !row.IsDropped(t) && kind(t)));
+
+    private RenderFragment Markdown(string source) =>
+        @<MarkdownView Blocks="@BlocksOf(source)"
+                       Source="@source"
+                       DevbookDocumentPath="@File.Path"
+                       DevbookFolder="DevbookFolder.Domain"
+                       OnDevbookNavigate="OnNavigate" />;
+
+    private IReadOnlyList<MdBlock> BlocksOf(string source)
     {
-        if (!_prose.TryGetValue(section, out var blocks)) _prose[section] = blocks = MarkdownPreview.ParseDocument(section.Prose);
+        if (!_markdown.TryGetValue(source, out var blocks)) _markdown[source] = blocks = MarkdownPreview.ParseDocument(source);
         return blocks;
     }
 }

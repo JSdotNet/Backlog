@@ -76,7 +76,7 @@ public sealed class DomainViewFlowPageTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-flow-row']")), Patience);
         Assert.Equal("flow", component.Find("[data-testid='domain-view']").GetAttribute("data-page"));
         Assert.Equal(
-            ["[*]start", "Draft", "Ready", "Done"],
+            ["Draft", "Ready", "Done"],
             component.FindAll("[data-testid='domain-flow-state']").Select(state => state.GetAttribute("data-state")));
         Assert.Equal("restore", component.Find("[data-testid='domain-flow-transition'][data-from='Done']").GetAttribute("data-direction"));
 
