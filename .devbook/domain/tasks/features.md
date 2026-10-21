@@ -117,36 +117,37 @@ related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbo
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
 ```
 
-A task can point at the parts of a scenario page that prove it. A scenario page is
-one end-to-end journey in the repository's devbook, and each of its parts is an
-outcome the journey reaches. The task points at a part as `<page>.md#<part>`, the
-way it points at any chapter. It can also point at the whole page, which stands for
-every part, or at a requirement, which stands for the parts its `Proved by:` lines
-name. A part reached two ways counts once.
+A task can point at the parts of a journey that prove it. A journey is one
+end-to-end walk, a `##` chapter of a context's scenarios file in the repository's
+devbook, and each of its `###` parts is an outcome the journey reaches. The task
+points at a part as `<scenarios file>#<part>`, the way it points at any chapter. It
+can also point at a journey, or at the whole scenarios file, which stand for every
+part they hold. A requirement stands for the parts its `Proved by:` lines name. A
+part reached two ways counts once.
 
 The open task lists these parts under its Devbook references as an acceptance
 checklist headed "Acceptance · scenario parts". Each row shows the part's dot and the
-part. A quieter line under it names the page by its stem, the file name that also
-names the run folder, and says when the page last ran, as
+part. A quieter line under it names the journey by its anchor, which also names the
+run folder, and says when the journey last ran, as
 "place-an-order · 14 Oct 2026 09:30". A part that never ran says "Never run" there
 instead. A failed part whose run recorded the step it stopped on adds that step, as
 "· step 2". The list says how many parts pass and whether that proves the task, as
 "2 of 3 passing · not proved" or "3 of 3 passing · proved". A part reads as passed
-only when its last run passed on the page as it stands now. A part that passed before
-the page was edited is stale, because the run proved a different page. A stale part
-shows no step, because the step numbers an older text of the page.
+only when its last run passed on the journey as it stands now. A part that passed
+before the journey was edited is stale, because the run proved a different journey.
+A stale part shows no step, because the step numbers an older text of the journey.
 
-Pressing a part opens its scenario page in the Devbook pane at that part. The part is
+Pressing a part opens its scenarios file in the Devbook pane at that part. The part is
 marked as the one asked for and scrolled into view, and it stays marked until the
 reader picks another chapter or opens another reference. Pressing the same part again
-scrolls to it again. A part the page no longer has opens the page and marks nothing.
+scrolls to it again. A part the file no longer has opens the file and marks nothing.
 
 When every part passes, the task says it is proved. Being proved is a signal and
 nothing more: the task keeps its status until a person moves it. A green run is
 evidence for deciding that the work is done, and the decision stays with the person.
 
 A task's own text can show a scenario screenshot. An image written
-`scenario:<stem>#<label>` in the text a task opens with, or in a step's note, shows
+`scenario:<scenarios file>#<label>` in the text a task opens with, or in a step's note, shows
 the capture from the journey's last run with its source line, exactly as a chapter
 shows it ([Rendered devbook documents](../devbook/features.md#rendered-devbook-documents)).
 It is resolved against the repository the task's Devbook references open in. Any

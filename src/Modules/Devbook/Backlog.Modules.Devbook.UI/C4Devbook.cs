@@ -5,6 +5,9 @@ using Backlog.SharedKernel;
 using Backlog.SharedKernel.Markdown;
 using Backlog.UI.Components.Diagrams.C4;
 
+using DevbookC4Graph = Backlog.Infrastructure.Devbook.Building.DevbookC4Graph;
+using DevbookMarkdown = Backlog.Infrastructure.Devbook.Building.DevbookMarkdown;
+
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
@@ -12,18 +15,19 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <para>
 /// Everything the pure reader deliberately does not know is here: whether the
 /// feature is switched on, which repository clone the chapters came from, and where
-/// <c>_c4/</c> sits inside it. The reader is handed text and answers with a
+/// <c>workspace.dsl</c> sits inside it. The reader is handed text and answers with a
 /// workspace; this is where that becomes a question about files.
 /// </para>
 /// <para>
-/// Nothing here is written to the repository. A workspace is one authored
-/// <c>.dsl</c> — written in c4hero, which is a browser editor rather than anything
-/// this app runs — plus an authored <c>references.json</c> saying which chapter each
-/// view documents. The views are read out of the DSL on load and written as mermaid
-/// on the spot.
+/// Nothing here is written to the repository. The workspace is the one authored
+/// <c>workspace.dsl</c> beside the chapters, with any files it includes from
+/// <c>c4/</c>. Which chapter a view documents is read from the chapters themselves —
+/// every <c>![…](c4:&lt;view key&gt;)</c> embed — together with the older, authored
+/// <c>_c4/references.json</c> while that file still exists. The views are read out of
+/// the DSL on load and written as mermaid on the spot.
 /// </para>
 /// <para>
-/// A folder with no <c>.dsl</c> at all is given a model anyway, derived in memory
+/// A folder with no <c>workspace.dsl</c> is given a model anyway, derived in memory
 /// from the C4 mermaid fences its chapters already carry — one view per fence, each
 /// documenting the chapter it is in. That is the one thing here that is derived
 /// rather than read, and it is held only as long as the catalog is: an authored
@@ -39,13 +43,25 @@ namespace Backlog.Desktop.UI.Devbook;
 /// </summary>
 public sealed class C4DevbookStore : IDisposable
 {
-    /// <summary>The folder beside the chapters that holds the workspaces. Named to
-    /// sit next to <c>_archify</c> and <c>_meta</c>, which is what puts it out of
-    /// the way of the chapter listing.</summary>
-    public const string WorkspaceDirectory = "_c4";
+    /// <summary>The one workspace, beside the chapters. devbook's contract 33 makes it
+    /// the only place an architecture element or view is defined.</summary>
+    public const string WorkspaceFile = "workspace.dsl";
+
+    /// <summary>The only folder the workspace may <c>!include</c> from.</summary>
+    public const string IncludeDirectory = "c4";
+
+    /// <summary>The folder that held the workspaces before contract 33 and still holds
+    /// <see cref="ReferenceFile"/>. Named to sit next to <c>_archify</c> and
+    /// <c>_meta</c>, which is what puts it out of the way of the chapter listing.</summary>
+    public const string ReferenceDirectory = "_c4";
 
     /// <summary>
-    /// The authored map from view key to the chapters that view documents.
+    /// The authored map from view key to the chapters that view documents, from before
+    /// a chapter could embed a view.
+    /// <para>
+    /// Still read, and merged with the embeds, until every entry in it is carried by an
+    /// embed and the file is retired. A view a chapter embeds needs no entry here.
+    /// </para>
     /// <para>
     /// <c>references.json</c> rather than <c>index.json</c> because the
     /// <c>_archify/index.json</c> beside a chapter is generated, and a file with that
@@ -135,23 +151,14 @@ public sealed class C4DevbookStore : IDisposable
             generation = _generation;
         }
 
-        // Only the workspace folder, not the architecture chapters beside it:
-        // the arc42 store fetches those when its catalog is built, and this
-        // store is read alongside it rather than instead of it.
-        var location = await _folders
-            .PrepareContentAsync(FolderKey, repositoryAlias, [WorkspaceDirectory + "/"])
-            .ConfigureAwait(false);
-
-        // With no workspace the model is drawn from the chapters' own fences, so
-        // the chapters have to be on disk too. The arc42 store fetches the same
+        // The whole folder, chapters included: an authored workspace is tied to its
+        // chapters by the embeds they carry, and with no workspace the model is
+        // drawn from the chapters' own fences. The arc42 store fetches the same
         // folder, and a file already current is not fetched twice. The Domain
-        // panel loads this store as well, so opening it on a branch with no
-        // workspace fetches the arc42 chapters too — accepted, since the fallback
-        // needs them for the views that panel links to.
-        if (!HasAuthoredWorkspace(location))
-        {
-            location = await _folders.PrepareContentAsync(FolderKey, repositoryAlias).ConfigureAwait(false);
-        }
+        // panel loads this store as well, so opening it fetches the arc42 chapters
+        // too — accepted, since the views that panel links to are only placed by
+        // reading them.
+        var location = await _folders.PrepareContentAsync(FolderKey, repositoryAlias).ConfigureAwait(false);
 
         // On the pool, because deriving reads every chapter in the folder and the
         // caller's continuation is the UI thread in the desktop host.
@@ -174,69 +181,95 @@ public sealed class C4DevbookStore : IDisposable
     {
         if (!location.Available || location.FullPath is null) return C4Catalog.Off;
 
-        var directory = Path.Combine(location.FullPath, WorkspaceDirectory);
+        var directory = location.FullPath;
         if (!HasAuthoredWorkspace(location)) return Derive(location, directory);
 
-        var views = new List<C4ViewEntry>();
-        var workspaces = new List<C4WorkspaceEntry>();
         var problems = new List<C4WorkspaceProblem>();
-        var references = ReadReferences(directory, problems);
+        var authored = ReadReferences(Path.Combine(directory, ReferenceDirectory), problems);
 
-        foreach (var file in Directory.EnumerateFiles(directory, "*.dsl", SearchOption.TopDirectoryOnly).OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        C4Workspace workspace;
+        try
         {
-            var name = Path.GetFileName(file);
-
-            C4Workspace workspace;
-            try
-            {
-                workspace = C4DslReader.Read(File.ReadAllText(file));
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                problems.Add(new C4WorkspaceProblem(name, new C4Problem(0, name, exception.Message)));
-                continue;
-            }
-
-            foreach (var problem in workspace.Problems) problems.Add(new C4WorkspaceProblem(name, problem));
-
-            // The parsed workspace is kept, not just the views written out of it. The
-            // explorer needs the model itself — what a node drills into, which facet
-            // values exist, what a search matches are all questions about the model
-            // rather than about one picture.
-            workspaces.Add(new C4WorkspaceEntry(
-                name,
-                workspace.Name ?? Path.GetFileNameWithoutExtension(name),
-                workspace,
-                [.. workspace.Problems],
-                references));
-
-            foreach (var view in workspace.Views)
-            {
-                views.Add(new C4ViewEntry(
-                    Reference($"{FolderKey}/{WorkspaceDirectory}/{name}", view.Key),
-                    name,
-                    workspace.Name ?? Path.GetFileNameWithoutExtension(name),
-                    view.Key,
-                    view.Kind,
-                    Label(workspace, view),
-                    C4MermaidWriter.Write(workspace, view),
-                    Documents(references, view.Key)));
-            }
+            var workspacePath = Path.GetFullPath(Path.Combine(directory, WorkspaceFile));
+            workspace = C4DslReader.Read(ExpandIncludes(File.ReadAllText(workspacePath), workspacePath, Path.Combine(directory, IncludeDirectory), [workspacePath]));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            problems.Add(new C4WorkspaceProblem(WorkspaceFile, new C4Problem(0, WorkspaceFile, exception.Message)));
+            return new C4Catalog(true, directory, [], problems, []);
         }
 
-        return new C4Catalog(true, directory, views, problems, workspaces);
+        foreach (var problem in workspace.Problems) problems.Add(new C4WorkspaceProblem(WorkspaceFile, problem));
+
+        var name = workspace.Name ?? Path.GetFileNameWithoutExtension(WorkspaceFile);
+        var references = Merge(workspace, authored, ReadEmbeds(location, problems));
+
+        // The parsed workspace is kept, not just the views written out of it. The
+        // explorer needs the model itself — what a node drills into, which facet
+        // values exist, what a search matches are all questions about the model
+        // rather than about one picture.
+        var entry = new C4WorkspaceEntry(WorkspaceFile, name, workspace, [.. workspace.Problems], references);
+
+        var views = workspace.Views
+            .Select(view => new C4ViewEntry(
+                Reference($"{FolderKey}/{WorkspaceFile}", view.Key),
+                WorkspaceFile,
+                name,
+                view.Key,
+                view.Kind,
+                Label(workspace, view),
+                C4MermaidWriter.Write(workspace, view),
+                Documents(references, view.Key)))
+            .ToList();
+
+        return new C4Catalog(true, directory, views, problems, [entry]);
     }
 
-    /// <summary>Whether somebody wrote a workspace. Any <c>.dsl</c> at all decides
-    /// it: an authored model is the model, and drawing the chapters' fences beside it
-    /// would offer two models of one architecture and leave the reader to choose.</summary>
-    private static bool HasAuthoredWorkspace(DevbookFolderLocation location)
-    {
-        if (!location.Available || location.FullPath is null) return false;
+    /// <summary>Whether somebody wrote a workspace: an authored model is the model, and
+    /// drawing the chapters' fences beside it would offer two models of one
+    /// architecture and leave the reader to choose.</summary>
+    private static bool HasAuthoredWorkspace(DevbookFolderLocation location) =>
+        location.Available
+        && location.FullPath is not null
+        && File.Exists(Path.Combine(location.FullPath, WorkspaceFile));
 
-        var directory = Path.Combine(location.FullPath, WorkspaceDirectory);
-        return Directory.Exists(directory)
-            && Directory.EnumerateFiles(directory, "*.dsl", SearchOption.TopDirectoryOnly).Any();
+    /// <summary>
+    /// The workspace with every <c>!include</c> of a file in <c>c4/</c> replaced by
+    /// that file's text.
+    /// <para>
+    /// The reader knows no <c>!include</c> — it is handed text, never a folder — so
+    /// the splice happens here, where the files are. A path is resolved from the
+    /// including file, as devbook's <c>c4.mjs</c> resolves it, and spliced only when
+    /// it lands on a file inside <c>c4/</c>, the one folder a workspace includes from.
+    /// Any other <c>!include</c> — outside that folder, missing, absolute, or a file
+    /// already being read — is left in place for the reader to report, so the panel
+    /// still says what it could not read.
+    /// </para>
+    /// </summary>
+    private static string ExpandIncludes(string text, string fromFile, string allowed, IReadOnlyList<string> stack)
+    {
+        if (!text.Contains("!include", StringComparison.OrdinalIgnoreCase)) return text;
+
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var root = Path.GetFullPath(allowed) + Path.DirectorySeparatorChar;
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var parts = lines[index].Trim().Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2 || !string.Equals(parts[0], "!include", StringComparison.OrdinalIgnoreCase)) continue;
+
+            var target = parts[1].Trim().Trim('"');
+            if (target.Length == 0 || Path.IsPathRooted(target) || target.Contains(':', StringComparison.Ordinal)) continue;
+
+            var resolved = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(fromFile)!, target.Replace('/', Path.DirectorySeparatorChar)));
+            if (!resolved.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!File.Exists(resolved)) continue;
+            if (stack.Contains(resolved, StringComparer.OrdinalIgnoreCase)) continue;
+
+            lines[index] = ExpandIncludes(File.ReadAllText(resolved), resolved, allowed, [.. stack, resolved]);
+        }
+
+        return string.Join('\n', lines);
     }
 
     /// <summary>
@@ -250,28 +283,16 @@ public sealed class C4DevbookStore : IDisposable
     /// code of their own.
     /// </para>
     /// <para>
-    /// Chapters are found by the rule the chapter catalog uses — recursive, and
-    /// skipping any underscored segment — and spelled the way it spells them, so the
-    /// path a view documents is the path the chapter list holds.
+    /// The chapters are the ones <see cref="Chapters"/> walks, spelled as it spells them.
     /// </para>
     /// </summary>
     private static C4Catalog Derive(DevbookFolderLocation location, string directory)
     {
-        var folder = location.FullPath!;
-        if (!Directory.Exists(folder)) return new C4Catalog(true, directory, [], [], []);
-
-        var root = Arc42DevbookReader.ResolveRoot(folder, location.RootPath);
         var sources = new List<C4MermaidSource>();
         var problems = new List<C4WorkspaceProblem>();
 
-        var chapters = Directory.EnumerateFiles(folder, "*.md", Arc42DevbookReader.Recursive)
-            .Where(path => !Arc42DevbookReader.IsUnderscored(Path.GetRelativePath(folder, path)))
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
-
-        foreach (var file in chapters)
+        foreach (var (file, chapter) in Chapters(location))
         {
-            var chapter = Path.GetRelativePath(root, file).Replace('\\', '/');
-
             try
             {
                 sources.AddRange(C4Fences(chapter, File.ReadAllText(file)));
@@ -388,6 +409,107 @@ public sealed class C4DevbookStore : IDisposable
     private static IReadOnlyList<string> Documents(Dictionary<string, string[]> references, string key) =>
         references.TryGetValue(key, out var chapters) ? chapters : [];
 
+    /// <summary>
+    /// Every <c>![…](c4:&lt;view key&gt;)</c> embed in the architecture chapters, as view key
+    /// to the sections that embed it.
+    /// <para>
+    /// Read by <see cref="DevbookC4Graph.Embeds"/>, the port of devbook's own
+    /// <c>c4Embeds</c> the database builder draws its <c>embeds</c> edges with, so an
+    /// embed in a code span, a fence or an HTML comment is an example here as it is
+    /// there. An embed documents the section it sits under, chosen as the builder chooses
+    /// the source of its edge: the innermost heading below the chapter title that carries
+    /// a <c>meta</c> block — a chapter node — spelled <c>chapter#slug</c> as
+    /// <c>references.json</c> spells one, or the file when no such heading holds it.
+    /// </para>
+    /// </summary>
+    private static Dictionary<string, List<string>> ReadEmbeds(DevbookFolderLocation location, List<C4WorkspaceProblem> problems)
+    {
+        var embeds = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (file, chapter) in Chapters(location))
+        {
+            string text;
+            try
+            {
+                text = File.ReadAllText(file);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                problems.Add(new C4WorkspaceProblem(WorkspaceFile, new C4Problem(0, chapter, exception.Message)));
+                continue;
+            }
+
+            if (!text.Contains("c4:", StringComparison.OrdinalIgnoreCase)) continue;
+
+            foreach (var (key, trail) in DevbookC4Graph.Embeds(text, DevbookMarkdown.Parse(text).Chapters))
+            {
+                if (key.Length == 0) continue;
+
+                var section = trail.LastOrDefault(heading => heading.Level > 1 && heading.Meta is not null);
+                var reference = section is null ? chapter : $"{chapter}#{section.Slug}";
+
+                if (!embeds.TryGetValue(key, out var list)) embeds[key] = list = [];
+                if (!list.Contains(reference, StringComparer.OrdinalIgnoreCase)) list.Add(reference);
+            }
+        }
+
+        return embeds;
+    }
+
+    /// <summary>
+    /// The architecture chapters on disk, each with its path as the chapter catalog
+    /// spells it — found by the rule that catalog uses, recursive and skipping any
+    /// underscored segment — so the path a view documents is the path the chapter list
+    /// holds.
+    /// </summary>
+    private static IEnumerable<(string File, string Chapter)> Chapters(DevbookFolderLocation location)
+    {
+        var folder = location.FullPath!;
+        if (!Directory.Exists(folder)) yield break;
+
+        var root = Arc42DevbookReader.ResolveRoot(folder, location.RootPath);
+        var files = Directory.EnumerateFiles(folder, "*.md", Arc42DevbookReader.Recursive)
+            .Where(path => !Arc42DevbookReader.IsUnderscored(Path.GetRelativePath(folder, path)))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var file in files)
+        {
+            yield return (file, Path.GetRelativePath(root, file).Replace('\\', '/'));
+        }
+    }
+
+    /// <summary>
+    /// The reference map the panel draws: the sections that embed each view, then any
+    /// <c>references.json</c> entry naming a file no embed already names. Keyed by the
+    /// view key as the workspace spells it, because an embed's key is matched without
+    /// regard to case. An embed naming no view of the workspace is dropped; devbook's
+    /// checker reports it.
+    /// </summary>
+    private static Dictionary<string, string[]> Merge(
+        C4Workspace workspace,
+        Dictionary<string, string[]> authored,
+        Dictionary<string, List<string>> embeds)
+    {
+        var merged = new Dictionary<string, string[]>(authored, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var view in workspace.Views)
+        {
+            if (!embeds.TryGetValue(view.Key, out var embedding)) continue;
+
+            var documents = new List<string>(embedding);
+            foreach (var entry in authored.GetValueOrDefault(view.Key) ?? [])
+            {
+                var file = C4ViewEntry.FileOf(entry);
+                if (!documents.Any(document => string.Equals(C4ViewEntry.FileOf(document), file, StringComparison.OrdinalIgnoreCase))) documents.Add(entry);
+            }
+
+            merged.Remove(view.Key);
+            merged[view.Key] = [.. documents];
+        }
+
+        return merged;
+    }
+
     private sealed record ReferenceDocument(Dictionary<string, string[]>? Views);
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -402,23 +524,21 @@ public sealed class C4DevbookStore : IDisposable
     }
 
     /// <summary>
-    /// A chapter was saved in the app, so a model drawn from the chapters' fences may
-    /// no longer be what they say.
+    /// A chapter was saved in the app, so a model drawn from the chapters' fences, or
+    /// the embeds that tie an authored workspace to its chapters, may no longer be what
+    /// the chapters say.
     /// <para>
     /// The cached catalog is dropped quietly rather than through <see cref="Changed"/>:
     /// the caller is the panel that saved, and it re-reads straight afterwards —
     /// raising the event as well would re-read every chapter twice on each debounced
-    /// keystroke-save. A catalog read from an authored workspace is kept, because no
-    /// chapter save changes a <c>.dsl</c>. A catalog with no workspace at all is
-    /// dropped too: the save may have added the first C4 fence.
+    /// keystroke-save. An authored workspace is dropped too: no chapter save changes a
+    /// <c>.dsl</c>, but one can add, move or remove an embed.
     /// </para>
     /// </summary>
     public void ChapterSaved()
     {
         lock (_gate)
         {
-            if (_cached is { Workspaces: var workspaces } && workspaces.Any(entry => !entry.Derived)) return;
-
             _cached = null;
             _cachedFor = null;
             _generation++;
@@ -450,9 +570,9 @@ public sealed class C4DevbookStore : IDisposable
 /// <param name="Mermaid">The view written as mermaid C4. Held rather than a path,
 /// because there is no file: the <c>.dsl</c> is the only thing on disk and this is
 /// what it says.</param>
-/// <param name="Documents">The chapters this view documents, as
-/// <c>references.json</c> states them — or, for a view drawn from a chapter's
-/// fence, that chapter. The authored half of the reference; the other
+/// <param name="Documents">The chapters this view documents: the sections that embed
+/// it as <c>![…](c4:&lt;key&gt;)</c>, plus what <c>references.json</c> states — or, for a
+/// view drawn from a chapter's fence, that chapter. The authored half of the reference; the other
 /// direction — which views document a chapter — is this list inverted, so there is
 /// no second place for the two to disagree.</param>
 public sealed record C4ViewEntry(
@@ -500,7 +620,7 @@ public sealed record C4ViewEntry(
 public sealed record C4WorkspaceProblem(string WorkspaceFile, C4Problem Problem);
 
 /// <summary>
-/// One <c>.dsl</c>, parsed, with the reference map that applies to it.
+/// The workspace, parsed, with the reference map that applies to it.
 /// <para>
 /// Held beside the flattened <see cref="C4ViewEntry"/> list rather than instead of
 /// it, because the two answer different questions. A chapter reference resolves
@@ -519,8 +639,8 @@ public sealed record C4WorkspaceEntry(
     IReadOnlyDictionary<string, string[]> References,
     bool Derived = false)
 {
-    /// <summary>The chapters a view of this workspace documents, as
-    /// <c>references.json</c> states them.</summary>
+    /// <summary>The chapters a view of this workspace documents: the sections that
+    /// embed it, plus what <c>references.json</c> states.</summary>
     public IReadOnlyList<string> Documents(string? viewKey) =>
         viewKey is not null && References.TryGetValue(viewKey, out var chapters) ? chapters : [];
 }
@@ -528,8 +648,8 @@ public sealed record C4WorkspaceEntry(
 /// <param name="Available">Whether the architecture folder resolved at all. False
 /// is also what an switched-off feature looks like, and the two are the same to a
 /// panel: there is nothing to draw either way.</param>
-/// <param name="Workspaces">The parsed models, one per <c>.dsl</c>. What the
-/// explorer is given.</param>
+/// <param name="Workspaces">The parsed model — <c>workspace.dsl</c>, or the one
+/// drawn from the chapters' fences. What the explorer is given.</param>
 public sealed record C4Catalog(
     bool Available,
     string? Directory,
@@ -571,9 +691,16 @@ public sealed record C4Catalog(
 
         if (!path.EndsWith(".dsl", StringComparison.OrdinalIgnoreCase)) return null;
 
+        // A file the workspace includes from c4/, and a workspace in the _c4/ folder
+        // that held it before contract 33, both name the one workspace: a view key is
+        // unique across it, so the key is what finds the view.
+        var anyWorkspaceFile = path.Contains($"/{C4DevbookStore.IncludeDirectory}/", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"/{C4DevbookStore.ReferenceDirectory}/", StringComparison.OrdinalIgnoreCase);
+
         return Views.FirstOrDefault(view => view.Reference.EndsWith(normalized, StringComparison.OrdinalIgnoreCase))
             ?? Views.FirstOrDefault(view => anchor is not null
-                && path.EndsWith(view.WorkspaceFile, StringComparison.OrdinalIgnoreCase)
+                && (path.EndsWith(view.WorkspaceFile, StringComparison.OrdinalIgnoreCase)
+                    || (anyWorkspaceFile && string.Equals(view.WorkspaceFile, C4DevbookStore.WorkspaceFile, StringComparison.OrdinalIgnoreCase)))
                 && string.Equals(C4Slug.Of(view.Key), C4Slug.Of(anchor), StringComparison.OrdinalIgnoreCase));
     }
 }

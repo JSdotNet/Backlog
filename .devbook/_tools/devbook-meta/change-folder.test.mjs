@@ -47,7 +47,7 @@ const decisions =
 
 const proposal =
     `# Add a cache\n\n${fence("type: change\nstatus: proposed\ncategory: feature\n")}\n` +
-    `## Why\n\nReads are slow.\n\n## Scope\n\nThe read path.\n\n## Chapters touched\n\n- ${DECISIONS}#caching\n`;
+    `## Why\n\nReads are slow.\n\n## Scope\n\nThe read path.\n`;
 
 const modified =
     fence("change: add-cache\ndelta: modified\n") +
@@ -94,21 +94,40 @@ async function decide(root, edit = (block) => block) {
     return hash;
 }
 
-// -- The generator indexes it ------------------------------------------------
+// -- The generator checks it, and graphs none of it ----------------------------
 
 {
     const root = await fixture();
     const layout = await discoverLayout(root);
     check(layout.changes === CHANGES_ROOT, "the change folder is discovered by existing");
     const graph = await buildGraph(root);
-    const ids = new Set(graph.nodes.map((n) => n.id));
-    const proposalNode = graph.nodes.find((n) => n.id === `${CHANGES_ROOT}/add-cache/proposal.md`);
-    check(proposalNode?.kind === "change" && proposalNode.folder === "changes" && proposalNode.category === "feature", "the proposal is indexed as a `change`", JSON.stringify(proposalNode));
-    const deltaNode = graph.nodes.find((n) => n.id === `${CHANGES_ROOT}/add-cache/devbook-delta/arc42/09-decisions.md`);
-    check(deltaNode?.delta === "modified" && deltaNode.target === DECISIONS && deltaNode.change === "add-cache", "a delta is indexed with its kind and target", JSON.stringify(deltaNode));
-    check(![...ids].some((id) => id.includes("solution.md") || id.includes("tasks.md")), "solution.md and tasks.md are not indexed");
-    check(![...ids].some((id) => id.includes("/archive/")), "archive/ is never indexed");
-    check(errorsOf(graph.problems).length === 0, "the fixture change indexes with no error", JSON.stringify(errorsOf(graph.problems)));
+    check(!graph.nodes.some((n) => n.path?.startsWith(`${CHANGES_ROOT}/`)), "nothing in the change folder is a node", JSON.stringify(graph.nodes.filter((n) => n.path?.startsWith(CHANGES_ROOT))));
+    check(!graph.edges.some((e) => e.source.startsWith(`${CHANGES_ROOT}/`)), "nothing in the change folder is an edge's source");
+    check(errorsOf(graph.problems).length === 0, "the fixture change checks with no error", JSON.stringify(errorsOf(graph.problems)));
+    await rm(root, { recursive: true, force: true });
+}
+
+{
+    // A delta may name a chapter only its own change adds: it resolves at merge.
+    const root = await fixture({
+        [`${CHANGES_ROOT}/add-cache/devbook-delta/arc42/09-decisions.md`]:
+            fence("change: add-cache\ndelta: modified\n") +
+            `\n## Caching\n\n### MODIFIED\n\n${fence('related: [".devbook/arc42/10-quality.md#latency"]\n')}\n`,
+    });
+    const graph = await buildGraph(root);
+    check(errorsOf(graph.problems).length === 0, "a delta naming a chapter its own change adds is no error", JSON.stringify(errorsOf(graph.problems)));
+    await rm(root, { recursive: true, force: true });
+}
+
+{
+    // A devbook chapter never references the change folder, by field or by link.
+    const toChange = `${CHANGES_ROOT}/add-cache/proposal.md`;
+    const root = await fixture({
+        [DECISIONS]: decisions.replace("## Logging\n\n```meta\n", `## Logging\n\n\`\`\`meta\nrelated: ["${toChange}"]\n`) + `\nSee [the cache](../../${toChange}).\n`,
+    });
+    const messages = errorsOf((await buildGraph(root)).problems).map((p) => p.message);
+    check(messages.some((m) => /`related` reference .* never references a change/.test(m)), "a devbook `related` into the change folder is an error", JSON.stringify(messages));
+    check(messages.some((m) => /links to .* never references a change/.test(m)), "a devbook prose link into the change folder is an error", JSON.stringify(messages));
     await rm(root, { recursive: true, force: true });
 }
 

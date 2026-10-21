@@ -4,7 +4,7 @@ namespace Backlog.Mobile.UI.AppUpdate;
 
 /// <summary>A published mobile APK: its version, the release it is on, and where to download it.</summary>
 /// <param name="Version">The version the asset's name carries.</param>
-/// <param name="Tag">The release's tag — <c>v1.2.3</c> or a nightly <c>mobile-v0.1.N</c>.</param>
+/// <param name="Tag">The release's tag — <c>v1.2.3</c>, or <c>mobile-v0.1.N</c> for a nightly published before Release All aligned the two channels.</param>
 /// <param name="DownloadUrl">The asset's <c>browser_download_url</c>, exactly as GitHub returned it.</param>
 /// <param name="Size">The asset's size in bytes as GitHub recorded it: the download may not exceed it.</param>
 public sealed record ApkRelease(ApkVersion Version, string Tag, Uri DownloadUrl, long Size);
@@ -14,12 +14,13 @@ public sealed record ApkRelease(ApkVersion Version, string Tag, Uri DownloadUrl,
 /// </summary>
 /// <remarks>
 /// <para>
-/// <c>/releases/latest</c> cannot answer this. It points at the newest non-prerelease
-/// release flagged latest, which is the desktop's — a shared <c>v*</c> release may carry
-/// no APK at all — and the nightly mobile builds are published with
-/// <c>--latest=false</c> under their own <c>mobile-v*</c> tags. So every non-draft
-/// release is read, prerelease or not, and the asset whose name packs to the highest
-/// versionCode wins, whichever tag namespace it came from.
+/// <c>/releases/latest</c> cannot answer this. It points at the release flagged latest,
+/// which Release All keeps for the desktop's App Installer: a nightly stays off it while a
+/// higher version holds it, and older <c>v*</c> releases carry no APK at all. The mobile
+/// nightlies before it were published with <c>--latest=false</c> under their own
+/// <c>mobile-v*</c> tags, and phones still run them. So every non-draft release is read,
+/// prerelease or not, and the asset whose name packs to the highest versionCode wins,
+/// whichever tag namespace it came from.
 /// </para>
 /// <para>
 /// Only an https download from github.com is offered: the URL the phone fetches the

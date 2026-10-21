@@ -85,6 +85,7 @@ internal sealed class CompositeAgentSessionSource : IAgentSessionSource
         var sessions = new List<AgentSession>();
         var unreadable = new List<string>();
         var discovered = 0;
+        var openBeyondCap = 0;
 
         foreach (var source in _sources)
         {
@@ -94,6 +95,10 @@ internal sealed class CompositeAgentSessionSource : IAgentSessionSource
 
             sessions.AddRange(catalog.Sessions);
             discovered += catalog.Discovered;
+
+            // Only a local reading lists open sessions past its cap, and a local
+            // session always wins the precedence below, so none of these is dropped.
+            openBeyondCap += catalog.OpenBeyondCap;
 
             foreach (var name in catalog.Unreadable)
             {
@@ -113,10 +118,27 @@ internal sealed class CompositeAgentSessionSource : IAgentSessionSource
 
         var answered = sessions
             .Where(session => Precedence(session.Origin) == best[(session.Kind, session.Id)])
+            .Select(LocalFactsOnly)
             .ToList();
 
-        return new AgentSessionCatalog(answered, unreadable, discovered - (sessions.Count - answered.Count));
+        return new AgentSessionCatalog(answered, unreadable, discovered - (sessions.Count - answered.Count)) { OpenBeyondCap = openBeyondCap };
     }
+
+    /// <summary>
+    /// The session without the Claude desktop app's facts, unless it was read off this
+    /// machine's disk. <see cref="AgentSession.Archived"/> and
+    /// <see cref="AgentSession.ScheduledTask"/> and <see cref="AgentSession.DesktopTitle"/>
+    /// are a reading of the desktop app's own store, which only the Local source opens;
+    /// they never travel and a session record keeps no copy, so a Recorded or Replicated
+    /// answer that carried one would be carrying something no record could have told it.
+    /// Cleared here, where every source's answer passes, so unknown stays null and never
+    /// reads as open.
+    /// </summary>
+    private static AgentSession LocalFactsOnly(AgentSession session) =>
+        session.Origin is AgentSessionOrigin.Local
+        || (session.Archived is null && session.ScheduledTask is null && session.DesktopTitle is null)
+            ? session
+            : session with { Archived = null, ScheduledTask = null, DesktopTitle = null };
 
     /// <summary>Which answer for one session wins: the files read now, then this
     /// machine's own record of them, then what a machine reported over sync.</summary>

@@ -29,7 +29,11 @@ concurrency:
 #
 # A pull request that changes only .devbook/ chapters builds nothing here: the
 # devbook-meta and devbook-metadata workflows check those, and the .NET tests that
-# read .devbook/ catch up on the next pull request that touches code. The skip is
+# read .devbook/ catch up on the next pull request that touches code. One that
+# changes only the backlog-tools plugin -- plugins/, .claude-plugin/, CLAUDE.md,
+# with or without .devbook/ -- builds neither the heads nor the extension, and
+# the .NET job runs just the two architecture test classes that read those
+# files (FoundryPlanPromptTests, AgentContextPointerTests). The skip is
 # a job-level `if`, not a `paths-ignore` on the workflow, because these jobs are
 # required checks: a skipped job reports success to the ruleset, and so to
 # auto-merge, while a workflow that never starts leaves them Expected forever.
@@ -42,9 +46,12 @@ jobs:
       pull-requests: read
     outputs:
       code: ${{ steps.detect.outputs.code }}
+      scope: ${{ steps.detect.outputs.scope }}
     steps:
-      # 'false' only when every changed file is under .devbook/. A manual run, an
-      # empty file list, or anything else answers 'true'.
+      # scope is 'devbook' when every changed file is under .devbook/, 'plugin'
+      # when every one is under .devbook/, plugins/ or .claude-plugin/ or is
+      # CLAUDE.md, and 'code' otherwise; code is 'false' for the first two. A
+      # manual run, an empty file list, or anything else answers 'code'.
       - name: List the changed files
         id: detect
         env:
@@ -53,23 +60,34 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "scope=code" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files?per_page=100" --jq '.[].filename')
-          outside=$(printf '%s\n' "$files" | grep -v '^\.devbook/' | grep -c . || true)
-          if [ -n "$files" ] && [ "$outside" -eq 0 ]; then
+          outside_devbook=$(printf '%s\n' "$files" | grep -v '^\.devbook/' | grep -c . || true)
+          outside_plugin=$(printf '%s\n' "$files" | grep -v -E '^(\.devbook/|plugins/|\.claude-plugin/|CLAUDE\.md$)' | grep -c . || true)
+          if [ -n "$files" ] && [ "$outside_devbook" -eq 0 ]; then
             echo "Only .devbook/ changed; the build jobs are skipped."
             echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "scope=devbook" >> "$GITHUB_OUTPUT"
+          elif [ -n "$files" ] && [ "$outside_plugin" -eq 0 ]; then
+            echo "Only the plugin changed; the .NET job runs the tests that read it, the other build jobs are skipped."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "scope=plugin" >> "$GITHUB_OUTPUT"
           else
             echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "scope=code" >> "$GITHUB_OUTPUT"
           fi
 
   # Each build job runs unless detection answered 'false', so a failed or
   # cancelled detection still builds rather than skipping into a green check.
+  # The .NET job also runs on plugin scope, as the plugin's check: every full
+  # build step below is gated on scope != 'plugin', so an empty scope from a
+  # failed detection still builds everything.
   dotnet:
     name: Build and test .NET
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && (needs.changes.outputs.code != 'false' || needs.changes.outputs.scope == 'plugin') }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -92,6 +110,7 @@ jobs:
       # whatever the runner image ships, so the comparison cannot silently stop
       # running when the image changes.
       - name: Setup Node.js
+        if: ${{ needs.changes.outputs.scope != 'plugin' }}
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.x'
@@ -139,13 +158,47 @@ jobs:
       # the set of projects with a lock file. A package change regenerates them
       # with a plain local restore; commit them with it.
       - name: Restore dependencies
+        if: ${{ needs.changes.outputs.scope != 'plugin' }}
         run: dotnet restore Backlog.WithoutAppHeads.slnf --locked-mode
+
+      # Plugin scope: Backlog.ArchitectureTests has no project references, so it
+      # restores and builds alone in seconds, and these two classes are the only
+      # .NET tests that read plugins/ or CLAUDE.md. The rest of the project --
+      # ModuleAssemblyReferenceTests above all -- needs the module builds this
+      # scope skips.
+      #
+      # One command per step: the runner's pwsh checks only the last exit code of
+      # a multi-line script, so a failed restore or build there would go unseen.
+      - name: Restore the plugin's tests
+        if: ${{ needs.changes.outputs.scope == 'plugin' }}
+        run: dotnet restore tests/Backlog.ArchitectureTests/Backlog.ArchitectureTests.csproj --locked-mode
+
+      - name: Build the plugin's tests
+        if: ${{ needs.changes.outputs.scope == 'plugin' }}
+        run: >
+          dotnet build tests/Backlog.ArchitectureTests/Backlog.ArchitectureTests.csproj
+          --no-restore
+          --configuration Release
+          -p:TreatWarningsAsErrors=true
+
+      - name: Run the tests that read the plugin
+        if: ${{ needs.changes.outputs.scope == 'plugin' }}
+        run: >
+          dotnet test
+          --project tests/Backlog.ArchitectureTests/Backlog.ArchitectureTests.csproj
+          --no-build
+          --configuration Release
+          --results-directory TestResults
+          --report-trx
+          --filter-class Backlog.ArchitectureTests.FoundryPlanPromptTests
+          --filter-class Backlog.ArchitectureTests.AgentContextPointerTests
 
       # The solution builds at zero warnings (the rule severities are in the
       # root .editorconfig), and this is where a new one stops. It is passed
       # here rather than set in Directory.Build.props so a half-finished local
       # edit still builds; both app-head builds below pass it too.
       - name: Build
+        if: ${{ needs.changes.outputs.scope != 'plugin' }}
         run: >
           dotnet build Backlog.WithoutAppHeads.slnf
           --no-restore
@@ -176,6 +229,7 @@ jobs:
       # flag here reads as a green-looking run of no tests. Change these only
       # against `dotnet test --help`.
       - name: Run tests
+        if: ${{ needs.changes.outputs.scope != 'plugin' }}
         run: >
           dotnet test
           --solution Backlog.WithoutAppHeads.slnf

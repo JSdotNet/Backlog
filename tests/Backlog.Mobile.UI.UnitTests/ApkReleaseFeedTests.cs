@@ -4,8 +4,9 @@ namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
 /// Picking the APK to offer out of GitHub's "list releases" answer. The newest
-/// release is not <c>/releases/latest</c>: that points at the desktop's MSIX-only
-/// release, and the nightly mobile builds are published with <c>--latest=false</c>.
+/// release is not <c>/releases/latest</c>: that is kept for the desktop's App
+/// Installer, older <c>v*</c> releases carry only the MSIX, and the mobile nightlies
+/// before Release All were published with <c>--latest=false</c> under <c>mobile-v*</c>.
 /// So every release is read and the highest-versioned mobile APK wins, whichever
 /// tag namespace it was published under.
 /// </summary>
@@ -41,6 +42,33 @@ public sealed class ApkReleaseFeedTests
             new Uri("https://github.com/JSdotNet/Backlog/releases/download/v1.0.0/Backlog.Mobile_1.0.0.apk"),
             newest.DownloadUrl);
         Assert.Equal(31457280L, newest.Size);
+    }
+
+    /// <summary>
+    /// The first Release All release after the two channels' numbers were aligned:
+    /// a phone on the last <c>mobile-v</c> nightly is offered the shared <c>v</c>
+    /// release, whose versionCode is higher, and not the older desktop-only one.
+    /// </summary>
+    [Fact]
+    public void A_phone_on_the_last_mobile_v_nightly_is_offered_the_aligned_v_release()
+    {
+        var json = Feed(
+            Release("v0.1.123", assets:
+            [
+                "Backlog.Desktop_0.1.123.0_x64.msix", "Backlog.Desktop.appinstaller",
+                "Backlog.Desktop.cer", "Backlog.Mobile_0.1.123.apk"
+            ]),
+            Release("mobile-v0.1.63", assets: ["Backlog.Mobile_0.1.63.apk"]),
+            Release("v0.1.122", assets: ["Backlog.Desktop_0.1.122.0_x64.msix", "Backlog.Desktop.appinstaller"]));
+
+        var newest = Newest(json);
+
+        Assert.NotNull(newest);
+        Assert.Equal("v0.1.123", newest.Tag);
+        Assert.Equal(new ApkVersion("0.1.123", 100123L), newest.Version);
+        Assert.Equal(
+            new Uri("https://github.com/JSdotNet/Backlog/releases/download/v0.1.123/Backlog.Mobile_0.1.123.apk"),
+            newest.DownloadUrl);
     }
 
     [Fact]

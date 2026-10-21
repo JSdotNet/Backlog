@@ -12,9 +12,16 @@
     view was always going to look like a mermaid diagram however it was themed.
 *@
 
-<div class="c4-diagram-host" data-testid="@TestId">
-    @((MarkupString)Svg())
-</div>
+@if (Inline)
+{
+    <span class="c4-diagram-host c4-diagram-host--inline" data-testid="@TestId">@((MarkupString)Svg())</span>
+}
+else
+{
+    <div class="c4-diagram-host" data-testid="@TestId">
+        @((MarkupString)Svg())
+    </div>
+}
 
 @code {
     /// <summary>The laid-out view. Built by <see cref="C4LayoutEngine"/> from the same
@@ -34,6 +41,14 @@
 
     [Parameter]
     public string? TestId { get; set; } = "c4-diagram";
+
+    /// <summary>A span host, sized by the picture's own aspect ratio, for a diagram
+    /// drawn inside running text — a chapter's <c>![…](c4:&lt;key&gt;)</c> embed sits in
+    /// the paragraph the image was written in, where a div is invalid and an HTML
+    /// parser closes the paragraph on it. Off, the host is a div that fills its frame,
+    /// as the explorer needs.</summary>
+    [Parameter]
+    public bool Inline { get; set; }
 
     private C4Diagram? _drawn;
     private string? _drawnId;

@@ -8,12 +8,13 @@ namespace Backlog.Mobile.UI.AppUpdate;
 /// compares when one APK replaces another.
 /// </summary>
 /// <remarks>
-/// The packing is release-mobile.yml's "Derive version numbers" step, digit for
-/// digit: <c>major * 10^7 + minor * 10^5 + patch</c>, with the same limits. A
-/// version that step would refuse to publish is one the phone refuses to read,
-/// so the two cannot disagree about which release is newer. The code is a
+/// The packing is <c>build/Get-NextReleaseVersion.ps1</c>'s, the script Release All
+/// numbers its releases with, digit for digit: <c>major * 10^7 + minor * 10^5 + patch</c>,
+/// with the same limits. A version that script would refuse to publish is one
+/// the phone refuses to read, so the two cannot disagree about which release is
+/// newer. The code is a
 /// <see cref="long"/> because Android's <c>PackageInfo.LongVersionCode</c> is, and
-/// because the workflow's ceiling (214.99.99999) is just past <see cref="int.MaxValue"/>.
+/// because the script's ceiling (214.99.99999) is just past <see cref="int.MaxValue"/>.
 /// </remarks>
 public sealed partial record ApkVersion(string Display, long VersionCode)
 {

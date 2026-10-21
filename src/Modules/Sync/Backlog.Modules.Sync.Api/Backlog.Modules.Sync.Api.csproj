@@ -9,7 +9,20 @@
   <PropertyGroup>
     <RootNamespace>Backlog.Modules.Sync.Api</RootNamespace>
     <UserSecretsId>98bfd847-3884-49f0-aebf-b11e1e89fcb1</UserSecretsId>
+    <!-- The version GET / reports, and the one every client compares its own
+         against: a desktop or phone whose version is lower stops syncing and asks
+         to be updated (docs/deployment/sync.md). Raised on purpose, never by
+         default — raising it past the released clients stops all of them. -->
+    <Version>0.1.0</Version>
   </PropertyGroup>
+
+  <!-- The release the build ships under, which GET / reports as `release`. Release
+       All sets the BacklogRelease property, through the environment of the
+       `azd deploy` step (MSBuild reads environment variables as properties), and
+       never touches Version above. Absent, there is no release. -->
+  <ItemGroup Condition="'$(BacklogRelease)' != ''">
+    <AssemblyMetadata Include="BacklogRelease" Value="$(BacklogRelease)" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />

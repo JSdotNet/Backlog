@@ -4,62 +4,83 @@ using Backlog.Infrastructure.GitHub;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The scenario catalog of a repository: which pages are scenarios — from the
-/// committed register when there is one, from the pages themselves when not — and
-/// each page's run and state.
+/// The scenario catalog of a repository: which journeys there are — from the
+/// committed register when there is one, from the scenarios files themselves when
+/// not — and each journey's run and state.
 /// </summary>
 public sealed class DevbookScenarioStoreTests : IDisposable
 {
-    private const string Page = "# Place an order\n\n```meta\ntype: scenario\n```\n\n## The cart is filled\n- **Given** an empty cart\n\n![The cart](shot:cart-filled)\n";
+    private const string Journey =
+        "## Place an order\n\n```meta\ntype: scenario\n```\n\n### The cart is filled\n- **Given** an empty cart\n\n![The cart](shot:cart-filled)\n";
+
+    private const string Scenarios = "# Scenarios\n\n```meta\ntype: scenarios\n```\n\n" + Journey;
+
+    private const string RunFolder = ".domain/orders/scenarios/place-an-order";
 
     private readonly List<string> _tempDirs = [];
 
     [Fact]
-    public async Task Pages_that_say_type_scenario_are_found_without_a_register()
+    public async Task Journeys_in_a_scenarios_file_are_found_without_a_register()
     {
         var repo = Repository();
-        WritePage(repo, "orders/place-an-order.md", Page);
-        WritePage(repo, "orders/features.md", "# Features\n\n```meta\ntype: features\n```\n\nNo scenario here.\n");
+        WritePage(repo, "orders/scenarios.md", Scenarios);
+        WritePage(repo, "orders/features.md", "# Features\n\n```meta\ntype: features\n```\n\n## Not a journey\n\n```meta\ntype: scenario\n```\n");
 
         var catalog = await Store(repo).LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         var scenario = Assert.Single(catalog.Scenarios);
         Assert.False(catalog.FromRegister);
-        Assert.Equal("place-an-order", scenario.Stem);
-        Assert.Equal("orders/place-an-order.md", scenario.DomainPath);
+        Assert.Equal("place-an-order", scenario.Slug);
+        Assert.Equal("orders/scenarios.md", scenario.DomainPath);
         Assert.Equal(ScenarioState.NeverRun, scenario.State);
-        Assert.Same(scenario, catalog.ForPath(".domain/orders/place-an-order.md"));
-        Assert.Same(scenario, catalog.ForPath("orders/place-an-order.md"));
-        Assert.Null(catalog.ForPath(".domain/orders/features.md"));
+        Assert.Same(scenario, Assert.Single(catalog.ForPath(".domain/orders/scenarios.md")));
+        Assert.Same(scenario, Assert.Single(catalog.ForPath("orders/scenarios.md")));
+        Assert.Empty(catalog.ForPath(".domain/orders/features.md"));
+    }
+
+    /// <summary>A scenarios file holds several journeys, each its own run and state.</summary>
+    [Fact]
+    public async Task Every_journey_of_a_scenarios_file_is_listed_in_file_order()
+    {
+        var repo = Repository();
+        WritePage(repo, "orders/scenarios.md", Scenarios + "\n" + Journey.Replace("Place an order", "Cancel an order", StringComparison.Ordinal).Replace("cart-filled", "cart-emptied", StringComparison.Ordinal));
+        WriteRun(repo, RunFolder, $$"""
+            { "version": 3, "journey": ".domain/orders/scenarios.md#place-an-order", "signature": "{{Signature()}}",
+              "parts": [ { "title": "The cart is filled", "anchor": "the-cart-is-filled", "outcome": "passed" } ], "shots": {} }
+            """);
+
+        var catalog = await Store(repo).LoadAsync("backlog", TestContext.Current.CancellationToken);
+
+        Assert.Equal(["place-an-order", "cancel-an-order"], catalog.ForPath("orders/scenarios.md").Select(scenario => scenario.Slug));
+        Assert.Equal([ScenarioState.Passed, ScenarioState.NeverRun], catalog.Scenarios.Select(scenario => scenario.State));
+        Assert.Equal(ScenarioState.NeverRun, ScenarioEvidence.Combined(catalog.Scenarios.Select(scenario => scenario.State)));
     }
 
     [Fact]
-    public async Task A_committed_register_names_the_pages()
+    public async Task A_committed_register_names_the_journeys()
     {
         var repo = Repository();
-        WritePage(repo, "orders/place-an-order.md", Page);
-        WritePage(repo, "orders/not-listed.md", Page.Replace("Place an order", "Not listed", StringComparison.Ordinal));
+        WritePage(repo, "orders/scenarios.md", Scenarios + "\n" + Journey.Replace("Place an order", "Not listed", StringComparison.Ordinal).Replace("cart-filled", "other", StringComparison.Ordinal));
         Directory.CreateDirectory(Path.Combine(repo, ".domain", "_meta"));
         File.WriteAllText(Path.Combine(repo, ".domain", "_meta", "scenarios.json"), """
-            { "schemaVersion": 1, "scope": ".domain", "scenarios": [
-              { "stem": "place-an-order", "path": ".domain/orders/place-an-order.md", "title": "Place an order", "status": null }
+            { "schemaVersion": 2, "scope": ".domain", "scenarios": [
+              { "id": ".domain/orders/scenarios.md#place-an-order", "path": ".domain/orders/scenarios.md", "anchor": "place-an-order", "title": "Place an order", "status": null }
             ] }
             """);
 
         var catalog = await Store(repo).LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         Assert.True(catalog.FromRegister);
-        Assert.Equal(["place-an-order"], catalog.Scenarios.Select(scenario => scenario.Stem));
+        Assert.Equal(["place-an-order"], catalog.Scenarios.Select(scenario => scenario.Slug));
     }
 
     [Fact]
-    public async Task A_run_whose_signature_is_the_page_s_passes_and_a_version_1_run_is_stale()
+    public async Task A_run_whose_signature_is_the_journey_s_passes_and_a_version_1_run_is_stale()
     {
         var repo = Repository();
-        WritePage(repo, "orders/place-an-order.md", Page);
-        var signature = ScenarioSignature.Of(ScenarioPageParser.Parse(Page, "x.md"));
-        WriteRun(repo, "place-an-order", $$"""
-            { "version": 2, "signature": "{{signature}}", "ranAt": "2026-10-07T08:30:00Z",
+        WritePage(repo, "orders/scenarios.md", Scenarios);
+        WriteRun(repo, RunFolder, $$"""
+            { "version": 3, "signature": "{{Signature()}}", "ranAt": "2026-10-07T08:30:00Z",
               "parts": [ { "title": "The cart is filled", "anchor": "the-cart-is-filled", "outcome": "passed" } ],
               "shots": { "cart-filled": { "file": "cart-filled.png", "part": "the-cart-is-filled", "ranAt": "2026-10-07T08:30:00Z" } } }
             """);
@@ -69,13 +90,13 @@ public sealed class DevbookScenarioStoreTests : IDisposable
 
         var scenario = Assert.Single(catalog.Scenarios);
         Assert.Equal(ScenarioState.Passed, scenario.State);
-        var shot = catalog.Resolve("scenario:place-an-order#cart-filled", null);
+        var shot = catalog.Resolve("scenario:orders/scenarios.md#cart-filled", null);
         Assert.NotNull(shot);
         Assert.Equal(DevbookScenarioShotKind.Shown, shot.Kind);
-        Assert.Equal(DevbookScenarioShotKind.Shown, catalog.Resolve("shot:cart-filled", ".domain/orders/place-an-order.md")!.Kind);
-        Assert.Null(catalog.Resolve("diagram.png", ".domain/orders/place-an-order.md"));
+        Assert.Equal(DevbookScenarioShotKind.Shown, catalog.Resolve("shot:cart-filled", ".domain/orders/scenarios.md")!.Kind);
+        Assert.Null(catalog.Resolve("diagram.png", ".domain/orders/scenarios.md"));
 
-        WriteRun(repo, "place-an-order", """
+        WriteRun(repo, RunFolder, """
             { "versie": 1, "feature": "Place an order", "gedraaidOp": "2026-09-01T10:00:00Z",
               "scenarios": [ { "titel": "The cart is filled", "slug": "the-cart-is-filled", "uitkomst": "geslaagd", "duurMs": 10, "afdrukken": [] } ] }
             """);
@@ -84,20 +105,20 @@ public sealed class DevbookScenarioStoreTests : IDisposable
         Assert.Equal(ScenarioState.Stale, Assert.Single((await store.LoadAsync("backlog", TestContext.Current.CancellationToken)).Scenarios).State);
     }
 
+    /// <summary>A <c>scenario:</c> image names a scenarios file and a label unique in
+    /// it; a file with no journey is no scenarios file to show.</summary>
     [Fact]
-    public async Task Two_pages_with_one_stem_make_a_reference_to_it_ambiguous()
+    public async Task A_scenario_image_naming_no_scenarios_file_or_label_says_which()
     {
         var repo = Repository();
-        WritePage(repo, "orders/place-an-order.md", Page);
-        WritePage(repo, "billing/place-an-order.md", Page);
+        WritePage(repo, "orders/scenarios.md", Scenarios);
 
         var catalog = await Store(repo).LoadAsync("backlog", TestContext.Current.CancellationToken);
 
-        Assert.Equal(2, catalog.Scenarios.Count);
-        Assert.All(catalog.Scenarios, scenario => Assert.True(scenario.SharesStem));
-        var resolution = catalog.Resolve("scenario:place-an-order#cart-filled", null);
-        Assert.Equal(DevbookScenarioShotKind.AmbiguousStem, resolution!.Kind);
-        Assert.Equal(2, resolution.Alternatives.Count);
+        Assert.Equal(DevbookScenarioShotKind.UnknownPage, catalog.Resolve("scenario:billing/scenarios.md#cart-filled", null)!.Kind);
+        var unknown = catalog.Resolve("scenario:orders/scenarios.md#nope", null)!;
+        Assert.Equal(DevbookScenarioShotKind.UnknownLabel, unknown.Kind);
+        Assert.Equal(["cart-filled"], unknown.Alternatives);
     }
 
     /// <summary>A run is committed text: a screenshot it names outside its own folder,
@@ -109,10 +130,9 @@ public sealed class DevbookScenarioStoreTests : IDisposable
     public async Task A_run_cannot_point_a_screenshot_outside_its_folder(string file)
     {
         var repo = Repository();
-        WritePage(repo, "orders/place-an-order.md", Page);
-        var signature = ScenarioSignature.Of(ScenarioPageParser.Parse(Page, "x.md"));
-        WriteRun(repo, "place-an-order", $$"""
-            { "version": 2, "signature": "{{signature}}",
+        WritePage(repo, "orders/scenarios.md", Scenarios);
+        WriteRun(repo, RunFolder, $$"""
+            { "version": 3, "signature": "{{Signature()}}",
               "parts": [ { "title": "The cart is filled", "anchor": "the-cart-is-filled", "outcome": "failed", "failureShot": "{{file}}" } ],
               "shots": { "cart-filled": { "file": "{{file}}", "part": "the-cart-is-filled" } } }
             """);
@@ -122,24 +142,26 @@ public sealed class DevbookScenarioStoreTests : IDisposable
         var scenario = Assert.Single(catalog.Scenarios);
         Assert.Null(scenario.ShotFile("cart-filled"));
         Assert.Null(scenario.FailureFile("the-cart-is-filled"));
-        Assert.Equal(DevbookScenarioShotKind.NotCaptured, catalog.Resolve("scenario:place-an-order#cart-filled", null)!.Kind);
+        Assert.Equal(DevbookScenarioShotKind.NotCaptured, catalog.Resolve("scenario:orders/scenarios.md#cart-filled", null)!.Kind);
     }
 
-    /// <summary>A run that names another page — two pages sharing a stem share a run
-    /// folder — is not this page's run.</summary>
+    /// <summary>A run that names another journey is not this journey's.</summary>
     [Fact]
-    public async Task A_run_of_another_page_with_the_same_stem_is_not_this_page_s()
+    public async Task A_run_of_another_journey_is_not_this_journey_s()
     {
         var repo = Repository();
-        WritePage(repo, "orders/place-an-order.md", Page);
-        WriteRun(repo, "place-an-order", """
-            { "version": 2, "page": ".domain/billing/place-an-order.md", "signature": "00000000", "parts": [], "shots": {} }
+        WritePage(repo, "orders/scenarios.md", Scenarios);
+        WriteRun(repo, RunFolder, """
+            { "version": 3, "journey": ".domain/billing/scenarios.md#place-an-order", "signature": "00000000", "parts": [], "shots": {} }
             """);
 
         var catalog = await Store(repo).LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         Assert.Null(Assert.Single(catalog.Scenarios).Run);
     }
+
+    private static string Signature() =>
+        ScenarioSignature.Of(Assert.Single(ScenarioPageParser.ParseFile(Scenarios, "x/scenarios.md").Scenarios));
 
     private DevbookScenarioStore Store(string repo)
     {
@@ -166,9 +188,9 @@ public sealed class DevbookScenarioStoreTests : IDisposable
         File.WriteAllText(path, text);
     }
 
-    private static void WriteRun(string repo, string stem, string json)
+    private static void WriteRun(string repo, string runFolder, string json)
     {
-        var folder = Path.Combine(repo, ".devbook", "scenarios", stem);
+        var folder = Path.Combine(repo, runFolder.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "run.json"), json);
         File.WriteAllBytes(Path.Combine(folder, "cart-filled.png"), [0x89, 0x50]);

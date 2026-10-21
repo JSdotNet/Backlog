@@ -28,7 +28,8 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    (`+tag`; a legacy plan may still carry it as `#tag`), `repo:` and `after:`; otherwise
    read them off the plan-item marker; with the connector, `read_item` answers them too. An
    entry carrying only the session-name line yields the tag alone — say so and continue.
-   The body is the instructions; `## Setup:`, the knowledge/devbook reminder and `- [ ]`
+   A `Read first:` line (the grammar's `## Read-first line`) names the material the plan
+   was written from. The body is the instructions; `## Setup:`, the knowledge/devbook reminder and `- [ ]`
    lines are its steps. A `plan` type on the metadata line, or from `read_item`, is a
    roadmap item, not work: reply in one line that a `plan` entry is brought in by Import
    and never run — its steps are what to paste — and stop. A `task` or `test` type — or a
@@ -44,7 +45,11 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    first conclusive answer:
    - this session already ran this `(tag, id)` — report that and stop;
    - with the connector: `read_item` for the entry's status — `done`/`archived` is done,
-     `in-progress` means look for the partial work below;
+     `in-progress` means look for its pull request: `gh pr list --state merged --search
+     "<id>" --json number,baseRefName`, keeping one merged into the default branch or a
+     `plan/` branch that `find_item` (`externalId` the number, `repoId` the repository)
+     resolves to this very entry — a sibling's pull request names the same tag. One found is
+     the entry done, so `transition` it to Done and stop; none → look for the partial work below;
    - without it: `git fetch`, then search commits, branches and pull requests (open and
      merged) for the id and the tag — a session named for the plan usually left one behind;
    - derive done-criteria from the instructions and check the working tree for them: the
@@ -57,7 +62,11 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    repository — ask whether it is done instead of searching for it.
 5. **Do it.** With the connector, first put the entry on record as being worked here:
    `transition` it to In progress — an entry already there is fine — then `link_session`
-   with this session's id, so the task can open the session. Then
+   with this session's id, so the task can open the session. Read every `Read first:`
+   reference — each path at its `#anchor`, each URL with the host's tool for it (an artifact
+   by the artifact tool) — and the Devbook chapters `read_item` lists; the instructions are
+   built on them. Name any you could not open, and stop when the step cannot be done without
+   it. Then
    `Setup:` sub-items in order, then the instructions, exactly the way the repository's own
    instructions say work is done there — the matching flow its gate names, and its review
    and validation rules; this skill adds no execution path of its own. Tick `- [ ]` lines as they land;
@@ -76,8 +85,11 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
      so never twice;
    - `comment` with the pull request link, the Personal Validation decision, the check or QA
      result, anything the item asked for that changed on the way, and every sub-item that
-     landed but still reads open — the person ticks those by hand;
-   - `transition` In progress → Done.
+     landed but still reads open — the person ticks those by hand.
+   The entry stays In progress while its pull request is open. When the person merges it
+   while this session is open, or `gh pr view` reports it merged into the default branch or
+   its plan's `plan/<slug>` branch, `transition` it to Done; any later merge is caught by a re-paste (step 3) or by
+   `../close-merged/SKILL.md`.
    The run itself — `record_prompt` with the pasted entry, `set_run_context` with the
    approval, the pull request URL in the Create Pull Request stage's `links` — follows the
    flow's surface contract. Without the connector, say that the item's status, its sub-items
@@ -87,4 +99,4 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
 
 - Redo an item the evidence says has landed: re-pasting is expected, duplicating work is not.
 - Run a `task`, `test` or `plan` entry, or open a pull request, unasked; mark an entry done
-  before its pull request is open.
+  before its pull request has merged into the default branch or a `plan/` branch.

@@ -1,6 +1,6 @@
 // The signature against the shared vector, `scenario-page.vector.json`: every
 // case's canonical text and signature, every data set's hash, the reading of a
-// data set from disk, and the CLI that prints a page's signature.
+// data set from disk, and the CLI that prints a journey's signature.
 //
 // Run: `node --test signature.test.mjs`
 import { test } from "node:test";
@@ -10,15 +10,22 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseScenarioPage } from "./parse.mjs";
-import { canonicalText, hashDataSet, hashFiles, MISSING_DATA, pageSignature, signatureOf } from "./signature.mjs";
+import { parseScenariosFile } from "./parse.mjs";
+import { canonicalText, hashDataSet, hashFiles, journeySignature, MISSING_DATA, signatureOf } from "./signature.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const vector = JSON.parse(await readFile(path.join(here, "scenario-page.vector.json"), "utf8"));
 
+/** The journey a case names, or the file's first. */
+const journeyOf = (markdown, relPath, anchor = null) => {
+    const { journeys } = parseScenariosFile(markdown, relPath);
+    return journeys.find((journey) => journey.slug === anchor) ?? journeys[0];
+};
+
 for (const sample of vector.cases) {
     test(`vector: ${sample.name}`, () => {
-        const page = parseScenarioPage(sample.markdown, sample.path);
+        const page = journeyOf(sample.markdown, sample.path, sample.journey);
+        assert.equal(page.slug, sample.journey);
         const dataHash = (name) => sample.dataHashes[name] ?? MISSING_DATA;
         assert.equal(canonicalText(page, dataHash), sample.canonical);
         assert.equal(signatureOf(page, dataHash), sample.signature);
@@ -41,7 +48,7 @@ test("the vector covers the setup fields, a data set, portals, and the default p
 
 test("a step, a label, a part title, or a setup field changes the signature; a caption does not", () => {
     const base = vector.cases[0];
-    const sign = (markdown) => signatureOf(parseScenarioPage(markdown, base.path), (name) => base.dataHashes[name] ?? MISSING_DATA);
+    const sign = (markdown) => signatureOf(journeyOf(markdown, base.path), (name) => base.dataHashes[name] ?? MISSING_DATA);
     assert.equal(sign(base.markdown), base.signature);
     assert.equal(sign(base.markdown.replace("The board with three empty columns", "Another caption")), base.signature);
     for (const [from, to] of [
@@ -65,9 +72,9 @@ test("a data set hashes from its folder, the same over CRLF, and reads as missin
         assert.equal(await hashDataSet(folder), set.hash);
         assert.equal(await hashDataSet(path.join(root, "nope")), MISSING_DATA);
 
-        const page = parseScenarioPage(vector.cases[0].markdown, vector.cases[0].path);
+        const page = journeyOf(vector.cases[0].markdown, vector.cases[0].path);
         const expected = signatureOf(page, (name) => (name === "webshop-without-statuses" ? set.hash : MISSING_DATA));
-        assert.equal(await pageSignature(page, root, ".devbook/scenarios"), expected);
+        assert.equal(await journeySignature(page, root, ".devbook/scenarios"), expected);
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -78,24 +85,27 @@ test("a binary data file is hashed as its bytes", () => {
     assert.notEqual(hashFiles({ "db.bak": bytes }), hashFiles({ "db.bak": Buffer.from([0, 10, 255]) }));
 });
 
-test("the CLI prints each page's signature and exits 1 on a path that is not a scenario page", async () => {
+test("the CLI prints each journey's signature and exits 1 on a path that is not a scenarios file or an address that names no journey", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "scenarios-cli-"));
     try {
         const sample = vector.cases[0];
         await mkdir(path.join(root, path.dirname(sample.path)), { recursive: true });
         await writeFile(path.join(root, sample.path), sample.markdown);
-        await writeFile(path.join(root, ".devbook/domain/notes.md"), "# Notes\n");
+        await writeFile(path.join(root, ".devbook/domain/work/notes.md"), "# Notes\n");
         const cli = (...args) => spawnSync(process.execPath, [path.join(here, "signature.mjs"), "--root", root, ...args], { encoding: "utf8" });
 
-        const expected = await pageSignature(parseScenarioPage(sample.markdown, sample.path), root, ".devbook/scenarios");
+        const expected = await journeySignature(journeyOf(sample.markdown, sample.path), root, ".devbook/scenarios");
+        const address = `${sample.path}#${sample.journey}`;
         const one = cli(sample.path);
         assert.equal(one.status, 0, one.stderr);
-        assert.equal(one.stdout.trim(), `${expected}  ${sample.path}`);
+        assert.equal(one.stdout.trim(), `${expected}  ${address}`);
+        assert.equal(cli(address).stdout.trim(), `${expected}  ${address}`);
 
-        const mixed = cli(sample.path, ".devbook/domain/notes.md");
+        const mixed = cli(sample.path, ".devbook/domain/work/notes.md", `${sample.path}#nowhere`);
         assert.equal(mixed.status, 1);
         assert.match(mixed.stdout, new RegExp(expected));
-        assert.match(mixed.stderr, /notes\.md/);
+        assert.match(mixed.stderr, /notes\.md: not a scenarios file/);
+        assert.match(mixed.stderr, /#nowhere: names no journey/);
 
         assert.equal(cli().status, 2);
     } finally {
@@ -117,8 +127,8 @@ test("the CLI refuses a page outside the root, and a data set outside the data f
 
         await mkdir(path.join(parent, "secrets"), { recursive: true });
         await writeFile(path.join(parent, "secrets", "key"), "s3cret");
-        const page = parseScenarioPage(sample.markdown.replace(/^data: .*$/m, "data: [../../../../secrets]"), sample.path);
-        assert.equal(await pageSignature(page, root, ".devbook/scenarios"), signatureOf(page));
+        const page = journeyOf(sample.markdown.replace(/^data: .*$/m, "data: [../../../../secrets]"), sample.path);
+        assert.equal(await journeySignature(page, root, ".devbook/scenarios"), signatureOf(page));
     } finally {
         await rm(parent, { recursive: true, force: true });
     }

@@ -28,6 +28,27 @@ internal static class BuildInformation
     /// when it was not stamped.</summary>
     public static string Commit { get; } = CommitOf(Informational);
 
+    /// <summary>The release number the deploy stamped (<c>0.1.123</c>), or null for a
+    /// build no release stamped. Kept apart from <see cref="Version"/>: that is the
+    /// compatibility number clients stop syncing above, and a release must never
+    /// move it.</summary>
+    public static string? Release { get; } =
+        ReleaseOf(typeof(BuildInformation).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>());
+
+    /// <summary>The <c>BacklogRelease</c> assembly metadata, which the project writes
+    /// from the MSBuild property of that name; null when it is absent or blank.</summary>
+    public static string? ReleaseOf(IEnumerable<AssemblyMetadataAttribute> metadata)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        var value = metadata.FirstOrDefault(entry => entry.Key == ReleaseMetadataKey)?.Value?.Trim();
+
+        return string.IsNullOrEmpty(value) ? null : value;
+    }
+
+    /// <summary>The metadata key, and the MSBuild property, that carry the release.</summary>
+    public const string ReleaseMetadataKey = "BacklogRelease";
+
     public static string VersionOf(string informational)
     {
         var plus = informational.IndexOf('+', StringComparison.Ordinal);

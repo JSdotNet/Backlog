@@ -48,6 +48,9 @@ across `domain/`, ADRs, and code module names where practical.
                      # product is procedures rather than a running application
     requirements.md  # what those features guarantee: one SHALL sentence per
                      # requirement, with the scenarios that prove it
+    scenarios.md     # optional: the end-to-end journeys that prove those
+                     # requirements, one per ##, its ### headings the parts
+    scenarios/       # the runs of scenarios.md's journeys, one folder each
     model.md
     flow.md          # optional: when the context has lifecycle/process flows
     dependencies.md  # optional: the dependencies, once context.md is too
@@ -60,11 +63,11 @@ across `domain/`, ADRs, and code module names where practical.
     flow.<name>.md          #   enough to stand alone. See "A split file" below.
     domain.<name>.invariants.md  # what the aggregate on domain.<name>.md
                                  # enforces, beside it
+    scenarios.<name>.md     # optional: the journeys of one subject, split out
+                            # of scenarios.md, with its runs in scenarios.<name>/
     demo.html               # optional: what a person sees in the context,
                             # counted with context.md
     <page>.demo.html        # optional: the screens of <page>.md, beside it
-    <journey>.md            # optional: a scenario page, type: scenario — one
-                            # end-to-end journey, at any depth in the context
 ```
 
 When starting a new bounded context, create the folder with `context.md`,
@@ -82,14 +85,18 @@ any other: a kebab-case name, a file-level `meta` block whose `type` is the
 filename, and `##` sections that carry no blocks of their own. It reads after
 the listed files, and nothing here has to be changed to allow it.
 
-**A scenario page is the one additional page with a type of its own.** It is
-one end-to-end journey, typed `scenario` on its file-level block rather than by
-its filename, and it sits beside the chapter it demonstrates, at any depth inside
-the context folder. Its `##` parts carry no blocks, like any additional page's
-sections, and stay addressable. Its shape, its setup fields, and its status are
-`devbook-chapter-metadata.md`'s under "Scenario pages"; its stem is
-`devbook-naming.md`'s. Runs, profiles, and data sets live in
-`.devbook/scenarios/`, which holds no page.
+**Journeys live in `scenarios.md`, beside the requirements they prove.** A
+journey is one end-to-end walk through the product: a `##` chapter typed
+`scenario` in the context's `scenarios.md`, with its `###` parts and their
+Given/When/Then steps. A requirement's case points at the part that proves it, so
+one journey proves the requirements of as many features as it walks through, and a
+feature or requirement points at a journey through `related` like at any other
+chapter. A journey sits in the context of the requirements it proves; one that
+crosses contexts sits in the context holding most of them, and on a tie in any of
+them. The check warns on a journey placed elsewhere. Its shape, setup fields, and
+status are `devbook-chapter-metadata.md`'s under "Journeys". Its runs sit beside
+the file, in `scenarios/<journey>/`; profiles and data sets live in
+`.devbook/scenarios/`, which holds no journey.
 
 **`context.md` is the boundary, and the context's root document.** It opens
 with what the context is responsible for — inside the boundary, outside it,
@@ -221,14 +228,16 @@ separate glossary file: a registry that names what the model already names is a
 second copy, and it goes stale on the side nobody reads.
 
 **A split file holds one chapter of the file it is named after.** `domain.md`,
-`features.md` or `skills.md`, `requirements.md`, `model.md`, and `flow.md` each
-split the same way:
+`features.md` or `skills.md`, `requirements.md`, `scenarios.md`, `model.md`, and
+`flow.md` each split the same way:
 `<file>.<name>.md`, where the suffix is the kebab-case name of the one thing the
 file holds — `domain.order.md` is the `## Order` aggregate with everything it
 owns, `features.checkout.md` one feature with its sub-features,
 `requirements.checkout.md` one feature's requirements with their scenarios,
 `model.order.md` one aggregate's structure, `flow.flow-code.md` one flow, named after the skill it
-belongs to. A split file carries the `type` of the file it came from, because it
+belongs to. `scenarios.<name>.md` is the one split that may hold several chapters:
+the journeys of one subject, often one feature's — `scenarios.returns.md` — since a
+journey is a whole walk and a subject reads as several. A split file carries the `type` of the file it came from, because it
 is the same kind of document at a smaller scope, and its chapter reads exactly as
 it did inside that file: same heading, same block, same sub-chapters. Split when
 the file stops being readable, or when readers arrive looking for one chapter
@@ -236,8 +245,8 @@ rather than for the context; keep the base file for the chapters still better
 read together. An invariants subpage is not a split file: it follows its page,
 so `domain.order.md` brings `domain.order.invariants.md` with it and
 `domain.invariants.md` keeps only the rules of what stayed on `domain.md`.
-`features.md`, `skills.md`, `requirements.md`, `model.md`, and `flow.md` may be
-dropped once every chapter is split out, and `domain.invariants.md` once no
+`features.md`, `skills.md`, `requirements.md`, `scenarios.md`, `model.md`, and
+`flow.md` may be dropped once every chapter is split out, and `domain.invariants.md` once no
 aggregate left on `domain.md` has a rule; `domain.md` never is, because it holds
 what belongs to no single aggregate — the `## Shared Value Objects`,
 `## Shared Enums`, and `## Ubiquitous Language` groupings — and `context.md`
@@ -245,14 +254,15 @@ does not split at all, because it is the root document and what it holds is
 small by construction. A split chapter moves rather than copies: `## Order` lives at
 `domain.order.md#order` and nowhere else in the context. Wherever a rule or a
 skill names `domain.md`, `features.md`, `skills.md`, `requirements.md`,
-`model.md`, or `flow.md`, it means that file or any split file of it; wherever
+`scenarios.md`, `model.md`, or `flow.md`, it means that file or any split file of
+it; wherever
 one names the invariants subpage, it means `domain.invariants.md` or any
 `domain.<name>.invariants.md`.
 
 **A demo is the one HTML file a context holds.** It is the agreed, clickable
 picture of what a person sees, and it is not a chapter: it carries no `meta`
-block, has no reading position, and names no page but the scenario page part
-a linked walkthrough's `part` plays. Its name says what it
+block, has no reading position, and names no page but the journey part a
+linked walkthrough's `part` plays. Its name says what it
 belongs to:
 
 | Name | Belongs to |
@@ -265,7 +275,7 @@ A page-named demo pairs the way an invariants subpage does: it exists only
 beside its page, and a split moves it with the chapter — splitting `## Checkout`
 out of `features.md` moves the checkout screens from `features.demo.html` to
 `features.checkout.demo.html` in the same change. There is no product-level
-demo; a journey that crosses contexts belongs to the context it ends in.
+demo; screens that cross contexts belong to the demo of the context the walk ends in.
 
 A demo under `domain/` carries exactly one variant: the agreed one, with every
 alternative a prototype tried trimmed out before it lands. Its hard-coded data
@@ -293,7 +303,7 @@ filenames. `context-map.md` is `domain/`'s root document and is read first,
 followed by the bounded contexts in alphabetical order; inside a context,
 `context.md` is the root document and the rest read in the order listed in the
 tree above — `domain.md`, `actors.md`, `skills.md` or `features.md`,
-`requirements.md`, `model.md`, `flow.md`, `dependencies.md` — with a split file
+`requirements.md`, `scenarios.md`, `model.md`, `flow.md`, `dependencies.md` — with a split file
 read directly after the file it is named after, in filename order among its
 siblings, and in that file's place when the file itself is gone. An invariants
 subpage reads directly after its page: `domain.md`, `domain.invariants.md`,
@@ -414,21 +424,32 @@ Adding a context or a file needs no declaration anywhere; just regenerate
     `#### Scenario: <name>` per case beneath it: Given, When, Then, one clause
     per line. A chapter with two SHALL sentences is two requirements, and
     neither can be accepted on its own.
-  - A case a scenario page proves holds one line instead of its own steps:
-    `Proved by: <page>.md#<part>`. Behaviour is written once, in the page: a
-    case with a `Proved by:` line and its own Given/When/Then is an error, and
-    so is a pointer that names no part. One case points at one part; one part
-    may prove several requirements, and one requirement may point at parts of
-    several pages. The case heading names the case in the requirement's words,
-    the part in the journey's words, and the two may differ.
+  - A case a journey proves holds one line instead of its own steps:
+    `Proved by: <scenarios file>#<part>`, written from the requirement's folder
+    — `scenarios.md#<part>` in its own context, `../<context>/scenarios.md#<part>`
+    in another — or as a repository path. Behaviour is written once, in the
+    journey: a case with a `Proved by:` line and its own Given/When/Then is an
+    error, and so is a pointer that names a journey rather than one of its
+    parts. One case points at one part; one part may prove several
+    requirements, and one requirement may point at parts of several journeys.
+    The case heading names the case in the requirement's words, the part in the
+    journey's words, and the two may differ.
   - A `Proved by:` case counts as a scenario for the coverage warning, and the
     requirement's `e2e` `tests` entry is derived from it and the spec that
-    implements the page, and its `demo` walkthroughs from the walkthroughs
+    implements the journey, and its `demo` walkthroughs from the walkthroughs
     linked to the part, so neither is written by hand. A part no case points
-    at is reported as an unclaimed journey. Inline Given/When/Then stays valid
-    for a requirement with no journey yet.
+    at is reported as unclaimed. Inline Given/When/Then stays valid for a
+    requirement with no journey yet; in a context that already has a journey,
+    the check lists each inline case at `info` as a candidate to move into a
+    part, never as a warning.
   - `tests` on a requirement chapter are `e2e`, or `integration` for a policy
     no user triggers.
+- **scenarios.md**, **scenarios.<name>.md** — The journeys that prove the
+  context's requirements, one `##` chapter each, typed `scenario` and carrying
+  the setup fields, per `devbook-chapter-metadata.md` under "Journeys". A
+  journey's `related` names the features it walks through, and each points
+  back. Its `###` parts carry no block; every journey and part anchor is unique
+  in the file. Titled `# Scenarios`, a split by its subject.
 - **domain.invariants.md**, **domain.<name>.invariants.md** — What each
   aggregate on the domain page it is named after enforces, one chapter per
   aggregate. Each `## <AggregateName>` chapter carries `type: invariants` and a
@@ -505,7 +526,7 @@ instructions.
   sub-chapter inside an Aggregate, every Feature/Sub-feature chapter in
   `features.md` or `skills.md`, every Feature and Requirement chapter in
   `requirements.md`, every Aggregate and Invariant chapter in an invariants
-  subpage,
+  subpage, every Scenario chapter in a scenarios file,
   every Feature Flag and Setting chapter in
   `context.md`, every User, Organisation, and Technical chapter in
   `context.md` or `actors.md`, and every Term chapter under `domain.md`'s
@@ -516,8 +537,9 @@ instructions.
   issue link (`issue`) are included only when they have a value.
 - Every file in `domain/` — `context-map.md` and, per bounded context,
   `context.md`, `domain.md`, `actors.md` (when present), `features.md` or
-  `skills.md`, `requirements.md`, `model.md`, `flow.md`, `dependencies.md` (when
-  present), each split file and invariants subpage (when present), and any additional page the context carries
+  `skills.md`, `requirements.md`, `scenarios.md` (when present), `model.md`,
+  `flow.md`, `dependencies.md` (when present), each split file and invariants
+  subpage (when present), and any additional page the context carries
   — must also carry the file-level metadata
   block described in `devbook-chapter-metadata.md`, placed directly under the
   file's top-level `#` heading. This applies even to `context-map.md`,
@@ -555,7 +577,7 @@ instructions.
   | Level | Values |
   |---|---|
   | Chapter | `bounded-context`, `aggregate`, `entity`, `value-object`, `enum`, `shared-value-objects`, `shared-enums`, `ubiquitous-language`, `domain-service`, `domain-event`, `feature`, `sub-feature`, `requirements`, `requirement`, `invariants`, `invariant`, `feature-flag`, `setting`, `user`, `organisation`, `technical`, `term` |
-  | File | `context-map`, `context`, `domain`, `actors`, `features`, `skills`, `requirements`, `invariants`, `model`, `flow`, `dependencies`, `scenario` — or, for an additional page, its own filename |
+  | File | `context-map`, `context`, `domain`, `actors`, `features`, `skills`, `requirements`, `invariants`, `scenarios`, `model`, `flow`, `dependencies` — or, for an additional page, its own filename |
 
   `requirements` and `invariants` are each in both sets, and mean the same
   thing at both levels: the file holds a context's, a `##` chapter holds one
@@ -564,11 +586,12 @@ instructions.
   `requirements.md` is `type: requirements`, plural, and only the
   `### Requirement:` chapters under it are `type: requirement`.
 
-  `scenario` is a file value only, and the one file type no filename carries: a
-  scenario page is named after its journey. Written on a chapter it is an
-  error, and so is a scenario page outside a bounded context. Its `status` is
-  `draft` or `proposed` while it is written or agreed, and absent once the
-  journey is in force; it takes no decision rung.
+  `scenario` is a chapter value of a scenarios file alone: every `##` there is
+  one, and on any other chapter or on a file-level block it is an error. A whole
+  file typed `scenario` is the journey page of contract 31; `032-scenarios-md`
+  folds it into `scenarios.md`. A journey's `status` is `draft` or `proposed`
+  while it is written or agreed, and absent once it is in force; it takes no
+  decision rung.
 
   There is no `skill` chapter type, deliberately. A skill in `skills.md` is a
   `feature` and its stages are `sub-feature`s: the file already says which kind
@@ -607,7 +630,7 @@ instructions.
   entry with nothing to tell them apart. `context.md` alone is titled by the
   bounded-context name (`# Order Management`), because the context is what it
   holds. Every other base file is titled by its kind — `# Domain`, `# Actors`,
-  `# Features`, `# Skills`, `# Model`, `# Flows`, `# Dependencies` — and a
+  `# Features`, `# Skills`, `# Scenarios`, `# Model`, `# Flows`, `# Dependencies` — and a
   split file by the chapter it holds: `domain.order.md` and `model.order.md`
   are `# Order`, `features.checkout.md` is `# Checkout`, and a
   `flow.<name>.md` takes the flow's name. The chapter keeps its `##` heading
@@ -1318,7 +1341,7 @@ The system SHALL <one promise, stated once>.
 
 #### Scenario: <the case, in the requirement's words>
 
-Proved by: <journey>.md#<part-heading-slug>
+Proved by: scenarios.md#<part-heading-slug>
 
 ### Requirement: <the next promise>
 

@@ -2,23 +2,20 @@
  * The C4 model of Prompt Backlog.
  *
  * Authored in c4hero (https://github.com/c4hero/c4hero) and read by the desktop
- * app, which draws each view from this file. It is a parallel, richer view of what
- * the arc42 chapters already say — the chapters keep their own mermaid C4 fences
- * and those stay canonical. Nothing here is generated from them and nothing here
- * generates them.
+ * app, which draws each view from this file. It is the only place an element or
+ * a view is defined: the arc42 chapters carry no C4 fences of their own.
  *
- * Every view is referenced from the chapter it documents, by that chapter naming
- * the view in its own `related` list:
+ * Every view is embedded in the one chapter section it documents, by its key:
  *
- *     related: [".devbook/arc42/_c4/backlog.dsl#containers-backlog"]
+ *     ![Container Diagram — Backlog](c4:container-view)
  *
- * That is the only statement of the link. The app reads it the other way round to
- * show, on a view, which chapters it documents — so there is no index beside this
- * file that could fall out of step with the chapters.
+ * That embed is the only statement of the link. The app reads it the other way
+ * round to show, on a view, which chapter documents it.
  *
  * Editing: open this folder in c4hero, which writes the file back and keeps node
- * positions in a `backlog.c4hero.json` sidecar beside it. The app does not read
- * that sidecar and does not need it.
+ * positions in a c4hero sidecar file beside it. The app does not read
+ * that sidecar and does not need it. A large model may split into files under
+ * `c4/`, which this workspace includes; none exist yet.
  *
  * See tools/diagrams/C4.md.
  */
@@ -56,6 +53,8 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
             taskStore = container "Local Task Store" "Canonical store for tasks; a task's content is markdown text inside the database." "SQLite" "Database"
 
             cloudDb = container "Cloud Database" "Sync state, webhook events, machine registry." "Cosmos DB / PostgreSQL" "Database"
+            localStore = container "Local Storage" "Desktop canonical data store — tasks, inbox and roadmap plans; task content is markdown text in the database" "SQLite (backlog.db)" "Database"
+            attachments = container "Attachments" "Capture attachments, owner-scoped, beside the replica" "Azure Blob Storage, container attachments" "Database"
         }
 
         github = softwareSystem "GitHub" "Issue tracking, repository management and webhook events." "External"
@@ -118,50 +117,54 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
                     containerInstance backlog.desktop
                 }
 
-                userRoot = deploymentNode "User-owned root" "" "File system" {
+                userRoot = deploymentNode "User-owned root" "The storage root, %LOCALAPPDATA%\Backlog by default, holding backlog.db and the per-device settings." "File system" {
                     containerInstance backlog.taskStore
                     clones = infrastructureNode "Repository working copies" "The knowledge folders are read in place, wherever the repository was cloned." "Git"
                 }
 
-                vscode = deploymentNode "VS Code / Visual Studio" "" "Extension host" {
+                vscode = deploymentNode "VS Code / Visual Studio" "The IDE extension host on the same machine; the extension talks to the sync service, not the desktop store." "Extension host" {
                     containerInstance backlog.ide
                 }
             }
 
-            phone = deploymentNode "Android phone" "" "Android" {
+            phone = deploymentNode "Android phone" "Runs the mobile app, which reaches the desktop through the cloud sync service." "Android" {
                 containerInstance backlog.mobile
             }
         }
 
         deploymentEnvironment "Azure" {
             azure = deploymentNode "Azure" "Additive and optional: nothing in the core workflows depends on it being up." "Azure subscription" {
-                appService = deploymentNode "App Service" "" "Linux, .NET" {
+                appService = deploymentNode "App Service" "Hosts the cloud sync service." "Linux, .NET" {
                     containerInstance backlog.cloud
                 }
 
-                data = deploymentNode "Managed data" "" "PaaS" {
+                data = deploymentNode "Managed data" "The cloud replica and attachment stores the sync service writes to." "PaaS" {
                     containerInstance backlog.cloudDb
                 }
             }
         }
+        externalSources = softwareSystem "External Sources" "YouTube, Email, Websites / RSS" "External"
+        azureFoundry = softwareSystem "Azure AI Foundry" "Chat, embeddings and plan drafting; resource cost" "External"
+        claude = softwareSystem "Claude" "Usage and cost reporting" "External"
+
+        me -> backlog "Captures, triages, manages backlog and knowledge"
+        backlog -> github "Syncs issues; receives webhook events"
+        backlog -> youtube "Polls subscription feed"
+        backlog -> email "Ingests via IMAP"
+        backlog -> websites "Monitors via RSS and DOM diff"
+        backlog -> appInsights "Reads telemetry signals"
+        backlog -> pushProvider "Sends push notifications"
+        backlog.desktop -> backlog.localStore "Reads and writes" "SQLite"
+        backlog.desktop -> github "Syncs issues" "HTTPS / gh CLI"
+        backlog.desktop -> externalSources "Polls for new content" "HTTPS / IMAP"
+        backlog.desktop -> azureFoundry "Drafts plans and reads cost" "HTTPS, optional"
+        backlog.desktop -> claude "Reads usage" "HTTPS, optional"
+        backlog.ide -> backlog.cloud "Reads and posts inbox items as a paired device" "HTTPS /api/sync/inbox, Bearer"
+        backlog.cloud -> backlog.attachments "Stores and serves attachments" "Blob SDK"
+        backlog.cloud -> github "Receives webhooks" "HTTPS"
     }
 
     views {
-
-        systemLandscape "landscape" "Everything Prompt Backlog touches" {
-            include *
-            autolayout lr
-        }
-
-        systemContext backlog "context-backlog" "System Context — Prompt Backlog" {
-            include *
-            autolayout lr
-        }
-
-        container backlog "containers-backlog" "Container Diagram — Prompt Backlog" {
-            include *
-            autolayout tb
-        }
 
         component backlog.desktop "components-desktop" "Component Diagram — Desktop App" {
             include *
@@ -186,15 +189,15 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
             include *
             autolayout tb
         }
-
-        styles {
-            element "External" {
-                background #7a7a7a
-                color #ffffff
-            }
-            element "Database" {
-                shape Cylinder
-            }
+        systemContext backlog business-context {
+            title "System Context — Backlog"
+            include me github youtube email websites appInsights pushProvider
+            autolayout lr
+        }
+        container backlog container-view {
+            title "Container Diagram — Backlog"
+            include me backlog.desktop backlog.mobile backlog.ide backlog.cloud backlog.localStore backlog.cloudDb backlog.attachments github pushProvider externalSources azureFoundry claude
+            autolayout lr
         }
     }
 }

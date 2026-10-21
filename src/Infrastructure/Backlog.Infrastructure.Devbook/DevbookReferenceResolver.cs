@@ -204,15 +204,14 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
 
     /// <summary>
     /// The answer with the scenario parts it stands for (BL in the scenario-pages
-    /// plan): a part of a scenario page, every part of one, or the parts a
-    /// requirement chapter's <c>Proved by:</c> lines name — each with its state
-    /// against the page's last run.
+    /// plan): a part of a journey, every part of a journey or of a whole scenarios
+    /// file, or the parts a requirement chapter's <c>Proved by:</c> lines name — each
+    /// with its state against its journey's last run.
     /// <para>
     /// Only a found page in the domain folder is read for it, because that is where
-    /// scenario pages and requirements live, and the page is read from its file even
-    /// when the database answered the headings: whether it is a scenario page, its
-    /// parts and its signature come from its text, and the database keeps none of
-    /// them. Nothing here fails the reference — a page that cannot be read, a run
+    /// scenarios files and requirements live, and the page is read from its file even
+    /// when the database answered the headings: its journeys, their parts and their
+    /// signatures come from its text, and the database keeps none of them. Nothing here fails the reference — a page that cannot be read, a run
     /// that does not parse, a pointer to nowhere is a reference with no parts.
     /// </para>
     /// </summary>
@@ -250,15 +249,32 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
     {
         if (await ReadDomainPageAsync(area, alias, path, reads, cancellationToken).ConfigureAwait(false) is not { } read) return [];
 
-        if (read.Scenario is { } scenario)
+        if (read.Scenarios is { } file)
         {
-            var parts = anchor is null
-                ? scenario.Parts
-                : ScenarioReferences.FindPart(scenario, anchor) is { } part ? [part] : [];
-            return await EvidenceAsync(read, parts, reads, cancellationToken).ConfigureAwait(false);
+            // The whole file is every journey; an anchor is a journey or one part —
+            // anchors are unique in a scenarios file, so it cannot be both.
+            if (anchor is null)
+            {
+                var all = new List<ScenarioPartEvidence>();
+                foreach (var each in file.Scenarios)
+                {
+                    all.AddRange(await EvidenceAsync(read, each, each.Parts, reads, cancellationToken).ConfigureAwait(false));
+                }
+
+                return all;
+            }
+
+            if (ScenarioReferences.FindJourney(file, anchor) is { } journey)
+            {
+                return await EvidenceAsync(read, journey, journey.Parts, reads, cancellationToken).ConfigureAwait(false);
+            }
+
+            return ScenarioReferences.FindPart(file, anchor) is { } found
+                ? await EvidenceAsync(read, found.Journey, [found.Part], reads, cancellationToken).ConfigureAwait(false)
+                : [];
         }
 
-        // Not a scenario page: a requirement, whose cases point at the parts that
+        // Not a scenarios file: a requirement, whose cases point at the parts that
         // prove them.
         var evidence = new List<ScenarioPartEvidence>();
         foreach (var target in ScenarioReferences.ProvedByTargets(read.Markdown, anchor))
@@ -269,15 +285,12 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
             // One target that cannot be read costs that target, not the others.
             try
             {
-                var pagePath = pointer.ByStem
-                    ? await FindByStemAsync(area, alias, pointer.Page, reads, cancellationToken).ConfigureAwait(false)
-                    : pointer.Page;
-                if (pagePath is null || Match(areas, pagePath) is not { Folder: DomainFolder } targetArea) continue;
+                if (Match(areas, pointer.Page) is not { Folder: DomainFolder } targetArea) continue;
 
-                if (await ReadDomainPageAsync(targetArea, alias, pagePath, reads, cancellationToken).ConfigureAwait(false) is not { Scenario: { } page } targetRead) continue;
-                if (ScenarioReferences.FindPart(page, pointer.Anchor) is not { } part) continue;
+                if (await ReadDomainPageAsync(targetArea, alias, pointer.Page, reads, cancellationToken).ConfigureAwait(false) is not { Scenarios: { } targetFile } targetRead) continue;
+                if (ScenarioReferences.FindPart(targetFile, pointer.Anchor) is not { } found) continue;
 
-                evidence.AddRange(await EvidenceAsync(targetRead, [part], reads, cancellationToken).ConfigureAwait(false));
+                evidence.AddRange(await EvidenceAsync(targetRead, found.Journey, [found.Part], reads, cancellationToken).ConfigureAwait(false));
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
             {
@@ -315,10 +328,10 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
             {
                 // The page under the path its file has, whichever spelling the
                 // reference used: a part is one part however it was reached, and
-                // a run names the page where it is.
+                // a run names its journey by the scenarios file where it is.
                 var actual = Path.GetRelativePath(location.RootPath, file).Replace(Path.DirectorySeparatorChar, '/');
-                var (markdown, page) = await ParsedAsync(file, actual, cancellationToken).ConfigureAwait(false);
-                read = new ScenarioRead(area, alias, location, actual, markdown, page.IsScenario ? page : null);
+                var (markdown, scenarios) = await ParsedAsync(file, actual, cancellationToken).ConfigureAwait(false);
+                read = new ScenarioRead(area, alias, location, actual, markdown, scenarios is { Scenarios.Count: > 0 } ? scenarios : null);
             }
         }
 
@@ -327,81 +340,39 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
     }
 
     /// <summary>
-    /// A page's text and its parse, kept until the file changes: the task panel asks
-    /// on every open, and a page nobody edited reads the same as last time. Keyed by
-    /// the full path, the write time and the length, so an edit — or a branch fetch
-    /// that replaced the file — is read again.
+    /// A page's text and, for a scenarios file, its parse — kept until the file
+    /// changes: the task panel asks on every open, and a file nobody edited reads the
+    /// same as last time. Keyed by the full path, the write time and the length, so an
+    /// edit — or a branch fetch that replaced the file — is read again. Only a file
+    /// named as a scenarios file holds journeys; any other page parses to null.
     /// </summary>
-    private async Task<(string Markdown, ScenarioPage Page)> ParsedAsync(string file, string relativePath, CancellationToken cancellationToken)
+    private async Task<(string Markdown, ScenariosFile? Scenarios)> ParsedAsync(string file, string relativePath, CancellationToken cancellationToken)
     {
         var info = new FileInfo(file);
         var stamp = (info.LastWriteTimeUtc, info.Length, relativePath);
-        if (_parsed.TryGetValue(file, out var held) && held.Stamp == stamp) return (held.Markdown, held.Page);
+        if (_parsed.TryGetValue(file, out var held) && held.Stamp == stamp) return (held.Markdown, held.Scenarios);
 
         var markdown = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
-        var page = ScenarioPageParser.Parse(markdown, relativePath);
-        _parsed[file] = (stamp, markdown, page);
-        return (markdown, page);
+        var scenarios = ScenarioPageParser.IsScenariosFileName(relativePath) ? ScenarioPageParser.ParseFile(markdown, relativePath) : null;
+        _parsed[file] = (stamp, markdown, scenarios);
+        return (markdown, scenarios);
     }
 
-    private readonly ConcurrentDictionary<string, ((DateTime, long, string) Stamp, string Markdown, ScenarioPage Page)> _parsed =
+    private readonly ConcurrentDictionary<string, ((DateTime, long, string) Stamp, string Markdown, ScenariosFile? Scenarios)> _parsed =
         new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The scenario page a bare <c>&lt;stem&gt;.md</c> names, searched for
-    /// under the domain folder; null when no page or more than one has that name —
-    /// an ambiguous stem names no page, as the checker reports it.</summary>
-    private async Task<string?> FindByStemAsync(
-        Area area,
-        string alias,
-        string fileName,
-        ScenarioReads reads,
-        CancellationToken cancellationToken)
-    {
-        if (reads.Stems.TryGetValue(fileName, out var known)) return known;
-
-        var answer = await SearchStemAsync(area, alias, fileName, reads, cancellationToken).ConfigureAwait(false);
-        reads.Stems[fileName] = answer;
-        return answer;
-    }
-
-    private async Task<string?> SearchStemAsync(
-        Area area,
-        string alias,
-        string fileName,
-        ScenarioReads reads,
-        CancellationToken cancellationToken)
-    {
-        var location = await _folders.PrepareListingAsync(area.Setting.Key, alias, cancellationToken).ConfigureAwait(false);
-        if (!location.Available || string.IsNullOrWhiteSpace(location.FullPath)) return null;
-
-        var found = _folders.FileTree(location)
-            .EnumerateFiles(location.FullPath, fileName, recursive: true)
-            .Select(file => Path.GetRelativePath(location.FullPath, file).Replace(Path.DirectorySeparatorChar, '/'))
-            .Where(relative => !relative.Split('/').Any(segment => segment is "_meta" or "_tools" || segment.StartsWith('.')))
-            .Select(relative => $"{area.Prefix}/{relative}")
-            .ToList();
-
-        var scenarios = new List<string>();
-        foreach (var candidate in found)
-        {
-            if (await ReadDomainPageAsync(area, alias, candidate, reads, cancellationToken).ConfigureAwait(false) is { Scenario: not null } page) scenarios.Add(page.Path);
-        }
-
-        return scenarios.Count == 1 ? scenarios[0] : null;
-    }
-
-    /// <summary>The parts of one scenario page with the state each has against the
-    /// page's last run.</summary>
+    /// <summary>The parts of one journey with the state each has against the
+    /// journey's last run.</summary>
     private async Task<IReadOnlyList<ScenarioPartEvidence>> EvidenceAsync(
         ScenarioRead read,
+        ScenarioJourney journey,
         IReadOnlyList<ScenarioPart> parts,
         ScenarioReads reads,
         CancellationToken cancellationToken)
     {
-        if (read.Scenario is not { } page || parts.Count == 0) return [];
+        if (parts.Count == 0) return [];
 
-        var (signature, run) = await RunOfAsync(read, page, reads, cancellationToken).ConfigureAwait(false);
-        var title = string.IsNullOrWhiteSpace(page.Title) ? page.Stem : page.Title;
+        var (signature, run) = await RunOfAsync(read, journey, reads, cancellationToken).ConfigureAwait(false);
 
         return
         [
@@ -409,10 +380,10 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
             {
                 var state = ToPartState(ScenarioReferences.PartState(signature, run, part.Anchor));
                 return new ScenarioPartEvidence(
-                    $"{page.Path}#{part.Anchor}",
-                    page.Path,
-                    title,
-                    page.Stem,
+                    $"{journey.Path}#{part.Anchor}",
+                    journey.Path,
+                    journey.Title,
+                    journey.Slug,
                     part.Anchor,
                     part.Title,
                     state,
@@ -424,16 +395,17 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
         ];
     }
 
-    /// <summary>The page's signature now and its last run, read once per page. On
-    /// a branch the run and the data sets the signature hashes are fetched first,
-    /// as the Devbook pane's catalog fetches them.</summary>
+    /// <summary>The journey's signature now and its last run, read once per journey.
+    /// The run sits in the journey's own folder beside its scenarios file; the data
+    /// sets the signature hashes in the scenario folder. On a branch both are fetched
+    /// first, as the Devbook pane's catalog fetches them.</summary>
     private async Task<(string Signature, ScenarioRun? Run)> RunOfAsync(
         ScenarioRead read,
-        ScenarioPage page,
+        ScenarioJourney journey,
         ScenarioReads reads,
         CancellationToken cancellationToken)
     {
-        if (reads.Runs.TryGetValue(page.Path, out var known)) return known;
+        if (reads.Runs.TryGetValue(journey.Address, out var known)) return known;
 
         var root = read.Location.RootPath!;
         var tree = _folders.FileTree(read.Location);
@@ -441,12 +413,12 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
             || !tree.DirectoryExists(Path.Combine(root, ScenarioPageParser.LegacyScenarioFolder))
                 ? ScenarioPageParser.ScenarioFolder
                 : ScenarioPageParser.LegacyScenarioFolder;
-        var runFolder = Path.Combine(root, scenarioFolder, page.Stem);
+        var runFolder = Path.Combine(root, journey.RunFolder.Replace('/', Path.DirectorySeparatorChar));
 
         if (read.Location.Source is DevbookSourceKind.Branch)
         {
             var wanted = new[] { Path.Combine(runFolder, "run.json") }
-                .Concat(page.Setup.Data
+                .Concat(journey.Setup.Data
                     .Select(ScenarioPageParser.Collapse)
                     .Where(ScenarioSignature.IsDataSetName)
                     .Select(name => Path.Combine(root, scenarioFolder, "data", name))
@@ -461,23 +433,23 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
 
         var run = ScenarioFiles.ReadRun(runFolder);
 
-        // Two pages sharing a stem share a run folder; a run that names the page it
-        // executed belongs to that page alone.
-        if (run?.Page is { } ranPage && !SamePage(ranPage, page.Path))
+        // A run that names the journey it executed belongs to that journey alone.
+        if (run?.Journey is { } ranJourney && !SameJourney(ranJourney, journey))
         {
             run = null;
         }
 
-        var answer = (ScenarioSignature.OfPage(page, root, scenarioFolder), run);
-        reads.Runs[page.Path] = answer;
+        var answer = (ScenarioSignature.OfJourney(journey, root, scenarioFolder), run);
+        reads.Runs[journey.Address] = answer;
         return answer;
     }
 
-    /// <summary>Whether a run's <c>page</c> names this page, in any spelling a
-    /// layout gives it.</summary>
-    private static bool SamePage(string ranPage, string pagePath) =>
-        Parse(ranPage) is { } ran
-        && Spellings(ran.Path).Intersect(Spellings(pagePath), StringComparer.OrdinalIgnoreCase).Any();
+    /// <summary>Whether a run's <c>journey</c> names this journey: its anchor, and its
+    /// scenarios file in any spelling a layout gives it.</summary>
+    private static bool SameJourney(string ranJourney, ScenarioJourney journey) =>
+        Parse(ranJourney) is { } ran
+        && string.Equals(ran.Anchor, journey.Slug, StringComparison.OrdinalIgnoreCase)
+        && Spellings(ran.Path).Intersect(Spellings(journey.Path), StringComparer.OrdinalIgnoreCase).Any();
 
     private static ScenarioPartState ToPartState(ScenarioState state) => state switch
     {
@@ -489,7 +461,9 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
 
     /// <summary>One page read for its scenario parts.</summary>
     /// <param name="Path">The page's repository-relative path where its file is.</param>
-    private sealed record ScenarioRead(Area Area, string Alias, DevbookFolderLocation Location, string Path, string Markdown, ScenarioPage? Scenario);
+    /// <param name="Scenarios">The page as a scenarios file, when it is one holding a
+    /// journey; null for any other page.</param>
+    private sealed record ScenarioRead(Area Area, string Alias, DevbookFolderLocation Location, string Path, string Markdown, ScenariosFile? Scenarios);
 
     /// <summary>What one resolve has read, so a page several references name is
     /// read once.</summary>
@@ -498,8 +472,6 @@ public sealed class DevbookReferenceResolver(IDevbookFolderSource folders) : IDe
         public Dictionary<string, ScenarioRead?> Pages { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public Dictionary<string, (string Signature, ScenarioRun? Run)> Runs { get; } = new(StringComparer.OrdinalIgnoreCase);
-
-        public Dictionary<string, string?> Stems { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>The rows the database holds for a page, under either layout's

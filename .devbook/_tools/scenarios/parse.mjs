@@ -1,6 +1,6 @@
-// parse.mjs — reads a scenario page, the spec that implements it, and the
-// repository's profile file. Every other tool in this folder reads through it,
-// so the shape of a page is fixed in one place.
+// parse.mjs — reads a scenarios file and its journeys, the spec that
+// implements a journey, and the repository's profile file. Every other tool in
+// this folder reads through it, so the shape of a journey is fixed in one place.
 //
 // Plain ESM with no dependencies: the coverage check and the signature run
 // without a browser, an application, or a build step.
@@ -8,9 +8,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
-/** Where a repository keeps its runs, profiles, and data sets, unless it says otherwise. */
+/** Where a repository keeps its profiles and data sets, unless it says otherwise. Runs live beside their scenarios file. */
 export const SCENARIO_FOLDER = ".devbook/scenarios";
-/** Where scenario pages live: a bounded context folder under it, at any depth. */
+/** Where scenarios files live: `scenarios.md` and `scenarios.<name>.md` in a bounded context folder under it. */
 export const DOMAIN_FOLDER = ".devbook/domain";
 /** The profile file, inside the scenario folder. */
 export const PROFILES_FILE = "profiles.json";
@@ -66,7 +66,8 @@ export function dataFolder(repoRoot, scenarioFolder, name) {
 
 /**
  * The GitHub anchor of a heading — the same algorithm the devbook checker
- * uses, so a part's anchor here is the one `Proved by:` and `related` name.
+ * uses, so a journey's or a part's anchor here is the one `Proved by:` and
+ * `related` name.
  */
 export function slugify(text) {
     return String(text)
@@ -74,11 +75,6 @@ export function slugify(text) {
         .trim()
         .replace(/[^\p{L}\p{N}_\s-]/gu, "")
         .replace(/\s/g, "-");
-}
-
-/** A scenario page's stem: its file name without `.md`. */
-export function stemOf(relPath) {
-    return (String(relPath).replace(/\\/g, "/").split("/").pop() ?? "").replace(/\.md$/i, "");
 }
 
 /** Split a portal prefix off a setup entry: `admin:/route` → `{ portal: "admin", rest: "/route" }`. */
@@ -151,36 +147,101 @@ function maskCodeSpans(line) {
 }
 
 /**
- * Read one scenario page.
- *
- * Returns `{ path, stem, title, isScenario, meta, setup, parts, shots, issues }`:
- * `setup` holds the six setup fields (lists as lists, `profile` a string or
- * null); each part is `{ title, anchor, line, steps, shots }`, a step being
- * `{ keyword, text, line }` with its continuation lines folded in; `shots` is
- * every `shot:` image in document order as `{ label, caption, line, part,
- * inStepList }`, `part` the anchor of the part it sits in or null above the
- * first; `issues` are the label and placement problems the page carries on its
- * own, each `{ kind, line, label, message }`.
+ * Whether a path is a scenarios file: `scenarios.md` or a split
+ * `scenarios.<name>.md`, directly in a bounded context folder.
  */
-export function parseScenarioPage(markdown, relPath = "") {
+export function isScenariosPath(relPath) {
+    const rel = normalizePath(relPath);
+    if (!rel.startsWith(`${DOMAIN_FOLDER}/`)) return false;
+    const segments = rel.slice(DOMAIN_FOLDER.length + 1).split("/");
+    return segments.length === 2 && /^scenarios(?:\.[^./]+)?\.md$/i.test(segments[1]);
+}
+
+/** A journey's address: the scenarios file and the journey's own anchor. */
+export function journeyAddress(relPath, slug) {
+    return `${normalizePath(relPath)}#${slug}`;
+}
+
+/** Split an address into `{ path, anchor }`; `anchor` is null when there is no `#`. */
+export function splitAddress(address) {
+    const text = normalizePath(address);
+    const at = text.indexOf("#");
+    return at < 0 ? { path: text, anchor: null } : { path: text.slice(0, at), anchor: text.slice(at + 1) };
+}
+
+/**
+ * Where a journey's runs live: its scenarios file without `.md`, then the
+ * journey's anchor — `scenarios.returns.md#return-a-parcel` runs into
+ * `scenarios.returns/return-a-parcel/`.
+ */
+export function runFolderOf(journey) {
+    return `${normalizePath(journey.path).replace(/\.md$/i, "")}/${journey.slug}`;
+}
+
+function readMetaAfter(lines, i) {
+    let j = i + 1;
+    while (j < lines.length && lines[j].trim() === "") j++;
+    if (j >= lines.length || !/^```meta\s*$/.test(lines[j].trim())) return { meta: null, end: i };
+    const body = [];
+    let k = j + 1;
+    while (k < lines.length && lines[k].trim() !== "```") body.push(lines[k++]);
+    return { meta: parseMeta(body.join("\n")), end: k };
+}
+
+function setupOf(meta) {
+    return {
+        start: meta.start == null ? null : String(meta.start),
+        actor: asList(meta.actor),
+        data: asList(meta.data),
+        profile: meta.profile == null || meta.profile === "" ? null : String(meta.profile),
+        flags: asList(meta.flags),
+        settings: asList(meta.settings),
+    };
+}
+
+/**
+ * Read one scenarios file.
+ *
+ * Returns `{ path, title, isScenarios, legacyPage, meta, journeys, shots,
+ * issues }`. Each `##` is a journey: `{ path, slug, id, title, line,
+ * isScenario, meta, setup, parts, shots }`, `id` its address and `isScenario`
+ * whether its block says `type: scenario`; `setup` holds the six setup fields
+ * (lists as lists, `profile` a string or null). Each `###` under a journey is
+ * a part, `{ title, anchor, line, steps, shots }`, a step being `{ keyword,
+ * text, line }` with its continuation lines folded in. `shots` is every
+ * `shot:` image in document order as `{ label, caption, line, journey, part,
+ * inStepList }`, `part` null above a journey's first part. `issues` are the
+ * label, placement, and anchor problems the file carries on its own, each
+ * `{ kind, line, label?, message }`. `legacyPage` is true for a page of the
+ * contract before 32: a whole file typed `scenario` on its `#` block.
+ */
+export function parseScenariosFile(markdown, relPath = "") {
     const lines = String(markdown).split(/\r?\n/);
-    const page = {
-        path: String(relPath).replace(/\\/g, "/"),
-        stem: stemOf(relPath),
+    const file = {
+        path: normalizePath(relPath),
         title: null,
-        isScenario: false,
+        isScenarios: isScenariosPath(relPath),
+        legacyPage: false,
         meta: {},
-        setup: {},
-        parts: [],
+        journeys: [],
         shots: [],
         issues: [],
     };
 
     let fence = null;
+    let journey = null;
     let part = null;
     let inList = false;
     let blankSince = false;
     let lastStep = null;
+    const anchors = new Map();
+    const claim = (anchor, line, what) => {
+        if (anchors.has(anchor)) {
+            file.issues.push({ kind: "duplicate-anchor", line, message: `line ${line}: ${what} "#${anchor}" repeats the anchor on line ${anchors.get(anchor)}; every journey and part heading is unique in its file.` });
+        } else {
+            anchors.set(anchor, line);
+        }
+    };
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -195,22 +256,42 @@ export function parseScenarioPage(markdown, relPath = "") {
         }
 
         const heading = /^(#{1,6})\s+(.*)$/.exec(line);
-        if (heading && heading[1].length === 1 && page.title === null) {
-            page.title = heading[2].trim();
-            let j = i + 1;
-            while (j < lines.length && lines[j].trim() === "") j++;
-            if (j < lines.length && /^```meta\s*$/.test(lines[j].trim())) {
-                const body = [];
-                let k = j + 1;
-                while (k < lines.length && lines[k].trim() !== "```") body.push(lines[k++]);
-                page.meta = parseMeta(body.join("\n"));
-                i = k;
-            }
+        if (heading && heading[1].length === 1 && file.title === null) {
+            file.title = heading[2].trim();
+            const { meta, end } = readMetaAfter(lines, i);
+            file.meta = meta ?? {};
+            i = end;
             continue;
         }
         if (heading && heading[1].length === 2) {
+            const title = heading[2].trim();
+            const slug = slugify(title);
+            const { meta, end } = readMetaAfter(lines, i);
+            journey = {
+                path: file.path,
+                slug,
+                id: journeyAddress(file.path, slug),
+                title,
+                line: i + 1,
+                isScenario: meta?.type === "scenario",
+                meta: meta ?? {},
+                setup: setupOf(meta ?? {}),
+                parts: [],
+                shots: [],
+            };
+            file.journeys.push(journey);
+            claim(slug, i + 1, "journey");
+            part = null;
+            inList = false;
+            blankSince = false;
+            lastStep = null;
+            i = end;
+            continue;
+        }
+        if (heading && heading[1].length === 3 && journey) {
             part = { title: heading[2].trim(), anchor: slugify(heading[2]), line: i + 1, steps: [], shots: [] };
-            page.parts.push(part);
+            journey.parts.push(part);
+            claim(part.anchor, i + 1, "part");
             inList = false;
             blankSince = false;
             lastStep = null;
@@ -250,36 +331,32 @@ export function parseScenarioPage(markdown, relPath = "") {
         blankSince = false;
 
         for (const match of maskCodeSpans(line).matchAll(SHOT_IMAGE)) {
-            const shot = { label: match[2], caption: match[1], line: i + 1, part: part?.anchor ?? null, inStepList };
-            page.shots.push(shot);
+            const shot = { label: match[2], caption: match[1], line: i + 1, journey: journey?.slug ?? null, part: part?.anchor ?? null, inStepList };
+            file.shots.push(shot);
+            journey?.shots.push(shot);
             part?.shots.push(shot);
             // A label inside a step would be text of the step it sits in; take it back out.
             if (inStepList && lastStep) lastStep.text = collapse(lastStep.text.replace(collapse(match[0]), ""));
         }
     }
 
-    page.isScenario = page.meta?.type === "scenario";
-    page.setup = {
-        start: page.meta.start == null ? null : String(page.meta.start),
-        actor: asList(page.meta.actor),
-        data: asList(page.meta.data),
-        profile: page.meta.profile == null || page.meta.profile === "" ? null : String(page.meta.profile),
-        flags: asList(page.meta.flags),
-        settings: asList(page.meta.settings),
-    };
+    file.legacyPage = file.meta?.type === "scenario";
 
     const seen = new Map();
-    for (const shot of page.shots) {
+    for (const shot of file.shots) {
         const at = `line ${shot.line}`;
         if (!LABEL.test(shot.label)) {
-            page.issues.push({ kind: "bad-label", line: shot.line, label: shot.label, message: `${at}: label "${shot.label}" is not [a-z0-9-]+.` });
+            file.issues.push({ kind: "bad-label", line: shot.line, label: shot.label, message: `${at}: label "${shot.label}" is not [a-z0-9-]+.` });
         } else if (seen.has(shot.label)) {
-            page.issues.push({ kind: "bad-label", line: shot.line, label: shot.label, message: `${at}: label "${shot.label}" is already used on line ${seen.get(shot.label)}; a label is unique in its page.` });
+            file.issues.push({ kind: "bad-label", line: shot.line, label: shot.label, message: `${at}: label "${shot.label}" is already used on line ${seen.get(shot.label)}; a label is unique in its file.` });
         } else {
             seen.set(shot.label, shot.line);
         }
+        if (shot.journey === null) {
+            file.issues.push({ kind: "shot-outside-journey", line: shot.line, label: shot.label, message: `${at}: screenshot "${shot.label}" sits above the first journey; put it inside the journey it shows.` });
+        }
         if (shot.inStepList) {
-            page.issues.push({
+            file.issues.push({
                 kind: "image-in-steps",
                 line: shot.line,
                 label: shot.label,
@@ -287,17 +364,19 @@ export function parseScenarioPage(markdown, relPath = "") {
             });
         }
     }
-    return page;
+    return file;
 }
 
-/** The labels of a page, in document order, each once. */
-export function labelsOf(page) {
-    return [...new Set(page.shots.map((shot) => shot.label))];
+/** The labels of a journey, in document order, each once. */
+export function labelsOf(journey) {
+    return [...new Set(journey.shots.map((shot) => shot.label))];
 }
 
 /**
- * The header a derived spec opens with: `// scenario: <page path>` and
- * `// signature: <8 hex>` in its first lines. Either is null when absent.
+ * The header a derived spec opens with: `// scenario: <journey address>` —
+ * `<scenarios file>#<journey>` — and `// signature: <8 hex>` in its first
+ * lines. Either is null when absent; `page` keeps the name the header field
+ * had before journeys, and holds the address.
  */
 export function parseSpecHeader(source) {
     let page = null;
@@ -354,14 +433,35 @@ async function markdownUnder(repoRoot, folder) {
     return found.sort();
 }
 
-/** Every scenario page in the repository, parsed, sorted by path. */
-export async function listScenarioPages(repoRoot) {
-    const pages = [];
+/** Every scenarios file in the repository, parsed, sorted by path. */
+export async function listScenarioFiles(repoRoot) {
+    const files = [];
     for (const relPath of await markdownUnder(repoRoot, DOMAIN_FOLDER)) {
-        const page = parseScenarioPage(await readFile(resolveInside(repoRoot, relPath), "utf8"), relPath);
-        if (page.isScenario) pages.push(page);
+        if (!isScenariosPath(relPath)) continue;
+        files.push(parseScenariosFile(await readFile(resolveInside(repoRoot, relPath), "utf8"), relPath));
     }
-    return pages;
+    return files;
+}
+
+/** Every journey in the repository — a `##` typed `scenario` in a scenarios file — in file and page order. */
+export async function listJourneys(repoRoot) {
+    return (await listScenarioFiles(repoRoot)).flatMap((file) => file.journeys.filter((journey) => journey.isScenario));
+}
+
+/**
+ * Every page of the contract before 32 — a whole `domain/` file typed
+ * `scenario` on its `#` block — by path. The tools report each one and leave
+ * it to the `032-scenarios-md` migration.
+ */
+export async function listLegacyPages(repoRoot) {
+    const found = [];
+    for (const relPath of await markdownUnder(repoRoot, DOMAIN_FOLDER)) {
+        if (isScenariosPath(relPath)) continue;
+        const text = await readFile(resolveInside(repoRoot, relPath), "utf8");
+        if (!/type:\s*scenario\s*$/m.test(text)) continue;
+        if (parseScenariosFile(text, relPath).legacyPage) found.push(relPath);
+    }
+    return found;
 }
 
 /** Every devbook Markdown file, for the tools that look for `scenario:` references. */
@@ -408,16 +508,11 @@ export async function listSpecs(repoRoot, roots = [""]) {
  * folder resolves outside the repository.
  */
 export async function readProfiles(repoRoot, scenarioFolder = SCENARIO_FOLDER) {
-    let file;
-    try {
-        file = resolveInside(repoRoot, `${scenarioFolder}/${PROFILES_FILE}`);
-    } catch {
-        return { error: "resolves outside the repository" };
-    }
     let text;
     try {
-        text = await readFile(file, "utf8");
-    } catch {
+        text = await readFile(resolveInside(repoRoot, `${scenarioFolder}/${PROFILES_FILE}`), "utf8");
+    } catch (error) {
+        if (error.code === OUTSIDE_ROOT) return { error: "resolves outside the repository" };
         return { missing: true };
     }
     try {

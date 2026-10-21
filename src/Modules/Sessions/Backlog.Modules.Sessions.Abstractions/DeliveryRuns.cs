@@ -573,10 +573,11 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
 
     public string Environment => Session?.Environment ?? First.Environment;
 
-    /// <summary>The session's title; for a row of scheduled runs the schedule's name,
-    /// since each run cut a worktree of its own and none of those names is the row's;
-    /// otherwise the run's worktree.</summary>
-    public string Title => Session?.Title ?? Schedule ?? First.WorktreeName;
+    /// <summary>The name the Claude desktop app's sidebar gives the session, where it
+    /// gives one (<see cref="AgentSession.DesktopTitle"/>), else the session's title;
+    /// for a row of scheduled runs the schedule's name, since each run cut a worktree of
+    /// its own and none of those names is the row's; otherwise the run's worktree.</summary>
+    public string Title => Session?.DesktopTitle ?? Session?.Title ?? Schedule ?? First.WorktreeName;
 
     /// <summary>The session's folder, where there is a session. A run knows only its
     /// worktree key, which is not a path anyone can open.</summary>

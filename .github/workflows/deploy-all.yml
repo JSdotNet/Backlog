@@ -1,15 +1,19 @@
 name: Deploy All
 
 # One run that takes the whole cloud-and-client side of Backlog out: the Azure AI
-# Foundry models, the cloud sync tier, and the desktop MSIX release.
+# Foundry models, the cloud sync tier's infrastructure, and the release -- the desktop
+# MSIX, the Android APK and the sync service, under one number.
 #
 # It owns no deployment logic. Each component is the workflow that already deployed
 # it, called as a reusable workflow, so a component behaves identically whether it
 # is run on its own or from here. Changing how sync deploys still means editing
 # deploy-sync.yml and nothing else.
 #
-# Mobile is deliberately absent. release-mobile.yml keeps its own triggers and is
-# not called from here; see docs/deployment/all.md for why.
+# The release component is Release All (release-all.yml), which numbers the release
+# from the tags already published. Leave release_version blank and it takes the next
+# number, exactly as its nightly does; see docs/deployment/all.md. The sync service
+# belongs to the release, so the sync component here is the infrastructure alone:
+# otherwise one run would deploy the service twice, under two versions.
 
 on:
   workflow_dispatch:
@@ -21,12 +25,13 @@ on:
         type: choice
         options:
           # Nothing is created or changed. Foundry validates and previews; sync
-          # runs `azd provision --preview`; desktop is dropped with a notice,
+          # runs `azd provision --preview`; the release is dropped with a notice,
           # because there is no dry run of publishing a release.
           - what-if
-          # Infrastructure is provisioned for real. Desktop is still dropped.
+          # Infrastructure is provisioned for real. The release is still dropped.
           - provision
-          # Everything selected below actually deploys.
+          # Everything selected below actually deploys; sync's share of that is
+          # its infrastructure, and the release deploys its service.
           - deploy
       components:
         description: 'Which components to run'
@@ -35,10 +40,10 @@ on:
         type: choice
         options:
           - foundry+sync
-          - foundry+sync+desktop
+          - foundry+sync+release
           - foundry
           - sync
-          - desktop
+          - release
       foundry_environment:
         description: 'GitHub environment for Foundry; also selects infra/foundry/<name>.bicepparam'
         required: true
@@ -49,8 +54,8 @@ on:
         required: true
         default: backlog-sync
         type: string
-      desktop_version:
-        description: 'Desktop release version without the leading v (e.g. 1.2.3); required when components includes desktop'
+      release_version:
+        description: 'Release version of both apps without the leading v (e.g. 1.2.3); blank releases the next number'
         required: false
         default: ''
         type: string
@@ -102,7 +107,7 @@ jobs:
     outputs:
       foundry: ${{ steps.select.outputs.foundry }}
       sync: ${{ steps.select.outputs.sync }}
-      desktop: ${{ steps.select.outputs.desktop }}
+      release: ${{ steps.select.outputs.release }}
       foundry_mode: ${{ steps.select.outputs.foundry_mode }}
       sync_mode: ${{ steps.select.outputs.sync_mode }}
     steps:
@@ -112,7 +117,6 @@ jobs:
         env:
           COMPONENTS: ${{ inputs.components }}
           MODE: ${{ inputs.mode }}
-          DESKTOP_VERSION: ${{ inputs.desktop_version }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -129,29 +133,18 @@ jobs:
 
           $foundry = $selected -contains 'foundry'
           $sync    = $selected -contains 'sync'
-          $desktop = $selected -contains 'desktop'
+          $release = $selected -contains 'release'
 
-          # Publishing a release has no dry run, so desktop only takes part in a
-          # full deploy. Drop it out loud rather than failing the run: the other
+          # Publishing a release has no dry run, so the release only takes part in
+          # a full deploy. Drop it out loud rather than failing the run: the other
           # components still have a preview worth showing.
-          if ($desktop -and $env:MODE -ne 'deploy') {
-            Write-Output "::notice::Dropping the desktop component. Mode is '$env:MODE', and publishing a release has no what-if or provision equivalent. Re-run with mode 'deploy' to ship it."
-            $desktop = $false
+          if ($release -and $env:MODE -ne 'deploy') {
+            Write-Output "::notice::Dropping the release component. Mode is '$env:MODE', and publishing a release has no what-if or provision equivalent. Re-run with mode 'deploy' to ship it."
+            $release = $false
           }
 
-          if (-not ($foundry -or $sync -or $desktop)) {
+          if (-not ($foundry -or $sync -or $release)) {
             Write-Output "::error::Nothing left to run: components '$env:COMPONENTS' in mode '$env:MODE' selects no component."
-            exit 1
-          }
-
-          # A combined run must be told the desktop version. Release desktop's own
-          # fallback numbers a release '0.1.<github.run_number>', and inside a
-          # called workflow that context is the *caller's* -- Deploy All's counter,
-          # which starts at 1. Its publish step clobbers an existing tag, so the
-          # fallback would republish v0.1.1, v0.1.2, ... over releases that
-          # already shipped.
-          if ($desktop -and -not $env:DESKTOP_VERSION) {
-            Write-Output "::error::components includes desktop but desktop_version is blank. A combined run cannot derive a version; pass desktop_version, or release from Release desktop directly, which numbers itself correctly."
             exit 1
           }
 
@@ -162,21 +155,23 @@ jobs:
             'provision' { 'deploy' }
             'deploy'    { 'deploy' }
           }
+          # Sync never maps to Deploy Sync's 'deploy': the service is the release
+          # component's, deployed by Release All under the release number.
           $syncMode = switch ($env:MODE) {
             'what-if'   { 'preview' }
             'provision' { 'provision' }
-            'deploy'    { 'deploy' }
+            'deploy'    { 'provision' }
           }
 
           @(
             "foundry=$($foundry.ToString().ToLowerInvariant())"
             "sync=$($sync.ToString().ToLowerInvariant())"
-            "desktop=$($desktop.ToString().ToLowerInvariant())"
+            "release=$($release.ToString().ToLowerInvariant())"
             "foundry_mode=$foundryMode"
             "sync_mode=$syncMode"
           ) | Add-Content -LiteralPath $env:GITHUB_OUTPUT
 
-          Write-Output "foundry=$foundry ($foundryMode) sync=$sync ($syncMode) desktop=$desktop"
+          Write-Output "foundry=$foundry ($foundryMode) sync=$sync ($syncMode) release=$release"
 
   # Foundry and sync are independent: different resource groups, different runners,
   # different lifecycles. They run in parallel.
@@ -212,30 +207,36 @@ jobs:
       mode: ${{ needs.plan.outputs.sync_mode }}
       environment_name: ${{ inputs.sync_environment }}
 
-  # The desktop client talks to both tiers, so it ships last and only once neither
+  # Both apps talk to both tiers, so the release ships last and only once neither
   # of them failed. `always()` is what lets a component that was not selected --
   # and so reports 'skipped' -- pass this gate, while a real failure does not.
-  desktop:
-    name: Desktop
+  release:
+    name: Release All
     needs: [plan, foundry, sync]
     if: >-
       !cancelled()
-      && needs.plan.outputs.desktop == 'true'
+      && needs.plan.outputs.release == 'true'
       && needs.foundry.result != 'failure'
       && needs.foundry.result != 'cancelled'
       && needs.sync.result != 'failure'
       && needs.sync.result != 'cancelled'
-    uses: ./.github/workflows/release-desktop.yml
+    uses: ./.github/workflows/release-all.yml
     permissions:
       contents: write
       issues: write
+      # Release All deploys the sync service through Deploy Sync, which signs in
+      # with the OIDC federated credential; a called workflow can never hold more
+      # than this job grants it.
+      id-token: write
     secrets: inherit
     with:
-      version: ${{ inputs.desktop_version }}
+      version: ${{ inputs.release_version }}
+      # The environment the sync component provisioned, so the service lands there too.
+      sync_environment: ${{ inputs.sync_environment }}
 
   summary:
     name: Summary
-    needs: [plan, foundry, sync, desktop]
+    needs: [plan, foundry, sync, release]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -247,15 +248,15 @@ jobs:
           COMPONENTS: ${{ inputs.components }}
           FOUNDRY_SELECTED: ${{ needs.plan.outputs.foundry }}
           SYNC_SELECTED: ${{ needs.plan.outputs.sync }}
-          DESKTOP_SELECTED: ${{ needs.plan.outputs.desktop }}
+          RELEASE_SELECTED: ${{ needs.plan.outputs.release }}
           FOUNDRY_RESULT: ${{ needs.foundry.result }}
           SYNC_RESULT: ${{ needs.sync.result }}
-          DESKTOP_RESULT: ${{ needs.desktop.result }}
+          RELEASE_RESULT: ${{ needs.release.result }}
           FOUNDRY_ENDPOINT: ${{ needs.foundry.outputs.endpoint }}
           FOUNDRY_CHAT_DEPLOYMENT: ${{ needs.foundry.outputs.chat_deployment }}
           FOUNDRY_EMBEDDING_DEPLOYMENT: ${{ needs.foundry.outputs.embedding_deployment }}
           SYNC_ENDPOINT: ${{ needs.sync.outputs.endpoint }}
-          DESKTOP_TAG: ${{ needs.desktop.outputs.tag }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -287,9 +288,8 @@ jobs:
             "| Component | Result |"
             "| --- | --- |"
             "| Foundry | $(Format-Result $env:FOUNDRY_RESULT $env:FOUNDRY_ENDPOINT $env:FOUNDRY_SELECTED) |"
-            "| Sync | $(Format-Result $env:SYNC_RESULT $env:SYNC_ENDPOINT $env:SYNC_SELECTED) |"
-            "| Desktop | $(Format-Result $env:DESKTOP_RESULT $env:DESKTOP_TAG $env:DESKTOP_SELECTED) |"
-            "| Mobile | excluded from this workflow |"
+            "| Sync infrastructure | $(Format-Result $env:SYNC_RESULT $env:SYNC_ENDPOINT $env:SYNC_SELECTED) |"
+            "| Release (desktop + mobile + sync service) | $(Format-Result $env:RELEASE_RESULT $env:RELEASE_TAG $env:RELEASE_SELECTED) |"
           ) | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
 
           if ($env:FOUNDRY_ENDPOINT) {

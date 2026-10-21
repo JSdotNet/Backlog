@@ -41,7 +41,7 @@ public sealed partial class ScenarioEvidenceTests
         await desktop.ShowDevbookAsync();
         await desktop.OpenAreaAsync("Domain");
 
-        var page = desktop.DevbookMenuFile("place an order");
+        var page = desktop.DevbookMenuFile("scenarios");
         await Expect(page.GetByTestId("devbook-scenario-dot")).ToHaveAttributeAsync("data-state", "failed");
         await Expect(page.GetByTestId("devbook-scenario-dot")).ToHaveAttributeAsync("aria-label", "Scenario failed");
 
@@ -216,7 +216,7 @@ public sealed partial class ScenarioEvidenceTests
 
     /// <summary>Where the fixture's run keeps its screenshots, relative to the
     /// repository: the paths a verify stage sends as its scenario's evidence.</summary>
-    private const string ScenarioRepositoryRunFolder = ".devbook/scenarios/place-an-order";
+    private const string ScenarioRepositoryRunFolder = ".devbook/domain/shop/scenarios/place-an-order";
 
     /// <summary>"place-an-order · " and the run's date, in whatever zone the harness
     /// draws local time in.</summary>

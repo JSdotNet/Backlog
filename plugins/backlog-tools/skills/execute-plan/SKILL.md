@@ -33,10 +33,25 @@ another repository to a session there.
    (`gh pr list --head <slug>/<id> --state all --json number,state,isDraft,baseRefName,body`).
    An entry is *done* when its status is Done/Archived or its pull request merged — into
    `plan/<slug>` counts in branch mode; *ready* when it is a `prompt` in this checkout's
-   repository, not done, not running, not blocked, and the landing mode lets its `after:` edges start it. Show the graph, the
-   modes and the first frontier, then go: from here an unattended run asks nothing.
-2. **Resume.** Before dispatching, act on what an earlier run left: an entry or closing pull
-   request merged into `<base>` since → `transition` its entries to Done — the sign-off too,
+   repository, not done, not running, not blocked, and the landing mode lets its `after:` edges start it.
+   **Sources.** `git fetch origin`, then check that every entry not done can reach what it
+   is told to read: each `Read first:` reference (grammar's `## Read-first line`) and each
+   Devbook chapter `read_item` lists. A path in this checkout's repository —
+   `git show <start>:<path>`, `<start>` the `origin/` ref the entry starts from per
+   `assets/landing-modes.md`, and its `#anchor` the slug of a `#` heading in that file; a
+   path in another repository, `owner/name` from the reference or the entry's single
+   `repo:` — `gh api repos/<owner/name>/contents/<path>`; a claude.ai artifact — the host's
+   artifact tool; any other URL — a fetch. A path missing while the entry still has a
+   not-done `after:` ancestor is *pending*: that work may write it. Show the graph, the
+   modes, the first frontier and, per entry, every reference that failed and why. When any
+   failed, ask once — attended or not, since nobody answers later — whether to go, hold the
+   entries that name it, or stop to fix the plan. Hold is `set_blocked` plus a `comment`
+   `source not reachable: <reference>`; without the server, skip those entries this run
+   and say so. On a later invocation re-check every entry held this way and unblock the
+   ones whose sources now resolve. Then go: from here an unattended run asks nothing.
+2. **Resume.** Before dispatching, act on what an earlier run left: an entry merged into
+   `plan/<slug>` or `<base>`, or a closing pull request merged into `<base>`, since →
+   `transition` its entries to Done — the sign-off too,
    once every repository's closing pull request has merged — and remove their
    worktrees; then restack, merge what is settled, re-check blocked entries, and tear down a
    manual entry's app once it is Done — all per `assets/landing-modes.md`.
@@ -51,7 +66,8 @@ another repository to a session there.
    with the entry's `<n> - <Title>` as it arrives — several waiting are listed in plan order
    and each is decided on its own — and send the decision back to that sub-agent. *Unattended*:
    no gate here; the sub-agent returns `pr <url>`, a draft.
-5. **Land.** Branch: merge each settled entry into `plan/<slug>`. Stacked: a dependent may
+5. **Land.** Branch: merge each settled entry into `plan/<slug>`; once merged, `transition`
+   it to Done and `git worktree remove` it. Stacked: a dependent may
    start on its parent's open pull request. On any merge into `<base>`, `transition` the entry
    to Done, restack its children, and `git worktree remove` it. Go to step 3. A failure blocks
    the entry and its dependents only.
@@ -75,6 +91,6 @@ another repository to a session there.
 - Edit or commit in this checkout or another repository's; run a `task` or `test` — starting the app for one is
   setup, not running it; tick a manual entry's checks or mark it Done — except the sign-off,
   once the person has merged its closing pull requests; mark an entry Done
-  before it reaches `<base>`; merge into `<base>` directly; force a branch other than a restacked entry's own;
+  before it reaches `<base>` — or `plan/<slug>` in branch mode; merge into `<base>` directly; force a branch other than a restacked entry's own;
   approve a gate for the person, or take a pull request out of draft before its review is
   settled.

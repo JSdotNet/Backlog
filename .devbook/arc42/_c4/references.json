@@ -27,14 +27,12 @@
     "",
     "See tools/diagrams/C4.md."
   ],
+  "$retiring": "Legacy. Each view is now embedded as ![…](c4:<key>) in the chapter it documents, and the app reads those embeds. This file stays only until the code and tests stop reading it.",
   "views": {
-    "landscape": [
-      ".devbook/arc42/03-context-and-scope.md"
-    ],
-    "context-backlog": [
+    "business-context": [
       ".devbook/arc42/03-context-and-scope.md#business-context"
     ],
-    "containers-backlog": [
+    "container-view": [
       ".devbook/arc42/05-building-block-view.md#container-view",
       ".devbook/domain/context-map.md"
     ],
@@ -42,7 +40,7 @@
       ".devbook/arc42/05-building-block-view.md#desktop-app"
     ],
     "capture-to-issue": [
-      ".devbook/arc42/06-runtime-view.md#backlog-entry-to-github-issue"
+      ".devbook/arc42/06-runtime-view.md#task-to-github-issue"
     ],
     "deployment-local": [
       ".devbook/arc42/07-deployment-view.md#local-deployment-desktop"

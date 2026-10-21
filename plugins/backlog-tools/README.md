@@ -1,9 +1,10 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or knowledge-folder tooling. Five skills: one for each direction of a plan,
-one for running a whole plan, one for bringing another tool's items into the Inbox, and one
-for the remarks a person leaves while reading — and a pane that follows a running plan.
+general-purpose or knowledge-folder tooling. Six skills: one for each direction of a plan,
+one for running a whole plan, one for closing the entries whose pull request merged, one for
+bringing another tool's items into the Inbox, and one for the remarks a person leaves while
+reading — and a pane that follows a running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -13,7 +14,10 @@ for the remarks a person leaves while reading — and a pane that follows a runn
   answers into the prompts, so no step stops to ask when it runs. A manual check is offered
   as an AI-run QA prompt first, and a step stays a `task` or `test` only when you keep it,
   with a `Kept manual:` line saying why. Every step, whatever its kind, names its
-  repository with `repo:`. It always ships a review view next to the raw plan — one HTML page built from
+  repository with `repo:`. Every prompt — and every task or test that checks what the source
+  describes — carries a `Read first:` line naming the sections and designs it was planned
+  from, by repository path and `#anchor` or artifact URL, so a session running the pasted
+  entry reads the same context; `run-plan-item` reads them before it starts. It always ships a review view next to the raw plan — one HTML page built from
   `skills/import-plan/assets/plan-review.html` that parses the embedded plan
   itself and shows its checks, dependency order and entries, published as an artifact every
   run before the plan text is shown — a local HTML file only when the host has no artifacts. User-invoked only
@@ -46,7 +50,8 @@ for the remarks a person leaves while reading — and a pane that follows a runn
   Import acts on one — and then carries out the instructions the way the
   current repository says work is done. When a `backlog` MCP server is in the session's
   tool list it reads the entry's status from it (`read_item`) and reports Ready → In
-  progress → Done back (`transition`), every call carrying the `repository` read off the
+  progress → Done back (`transition`) — In progress while the pull request is open, Done once
+  it has merged into the default branch or a `plan/<slug>` branch — every call carrying the `repository` read off the
   git remote; without one it falls back to searching git and says the status has to be set
   by hand.
 - **`execute-plan`** — runs a whole plan, after the pattern of Matt Pocock's
@@ -56,7 +61,11 @@ for the remarks a person leaves while reading — and a pane that follows a runn
   goes to its own sub-agent, briefed by `skills/execute-plan/assets/item-brief.md`,
   which makes its own worktree and runs the entry through `run-plan-item` — so every
   entry passes the repository's gate and its own Personal Validation. Entries that wait on
-  nothing run in parallel. An entry is done when its pull request merges; the orchestrator
+  nothing run in parallel. Before it starts anything — attended or unattended — it opens every entry's `Read first:`
+  references and linked Devbook chapters, and warns about each one it cannot reach, asking
+  once whether to go, hold the entries that name it, or stop to fix the plan.
+  An entry is done when its pull request merges — into `plan/<slug>` in
+  branch mode, into the base branch otherwise; the orchestrator
   then moves it to Done and starts what waited on it. It stops at `task` and `test` entries,
   listing what they hold up, starts the application in its own worktree for the first one
   that validates landed work, and resumes from the plan's state when invoked again. Three
@@ -74,6 +83,15 @@ for the remarks a person leaves while reading — and a pane that follows a runn
   in that repository's checkout running the same plan, per
   `skills/execute-plan/assets/handoff.md`. User-invoked only. The `UserPromptSubmit` hook
   stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
+- **`close-merged`** — moves to Done every entry whose pull request has merged into the
+  default branch or a `plan/<slug>` branch: the merges `run-plan-item` and `execute-plan` did
+  not see, made on GitHub's own page or after the session ended. It lists the repository's
+  `in_progress` and `ready` entries (`list_entries`) and the pull requests merged into either
+  since the oldest of them started (`gh pr list`), resolves each pull request to its entry by
+  the link `link_change` recorded (`find_item` with `externalId` and `repoId`), and
+  `transition`s it. A pull request merged into a stacked parent finishes nothing yet, and a
+  `task` or `test` — the plan's sign-off among them — is left to the person and to
+  `execute-plan`'s Resume. Model-invoked; it writes nothing to the repository or to GitHub.
 - **`import-inbox`** — turns an export from another to-do tool into an inbox import
   manifest (ADR 0017:
   `.devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md`).
@@ -131,12 +149,15 @@ hooks, beside the command hooks above. It draws an `execute-plan` run in two pla
 
 - **The band above the prompt**, while any entry is in flow: the plan's tag and done over
   total, then one row per entry running, at a gate or blocked — its delivery flow's stages
-  (✓ done, ● in progress, ✗ blocked, – skipped, ○ pending) and the stage it stands at, tagged
+  (✓ done, ● in progress, ✗ blocked, ‖ parked, – skipped, ○ pending) and the stage it stands at, tagged
   `gate` or `blocked`. Entries done or manual fold into one `also:` line. A band another plugin
   draws there, such as `delivery-run-view`'s flow band, stays under it.
 - **The Plan progress pane**, the band's **details** button or `/backlog-tools:plan-progress`:
   the whole plan as a matrix — every entry a row, every stage a column under its short name
   (`scp`, `imp`, `b&t`, `pv`, …) — with the gate's review link and each block's reason under it.
+  A surface has no `parked` status, so an unattended entry reports the Personal Validation it
+  moved onto its draft as `blocked`; the pane draws that as parked, and keeps ✗ for a block the
+  run stopped at.
 
 The status line carries the counts, and a toast says when an entry reaches its gate or blocks.
 

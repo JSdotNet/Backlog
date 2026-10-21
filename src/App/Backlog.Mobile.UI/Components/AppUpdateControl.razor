@@ -81,6 +81,14 @@
         if (firstRender) _ = Watch.CheckQuietlyAsync(_lifetime.Token);
     }
 
+    /// <summary>Opens the update window, as a tap on the title does. Public for
+    /// the shell's sync-paused callout, whose one action is this window.</summary>
+    public void OpenWindow()
+    {
+        Open();
+        StateHasChanged();
+    }
+
     private void Open()
     {
         _open = true;

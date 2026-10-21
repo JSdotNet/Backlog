@@ -1,8 +1,8 @@
 namespace Backlog.Infrastructure.Devbook.Scenarios;
 
 /// <summary>
-/// The disk reads behind the Devbook pane's scenario catalog: the pages, their runs
-/// and their screenshots. Here rather than in the screen that draws them, because a
+/// The disk reads behind the Devbook pane's scenario catalog: the scenarios files,
+/// their journeys' runs and their screenshots. Here rather than in the screen that draws them, because a
 /// module's UI asks and an adapter opens the file (<c>ModuleUiIoTests</c>).
 /// </summary>
 public static class ScenarioFiles
@@ -33,9 +33,9 @@ public static class ScenarioFiles
         return [.. found.Order(StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>A page read and parsed, its path given repository-relative.</summary>
-    public static ScenarioPage ReadPage(string fullPath, string relativePath) =>
-        ScenarioPageParser.Parse(File.ReadAllText(fullPath), relativePath);
+    /// <summary>A scenarios file read and parsed, its path given repository-relative.</summary>
+    public static ScenariosFile ReadFile(string fullPath, string relativePath) =>
+        ScenarioPageParser.ParseFile(File.ReadAllText(fullPath), relativePath);
 
     /// <summary>The run in a run folder's <c>run.json</c>, or null.</summary>
     public static ScenarioRun? ReadRun(string runFolder)

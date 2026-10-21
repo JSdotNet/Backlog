@@ -363,7 +363,7 @@ The system SHALL leave branch updates, sync verdicts and scenario marks out of t
 
 #### Scenario: The same devbook content, Brain against repository
 
-- **Given** a devbook with a scenario page and sync verdicts for its chapters
+- **Given** a devbook with a scenarios file holding a journey, and sync verdicts for its chapters
 - **When** the pane shows it for a repository, and then shows the Brain
 - **Then** the repository view draws the update action, the verdict badges and the scenario mark, and the Brain view draws none of them
 

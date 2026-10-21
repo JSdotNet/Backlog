@@ -286,6 +286,53 @@ public sealed record AgentSession(
     /// <summary>What the session spent per model, on the same null-and-empty terms as
     /// <see cref="PullRequests"/>.</summary>
     public IReadOnlyList<AgentModelUsage>? ModelUsage { get; init; }
+
+    /// <summary>
+    /// Whether the Claude desktop app has archived this session: <c>false</c> where its
+    /// session store holds a record that says the session is still in its sidebar,
+    /// <c>true</c> where the record says it was archived, and null where there is no
+    /// record to ask.
+    /// <para>
+    /// <b>Null is not false.</b> A CLI-only Claude session, every Copilot one and
+    /// every record that arrived from somewhere else has no desktop record behind it,
+    /// and unknown never reads as open: <see cref="AgentSessionView.Open"/> keeps only
+    /// <c>false</c>. A record that leaves the flag out is null for the same reason —
+    /// the store is the desktop app's own and undocumented, and an absent property
+    /// states nothing.
+    /// </para>
+    /// <para>
+    /// A fact read off this machine's disk, never derived from <see cref="State"/>: an
+    /// open session with no process running reads Finished, as every session with no
+    /// liveness evidence does. And it never travels, like <see cref="Origin"/>: it is
+    /// not on ADR 0005's sync whitelist, the pushing code leaves it out, and a session
+    /// record keeps no copy of it. An <c>init</c> property, stamped by the reader that
+    /// found the desktop record.
+    /// </para>
+    /// </summary>
+    public bool? Archived { get; init; }
+
+    /// <summary>
+    /// The Claude desktop app's id for the scheduled task this session is a run of, or
+    /// null where the session's desktop record names none or there is no record.
+    /// <para>
+    /// The desktop app's routine schedule, and not <see cref="SessionRow.Schedule"/>,
+    /// which is a delivery run's. Local-only on the same terms as <see cref="Archived"/>.
+    /// </para>
+    /// </summary>
+    public string? ScheduledTask { get; init; }
+
+    /// <summary>
+    /// The name the Claude desktop app's sidebar shows for this session — the record's
+    /// <c>title</c>, whether the app, a tool or the person gave it — or null where the
+    /// record names none or there is no record.
+    /// <para>
+    /// What a surface calls the session where it is set, ahead of <see cref="Title"/>,
+    /// which is the transcript's and often only the worktree folder's name. It never
+    /// replaces <see cref="Title"/>: that is what a session record keeps and sync
+    /// carries, and this is local-only on the same terms as <see cref="Archived"/>.
+    /// </para>
+    /// </summary>
+    public string? DesktopTitle { get; init; }
 }
 
 /// <summary>
@@ -453,6 +500,21 @@ public sealed record AgentSessionCatalog(
     /// <summary>Whether the cap took anything. Not a comparison a caller should have
     /// to remember the direction of.</summary>
     public bool Capped => Discovered > Sessions.Count;
+
+    /// <summary>
+    /// How many of <see cref="Sessions"/> are open in the Claude desktop app and older
+    /// than a session the cap dropped — listed only because an open session is never
+    /// dropped by the cap (<see cref="AgentSessionViews.IsOpen"/>). Zero for a horizon
+    /// reading, which has no cap, and for every source with no desktop record.
+    /// <para>
+    /// Carried so a capped list can still say what it holds: without it, "the 132 most
+    /// recent" would count months-old open sessions among the most recent, when the
+    /// list is the most recent hundred plus the older ones still open. The rest of
+    /// <see cref="Sessions"/> — <c>Sessions.Count - OpenBeyondCap</c> — are exactly the
+    /// most recent ones: nothing newer than any of them was left out.
+    /// </para>
+    /// </summary>
+    public int OpenBeyondCap { get; init; }
 }
 
 /// <summary>
@@ -495,6 +557,20 @@ public enum AgentSessionView
     /// </summary>
     Live,
 
+    /// <summary>
+    /// The ones the Claude desktop app has not archived — its sidebar, whether or not a
+    /// process is running for each.
+    /// <para>
+    /// A question about the desktop app's record and not about liveness, which is why
+    /// it sits beside <see cref="Live"/> rather than widening it. The desktop app ends
+    /// an idle session's process, so a session open in its sidebar reads Finished and
+    /// stays Finished here: this view admits on <see cref="AgentSession.Archived"/>
+    /// being <c>false</c> and never on <see cref="AgentSession.State"/>. A session with
+    /// no desktop record is never open, however live it is.
+    /// </para>
+    /// </summary>
+    Open,
+
     /// <summary>Everything the source described, evidence or not.</summary>
     All
 }
@@ -534,6 +610,7 @@ public static class AgentSessionViews
         return view switch
         {
             AgentSessionView.Live => [.. rows.Where(row => IsLive(row.State))],
+            AgentSessionView.Open => [.. rows.Where(row => row.Session is { } session && IsOpen(session))],
 
             // The same list back, not a copy of it: All is the absence of a filter,
             // and rebuilding the list would be work done to change nothing.
@@ -570,12 +647,25 @@ public static class AgentSessionViews
     public static bool IsLive(AgentSessionState state) =>
         state is AgentSessionState.Running or AgentSessionState.Stalled;
 
+    /// <summary>
+    /// Whether the Claude desktop app holds this session open: its desktop record says
+    /// it is not archived. Null — no record — is not open, so a surface asking here
+    /// never reads an unknown as an answer.
+    /// </summary>
+    public static bool IsOpen(AgentSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        return session.Archived is false;
+    }
+
     /// <summary>What a view is called on screen. Here rather than in the pane, for
     /// the reason <see cref="AgentSessionGroups.Label(AgentSessionKind)"/> is: a
     /// control and a sentence about it cannot disagree if there is one word.</summary>
     public static string Label(AgentSessionView view) => view switch
     {
         AgentSessionView.Live => "Live",
+        AgentSessionView.Open => "Open",
         _ => "All"
     };
 }
@@ -787,6 +877,47 @@ public static class AgentSessionGroups
 
     /// <summary>The heading over the rows that name no repository.</summary>
     public const string NoRepository = "No repository";
+
+    /// <summary>The heading over the desktop app's scheduled runs; see
+    /// <see cref="ScheduledApart"/>.</summary>
+    public const string Scheduled = "Scheduled";
+
+    /// <summary>The key of the section <see cref="ScheduledApart"/> closes the list
+    /// with, which a surface keys its fold on.</summary>
+    public const string ScheduledKey = "scheduled";
+
+    /// <summary>
+    /// The same sections, with every row whose session is a scheduled task's run
+    /// (<see cref="AgentSession.ScheduledTask"/>) taken out of the section it was in and
+    /// put in one trailing <see cref="Scheduled"/> section, most recently active first.
+    /// <para>
+    /// A step after the grouping rather than a grouping of its own, because it applies
+    /// under every grouping: the routine runs are a crowd a reader steps over whichever
+    /// way the list is carved, and on the machine this was built against they were 99 of
+    /// 132 open sessions. It moves rows and never drops one, so every row is still in
+    /// exactly one section; a section the move left empty is dropped, as no grouping
+    /// answers an empty one. With nothing scheduled the sections come back as they were.
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<AgentSessionGroup> ScheduledApart(IReadOnlyList<AgentSessionGroup> sections)
+    {
+        ArgumentNullException.ThrowIfNull(sections);
+
+        static bool IsScheduled(SessionRow row) => !string.IsNullOrWhiteSpace(row.Session?.ScheduledTask);
+
+        if (!sections.Any(section => section.Rows.Any(IsScheduled))) return sections;
+
+        return
+        [
+            .. sections
+                .Select(section => section with { Rows = [.. section.Rows.Where(row => !IsScheduled(row))] })
+                .Where(section => section.Rows.Count > 0),
+            new AgentSessionGroup(
+                Scheduled,
+                [.. sections.SelectMany(section => section.Rows).Where(IsScheduled).OrderByDescending(row => row.LastActivityAt)],
+                ScheduledKey)
+        ];
+    }
 
     /// <summary>The When buckets, in the order the list shows them: key and heading.</summary>
     private static readonly (string Key, string Name)[] WhenBuckets =

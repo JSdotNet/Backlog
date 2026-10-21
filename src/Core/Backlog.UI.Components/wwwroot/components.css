@@ -3747,8 +3747,7 @@ button.devbook-chip__label:focus-visible {
 }
 
 .devbook-scenario-shot--unknown-label .devbook-scenario-shot__source,
-.devbook-scenario-shot--unknown-page .devbook-scenario-shot__source,
-.devbook-scenario-shot--ambiguous-stem .devbook-scenario-shot__source { color: var(--color-error-text); }
+.devbook-scenario-shot--unknown-page .devbook-scenario-shot__source { color: var(--color-error-text); }
 
 /* --- Devbook type marker ------------------------------------------------ */
 /*
@@ -17342,6 +17341,18 @@ select.field__input {
 .c4-diagram-host {
     height: 100%;
     min-height: 0;
+}
+
+/* Inside running text: a block the width of the text, as tall as the picture's own
+   aspect ratio makes it, never taller than most of the screen. */
+.c4-diagram-host--inline {
+    display: block;
+    height: auto;
+}
+
+.c4-diagram-host--inline .c4-diagram {
+    height: auto;
+    max-height: 70vh;
 }
 
 .c4-diagram {

@@ -1174,7 +1174,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         await using var harness = CreateHarness();
         WriteScenarioContext(harness.Root, failSecondPart: true);
 
-        var component = harness.Render(".domain/orders/place-an-order.md");
+        var component = harness.Render(".domain/orders/scenarios.md");
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-scenario-page']")), Wait);
         Assert.Equal("failed", component.Find("[data-testid='devbook-scenario-page']").GetAttribute("data-state"));
@@ -1202,10 +1202,10 @@ public sealed class DomainDevbookPanelTests : IDisposable
     {
         await using var harness = CreateHarness();
         WriteScenarioContext(harness.Root, failSecondPart: false);
-        var page = Path.Combine(harness.Root, ".domain", "orders", "place-an-order.md");
+        var page = Path.Combine(harness.Root, ".domain", "orders", "scenarios.md");
         File.WriteAllText(page, File.ReadAllText(page).Replace("**Then** the cart holds one lamp", "**Then** the cart holds two lamps", StringComparison.Ordinal));
 
-        var component = harness.Render(".domain/orders/place-an-order.md");
+        var component = harness.Render(".domain/orders/scenarios.md");
 
         component.WaitForAssertion(() => Assert.Equal("stale", component.Find("[data-testid='devbook-scenario-page']").GetAttribute("data-state")), Wait);
         Assert.Single(component.FindAll("[data-testid='devbook-scenario-stale-note']"));
@@ -1217,7 +1217,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         await using var harness = CreateHarness();
         WriteScenarioContext(harness.Root, failSecondPart: false, withRun: false);
 
-        var component = harness.Render(".domain/orders/place-an-order.md");
+        var component = harness.Render(".domain/orders/scenarios.md");
 
         component.WaitForAssertion(() => Assert.Equal("never-run", component.Find("[data-testid='devbook-scenario-page']").GetAttribute("data-state")), Wait);
         Assert.Contains("never run", component.Find("[data-testid='devbook-scenario-summary']").TextContent, StringComparison.Ordinal);
@@ -1247,7 +1247,24 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var markup = component.Markup;
         Assert.Contains("Place an order › The cart is filled · passed", Between(markup, "data-kind=\"shown\"", "data-kind=\"unknown-label\""), StringComparison.Ordinal);
         Assert.Contains("cart-filled, order-placed", Between(markup, "data-kind=\"unknown-label\"", "data-kind=\"unknown-page\""), StringComparison.Ordinal);
-        Assert.Contains("No scenario page is named no-such-page", Between(markup, "data-kind=\"unknown-page\"", "</article>"), StringComparison.Ordinal);
+        Assert.Contains("No scenarios file with a journey is named no-such/scenarios.md", Between(markup, "data-kind=\"unknown-page\"", "</article>"), StringComparison.Ordinal);
+    }
+
+    /// <summary>A scenarios file holding two journeys shows each one's run above it,
+    /// in file order.</summary>
+    [Fact]
+    public async Task A_scenarios_file_shows_a_run_for_each_of_its_journeys()
+    {
+        await using var harness = CreateHarness();
+        WriteScenarioContext(harness.Root, failSecondPart: true);
+        var file = Path.Combine(harness.Root, ".domain", "orders", "scenarios.md");
+        File.AppendAllText(file, "\n## Cancel an order\n\n```meta\ntype: scenario\n```\n\n### The order is cancelled\n- **When** I cancel it\n");
+
+        var component = harness.Render(".domain/orders/scenarios.md");
+
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='devbook-scenario-page']").Count), Wait);
+        Assert.Equal(["failed", "never-run"], component.FindAll("[data-testid='devbook-scenario-page']").Select(page => page.GetAttribute("data-state")));
+        Assert.Equal(3, component.FindAll("[data-testid='devbook-scenario-part']").Count);
     }
 
     /// <summary>
@@ -1263,7 +1280,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
         var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
-            .Add(panel => panel.SelectedPath, ".domain/orders/place-an-order.md")
+            .Add(panel => panel.SelectedPath, ".domain/orders/scenarios.md")
             .Add(panel => panel.Focus, new DevbookFocus("the-order-is-placed", 1)));
 
         component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='devbook-scenario-part']").Count), Wait);
@@ -1292,7 +1309,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
         var component = harness.Context.Render<DomainDevbookPanel>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
-            .Add(panel => panel.SelectedPath, ".domain/orders/place-an-order.md")
+            .Add(panel => panel.SelectedPath, ".domain/orders/scenarios.md")
             .Add(panel => panel.Focus, anchor is null ? null : new DevbookFocus(anchor, 1)));
 
         component.WaitForAssertion(() => Assert.Equal(2, component.FindAll("[data-testid='devbook-scenario-part']").Count), Wait);
@@ -1304,9 +1321,9 @@ public sealed class DomainDevbookPanelTests : IDisposable
     /// <summary>
     /// The same images in an entry's body — no knowledge document, the source the
     /// shell hands the Tasks pane — resolve every way they do in a chapter: a capture
-    /// from an earlier run says so, a stale page says stale, an unknown label lists the
-    /// page's labels, an unknown page says no page has that name, and a stem two pages
-    /// share lists both.
+    /// from an earlier run says so, a stale journey says stale, an unknown label lists
+    /// the scenarios file's labels, and an unknown file says no scenarios file has
+    /// that name.
     /// </summary>
     [Fact]
     public async Task A_scenario_image_in_an_entry_resolves_every_way_it_does_in_a_chapter()
@@ -1325,29 +1342,26 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
         const string body =
             "Where the cart stands.\n\n" +
-            "![Cart](scenario:place-an-order#cart-filled)\n\n" +
-            "![Edit](scenario:edit-an-order#edited)\n\n" +
-            "![Nope](scenario:place-an-order#nope)\n\n" +
-            "![Gone](scenario:no-such-page#cart-filled)\n\n" +
-            "![Shared](scenario:share-an-order#shared)\n";
+            "![Cart](scenario:orders/scenarios.md#cart-filled)\n\n" +
+            "![Edit](scenario:orders/scenarios.md#edited)\n\n" +
+            "![Nope](scenario:orders/scenarios.md#nope)\n\n" +
+            "![Gone](scenario:billing/scenarios.md#cart-filled)\n";
         var component = harness.Context.Render<Microsoft.AspNetCore.Components.CascadingValue<Backlog.UI.Components.Devbook.IDevbookImageSource>>(parameters => parameters
             .Add(cascade => cascade.Value, source)
             .Add(cascade => cascade.IsFixed, true)
             .AddChildContent<MarkdownView>(view => view.Add(v => v.Blocks, MarkdownPreview.Parse(body))));
 
         var shots = component.FindAll("[data-testid='devbook-scenario-shot']");
-        Assert.Equal(["shown", "shown", "unknown-label", "unknown-page", "ambiguous-stem"], shots.Select(shot => shot.GetAttribute("data-kind")));
+        Assert.Equal(["shown", "shown", "unknown-label", "unknown-page"], shots.Select(shot => shot.GetAttribute("data-kind")));
 
         string Source(int index) => component.FindAll("[data-testid='devbook-scenario-shot-source']")[index].TextContent;
         Assert.Contains("Place an order › The cart is filled · passed", Source(0), StringComparison.Ordinal);
         Assert.Contains("from an earlier run", Source(0), StringComparison.Ordinal);
         Assert.Contains("Edit an order", Source(1), StringComparison.Ordinal);
         Assert.Contains("stale", Source(1), StringComparison.Ordinal);
-        Assert.Contains("labels: cart-filled", Source(2), StringComparison.Ordinal);
-        Assert.Contains("No scenario page is named no-such-page", Source(3), StringComparison.Ordinal);
-        Assert.Contains("share-an-order names 2 scenario pages", Source(4), StringComparison.Ordinal);
-        Assert.Contains("orders/share-an-order.md", Source(4), StringComparison.Ordinal);
-        Assert.Contains("billing/share-an-order.md", Source(4), StringComparison.Ordinal);
+        Assert.Contains("orders/scenarios.md has no screenshot nope", Source(2), StringComparison.Ordinal);
+        Assert.Contains("labels: cart-filled, edited", Source(2), StringComparison.Ordinal);
+        Assert.Contains("No scenarios file with a journey is named billing/scenarios.md", Source(3), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1368,7 +1382,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var source = sources.For(harness.RepositoryAlias);
         await loaded.Task.WaitAsync(Wait, TestContext.Current.CancellationToken);
 
-        var blocks = MarkdownPreview.Parse("![Late](scenario:cancel-an-order#cancelled)\n");
+        var blocks = MarkdownPreview.Parse("![Late](scenario:orders/scenarios.cancel.md#cancelled)\n");
         void Entry(ComponentParameterCollectionBuilder<Microsoft.AspNetCore.Components.CascadingValue<Backlog.UI.Components.Devbook.IDevbookImageSource>> parameters) => parameters
             .Add(cascade => cascade.Value, source)
             .Add(cascade => cascade.IsFixed, true)
@@ -1376,8 +1390,9 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var component = harness.Context.Render<Microsoft.AspNetCore.Components.CascadingValue<Backlog.UI.Components.Devbook.IDevbookImageSource>>(Entry);
         Assert.Equal("unknown-page", component.Find("[data-testid='devbook-scenario-shot']").GetAttribute("data-kind"));
 
-        File.WriteAllText(Path.Combine(harness.Root, ".domain", "orders", "cancel-an-order.md"),
-            "# Cancel an order\n\n```meta\ntype: scenario\n```\n\n## The order is cancelled\n- **When** I cancel it\n\n![Cancelled](shot:cancelled)\n");
+        // A split scenarios file, scenarios.<name>.md, is one as much as scenarios.md is.
+        File.WriteAllText(Path.Combine(harness.Root, ".domain", "orders", "scenarios.cancel.md"),
+            "# Cancelling\n\n## Cancel an order\n\n```meta\ntype: scenario\n```\n\n### The order is cancelled\n- **When** I cancel it\n\n![Cancelled](shot:cancelled)\n");
         var relanded = new TaskCompletionSource();
         sources.Changed += () => relanded.TrySetResult();
         store.Invalidate();
@@ -1391,41 +1406,33 @@ public sealed class DomainDevbookPanelTests : IDisposable
         Assert.Contains("Cancel an order", component.Find("[data-testid='devbook-scenario-shot-source']").TextContent, StringComparison.Ordinal);
     }
 
-    /// <summary>The pages behind an entry's images: one whose capture is older than
-    /// its last run, one edited since its run, and two sharing a stem.</summary>
+    /// <summary>The journeys behind an entry's images, in one scenarios file: one whose
+    /// capture is older than its last run, and one edited since its run.</summary>
     private static void WriteEntryScenarios(string root)
     {
         var orders = Path.Combine(root, ".domain", "orders");
-        var billing = Path.Combine(root, ".domain", "billing");
         Directory.CreateDirectory(orders);
-        Directory.CreateDirectory(billing);
         File.WriteAllText(Path.Combine(orders, "context.md"), "# Orders\n\n```meta\nstatus: draft\nindex: root\ntype: context\n```\n\nOrders prose.\n");
-        File.WriteAllText(Path.Combine(billing, "context.md"), "# Billing\n\n```meta\nstatus: draft\nindex: root\ntype: context\n```\n\nBilling prose.\n");
 
-        const string place = "# Place an order\n\n```meta\ntype: scenario\n```\n\n## The cart is filled\n- **Given** an empty cart\n\n![The filled cart](shot:cart-filled)\n";
-        File.WriteAllText(Path.Combine(orders, "place-an-order.md"), place);
-        WriteRun(root, "place-an-order", ".domain/orders/place-an-order.md", ScenarioSignature.Of(ScenarioPageParser.Parse(place, ".domain/orders/place-an-order.md")),
-            "the-cart-is-filled", "cart-filled", shotRanAt: "2026-10-01T08:30:00Z");
+        const string place = "## Place an order\n\n```meta\ntype: scenario\n```\n\n### The cart is filled\n- **Given** an empty cart\n\n![The filled cart](shot:cart-filled)\n";
+        const string edit = "## Edit an order\n\n```meta\ntype: scenario\n```\n\n### The order is edited\n- **When** I change the lamp\n\n![The edit](shot:edited)\n";
+        const string file = "# Scenarios\n\n" + place + "\n" + edit;
+        var journeys = ScenarioPageParser.ParseFile(file, ".domain/orders/scenarios.md").Scenarios;
 
-        const string edit = "# Edit an order\n\n```meta\ntype: scenario\n```\n\n## The order is edited\n- **When** I change the lamp\n\n![The edit](shot:edited)\n";
-        File.WriteAllText(Path.Combine(orders, "edit-an-order.md"), edit);
-        WriteRun(root, "edit-an-order", ".domain/orders/edit-an-order.md", ScenarioSignature.Of(ScenarioPageParser.Parse(edit, ".domain/orders/edit-an-order.md")),
-            "the-order-is-edited", "edited", shotRanAt: "2026-10-07T08:30:00Z");
-        File.WriteAllText(Path.Combine(orders, "edit-an-order.md"), edit.Replace("change the lamp", "change two lamps", StringComparison.Ordinal));
+        WriteRun(root, journeys[0], "the-cart-is-filled", "cart-filled", shotRanAt: "2026-10-01T08:30:00Z");
+        WriteRun(root, journeys[1], "the-order-is-edited", "edited", shotRanAt: "2026-10-07T08:30:00Z");
+        File.WriteAllText(Path.Combine(orders, "scenarios.md"), file.Replace("change the lamp", "change two lamps", StringComparison.Ordinal));
 
-        const string share = "# Share an order\n\n```meta\ntype: scenario\n```\n\n## The order is shared\n- **When** I share it\n\n![Shared](shot:shared)\n";
-        File.WriteAllText(Path.Combine(orders, "share-an-order.md"), share);
-        File.WriteAllText(Path.Combine(billing, "share-an-order.md"), share);
-
-        static void WriteRun(string root, string stem, string page, string signature, string part, string label, string shotRanAt)
+        static void WriteRun(string root, ScenarioJourney journey, string part, string label, string shotRanAt)
         {
-            var folder = Path.Combine(root, ".devbook", "scenarios", stem);
+            var folder = Path.Combine(root, journey.RunFolder.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(folder);
             File.WriteAllBytes(Path.Combine(folder, $"{label}.png"), [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+            var signature = ScenarioSignature.Of(journey);
             File.WriteAllText(Path.Combine(folder, "run.json"), $$"""
                 {
-                  "version": 2,
-                  "page": "{{page}}",
+                  "version": 3,
+                  "journey": "{{journey.Address}}",
                   "signature": "{{signature}}",
                   "ranAt": "2026-10-07T08:30:00Z",
                   "parts": [ { "title": "Part", "anchor": "{{part}}", "outcome": "passed" } ],
@@ -1470,29 +1477,29 @@ public sealed class DomainDevbookPanelTests : IDisposable
         }
     }
 
-    /// <summary>An <c>orders</c> context with one scenario page, a features page
-    /// showing its screenshots, and — unless asked not to — a version 2 run of it
-    /// whose signature is the page's own.</summary>
+    /// <summary>An <c>orders</c> context with one journey in its scenarios file, a
+    /// features page showing its screenshots, and — unless asked not to — a version 3
+    /// run of it whose signature is the journey's own.</summary>
     private static void WriteScenarioContext(string root, bool failSecondPart, bool withRun = true)
     {
         var folder = Path.Combine(root, ".domain", "orders");
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "context.md"), "# Orders\n\n```meta\nstatus: draft\nindex: root\ntype: context\n```\n\nOrders prose.\n");
         File.WriteAllText(Path.Combine(folder, "features.md"),
-            "# Features\n\n```meta\nstatus: draft\ntype: features\n```\n\nWhat ordering offers.\n\n![The filled cart](scenario:place-an-order#cart-filled) ![Nothing](scenario:place-an-order#nope)\n\n![Gone](scenario:no-such-page#cart-filled)\n");
-        const string page = "# Place an order\n\n```meta\ntype: scenario\nstart: /orders/new\nactor: actors.md#shopper\n```\n\nA shopper fills a cart and places the order.\n\n## The cart is filled\n- **Given** an empty cart\n- **Then** the cart holds one lamp\n\n![The filled cart](shot:cart-filled)\n\n## The order is placed\n- **When** I place the order\n\n![The confirmation](shot:order-placed)\n";
-        File.WriteAllText(Path.Combine(folder, "place-an-order.md"), page);
+            "# Features\n\n```meta\nstatus: draft\ntype: features\n```\n\nWhat ordering offers.\n\n![The filled cart](scenario:orders/scenarios.md#cart-filled) ![Nothing](scenario:orders/scenarios.md#nope)\n\n![Gone](scenario:no-such/scenarios.md#cart-filled)\n");
+        const string page = "# Scenarios\n\n```meta\ntype: scenarios\n```\n\n## Place an order\n\n```meta\ntype: scenario\nstart: /orders/new\nactor: actors.md#shopper\n```\n\nA shopper fills a cart and places the order.\n\n### The cart is filled\n- **Given** an empty cart\n- **Then** the cart holds one lamp\n\n![The filled cart](shot:cart-filled)\n\n### The order is placed\n- **When** I place the order\n\n![The confirmation](shot:order-placed)\n";
+        File.WriteAllText(Path.Combine(folder, "scenarios.md"), page);
         if (!withRun) return;
 
-        var signature = ScenarioSignature.Of(ScenarioPageParser.Parse(page, ".domain/orders/place-an-order.md"));
-        var run = Path.Combine(root, ".devbook", "scenarios", "place-an-order");
+        var signature = ScenarioSignature.Of(Assert.Single(ScenarioPageParser.ParseFile(page, ".domain/orders/scenarios.md").Scenarios));
+        var run = Path.Combine(root, ".domain", "orders", "scenarios", "place-an-order");
         Directory.CreateDirectory(run);
         File.WriteAllBytes(Path.Combine(run, "cart-filled.png"), [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
         var outcome = failSecondPart ? "failed" : "passed";
         File.WriteAllText(Path.Combine(run, "run.json"), $$"""
             {
-              "version": 2,
-              "page": ".domain/orders/place-an-order.md",
+              "version": 3,
+              "journey": ".domain/orders/scenarios.md#place-an-order",
               "signature": "{{signature}}",
               "ranAt": "2026-10-07T08:30:00Z",
               "profile": "default",
