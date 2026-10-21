@@ -245,6 +245,8 @@
                                     HintDismissed="@C4ZoomHintDismissed"
                                     OnHintDismissed="DismissC4ZoomHint"
                                     OpenView="@_zoomOpen"
+                                    RecordsFor="@InspectorRecords(zoomWorkspace)"
+                                    OnOpenRecord="OpenInspectedRecordAsync"
                                     TestId="arc42-c4-zoom-explorer" />
                 </TabPanel>
             }
@@ -1043,6 +1045,37 @@
         _zoomOpen = new C4ZoomOpen(embed.View.Key);
         _tab = C4ZoomTab;
     }
+
+    private Func<string, C4ElementRecords>? _inspectorRecords;
+    private C4Catalog? _inspectorCatalog;
+    private Arc42DevbookCatalog? _inspectorChapters;
+    private C4WorkspaceEntry? _inspectorWorkspace;
+
+    /// <summary>What the zoom tab's inspector is told about an element. One delegate
+    /// while the model, the chapters and the workspace stay the same, so the explorer
+    /// asks again only when one of them changed rather than on every render.</summary>
+    private Func<string, C4ElementRecords> InspectorRecords(C4WorkspaceEntry workspace)
+    {
+        if (_inspectorRecords is null
+            || !ReferenceEquals(_inspectorCatalog, _c4)
+            || !ReferenceEquals(_inspectorChapters, _catalog)
+            || !ReferenceEquals(_inspectorWorkspace, workspace))
+        {
+            var c4 = _c4;
+            var chapters = _catalog?.Documents ?? [];
+            _inspectorCatalog = _c4;
+            _inspectorChapters = _catalog;
+            _inspectorWorkspace = workspace;
+            _inspectorRecords = elementId => C4ElementInspection.For(c4, workspace, chapters, elementId);
+        }
+
+        return _inspectorRecords;
+    }
+
+    /// <summary>A chapter or a record picked in the zoom tab's inspector: followed
+    /// the way a reference in a chapter is, which brings the Chapters tab with it.</summary>
+    private Task OpenInspectedRecordAsync(string path) =>
+        DevbookReference.Parse(path) is { } reference ? NavigateDevbookReferenceAsync(reference) : Task.CompletedTask;
 
     // ---- the C4 model beside the chapters ----------------------------------
 

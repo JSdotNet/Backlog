@@ -828,9 +828,12 @@ Enter and Backspace act only while the diagram has focus. Typing elsewhere in th
 app is never taken as a move.
 
 **The inspector.** Selecting an element opens it beside the diagram: its kind,
-description and technology, the arc42 chapters that document it, the decisions
-(ADRs) and the debt (TDRs) that name it, and a zoom-in button when a deeper view
-exists.
+description and technology, the arc42 chapters that document a view showing it,
+the decisions (ADRs) and the debt (TDRs) that name it, and a zoom-in button when a
+deeper view exists. A decision still proposed carries a "proposed" chip; a debt
+shows its severity and its rung on the debt ladder. Each chapter and record opens
+in the **Chapters** tab. A section with nothing to list says so. A deployment node
+opens the same inspector, with the container instances it runs.
 
 **Overlays.** A switch reads None, Decisions or Debt. Decisions puts a count of
 ADRs on each card, and Debt a count of TDRs. Debt that names no element is shown

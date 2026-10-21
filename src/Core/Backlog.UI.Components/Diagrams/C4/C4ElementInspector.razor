@@ -1,0 +1,247 @@
+@*
+    The inspector of the element selected on the C4 zoom tab, beside the diagram (the
+    design's Containers screen): what the element is — kind, name, technology,
+    description — a way one level deeper when there is one, and what the knowledge
+    folders say about it: the arc42 chapters that document a view showing it, the
+    decisions (ADRs) and the debt (TDRs) that name it.
+
+    Every element goes through this one panel. A deployment node adds what it runs
+    under the same head, so the deployment view's inspector is this one rather than a
+    second panel beside it.
+
+    It draws what it is handed. The records are the host's (C4ElementRecords): with
+    none handed — a host with no knowledge folder behind it, such as the storybook —
+    the three record sections are left out rather than claiming the element has none.
+*@
+
+<aside class="c4-element-inspector" aria-label="Selected element" data-testid="@TestId">
+    <div class="c4-element-inspector__head">
+        <p class="c4-element-inspector__kind" data-testid="c4-inspector-kind">@C4LayoutEngine.KindLabel(Element.Kind)</p>
+        <h3 class="c4-element-inspector__name" data-testid="c4-inspector-name">@Element.Name</h3>
+
+        @if (!string.IsNullOrWhiteSpace(Element.Technology))
+        {
+            <p class="c4-element-inspector__technology" data-testid="c4-inspector-technology">@Element.Technology</p>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Element.Description))
+        {
+            <p class="c4-element-inspector__description" data-testid="c4-inspector-description">@Element.Description</p>
+        }
+
+        @if (ZoomLabel is not null)
+        {
+            <AppButton Variant="ButtonVariant.Primary"
+                       CssClass="c4-element-inspector__zoom"
+                       TestId="c4-inspector-zoom-in"
+                       OnClick="() => OnZoomIn.InvokeAsync()">@ZoomLabel <span aria-hidden="true">→</span></AppButton>
+        }
+    </div>
+
+    @* What a deployment node runs, under the same head as every element: the
+       container instances it runs, each a way back into the containers view with
+       that container selected. C4ZoomDeployment works out what a node runs. *@
+    @if (Deployment is { } deployment)
+    {
+        <section class="c4-deployment-inspector" aria-labelledby="@($"{_id}-runs")" data-testid="c4-deployment-inspector">
+            <h4 class="c4-element-inspector__heading" id="@($"{_id}-runs")">Runs</h4>
+
+            @if (deployment.Runs.Count == 0)
+            {
+                <p class="c4-element-inspector__none" data-testid="c4-deployment-inspector-none">No container instance is deployed here.</p>
+            }
+            else
+            {
+                <ul class="c4-deployment-inspector__runs">
+                    @foreach (var instance in deployment.Runs)
+                    {
+                        <li class="c4-deployment-inspector__run" data-testid="c4-deployment-instance">
+                            <span class="c4-deployment-inspector__run-name">
+                                @instance.Name
+                                @if (instance.Technology is not null)
+                                {
+                                    <span class="c4-deployment-inspector__run-tech">@instance.Technology</span>
+                                }
+                            </span>
+
+                            @if (instance.ContainersViewKey is not null)
+                            {
+                                <AppButton BaseClass="c4-deployment-inspector__open"
+                                           Variant="ButtonVariant.None"
+                                           aria-label="@($"Show {instance.Name} in containers")"
+                                           TestId="c4-deployment-instance-open"
+                                           OnClick="() => OnOpenContainer.InvokeAsync(instance)">Show in containers</AppButton>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    }
+
+    @if (Records is { } records)
+    {
+        <section class="c4-element-inspector__section" aria-labelledby="@($"{_id}-documented")" data-testid="c4-inspector-documented">
+            <h4 class="c4-element-inspector__heading" id="@($"{_id}-documented")">Documented in arc42</h4>
+
+            @if (records.DocumentedIn.Count == 0)
+            {
+                <p class="c4-element-inspector__none" data-testid="c4-inspector-none">No arc42 chapter documents a view that shows it.</p>
+            }
+            else
+            {
+                <ul class="c4-element-inspector__list">
+                    @foreach (var chapter in records.DocumentedIn)
+                    {
+                        <li @key="chapter.Path">
+                            <AppButton BaseClass="c4-element-inspector__record"
+                                       Variant="ButtonVariant.None"
+                                       TestId="c4-inspector-chapter"
+                                       data-path="@chapter.Path"
+                                       OnClick="() => OnOpenRecord.InvokeAsync(chapter.Path)">
+                                @if (chapter.Number is not null)
+                                {
+                                    <span class="c4-element-inspector__number">@chapter.Number</span>
+                                }
+                                <span class="c4-element-inspector__title">@chapter.Title</span>
+                            </AppButton>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="c4-element-inspector__section" aria-labelledby="@($"{_id}-decisions")" data-testid="c4-inspector-decisions">
+            <div class="c4-element-inspector__section-head">
+                <h4 class="c4-element-inspector__heading" id="@($"{_id}-decisions")">Decisions · @records.Decisions.Count</h4>
+
+                @if (records.Decisions.Count(record => record.Proposed) is > 0 and var proposed)
+                {
+                    <span class="c4-element-inspector__tally" data-testid="c4-inspector-proposed-count">@proposed proposed</span>
+                }
+            </div>
+
+            @if (records.Decisions.Count == 0)
+            {
+                <p class="c4-element-inspector__none" data-testid="c4-inspector-none">No decision names it.</p>
+            }
+            else
+            {
+                <ul class="c4-element-inspector__list">
+                    @foreach (var record in records.Decisions)
+                    {
+                        <li @key="record.Path">
+                            <AppButton BaseClass="c4-element-inspector__record"
+                                       Variant="ButtonVariant.None"
+                                       TestId="c4-inspector-decision"
+                                       data-path="@record.Path"
+                                       title="@TouchesTitle(record)"
+                                       OnClick="() => OnOpenRecord.InvokeAsync(record.Path)">
+                                @if (record.Number is not null)
+                                {
+                                    <span class="c4-element-inspector__number c4-element-inspector__number--decision">@record.Number</span>
+                                }
+                                <span class="c4-element-inspector__title">@record.Title</span>
+                                @if (record.Proposed)
+                                {
+                                    <Badge Kind="status" Slug="proposed" CssClass="c4-element-inspector__chip" TestId="c4-inspector-proposed">proposed</Badge>
+                                }
+                            </AppButton>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="c4-element-inspector__section" aria-labelledby="@($"{_id}-debt")" data-testid="c4-inspector-debt">
+            <h4 class="c4-element-inspector__heading" id="@($"{_id}-debt")">Technical debt · @records.Debt.Count</h4>
+
+            @if (records.Debt.Count == 0)
+            {
+                <p class="c4-element-inspector__none" data-testid="c4-inspector-none">No debt names it.</p>
+            }
+            else
+            {
+                <ul class="c4-element-inspector__list">
+                    @foreach (var record in records.Debt)
+                    {
+                        <li @key="record.Path">
+                            <AppButton BaseClass="c4-element-inspector__record"
+                                       CssClass="c4-element-inspector__record--debt"
+                                       Variant="ButtonVariant.None"
+                                       TestId="c4-inspector-debt-record"
+                                       data-path="@record.Path"
+                                       title="@TouchesTitle(record)"
+                                       OnClick="() => OnOpenRecord.InvokeAsync(record.Path)">
+                                <span class="c4-element-inspector__debt-head">
+                                    @if (record.Number is not null)
+                                    {
+                                        <span class="c4-element-inspector__number c4-element-inspector__number--debt">TDR @record.Number</span>
+                                    }
+                                    @if (DebtState(record) is { } state)
+                                    {
+                                        <span class="c4-element-inspector__debt-state" data-testid="c4-inspector-debt-state">@state</span>
+                                    }
+                                </span>
+                                <span class="c4-element-inspector__title">@record.Title</span>
+                            </AppButton>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    }
+</aside>
+
+@code {
+    private readonly string _id = "c4-inspector-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The element selected.</summary>
+    [Parameter, EditorRequired]
+    public C4Element Element { get; set; } = default!;
+
+    /// <summary>What the zoom-in button says — "Open its 3 components" — or null when
+    /// no deeper view of the element exists, which leaves the button out.</summary>
+    [Parameter]
+    public string? ZoomLabel { get; set; }
+
+    [Parameter]
+    public EventCallback OnZoomIn { get; set; }
+
+    /// <summary>What a selected deployment node runs; null for any other element.
+    /// <see cref="C4ZoomDeployment.Details"/> builds it.</summary>
+    [Parameter]
+    public C4DeploymentNodeDetails? Deployment { get; set; }
+
+    /// <summary>A container instance's "Show in containers" was pressed. Offered only
+    /// for an instance whose container has a container view.</summary>
+    [Parameter]
+    public EventCallback<C4DeploymentInstance> OnOpenContainer { get; set; }
+
+    /// <summary>What the knowledge folders say about the element, or null when the
+    /// host has none to say.</summary>
+    [Parameter]
+    public C4ElementRecords? Records { get; set; }
+
+    /// <summary>A chapter or a record was picked, by the path it was handed with.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenRecord { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-element-inspector";
+
+    /// <summary>Says why a record named only in <c>c4-touches</c> is listed.</summary>
+    private static string? TouchesTitle(C4InspectorRecord record) =>
+        record.Touches ? "Its consequences name this element" : null;
+
+    /// <summary>"Medium · identified": the severity and the rung, as much of the two as
+    /// the record states.</summary>
+    private static string? DebtState(C4InspectorRecord record) =>
+        (record.Severity, record.Lifecycle) switch
+        {
+            (null, null) => null,
+            ({ } severity, null) => severity,
+            (null, { } lifecycle) => lifecycle,
+            ({ } severity, { } lifecycle) => $"{severity} · {lifecycle}"
+        };
+}

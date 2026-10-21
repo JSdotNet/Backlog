@@ -294,12 +294,16 @@ public sealed class C4ZoomDeploymentTests : IDisposable
 
         await explorer.InvokeAsync(() => explorer.Instance.NodeSelected(Alias("pc.msix"), "deployment-local"));
 
-        var inspector = explorer.Find("[data-testid='c4-deployment-inspector']");
-        Assert.Equal("Deployment Node · MSIX", inspector.QuerySelector("[data-testid='c4-deployment-inspector-kind']")!.TextContent);
-        Assert.Equal("MSIX package", inspector.QuerySelector("[data-testid='c4-deployment-inspector-name']")!.TextContent);
-        Assert.Equal("Signed, sideloaded from GitHub Releases.", inspector.QuerySelector("[data-testid='c4-deployment-inspector-description']")!.TextContent);
+        // The node opens the one element inspector every element opens, headed the same
+        // way, with what it runs as a section of it.
+        var inspector = explorer.Find("[data-testid='c4-element-inspector']");
+        Assert.Equal("Deployment Node", inspector.QuerySelector("[data-testid='c4-inspector-kind']")!.TextContent);
+        Assert.Equal("MSIX package", inspector.QuerySelector("[data-testid='c4-inspector-name']")!.TextContent);
+        Assert.Equal("MSIX", inspector.QuerySelector("[data-testid='c4-inspector-technology']")!.TextContent);
+        Assert.Equal("Signed, sideloaded from GitHub Releases.", inspector.QuerySelector("[data-testid='c4-inspector-description']")!.TextContent);
 
-        var instance = Assert.Single(inspector.QuerySelectorAll("[data-testid='c4-deployment-instance']"));
+        var runs = Assert.Single(inspector.QuerySelectorAll("[data-testid='c4-deployment-inspector']"));
+        var instance = Assert.Single(runs.QuerySelectorAll("[data-testid='c4-deployment-instance']"));
         Assert.Contains("Desktop App", instance.TextContent, StringComparison.Ordinal);
         Assert.Contains(".NET MAUI Blazor Hybrid", instance.TextContent, StringComparison.Ordinal);
     }
@@ -319,7 +323,7 @@ public sealed class C4ZoomDeploymentTests : IDisposable
     }
 
     [Fact]
-    public async Task Selecting_a_container_instance_opens_no_deployment_inspector()
+    public async Task Selecting_a_container_instance_inspects_its_container_with_no_runs_section()
     {
         var explorer = RenderOnDeployment();
 
@@ -328,6 +332,7 @@ public sealed class C4ZoomDeploymentTests : IDisposable
         await explorer.InvokeAsync(() => explorer.Instance.NodeSelected(Alias(instance.Id), "deployment-local"));
 
         Assert.Equal("backlog.desktop", explorer.Instance.SelectedElementId);
+        Assert.Equal("Desktop App", explorer.Find("[data-testid='c4-inspector-name']").TextContent);
         Assert.Empty(explorer.FindAll("[data-testid='c4-deployment-inspector']"));
     }
 
@@ -340,7 +345,7 @@ public sealed class C4ZoomDeploymentTests : IDisposable
         explorer.Find("[data-testid='c4-deployment-door']").Click();
 
         Assert.Null(explorer.Instance.SelectedElementId);
-        Assert.Empty(explorer.FindAll("[data-testid='c4-deployment-inspector']"));
+        Assert.Empty(explorer.FindAll("[data-testid='c4-element-inspector']"));
     }
 
     [Fact]

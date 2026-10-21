@@ -269,6 +269,51 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Empty(reopened.FindAll("[data-testid='c4-zoom-hint']"));
     }
 
+    /// <summary>
+    /// The zoom tab's inspector is handed what the folder says about the selected
+    /// element: the chapter the views map lists against the view it is on, and the
+    /// decision whose <c>c4</c> names it — proposed, so chipped. Picking the decision
+    /// asks the host for it and brings the Chapters tab back, the way a chapter
+    /// reference from the C4 tab does.
+    /// </summary>
+    [Fact]
+    public async Task The_zoom_tabs_inspector_lists_the_records_and_opens_one_in_the_chapters()
+    {
+        const string Decision =
+            "# ADR 0030: Stored credentials go through the OS envelope\n\n```meta\nstatus: proposed\nc4: [backlog.desktop]\n```\n\nText.\n";
+
+        await using var harness = CreateHarness(
+            c4Enabled: true,
+            c4ZoomEnabled: true,
+            references: Documented,
+            extraFiles: new Dictionary<string, string> { ["adr/0030-stored-credentials.md"] = Decision });
+
+        var asked = new List<DevbookChapterLink>();
+        var component = harness.Render(ChapterPath, asked);
+        harness.Settle(component);
+
+        await component.Find("[data-testid='arc42-c4-zoom-tab']").ClickAsync(new());
+        var explorer = component.FindComponent<C4ZoomExplorer>();
+        await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(C4MermaidWriter.AliasOf("backlog"), "context-backlog"));
+        await explorer.InvokeAsync(() => explorer.Instance.NodeSelected(C4MermaidWriter.AliasOf("backlog.desktop"), "containers-backlog"));
+
+        var chapter = Assert.Single(component.FindAll("[data-testid='c4-inspector-chapter']"));
+        Assert.Contains("Building Block View", chapter.TextContent, StringComparison.Ordinal);
+
+        var decision = Assert.Single(component.FindAll("[data-testid='c4-inspector-decision']"));
+        Assert.Contains("0030", decision.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Stored credentials go through the OS envelope", decision.TextContent, StringComparison.Ordinal);
+        Assert.NotNull(decision.QuerySelector("[data-testid='c4-inspector-proposed']"));
+        Assert.Empty(component.FindAll("[data-testid='c4-inspector-debt-record']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
+
+        await decision.ClickAsync(new());
+
+        var link = Assert.Single(asked);
+        Assert.EndsWith("adr/0030-stored-credentials.md", link.Path, StringComparison.Ordinal);
+        Assert.NotEmpty(component.FindAll("[data-testid='arc42-document']"));
+    }
+
     private sealed class RememberedViewPreferences : IDevbookViewPreferences
     {
         public bool C4ZoomHintDismissed { get; private set; }
