@@ -103,7 +103,7 @@ public sealed class C4DomainLinkTests : IDisposable
         var target = Assert.Single(asked);
         Assert.Equal("arc42", target.AreaKey);
         Assert.True(target.IsC4View);
-        Assert.Equal(".arc42/_c4/backlog.dsl#containers-backlog", target.Reference);
+        Assert.Equal(".arc42/workspace.dsl#containers-backlog", target.Reference);
     }
 
     [Fact]
@@ -153,9 +153,10 @@ public sealed class C4DomainLinkTests : IDisposable
         Directory.CreateDirectory(Path.Combine(root, ".domain"));
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), ContextMap);
 
-        var c4 = Path.Combine(root, ".arc42", C4DevbookStore.WorkspaceDirectory);
+        var arc42 = Path.Combine(root, ".arc42");
+        var c4 = Path.Combine(arc42, C4DevbookStore.ReferenceDirectory);
         Directory.CreateDirectory(c4);
-        File.WriteAllText(Path.Combine(c4, "backlog.dsl"), Workspace);
+        File.WriteAllText(Path.Combine(arc42, C4DevbookStore.WorkspaceFile), Workspace);
         File.WriteAllText(Path.Combine(c4, C4DevbookStore.ReferenceFile), references);
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));

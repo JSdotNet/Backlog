@@ -86,8 +86,7 @@
         DevbookScenarioShotKind.Shown => "shown",
         DevbookScenarioShotKind.NotCaptured => "not-captured",
         DevbookScenarioShotKind.UnknownLabel => "unknown-label",
-        DevbookScenarioShotKind.UnknownPage => "unknown-page",
-        _ => "ambiguous-stem"
+        _ => "unknown-page"
     };
 
     private string Placeholder => Resolution.Kind switch
@@ -99,9 +98,8 @@
 
     private string Problem => Resolution.Kind switch
     {
-        DevbookScenarioShotKind.UnknownPage => $"No scenario page is named {Resolution.Stem}",
-        DevbookScenarioShotKind.AmbiguousStem => $"{Resolution.Stem} names {Resolution.Alternatives.Count} scenario pages: {string.Join(", ", Resolution.Alternatives)}",
-        _ => Resolution.Stem
+        DevbookScenarioShotKind.UnknownPage => $"No scenarios file with a journey is named {Resolution.File}",
+        _ => Resolution.File
     };
 
     private string SourceLine(DevbookScenario scenario)
@@ -110,13 +108,13 @@
         var head = scenario.Title;
         if (Resolution.Kind == DevbookScenarioShotKind.UnknownLabel)
         {
-            parts.Add($"{head} has no screenshot {Resolution.Label}");
+            parts.Add($"{Resolution.File} has no screenshot {Resolution.Label}");
             if (Resolution.Alternatives.Count > 0) parts.Add($"labels: {string.Join(", ", Resolution.Alternatives)}");
             return string.Join(" · ", parts);
         }
 
         var shot = Resolution.Shot;
-        var partAnchor = shot?.Part ?? scenario.Page.Shots.FirstOrDefault(point => point.Label == Resolution.Label)?.Part;
+        var partAnchor = shot?.Part ?? scenario.Journey.Shots.FirstOrDefault(point => point.Label == Resolution.Label)?.Part;
         parts.Add(partAnchor is null ? head : $"{head} › {scenario.PartTitle(partAnchor)}");
         parts.Add(ScenarioEvidence.Label(scenario.State).ToLowerInvariant());
         if ((shot?.RanAt ?? scenario.Run?.RanAt) is { } time) parts.Add(DevbookScenarioFormat.Time(time));

@@ -253,7 +253,7 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         + "than ignored, as is a status outside pending, in_progress, done, blocked and skipped. Each transition to "
         + "done counts, so a stage re-run after requested changes reads as a second pass. An execution replaces the "
         + "stage's earlier one whole; a call without one keeps it. A verify stage may pass evidence, one entry per "
-        + "scenario page part it ran.")]
+        + "journey part it ran.")]
     public async Task<StageUpdatedPayload> UpdateStageAsync(
         [Description("The full path of the worktree the run is running in.")]
         string worktree,
@@ -273,7 +273,7 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         MonitoringInput? monitoring = null,
         [Description("Optional. A JSON object: how the stage ran — mode, agent, runner, skill, model, effort, mcp, fallback, qualifier, runs of { agent, model, effort, slice, round }, and the pass's counts: round (the implement-review round, from 1), blockers (Review's open blockers) and defectsFound (Verify's defects review had passed). Kept verbatim; anything but an object is refused.")]
         JsonElement? execution = null,
-        [Description("Optional. The scenario page parts a verify stage ran, one per part, read from <scenario folder>/<stem>/run.json: the page's stem, the part's anchor, its outcome (passed, failed or not-run) and the run's ranAt. Shown per part against the stage.")]
+        [Description("Optional. The journey parts a verify stage ran, one per part, read from the journey's run.json beside its scenarios file, .devbook/domain/<context>/scenarios/<journey>/run.json: the journey's anchor as stem, the part's anchor, its outcome (passed, failed or not-run) and the run's ranAt. Shown per part against the stage.")]
         IReadOnlyList<EvidenceInput>? evidence = null,
         CancellationToken cancellationToken = default)
     {

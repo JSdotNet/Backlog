@@ -91,6 +91,23 @@ public class DevbookBuilderParityTests : IDisposable
         Assert.Contains(Rows(app, "chapter", "id"), row => row.Contains("sync=TEXT:push", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "node", "id"), row => row.Contains("sync=TEXT:pull", StringComparison.Ordinal));
 
+        // The C4 model: the included person, the unnamed instances numbered apart
+        // under their unnamed node, the repeated relationship numbered, the
+        // duplicate view key read once, the embed under its section and the one in
+        // another case, and both fields — the entry naming nothing drawing nothing.
+        var nodes = Rows(app, "node", "id");
+        Assert.Contains(nodes, row => row.StartsWith("id=TEXT:c4:shopper |", StringComparison.Ordinal) && row.Contains("path=TEXT:.devbook/arc42/c4/people.dsl", StringComparison.Ordinal));
+        Assert.Contains(nodes, row => row.StartsWith("id=TEXT:c4:live.~cloud.~shop-web-instance-2 |", StringComparison.Ordinal) && row.Contains("label=TEXT:Web", StringComparison.Ordinal));
+        Assert.Single(nodes, row => row.StartsWith("id=TEXT:c4-view:context |", StringComparison.Ordinal));
+        var edges = Rows(app, "edge", "id").ToList();
+        Assert.Contains(edges, row => row.StartsWith("id=TEXT:relationship:c4:shop.web->c4:shop.db#2 |", StringComparison.Ordinal));
+        Assert.Contains(edges, row => row.StartsWith("id=TEXT:embeds:.devbook/arc42/05-building-blocks.md#containers->c4-view:containers |", StringComparison.Ordinal));
+        Assert.Contains(edges, row => row.StartsWith("id=TEXT:embeds:.devbook/arc42/05-building-blocks.md#containers->c4-view:context |", StringComparison.Ordinal));
+        Assert.DoesNotContain(edges, row => row.Contains("c4-view:checkout", StringComparison.Ordinal) && row.Contains("type=TEXT:embeds", StringComparison.Ordinal));
+        Assert.Contains(edges, row => row.StartsWith("id=TEXT:c4:.devbook/arc42/05-building-blocks.md->c4:shop.web |", StringComparison.Ordinal));
+        Assert.Contains(edges, row => row.StartsWith("id=TEXT:c4-touches:.devbook/domain/zeta/c4.md->c4:pay |", StringComparison.Ordinal));
+        Assert.Equal(2, edges.Count(row => row.Contains("type=TEXT:c4 |", StringComparison.Ordinal)));
+
         var demos = Rows(app, "demo", "path");
         Assert.Equal(4, demos.Count);
         Assert.Contains(demos, row => row.Contains("page_path=TEXT:.devbook/domain/zeta/context.md", StringComparison.Ordinal));
@@ -377,7 +394,79 @@ public class DevbookBuilderParityTests : IDisposable
         (".devbook/ai/concepts.md", "# Concepts\n"),
         (".devbook/ai/02-code.md", "# Code\n"),
         (".devbook/ai/adoption-map.md", "# Adoption Map\n"),
-        (".devbook/ai/01-plan.md", "# Plan\n")
+        (".devbook/ai/01-plan.md", "# Plan\n"),
+        // The C4 model (contract 33): a workspace with an element it includes
+        // from c4/, a group, two relationships between one pair, an unnamed
+        // deployment node holding two unnamed instances of one container, and a
+        // view key used twice; a chapter embedding views under a section, in a
+        // code span, a fence and a comment, one by a key in another case, and
+        // `c4` and `c4-touches` naming elements, one of them nothing.
+        (".devbook/arc42/workspace.dsl", """
+            workspace "Fixture" "The parity fixture." {
+                !identifiers hierarchical
+                model {
+                    !include c4/people.dsl
+                    shop = softwareSystem "Shop" "Sells things." {
+                        web = container "Web" "The storefront." "Blazor"
+                        db = container "Store" "Orders." "SQLite" "Database"
+                        web -> db "Reads"
+                        web -> db "Writes"
+                    }
+                    group "Outside" {
+                        pay = softwareSystem "Pay" "Takes payments."
+                    }
+                    shopper -> shop.web "Buys"
+                    shop.web -> pay "Charges"
+                    shop.web -> nowhere "Dropped"
+                    live = deploymentEnvironment "Live" {
+                        deploymentNode "Cloud" "The host." {
+                            containerInstance shop.web
+                            containerInstance shop.web
+                        }
+                    }
+                }
+                views {
+                    container shop "containers" {
+                        title "Shop containers"
+                        include *
+                    }
+                    systemContext shop "context" "The context"
+                    dynamic shop "checkout" {
+                        shopper -> shop.web "Buys"
+                    }
+                    systemLandscape "Context"
+                }
+            }
+            """),
+        (".devbook/arc42/c4/people.dsl", "shopper = person \"Shopper\" \"Buys things.\"\n"),
+        (".devbook/arc42/05-building-blocks.md", """
+            # 05. Building Blocks
+
+            ```meta
+            c4: [shop, Shop.Web, nosuch]
+            ```
+
+            ## Containers
+
+            ```meta
+            status: draft
+            ```
+
+            ![The containers](c4:containers)
+
+            `![not an embed](c4:checkout)`
+
+            ```text
+            ![fenced](c4:checkout)
+            ```
+
+            <!-- ![hidden](c4:checkout) -->
+
+            ### Structural
+
+            ![Context](c4:CONTEXT)
+            """),
+        (".devbook/domain/zeta/c4.md", "# Zeta\n\n```meta\nc4-touches: [shopper, pay]\n```\n")
     ];
 
     private static List<string> CompareDatabases(string fromNode, string fromApp)

@@ -112,15 +112,15 @@ public sealed record AcceptancePayload(int Passing, int Total, bool Proved, stri
 
 /// <summary>One scenario part a reference stands for, with the state of its last
 /// run.</summary>
-/// <param name="Reference">The part as <c>&lt;page path&gt;#&lt;anchor&gt;</c>.</param>
-/// <param name="Page">The scenario page, repository-relative.</param>
-/// <param name="PageTitle">The page's title.</param>
-/// <param name="Stem">The page's stem: its run folder's name.</param>
+/// <param name="Reference">The part as <c>&lt;scenarios file&gt;#&lt;anchor&gt;</c>.</param>
+/// <param name="Page">The scenarios file the part's journey is in, repository-relative.</param>
+/// <param name="PageTitle">The journey's heading.</param>
+/// <param name="Stem">The journey's anchor: its run folder's name.</param>
 /// <param name="Part">The part's anchor.</param>
 /// <param name="Title">The part's heading.</param>
-/// <param name="State"><c>passed</c>, <c>failed</c>, <c>stale</c> — the page
+/// <param name="State"><c>passed</c>, <c>failed</c>, <c>stale</c> — the journey
 /// changed since its last run — or <c>never-run</c>.</param>
-/// <param name="LastRun">When the page last ran, or null.</param>
+/// <param name="LastRun">When the journey last ran, or null.</param>
 public sealed record ScenarioPartPayload(
     string Reference,
     string Page,
@@ -158,8 +158,8 @@ public sealed record DevbookReferencePayload(
     string? Folder)
 {
     /// <summary>The scenario parts this reference stands for — the part, every part
-    /// of a scenario page, or the parts a requirement's <c>Proved by:</c> lines name
-    /// — each with its run state. Null when it stands for none.</summary>
+    /// of a journey or of a scenarios file, or the parts a requirement's
+    /// <c>Proved by:</c> lines name — each with its run state. Null when it stands for none.</summary>
     public IReadOnlyList<ScenarioPartPayload>? Parts { get; init; }
 }
 
@@ -576,9 +576,9 @@ public sealed record StageLinkInput(string? Label, string? Url, string? Descript
 /// worktree the run is in.</param>
 public sealed record ScenarioInput(string Name, string Status, string? Notes, IReadOnlyList<string>? Evidence);
 
-/// <summary>One scenario page part a verify stage ran, read from the page's
-/// <c>run.json</c>.</summary>
-/// <param name="Stem">The page's stem.</param>
+/// <summary>One journey part a verify stage ran, read from the journey's
+/// <c>run.json</c> beside its scenarios file.</summary>
+/// <param name="Stem">The journey's anchor: its run folder's name.</param>
 /// <param name="Part">The part's anchor.</param>
 /// <param name="Outcome"><c>passed</c>, <c>failed</c> or <c>not-run</c>.</param>
 /// <param name="RunAt">The run's <c>ranAt</c>.</param>

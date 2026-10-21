@@ -427,19 +427,29 @@ public sealed class DevbookReferenceResolverTests : IDisposable
 
     // --- scenario parts -------------------------------------------------------
 
-    private const string ScenarioPagePath = ".devbook/domain/work/set-up-and-fill-the-backlog.md";
+    private const string ScenarioPagePath = ".devbook/domain/work/scenarios.md";
+
+    private const string JourneyAddress = ScenarioPagePath + "#set-up-and-fill-the-backlog";
+
+    private const string RunPath = ".devbook/domain/work/scenarios/set-up-and-fill-the-backlog/run.json";
 
     private const string ScenarioMarkdown = """
-        # Set up and fill the backlog
+        # Scenarios
+
+        ```meta
+        type: scenarios
+        ```
+
+        ## Set up and fill the backlog
 
         ```meta
         type: scenario
         ```
 
-        ## Statuses are set up
+        ### Statuses are set up
         - **Given** a product "Webshop"
 
-        ## An item is moved
+        ### An item is moved
         - **When** I drag it to "Doing"
         """;
 
@@ -456,23 +466,26 @@ public sealed class DevbookReferenceResolverTests : IDisposable
 
         ### Scenario: Statuses are set up
 
-        Proved by: set-up-and-fill-the-backlog.md#statuses-are-set-up
+        Proved by: scenarios.md#statuses-are-set-up
 
         ### Scenario: An item is moved
 
-        Proved by: ./set-up-and-fill-the-backlog.md#an-item-is-moved
+        Proved by: ./scenarios.md#an-item-is-moved
         """;
 
-    /// <summary>The page's signature now, as the run reporter would have
+    /// <summary>The journey's signature now, as the run reporter would have
     /// recorded it.</summary>
     private string CurrentSignature() =>
-        ScenarioSignature.OfPage(ScenarioPageParser.Parse(ScenarioMarkdown, ScenarioPagePath), _root, ScenarioPageParser.ScenarioFolder);
+        ScenarioSignature.OfJourney(
+            Assert.Single(ScenarioPageParser.ParseFile(ScenarioMarkdown, ScenarioPagePath).Scenarios),
+            _root,
+            ScenarioPageParser.ScenarioFolder);
 
-    private void WriteRun(string signature, string first, string second) =>
-        Write($".devbook/scenarios/set-up-and-fill-the-backlog/run.json", $$"""
+    private void WriteRun(string signature, string first, string second, string journey = JourneyAddress) =>
+        Write(RunPath, $$"""
             {
-              "version": 2,
-              "page": "{{ScenarioPagePath}}",
+              "version": 3,
+              "journey": "{{journey}}",
               "signature": "{{signature}}",
               "ranAt": "2026-10-07T08:30:00Z",
               "parts": [
@@ -501,10 +514,10 @@ public sealed class DevbookReferenceResolverTests : IDisposable
     }
 
     private void WriteRunFailingOnStep(string signature, int step) =>
-        Write($".devbook/scenarios/set-up-and-fill-the-backlog/run.json", $$"""
+        Write(RunPath, $$"""
             {
-              "version": 2,
-              "page": "{{ScenarioPagePath}}",
+              "version": 3,
+              "journey": "{{JourneyAddress}}",
               "signature": "{{signature}}",
               "ranAt": "2026-10-07T08:30:00Z",
               "parts": [
@@ -628,27 +641,59 @@ public sealed class DevbookReferenceResolverTests : IDisposable
         Assert.All(answers, answer => Assert.Empty(answer.ScenarioParts));
     }
 
-    /// <summary>A bare stem two scenario pages share names neither, as the checker
-    /// reports it; the requirement's other pointers still count.</summary>
+    /// <summary>A bare <c>scenarios.md</c> is the requirement's own context's, as
+    /// devbook's checker resolves it — never a file looked up by name, which every
+    /// context's scenarios file would make ambiguous.</summary>
     [Fact]
-    public async Task An_ambiguous_stem_names_no_part_and_costs_only_its_own_pointer()
+    public async Task A_bare_scenarios_file_is_the_requirement_s_own_context_s()
     {
         Write(ScenarioPagePath, ScenarioMarkdown);
-        Write(".devbook/domain/other/set-up-and-fill-the-backlog.md", ScenarioMarkdown);
+        Write(".devbook/domain/other/scenarios.md", ScenarioMarkdown);
         Write(RequirementsPath, RequirementsMarkdown);
         WriteRun(CurrentSignature(), "passed", "passed");
 
         var answer = await ResolveOne($"{RequirementsPath}#requirement-columns-follow-the-status-order");
 
-        // "set-up-and-fill-the-backlog.md#…" is ambiguous; "./set-up-…" is not.
-        Assert.Equal(["an-item-is-moved"], answer.ScenarioParts.Select(part => part.Anchor));
+        Assert.Equal(["statuses-are-set-up", "an-item-is-moved"], answer.ScenarioParts.Select(part => part.Anchor));
+        Assert.All(answer.ScenarioParts, part => Assert.Equal(ScenarioPagePath, part.PagePath));
+    }
+
+    /// <summary>A requirement in one context may be proved by another's journey,
+    /// through a path from its own folder.</summary>
+    [Fact]
+    public async Task A_pointer_into_another_context_s_scenarios_file_is_followed()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        Write(".devbook/domain/board/requirements.md", RequirementsMarkdown.Replace("Proved by: scenarios.md", "Proved by: ../work/scenarios.md", StringComparison.Ordinal));
+        WriteRun(CurrentSignature(), "passed", "failed");
+
+        var answer = await ResolveOne(".devbook/domain/board/requirements.md#requirement-columns-follow-the-status-order");
+
+        // "../work/scenarios.md#…" lands in work/; "./scenarios.md#…" names board/'s, which has none.
+        Assert.Equal([("statuses-are-set-up", ScenarioPartState.Passed)], answer.ScenarioParts.Select(part => (part.Anchor, part.State)));
+    }
+
+    /// <summary>A journey's anchor stands for every part of that journey and of no
+    /// other in the same file.</summary>
+    [Fact]
+    public async Task A_journey_stands_for_its_own_parts()
+    {
+        Write(ScenarioPagePath, ScenarioMarkdown + "\n## Another journey\n\n```meta\ntype: scenario\n```\n\n### Something else\n- **Given** x\n");
+        Write(".devbook/domain/work/scenarios/set-up-and-fill-the-backlog/run.json", "{ not json");
+
+        var journey = await ResolveOne(JourneyAddress);
+        var file = await ResolveOne(ScenarioPagePath);
+
+        Assert.Equal(["statuses-are-set-up", "an-item-is-moved"], journey.ScenarioParts.Select(part => part.Anchor));
+        Assert.Equal(["statuses-are-set-up", "an-item-is-moved", "something-else"], file.ScenarioParts.Select(part => part.Anchor));
+        Assert.Equal(["set-up-and-fill-the-backlog", "set-up-and-fill-the-backlog", "another-journey"], file.ScenarioParts.Select(part => part.Stem));
     }
 
     [Fact]
     public async Task A_run_that_does_not_parse_leaves_the_parts_never_run()
     {
         Write(ScenarioPagePath, ScenarioMarkdown);
-        Write(".devbook/scenarios/set-up-and-fill-the-backlog/run.json", "{ not json");
+        Write(RunPath, "{ not json");
 
         var answer = await ResolveOne(ScenarioPagePath);
 
@@ -656,18 +701,30 @@ public sealed class DevbookReferenceResolverTests : IDisposable
         Assert.All(answer.ScenarioParts, part => Assert.Equal(ScenarioPartState.NeverRun, part.State));
     }
 
-    /// <summary>Two pages sharing a stem share a run folder; a run that names
-    /// another page is not this page's.</summary>
+    /// <summary>A run that names another journey is not this journey's, whatever
+    /// folder it was found in.</summary>
     [Fact]
-    public async Task A_run_that_names_another_page_is_not_this_page_s()
+    public async Task A_run_that_names_another_journey_is_not_this_journey_s()
     {
-        const string twin = ".devbook/domain/other/set-up-and-fill-the-backlog.md";
-        Write(twin, ScenarioMarkdown);
-        WriteRun(CurrentSignature(), "passed", "passed");
+        Write(ScenarioPagePath, ScenarioMarkdown);
+        WriteRun(CurrentSignature(), "passed", "passed", journey: ".devbook/domain/other/scenarios.md#set-up-and-fill-the-backlog");
 
-        var answer = await ResolveOne($"{twin}#statuses-are-set-up");
+        var answer = await ResolveOne($"{ScenarioPagePath}#statuses-are-set-up");
 
         Assert.Equal(ScenarioPartState.NeverRun, Assert.Single(answer.ScenarioParts).State);
+    }
+
+    /// <summary>A journey page of the contract before devbook's 32 holds no journey,
+    /// so it stands for no part until the migration folds it into a scenarios file.</summary>
+    [Fact]
+    public async Task A_legacy_journey_page_stands_for_no_part()
+    {
+        const string legacy = ".devbook/domain/work/set-up-and-fill-the-backlog.md";
+        Write(legacy, "# Set up and fill the backlog\n\n```meta\ntype: scenario\n```\n\n## Statuses are set up\n- **Given** a product\n");
+
+        var answer = await ResolveOne(legacy);
+
+        Assert.Empty(answer.ScenarioParts);
     }
 
     // --- plumbing -------------------------------------------------------------

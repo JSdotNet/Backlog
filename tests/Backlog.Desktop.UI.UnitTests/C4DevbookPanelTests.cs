@@ -259,7 +259,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         // `SelectView` is synchronous, so it is the dispatch and the render it causes
         // that are at stake — and they are what keeps `Assert.Empty(asked)` below behind
         // the two positive assertions rather than passing on a handler that never ran.
-        await component.Find("[data-testid='arc42-chapter-c4-view'] [title='.arc42/_c4/backlog.dsl#containers-backlog']").ClickAsync(new());
+        await component.Find("[data-testid='arc42-chapter-c4-view'] [title='.arc42/workspace.dsl#containers-backlog']").ClickAsync(new());
 
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
         Assert.Contains("Container Diagram", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
@@ -278,7 +278,7 @@ public sealed class C4DevbookPanelTests : IDisposable
 
         var component = harness.Context.Render<Arc42DevbookPanel>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
-            .Add(panel => panel.SelectedC4View, ".arc42/_c4/backlog.dsl#context-backlog"));
+            .Add(panel => panel.SelectedC4View, ".arc42/workspace.dsl#context-backlog"));
 
         harness.Settle(component);
 
@@ -294,7 +294,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         var component = harness.Context.Render<Arc42DevbookPanel>(parameters => parameters
             .Add(panel => panel.RepositoryAlias, harness.RepositoryAlias)
             .Add(panel => panel.SelectedPath, ChapterPath)
-            .Add(panel => panel.SelectedC4View, ".arc42/_c4/backlog.dsl#no-such-view"));
+            .Add(panel => panel.SelectedC4View, ".arc42/workspace.dsl#no-such-view"));
 
         harness.Settle(component);
 
@@ -398,6 +398,48 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Contains("!include", component.Markup, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A workspace split across <c>c4/</c> reads as one model. The reader knows no
+    /// <c>!include</c>, so the store splices each one naming a file in <c>c4/</c> in
+    /// before the workspace is read — the only folder devbook lets a workspace
+    /// include from.
+    /// </summary>
+    [Fact]
+    public async Task A_workspace_including_a_file_from_c4_reads_as_one_model()
+    {
+        const string workspace = """
+            workspace "Split" {
+                !identifiers hierarchical
+                model {
+                    !include c4/model.dsl
+                }
+                views {
+                    systemContext backlog "context-backlog" "System Context" { include * }
+                }
+            }
+            """;
+
+        const string model = """
+            me = person "ME" "The owner"
+            backlog = softwareSystem "Prompt Backlog" "The system"
+            me -> backlog "Captures work"
+            """;
+
+        await using var harness = CreateHarness(
+            c4Enabled: true,
+            workspace: workspace,
+            extraFiles: new Dictionary<string, string> { ["c4/model.dsl"] = model });
+
+        var component = harness.Render(null);
+        harness.Settle(component);
+
+        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
+
+        Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
+        Assert.Empty(component.FindAll("[data-testid='c4-problems']"));
+        Assert.Contains("Prompt Backlog", component.Find("[data-testid='arc42-c4-explorer']").TextContent, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task A_clean_workspace_reports_nothing()
     {
@@ -498,12 +540,12 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.Equal(2, component.FindAll("[data-testid='c4-view-option']").Count);
     }
 
-    /// <summary>A folder that never had a <c>_c4/</c> at all — the finance case —
-    /// is the same as one with an empty one.</summary>
+    /// <summary>A folder that never had a <c>workspace.dsl</c> nor a <c>_c4/</c> at
+    /// all — the finance case — is the same as one with an empty <c>_c4/</c>.</summary>
     [Fact]
     public async Task With_no_workspace_folder_at_all_the_chapters_fences_still_give_a_C4_tab()
     {
-        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter, createWorkspaceDirectory: false);
+        await using var harness = CreateHarness(c4Enabled: true, writeWorkspace: false, chapter: FencedChapter, createReferenceDirectory: false);
 
         var component = harness.Render(null);
         harness.Settle(component);
@@ -599,7 +641,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         string? references = null,
         bool writeWorkspace = true,
         string? chapter = null,
-        bool createWorkspaceDirectory = true,
+        bool createReferenceDirectory = true,
         IReadOnlyDictionary<string, string>? extraFiles = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-c4-" + Guid.NewGuid().ToString("N"));
@@ -607,9 +649,9 @@ public sealed class C4DevbookPanelTests : IDisposable
 
         var arc42 = Path.Combine(root, ".arc42");
         Directory.CreateDirectory(arc42);
-        if (createWorkspaceDirectory || writeWorkspace || references is not null)
+        if (createReferenceDirectory || references is not null)
         {
-            Directory.CreateDirectory(Path.Combine(arc42, C4DevbookStore.WorkspaceDirectory));
+            Directory.CreateDirectory(Path.Combine(arc42, C4DevbookStore.ReferenceDirectory));
         }
 
         File.WriteAllText(Path.Combine(arc42, "05-building-block-view.md"), chapter ?? Chapter);
@@ -624,14 +666,14 @@ public sealed class C4DevbookPanelTests : IDisposable
         if (writeWorkspace)
         {
             File.WriteAllText(
-                Path.Combine(arc42, C4DevbookStore.WorkspaceDirectory, "backlog.dsl"),
+                Path.Combine(arc42, C4DevbookStore.WorkspaceFile),
                 workspace ?? Workspace);
         }
 
         if (references is not null)
         {
             File.WriteAllText(
-                Path.Combine(arc42, C4DevbookStore.WorkspaceDirectory, C4DevbookStore.ReferenceFile),
+                Path.Combine(arc42, C4DevbookStore.ReferenceDirectory, C4DevbookStore.ReferenceFile),
                 references);
         }
 

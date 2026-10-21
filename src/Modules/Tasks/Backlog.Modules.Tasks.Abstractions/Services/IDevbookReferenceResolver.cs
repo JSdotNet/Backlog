@@ -74,23 +74,25 @@ public sealed record ResolvedDevbookReference(
 
     /// <summary>
     /// The scenario parts this reference stands for, each with the state of its
-    /// last run: the part itself for <c>&lt;page&gt;.md#&lt;part&gt;</c> on a
-    /// scenario page, every part for the page alone, and the parts its
-    /// <c>Proved by:</c> lines name for a requirement chapter. Empty for anything
-    /// else — and for a devbook nobody could read.
+    /// last run: the part itself for <c>scenarios.md#&lt;part&gt;</c>, every part of a
+    /// journey for <c>scenarios.md#&lt;journey&gt;</c>, every part of every journey for
+    /// the scenarios file alone, and the parts its <c>Proved by:</c> lines name for a
+    /// requirement chapter. Empty for anything else — and for a devbook nobody could
+    /// read.
     /// </summary>
     public IReadOnlyList<ScenarioPartEvidence> ScenarioParts { get; init; } = [];
 }
 
-/// <summary>One part of a scenario page and how its last run went.</summary>
+/// <summary>One part of a journey and how its last run went.</summary>
 /// <param name="Reference">The part as a reference would name it:
-/// <c>&lt;page path&gt;#&lt;anchor&gt;</c>.</param>
-/// <param name="PagePath">The scenario page, repository-relative.</param>
-/// <param name="PageTitle">The page's title, else its stem.</param>
-/// <param name="Stem">The page's file name without <c>.md</c>: its run folder.</param>
+/// <c>&lt;scenarios file&gt;#&lt;anchor&gt;</c> — anchors are unique in a scenarios file.</param>
+/// <param name="PagePath">The scenarios file the journey is in, repository-relative.</param>
+/// <param name="PageTitle">The journey's heading.</param>
+/// <param name="Stem">The journey's anchor: the last segment of its run folder, and
+/// the name a run's evidence is filed under.</param>
 /// <param name="Anchor">The part's heading slug.</param>
-/// <param name="Title">The part's heading as the page writes it.</param>
-/// <param name="State">The part's state against the page's last run.</param>
+/// <param name="Title">The part's heading as the scenarios file writes it.</param>
+/// <param name="State">The part's state against its journey's last run.</param>
 /// <param name="LastRun">When that run ran, or null for none.</param>
 public sealed record ScenarioPartEvidence(
     string Reference,
