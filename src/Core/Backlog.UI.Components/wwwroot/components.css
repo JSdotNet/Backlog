@@ -17967,8 +17967,7 @@ select.field__input {
     gap: var(--spacing-xs);
 }
 
-.c4-dynamic-steps__move,
-.c4-dynamic-steps__play {
+.c4-dynamic-steps__move {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -17977,9 +17976,6 @@ select.field__input {
     border-radius: var(--border-radius-sm);
     font: inherit;
     cursor: pointer;
-}
-
-.c4-dynamic-steps__move {
     border: var(--border-width) solid var(--color-border);
     background: var(--color-background);
     color: var(--color-text-primary);
@@ -17991,6 +17987,14 @@ select.field__input {
 }
 
 .c4-dynamic-steps__play {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--border-radius-sm);
+    font: inherit;
+    cursor: pointer;
     padding: 0 var(--spacing-md);
     border: 0;
     background: var(--color-primary);
