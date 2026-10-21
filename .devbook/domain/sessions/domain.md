@@ -1138,6 +1138,17 @@ cancels it. A dispatcher claims it and reports its session through the MCP liste
 `link_session` from the started session links it. A dispatcher reads the next request
 by waiting on the listener's long poll.
 
+| Dispatcher call | What it does |
+| --- | --- |
+| `GET /session-requests/wait` | Answers the oldest Requested request at once, or holds the call up to 50 seconds and answers `204`. It hands the request out without claiming it. |
+| `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. The holder asking again is told it holds it; the lease is not renewed. |
+| `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. Only the dispatcher holding the claim may mark it. |
+| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
+
+Every answer carries the request's brief, built by the server from its kind and id. A
+dispatcher passes the brief on and never writes its own. All four sit behind the
+`session-requests` flag: off, the route answers `404` and the tools leave the endpoint.
+
 ### Session Request
 
 ```meta

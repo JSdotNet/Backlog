@@ -593,6 +593,36 @@ public sealed class McpServerWorker : IDisposable
             if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
         });
 
+        // And the long poll a dispatcher waits on for session requests (local ADR 0037
+        // §4), behind the same guard: the bearer token is the one /mcp takes. It
+        // answers 404 while the session-requests flag is off.
+        app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
+        {
+            SessionRequestWaitEndpoint.Reply reply;
+
+            try
+            {
+                reply = await SessionRequestWaitEndpoint.WaitAsync(
+                    context.RequestServices.GetRequiredService<ISessionRequestStore>(),
+                    context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
+                    TimeProvider.System,
+                    context.RequestAborted).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+            {
+                // The dispatcher went away mid-wait; there is nobody to answer.
+                return;
+            }
+
+            context.Response.StatusCode = reply.StatusCode;
+            if (reply.Failure is not null) _log.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+            if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (reply.Body.Length == 0) return;
+
+            context.Response.ContentType = SessionRequestWaitEndpoint.Reply.ContentType;
+            await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
+        });
+
         return app;
     }
 
@@ -764,7 +794,9 @@ public sealed class McpServerWorker : IDisposable
     /// constructor and would be missed by the reflection below.
     /// <see cref="IDeliveryRunTelemetry"/> is named for the same reason: the
     /// telemetry route beside <c>/mcp</c> resolves it, and no tool does; and
-    /// <see cref="IClaudeApiRequestStore"/> for the OTLP logs route beside it.
+    /// <see cref="IClaudeApiRequestStore"/> for the OTLP logs route beside it, and
+    /// <see cref="ISessionRequestStore"/> for the session-request wait route, which the
+    /// dispatcher tools would carry across anyway but the route must not depend on.
     /// </para>
     /// <para>
     /// The probe is <see cref="IServiceProviderIsService"/>, which every
@@ -783,6 +815,7 @@ public sealed class McpServerWorker : IDisposable
             .Append(typeof(IAppFeatureSettings))
             .Append(typeof(IDeliveryRunTelemetry))
             .Append(typeof(IClaudeApiRequestStore))
+            .Append(typeof(ISessionRequestStore))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)
