@@ -3,16 +3,16 @@
 <PageTitle>Domain events — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain events"
-           Summary="The Model page's Events tab: DomainEventContracts reads each domain-event chapter of a bounded context as a contract — who raises it, who consumes it, what it carries, the published-language rules, and whether the chapters say it is emitted or only documented."
+           Summary="The Model page's Events tab: DomainEventContracts lists each domain-event chapter of a bounded context in an All events index — who raises it, when, who consumes it, and whether the chapters say it is emitted or only documented — with the picked event's contract beneath: raised by, the event, consumed by; its payload as rows; the published-language rules. What the context listens to comes from its dependency tables."
            Guidelines="@Rules">
 
-    <Story Name="Event contracts"
-           Description="Raised by is the aggregate or service the chapter's related field names, or its Published by sentence. Consumers, Payload and Published language rules are the chapter's own sub-chapters, as written. Documented and Emitted are information, so both are neutral outlines and the word carries the difference."
+    <Story Name="Index and one contract"
+           Description="One row per event; the first is picked until another is. Raised by is the aggregate or service the chapter's related field names, or its Published by sentence; When is the summary after Published when. Consumers, Payload and Published language rules are the chapter's own sub-chapters — a payload written as backticked names and meanings reads as rows. Documented and Emitted are information, so both are neutral outlines and the word carries the difference. Event names are the event rose in the mono face."
            Code="@EventsCode"
            Source="@Chapter"
            SourceLabel="domain.md"
            SourceLanguage="markdown">
-        <DomainEventContracts Events="@Reading.Events" TestId="story-domain-events" />
+        <DomainEventContracts Events="@Reading.Events" Listens="@Listens" Context="Capture" TestId="story-domain-events" />
     </Story>
 
     <Story Name="A section the chapter does not write"
@@ -32,7 +32,7 @@
 @code {
     private static readonly DesignGuideline[] Rules =
     [
-        new("color-scheme.md#domain-view-element-tones", "Why information badges on the Domain view are neutral outlines."),
+        new("color-scheme.md#domain-view-element-tones", "Why information badges on the Domain view are neutral outlines, and the event rose."),
         new("color-scheme.md#badge-and-chip-tones", "Why filled means the product acts on it, and Documented and Emitted are not filled.")
     ];
 
@@ -99,8 +99,14 @@
 
     private static readonly IReadOnlyList<DomainEventContract> None = [];
 
+    private static readonly IReadOnlyList<DomainEventSubscription> Listens =
+    [
+        new("Inbox", "ItemTriaged", "Publishes ItemTriaged", "Relies on Tasks creating a draft task from a triaged item."),
+        new("Sync", null, "The desktop's TaskSyncWorker pushes and pulls the task feed through the sync service", "A task reaches the person's other devices as one whole document.")
+    ];
+
     private const string EventsCode = """
-        <DomainEventContracts Events="@reading.Events" />
+        <DomainEventContracts Events="@reading.Events" Listens="@reading.Listens" Context="Tasks" Root="Task" />
 
         @code {
             // Read from the context's domain.md and its splits.

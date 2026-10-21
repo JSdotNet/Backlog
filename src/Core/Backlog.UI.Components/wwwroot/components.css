@@ -148,6 +148,15 @@
        the words that say requirement, SHALL or tested. */
     --color-domain-requirement: #8FB4F0;
 
+    /* An enumeration's name where a field takes one on Model's Fields tab, beside
+       the Enums list that names it with its values. A lavender of its own. */
+    --color-domain-enumeration: #B39DDB;
+
+    /* A domain event's name on Model's Events tab, always in the mono face beside
+       the word event or the Event column. A rose of its own; it never paints a
+       surface, so it does not read as color-error-text's alarm. */
+    --color-domain-event: #EC8E97;
+
     /* A domain service's square in the Domain page's chapter bar, an outline
        beside the service's name, never alone. A green of its own: not the
        success ink, which says a thing went well, and not teal, the Brain's. */
@@ -25664,7 +25673,6 @@ select.field__input {
 }
 
 .domain-fields__class,
-.domain-event,
 .domain-services__item {
     display: flex;
     flex-direction: column;
@@ -25850,5 +25858,598 @@ select.field__input {
 .badge--tone.domain-event__delivery {
     background: transparent;
     border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+/* Fields' header in the switch's strip: the root's kind, status and aliases over
+   its name. The kind is the root's gold outline; the status a dashed neutral
+   outline (color-scheme.md#domain-view-element-tones: information badges are
+   neutral outlines); each alias in the mono face. */
+.domain-model-view__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-model-view__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-model-view__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 0.125rem var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+}
+
+.domain-model-view__chip--root {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model-view__chip--status {
+    border-style: dashed;
+}
+
+.domain-model-view__aliases {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.domain-model-view__alias {
+    padding: 0.125rem var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.domain-model-view__lead {
+    max-width: 48rem;
+    margin: var(--spacing-xs) 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-lg);
+    line-height: 1.55;
+}
+
+.domain-model-view__legend--fields {
+    margin-bottom: var(--spacing-lg);
+}
+
+/* A field's type: the three kinds of time and the plain id as the legend's
+   neutral badges (date outlined, instant filled, id dashed), a type of the model
+   in its kind's tone, anything else in words. */
+.domain-field-type {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.domain-field-type--date,
+.domain-field-type--local-time {
+    padding: 0 0.375rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-primary);
+}
+
+.domain-field-type--instant {
+    padding: 0 0.375rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.domain-field-type--id {
+    padding: 0 0.375rem;
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+}
+
+.domain-field-type--enumeration {
+    color: var(--color-domain-enumeration);
+    font-size: var(--font-size-sm);
+}
+
+.domain-field-type--value-object {
+    color: var(--color-domain-value-object);
+    font-size: var(--font-size-sm);
+}
+
+.domain-field-type--entity {
+    color: var(--color-domain-entity);
+    font-size: var(--font-size-sm);
+}
+
+/* The groups in one column, what the root owns in a narrower one beside them;
+   under the width of both the side column drops beneath. */
+.domain-fields-board {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    padding-bottom: var(--spacing-md);
+}
+
+.domain-fields-board__groups {
+    display: flex;
+    flex: 999 1 36rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-fields-group {
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-fields-group__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.domain-fields-group__title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-fields-group__question {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-fields-group__rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-field-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-md);
+    padding: 0.75rem var(--spacing-lg);
+}
+
+.domain-field-row + .domain-field-row {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-field-row__name {
+    flex: 0 0 11rem;
+    min-width: 0;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-field-row__type {
+    flex: 0 0 8rem;
+    min-width: 0;
+}
+
+.domain-field-row__meaning {
+    flex: 1 1 16rem;
+    min-width: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-field-row__meaning p {
+    margin: 0;
+}
+
+.domain-field-row--derived {
+    background: var(--color-background);
+}
+
+.domain-field-row--derived .domain-field-row__name {
+    color: var(--color-text-secondary);
+    font-style: italic;
+}
+
+/* How many invariants the field's bullet points at: information about the
+   chapter, so a neutral outline. */
+.domain-field-rules {
+    padding: 0 0.375rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.domain-fields-owned {
+    display: flex;
+    flex: 1 1 16rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-fields-owned__title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-fields-owned__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    font-size: var(--font-size-sm);
+}
+
+.domain-fields-owned__label {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.domain-fields-owned__card--entity .domain-fields-owned__label {
+    color: var(--color-domain-entity);
+}
+
+.domain-fields-owned__card--value-object .domain-fields-owned__label {
+    color: var(--color-domain-value-object);
+}
+
+.domain-fields-owned__card--enumeration .domain-fields-owned__label {
+    color: var(--color-domain-enumeration);
+}
+
+.domain-fields-owned__name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-fields-owned__note {
+    color: var(--color-text-secondary);
+}
+
+.domain-fields-owned__many,
+.domain-fields-owned__enum > .domain-fields-owned__note {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+}
+
+.domain-fields-owned__summary {
+    margin: 0;
+}
+
+.domain-fields-owned__also {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.domain-fields-owned__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-fields-owned__values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-xs) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-fields-owned__values code {
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* Events: the "All events" index, the picked event's contract beneath it, and
+   what the context listens to. An event's name is the rose, in the mono face. */
+.domain-events__intro {
+    max-width: 48rem;
+    margin: var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+}
+
+.domain-events__index {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-events__table {
+    width: 100%;
+    min-width: 40rem;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.domain-events__table th,
+.domain-events__table td {
+    padding: 0.75rem var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-normal);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.domain-events__table thead th {
+    border-top: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.domain-events__row--selected {
+    background: var(--color-background-raised);
+    box-shadow: inset 3px 0 0 var(--color-domain-event);
+}
+
+.domain-events__pick {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-domain-event);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-events__pick:hover {
+    text-decoration: underline;
+}
+
+.domain-events__pick:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.domain-event {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-event__lead {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.domain-event .domain-event__header {
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.domain-event .domain-event__name {
+    color: var(--color-domain-event);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-medium);
+}
+
+.domain-event__flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--spacing-sm) var(--spacing-xl);
+    margin: var(--spacing-sm) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-event__step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    font-size: var(--font-size-sm);
+}
+
+.domain-event__step + .domain-event__step::before {
+    content: "→";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--spacing-xl) / -2);
+    transform: translate(-50%, -50%);
+    color: var(--color-text-secondary);
+}
+
+/* Narrow: the steps stack, and the arrows that joined them side by side go. */
+@container (max-width: 36rem) {
+    .domain-event__flow {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .domain-event__step + .domain-event__step::before {
+        content: none;
+    }
+}
+
+.domain-event__step--event {
+    border-style: dashed;
+    border-color: var(--color-domain-event);
+}
+
+.domain-event__step-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-event__step--event .domain-event__step-label {
+    color: var(--color-domain-event);
+}
+
+.domain-event__body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+}
+
+.domain-event__body .domain-event__part {
+    padding-top: 0;
+    border-top: 0;
+}
+
+.domain-event__part--payload {
+    flex: 2 1 24rem;
+}
+
+.domain-event__part--rules {
+    flex: 1 1 14rem;
+}
+
+.domain-event__payload {
+    width: 100%;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+}
+
+.domain-event__payload td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-normal);
+    text-align: left;
+    vertical-align: baseline;
+}
+
+.domain-event__payload tr + tr th,
+.domain-event__payload tr + tr td {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-event__payload th {
+    width: 35%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-normal);
+    text-align: left;
+    vertical-align: baseline;
+}
+
+.domain-event__payload td p,
+.domain-event__rules p {
+    margin: 0;
+}
+
+.domain-event__rules {
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.domain-events__listens {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
+.domain-events__listens-title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-events__listens-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+    gap: var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-events__feed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    font-size: var(--font-size-sm);
+}
+
+.domain-events__feed-name {
+    color: var(--color-domain-event);
+    font-family: var(--font-family-mono);
+}
+
+.domain-events__feed-text {
+    margin: 0;
+}
+
+.domain-events__feed-why {
+    margin: 0;
     color: var(--color-text-secondary);
 }

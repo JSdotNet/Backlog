@@ -826,6 +826,23 @@ and what an event carries are shown on Model only. The functional pages, from th
 context's Overview to its Glossary, say what the domain does in its own
 language.
 
+**Fields reads the model file's own groups.** Fields heads the aggregate root
+with its kind, its chapter's status and aliases, its name and its chapter's first
+sentence. It then lists the root's fields in the purpose groups the model file's
+`## Fields` chapter writes: one `###` per group, its first paragraph the question
+the group answers, and one bullet per field naming it in backticks with what it
+means. A bullet that ends in `Rules:` and links to invariants shows how many it
+points at. A field no group names stands under *Other fields*. A model file with
+no `## Fields` chapter is grouped by what the types say. Beside the groups,
+*Owned by the …* lists the root's entities, value objects, enums with their
+values, and domain services.
+
+**Events is an index with one contract open.** Events heads the page *What
+‹context› tells other contexts*. It lists every event with who raises it, when,
+who consumes it and whether it is emitted, and shows the picked event's contract
+beneath. *What ‹context› listens to* reads the dependency tables' rows in which
+another context supplies a published language.
+
 **The Domain page reads one unit at a time.** An unsplit `domain.md` offers its
 aggregates, domain services and Glossary in a chapter bar inside the page, under
 a caption naming the file: a segmented bar, the open unit filled, each aggregate

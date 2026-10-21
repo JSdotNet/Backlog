@@ -91,7 +91,10 @@
                 // The word SHALL is text: the 4.5:1 floor.
                 { name: '--color-domain-requirement', against: '--color-background-raised', threshold: 4.5 },
                 // A square's outline in the chapter bar, not text: the non-text 3:1 floor.
-                { name: '--color-domain-service', against: '--color-background-raised', threshold: 3 }
+                { name: '--color-domain-service', against: '--color-background-raised', threshold: 3 },
+                // An enumeration's name on Fields and an event's name on Events are text.
+                { name: '--color-domain-enumeration', against: '--color-background-raised', threshold: 4.5 },
+                { name: '--color-domain-event', against: '--color-background-raised', threshold: 4.5 }
             ]
         }
     ];
