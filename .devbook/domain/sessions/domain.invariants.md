@@ -797,3 +797,82 @@ Only the When grouping reads a clock and a time zone, and both are handed in: th
 So a press in the filter bar never moves a row from one day into another.
 
 Enforced at: `AgentSessionGroups.Of()` (its `now` and `zone` parameters); the Sessions pane, which passes the instant of its reading
+
+## Session Request Queue
+
+```meta
+status: draft
+type: invariants
+related: [.devbook/domain/sessions/domain.md#session-request-queue]
+```
+
+> The rules the queue holds every session request to. Not built yet: local ADR 0037 decides them, and the `session-dispatch` plan builds the type that enforces them, so each `Enforced at:` names the place the decision gives it.
+
+### Invariant: A request carries no entry text
+
+```meta
+status: draft
+type: invariant
+```
+
+A session request holds its kind, an entry id or a plan tag, a repository, a clone folder, its state and lease, and the session id it was answered with, and no field for anything an entry says.
+Entry text arrives through sync, imports and capture, so a brief built from it would run whatever anyone who can write an entry wrote.
+
+Enforced at: the Session Request type, which has no field for entry text (ADR 0037 §1)
+
+### Invariant: Only the app creates a request
+
+```meta
+status: draft
+type: invariant
+```
+
+A request is created only by the desktop app's own Start session action; no MCP tool, import, sync or capture creates one.
+
+Enforced at: the queue's create operation, which no MCP tool calls (ADR 0037 §1)
+
+### Invariant: Only a Requested request can be claimed
+
+```meta
+status: draft
+type: invariant
+```
+
+A claim succeeds only on a request in Requested, and moves it to Claimed in the same write; a claim on any other state is refused.
+So two dispatchers waiting at once never both start one request.
+
+Enforced at: the queue's claim operation (ADR 0037 §3)
+
+### Invariant: A lapsed claim returns the request to Requested
+
+```meta
+status: draft
+type: invariant
+```
+
+A claim holds the request for two minutes; a request still Claimed when its lease ends reads as Requested again, and its claim is no longer the dispatcher's.
+A dispatcher that stopped mid-dispatch does not keep the request from the next one.
+
+Enforced at: the queue's claim and wait reads, which treat a lapsed lease as Requested (ADR 0037 §3)
+
+### Invariant: A request never expires
+
+```meta
+status: draft
+type: invariant
+```
+
+A Requested request stays Requested however long no dispatcher runs; only the person's cancel ends it unanswered.
+
+Enforced at: the queue, which has no expiry (ADR 0037 §3)
+
+### Invariant: Linked and Cancelled are final
+
+```meta
+status: draft
+type: invariant
+```
+
+A Linked or Cancelled request changes no further: it cannot be claimed, reported, linked again or cancelled.
+
+Enforced at: the queue's claim, report, link and cancel operations (ADR 0037 §3)

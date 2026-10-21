@@ -1651,3 +1651,31 @@ disabled control, and not an empty surface. Nothing else reads the sessions eith
 
 One switch for the area rather than one per column or per grouping, because "should
 this product show me sessions at all" is a single question.
+
+## Start a session from an entry
+
+```meta
+type: feature
+status: draft
+feature-flag: .devbook/domain/sessions/context.md#session-requests
+related: [.devbook/arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
+```
+
+A person presses Start session on a prompt entry, or Start plan session on a plan's
+roadmap item, and a coding session starts in that repository's clone folder, running
+that entry or that plan. Until now they copied the entry, opened a session in the right
+folder and pasted it.
+
+The press creates a [Session Request](domain.md#session-request). A dispatcher, first
+the Manager session in Claude Desktop, picks it up, starts the session with a fixed
+one-line brief, and says which session it started. The session then links itself to
+the entry, as a pasted one does. The entry shows the request as waiting until then,
+with a Cancel action.
+
+Nothing the entry says reaches the brief. The session reads the entry by its id
+through `run-plan-item`, which first checks it is still outstanding, so a request
+answered twice, or late, does no harm.
+
+Not built yet: local
+[ADR 0037](../../arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
+decides it, and it sits behind the `session-requests` flag, off by default.
