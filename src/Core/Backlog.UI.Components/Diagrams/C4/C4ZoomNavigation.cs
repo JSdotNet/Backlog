@@ -184,7 +184,8 @@ public static class C4ZoomNavigation
     /// <summary>
     /// Landscape, Dynamic and Deployment, each once and only when the workspace has
     /// one. A kind with several views offers the one about the system in view, else the
-    /// first in key order.
+    /// first the workspace declares — the order the deployment environment tabs follow,
+    /// so Deployment opens on the environment the model lists first.
     /// </summary>
     private static IReadOnlyList<C4ZoomAlso> AlsoFor(C4Workspace workspace, C4View view, C4Element? system)
     {
@@ -197,7 +198,7 @@ public static class C4ZoomNavigation
                      (C4ViewKind.Deployment, "Deployment")
                  })
         {
-            var candidates = C4Exploration.OrderedViews(workspace).Where(candidate => candidate.Kind == kind).ToList();
+            var candidates = workspace.Views.Where(candidate => candidate.Kind == kind).ToList();
             if (candidates.Count == 0) continue;
 
             var pick = candidates.FirstOrDefault(candidate => candidate.Kind == view.Kind
