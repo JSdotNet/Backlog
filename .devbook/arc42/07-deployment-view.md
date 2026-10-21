@@ -14,6 +14,8 @@ related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc4
 
 The desktop app is installed on Windows machines and is the canonical deployment. Everything needed for core workflows runs here.
 
+![Local Deployment](c4:deployment-local)
+
 - **Local Storage.** One SQLite database, `backlog.db`, under a user-owned root is
   the source of truth for tasks and the inbox. The roadmap plan is a single document
   row in it, and a task's content is markdown text inside it. JSON files hold the
@@ -223,6 +225,8 @@ related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/ar
 
 The optional cloud service is deployed to Azure as a single-region, low-cost
 footprint sized only for sync coordination and webhook forwarding.
+
+![Cloud Deployment](c4:deployment-azure)
 
 ```mermaid
 flowchart TB

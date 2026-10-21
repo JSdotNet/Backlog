@@ -2,19 +2,14 @@
  * The C4 model of Prompt Backlog.
  *
  * Authored in c4hero (https://github.com/c4hero/c4hero) and read by the desktop
- * app, which draws each view from this file. It is a parallel, richer view of what
- * the arc42 chapters already say — the chapters keep their own mermaid C4 fences
- * and those stay canonical. Nothing here is generated from them and nothing here
- * generates them.
+ * app, which draws each view from this file.
  *
- * Every view is referenced from the chapter it documents, by that chapter naming
- * the view in its own `related` list:
+ * Every view is embedded in the one chapter section it documents, by its key:
  *
- *     related: [".devbook/arc42/_c4/backlog.dsl#containers-backlog"]
+ *     ![Container Diagram — Backlog](c4:container-view)
  *
- * That is the only statement of the link. The app reads it the other way round to
- * show, on a view, which chapters it documents — so there is no index beside this
- * file that could fall out of step with the chapters.
+ * That embed is the only statement of the link. The app reads it the other way
+ * round to show, on a view, which chapter documents it.
  *
  * Editing: open this folder in c4hero, which writes the file back and keeps node
  * positions in a `backlog.c4hero.json` sidecar beside it. The app does not read
@@ -168,21 +163,6 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
     }
 
     views {
-
-        systemLandscape "landscape" "Everything Prompt Backlog touches" {
-            include *
-            autolayout lr
-        }
-
-        systemContext backlog "context-backlog" "System Context — Prompt Backlog" {
-            include *
-            autolayout lr
-        }
-
-        container backlog "containers-backlog" "Container Diagram — Prompt Backlog" {
-            include *
-            autolayout tb
-        }
 
         component backlog.desktop "components-desktop" "Component Diagram — Desktop App" {
             include *

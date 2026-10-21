@@ -472,7 +472,7 @@ A browser-based visual editor for C4 architecture diagrams that saves Structuriz
 DSL, under the Apache-2.0 licence. It is **not vendored and not a runtime
 dependency**.
 
-- **Used for** — authoring `.devbook/arc42/_c4/*.dsl`, the C4 model kept beside
+- **Used for** — authoring `.devbook/arc42/workspace.dsl`, the C4 model kept beside
   the architecture chapters. The desktop app reads that DSL and draws it itself
   on the Architecture panel's C4 tab, behind the `c4-diagrams` flag.
   [C4 workspaces](../design/component-libraries.md#c4-workspaces) holds the
