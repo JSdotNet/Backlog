@@ -85,9 +85,9 @@
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
-    /// <summary>The menu row the reader selected, relative to the Domain folder — or,
-    /// when a followed reference named a file with no row of its own, that file:
-    /// <c>tasks/dependencies.md</c> for the <c>tasks</c> row, which opens on Neighbours.</summary>
+    /// <summary>The menu row the reader selected, relative to the Domain folder. A
+    /// followed reference to a file with no row of its own selects the row it shows
+    /// on: <c>tasks/dependencies.md</c> selects the <c>tasks</c> row.</summary>
     [Parameter]
     public string? SelectedPath { get; set; }
 

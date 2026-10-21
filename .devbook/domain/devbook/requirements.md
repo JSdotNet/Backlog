@@ -1340,7 +1340,7 @@ related: [.devbook/domain/devbook/features.md#domain-view-by-unit, .devbook/arc4
 > The requirements of the Domain area read by unit, behind the
 > [New domain view](context.md#new-domain-view) switch (local ADR 0037). The plan
 > `+devbook-domain-view` builds them page by page; the Context map, a context's
-> Overview and Neighbours, Domain, Features, Requirements, Model, Flow, the
+> page with its neighbours and its Overview, Domain, Features, Requirements, Model, Flow, the
 > Glossary and the Brain and task links are built. The Demo button is not.
 
 ### Requirement: The flag off keeps today's Domain view
@@ -1479,7 +1479,7 @@ The system SHALL offer a `*.demo.html` file as a Demo button on the page it belo
 - **When** the reader opens Features
 - **Then** the page offers a Demo button, and the menu has no row for the demo
 
-### Requirement: Dependencies are the Neighbours tab
+### Requirement: Dependencies are the neighbours atop the context's page
 
 ```meta
 type: requirement
@@ -1487,41 +1487,63 @@ status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.Neighbours_reads_dependencies_md_into_listens_to_listen_to_and_hand_in_hand, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_without_dependencies_md_reads_its_own_Dependencies_chapter, unit:dotnet:Backlog.UI.Components.UnitTests.DomainNeighboursTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_board_groups_the_neighbours_and_dashes_an_external_system, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_page_opens_with_its_title_and_tags_each_card]
 ```
 
-The system SHALL show a context's `dependencies.md` as the Neighbours tab of the context's page, each relation worded by the first sentence of its table's "Why" or "What it relies on" column cut to a short phrase, the whole sentence on hover, and give the file no row of its own. A neighbour stands by the way information goes: the ones that supply the context on the left as what it listens to, the ones it supplies on the right as who listens to it, read from the pattern's role mark — *(Inbox = supplier)*, *(Tasks = customer)* — and, where a row has none, from its table, outbound on the left and inbound on the right. Its Partnership neighbours stand below as hand in hand, and on neither side. A neighbour that is not one of the domain's contexts is a dashed card, and outside systems on one side that share a contract are one card. No card names the relationship's pattern. A context that keeps its tables in a `## Dependencies` chapter of `context.md` reads the same.
+The system SHALL show a context's `dependencies.md` as the neighbours at the top of the context's page, each relation worded by the first sentence of its table's "Why" or "What it relies on" column cut to a short phrase, the whole sentence on hover, and give the file no row of its own. A neighbour stands by the way information goes: the ones that supply the context on the left as what it listens to, the ones it supplies on the right as who listens to it, read from the pattern's role mark — *(Inbox = supplier)*, *(Tasks = customer)* — and, where a row has none, from its table, outbound on the left and inbound on the right. Its Partnership neighbours stand below as hand in hand, and on neither side. A neighbour that is not one of the domain's contexts is a dashed card, and outside systems on one side that share a contract are one card. No card names the relationship's pattern. A context that keeps its tables in a `## Dependencies` chapter of `context.md` reads the same.
 
 #### Scenario: Each neighbour stands where its information goes
 
 - **Given** a context whose `dependencies.md` lists Inbox as an inbound dependent with *(Inbox = supplier)*, Productivity as an outbound dependency with *(Tasks = supplier)*, and Roadmap Planning both as an outbound Customer/Supplier and as an inbound Partnership
-- **When** the reader opens the context's Neighbours tab
+- **When** the reader opens the context
 - **Then** Inbox stands on the left, Productivity on the right, and Roadmap Planning only under hand in hand
 
 #### Scenario: A context with neighbours
 
 - **Given** a context whose `dependencies.md` lists Tasks with the Why *Notes link to and embed tasks*
-- **When** the reader opens the context's Neighbours tab
+- **When** the reader opens the context
 - **Then** Tasks is listed with *Notes link to and embed tasks*, and the menu has no row for `dependencies.md`
 
 #### Scenario: A partner and an outside system
 
 - **Given** a context whose `dependencies.md` lists Devbook as a Partnership and *GitHub (external)* as an outbound ACL
-- **When** the reader opens the context's Neighbours tab
+- **When** the reader opens the context
 - **Then** Devbook stands under hand in hand, GitHub is a dashed card on the left, and neither card says *Partnership* or *ACL*
+
+### Requirement: A context is one page however it is reached
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_page_opens_on_the_neighbours_with_the_Overview_below_and_no_tabs, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_middle_card_draws_no_Overview_link_on_the_context_page, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_dependencies_path_opens_the_same_one_page, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextMapPageTests.Picking_a_card_opens_that_contexts_one_page_as_the_menu_does]
+```
+
+The system SHALL show a bounded context as one page with no tabs, whichever way the reader reached it — a Context map card, a related link to its `context.md`, a link to its `dependencies.md`, or its menu row. The page opens on the context's neighbours and shows its Overview below them.
+
+#### Scenario: From the map and from the menu
+
+- **Given** a domain folder whose context map names Tasks
+- **When** the reader picks the Tasks card on the Context map, and later picks the Tasks row in the menu
+- **Then** both open the same Tasks page, its neighbours first and its Overview below, with no tab to choose
+
+#### Scenario: From a link to the dependencies
+
+- **Given** a chapter that links to `tasks/dependencies.md`
+- **When** the reader follows the link
+- **Then** the Tasks page opens as its menu row opens it, and the menu selects the Tasks row
 
 ### Requirement: Overview is the context's boundary
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_Overview_with_the_boundary_counts_proof_and_flags, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.An_outside_answer_a_tile_a_gate_and_a_lens_each_follow_their_reference, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_invariants_card_opens_its_units_Always_true_tab]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextPageTests.A_context_row_opens_on_its_neighbours_with_the_boundary_counts_proof_and_flags_below, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextOverviewTests, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.An_outside_answer_a_tile_a_gate_and_a_lens_each_follow_their_reference, unit:dotnet:Backlog.UI.Components.UnitTests.DomainContextViewTests.The_invariants_card_opens_its_units_Always_true_tab]
 ```
 
-The system SHALL open a context's row on an Overview tab that shows the context's subdomain, deployment and status, its name, and the prose above the first chapter of its `context.md` as a lead, an Inside card and an Outside card. Each question the Outside card asks links to the contexts its sentence says answer it. Below them the tab shows its domain and feature chapters counted per kind, each count opening its first unit, and its requirements and invariants as two cards that say how many name a test. It also shows its chapters per status as one bar, its feature flags and settings with the features each gates, and the context's other pages with the question each answers.
+The system SHALL show, below a context's neighbours, an Overview of the context's subdomain, deployment and status, its name, and the prose above the first chapter of its `context.md` as a lead, an Inside card and an Outside card. Each question the Outside card asks links to the contexts its sentence says answer it. Below them the Overview shows its domain and feature chapters counted per kind, each count opening its first unit, and its requirements and invariants as two cards that say how many name a test. It also shows its chapters per status as one bar, its feature flags and settings with the features each gates, and the context's other pages with the question each answers.
 
 #### Scenario: A context's Overview
 
 - **Given** a context whose `context.md` holds the feature flag `github-integration` and whose `requirements.md` holds two requirements, one with `tests`
 - **When** the reader opens the context
-- **Then** Overview is the open tab, its Requirements card counts two requirements and says one of two name a test, Requirements is among its pages, and `github-integration` is among its switches
+- **Then** the Overview stands below the neighbours, its Requirements card counts two requirements and says one of two name a test, Requirements is among its pages, and `github-integration` is among its switches
 
 ### Requirement: Underscore files stay hidden
 
@@ -1783,7 +1805,7 @@ status: draft
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ContextMapTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewContextMapPageTests]
 ```
 
-The system SHALL offer the context map, under its file's heading and a sentence counting its contexts, as a Map tab that draws the contexts and their relations and a List tab that names the contexts in reading order. Map draws every bounded context of the map's Mermaid fence as a card on an ellipse, ordered to cross as few lines as it can, and one line per pair of contexts the fence joins, with a head at both ends when the pair points both ways. A line between two core contexts is amber and any other grey, and a line the fence draws `-.->` is dashed. Each card says whether its context is core or supporting and how many lines touch it, and no line runs beneath a card it does not join. Pointing at or focusing a card fades every line that does not touch it, and the card says it zooms in. A line's tooltip and accessible name are the "Why" of the matching row in the source context's dependency tables, or the other context's when the source keeps none. Picking a card opens that context on its Neighbours tab. List names the core contexts and then the supporting ones, each group headed by its kind, its count and what the kind is for and each context with its "Why" from the Subdomain landscape table, then the published-languages table under the chapter's own headings with each contract named short — an event or type as the map spells it, a term in words, never its devbook path — and then each strategic rule as a card titled by its first sentence. No pattern name shows on either tab.
+The system SHALL offer the context map, under its file's heading and a sentence counting its contexts, as a Map tab that draws the contexts and their relations and a List tab that names the contexts in reading order. Map draws every bounded context of the map's Mermaid fence as a card on an ellipse, ordered to cross as few lines as it can, and one line per pair of contexts the fence joins, with a head at both ends when the pair points both ways. A line between two core contexts is amber and any other grey, and a line the fence draws `-.->` is dashed. Each card says whether its context is core or supporting and how many lines touch it, and no line runs beneath a card it does not join. Pointing at or focusing a card fades every line that does not touch it, and the card says it zooms in. A line's tooltip and accessible name are the "Why" of the matching row in the source context's dependency tables, or the other context's when the source keeps none. Picking a card opens that context's page. List names the core contexts and then the supporting ones, each group headed by its kind, its count and what the kind is for and each context with its "Why" from the Subdomain landscape table, then the published-languages table under the chapter's own headings with each contract named short — an event or type as the map spells it, a term in words, never its devbook path — and then each strategic rule as a card titled by its first sentence. No pattern name shows on either tab.
 
 #### Scenario: Contracts by their short names
 
@@ -1807,7 +1829,7 @@ The system SHALL offer the context map, under its file's heading and a sentence 
 
 - **Given** a context map whose fence draws `Inbox -->|OHS + Published Language| Tasks`, and an Inbox `dependencies.md` whose row for Tasks says why *A triaged item becomes a draft task*
 - **When** the reader points at the Inbox card, then picks the Tasks card
-- **Then** every line that does not touch Inbox fades, the Inbox–Tasks line reads *A triaged item becomes a draft task* and never *OHS*, and Tasks opens on its Neighbours tab
+- **Then** every line that does not touch Inbox fades, the Inbox–Tasks line reads *A triaged item becomes a draft task* and never *OHS*, and the Tasks page opens on its neighbours
 
 ### Requirement: Flow draws a lifecycle as one row of states
 

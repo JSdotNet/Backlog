@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// How the Domain view's Neighbours tab reads a context's dependency tables
+/// How the Domain view's context page reads a context's dependency tables
 /// (local ADR 0037): each neighbour stands by the way information goes — the
 /// pattern's role mark, else its table — a Partnership neighbour stands only below,
 /// an <c>(external)</c> row is outside the domain, outside systems sharing a

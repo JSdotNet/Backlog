@@ -11,11 +11,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Domain view's context page, reached the way a reader reaches it: the New
-/// domain view switch on, a context's row picked. The row opens an Overview |
-/// Neighbours bar on Overview (local ADR 0037): the boundary prose, the chapters
-/// per kind, the proof coverage, how settled they are and the flags and settings;
-/// Neighbours reads <c>dependencies.md</c>, or the <c>## Dependencies</c> chapter of
-/// a <c>context.md</c> that keeps its tables inline.
+/// domain view switch on, a context's row picked. The row opens one page with no
+/// tabs (local ADR 0037): the neighbours, read from <c>dependencies.md</c> or the
+/// <c>## Dependencies</c> chapter of a <c>context.md</c> that keeps its tables
+/// inline, then the Overview — the boundary prose, the chapters per kind, the proof
+/// coverage, how settled they are and the flags and settings.
 /// </summary>
 public sealed class DomainViewContextPageTests : IDisposable
 {
@@ -125,7 +125,7 @@ public sealed class DomainViewContextPageTests : IDisposable
         """;
 
     [Fact]
-    public async Task A_context_row_opens_on_Overview_with_the_boundary_counts_proof_and_flags()
+    public async Task A_context_row_opens_on_its_neighbours_with_the_boundary_counts_proof_and_flags_below()
     {
         await using var harness = CreateHarness();
 
@@ -136,8 +136,9 @@ public sealed class DomainViewContextPageTests : IDisposable
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context-page']")), Patience);
         Assert.Equal("context", component.Find("[data-testid='domain-view']").GetAttribute("data-page"));
-        Assert.Equal(["Overview", "Neighbours"], component.FindAll("[data-testid='domain-context-page-tabs'] [role='tab']").Select(tab => tab.TextContent.Trim()));
-        Assert.Equal("true", component.Find("[data-testid='domain-context-page-tab-overview']").GetAttribute("aria-selected"));
+        Assert.Empty(component.FindAll("[data-testid='domain-context-page'] [role='tab']"));
+        Assert.Single(component.FindAll("[data-testid='domain-context-page'] > [data-testid='domain-neighbours']"));
+        Assert.Single(component.FindAll("[data-testid='domain-context-page'] > [data-testid='domain-context-page-overview']"));
         Assert.Equal("Tasks", component.Find("[data-testid='domain-context-page-title']").TextContent);
         Assert.Contains("personal backlog", component.Find("[data-testid='domain-context-page-lead']").TextContent);
         var requirements = component.Find("[data-testid='domain-context-page-proof-requirements']");
@@ -160,7 +161,6 @@ public sealed class DomainViewContextPageTests : IDisposable
             .Add(v => v.RepositoryAlias, harness.RepositoryAlias)
             .Add(v => v.SelectedPath, "tasks"));
         view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='domain-context-page']")), Patience);
-        await view.InvokeAsync(() => view.Find("[data-testid='domain-context-page-tab-neighbours']").Click());
 
         view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='domain-neighbours-legend']")), Patience);
         var gitHub = view.Find("[data-testid='domain-neighbours-listens-to'] [data-testid='domain-neighbour']");
@@ -184,7 +184,7 @@ public sealed class DomainViewContextPageTests : IDisposable
     }
 
     [Fact]
-    public async Task A_dependencies_path_opens_on_Neighbours()
+    public async Task A_dependencies_path_opens_the_same_one_page()
     {
         await using var harness = CreateHarness();
 
@@ -193,7 +193,8 @@ public sealed class DomainViewContextPageTests : IDisposable
             .Add(v => v.SelectedPath, "tasks/dependencies.md"));
 
         view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='domain-neighbours-legend']")), Patience);
-        Assert.Equal("true", view.Find("[data-testid='domain-context-page-tab-neighbours']").GetAttribute("aria-selected"));
+        Assert.Empty(view.FindAll("[role='tab']"));
+        Assert.Equal("Tasks", view.Find("[data-testid='domain-context-page-title']").TextContent);
     }
 
     [Fact]
@@ -205,7 +206,6 @@ public sealed class DomainViewContextPageTests : IDisposable
             .Add(v => v.RepositoryAlias, harness.RepositoryAlias)
             .Add(v => v.SelectedPath, "sync/context.md"));
         view.WaitForAssertion(() => Assert.Single(view.FindAll("[data-testid='domain-context-page']")), Patience);
-        await view.InvokeAsync(() => view.Find("[data-testid='domain-context-page-tab-neighbours']").Click());
 
         view.WaitForAssertion(() => Assert.Equal(
             "Tasks",

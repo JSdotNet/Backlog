@@ -6,7 +6,7 @@
     every context's dependency tables through the domain store and hands them to the
     library's ContextMapView: Map draws the contexts on an ellipse with a line per
     pair, each line worded by the source context's dependency row; List names them
-    in reading order. A card opens its context on Neighbours, by following that
+    in reading order. A card opens its context's page, by following that
     context's dependencies.md, which the pane opens on the context's row.
 *@
 
@@ -39,7 +39,7 @@ else if (_read?.Problem is { } problem)
     public string? SelectedPath { get; set; }
 
     /// <summary>A card the reader picked, as the reference to its context's
-    /// Neighbours, or a link in the published languages or the rules.</summary>
+    /// dependencies, or a link in the published languages or the rules.</summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
@@ -137,7 +137,8 @@ else if (_read?.Problem is { } problem)
     }
 
     /// <summary>The reference a card follows: its context's <c>dependencies.md</c>,
-    /// which has no menu row and so opens the context's row on Neighbours.</summary>
+    /// which has no menu row and so opens the context's row — the page that opens
+    /// on its neighbours.</summary>
     internal static DevbookChapterLink? NeighboursOf(ContextMapContext context) =>
         context.Slug is { } slug ? DevbookChapterLink.From($".devbook/domain/{slug}/dependencies.md") : null;
 

@@ -10,9 +10,9 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <c>&lt;kind&gt;.&lt;name&gt;.md</c> is a child of its kind's row, and each further
 /// dot nests it one level deeper — <c>features.producten.budgetbeheer.md</c> under
 /// <c>features.producten.md</c>. A kind, or a split, with no file of its own is a
-/// row that only opens its children. The files that are a tab or a button on
-/// another page draw no row: <c>domain*.invariants.md</c> is Always true and
-/// <c>dependencies.md</c> is Neighbours (a <c>*.demo.html</c> never reaches the
+/// row that only opens its children. The files shown on another page draw no
+/// row: <c>domain*.invariants.md</c> is Always true and <c>dependencies.md</c> is
+/// the neighbours atop its context's page (a <c>*.demo.html</c> never reaches the
 /// menu, which lists Markdown only). The <c>assets</c> folder draws no row either:
 /// it holds the images the chapters show, not a page, and the board draws none.
 /// Every other page, and every folder, follows the kinds in the order the rail has
@@ -62,7 +62,7 @@ public sealed partial class DevbookMenu
 
     /// <summary>A file the view shows on another file's page rather than as a
     /// row: an invariants subpage (Always true) or the context's dependencies
-    /// (Neighbours).</summary>
+    /// (the neighbours atop the context's page).</summary>
     private static bool ShowsOnAnotherPage(string fileName) =>
         DomainDevbookStore.IsInvariantsSubpage(fileName)
         || string.Equals(fileName, "dependencies.md", StringComparison.OrdinalIgnoreCase);

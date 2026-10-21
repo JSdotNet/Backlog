@@ -9,14 +9,14 @@
     <Story Name="Map"
            Description="A line between two core contexts is amber, any other grey, and a relation the map draws `-.->` is dashed because it is named and not built. Tasks and Roadmap Planning point at each other, so their line has a head at both ends. Each card says Core or Supporting and how many lines touch it.
 
-Point at or tab to a card and every line that does not touch it fades. Hover a line for its wording: the reason the source context's dependency table gives. Picking a card opens that context on its Neighbours tab; here it names the context it would open."
+Point at or tab to a card and every line that does not touch it fades. Hover a line for its wording: the reason the source context's dependency table gives. Picking a card opens that context's page, on its neighbours; here it names the context it would open."
            Code="@MapCode"
            Source="@ContextMapMd"
            SourceLabel="context-map.md">
         <ContextMapView Map="@Sample" OnOpen="@(context => _opened = context.Slug)" TestId="story-context-map" />
         @if (_opened is not null)
         {
-            <p class="sb-state" data-testid="story-context-map-opened">Opens: <code>@_opened</code> on Neighbours</p>
+            <p class="sb-state" data-testid="story-context-map-opened">Opens: <code>@_opened</code></p>
         }
     </Story>
 
@@ -26,12 +26,12 @@ Point at or tab to a card and every line that does not touch it fades. Hover a l
         <ContextMapView Map="@Sample" InitialTab="list" OnOpen="@(context => _openedFromList = context.Slug)" TestId="story-context-map-list" />
         @if (_openedFromList is not null)
         {
-            <p class="sb-state" data-testid="story-context-map-list-opened">Opens: <code>@_openedFromList</code> on Neighbours</p>
+            <p class="sb-state" data-testid="story-context-map-list-opened">Opens: <code>@_openedFromList</code></p>
         }
     </Story>
 
     <Story Name="A context with no folder"
-           Description="A card for a context the map names and the domain folder has no folder for is drawn, and opens nothing: there is no Neighbours tab to open. It can still be focused, to fade the lines that do not touch it."
+           Description="A card for a context the map names and the domain folder has no folder for is drawn, and opens nothing: there is no context page to open. It can still be focused, to fade the lines that do not touch it."
            Code="@NoFolderCode">
         <ContextMapDiagram Map="@NoFolder" OnOpen="@(context => _opened = context.Slug)" TestId="story-context-map-no-folder" />
     </Story>
@@ -162,16 +162,16 @@ Point at or tab to a card and every line that does not touch it fades. Hover a l
     private const string MapCode = """
         <ContextMapView Map="@ContextMaps.Read(contextMapMd, contextsWithTheirDependencyTables)"
                         DocumentPath="@contextMapPath"
-                        OnOpen="OpenNeighbours"
+                        OnOpen="OpenContext"
                         OnNavigate="Follow" />
         """;
 
     private const string ListCode = """
-        <ContextMapView Map="@map" InitialTab="list" OnOpen="OpenNeighbours" />
+        <ContextMapView Map="@map" InitialTab="list" OnOpen="OpenContext" />
         """;
 
     private const string NoFolderCode = """
-        <ContextMapDiagram Map="@ContextMaps.Read(contextMapMd, contextsWithoutDevPc)" OnOpen="OpenNeighbours" />
+        <ContextMapDiagram Map="@ContextMaps.Read(contextMapMd, contextsWithoutDevPc)" OnOpen="OpenContext" />
         """;
 
     private const string EmptyCode = """
