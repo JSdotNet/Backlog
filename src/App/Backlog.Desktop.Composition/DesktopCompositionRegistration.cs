@@ -13,6 +13,7 @@ using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sqlite;
@@ -148,9 +149,12 @@ public static class DesktopCompositionRegistration
 
         // Notifications (local ADR 0038): this desktop owns what it publishes, kept in the
         // notifications table AddSqlite registered above. Each context that asks questions adds
-        // its handler with AddNotificationAnswerHandler<T>(); none does yet. The heads start
+        // its handler with AddNotificationAnswerHandler<T>(). The heads start
         // NotificationsStartup once the container is built.
         services.AddNotificationsModule();
+        // The MCP ask tool's questions: the asking session polls get_answer, so its handler
+        // only takes the answer, which stops the startup pass replaying it on every start.
+        services.AddNotificationAnswerHandler<McpNotificationAnswers>();
         // The stand-up behind the shell's Ask AI port on the Goals view, after the
         // module so the scoped stand-up port it holds exists.
         services.AddGoalsAiContentSource();

@@ -20,7 +20,8 @@ public enum NotificationsRole
 
 /// <summary>
 /// The module's composition root. A host calls <see cref="AddNotificationsModule"/> once and gets
-/// <see cref="INotifications"/> and <see cref="INotificationReplies"/>; each context that asks
+/// <see cref="INotifications"/>, <see cref="INotificationReplies"/> and
+/// <see cref="INotificationStatuses"/>; each context that asks
 /// questions adds its handler with <see cref="AddNotificationAnswerHandler{THandler}"/>, and each
 /// context that owns subjects its probe with <see cref="AddNotificationSubjectProbe{TProbe}"/>.
 /// <para>
@@ -43,6 +44,7 @@ public static class NotificationsModuleRegistration
                 services.TryAddSingleton<ViewerNotifications>();
                 services.TryAddSingleton<INotifications>(sp => sp.GetRequiredService<ViewerNotifications>());
                 services.TryAddSingleton<INotificationReplies>(sp => sp.GetRequiredService<ViewerNotifications>());
+                services.TryAddSingleton<INotificationStatuses, ViewerNotificationStatuses>();
                 return services;
 
             case NotificationsRole.Owner:
@@ -70,6 +72,7 @@ public static class NotificationsModuleRegistration
             sp.GetService<IAppFeatureSettings>()));
         services.TryAddSingleton<INotifications>(sp => sp.GetRequiredService<OwnerNotifications>());
         services.TryAddSingleton<INotificationReplies>(sp => sp.GetRequiredService<OwnerNotifications>());
+        services.TryAddSingleton<INotificationStatuses>(sp => new OwnerNotificationStatuses(sp.GetRequiredService<INotificationRepository>()));
 
         services.TryAddSingleton(sp => new NotificationsStartup(
             sp.GetRequiredService<INotificationRepository>(),
