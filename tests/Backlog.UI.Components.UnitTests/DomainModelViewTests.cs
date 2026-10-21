@@ -365,6 +365,34 @@ public sealed class DomainModelViewTests
         Assert.Empty(diagram.FindAll("[data-testid='domain-model-band']"));
     }
 
+    [Fact]
+    public void A_class_no_aggregate_holds_is_a_card_outside_every_band()
+    {
+        using var context = Context();
+
+        var diagram = context.Render<DomainModelDiagram>(p => p.Add(d => d.Source, """
+            classDiagram
+                class Device {
+                    <<aggregate root>>
+                    +OwnerId OwnerId
+                }
+                class OwnerScope {
+                    <<value object>>
+                    +OwnerId OwnerId
+                    +DeviceId DeviceId
+                }
+                class TaskChange {
+                    +Guid Id
+                }
+            """));
+
+        Assert.Equal("domain-model", diagram.Find("[data-testid='domain-model-diagram']").GetAttribute("data-rendered"));
+        var cards = diagram.FindAll("[data-testid='domain-model-outside-class']");
+        Assert.Equal(["OwnerScope", "TaskChange"], cards.Select(c => c.GetAttribute("data-name")));
+        Assert.Contains("value object", cards[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("from another context", cards[1].TextContent, StringComparison.Ordinal);
+    }
+
     private static BunitContext Context()
     {
         var context = new BunitContext();

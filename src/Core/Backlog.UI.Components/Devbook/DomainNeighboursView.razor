@@ -1,14 +1,15 @@
 @*
-    A context's Neighbours tab in the Domain view (local ADR 0037): the contexts it
-    listens to on the left, the context in the middle, the contexts that listen to
-    it on the right, and the ones it works hand in hand with below. Lines join every
-    card to the middle one, an arrowhead pointing the way information goes: from a
-    context it listens to into it, and from it into a context that listens to it.
+    A context's neighbours, at the top of its page in the Domain view (local ADR
+    0037): the contexts it listens to on the left, the context in the middle, the
+    contexts that listen to it on the right, and the ones it works hand in hand
+    with below. Lines join every card to the middle one, an arrowhead pointing
+    the way information goes: from a context it listens to into it, and from it
+    into a context that listens to it.
     Hand-in-hand partners hang off the middle card on an amber line. Each card is a
     neighbour's name, a Core or external tag, and its row's reason cut to a short
     phrase, the whole first sentence as its tooltip; the relationship pattern is the
     table's, never the card's. A system outside the domain is a dashed card. A title
-    and an intro open the page, and a short legend closes it in plain words.
+    and an intro open the section, and a short legend closes it in plain words.
 
     The lines are drawn by the stylesheet around the cards, never measured: a bus
     joins one side's cards, one line joins the bus to the middle card. On a narrow
@@ -52,13 +53,6 @@
                         <span class="domain-neighbours__self-summary" data-testid="domain-neighbours-summary">@ContextSummary</span>
                     }
                     <span class="domain-neighbours__self-counts" data-testid="domain-neighbours-counts">@Counts</span>
-                    @if (OnOverview.HasDelegate)
-                    {
-                        <AppButton BaseClass="domain-neighbours__overview"
-                                   Variant="ButtonVariant.None"
-                                   OnClick="@(() => OnOverview.InvokeAsync())"
-                                   TestId="domain-neighbours-overview">Overview <span aria-hidden="true">→</span></AppButton>
-                    }
                 </div>
                 @if (Neighbours.HandInHand.Count > 0)
                 {
@@ -114,11 +108,6 @@
     /// <summary>A neighbour's name the reader followed to its own context page.</summary>
     [Parameter]
     public EventCallback<DevbookReference> OnNavigate { get; set; }
-
-    /// <summary>The middle card's Overview link, which opens the context's Overview
-    /// tab. Without a handler the card draws no link.</summary>
-    [Parameter]
-    public EventCallback OnOverview { get; set; }
 
     [Parameter]
     public string? TestId { get; set; } = "domain-neighbours";

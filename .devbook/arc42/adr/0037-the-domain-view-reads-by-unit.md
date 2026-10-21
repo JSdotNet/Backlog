@@ -58,8 +58,8 @@ devbook before it reads well.
 
 | File in a context | In the menu | On the page |
 | --- | --- | --- |
-| `context.md` | The context's row | **Overview** |
-| `dependencies.md` | No row | The context's **Neighbours** tab |
+| `context.md` | The context's row | One page: the neighbours, then **Overview** |
+| `dependencies.md` | No row | The context page's neighbours section, not a tab |
 | `domain.md` | **Domain** | A unit picker |
 | `domain.<name>.md` | A child of **Domain**, titled by its heading | **About** |
 | `domain.<name>.invariants.md` | No row | **Always true** on `domain.<name>.md`'s page |
@@ -74,16 +74,20 @@ devbook before it reads well.
 2. **A split file is a child of its kind.** `<kind>.<name>.md` sits under its
    kind's row and is titled by its own heading. Each further dot nests one level
    deeper, so `domain.order.line.md` sits under `domain.order.md`.
-3. **Some files are tabs or buttons, not rows.** `domain.<name>.invariants.md` is
-   the Always true tab of its page. A `*.demo.html` is a Demo button on its page.
-   `dependencies.md` is the context's Neighbours tab. Every other file follows its
-   kind, and a file whose name starts with `_` stays hidden.
+3. **Some files are tabs, sections or buttons, not rows.**
+   `domain.<name>.invariants.md` is the Always true tab of its page. A
+   `*.demo.html` is a Demo button on its page. `dependencies.md` is the
+   neighbours section at the top of its context's page, and the Overview follows
+   below it. A context's page has no tabs, so every way into a context — the
+   Context map, a related link, a `dependencies.md` link, the menu — shows it the
+   same way. Every other file follows its kind, and a file whose name starts with
+   `_` stays hidden.
 4. **An unsplit domain picks in the page.** A context whose domain is the one
    `domain.md` offers its aggregates, domain services and Glossary as a chapter
    bar inside the Domain page, rather than as rows.
 5. **The wording is the chapters'.** Headings show as written. A unit's summary
-   is its chapter's first sentence. A relation on Neighbours reads the "Why"
-   column of the dependency tables. No meta field is added.
+   is its chapter's first sentence. A relation among a context's neighbours
+   reads the "Why" column of the dependency tables. No meta field is added.
 6. **Technical detail lives on Model.** Field types, invocation semantics and
    event payloads show on Model only. The functional pages carry the domain's own
    language.
@@ -141,7 +145,8 @@ Look for tests that show these behaviours:
 3. **Nesting.** `domain.<name>.md` is a child of Domain, titled by its heading,
    and a further dot nests one level deeper.
 4. **No row.** An invariants file, a demo and `dependencies.md` have no row, and
-   show as Always true, a Demo button and Neighbours.
+   show as Always true, a Demo button and the neighbours atop the context's page.
+   A context's page has no tabs, however the reader reached it.
 5. **Hidden.** A `_` file or folder is never listed.
 6. **Unsplit domain.** One `domain.md` offers its aggregates, domain services and
    Glossary in a chapter bar.

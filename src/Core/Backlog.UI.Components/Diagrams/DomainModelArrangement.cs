@@ -56,23 +56,29 @@ public sealed record DomainModelBoundary(DomainModelClass Root, IReadOnlyList<Do
     public IReadOnlyList<string> KeyFields { get; init; } = [];
 }
 
+/// <summary>A class no aggregate holds — a shared value object, a type another
+/// context owns — with the classes it composes, which the page names on its card.
+/// A composed class no aggregate holds is a card of its own as well, with its
+/// fields.</summary>
+public sealed record DomainModelOutsider(DomainModelClass Class, IReadOnlyList<string> Owns);
+
 /// <summary>
 /// A class diagram arranged the way the Model page draws it: each aggregate root in
 /// a consistency-boundary band with its composed parts around it, the references by
 /// identity outside the band, and the context's domain services below.
 /// </summary>
-/// <param name="Unplaced">The classes the arrangement has no place for — the
-/// enumerations and the types a band member only uses. Named so the page can say
-/// they are on Fields rather than let them go missing without a word.</param>
+/// <param name="Unplaced">The enumerations no band, reference or service holds:
+/// the types a band member only uses. Named so the page can say they are on
+/// Fields rather than let them go missing without a word.</param>
 public sealed partial record DomainModelArrangement(
     IReadOnlyList<DomainModelBoundary> Boundaries,
     IReadOnlyList<DomainModelClass> Services,
     IReadOnlyList<DomainModelClass> Unplaced)
 {
-    /// <summary>The fence arranged, or null when it does not parse, holds no
-    /// aggregate root, or holds a class other than an enumeration that no band,
-    /// reference or service section would show — the page then draws the fence with
-    /// mermaid instead.</summary>
+    /// <summary>The fence arranged, or null when it does not parse or holds no
+    /// aggregate root — the page then draws the fence with mermaid instead. A class
+    /// no band, reference or service holds is listed (an enumeration) or drawn
+    /// outside every band (<see cref="Outside"/>), never a reason to fall back.</summary>
     /// <param name="identities">The chapters an id attribute can point at, the
     /// ones to prefer first.</param>
     public static DomainModelArrangement? TryArrange(string? source, IReadOnlyList<DomainModelIdentity>? identities = null) =>
@@ -122,16 +128,29 @@ public sealed partial record DomainModelArrangement(
             foreach (var reference in boundary.References.Where(r => r.Source == DomainModelReferenceSource.Relation)) placed.Add(reference.Target);
         }
 
-        var unplaced = diagram.Classes.Where(c => !placed.Contains(c.Name)).ToList();
+        var left = diagram.Classes.Where(c => !placed.Contains(c.Name)).ToList();
 
         // An enumeration left over is a type a member uses, listed on Fields. Any
-        // other class left over carries structure of its own the bands would not
-        // show — a value object with parts that no root composes — so the fence is
-        // drawn with mermaid rather than as a picture with that structure missing.
-        if (unplaced.Any(c => c.Kind != DomainModelKind.Enumeration)) return null;
+        // other class left over — a shared value object, a value object with parts
+        // of its own, a type another context owns — is drawn as a card outside
+        // every band, with what it owns, rather than sending the fence to mermaid.
+        var outside = left
+            .Where(c => c.Kind != DomainModelKind.Enumeration)
+            .Select(c => new DomainModelOutsider(c, [.. diagram.Relations
+                .Where(r => r.Kind == DomainModelRelationKind.Composition && r.From == c.Name)
+                .Select(r => r.To)]))
+            .ToList();
 
-        return new DomainModelArrangement(boundaries, services, unplaced);
+        return new DomainModelArrangement(boundaries, services, [.. left.Where(c => c.Kind == DomainModelKind.Enumeration)])
+        {
+            Outside = outside
+        };
     }
+
+    /// <summary>The classes no band, reference or service holds, other than
+    /// enumerations: drawn as cards outside every aggregate, each with the classes
+    /// it composes.</summary>
+    public IReadOnlyList<DomainModelOutsider> Outside { get; init; } = [];
 
     /// <summary>
     /// What the aggregate holds by identity, one entry per type. A dashed line from

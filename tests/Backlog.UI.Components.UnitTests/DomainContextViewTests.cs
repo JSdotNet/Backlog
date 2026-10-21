@@ -3,15 +3,15 @@ using Backlog.UI.Components.Brain;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Domain view's context page as markup: an Overview | Neighbours bar that
-/// opens on Overview, the Neighbours board's three groups with an external system
+/// The Domain view's context page as markup: one page with no tabs, the
+/// neighbours on top and the Overview below, the board's three groups with an external system
 /// as a dashed card, a legend in plain words, and a following neighbour's name
 /// handed back as the reference to its own context.
 /// </summary>
 public sealed class DomainContextViewTests
 {
     [Fact]
-    public void The_page_opens_on_Overview_with_Neighbours_beside_it()
+    public void The_page_opens_on_the_neighbours_with_the_Overview_below_and_no_tabs()
     {
         using var context = Context();
 
@@ -20,13 +20,16 @@ public sealed class DomainContextViewTests
             .Add(v => v.Overview, DomainContextOverview.Read(DomainContextOverviewTests.Context, [DomainContextOverviewTests.Requirements]))
             .Add(v => v.Neighbours, DomainNeighbours.Read(DomainNeighboursTests.Dependencies, DomainNeighboursTests.Path)));
 
-        Assert.Equal(["Overview", "Neighbours"], view.FindAll("[role='tab']").Select(tab => tab.TextContent.Trim()));
-        Assert.Equal("true", view.Find("[data-testid='domain-context-page-tab-overview']").GetAttribute("aria-selected"));
+        Assert.Empty(view.FindAll("[role='tab'], [role='tablist'], [role='tabpanel']"));
+        var page = view.Find("[data-testid='domain-context-page']");
+        var neighbours = page.QuerySelector("[data-testid='domain-neighbours']");
+        var overview = page.QuerySelector("[data-testid='domain-context-page-overview']");
+        Assert.NotNull(neighbours);
+        Assert.NotNull(overview);
+        Assert.Equal([neighbours, overview], page.Children.Where(child => child == neighbours || child == overview));
+        Assert.Single(view.FindAll("[data-testid='domain-neighbours-legend']"));
         Assert.Equal(2, view.FindAll("[data-testid='domain-context-page-switch']").Count);
         Assert.Contains("1 of 2 name a test", view.Find("[data-testid='domain-context-page-proof']").TextContent);
-
-        view.Find("[data-testid='domain-context-page-tab-neighbours']").Click();
-        Assert.Single(view.FindAll("[data-testid='domain-neighbours-legend']"));
     }
 
     [Fact]
@@ -96,20 +99,17 @@ public sealed class DomainContextViewTests
     }
 
     [Fact]
-    public void The_middle_cards_Overview_link_opens_the_Overview_tab()
+    public void The_middle_card_draws_no_Overview_link_on_the_context_page()
     {
         using var context = Context();
 
         var view = context.Render<DomainContextView>(p => p
             .Add(v => v.ContextName, "Tasks")
-            .Add(v => v.InitialTab, "neighbours")
             .Add(v => v.Neighbours, DomainNeighbours.Read(DomainNeighboursTests.Dependencies, DomainNeighboursTests.Path)));
 
-        Assert.Equal("true", view.Find("[data-testid='domain-context-page-tab-neighbours']").GetAttribute("aria-selected"));
-
-        view.Find("[data-testid='domain-neighbours-overview']").Click();
-
-        Assert.Equal("true", view.Find("[data-testid='domain-context-page-tab-overview']").GetAttribute("aria-selected"));
+        Assert.Single(view.FindAll("[data-testid='domain-neighbours-self']"));
+        Assert.Empty(view.FindAll("[data-testid='domain-neighbours-overview']"));
+        Assert.DoesNotContain("Overview →", view.Find("[data-testid='domain-neighbours-self']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]

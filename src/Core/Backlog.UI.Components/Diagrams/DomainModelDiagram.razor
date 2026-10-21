@@ -8,11 +8,12 @@
     The lines are drawn by the stylesheet, not by an SVG: the band, the parts and
     the references stay boxes in a reading order — the parts above the root, the
     root, the parts below it, then what sits outside — and each part says its kind
-    and multiplicity in words, which a screen reader reads and a line never was.
-    A part the invariants are about counts its rules, and the count opens them
-    in place under the card (DomainRuleList). A
-    fence this cannot arrange in full (DomainModelArrangement returns null) is
-    handed to DiagramView, which draws it with mermaid as before.
+    and multiplicity in words, which a screen reader reads and a line never was. A
+    class no band holds — a shared value object, a type another context owns — is
+    a card outside every aggregate. A part the invariants are about counts its
+    rules, and the count opens them in place under the card (DomainRuleList). A
+    fence that does not parse or names no aggregate root (DomainModelArrangement
+    returns null) is handed to DiagramView, which draws it with mermaid as before.
 *@
 
 @if (_arrangement is null)
@@ -103,6 +104,22 @@ else
                             {
                                 <span class="domain-model__service-summary">@summary</span>
                             }
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+        @if (_arrangement.Outside.Count > 0)
+        {
+            <section class="domain-model__services" data-testid="domain-model-outside" aria-label="Outside every aggregate">
+                <span class="domain-model__group-label">Outside every aggregate</span>
+                <ul class="domain-model__service-list">
+                    @foreach (var outsider in _arrangement.Outside)
+                    {
+                        var element = outsider.Class;
+                        <li class="@($"domain-model__service domain-model__element--{DomainModelArrangement.KindKey(element.Kind)}")" data-testid="domain-model-outside-class" data-name="@element.Name" data-kind="@DomainModelArrangement.KindKey(element.Kind)">
+                            <span class="domain-model__service-name"><span class="domain-model__element-glyph" aria-hidden="true">@DomainModelArrangement.KindGlyph(element.Kind)</span> @element.Name</span>
+                            <span class="domain-model__service-summary">@OutsiderSummary(outsider)</span>
                         </li>
                     }
                 </ul>
@@ -210,6 +227,18 @@ else
             if (!named.Contains(RunTogether(service.Name))) cards.Add((service.Name, null));
         }
         return cards;
+    }
+
+    /// <summary>What a card outside every band says: its kind — "from another
+    /// context" for a class with no stereotype — its fields, and what it owns.</summary>
+    private static string OutsiderSummary(DomainModelOutsider outsider)
+    {
+        var element = outsider.Class;
+        var kind = element.Kind == DomainModelKind.Other ? "from another context" : DomainModelArrangement.KindLabel(element.Kind);
+        var parts = new List<string> { kind };
+        if (FieldSummary(element) is { Length: > 0 } fields) parts.Add(fields);
+        if (outsider.Owns.Count > 0) parts.Add("owns " + string.Join(", ", outsider.Owns));
+        return string.Join(" — ", parts);
     }
 
     internal static string RunTogether(string text) =>

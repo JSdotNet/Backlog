@@ -377,13 +377,13 @@ internal static class StorybookIndex
             // none of them reads keeps DiagramView's rendering.
             new("devbook/domain-flows", "Domain flows", "DomainFlowPage, DomainFlowRow, DomainFlowchart and DomainSequence: a `flow.md` whose `stateDiagram-v2` is drawn as one row of states — forward transitions above, the ways back below, the restore loop round the outside — and whose flowcharts and sequences wear the same cards and lines, with its prose beneath."),
 
-            // The board a context's Neighbours tab draws, then
-            // the context page that holds it beside Overview (local ADR 0037).
+            // The board atop a context's page, then the page that holds it
+            // above its Overview (local ADR 0037).
             new("devbook/domain-neighbours", "Domain neighbours", "DomainNeighboursView: a context's dependency tables as a board — listens to, listen to, hand in hand — with outside systems as dashed cards."),
-            new("devbook/domain-context", "Domain context", "DomainContextView: a bounded context's Overview — its badges and lead, its boundary inside and outside, what it holds, how well it is proved and how settled, its switches and the questions its pages answer — beside Neighbours."),
+            new("devbook/domain-context", "Domain context", "DomainContextView: a bounded context's one page — its neighbours, then its Overview: its badges and lead, its boundary inside and outside, what it holds, how well it is proved and how settled, its switches and the questions its pages answer."),
 
-            // After the context page, which a card on the map opens on its
-            // Neighbours tab: the Domain view's Context map page (local ADR 0037).
+            // After the context page, which a card on the map opens: the
+            // Domain view's Context map page (local ADR 0037).
             new("devbook/domain-context-map", "Domain context map", "ContextMapView and ContextMapDiagram: `context-map.md` as Map — every context a card on an ellipse, a line per pair, amber between core contexts, dashed when not built — and as List, in reading order."),
 
             // Last, because it is the one page of the group that is not about the

@@ -791,7 +791,7 @@ field types reads Model.
 | Menu row | The file | The page |
 | --- | --- | --- |
 | Context map | `context-map.md` | **Map** draws the contexts and their relations; **List** names them in reading order |
-| A context | `context.md` | **Overview** is the context's boundary, what it holds, how well it is proved and settled, its switches and its pages; **Neighbours** is its `dependencies.md` |
+| A context | `context.md` | One page with no tabs: its neighbours, from `dependencies.md`, then its **Overview** — the context's boundary, what it holds, how well it is proved and settled, its switches and its pages |
 | Domain | `domain.md` and its splits | A unit picker. An aggregate opens **About** and **Always true**; a domain service opens one page; the **Glossary**, from the Ubiquitous Language chapter, is the bar's last tab |
 | Features | `features.md` | The features and their sub-features |
 | Requirements | `requirements.md` | Each requirement and its scenarios |
@@ -801,7 +801,8 @@ field types reads Model.
 The menu lists files in the devbook reading order, and a split file nests under
 its kind's row. A rules file, a click demo and `dependencies.md` get no row of
 their own. Each one shows on the page it belongs to: the rules as the **Always
-true** tab, the demo as a **Demo** button, the dependencies as **Neighbours**. A
+true** tab, the demo as a **Demo** button, the dependencies as the neighbours at
+the top of the context's page. A
 file whose name starts with `_` stays hidden, and so does the `assets` folder,
 whose images the chapters show. How each file maps to a row is
 local [ADR 0037](../../arc42/adr/0037-the-domain-view-reads-by-unit.md).
@@ -812,9 +813,14 @@ its far edge. A heading that only repeats the context's name keeps the kind's
 own name, as every row does before the devbook database is built.
 
 **Wording comes from the chapters.** A page shows the headings as written, and a
-row's summary is its chapter's first sentence. A relation on **Neighbours** reads
+row's summary is its chapter's first sentence. A relation among the neighbours reads
 the "Why" column of the dependency tables. No chapter gains a field for the view,
 so a devbook reads the same in the app and in a Markdown viewer.
+
+**A context reads one way however it is reached.** The Context map, a related
+link, a link to its `dependencies.md` and its menu row all open the same page. It
+opens on the neighbours diagram and the Overview follows below it, so no tab
+decides what the reader sees first.
 
 **A context's Overview reads its `context.md` as the board draws it.** The
 name and the boundary's lead come first, under its subdomain, deployment and
@@ -831,6 +837,17 @@ offers; every other word is a chapter's.
 and what an event carries are shown on Model only. The functional pages, from the
 context's Overview to its Glossary, say what the domain does in its own
 language.
+
+**Diagram reads the model file's stereotypes.** Each class of a `classDiagram`
+carries the building block its `domain.md` chapter names, as one of five
+stereotypes: `<<aggregate root>>`, `<<entity>>`, `<<value object>>`,
+`<<enumeration>>` and `<<domain service>>`. A type another context owns carries
+none. A stereotype is never a list of names: a type's variants are written in
+the relationship notes. Composition (`*--`) draws a part inside its root's
+boundary, a dashed line (`..>`) a type held by id outside it. A class no
+aggregate holds, such as a shared value object or another context's type, is a
+card outside every boundary. Only a diagram that does not parse, or names no
+aggregate root, is drawn with mermaid.
 
 **Fields reads the model file's own groups.** Fields heads the aggregate root
 with its kind, its chapter's status and aliases, its name and its chapter's first

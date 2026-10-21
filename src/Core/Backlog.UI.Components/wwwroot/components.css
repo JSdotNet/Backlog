@@ -24480,11 +24480,12 @@ select.field__input {
     min-width: 0;
 }
 
-/* The Domain view's context page (local ADR 0037): Overview after its board —
+/* The Domain view's context page (local ADR 0037), one page with no tabs: its
+   dependency tables drawn as a board on top, then the Overview after its board —
    the context's badges, name and lead, the boundary as an Inside and an Outside
    card, what it holds as tiles, how well it is proved as two cards, how settled
    it is as one stacked bar, its switches, and its pages read through a
-   question; Neighbours is its dependency tables drawn as a board. */
+   question. A rule parts the two. */
 .domain-context-page {
     display: flex;
     flex-direction: column;
@@ -24495,6 +24496,7 @@ select.field__input {
     display: grid;
     gap: var(--spacing-xl);
     padding: var(--spacing-lg) 0;
+    border-top: 1px solid var(--color-border);
     min-width: 0;
 }
 
@@ -25155,29 +25157,6 @@ select.field__input {
 .domain-neighbours__self-counts {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
-}
-
-.domain-neighbours__overview {
-    margin-top: var(--spacing-xs);
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--color-primary);
-    font: inherit;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    cursor: pointer;
-}
-
-.domain-neighbours__overview:hover {
-    color: var(--color-primary-light);
-    text-decoration: underline;
-}
-
-.domain-neighbours__overview:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-    border-radius: var(--border-radius-sm);
 }
 
 /* Hand in hand: one amber bar under the drop, a riser to each partner. */

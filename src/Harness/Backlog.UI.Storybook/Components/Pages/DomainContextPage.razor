@@ -3,11 +3,11 @@
 <PageTitle>Domain context — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain context"
-           Summary="A subpage of Devbook: the page a bounded context's row opens in the Domain view (local ADR 0037). DomainContextView is an Overview | Neighbours bar that opens on Overview. Overview reads `context.md` and the files beside it: the context's subdomain, deployment and status as badges, its name and lead, the boundary as an Inside and an Outside card, what it holds as tiles, how well it is proved as a Requirements and an Invariants card, how settled it is as one stacked bar, its switches with what each gates, and its pages, each with the question it answers. Neighbours is the context's dependency tables, drawn by DomainNeighboursView."
+           Summary="A subpage of Devbook: the page a bounded context's row opens in the Domain view (local ADR 0037). DomainContextView is one page with no tabs, the same however the reader reached it — the Context map, a related link, a `dependencies.md` link or the menu. It opens on the context's neighbours, its dependency tables drawn by DomainNeighboursView, and its Overview follows below. Overview reads `context.md` and the files beside it: the context's subdomain, deployment and status as badges, its name and lead, the boundary as an Inside and an Outside card, what it holds as tiles, how well it is proved as a Requirements and an Invariants card, how settled it is as one stacked bar, its switches with what each gates, and its pages, each with the question it answers."
            Guidelines="@Rules">
 
-    <Story Name="Overview"
-           Description="The header is `context.md`'s own block and the context map's subdomain type, the name and the boundary's lead. The Inside card is the *Inside the boundary:* paragraph; the Outside card reads each *…, which [X] answers* clause as a question with a link to who answers it. Each tile is a kind in its tone and opens its first unit. The proof cards open Requirements and the Always true tab. How settled is one bar. A switch's Gates are the features its `related` names. The badges are information, so they are neutral outlines. Every link here writes what it followed below the page."
+    <Story Name="One page"
+           Description="The neighbours come first, then the Overview under a rule. Its header is `context.md`'s own block and the context map's subdomain type, the name and the boundary's lead. The Inside card is the *Inside the boundary:* paragraph; the Outside card reads each *…, which [X] answers* clause as a question with a link to who answers it. Each tile is a kind in its tone and opens its first unit. The proof cards open Requirements and the Always true tab. How settled is one bar. A switch's Gates are the features its `related` names. The badges are information, so they are neutral outlines. Every link here writes what it followed below the page."
            Code="@ContextCode"
            Source="@Context"
            SourceLabel="context.md">
@@ -18,16 +18,8 @@
         <p data-testid="story-domain-context-followed">Followed: @(_followed ?? "nothing yet")</p>
     </Story>
 
-    <Story Name="Opened on Neighbours"
-           Description="A `dependencies.md` that reaches the view some other way — a link, a search hit — opens the same page on Neighbours."
-           Code="@NeighboursTabCode"
-           Source="@DomainNeighboursPage.Dependencies"
-           SourceLabel="dependencies.md">
-        <DomainContextView ContextName="Tasks" Overview="@Overview" Neighbours="@Neighbours" InitialTab="neighbours" TestId="story-domain-context-page-neighbours" />
-    </Story>
-
     <Story Name="A context with little written"
-           Description="A `context.md` with no prose above its first chapter and no other file: each section says what it lacks rather than leaving a gap."
+           Description="A `context.md` with no prose above its first chapter, no dependency table and no other file: the neighbours and each section say what they lack rather than leaving a gap."
            Code="@ThinCode">
         <DomainContextView ContextName="Monitoring" Overview="@Thin" TestId="story-domain-context-page-thin" />
     </Story>
@@ -206,10 +198,6 @@
                            DocumentPath="@contextPath"
                            OnNavigate="Follow"
                            OnOpenAlwaysTrue="OpenAlwaysTrue" />
-        """;
-
-    private const string NeighboursTabCode = """
-        <DomainContextView ContextName="Tasks" Overview="@overview" Neighbours="@neighbours" InitialTab="neighbours" />
         """;
 
     private const string ThinCode = """
