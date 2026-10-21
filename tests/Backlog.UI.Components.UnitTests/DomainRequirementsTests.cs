@@ -139,6 +139,178 @@ public sealed class DomainRequirementsTests
         Assert.Equal("- A list that names invariants keeps its shape.", DomainRequirements.WithoutInvariantExplanations("- A list that names invariants keeps its shape."));
     }
 
+    private const string PlanningDomain = """
+        # Planning
+
+        ```meta
+        type: domain
+        ```
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        A piece of work.
+
+        ### Agenda Time
+
+        ```meta
+        type: value-object
+        ```
+
+        When a task is worked on today.
+
+        ## Note
+
+        ```meta
+        type: aggregate
+        ```
+
+        A thing written down.
+
+        ### Margin
+
+        ```meta
+        type: value-object
+        ```
+
+        The space beside it.
+
+        ## Ubiquitous Language
+
+        ```meta
+        type: ubiquitous-language
+        ```
+
+        ### My Day
+
+        ```meta
+        type: term
+        ```
+
+        The tasks picked for today.
+        """;
+
+    private const string PlanningInvariants = """
+        # Invariants
+
+        ```meta
+        type: invariants
+        ```
+
+        ## Task
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/planning/domain.md#task]
+        ```
+
+        ### My Day and its agenda time
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/planning/domain.md#task, .devbook/domain/planning/domain.md#my-day, .devbook/domain/planning/flow.md#task-lifecycle]
+        ```
+
+        #### Invariant: A task outside My Day holds no agenda time
+
+        ```meta
+        type: invariant
+        ```
+
+        A task with no My Day date has no agenda time.
+
+        #### Invariant: An agenda duration is positive
+
+        ```meta
+        type: invariant
+        ```
+
+        A duration is more than zero minutes.
+        """;
+
+    private static IReadOnlyList<DomainRequirementGroup> PlanningGroups(string related)
+    {
+        var requirements = DomainUnits.Parse($"""
+            # Requirements
+
+            ```meta
+            type: requirements
+            ```
+
+            ## My Day
+
+            ```meta
+            type: requirements
+            related: [{related}]
+            ```
+
+            ### Requirement: Today lists the picked tasks
+
+            The system SHALL list today's tasks.
+            """, ".devbook/domain/planning/requirements.md");
+
+        return DomainRequirements.Groups(requirements,
+        [
+            DomainUnits.Parse(PlanningDomain, ".devbook/domain/planning/domain.md"),
+            DomainUnits.Parse(PlanningInvariants, ".devbook/domain/planning/domain.invariants.md"),
+            requirements
+        ]);
+    }
+
+    [Fact]
+    public void A_term_an_aggregates_rules_are_about_links_that_aggregate_with_its_rule_count()
+    {
+        var group = Assert.Single(PlanningGroups(".devbook/domain/planning/domain.md#my-day"));
+
+        var link = Assert.Single(group.AlwaysTrue);
+        Assert.Equal("Task", link.Title);
+        Assert.Equal("task", link.UnitKey);
+        Assert.Equal(2, link.Rules);
+    }
+
+    [Fact]
+    public void A_chapter_inside_an_aggregate_links_that_aggregate()
+    {
+        var group = Assert.Single(PlanningGroups(".devbook/domain/planning/domain.md#agenda-time"));
+
+        var link = Assert.Single(group.AlwaysTrue);
+        Assert.Equal("task", link.UnitKey);
+        Assert.Equal(2, link.Rules);
+    }
+
+    [Fact]
+    public void The_always_true_card_counts_the_rules_it_opens_on()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var view = context.Render<DomainRequirementsView>(parameters => parameters
+            .Add(p => p.Groups, PlanningGroups(".devbook/domain/planning/domain.md#my-day")));
+
+        var card = view.Find("[data-testid='domain-requirements-always-true-link']");
+        Assert.Equal("2 rules · on Domain", card.QuerySelector("[data-testid='domain-requirements-always-true-meta']")!.TextContent.Trim());
+        Assert.Contains("whoever changes the Task.", card.TextContent, StringComparison.Ordinal);
+        Assert.Equal("What is always true for Task, on Domain", card.GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void A_file_outside_the_domain_its_rules_are_about_links_the_aggregate()
+    {
+        var group = Assert.Single(PlanningGroups(".devbook/domain/planning/flow.md"));
+
+        Assert.Equal("task", Assert.Single(group.AlwaysTrue).UnitKey);
+    }
+
+    [Fact]
+    public void A_chapter_inside_an_aggregate_with_no_rules_links_nothing()
+    {
+        var group = Assert.Single(PlanningGroups(".devbook/domain/planning/domain.md#margin"));
+
+        Assert.Empty(group.AlwaysTrue);
+    }
+
     [Fact]
     public void A_split_requirements_file_reads_its_one_feature()
     {

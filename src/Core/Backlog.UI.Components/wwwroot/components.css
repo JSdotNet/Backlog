@@ -20623,8 +20623,9 @@ select.field__input {
 
 /* Always true's own title, under the About / Always true tabs. */
 .domain-unit__title--page {
-    margin-bottom: var(--spacing-md);
-    font-size: var(--font-size-2xl);
+    margin-bottom: var(--spacing-sm);
+    font-size: 2rem;
+    line-height: 2.5rem;
     font-weight: var(--font-weight-semibold);
 }
 
@@ -21067,6 +21068,7 @@ select.field__input {
     align-items: center;
     gap: var(--spacing-2xs);
     margin: 0;
+    font-family: var(--font-family-base);
     font-size: var(--font-size-base);
     font-weight: var(--font-weight-semibold);
 }
@@ -22071,9 +22073,9 @@ select.field__input {
 .domain-requirements__page-title {
     margin: 0;
     font-family: var(--font-family-heading);
-    font-size: var(--font-size-2xl);
+    font-size: 2rem;
     font-weight: var(--font-weight-semibold);
-    line-height: var(--line-height-tight);
+    line-height: 2.5rem;
 }
 
 .domain-requirements__summary {

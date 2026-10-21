@@ -51,9 +51,9 @@
                             @onclick="() => OnOpenAlwaysTrue.InvokeAsync(unit)">
                         <span class="domain-requirements__card-head">
                             <b>What is always true</b>
-                            <span class="domain-requirements__card-meta">for @unit.Title · on Domain</span>
+                            <span class="domain-requirements__card-meta" data-testid="domain-requirements-always-true-meta">@RulesMeta(unit)</span>
                         </span>
-                        <span class="domain-requirements__card-text" id="@described">Not promises but what the model never lets happen. The rules @unit.Title keeps open on its Always true tab.</span>
+                        <span class="domain-requirements__card-text" id="@described">Not promises but what the model never lets happen, whoever changes the @(unit.Title).</span>
                     </button>
                 }
             </div>
@@ -260,6 +260,15 @@
 
     private static int OpenCount(DomainRequirementGroup group) =>
         group.Requirements.Count <= OpenAll ? group.Requirements.Count : OpenFirst;
+
+    /// <summary>How many rules the card opens on, as the board reads it.</summary>
+    private static string RulesMeta(DomainAlwaysTrueLink unit) =>
+        unit.Rules switch
+        {
+            0 => "on Domain",
+            1 => "1 rule · on Domain",
+            var count => $"{count} rules · on Domain"
+        };
 
     private static string Tested(DomainProofTally tally) =>
         tally.Count == 0 ? "No requirements" : $"{tally.Count} · {tally.Proved} tested";
