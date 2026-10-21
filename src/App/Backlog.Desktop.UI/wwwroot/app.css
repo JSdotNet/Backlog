@@ -9422,7 +9422,7 @@ a.pull-request-detail-checks__name:hover {
 
 .arc42-surface-nav__item {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: var(--spacing-sm);
     width: 100%;
     padding: var(--spacing-xs) var(--spacing-sm);
@@ -9489,16 +9489,19 @@ a.pull-request-detail-checks__name:hover {
     font-weight: normal;
 }
 
+/* The ADR and TDR badges wear the record overlay chips' surface and ink
+   (components.css, .c4-diagram__records), so a count reads the same on the chapter
+   list as on a card. */
 .arc42-surface-nav__badge--adr {
-    border-color: transparent;
-    background: var(--color-primary-light);
-    color: var(--color-primary-dark);
+    border-color: var(--color-primary);
+    background: var(--color-warning);
+    color: var(--color-primary);
 }
 
 .arc42-surface-nav__badge--tdr {
-    border-color: transparent;
+    border-color: var(--color-error-text);
     background: var(--color-error);
-    color: var(--color-text-inverse);
+    color: var(--color-error-text);
 }
 
 .arc42-surface-nav__none {
