@@ -1,74 +1,126 @@
 @*
     A flow's stateDiagram-v2 drawn as one row of states (local ADR 0037, the Flow
-    page). The start and end pseudo-states sit at the row's ends; a forward
-    transition to the next state runs along the axis and every other one in a lane
-    above; the ways back run in lanes below, and the restore loop — the way from the
-    last state back to the first — round the outside, beneath them all. Where an
-    arc runs is what says which way it goes, and a way back is dashed as well, so
-    direction is never the tone alone.
+    page). Each state is a box with its description under its name. A move to the
+    next state runs straight to it on top, a move back to the one before
+    underneath; every other forward arc runs in a lane above, every other way back
+    in a lane below, and the restore loop — the way from the last state back to the
+    first — round the outside on top. Where a line runs, and its arrowhead, say
+    which way it goes, so direction is never the tone alone. An event a transition
+    raises is a chip under it, dashed while it is documented but not yet emitted,
+    and a way in from several states under one label is one note under the row.
 
-    The drawing is a picture of the list beneath it: a screen reader hears the
-    transitions as a list, one sentence each, and the SVG is hidden from it.
+    The drawing scales down to the column, to 85% of its size before it scrolls
+    sideways; the
+    chips and captions are text laid over it at the same scale, so an event can be
+    followed. A screen reader hears the transitions as a list, one sentence each,
+    and the SVG is hidden from it.
 *@
 
 <figure class="domain-flow" data-testid="@TestId" aria-label="@AriaLabel">
     <div class="domain-flow__scroll">
-        <svg class="domain-flow__svg"
-             viewBox="0 0 @N(_layout.Width) @N(_layout.Height)"
-             width="@N(_layout.Width)"
-             height="@N(_layout.Height)"
-             aria-hidden="true"
-             focusable="false">
-            <defs>
-                <marker id="@ArrowId" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                    <path class="domain-flow__arrow" d="M 0 0 L 10 5 L 0 10 z" />
-                </marker>
-            </defs>
+        <div class="domain-flow__canvas"
+             style="max-width: @(N(_layout.Width))px; --domain-flow-width: @N(_layout.Width)">
+            <svg class="domain-flow__svg domain-flow__svg--fit"
+                 viewBox="0 0 @N(_layout.Width) @N(_layout.Height)"
+                 width="@N(_layout.Width)"
+                 height="@N(_layout.Height)"
+                 aria-hidden="true"
+                 focusable="false">
+                <defs>
+                    <marker id="@ArrowId" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                        <path class="domain-flow__arrow" d="M 0 0 L 10 5 L 0 10 z" />
+                    </marker>
+                    <marker id="@BackArrowId" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                        <path class="domain-flow__arrow domain-flow__arrow--back" d="M 0 0 L 10 5 L 0 10 z" />
+                    </marker>
+                </defs>
 
-            @foreach (var edge in _layout.Edges)
-            {
-                <g class="@EdgeClass(edge)"
-                   data-testid="domain-flow-transition"
-                   data-from="@edge.Transition.From"
-                   data-to="@edge.Transition.To"
-                   data-direction="@edge.Transition.Direction.ToString().ToLowerInvariant()"
-                   data-lane="@edge.Level">
-                    <title>@Sentence(edge.Transition)</title>
-                    <path class="domain-flow__line" d="@edge.Path" marker-end="url(#@ArrowId)" />
-                    @if (edge.Label.Length > 0)
-                    {
-                        @* Wrapped, because a bare <text> in a code block is Razor's own tag. *@
-                        <g class="domain-flow__label-group"><text class="domain-flow__label" x="@N(edge.LabelX)" y="@N(edge.LabelY)" text-anchor="middle">@edge.Label</text></g>
-                    }
-                </g>
-            }
+                @foreach (var edge in _layout.Edges)
+                {
+                    <g class="@EdgeClass(edge)"
+                       data-testid="domain-flow-transition"
+                       data-from="@edge.Transition.From"
+                       data-to="@edge.Transition.To"
+                       data-direction="@edge.Transition.Direction.ToString().ToLowerInvariant()"
+                       data-lane="@edge.Level">
+                        <title>@Sentence(edge.Transition)</title>
+                        <path class="domain-flow__line" d="@edge.Path" marker-end="url(#@(IsBack(edge) ? BackArrowId : ArrowId))" />
+                        @if (edge.Label.Length > 0)
+                        {
+                            @* Wrapped, because a bare <text> in a code block is Razor's own tag. *@
+                            <g class="domain-flow__label-group"><text class="domain-flow__label" x="@N(edge.LabelX)" y="@N(edge.LabelY)" text-anchor="middle">@edge.Label</text></g>
+                        }
+                    </g>
+                }
 
-            @foreach (var box in _layout.Boxes)
+                @foreach (var box in _layout.Boxes)
+                {
+                    <g class="@StateClass(box.State)"
+                       data-testid="domain-flow-state"
+                       data-state="@box.State.Id"
+                       data-index="@box.State.Index">
+                        @switch (box.State.Kind)
+                        {
+                            case DomainFlowStateKind.Start:
+                                <circle class="domain-flow__pseudo" cx="@N(box.CenterX)" cy="@N(box.CenterY)" r="@N(box.Width / 2 - 1)" />
+                                break;
+                            case DomainFlowStateKind.End:
+                                <circle class="domain-flow__pseudo-ring" cx="@N(box.CenterX)" cy="@N(box.CenterY)" r="@N(box.Width / 2 - 1)" />
+                                <circle class="domain-flow__pseudo" cx="@N(box.CenterX)" cy="@N(box.CenterY)" r="@N(box.Width / 2 - 5)" />
+                                break;
+                            default:
+                                <g class="domain-flow__named">
+                                    <rect class="domain-flow__box" x="@N(box.X)" y="@N(box.Y)" width="@N(box.Width)" height="@N(box.Height)" rx="10" ry="10" />
+                                    @if (box.State.Description.Length > 0)
+                                    {
+                                        <g class="domain-flow__name-group"><text class="domain-flow__name" x="@N(box.CenterX)" y="@N(box.CenterY - 3)" text-anchor="middle">@box.State.Label</text></g>
+                                        <g class="domain-flow__description-group"><text class="domain-flow__description" data-testid="domain-flow-description" x="@N(box.CenterX)" y="@N(box.CenterY + 15)" text-anchor="middle">@box.State.Description</text></g>
+                                    }
+                                    else
+                                    {
+                                        <g class="domain-flow__name-group"><text class="domain-flow__name" x="@N(box.CenterX)" y="@N(box.CenterY + 5)" text-anchor="middle">@box.State.Label</text></g>
+                                    }
+                                </g>
+                                break;
+                        }
+                    </g>
+                }
+            </svg>
+
+            @foreach (var mark in _layout.Marks)
             {
-                <g class="domain-flow__state domain-flow__state--@box.State.Kind.ToString().ToLowerInvariant()"
-                   data-testid="domain-flow-state"
-                   data-state="@box.State.Id"
-                   data-index="@box.State.Index">
-                    @switch (box.State.Kind)
-                    {
-                        case DomainFlowStateKind.Start:
-                            <circle class="domain-flow__pseudo" cx="@N(box.CenterX)" cy="@N(box.CenterY)" r="@N(box.Width / 2 - 1)" />
-                            break;
-                        case DomainFlowStateKind.End:
-                            <circle class="domain-flow__pseudo-ring" cx="@N(box.CenterX)" cy="@N(box.CenterY)" r="@N(box.Width / 2 - 1)" />
-                            <circle class="domain-flow__pseudo" cx="@N(box.CenterX)" cy="@N(box.CenterY)" r="@N(box.Width / 2 - 5)" />
-                            break;
-                        default:
-                            <g class="domain-flow__named">
-                                <rect class="domain-flow__box" x="@N(box.X)" y="@N(box.Y)" width="@N(box.Width)" height="@N(box.Height)" rx="8" ry="8" />
-                                <text class="domain-flow__name" x="@N(box.CenterX)" y="@N(box.CenterY + 4.5)" text-anchor="middle">@box.State.Label</text>
-                            </g>
-                            break;
-                    }
-                </g>
+                @if (mark.Kind == DomainFlowMarkKind.Event && mark.Transition?.Event is { } raised)
+                {
+                    <span class="@($"domain-flow__event{(raised.Emitted ? string.Empty : " domain-flow__event--documented")}")"
+                          style="@Place(mark)"
+                          data-testid="domain-flow-event"
+                          data-event="@raised.Name"
+                          data-emitted="@(raised.Emitted ? "true" : "false")"
+                          title="@EventTitle(raised)">
+                        @if (EventReference(raised) is { } reference && OnNavigate.HasDelegate)
+                        {
+                            <DevbookReferenceLink Reference="@reference" Text="@raised.Name" OnNavigate="OnNavigate" />
+                        }
+                        else
+                        {
+                            <span class="domain-flow__event-name">@raised.Name</span>
+                        }
+                    </span>
+                }
+                else if (mark.Kind == DomainFlowMarkKind.Note)
+                {
+                    <span class="domain-flow__caption" style="@Place(mark)" data-testid="domain-flow-note">@Caption(mark.Text)</span>
+                }
             }
-        </svg>
+        </div>
     </div>
+
+    @foreach (var drop in Diagram.Drops)
+    {
+        <p class="domain-flow__drop" data-testid="domain-flow-drop" data-to="@drop.To">
+            <strong>Also into @Name(drop.To):</strong> @DropSentence(drop)
+        </p>
+    }
 
     <figcaption class="sr-only">
         <ol>
@@ -90,12 +142,22 @@
     [Parameter]
     public string? TestId { get; set; } = "domain-flow-row";
 
+    /// <summary>The flow file the row was read from: an event chip opens the
+    /// <c>model.md</c> beside it, whose Events tab holds the event's contract.</summary>
+    [Parameter]
+    public string? DocumentPath { get; set; }
+
+    /// <summary>An event chip the reader followed. Without one a chip is text.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
     // One per instance: two rows on a page must not share a marker id.
     private readonly string _id = "domain-flow-" + Guid.NewGuid().ToString("N")[..8];
     private DomainFlowLayout _layout = new(0, 0, [], []);
     private DomainFlowDiagram? _laidOut;
 
     private string ArrowId => _id + "-arrow";
+    private string BackArrowId => _id + "-back-arrow";
 
     protected override void OnParametersSet()
     {
@@ -104,8 +166,68 @@
         _layout = DomainFlows.Layout(Diagram);
     }
 
+    private static bool IsBack(DomainFlowEdge edge) =>
+        edge.Transition.Direction is DomainFlowDirection.Back or DomainFlowDirection.Restore;
+
     private static string EdgeClass(DomainFlowEdge edge) =>
         $"domain-flow__transition domain-flow__transition--{edge.Transition.Direction.ToString().ToLowerInvariant()}";
+
+    private static string StateClass(DomainFlowState state)
+    {
+        var css = $"domain-flow__state domain-flow__state--{state.Kind.ToString().ToLowerInvariant()}";
+        foreach (var name in state.Classes.Where(name => name is "active" or "ended")) css += $" domain-flow__state--{name}";
+        return css;
+    }
+
+    /// <summary>Where a mark sits over the drawing, as a share of its size, so it
+    /// stays on its transition as the drawing scales.</summary>
+    private string Place(DomainFlowMark mark) =>
+        $"left: {Share(mark.X, _layout.Width)}%; top: {Share(mark.Y, _layout.Height)}%; "
+        + (mark.Kind == DomainFlowMarkKind.Event ? $"width: {Share(mark.Width, _layout.Width)}%;" : $"max-width: {Share(mark.Width, _layout.Width)}%;");
+
+    private static string Share(double part, double whole) =>
+        whole <= 0 ? "0" : N(part / whole * 100);
+
+    /// <summary>The Model page beside the flow file, where the events are read.
+    /// The Domain view opens a file's page, not a chapter inside it.</summary>
+    private DevbookReference? EventReference(DomainFlowEvent raised)
+    {
+        if (string.IsNullOrWhiteSpace(DocumentPath)) return null;
+        var path = DocumentPath.Replace('\\', '/');
+        var slash = path.LastIndexOf('/');
+        var folder = slash < 0 ? string.Empty : path[..(slash + 1)];
+        return DevbookReference.Parse($"{folder}model.md");
+    }
+
+    private static string EventTitle(DomainFlowEvent raised) =>
+        raised.Emitted ? $"{raised.Name}, emitted" : $"{raised.Name}, documented but not emitted yet";
+
+    /// <summary>A caption whose first word is an event's name sets that word as code.</summary>
+    private static RenderFragment Caption(string text) => builder =>
+    {
+        var space = text.IndexOf(' ');
+        var head = space < 0 ? text : text[..space];
+        if (head.Length > 1 && char.IsUpper(head[0]) && head.Skip(1).Any(char.IsUpper) && head.All(char.IsLetterOrDigit))
+        {
+            builder.OpenElement(0, "code");
+            builder.AddAttribute(1, "class", "domain-flow__caption-code");
+            builder.AddContent(2, head);
+            builder.CloseElement();
+            builder.AddContent(3, space < 0 ? string.Empty : text[space..]);
+        }
+        else
+        {
+            builder.AddContent(4, text);
+        }
+    };
+
+    private string DropSentence(DomainFlowDrop drop)
+    {
+        var names = drop.From.Select(Name).ToList();
+        var who = names.Count == 1 ? names[0] : string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1];
+        var said = drop.Label.TrimEnd();
+        return $"{who} {said}{(said.EndsWith('.') || said.EndsWith('!') || said.EndsWith('?') ? string.Empty : ".")}";
+    }
 
     private string Sentence(DomainFlowTransition transition)
     {
@@ -118,7 +240,10 @@
             _ => string.Empty
         };
         var label = transition.Label.Length > 0 ? $": {transition.Label}" : string.Empty;
-        return $"{from} to {to}{way}{label}";
+        var raised = transition.Event is { } named
+            ? $", raising {named.Name}{(named.Emitted ? string.Empty : " (documented, not emitted yet)")}"
+            : string.Empty;
+        return $"{from} to {to}{way}{label}{raised}";
     }
 
     private string Name(string id) => Diagram.State(id) switch

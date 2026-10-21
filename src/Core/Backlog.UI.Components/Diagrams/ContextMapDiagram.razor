@@ -6,7 +6,9 @@
     and one line per pair of contexts the map's Mermaid fence joins. A line between
     two core contexts is amber, any other grey; a relation the map draws -.-> (named,
     not built) is dashed; a pair that relies on each other has a head at both ends.
-    Pointing at or focusing a card fades every line that does not touch it. A
+    A card says core or supporting and how many lines touch it. Pointing at or
+    focusing a card fades every line that does not touch it, and the card says
+    "zoom in" when picking it opens its context. A
     line's tooltip and accessible name are the dependency table's reason, and no
     pattern name reaches the map. Picking a card hands its context to OnOpen.
 *@
@@ -25,7 +27,7 @@
                  data-testid="context-map-canvas"
                  data-crossings="@_layout.Crossings"
                  data-active="@_active"
-                 style="@($"aspect-ratio: {N(_layout.Width)} / {N(_layout.Height)}; min-width: {N(56 * _layout.Width / ContextMapLayout.DefaultWidth)}rem;")">
+                 style="@($"aspect-ratio: {N(_layout.Width)} / {N(_layout.Height)}; min-width: {N(52 * _layout.Width / ContextMapLayout.DefaultWidth)}rem;")">
                 <svg class="context-map__lines"
                      viewBox="@($"0 0 {N(_layout.Width)} {N(_layout.Height)}")"
                      preserveAspectRatio="xMidYMid meet"
@@ -73,6 +75,7 @@
                                     data-context="@context.Id"
                                     data-kind="@context.Kind"
                                     aria-disabled="@(CanOpen(context) ? null : "true")"
+                                    aria-label="@($"{context.Name}, {KindWord(context).ToLowerInvariant()}, {LinesWord(card.Lines)}")"
                                     title="@(context.Why.Length > 0 ? context.Why : null)"
                                     @onmouseenter="@(() => _hovered = context.Id)"
                                     @onmouseleave="@(() => _hovered = Leave(_hovered, context.Id))"
@@ -80,9 +83,14 @@
                                     @onblur="@(() => _focused = Leave(_focused, context.Id))"
                                     @onclick="@(() => OpenAsync(context))">
                                 <span class="context-map__name">@context.Name</span>
-                                <span class="context-map__facts">
-                                    <span class="context-map__kind" data-testid="context-map-card-kind">@KindWord(context)</span>
-                                    <span class="context-map__count" data-testid="context-map-card-lines">@LinesWord(card.Lines)</span>
+                                <span class="context-map__facts" aria-hidden="true">
+                                    <span class="context-map__kind" data-testid="context-map-card-kind">@KindWord(context).ToLowerInvariant()</span>
+                                    <span class="context-map__dot">·</span>
+                                    <span class="context-map__count" data-testid="context-map-card-lines">@card.Lines.ToString(CultureInfo.InvariantCulture)</span>
+                                    @if (CanOpen(context))
+                                    {
+                                        <span class="context-map__zoom" data-testid="context-map-card-zoom">· zoom in →</span>
+                                    }
                                 </span>
                             </button>
                         </li>
@@ -91,24 +99,14 @@
             </div>
         </div>
 
-        <dl class="context-map__legend" data-testid="context-map-legend">
-            <div class="context-map__legend-item">
-                <dt><span class="context-map__swatch context-map__swatch--core" aria-hidden="true"></span>Amber line</dt>
-                <dd>Between two core contexts.</dd>
-            </div>
-            <div class="context-map__legend-item">
-                <dt><span class="context-map__swatch" aria-hidden="true"></span>Grey line</dt>
-                <dd>Any other two contexts.</dd>
-            </div>
-            <div class="context-map__legend-item">
-                <dt><span class="context-map__swatch context-map__swatch--dashed" aria-hidden="true"></span>Dashed line</dt>
-                <dd>Named in the map, not built yet.</dd>
-            </div>
-            <div class="context-map__legend-item">
-                <dt>Arrowhead</dt>
-                <dd>Points at the context that relies on the other; a head at both ends means each relies on the other.</dd>
-            </div>
-        </dl>
+        <div class="context-map__legend" data-testid="context-map-legend">
+            <ul class="context-map__legend-lines" aria-label="Lines">
+                <li><span class="context-map__swatch context-map__swatch--core" aria-hidden="true"></span>between core contexts</li>
+                <li><span class="context-map__swatch" aria-hidden="true"></span>with a supporting context</li>
+                <li><span class="context-map__swatch context-map__swatch--dashed" aria-hidden="true"></span>planned, not built</li>
+            </ul>
+            <p class="context-map__legend-note">Arrows point the way information goes; two heads, both ways · the number is how many lines touch a context</p>
+        </div>
     }
 </section>
 

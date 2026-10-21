@@ -66,7 +66,7 @@
                             <rect class="domain-flow__box" x="@N(box.X)" y="@N(box.Y)" width="@N(box.Width)" height="@N(box.Height)" rx="@N(Math.Min(box.Height / 2, 18))" ry="@N(Math.Min(box.Height / 2, 18))" />
                             break;
                         default:
-                            <rect class="domain-flow__box" x="@N(box.X)" y="@N(box.Y)" width="@N(box.Width)" height="@N(box.Height)" rx="8" ry="8" />
+                            <rect class="domain-flow__box" x="@N(box.X)" y="@N(box.Y)" width="@N(box.Width)" height="@N(box.Height)" rx="10" ry="10" />
                             break;
                     }
                     <g class="domain-flow__text-group"><text class="domain-flow__text" x="@N(box.CenterX)" y="@N(FirstLine(box))" text-anchor="middle">@for (var k = 0; k < box.Lines.Count; k++)

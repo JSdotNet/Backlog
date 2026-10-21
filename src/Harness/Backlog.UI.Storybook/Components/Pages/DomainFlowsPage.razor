@@ -3,11 +3,11 @@
 <PageTitle>Domain flows — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Domain flows"
-           Summary="A subpage of Devbook: the Flow page of the Domain view, which reads a bounded context's `flow.md` (local ADR 0037). A `stateDiagram-v2` is drawn as one row of states: forward transitions on the axis or above it, the ways back below it and dashed, the restore loop — the way from the last state back to the first — round the outside beneath them all, and the flow's prose under the row. A `flowchart` and a `sequenceDiagram` are drawn in the same cards, lines, arrowheads and type; a Mermaid diagram none of the three can read keeps the rendering it has everywhere else."
+           Summary="A subpage of Devbook: the Flow page of the Domain view, which reads a bounded context's `flow.md` (local ADR 0037). The first chapter titles the page, its lead and a legend above the drawing. A `stateDiagram-v2` is drawn as one row of states that scales to the column: each state a box with its description, the move to the next state on top and the move back underneath, other arcs in lanes above and below, the restore loop — the way from the last state back to the first — round the outside on top, each event a chip under its transition, and a way in from several states under one label as one note. A chapter of untyped sub-chapters reads as cards. A `flowchart` and a `sequenceDiagram` are drawn in the same cards, lines, arrowheads and type; a Mermaid diagram none of the three can read keeps the rendering it has everywhere else."
            Guidelines="@Rules">
 
     <Story Name="Lifecycle row"
-           Description="A task's lifecycle: five states in one row. Draft to Ready to In progress to Done to Archived runs along the axis; Dropped skips ahead above it; Revision needed, Paused and Reopened step back below it; Restored, from Archived to Draft, is the outermost loop. Hover a transition for its full label; a screen reader hears the list of transitions instead of the drawing."
+           Description="A task's lifecycle as its board draws it: five states in one row, each with its description, In progress set apart and Done and Archived sunk. Refined, started, finished and archived run forward on top; revise, paused and reopened run back underneath in a dimmer tone; restored loops round the outside on top. TaskProjected and TaskCompleted are dashed chips — documented, not yet emitted — and the drop with an archived repository is one note under the row. A screen reader hears the list of transitions instead of the drawing."
            Code="@RowCode"
            Source="@TaskLifecycle"
            SourceLanguage="text">
@@ -15,7 +15,7 @@
     </Story>
 
     <Story Name="Start, end and self loops"
-           Description="Start and end pseudo-states sit at the row's ends, a filled dot and a ring. A transition from a state to itself is a small loop above it, and every label the source gives one pair of states is joined with a slash."
+           Description="The end pseudo-state sits at the row's end as a ring; the start is not drawn when its one way in leads to the first state, which already says where an item begins. A transition from a state to itself is a small loop above it, and every label the source gives one pair of states is joined with a slash."
            Code="@RowCode"
            Source="@InboxLifecycle"
            SourceLanguage="text">
@@ -31,7 +31,7 @@
     </Story>
 
     <Story Name="Flowchart across the page"
-           Description="A `flowchart LR`: the ranks run left to right and each label sits above the stretch into its node. A dotted link — a supplier — is dashed as the row's ways back are."
+           Description="A `flowchart LR`: the ranks run left to right and each label sits above the stretch into its node. A dotted link — a supplier — is dashed."
            Code="@ChartCode"
            Source="@AdoptionChart"
            SourceLanguage="text">
@@ -47,7 +47,7 @@
     </Story>
 
     <Story Name="Flow page"
-           Description="A whole `flow.md`: each chapter under its heading, its diagram drawn with its prose beneath it — the lifecycle as the row, the intake as a sequence, readiness as a flowchart. The model chapter's class diagram is none of the three, so it stays in the prose and renders as Mermaid always does."
+           Description="A whole `flow.md`: the lifecycle titles the page with its lead and legend, the row and its prose beneath; what sits beside the status as cards; the intake as a sequence, readiness as a flowchart. The model chapter's class diagram is none of the three, so it stays in the prose and renders as Mermaid always does."
            Code="@PageCode"
            Source="@FlowFile">
         <DomainFlowPage File="@File" />
@@ -57,22 +57,35 @@
 @code {
     private static readonly DesignGuideline[] Rules =
     [
-        new("color-scheme.md#domain-view-element-tones", "Why the drawings are monochrome: on the row, where a transition runs and its dash say which way it goes; in a flowchart the dash marks a dotted link, in a sequence a reply."),
+        new("color-scheme.md#domain-view-element-tones", "Why the drawings are monochrome and an event chip is a neutral outline: on the row, where a transition runs and its arrowhead say which way it goes, the way back in a dimmer tone; in a flowchart the dash marks a dotted link, in a sequence a reply."),
         new("accessibility.md#iconography-accessibility", "Why each drawing is hidden from a screen reader and its transitions, links or steps are read as a list instead.")
     ];
 
     private const string TaskLifecycle = """
         stateDiagram-v2
-            [*] --> Draft : Created
-            Draft --> Ready : Refined and actionable
-            Ready --> InProgress : Work started
-            InProgress --> Done : Work completed
-            Done --> Archived : Archived
-            Archived --> Draft : Restored
-            Ready --> Draft : Revision needed
-            InProgress --> Ready : Paused
-            Done --> InProgress : Reopened
-            Draft --> Archived : Dropped
+            state "In progress" as InProgress
+            Draft : every new task
+            Ready : actionable
+            InProgress : stamps started_on once
+            Done : work is over
+            Archived : out of default views
+            [*] --> Draft : created
+            Draft --> Ready : refined
+            Ready --> InProgress : started (TaskProjected, not yet emitted)
+            InProgress --> Done : finished (TaskCompleted, not yet emitted)
+            Done --> Archived : archived
+            Archived --> Draft : restored
+            Ready --> Draft : revise
+            InProgress --> Ready : paused
+            Done --> InProgress : reopened
+            Draft --> Archived : drop straight there when their repository is archived. The task keeps its filing and nothing is deleted
+            Ready --> Archived : drop straight there when their repository is archived. The task keeps its filing and nothing is deleted
+            InProgress --> Archived : drop straight there when their repository is archived. The task keeps its filing and nothing is deleted
+            note right of Draft : StatusChanged on every move
+            classDef active stroke-width:2px
+            classDef ended stroke-width:1px
+            class InProgress active
+            class Done,Archived ended
         """;
 
     private const string InboxLifecycle = """
@@ -95,17 +108,41 @@
 
         ## Task lifecycle
 
+        Three recorded states. Forward moves on top, the ways back underneath.
+
         ```mermaid
         stateDiagram-v2
-            [*] --> Draft : Created
-            Draft --> Ready : Refined and actionable
-            Ready --> Done : Work completed
-            Done --> Draft : Restored
-            Ready --> Draft : Revision needed
+            Draft : every new task
+            Ready : actionable
+            Done : work is over
+            [*] --> Draft : created
+            Draft --> Ready : refined
+            Ready --> Done : finished (TaskCompleted, not yet emitted)
+            Done --> Draft : restored
+            Ready --> Draft : revise
         ```
 
-        - A task is created as `Draft` and becomes `Ready` once it can be acted on.
         - Restoring a done task returns it to `Draft`, so it is refined again.
+
+        ## Beside the status, not states
+
+        ### The tick
+
+        `completed_on`
+
+        - Ticking an open task also moves it to Done.
+        - Unticking clears only the tick.
+
+        [2 requirements →](requirements.md#requirement-ticking-an-open-task-off-moves-it-to-done)
+
+        ### Readiness
+
+        *derived on read*
+
+        - `ready` — nothing it waits on is open.
+        - `blocked` — it waits on an open task.
+
+        [Rules →](domain.invariants.md#readiness-and-dependencies)
 
         ## Capture intake
 

@@ -11,48 +11,79 @@ status: draft
 
 ## Task lifecycle
 
+Five recorded states. Forward moves on top, the ways back underneath. The tick,
+readiness and the start date sit beside the status — they are not states.
+
 ```mermaid
 stateDiagram-v2
-    [*] --> Draft : Created
-    Draft --> Ready : Refined and actionable
-    Ready --> InProgress : Work started (TaskProjected, not yet emitted)
-    InProgress --> Done : Work completed (TaskCompleted, not yet emitted)
-    Done --> Archived : Archived
-    Archived --> Draft : Restored
-    Ready --> Draft : Revision needed
-    InProgress --> Ready : Paused
-    Done --> InProgress : Reopened
-    Draft --> Archived : Dropped with its archived repository
-    Ready --> Archived : Dropped with its archived repository
-    InProgress --> Archived : Dropped with its archived repository
+    state "In progress" as InProgress
+    Draft : every new task
+    Ready : actionable
+    InProgress : stamps started_on once
+    Done : work is over
+    Archived : out of default views
+    [*] --> Draft : created
+    Draft --> Ready : refined
+    Ready --> InProgress : started (TaskProjected, not yet emitted)
+    InProgress --> Done : finished (TaskCompleted, not yet emitted)
+    Done --> Archived : archived
+    Archived --> Draft : restored
+    Ready --> Draft : revise
+    InProgress --> Ready : paused
+    Done --> InProgress : reopened
+    Draft --> Archived : drop straight there when their repository is archived
+    Ready --> Archived : drop straight there when their repository is archived
+    InProgress --> Archived : drop straight there when their repository is archived
+    note right of Draft : StatusChanged on every move
+    classDef active stroke-width:2px
+    classDef ended stroke-width:1px
+    class InProgress active
+    class Done,Archived ended
 ```
 
-- The edges from `Draft`, `Ready` and `InProgress` to `Archived` are
-  [dropping an archived repository's open tasks](../repository-management/requirements.md#archiving-a-repository).
-  `RefileRepositoryTasksCommand` sets each open task filed under that
-  repository to `Archived` through `TaskItem.SetStatus`, outside the
-  lifecycle's own transitions, as a person's `!archived` edit does. The task
-  keeps its filing and nothing is deleted. `Done` and `Archived` tasks are left
+- The drop into `Archived` is
+  [dropping an archived repository's open tasks](../repository-management/requirements.md#archiving-a-repository),
+  outside the lifecycle's own moves, as a person's `!archived` edit is. The task
+  keeps its filing and nothing is deleted; `Done` and `Archived` tasks are left
   alone.
-
-- The `Ready → InProgress` transition would emit `TaskProjected`, and `Done`
-  would emit `TaskCompleted`. Both are documented, not yet emitted; see
+- `TaskProjected` and `TaskCompleted` are documented, not yet emitted; see
   [Projection](domain.md#projection) for the policy and
   [its requirements](requirements.md#projection) for what it will do on each.
-- [The first move into `InProgress` stamps Started](domain.invariants.md#invariant-the-first-move-into-progress-stamps-the-start),
-  and pausing or reopening leaves the stamp where it is. A linked task's sync
-  that only passes through `InProgress` on the way to `Done`
-  [stamps no start](requirements.md#requirement-the-sync-walks-the-status-along-the-lifecycle).
-- `Done` and `Archived` say the work is over. The tick that says the person has
-  dealt with the task is [Completed](domain.md#completed), a separate fact and
-  not a state in this diagram.
-  [The list's checkbox also moves an open task to `done`](requirements.md#requirement-ticking-an-open-task-off-moves-it-to-done)
-  in the same save. A finished task that still read "in progress" would be the
-  list contradicting itself.
-- Scheduling attributes do not appear in this diagram, and that is deliberate.
-  A due date, a reminder, a repeat and a My Day stamp are facts about when work
-  is wanted, not lifecycle states. An overdue task is still `ready`, and nothing
-  has to move a task between states as a clock advances.
+
+## Beside the status, not states
+
+### The tick
+
+`completed_on`
+
+- Ticking an open task also moves it to Done.
+- Reaching Done through the picker does not tick.
+- Unticking clears only the tick.
+
+[3 requirements →](requirements.md#requirement-ticking-an-open-task-off-moves-it-to-done)
+
+### Readiness
+
+*derived on read*
+
+- `ready` — nothing it waits on is open.
+- `blocked` — it waits on an open task, a missing one, or a loop.
+- `done` — it is ticked: the tick, not the status.
+
+[4 rules →](domain.invariants.md#readiness-and-dependencies)
+
+### Time
+
+`started_on` · `due_on`
+
+- The first move into In progress stamps the start. Pausing or reopening
+  keeps it, and a sync that only passes through In progress stamps none.
+- Start and tick together bound how long the work took.
+- An overdue task is still Ready. A due date, a reminder, a repeat and a My Day
+  stamp say when work is wanted; nothing moves a task between states as the
+  clock advances.
+
+[Scheduling fields →](domain.md#due-date)
 
 ## Recurring task occurrences
 
