@@ -1598,10 +1598,10 @@ The system SHALL show field types, invocation semantics and event payloads on th
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.The_page_opens_on_Diagram_with_Fields_and_Events_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_arranged_fence_draws_the_band_its_parts_references_and_services, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_fence_that_does_not_parse_is_drawn_with_mermaid, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.The_root_sits_in_its_band_with_its_composed_parts_and_their_multiplicity, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.The_Model_row_opens_on_Diagram_with_the_aggregate_in_its_band, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Diagram_is_headed_by_the_root_and_draws_its_parts_as_a_tree_around_its_card, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.All_fields_on_the_root_card_opens_Fields, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.Each_type_the_root_names_by_id_sits_outside_the_band_once, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.A_part_s_own_ids_are_the_part_s_detail_not_the_aggregate_s_references, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.An_id_points_at_the_chapter_whose_alias_or_heading_names_it]
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.The_page_opens_on_Diagram_with_Fields_and_Events_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.An_arranged_fence_draws_the_band_its_parts_references_and_services, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_fence_that_does_not_parse_is_drawn_with_mermaid, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.The_root_sits_in_its_band_with_its_composed_parts_and_their_multiplicity, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainViewModelPageTests.The_Model_row_opens_on_Diagram_with_the_aggregate_in_its_band, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.Diagram_is_headed_by_the_root_and_draws_its_parts_as_a_tree_around_its_card, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.All_fields_on_the_root_card_opens_Fields, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.Each_type_the_root_names_by_id_sits_outside_the_band_once, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.A_part_s_own_ids_are_the_part_s_detail_not_the_aggregate_s_references, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.An_id_points_at_the_chapter_whose_alias_or_heading_names_it, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.A_class_no_band_holds_is_drawn_outside_every_aggregate, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelViewTests.A_class_no_aggregate_holds_is_a_card_outside_every_band, unit:dotnet:Backlog.UI.Components.UnitTests.DomainModelArrangementTests.Every_model_in_this_repository_arranges]
 ```
 
-The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, beside Fields and Events, that draws each aggregate root inside its consistency boundary with its key fields and its composed parts and their multiplicity, places outside the boundary one entry per type the root names by id, places the context's domain services below it, and draws the diagram with mermaid when it cannot be read that way.
+The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, beside Fields and Events, that draws each aggregate root inside its consistency boundary with its key fields and its composed parts and their multiplicity, places outside the boundary one entry per type the root names by id, places the context's domain services below it, draws a class no aggregate holds as a card outside every boundary, and draws the diagram with mermaid only when it does not parse or names no aggregate root.
 
 #### Scenario: An aggregate with parts and references
 
@@ -1615,6 +1615,12 @@ The system SHALL open a `model.md` or `model.<name>.md` row on a Diagram tab, be
 - **And** a *Repository* entity chapter whose `aliases` hold `repo_ids`
 - **When** the reader opens Model
 - **Then** outside the boundary sit *Task* by `depends_on` and *Repository* by `repo_ids`, once each, and neither *Readiness* nor *ProjectionRef*'s `repo_id`
+
+#### Scenario: A class no aggregate holds
+
+- **Given** a `model.md` whose `classDiagram` holds the aggregate root *Device*, the value object *OwnerScope* that no root composes, and *TaskChange* with no stereotype
+- **When** the reader opens Model
+- **Then** Diagram draws *Device* in its boundary and *OwnerScope* and *TaskChange* as cards outside every boundary, *TaskChange* marked as another context's type
 
 #### Scenario: A diagram the view cannot read
 

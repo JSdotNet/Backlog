@@ -832,6 +832,17 @@ and what an event carries are shown on Model only. The functional pages, from th
 context's Overview to its Glossary, say what the domain does in its own
 language.
 
+**Diagram reads the model file's stereotypes.** Each class of a `classDiagram`
+carries the building block its `domain.md` chapter names, as one of five
+stereotypes: `<<aggregate root>>`, `<<entity>>`, `<<value object>>`,
+`<<enumeration>>` and `<<domain service>>`. A type another context owns carries
+none. A stereotype is never a list of names: a type's variants are written in
+the relationship notes. Composition (`*--`) draws a part inside its root's
+boundary, a dashed line (`..>`) a type held by id outside it. A class no
+aggregate holds, such as a shared value object or another context's type, is a
+card outside every boundary. Only a diagram that does not parse, or names no
+aggregate root, is drawn with mermaid.
+
 **Fields reads the model file's own groups.** Fields heads the aggregate root
 with its kind, its chapter's status and aliases, its name and its chapter's first
 sentence. It then lists the root's fields in the purpose groups the model file's

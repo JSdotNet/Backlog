@@ -316,11 +316,12 @@ public sealed class DomainModelArrangementTests
 
     /// <summary>The shape of the second diagram in <c>.devbook/domain/devbook/model.md</c>:
     /// a root with no parts, beside a value object with parts of its own that no
-    /// root composes. Bands would draw the root alone and lose that structure.</summary>
+    /// root composes. The value objects are cards outside every band, the one
+    /// saying what it owns; the fence is not handed to mermaid for them.</summary>
     [Fact]
-    public void A_class_with_structure_no_band_shows_sends_the_fence_to_mermaid()
+    public void A_class_no_band_holds_is_drawn_outside_every_aggregate()
     {
-        Assert.Null(DomainModelArrangement.TryArrange("""
+        var arrangement = DomainModelArrangement.TryArrange("""
             classDiagram
                 class ChapterMetadata {
                     <<value object>>
@@ -331,8 +332,19 @@ public sealed class DomainModelArrangementTests
                 class Remark {
                     <<aggregate root>>
                 }
+                class TaskChange
+                class Stage {
+                    <<enumeration>>
+                    draft
+                }
                 ChapterMetadata "1" *-- "0..1" DecisionState : domain chapters only
-            """));
+            """);
+
+        Assert.NotNull(arrangement);
+        Assert.Equal("Remark", Assert.Single(arrangement!.Boundaries).Root.Name);
+        Assert.Equal(["ChapterMetadata", "DecisionState", "TaskChange"], arrangement.Outside.Select(o => o.Class.Name));
+        Assert.Equal(["DecisionState"], arrangement.Outside[0].Owns);
+        Assert.Equal(["Stage"], arrangement.Unplaced.Select(c => c.Name));
     }
 
     [Fact]
@@ -359,21 +371,40 @@ public sealed class DomainModelArrangementTests
         Assert.Equal("Task", Assert.Single(arrangement!.Boundaries).Root.Name);
     }
 
+    /// <summary>
+    /// Every bounded context's model under <c>.devbook/domain/</c> opens on the
+    /// arranged Diagram, none on mermaid: each class diagram parses, names an
+    /// aggregate root, and writes every class with one of the convention's
+    /// stereotypes — or none, for a type another context owns — as the Devbook
+    /// feature <c>.devbook/domain/devbook/features.md#domain-view-by-unit</c> says a
+    /// model file is written.
+    /// </summary>
     [Fact]
-    public void Every_model_in_this_repository_either_arranges_or_falls_back_without_throwing()
+    public void Every_model_in_this_repository_arranges()
     {
         var domain = new DirectoryInfo(Path.Combine(RepositoryRoot(), ".devbook", "domain"));
-        var fences = domain.EnumerateFiles("model*.md", SearchOption.AllDirectories)
-            .SelectMany(file => ClassDiagramFences(File.ReadAllText(file.FullName)))
+        var models = domain.EnumerateFiles("model*.md", SearchOption.AllDirectories)
+            .Where(file => !file.FullName.Contains("_archify", StringComparison.Ordinal))
+            .Select(file => (Context: file.Directory!.Name, Fences: ClassDiagramFences(File.ReadAllText(file.FullName)).ToList()))
             .ToList();
 
-        Assert.NotEmpty(fences);
-
-        // Every class diagram the repository writes is read: none is handed to
-        // mermaid for a line this reader does not know. The ones with no
-        // aggregate root (roadmap, sessions, sync, progress) do fall back.
-        Assert.All(fences, fence => Assert.NotNull(DomainClassDiagramReader.TryRead(fence)));
-        Assert.Contains(fences, fence => DomainModelArrangement.TryArrange(fence) is not null);
+        var contexts = domain.EnumerateDirectories()
+            .Where(d => File.Exists(Path.Combine(d.FullName, "context.md")))
+            .Select(d => d.Name);
+        Assert.Superset(contexts.ToHashSet(StringComparer.Ordinal), models.Select(m => m.Context).ToHashSet(StringComparer.Ordinal));
+        string[] convention = ["aggregate root", "entity", "value object", "enumeration", "domain service"];
+        foreach (var (context, fences) in models)
+        {
+            Assert.True(fences.Count > 0, $"{context}: the model file holds no classDiagram fence.");
+            foreach (var fence in fences)
+            {
+                var diagram = DomainClassDiagramReader.TryRead(fence);
+                Assert.True(diagram is not null, $"{context}: a classDiagram fence does not parse.");
+                var stray = diagram!.Classes.Where(c => c.Stereotype is { } s && !convention.Contains(s.Trim())).Select(c => $"{c.Name} <<{c.Stereotype}>>").ToList();
+                Assert.True(stray.Count == 0, $"{context}: stereotypes outside the convention: {string.Join(", ", stray)}");
+                Assert.True(DomainModelArrangement.Arrange(diagram) is not null, $"{context}: a classDiagram fence names no <<aggregate root>>.");
+            }
+        }
     }
 
     private static IEnumerable<string> ClassDiagramFences(string markdown)

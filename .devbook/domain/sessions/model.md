@@ -15,34 +15,41 @@ related: [.devbook/domain/sessions/domain.md]
 ```mermaid
 classDiagram
     class SessionLog {
+        <<aggregate root>>
         +Environment environment
         +SessionCatalog read()
     }
     class AgentSession {
+        <<entity>>
         +SessionIdentity identity
         +Environment environment
         +string title
         +SessionState state
     }
     class SessionIdentity {
+        <<value object>>
         +Agent agent
         +string session_id
     }
     class WorkingLocation {
+        <<value object>>
         +string working_folder
         +string repository
         +string resolved_repository
         +string branch
     }
     class ActivityWindow {
+        <<value object>>
         +DateTimeOffset started_at
         +DateTimeOffset last_activity_at
     }
     class SessionActivityStream {
+        <<value object>>
         +SessionIdentity session
         +SessionActivityEntry[] entries
     }
     class SessionActivityEntry {
+        <<value object>>
         +string event_id
         +long sequence
         +string type
@@ -50,14 +57,17 @@ classDiagram
         +string summary
     }
     class SessionEnrichmentSummary {
+        <<value object>>
         +DateTimeOffset last_external_activity_at
         +string latest_summary
     }
     class SessionCatalog {
+        <<value object>>
         +int discovered
         +string[] unreadable
     }
     class DeliveryRun {
+        <<entity>>
         +string run_id
         +string dashboard
         +string[] surfaces
@@ -69,6 +79,7 @@ classDiagram
         +string[] session_ids
     }
     class DeliveryRunReference {
+        <<value object>>
         +ReferenceKind kind
         +string label
         +string title
@@ -78,6 +89,7 @@ classDiagram
         +Guid entry_id
     }
     class DeliveryRunStage {
+        <<value object>>
         +string name
         +string status
         +long duration_ms
@@ -87,9 +99,11 @@ classDiagram
         +int defects_found
     }
     class DeliveryRunCatalog {
+        <<value object>>
         +string[] unreadable
     }
     class SessionRow {
+        <<value object>>
         +string key
         +string title
         +string environment_id
@@ -113,45 +127,47 @@ classDiagram
         degraded
     }
     class LivenessAssessment {
-        <<service>>
+        <<domain service>>
         +SessionState assess(ActivityWindow, now)
     }
     class SessionView {
-        <<service>>
+        <<domain service>>
         +AgentSession[] show(AgentSession[], which)
         +bool isLive(AgentSession)
     }
     class SessionGrouping {
-        <<service>>
+        <<domain service>>
         +SessionGroup[] group(AgentSession[], by)
     }
     class RunAttachment {
-        <<service>>
+        <<domain service>>
         +SessionRow[] rows(AgentSession[], DeliveryRun[])
     }
     class SessionActivityPublishing {
-        <<service>>
+        <<domain service>>
         +publish(AgentSession, milestone)
     }
     class SessionActivityEnrichment {
-        <<service>>
+        <<domain service>>
         +SessionEnrichmentSummary merge(AgentSession, SessionActivityStream)
     }
     class SessionGroup {
+        <<value object>>
         +string name
     }
 
-    SessionLog "1" --> "many" AgentSession : holds
+    SessionLog "1" *-- "0..*" AgentSession : holds
+    SessionLog "1" *-- "0..*" DeliveryRun : records
     SessionLog "1" --> "1" SessionCatalog : answers with
     SessionCatalog "1" --> "many" AgentSession : describes
-    AgentSession "1" --> "1" SessionIdentity : identified by
-    AgentSession "1" --> "1" WorkingLocation : worked in
-    AgentSession "1" --> "1" ActivityWindow : ran during
+    AgentSession "1" *-- "1" SessionIdentity : identified by
+    AgentSession "1" *-- "1" WorkingLocation : worked in
+    AgentSession "1" *-- "1" ActivityWindow : ran during
     AgentSession --> SessionState : reads as
-    AgentSession "0..1" --> "1" SessionActivityStream : enriched by
-    AgentSession "0..1" --> "1" SessionEnrichmentSummary : summarized as
+    AgentSession "1" *-- "0..1" SessionActivityStream : enriched by
+    AgentSession "1" *-- "0..1" SessionEnrichmentSummary : summarized as
     SessionIdentity --> Agent : issued by
-    SessionActivityStream "1" --> "many" SessionActivityEntry : orders
+    SessionActivityStream "1" *-- "0..*" SessionActivityEntry : orders
     SessionEnrichmentSummary --> ReportingCapability : reports
     LivenessAssessment ..> ActivityWindow : reads
     LivenessAssessment ..> SessionState : yields
@@ -165,8 +181,8 @@ classDiagram
     SessionActivityEnrichment ..> SessionEnrichmentSummary : yields
     SessionGroup "1" --> "many" AgentSession : contains
     DeliveryRunCatalog "1" --> "many" DeliveryRun : describes
-    DeliveryRun "1" --> "many" DeliveryRunStage : tracked as
-    DeliveryRun "1" --> "many" DeliveryRunReference : linked to
+    DeliveryRun "1" *-- "0..*" DeliveryRunStage : tracked as
+    DeliveryRun "1" *-- "0..*" DeliveryRunReference : linked to
     SessionRow "1" --> "0..1" AgentSession : shows
     SessionRow "1" --> "many" DeliveryRun : shows
     RunAttachment ..> DeliveryRun : reads
