@@ -3,6 +3,8 @@
 ```meta
 date: 2026-09-15
 related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/inbox/flow.md", ".devbook/domain/inbox/dependencies.md", ".devbook/domain/capture/domain.md#capture"]
+c4: [backlog.desktop.inbox, backlog.cloud]
+c4-touches: [backlog.mobile, backlog.ide, backlog.cloudDb, backlog.taskStore]
 ```
 
 ## Status

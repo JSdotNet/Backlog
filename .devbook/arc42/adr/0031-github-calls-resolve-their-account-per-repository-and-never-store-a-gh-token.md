@@ -4,6 +4,8 @@
 date: 2026-10-15
 status: proposed
 related: [".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/tech/desktop.md#github-cli", ".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization"]
+c4: [backlog.desktop, github, claude]
+c4-touches: [backlog.desktop.sessions]
 ```
 
 Every GitHub call picks its account from the path it calls. A repository bound to
@@ -232,3 +234,13 @@ Negative:
 Neutral:
 
 - Reading several session folders on one machine is decided but not built.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-10-13 | An unbound call borrows the token of the CLI's active login, in memory only, reversing "the app never extracts a credential" for that path. | Starting a `gh api` process for each call cost 100 to 300 ms on Windows. |
+| 2026-09-16 | Every GitHub call resolves its account per repository, and the app never extracts a credential from the CLI. | Calls for another owner's repositories went out as the active login and came back 404. |

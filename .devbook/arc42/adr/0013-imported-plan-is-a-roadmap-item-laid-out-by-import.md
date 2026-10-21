@@ -2,6 +2,7 @@
 
 ```meta
 related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#placing-a-plan-in-time", ".devbook/domain/roadmap/features.md#forecasting-work-in-flight", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
+c4: [backlog.desktop.roadmap, backlog.desktop.backlogModule]
 ```
 
 ## Status
@@ -837,3 +838,16 @@ Neutral:
   no roadmap logic — it lifts a sigil and delegates.
 - The "Lay out on the roadmap" dialog option and the shelf are two doors into one
   command. Neither invents a rule the `plan` entry path does not already follow.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-10-07 | An item under several repositories is laid out as one part per repository, each at its own pace, replacing the lowest of their paces. | A plan over seven repositories drew its whole span in a band whose own part was about two working days. |
+| 2026-09-27 | An `effort`-placed item is re-projected from its remaining effort, from today, replacing the pace-change re-length. | A plan that had finished none of its work still drew as due on its old date. |
+| 2026-09-26 | The pace is kept per repository band, and an item under several repositories takes the lowest of their paces. | Productivity differs from one project to the next. |
+| 2026-09-25 | Velocity is story points a week, and a pace change re-lengthens every `effort`-placed item. | The owner asked for it, and a measured pace is read over whole weeks. |
+| 2026-09-23 | An imported plan is one Roadmap Item, a `plan` entry is the entry grammar, and the importer places its window at a story-points-a-day velocity. | Every later entry of the plan builds one decision instead of making its own. |

@@ -5,6 +5,7 @@ date: 2026-10-21
 status: proposed
 roadmap: [c4-zoom-navigation]
 related: [".devbook/domain/devbook/features.md#c4-zoom-navigation", ".devbook/domain/devbook/requirements.md#c4-zoom-navigation", ".devbook/domain/devbook/context.md#c4-zoom", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database"]
+c4: [backlog.desktop.devbook]
 ```
 
 The architecture panel gains a **C4 zoom** tab that walks the C4 model from
