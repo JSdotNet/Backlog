@@ -118,16 +118,19 @@ public sealed class AgentSessionRecordStoreTests : IDisposable
         var store = Store();
         var record = Record("s-1");
 
-        store.Save([record with { Session = record.Session with { Archived = false, ScheduledTask = "nightly-sweep" } }]);
+        store.Save([record with { Session = record.Session with { Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "DESIGN: Finance app design" } }]);
 
         var file = Assert.Single(Directory.GetFiles(_root, "*.json"));
         var json = File.ReadAllText(file);
         Assert.DoesNotContain("nightly-sweep", json, StringComparison.Ordinal);
         Assert.DoesNotContain("archived", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Finance app design", json, StringComparison.Ordinal);
 
         var read = Assert.Single(store.All());
         Assert.Null(read.Session.Archived);
         Assert.Null(read.Session.ScheduledTask);
+        Assert.Null(read.Session.DesktopTitle);
+        Assert.Equal(record.Session.Title, read.Session.Title);
     }
 
     /// <summary>Two agents issuing one session id are two records.</summary>

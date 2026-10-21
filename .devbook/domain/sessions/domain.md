@@ -136,7 +136,7 @@ session's time and are not a stream of what it did.
 
 ```meta
 type: entity
-aliases: [AgentSession, session, session_id, AgentSession.Archived, ScheduledTask]
+aliases: [AgentSession, session, session_id, AgentSession.Archived, ScheduledTask, AgentSession.DesktopTitle]
 related: [.devbook/domain/sessions/domain.md#session-view, .devbook/domain/sessions/dependencies.md]
 ```
 
@@ -153,16 +153,20 @@ When external activity evidence exists, the
 entity also carries a `Session Activity Stream`, a `Session Enrichment Summary`, and
 a `Reporting Capability` reading for that stream.
 
-A Claude session may also carry two facts from the Claude desktop app's own record of it:
+A Claude session may also carry three facts from the Claude desktop app's own record of it:
 
 - **archived** says whether the desktop app still holds the session in its sidebar.
   It is open, archived, or unknown. Unknown means there is no record, or the record
   states no flag, and [unknown is never open](domain.invariants.md#invariant-unknown-is-never-open).
 - **scheduled task** names the desktop app's routine that the session is a run of. It
   is not the schedule on a [Session Row](#session-row), which is a delivery run's.
+- **sidebar title** is the name the desktop app's sidebar shows for the session,
+  whether the app, a tool or the person gave it. It is not the display title, which
+  comes from the transcript and is often only the worktree folder's name, and it never
+  replaces it: the display title is what a session record keeps.
 
-The environment reads both off its own disk and never derives them from `Session
-State`. [Neither ever travels](domain.invariants.md#invariant-the-desktop-records-facts-never-travel).
+The environment reads all three off its own disk and never derives them from `Session
+State`. [None ever travels](domain.invariants.md#invariant-the-desktop-records-facts-never-travel).
 Some running sessions, such as side sessions, have no desktop record, so they are
 never open however live they are.
 
@@ -792,7 +796,8 @@ Every fact read off a row comes from whichever source has it, and the row says n
 either source did not.
 [A run-only row speaks with its run's facts](domain.invariants.md#invariant-a-run-only-row-speaks-with-its-runs-facts):
 a schedule's row is titled by the schedule, since each of its runs cut a worktree
-nobody reopens. [A run-only row is Finished](domain.invariants.md#invariant-a-run-only-row-is-finished),
+nobody reopens. [A session row is called what the desktop app calls it](domain.invariants.md#invariant-a-session-row-is-called-what-the-desktop-app-calls-it)
+where the app's sidebar names it. [A run-only row is Finished](domain.invariants.md#invariant-a-run-only-row-is-finished),
 because there is no liveness evidence for it. A session row's repository is
 the session's. Where the agent recorded none, it is the tracker item a run of it named:
 a recorded fact from a second source, not the guess from a path the Session Log forbids.

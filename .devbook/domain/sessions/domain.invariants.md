@@ -172,13 +172,27 @@ Enforced at: the `SessionRecord` wire contract, which only `SessionRecordMapping
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.The_desktop_record_facts_never_change_the_pushed_record, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.A_record_keeps_no_desktop_record_facts, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.CompositeAgentSessionSourceTests.Only_a_local_answer_carries_the_desktop_record]
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.The_desktop_record_facts_never_change_the_pushed_record, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.The_sidebar_title_never_reaches_the_mapped_record, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.A_record_keeps_no_desktop_record_facts, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.CompositeAgentSessionSourceTests.Only_a_local_answer_carries_the_desktop_record]
 ```
 
-A session's archived flag and scheduled task never leave the machine, are never kept on its session record, and are never carried by a Recorded or Replicated answer.
+A session's archived flag, scheduled task and sidebar title never leave the machine, are never kept on its session record, and are never carried by a Recorded or Replicated answer.
 They describe this machine's Claude desktop app, which no other machine and no later reading can ask.
 
-Enforced at: `SessionRecordMapping.ToRecord()` (no field for either), `AgentSessionRecordStore`, `CompositeAgentSessionSource.LocalFactsOnly()`
+Enforced at: `SessionRecordMapping.ToRecord()` (no field for any of them; the record's title is the session's own), `AgentSessionRecordStore`, `CompositeAgentSessionSource.LocalFactsOnly()`
+
+### Invariant: A session row is called what the desktop app calls it
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_session_the_desktop_app_names_is_called_by_its_sidebar_name, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionAssistantSessionSourceTests.A_session_the_desktop_app_names_arrives_under_its_sidebar_name, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ClaudeDesktopSessionReaderTests.The_sidebar_title_is_read_from_the_records_top_level, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.A_session_with_no_desktop_record_is_neither_archived_nor_open]
+```
+
+A session row's title is the session's sidebar title where its desktop record names one, and the session's own display title otherwise.
+The session's display title is not changed by it.
+The Dashboard's longest sessions name a session the same way; every other surface, the MCP server's included, names it by its display title.
+
+Enforced at: `SessionRow.Title`, `AgentSessionAssistantSessionSource` (the longest sessions), `ClaudeDesktopSessionReader` (a blank or absent `title` reads null), `ClaudeSessionReader.Stamped()`
 
 ### Invariant: A session record is added to and never taken from
 
