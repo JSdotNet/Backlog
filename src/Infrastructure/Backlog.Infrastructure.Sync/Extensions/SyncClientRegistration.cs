@@ -546,7 +546,8 @@ public static class SyncClientRegistration
     /// composes with <c>AddNotificationsModule()</c>, and an <see cref="INotificationSyncStateStore"/>
     /// from <see cref="AddNotificationSyncStore"/>. The loop is a singleton with a timer inside
     /// it, so a head that calls this resolves <see cref="NotificationSyncWorker"/> once after
-    /// <c>Build()</c>.
+    /// <c>Build()</c> — and <see cref="NotificationNudgeListener"/>, the realtime nudge's socket,
+    /// the same way.
     /// </para>
     /// </summary>
     public static IServiceCollection AddNotificationSyncClient(this IServiceCollection services, Func<IServiceProvider, Uri> baseAddress)
@@ -560,6 +561,14 @@ public static class SyncClientRegistration
 
         services.TryAddTransient<NotificationSyncSession>();
         services.TryAddSingleton<NotificationSyncWorker>();
+
+        // The realtime nudge (local ADR 0038 §4): the listener holds the Web PubSub socket and
+        // drives the worker above. Like the worker it is a singleton the head resolves once;
+        // against a sync service with no hub it asks, hears there is none, and the worker's
+        // two-minute poll carries on alone.
+        services.TryAddSingleton<INotificationNudgeTarget>(sp => sp.GetRequiredService<NotificationSyncWorker>());
+        services.TryAddSingleton<INotificationNudgeSocketConnector, ClientWebSocketNudgeConnector>();
+        services.TryAddSingleton<NotificationNudgeListener>();
 
         return services;
     }

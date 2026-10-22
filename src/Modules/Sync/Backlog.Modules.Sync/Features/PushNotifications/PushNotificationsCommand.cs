@@ -21,8 +21,13 @@ public sealed record PushNotificationsCommand(OwnerScope Scope, IReadOnlyList<No
 /// is not written (one writer per notification, ADR 0038 §1) and comes back in
 /// <see cref="PushNotificationsResponse.NotOwned"/> rather than refusing the batch, so one
 /// colliding id never holds the owner's other notifications back.
+/// <para>
+/// A batch that wrote anything nudges the owner's desktops (ADR 0038 §4) — after the write, so
+/// a desktop that pulls on the nudge finds what caused it. The nudge names the kind of change
+/// and nothing of it.
+/// </para>
 /// </summary>
-public sealed class PushNotificationsCommandHandler(INotificationReplica replica)
+public sealed class PushNotificationsCommandHandler(INotificationReplica replica, INotificationNudgeChannel nudges)
     : ICommandHandler<PushNotificationsCommand, Result<PushNotificationsResponse>>
 {
     public async Task<Result<PushNotificationsResponse>> Handle(PushNotificationsCommand command, CancellationToken cancellationToken = default)
@@ -39,6 +44,11 @@ public sealed class PushNotificationsCommandHandler(INotificationReplica replica
         if (result.NotOwned.Count > 0)
         {
             activity?.SetTag(SyncTelemetry.ReasonTag, SyncErrorCodes.NotificationNotOwner);
+        }
+
+        if (result.Accepted > 0)
+        {
+            await nudges.PublishAsync(command.Scope.OwnerId, NotificationNudgeKinds.Notification, cancellationToken);
         }
 
         return new PushNotificationsResponse(result.Accepted, result.NotOwned);

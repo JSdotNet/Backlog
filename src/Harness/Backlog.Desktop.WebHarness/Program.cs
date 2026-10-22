@@ -249,6 +249,10 @@ _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 // And the notification exchange's loop (local ADR 0038), on the same terms.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
 
+// And its realtime nudge (local ADR 0038 §4). Under Aspire the sync service has no Web PubSub,
+// so the listener hears there is no hub and the two-minute poll carries on alone.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationNudgeListener>();
+
 // And the backup loop, on the same terms: a timer that only existed while the
 // Storage tab was open would miss every slot it was set for.
 _ = app.Services.GetRequiredService<BackupWorker>();

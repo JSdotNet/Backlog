@@ -129,6 +129,9 @@ internal static class SyncResults
         // The attachment store not there yet — locally, Azurite still starting.
         // The same 503 as the replica, under its own code.
         SyncErrorCodes.AttachmentStoreUnavailable => StatusCodes.Status503ServiceUnavailable,
+
+        // A nudge hub that did not mint a URL just now: the desktop retries soon.
+        SyncErrorCodes.NudgeUnavailable => StatusCodes.Status503ServiceUnavailable,
         _ => error.Type switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,

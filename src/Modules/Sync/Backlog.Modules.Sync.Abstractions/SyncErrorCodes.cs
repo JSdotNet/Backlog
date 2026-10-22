@@ -100,6 +100,11 @@ public static class SyncErrorCodes
     /// told the replica is down would wait on the wrong thing.</summary>
     public const string AttachmentStoreUnavailable = "sync.attachment_store_unavailable";
 
+    /// <summary>The service has a nudge hub but could not mint a client access URL for it just
+    /// now (local ADR 0038 §4). A 503, under its own code, so a desktop retries soon — unlike a
+    /// success with no URL, which says there is no hub and is asked again only rarely.</summary>
+    public const string NudgeUnavailable = "sync.nudge_unavailable";
+
     /// <summary>More task changes in one push than the service will take. The
     /// client batches well below the cap, so reaching it is either a client that
     /// stopped batching or a caller that is not one of ours.</summary>

@@ -17,8 +17,14 @@ namespace Backlog.Infrastructure.Sync.Notifications;
 /// Two minutes is ADR 0038's fallback poll while a question is open. The session keeps the
 /// "stay idle otherwise" half: a tick with no open question and nothing new to push sends no
 /// request at all, so what a quiet desktop pays for this loop is one read of its own
-/// <c>backlog.db</c> every two minutes. The realtime nudge (plan step 7) calls
-/// <see cref="RequestSync"/> to run a cycle at once instead of waiting for the tick.
+/// <c>backlog.db</c> every two minutes.
+/// </para>
+/// <para>
+/// The realtime nudge (ADR 0038 §4, <see cref="NotificationNudgeListener"/>) calls
+/// <see cref="RequestSync"/> on every "pull now" to run a full cycle at once, and says through
+/// <see cref="SetNudgeOpen"/> whether its socket is up. While it is, the tick still pushes what
+/// was published here but leaves the replies to the nudge; while it is down — or on a host
+/// with no Web PubSub — the tick polls them, which is the two-minute fallback.
 /// </para>
 /// <para>
 /// A sibling of <c>AnnotationSyncWorker</c>, copied rather than shared for the reasons that one
@@ -27,7 +33,7 @@ namespace Backlog.Infrastructure.Sync.Notifications;
 /// the <c>notifications</c> feature, and a paired device.
 /// </para>
 /// </summary>
-public sealed class NotificationSyncWorker : IDisposable
+public sealed class NotificationSyncWorker : IDisposable, INotificationNudgeTarget
 {
     /// <summary>How long after the loop starts the first cycle runs, staggered behind the
     /// other loops.</summary>
@@ -49,6 +55,14 @@ public sealed class NotificationSyncWorker : IDisposable
     private readonly CancellationTokenSource _lifetime = new();
 
     private int _cycleInFlight;
+
+    private int _nudgeOpen;
+
+    /// <summary>Set when a full cycle was asked for while one was already in flight. That one
+    /// may have started before the reply landed, or may be a tick that leaves the replies to the
+    /// nudge, so dropping the request would leave the reply waiting while the socket stays up.
+    /// It runs once more instead.</summary>
+    private int _fullCycleOwed;
 
     private ITimer? _timer;
     private bool _disposed;
@@ -89,8 +103,24 @@ public sealed class NotificationSyncWorker : IDisposable
     /// <summary>True while a cycle is in flight.</summary>
     public bool IsSyncing => Volatile.Read(ref _cycleInFlight) == 1;
 
-    /// <summary>Runs a cycle now, and returns before it has done anything.</summary>
+    /// <summary>True while the nudge socket is open, so the tick leaves the replies to it.</summary>
+    public bool IsNudgeOpen => Volatile.Read(ref _nudgeOpen) == 1;
+
+    /// <summary>Runs a full cycle now — replies included — and returns before it has done
+    /// anything.</summary>
     public void RequestSync() => _ = RequestSyncAsync();
+
+    /// <summary>
+    /// What the nudge listener says about its socket. Opening it runs a full cycle at once,
+    /// because a reply may have landed while it was down and its nudge went nowhere; closing it
+    /// hands the replies back to the two-minute poll.
+    /// </summary>
+    public void SetNudgeOpen(bool open)
+    {
+        var was = Interlocked.Exchange(ref _nudgeOpen, open ? 1 : 0) == 1;
+
+        if (open && !was) RequestSync();
+    }
 
     public void Dispose()
     {
@@ -118,7 +148,7 @@ public sealed class NotificationSyncWorker : IDisposable
             if (_disposed) return Task.CompletedTask;
         }
 
-        return Task.Run(RunGuardedAsync, CancellationToken.None);
+        return Task.Run(() => RunGuardedAsync(pollReplies: true), CancellationToken.None);
     }
 
     private bool ShouldRun =>
@@ -149,7 +179,7 @@ public sealed class NotificationSyncWorker : IDisposable
     {
         try
         {
-            await RunGuardedAsync().ConfigureAwait(false);
+            await RunGuardedAsync(pollReplies: !IsNudgeOpen).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -157,11 +187,11 @@ public sealed class NotificationSyncWorker : IDisposable
         }
     }
 
-    private async Task RunGuardedAsync()
+    private async Task RunGuardedAsync(bool pollReplies)
     {
         try
         {
-            await RunCycleAsync().ConfigureAwait(false);
+            await RunCycleAsync(pollReplies).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -169,11 +199,25 @@ public sealed class NotificationSyncWorker : IDisposable
         }
     }
 
-    private async Task RunCycleAsync()
+    private async Task RunCycleAsync(bool pollReplies)
     {
         if (!ShouldRun) return;
 
-        if (Interlocked.CompareExchange(ref _cycleInFlight, 1, 0) != 0) return;
+        if (Interlocked.CompareExchange(ref _cycleInFlight, 1, 0) != 0)
+        {
+            if (!pollReplies) return;
+
+            Volatile.Write(ref _fullCycleOwed, 1);
+
+            // The cycle in flight may have finished, and checked for an owed cycle, between the
+            // exchange above and the write; if so, nobody else will collect it.
+            if (Volatile.Read(ref _cycleInFlight) == 0 && Interlocked.Exchange(ref _fullCycleOwed, 0) == 1)
+            {
+                await RequestSyncAsync().ConfigureAwait(false);
+            }
+
+            return;
+        }
 
         Changed?.Invoke();
 
@@ -184,7 +228,7 @@ public sealed class NotificationSyncWorker : IDisposable
             if (session is null) return;
 
             var result = await RefusedTokenRerun.RunAsync(
-                _services, () => session.SyncAsync(_lifetime.Token), _log, "notification").ConfigureAwait(false);
+                _services, () => session.SyncAsync(pollReplies, _lifetime.Token), _log, "notification").ConfigureAwait(false);
 
             if (result.IsSuccess)
             {
@@ -211,6 +255,11 @@ public sealed class NotificationSyncWorker : IDisposable
         {
             Volatile.Write(ref _cycleInFlight, 0);
             Changed?.Invoke();
+        }
+
+        if (Interlocked.Exchange(ref _fullCycleOwed, 0) == 1)
+        {
+            await RequestSyncAsync().ConfigureAwait(false);
         }
     }
 

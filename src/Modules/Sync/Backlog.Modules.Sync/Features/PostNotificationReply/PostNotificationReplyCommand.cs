@@ -20,8 +20,13 @@ public sealed record PostNotificationReplyCommand(OwnerScope Scope, Notification
 /// would read it. Whether the reply fits the question, and whether it is the first, is the
 /// owner instance's to decide; the service reads none of it. Posting the same reply id twice
 /// stores it once, so a phone's outbox may send it again.
+/// <para>
+/// A reply stored for the first time nudges the owner's desktops (ADR 0038 §4), so the owner
+/// instance processes it within seconds rather than on its two-minute poll. A repeat send
+/// stored nothing new and nudges nobody.
+/// </para>
 /// </summary>
-public sealed class PostNotificationReplyCommandHandler(INotificationReplica replica)
+public sealed class PostNotificationReplyCommandHandler(INotificationReplica replica, INotificationNudgeChannel nudges)
     : ICommandHandler<PostNotificationReplyCommand, Result<PostNotificationReplyResponse>>
 {
     public async Task<Result<PostNotificationReplyResponse>> Handle(PostNotificationReplyCommand command, CancellationToken cancellationToken = default)
@@ -33,6 +38,11 @@ public sealed class PostNotificationReplyCommandHandler(INotificationReplica rep
         activity?.SetTag(SyncTelemetry.DeviceIdTag, command.Scope.DeviceId.ToString());
 
         var outcome = await replica.StoreReply(command.Scope, command.Reply, cancellationToken);
+
+        if (outcome == NotificationReplyStoreOutcome.Stored)
+        {
+            await nudges.PublishAsync(command.Scope.OwnerId, NotificationNudgeKinds.Reply, cancellationToken);
+        }
 
         return outcome switch
         {

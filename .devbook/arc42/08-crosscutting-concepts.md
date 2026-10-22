@@ -416,10 +416,11 @@ between devices. Local ADR 0038 records the decision, and the
 The owner's side is built: the port, the handler and probe contracts, the
 `notifications` table in `backlog.db`, the answer replay and the startup probe
 pass, and each subject context's close and probe. So is the transport: the two
-replica containers, the sync routes and the owner desktop's exchange. So are
-the first publishers: a run's Personal Validation, the device that redeemed a
-pairing code, and a remark left on another device. The screens and the realtime
-nudge are not yet.
+replica containers, the sync routes and the owner desktop's exchange, and the
+desktops' Web PubSub nudge. So are the first publishers: a run's Personal
+Validation, the device that redeemed a pairing code, and a remark left on another
+device. So are the screens: the desktop's notification centre and the phone's
+list and answer screens. The Android phone push is not yet.
 
 | Concern | How it works |
 |---|---|
@@ -428,7 +429,7 @@ nudge are not yet.
 | Ending | The context that owns a notification's subject calls `CloseForSubjectAsync` when the subject ends. It calls it from wherever it notices the end — a change synced in from another device included, since the context applies that change itself. Its `INotificationSubjectProbe` answers at startup and after a sync, to catch an end the owner missed. |
 | Storage | The owner keeps SQLite as its local store. Notifications replicate through the `notifications` container, which expires them 30 days after they close. Replies wait in `notificationReplies` until the owner deletes them. |
 | Exchange | The owner desktop pushes what it published or settled, and while a question is open lists the replies addressed to it every two minutes. It accepts the first valid reply, rejects the rest as already answered, closed or invalid, and puts each rejection on the notification it pushes next. A quiet desktop sends nothing. |
-| Realtime | A nudge only says "pull now". Desktops get it through Azure Web PubSub, and the Android phone through Azure Notification Hubs to FCM. |
+| Realtime | A nudge only says "pull now". Desktops get it through Azure Web PubSub, one group per owner, on a socket the sync service's negotiate route hands out. The Android phone gets it through Azure Notification Hubs to FCM. While a desktop's socket is down, its two-minute reply poll is the fallback. |
 
 - **One writer per document.** Only the owner instance writes a notification. A
   viewer writes a reply document once, and the owner accepts or rejects it. The
