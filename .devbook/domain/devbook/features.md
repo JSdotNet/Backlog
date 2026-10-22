@@ -300,6 +300,167 @@ why it cannot be followed. Selecting a note offers to open it in the pane. Both
 close the map. With no Brain index built yet, the atlas says so rather than
 drawing an empty map.
 
+## Lobes atlas
+
+```meta
+type: feature
+status: draft
+depends-on: [.devbook/domain/devbook/features.md#atlas-edges]
+feature-flag: .devbook/domain/devbook/context.md#lobes-atlas
+related: [.devbook/domain/devbook/requirements.md#lobes-atlas, .devbook/domain/devbook/features.md#para-organization, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/design/color-scheme.md#the-brains-accent]
+```
+
+See the Brain and every devbook on this machine in one picture. One atlas maps
+the Brain and the devbook of every registered repository. It opens full-window
+from the shell header's **Atlas**, in place of whatever was on screen, and
+draws each of them as a brain: drag to rotate it, scroll to zoom. Its close
+button, Escape and a second press of **Atlas** return to where the person was:
+the main view, the takeover that was up, or the Devbook when its button opened
+the atlas. If that takeover or the Devbook has since been switched off, they
+return to the main view instead, and the tooltip names the main view.
+
+**Scopes.** A switch in the atlas's header picks what the atlas shows: **All**,
+**Brain**, then each registered devbook by alias, then each ghost devbook in a
+dashed button. Switching scope resets the camera to its default view.
+
+| Scope | The atlas shows |
+| --- | --- |
+| **All** | The Brain in the middle, each devbook as a smaller brain around it |
+| **Brain** | The Brain alone, by region |
+| One per devbook | That devbook alone, by region, with a Brain hub beside it |
+
+**Layout.** The map fills the atlas, and everything else floats over it: the
+title and the scope switch at the top left, the left panel with the scope card
+under it, the picture's controls and the chips at the top right, the list of
+marks down the right, and the foot along the bottom. A drag or a scroll that
+starts on any of them leaves the camera alone. In a window 60rem wide or
+narrower nothing floats. The parts stack in one column, in the order the
+keyboard meets them: the title, the scope switch, the controls, the chips, one
+disclosure that folds the panel and the scope card away, the map with its list
+under it, and the foot. The scope switch and the chips each keep one row and
+scroll sideways.
+
+A repository alias the Brain links to that is not registered on this machine
+is a **ghost devbook**. It has a scope of its own and is drawn dashed: its
+outline, and only the chapters the notes name, in the link's own words. The
+atlas reads no repository, as [Atlas edges](#atlas-edges) already says.
+
+**Brain regions.** A note's region comes from its PARA area. Its `para` field
+wins over its folder, as [PARA organization](#para-organization) says.
+
+| Region | Brain notes |
+| --- | --- |
+| Frontal | Projects |
+| Parietal | Areas, Resources, and any area `CONVENTIONS.md` declares beyond PARA |
+| Temporal | People |
+| Occipital | The repository chapters the notes link to |
+| Cerebellum | Journal and the inbox |
+| Brain stem | The area roots and `CONVENTIONS.md` |
+
+Archive is no region: its notes are the faint dust around the outside.
+
+**Devbook regions.** A chapter's region comes from its folder.
+
+| Region | Devbook folder |
+| --- | --- |
+| Frontal | `arc42/` |
+| Parietal | `tech/` |
+| Temporal | `domain/` |
+| Occipital | `design/` |
+| Cerebellum | `ai/` |
+| Brain stem | Each folder's convention root and the reading-order roots |
+
+**Hubs and ghost chapters.** The Brain stem holds one hub for `CONVENTIONS.md`
+and one for each area. Occipital draws the repository chapters the notes link
+to as one hub per repository alias, with a bundle to each chapter. A chapter of
+a note takes the note's region, and a PARA area kept under another folder name
+keeps its region. A chapter a registered devbook's index does not hold is drawn
+dashed inside that devbook, in the link's own words, and its chip reads *not a
+chapter in its devbook*. Every chapter the notes name in a devbook not indexed
+yet is drawn the same way, but its chip reads *its devbook is not indexed yet —
+see its scope card*: the index is missing, not the chapter, as the card says.
+
+**Counts.** Each scope counts its marks per region, its notes or chapters
+without the hubs, and the Brain notes that link into it. The Brain's count is
+the notes that link into any devbook. In All, the tag over each brain gives its
+name and its count; a ghost devbook, which has no count here, reads *not
+registered* instead.
+
+**Colour and bundles.** Brain marks wear the Brain's accent, `color-band-2`;
+devbook marks are gold. In All, bundles run from the Brain's repository hubs
+to the chapters the notes link. In a devbook's scope, a Brain hub floats beside
+the devbook with those same bundles. A bundle is solid when the link resolves
+and dashed when it does not, as in [Atlas edges](#atlas-edges).
+
+**The left panel.** In All it lists the scopes, each with its count; a row
+opens that scope. In a single scope it lists that scope's six regions, each
+with what it holds and its count; a row shows or hides the region. The panel's
+heading names what it lists: **Scopes**, **Anatomical regions** for the Brain,
+**Devbook folders** for a devbook.
+
+**The top right.** **Labels**, **All** and **None** sit beside the close
+button, and under them one chip per region of the current scope, or one per
+scope in All, named by a short code such as `FRO` or `ARC`. A chip shows or
+hides what it names, as the panel's row does. **All** and **None** act on the
+current scope only, so the regions hidden in another scope stay hidden. In a
+scope, **None** hides the Archive dust with the regions, so nothing is left on
+the map or in the list beside it, and **All** shows it again. The dust has no
+chip or row of its own, so showing one region again after **None** leaves it
+hidden until **All**. The picture's **All** is named *All scopes* or *All
+regions* for a screen reader or speech input, apart from the scope switch's
+**All**.
+
+**The scope card.** Below the list, a scope card names the scope with its
+counts, says when its index was last built, such as "Indexed 4 minutes ago" or
+"Not indexed yet", and offers one action:
+
+| Scope | The card's action |
+| --- | --- |
+| All | **Step into the Brain**, which switches to the Brain's scope |
+| The Brain | **Open in the pane** |
+| A devbook | **Open devbook** |
+| A ghost devbook | **Register repository**, which opens the Repositories settings |
+
+A ghost devbook has no index of its own here, so its card gives no time.
+Coming back from the Repositories settings reopens the atlas on that ghost,
+with the same way back as before. Once the alias is registered, it opens on
+that devbook's scope instead.
+
+**The foot.** Along the map's bottom edge, the hint "Drag — rotate · Scroll —
+zoom" ends with the zoom level, and an orientation marker draws the superior,
+anterior and left axes turning with the camera.
+
+**Every control.** Each control of the atlas is a real button at least 44 px
+square with a visible focus ring, and every toggle reports whether it is
+pressed.
+
+**Selecting a mark.** A mark selected on the map or in the list beside it opens
+its details, as [Atlas edges](#atlas-edges) does. A Brain note offers to open
+it in the pane. A chapter a note links to shows the link's chip: a gold chip
+opens that repository's devbook at the chapter, and a dashed one says why it
+cannot be followed. A devbook's own chapter opens in its devbook. Following
+any of them, or the card's **Open in the pane** or **Open devbook**, gives the
+Devbook the screen, which closes the atlas.
+
+**Browsing the list.** The list beside the map is one tab stop. The arrow keys,
+Home and End move from row to row and spotlight that mark on the map without
+opening its details. Enter or Space opens them, and Escape closes them with the
+focus back on the mark's row.
+
+**No index yet.** With no Brain index built yet, the atlas shows an empty state
+instead of a map. Its header names the Brain in its badge beside the title, as
+the header does over any atlas with no map to show. It says the Brain is not
+indexed yet, and offers **Build the index now** and **Back to notes**. Building runs the same refresher that builds
+the index in the background, and the map takes the empty state's place once the
+index exists. A build that fails, or finds nothing to index, says why and keeps
+the offer. A host that cannot build the index offers only **Back to notes**.
+Back to notes leaves the atlas the way its close button does.
+
+**Where it opens.** While the flag is on, the Devbook pane's **Atlas** button
+opens this atlas at the pane's scope: the Brain, or that repository. While it
+is off, the button opens today's atlas. The technology atlas on the Tech tab
+keeps its layered layout either way.
+
 ## Capture into the Brain
 
 ```meta

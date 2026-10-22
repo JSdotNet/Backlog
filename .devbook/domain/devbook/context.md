@@ -60,6 +60,29 @@ The catalog also reads three former keys: `repository-knowledge`,
 feature catalog in `AppFeatures.cs`, and a person's choice is kept in
 `features.json` beside the app's other per-device choices.
 
+## Lobes atlas
+
+```meta
+status: draft
+type: feature-flag
+key: atlas-lobes
+default: off
+related: [".devbook/domain/devbook/features.md#lobes-atlas", ".devbook/domain/devbook/requirements.md#lobes-atlas"]
+```
+
+Turning it on makes the Devbook pane's **Atlas** button open the
+[Lobes atlas](features.md#lobes-atlas) at the pane's scope, the Brain or that
+repository, and offers the atlas from the shell header. Off, the button opens
+today's atlas, and the header offers none. The technology atlas on the Tech tab
+is the same either way.
+
+It ships off, marked in development, while the Lobes atlas is finished. The key
+is in `DevbookFeatures` and the feature catalog in `AppFeatures.cs`, so the
+settings screen lists it with the other switches, and a person's choice is kept
+in `features.json` like the pane's. It means nothing with Devbook off: the
+context's scope service answers both the header and the pane from the two
+switches together.
+
 ## Brain folder
 
 ```meta

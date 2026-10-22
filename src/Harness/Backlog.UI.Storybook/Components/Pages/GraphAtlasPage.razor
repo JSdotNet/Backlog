@@ -86,7 +86,7 @@
         control rather than only as a column beside a picture.
     *@
     <Story Name="Index on its own"
-           Description="A listbox with a roving tabindex: one row is tabbable, arrows move between them, Home and End jump to the ends. Every fact the marks encode is written out here as text, including the degree that sizes a node on the map."
+           Description="A listbox with a roving tabindex: one row is tabbable, arrows move the focus between them and Home and End jump to the ends, without selecting; Enter, Space or a click selects. Every fact the marks encode is written out here as text, including the degree that sizes a node on the map."
            Code="@IndexCode">
         <div class="sb-stack">
             <GraphAtlasIndex Nodes="KitchenNodes"
@@ -98,7 +98,7 @@
     </Story>
 
     @*
-        The other shape the atlas is asked to draw. The kitchen above is fourteen
+        The other shape the atlas is asked to draw. The kitchen above is fifteen
         nodes in three clusters; a knowledge folder is hundreds across a dozen, and
         the two stress different things — label collision, cluster overlap, how
         much of the edge set is legible at once. Drawing both here is the point.
@@ -193,7 +193,10 @@
         new("pie", "Pie", "dish", "candidate", "ready", "Dishes", 1),
         new("souffle", "Souffle", "dish", "trial", "draft", "Dishes", 2),
         new("gratin", "Gratin", "dish", "retired", "archived", "Dishes", 3),
-        new("brulee", "Creme brulee", "dish", "candidate", "ready", "Dishes", 4)
+        new("brulee", "Creme brulee", "dish", "candidate", "ready", "Dishes", 4),
+        // A label long enough to wrap, so the index shows a row that grows to hold it —
+        // and the canvas a hover pill far wider than its label budget, kept as a stress case.
+        new("lamb", "Slow-roasted shoulder of lamb on a long-simmered white bean and rosemary gratin", "dish", "trial", "draft", "Dishes", 5)
     ];
 
     private static readonly (string Source, string Target)[] Needs =
@@ -206,7 +209,8 @@
         ("pie", "pastry"), ("pie", "butter"),
         ("souffle", "eggs"), ("souffle", "custard"),
         ("gratin", "roux"), ("gratin", "stock"),
-        ("brulee", "custard"), ("brulee", "caramel")
+        ("brulee", "custard"), ("brulee", "caramel"),
+        ("lamb", "roux"), ("lamb", "stock")
     ];
 
     private static readonly string[] Groups = ["Pantry", "Preparations", "Dishes"];

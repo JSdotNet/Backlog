@@ -84,6 +84,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DevbookFeatures.RepositoryDevbook,
                 DevbookFeatures.ArchifyDiagrams,
                 DevbookFeatures.C4Diagrams,
+                DevbookFeatures.LobesAtlas,
                 DevbookFeatures.Search,
                 DevbookFeatures.SemanticSearch,
                 DevPcFeatures.SystemTools,
