@@ -417,6 +417,11 @@ cannot be followed. A devbook's own chapter opens in its devbook. Following
 any of them, or the card's **Open in the pane** or **Open devbook**, gives the
 Devbook the screen, which closes the atlas.
 
+**Browsing the list.** The list beside the map is one tab stop. The arrow keys,
+Home and End move from row to row and spotlight that mark on the map without
+opening its details. Enter or Space opens them, and Escape closes them with the
+focus back on the mark's row.
+
 **No index yet.** With no Brain index built yet, the atlas shows an empty state
 instead of a map: it says the Brain is not indexed yet, and offers **Build the
 index now** and **Back to notes**. Building runs the same refresher that builds

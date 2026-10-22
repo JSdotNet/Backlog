@@ -1966,6 +1966,24 @@
         event.preventDefault();
     });
 
+    // The keys a graph atlas's index takes for itself. The arrows, Home and End
+    // move to another row and would otherwise scroll the index, which scrolls
+    // itself; Space chooses the row and would otherwise scroll it by a screen.
+    // The same reasoning and contract as the row keys above: refused at the
+    // keydown because a state-bound `@onkeydown:preventDefault` is one key late,
+    // only the default, and the event keeps bubbling — to the index's own handler
+    // and to the hosts above it. Enter has no default on a row and is left alone.
+    const GRAPH_ATLAS_INDEX_SWALLOWED_KEYS = new Set(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End', ' ']);
+
+    document.addEventListener('keydown', (event) => {
+        if (!GRAPH_ATLAS_INDEX_SWALLOWED_KEYS.has(event.key)) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches('[role="listbox"] > .graph-atlas-index__option')) return;
+
+        event.preventDefault();
+    });
+
     // The keys a RadioGroup choice moves the selection with. Without this they
     // also scroll the nearest scroll container — End checks the last choice and
     // throws the triage pass to its bottom. The same reasoning and contract as

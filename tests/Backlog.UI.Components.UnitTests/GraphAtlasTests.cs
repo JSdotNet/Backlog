@@ -159,6 +159,119 @@ public sealed class GraphAtlasTests
             invocation => Equals(invocation.Arguments[1], "a"));
     }
 
+    /// <summary>Arrowing down the index spotlights the row on the picture and
+    /// selects nothing, so the host's sheet stays shut while the reader browses;
+    /// Enter then selects the row the spotlight is on.</summary>
+    [Fact]
+    public void Arrowing_the_index_spotlights_the_row_on_the_picture_and_enter_selects_it()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var selections = new List<string?>();
+
+        var atlas = context.Render<GraphAtlas>(parameters => parameters
+            .Add(a => a.Data, Model())
+            .Add(a => a.Nodes, Nodes())
+            .Add(a => a.SelectedIdChanged, EventCallback.Factory.Create<string?>(this, selections.Add)));
+
+        atlas.Find(".graph-atlas-index").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+
+        Assert.Empty(selections);
+        atlas.WaitForAssertion(() => Assert.Equal("b", context.JSInterop.Invocations["backlogGraphAtlas.select"][^1].Arguments[1]));
+        Assert.Equal("ready", atlas.Find(".graph-atlas__canvas").GetAttribute("data-tone"));
+
+        atlas.Find(".graph-atlas-index").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.Equal(["b"], selections);
+    }
+
+    /// <summary>A pick on the canvas moves the list's tab stop with it, so the
+    /// keyboard carries on from the node the pointer chose.</summary>
+    [Fact]
+    public async Task A_pick_on_the_canvas_moves_the_lists_tab_stop_to_it()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var atlas = context.Render<GraphAtlas>(parameters => parameters
+            .Add(a => a.Data, Model())
+            .Add(a => a.Nodes, Nodes()));
+
+        await atlas.Instance.NodePicked("b");
+
+        atlas.WaitForAssertion(() => Assert.Equal("0", atlas.Find("[data-node-id=\"b\"]").GetAttribute("tabindex")));
+    }
+
+    /// <summary>Clearing the selection — closing the host's sheet — leaves the
+    /// keyboard on the row it was on. The sheet gives the focus back to that row,
+    /// and the list has to still be on it, so the tab stop stays; the spotlight
+    /// goes, as it did before the keyboard had a spotlight of its own.</summary>
+    [Fact]
+    public void Clearing_the_selection_leaves_the_tab_stop_on_the_row_and_clears_the_spotlight()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var data = Model();
+
+        var atlas = context.Render<GraphAtlas>(parameters => parameters
+            .Add(a => a.Data, data)
+            .Add(a => a.Nodes, Nodes())
+            .Add(a => a.SelectedId, "b"));
+
+        atlas.Render(parameters => parameters
+            .Add(a => a.Data, data)
+            .Add(a => a.Nodes, Nodes())
+            .Add(a => a.SelectedId, null));
+
+        Assert.Equal("0", atlas.Find("[data-node-id=\"b\"]").GetAttribute("tabindex"));
+        Assert.Equal("false", atlas.Find("[data-node-id=\"b\"]").GetAttribute("aria-selected"));
+        Assert.Null(context.JSInterop.Invocations["backlogGraphAtlas.select"][^1].Arguments[1]);
+        Assert.Equal(string.Empty, atlas.Find(".graph-atlas__canvas").GetAttribute("data-tone"));
+    }
+
+    /// <summary>A pick on empty canvas clears the spotlight, whichever row the
+    /// keyboard last moved it to.</summary>
+    [Fact]
+    public async Task A_pick_on_empty_canvas_clears_a_spotlight_the_keyboard_set()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var atlas = context.Render<GraphAtlas>(parameters => parameters
+            .Add(a => a.Data, Model())
+            .Add(a => a.Nodes, Nodes())
+            .Add(a => a.SelectedId, "a"));
+
+        atlas.Find(".graph-atlas-index").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        atlas.WaitForAssertion(() => Assert.Equal("b", context.JSInterop.Invocations["backlogGraphAtlas.select"][^1].Arguments[1]));
+
+        await atlas.Instance.NodePicked(null);
+
+        atlas.WaitForAssertion(() => Assert.Null(context.JSInterop.Invocations["backlogGraphAtlas.select"][^1].Arguments[1]));
+    }
+
+    /// <summary>An active row the nodes no longer hold is forgotten, so a later
+    /// set of nodes that brings the id back puts the tab stop where the selection
+    /// is, not on the old row.</summary>
+    [Fact]
+    public void An_active_row_the_nodes_no_longer_hold_is_forgotten()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var data = Model();
+
+        var atlas = context.Render<GraphAtlas>(parameters => parameters
+            .Add(a => a.Data, data)
+            .Add(a => a.Nodes, Nodes()));
+
+        atlas.Find(".graph-atlas-index").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        atlas.Render(parameters => parameters.Add(a => a.Nodes, [Nodes()[0]]));
+        atlas.Render(parameters => parameters.Add(a => a.Nodes, Nodes()));
+
+        Assert.Equal("0", atlas.Find("[data-node-id=\"a\"]").GetAttribute("tabindex"));
+        Assert.Equal("-1", atlas.Find("[data-node-id=\"b\"]").GetAttribute("tabindex"));
+    }
+
     /// <summary>A canvas has no accessibility tree, so it is kept out of the one
     /// the page has rather than given a label that would announce the whole graph
     /// as a single unnavigable node.</summary>

@@ -1014,6 +1014,28 @@ The system SHALL show under the map the drag and scroll hint with the zoom level
 - **When** the reader scrolls to zoom in to 150%
 - **Then** the hint ends with 150% and the orientation marker has turned with the camera
 
+### Requirement: The keyboard browses the list without opening details
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_keyboard_arrows_through_the_list_without_opening_the_sheet_and_enter_opens_it, unit:dotnet:Backlog.UI.Components.UnitTests.GraphAtlasIndexTests.The_arrows_and_the_ends_move_the_active_row_and_leave_the_selection, unit:dotnet:Backlog.UI.Components.UnitTests.GraphAtlasIndexTests.Enter_or_space_selects_the_row_the_keyboard_is_on, unit:dotnet:Backlog.UI.Components.UnitTests.GraphAtlasIndexTests.Components_js_refuses_the_index_keys_default_at_the_keydown_and_lets_them_bubble, unit:dotnet:Backlog.UI.Components.UnitTests.GraphAtlasTests.Arrowing_the_index_spotlights_the_row_on_the_picture_and_enter_selects_it, unit:dotnet:Backlog.UI.Components.UnitTests.GraphAtlasTests.Clearing_the_selection_leaves_the_tab_stop_on_the_row_and_clears_the_spotlight]
+```
+
+The system SHALL keep the list beside the map one tab stop whose arrow keys, Home and End move the focus and the map's spotlight from row to row without opening a mark's details, open them on Enter or Space, and on Escape close them with the focus back on the mark's row.
+
+#### Scenario: Arrowing down the list
+
+- **Given** the atlas in the Brain scope with no mark selected
+- **When** the reader tabs into the list beside the map and presses the down arrow
+- **Then** the focus and the map's spotlight move from the first mark to the second, and no details are open
+
+#### Scenario: Opening and closing a mark's details
+
+- **Given** the reader has arrowed to a mark in the list
+- **When** the reader presses Enter, then Escape
+- **Then** Enter opens that mark's details, and Escape closes them with the focus back on its row
+
 ### Requirement: Every atlas control is a full-size button
 
 ```meta
