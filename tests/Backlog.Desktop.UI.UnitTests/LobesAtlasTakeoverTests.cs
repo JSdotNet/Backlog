@@ -443,8 +443,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
 
         var tools = component.Find(".lobes-atlas__tools");
         Assert.Equal(["Labels", "All", "None", "✕"], tools.QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
-        // All and None are named by their own words; what they do is the title.
-        Assert.Null(component.Find("[data-testid='lobes-atlas-show-all']").GetAttribute("aria-label"));
+        // None is named by its own word; what it does is the title.
+        Assert.Null(component.Find("[data-testid='lobes-atlas-show-none']").GetAttribute("aria-label"));
         Assert.Equal("Show every region", component.Find("[data-testid='lobes-atlas-show-all']").GetAttribute("title"));
         Assert.Equal("Show regions", component.Find("[data-testid='lobes-atlas-chips']").GetAttribute("aria-label"));
 
@@ -503,7 +503,8 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         component.Find("[data-testid='lobes-atlas-show-none']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.Equal(7, LastModel().HiddenLobes.Count);
+            // The Brain's six regions and its Archive dust, and backlog's one.
+            Assert.Equal(8, LastModel().HiddenLobes.Count);
             Assert.Contains(new LobesAtlasRegionKey("repo:backlog", LobesAtlasMark.Frontal), LastModel().HiddenLobes);
             Assert.All(component.FindAll("[data-testid='lobes-atlas-chip']"), chip => Assert.Equal("false", chip.GetAttribute("aria-pressed")));
         });
@@ -522,6 +523,99 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
             Assert.Equal(3, LastModel().HiddenScopes.Count);
             Assert.Single(LastModel().HiddenLobes);
         });
+    }
+
+    [Theory]
+    [InlineData(LobesAtlasModel.AllLayout, "All scopes")]
+    [InlineData("brain", "All regions")]
+    [InlineData("repo:backlog", "All regions")]
+    public void The_show_all_tool_is_named_apart_from_the_scope_switchs_all_and_starts_with_its_word(string scope, string name)
+    {
+        var component = Render(scope);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-show-all']")));
+
+        var showAll = component.Find("[data-testid='lobes-atlas-show-all']");
+        var switchAll = Scope(component, LobesAtlasModel.AllLayout);
+        Assert.Equal("All", showAll.TextContent.Trim());
+        Assert.Equal(name, showAll.GetAttribute("aria-label"));
+        // WCAG 2.5.3: the name holds the visible word, at its start.
+        Assert.StartsWith(showAll.TextContent.Trim(), name, StringComparison.Ordinal);
+
+        // No tool shares a name with an option of the scope switch.
+        var names = component.FindAll(".lobes-atlas__scopes button, .lobes-atlas__tools button")
+            .Select(button => button.GetAttribute("aria-label") ?? button.TextContent.Trim())
+            .ToList();
+        Assert.Equal(names.Count, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal("All", switchAll.GetAttribute("aria-label") ?? switchAll.TextContent.Trim());
+    }
+
+    [Fact]
+    public void None_in_a_scope_hides_its_archive_dust_and_its_rows_and_all_brings_them_back()
+    {
+        const string archived = "brain|archive/old-plan.md";
+        var graph = SampleGraph();
+        _lobes.Graph = graph with
+        {
+            Nodes = [.. graph.Nodes, new DevbookLobesNode(archived, "Old plan", "brain", DevbookLobe.Dust, DevbookLobesNodeKind.Note, "archive/old-plan.md")]
+        };
+        var dust = new LobesAtlasRegionKey("brain", LobesAtlasMark.Dust);
+
+        var component = Render("brain");
+        component.WaitForAssertion(() =>
+            Assert.Contains(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == archived));
+        // Archive is no region, so it has no chip or row of its own.
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-chip'][data-lobe='dust']"));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-region'][data-lobe='dust']"));
+
+        component.Find("[data-testid='lobes-atlas-show-none']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Contains(dust, LastModel().HiddenLobes);
+            Assert.Empty(component.FindAll("[data-testid='graph-atlas-index-option']"));
+        });
+
+        component.Find("[data-testid='lobes-atlas-show-all']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain(dust, LastModel().HiddenLobes);
+            Assert.Contains(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("data-node-id") == archived);
+        });
+    }
+
+    [Fact]
+    public void The_stylesheet_spaces_the_headline_from_the_title_as_the_design_does()
+    {
+        // The design sets the dot, the title and the headline 10px apart; the
+        // nearest step on the scale is spacing-sm, where xs left the dash tight
+        // against the title.
+        var heading = Rule(AppCss(), ".lobes-atlas__heading {");
+        Assert.Contains("gap: var(--spacing-sm);", heading, StringComparison.Ordinal);
+
+        var component = Render();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-headline']")));
+        Assert.StartsWith("— ", component.Find("[data-testid='lobes-atlas-headline']").TextContent, StringComparison.Ordinal);
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-subject']"));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void The_empty_states_header_names_the_brain_beside_the_title(bool indexMissing)
+    {
+        _lobes.Graph = indexMissing
+            ? DevbookLobesGraph.MissingBrainIndex(DevbookAtlasService.BrainIndexMissing)
+            : DevbookLobesGraph.Unavailable(DevbookAtlasService.NoBrainFolder);
+        var component = _context.Render<LobesAtlasTakeover>();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-subject']")));
+        var heading = component.Find(".lobes-atlas__heading");
+        Assert.Equal("Atlas", heading.QuerySelector("h2")!.TextContent.Trim());
+        Assert.Equal("Brain", component.Find("[data-testid='lobes-atlas-subject']").TextContent.Trim());
+        Assert.NotNull(heading.QuerySelector("[data-testid='lobes-atlas-subject']"));
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-headline']"));
+
+        // The Brain by name, as the library draws it everywhere: band-2, the word printed.
+        Assert.Contains("badge--brain", component.Find("[data-testid='lobes-atlas-subject']").ClassList);
     }
 
     [Fact]

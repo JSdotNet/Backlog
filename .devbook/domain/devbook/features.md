@@ -382,7 +382,9 @@ see its scope card*: the index is missing, not the chapter, as the card says.
 
 **Counts.** Each scope counts its marks per region, its notes or chapters
 without the hubs, and the Brain notes that link into it. The Brain's count is
-the notes that link into any devbook.
+the notes that link into any devbook. In All, the tag over each brain gives its
+name and its count; a ghost devbook, which has no count here, reads *not
+registered* instead.
 
 **Colour and bundles.** Brain marks wear the Brain's accent, `color-band-2`;
 devbook marks are gold. In All, bundles run from the Brain's repository hubs
@@ -400,7 +402,13 @@ heading names what it lists: **Scopes**, **Anatomical regions** for the Brain,
 button, and under them one chip per region of the current scope, or one per
 scope in All, named by a short code such as `FRO` or `ARC`. A chip shows or
 hides what it names, as the panel's row does. **All** and **None** act on the
-current scope only, so the regions hidden in another scope stay hidden.
+current scope only, so the regions hidden in another scope stay hidden. In a
+scope, **None** hides the Archive dust with the regions, so nothing is left on
+the map or in the list beside it, and **All** shows it again. The dust has no
+chip or row of its own, so showing one region again after **None** leaves it
+hidden until **All**. The picture's **All** is named *All scopes* or *All
+regions* for a screen reader or speech input, apart from the scope switch's
+**All**.
 
 **The scope card.** Below the list, a scope card names the scope with its
 counts, says when its index was last built, such as "Indexed 4 minutes ago" or
@@ -440,8 +448,9 @@ opening its details. Enter or Space opens them, and Escape closes them with the
 focus back on the mark's row.
 
 **No index yet.** With no Brain index built yet, the atlas shows an empty state
-instead of a map: it says the Brain is not indexed yet, and offers **Build the
-index now** and **Back to notes**. Building runs the same refresher that builds
+instead of a map. Its header names the Brain in its badge beside the title, as
+the header does over any atlas with no map to show. It says the Brain is not
+indexed yet, and offers **Build the index now** and **Back to notes**. Building runs the same refresher that builds
 the index in the background, and the map takes the empty state's place once the
 index exists. A build that fails, or finds nothing to index, says why and keeps
 the offer. A host that cannot build the index offers only **Back to notes**.

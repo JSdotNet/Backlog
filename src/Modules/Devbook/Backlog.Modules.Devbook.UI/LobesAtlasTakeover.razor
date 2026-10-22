@@ -39,6 +39,12 @@
                 {
                     <span class="lobes-atlas__headline" data-testid="lobes-atlas-headline">— @Headline</span>
                 }
+                else if (_graph is { Available: false })
+                {
+                    @* With no map to scope, the header still says whose atlas is
+                       waiting: the Brain's, as the empty state's design names it. *@
+                    <Badge Kind="brain" CssClass="lobes-atlas__subject" TestId="lobes-atlas-subject">Brain</Badge>
+                }
             </div>
 
             @if (_graph is { Available: true })
@@ -88,8 +94,12 @@
                                   OnClick="ToggleLabels">
                         Labels
                     </ToggleButton>
+                    @* Named apart from the scope switch's All, and starting with
+                       the word it shows, so a speech user can still say it
+                       (WCAG 2.5.3). *@
                     <AppButton Variant="ButtonVariant.Secondary"
                                TestId="lobes-atlas-show-all"
+                               aria-label="@(IsAll ? "All scopes" : "All regions")"
                                title="@(IsAll ? "Show every scope" : "Show every region")"
                                OnClick="() => ShowEverything(true)">
                         All
@@ -663,7 +673,9 @@
     }
 
     /// <summary>All and None: every scope (in All) or every region of the scope
-    /// on screen, shown or hidden. What is hidden elsewhere stays as it was.</summary>
+    /// on screen, shown or hidden — and in a scope its Archive dust with them,
+    /// which is no region and has no chip of its own, so None leaves nothing on
+    /// the map. What is hidden elsewhere stays as it was.</summary>
     private void ShowEverything(bool show)
     {
         if (_graph is null) return;
@@ -676,7 +688,7 @@
         else
         {
             _hiddenLobes.RemoveWhere(region => region.Scope == _scope);
-            if (!show) _hiddenLobes.UnionWith(RegionOrder.Select(lobe => new LobesAtlasRegionKey(_scope, DevbookLobesAtlas.LobeKey(lobe))));
+            if (!show) _hiddenLobes.UnionWith(RegionOrder.Append(DevbookLobe.Dust).Select(lobe => new LobesAtlasRegionKey(_scope, DevbookLobesAtlas.LobeKey(lobe))));
         }
 
         Project();

@@ -8582,7 +8582,7 @@ a.pull-request-detail-checks__name:hover {
     display: inline-flex;
     flex: none;
     align-items: center;
-    gap: var(--spacing-xs);
+    gap: var(--spacing-sm);
     min-width: 0;
     max-width: 50%;
     font-family: var(--font-family-mono);
@@ -8604,6 +8604,15 @@ a.pull-request-detail-checks__name:hover {
     color: var(--color-text-secondary);
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* With no map yet, whose atlas is waiting: the library's Brain badge
+   (badge--brain), set in the body face rather than the heading's spaced mono. */
+.lobes-atlas__subject {
+    flex: none;
+    font-family: var(--font-family-base);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: normal;
 }
 
 .lobes-atlas__dot {
