@@ -7125,6 +7125,476 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-xs);
 }
 
+/* The Complexity board: the scatter, the hotspot lists beside it, and the table
+   companion under both. Every point is a button placed with --x and --y, which
+   the view writes as percentages of the plot; every hue below is a var() of a
+   palette, band or semantic token, so the board adds no colour of its own. */
+.tech-complexity {
+    display: grid;
+    gap: var(--spacing-lg);
+    align-content: start;
+    padding-top: var(--spacing-md);
+}
+
+.tech-complexity__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: var(--spacing-lg);
+    align-items: start;
+}
+
+@container (max-width: 56rem) {
+    .tech-complexity__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.tech-complexity__board,
+.tech-complexity__card {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.tech-complexity__side {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.tech-complexity__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.tech-complexity__intro {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.tech-complexity__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-complexity__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.tech-complexity__note--small {
+    font-size: var(--font-size-xs);
+}
+
+/* The plot keeps a floor on its width and scrolls sideways under it, so the
+   labels never fold into each other on a narrow pane. */
+.tech-complexity__frame {
+    display: grid;
+    grid-template-columns: 2rem minmax(32rem, 1fr);
+    grid-template-rows: 28rem 3rem;
+    overflow: auto hidden;
+}
+
+.tech-complexity__axis-title {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.tech-complexity__axis-title--y {
+    align-self: center;
+    justify-self: center;
+    transform: rotate(-90deg);
+}
+
+.tech-complexity__axis-title--x {
+    position: absolute;
+    top: var(--spacing-lg);
+    right: 0;
+}
+
+.tech-complexity__plot {
+    position: relative;
+    margin: var(--spacing-sm) var(--spacing-lg) 0 0;
+    border-left: var(--border-width) solid var(--chart-axis);
+    border-bottom: var(--border-width) solid var(--chart-axis);
+}
+
+.tech-complexity__region {
+    position: absolute;
+}
+
+.tech-complexity__region--deep-leaves {
+    top: 0;
+    left: 0;
+    width: var(--split-x, 50%);
+    bottom: var(--split-y, 50%);
+    background: color-mix(in srgb, var(--color-error) 55%, transparent);
+}
+
+.tech-complexity__region--hubs {
+    top: 0;
+    left: var(--split-x, 50%);
+    right: 0;
+    bottom: var(--split-y, 50%);
+    background: color-mix(in srgb, var(--color-background-raised) 35%, transparent);
+}
+
+.tech-complexity__region--foundations {
+    left: var(--split-x, 50%);
+    right: 0;
+    bottom: 0;
+    height: var(--split-y, 50%);
+    background: color-mix(in srgb, var(--color-warning) 55%, transparent);
+}
+
+.tech-complexity__split {
+    position: absolute;
+    border: 0 dashed var(--chart-axis);
+}
+
+.tech-complexity__split--x {
+    top: 0;
+    bottom: 0;
+    left: var(--split-x, 50%);
+    border-left-width: var(--border-width);
+}
+
+.tech-complexity__split--y {
+    left: 0;
+    right: 0;
+    bottom: var(--split-y, 50%);
+    border-top-width: var(--border-width);
+}
+
+/* The quadrant key: the four corners' names and meanings, two by two as the
+   plot holds them, above it rather than inside it. */
+.tech-complexity__quadrants {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-xs) var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-complexity__quadrant {
+    display: grid;
+    gap: var(--spacing-2xs);
+    padding-left: var(--spacing-sm);
+    border-left: var(--border-width-4) solid var(--point-colour);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.tech-complexity__quadrant-name {
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--point-colour);
+}
+
+.tech-complexity__quadrant--deep-leaves {
+    --point-colour: var(--color-error-text);
+}
+
+.tech-complexity__quadrant--hubs {
+    --point-colour: var(--color-text-secondary);
+}
+
+.tech-complexity__quadrant--foundations {
+    --point-colour: var(--color-primary);
+}
+
+.tech-complexity__quadrant--leaves {
+    --point-colour: var(--color-success-text);
+}
+
+/* A point is the dot and its label in one button. The button sits on the dot's
+   centre; the label hangs to its right, or to its left near the right edge. */
+.tech-complexity__point {
+    position: absolute;
+    left: var(--x, 0%);
+    bottom: var(--y, 0%);
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    max-width: var(--room, none);
+    cursor: pointer;
+    transform: translate(-0.5625rem, 50%);
+}
+
+/* A label longer than the room before the next point is cut short, and read
+   whole while its point is hovered, focused or selected. */
+.tech-complexity__label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tech-complexity__point--label-start {
+    flex-direction: row-reverse;
+    transform: translate(calc(-100% + 0.5625rem), 50%);
+}
+
+.tech-complexity__dot {
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--point-colour);
+    border-radius: var(--border-radius-full);
+    background: var(--point-colour);
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-background-alt);
+}
+
+/* Status is never left to colour: a point not yet adopted is a ring. */
+.tech-complexity__point--hollow .tech-complexity__dot {
+    background: var(--color-background-alt);
+}
+
+.tech-complexity__point:hover,
+.tech-complexity__point--selected {
+    z-index: 2;
+    max-width: none;
+}
+
+.tech-complexity__point:focus-visible .tech-complexity__label {
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+}
+
+.tech-complexity__point:hover .tech-complexity__label {
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-link);
+}
+
+.tech-complexity__point--selected .tech-complexity__label {
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-link);
+    font-weight: 600;
+}
+
+.tech-complexity__point--selected .tech-complexity__dot {
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-background-alt), 0 0 0 var(--border-width-4) var(--color-text-primary);
+}
+
+.tech-complexity__point:focus-visible {
+    z-index: 2;
+    max-width: none;
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.tech-complexity__ticks {
+    grid-column: 2;
+    position: relative;
+    margin-right: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-complexity__tick {
+    position: absolute;
+    top: var(--spacing-xs);
+    left: var(--x, 0%);
+    transform: translateX(-50%);
+}
+
+.tech-complexity__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-complexity__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.tech-complexity__swatch {
+    width: 0.75rem;
+    height: 0.75rem;
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--point-colour);
+    border-radius: var(--border-radius-full);
+    background: var(--point-colour);
+}
+
+.tech-complexity__swatch--hollow {
+    --point-colour: var(--color-text-secondary);
+    background: none;
+}
+
+/* The hues. A quadrant takes the design's; a family one of the band, brand or
+   semantic hues; a layer the band hues in reading order, repeating after six. */
+.tech-complexity__point--deep-leaves,
+.tech-complexity__swatch--deep-leaves { --point-colour: var(--color-error-text); }
+.tech-complexity__point--hubs,
+.tech-complexity__swatch--hubs { --point-colour: var(--color-text-secondary); }
+.tech-complexity__point--foundations,
+.tech-complexity__swatch--foundations { --point-colour: var(--color-primary); }
+.tech-complexity__point--leaves,
+.tech-complexity__swatch--leaves { --point-colour: var(--color-success-text); }
+
+.tech-complexity__point--family-framework,
+.tech-complexity__swatch--family-framework { --point-colour: var(--color-band-2); }
+.tech-complexity__point--family-platform,
+.tech-complexity__swatch--family-platform { --point-colour: var(--color-band-5); }
+.tech-complexity__point--family-runtime,
+.tech-complexity__swatch--family-runtime { --point-colour: var(--color-band-4); }
+.tech-complexity__point--family-languageandpackage,
+.tech-complexity__swatch--family-languageandpackage { --point-colour: var(--color-band-3); }
+.tech-complexity__point--family-librarytoolandplugin,
+.tech-complexity__swatch--family-librarytoolandplugin { --point-colour: var(--color-primary); }
+.tech-complexity__point--family-skill,
+.tech-complexity__swatch--family-skill { --point-colour: var(--color-error-text); }
+.tech-complexity__point--family-agentserviceandformat,
+.tech-complexity__swatch--family-agentserviceandformat { --point-colour: var(--color-text-primary); }
+.tech-complexity__point--family-protocol,
+.tech-complexity__swatch--family-protocol { --point-colour: var(--color-primary-light); }
+.tech-complexity__point--family-other,
+.tech-complexity__swatch--family-other { --point-colour: var(--color-text-disabled); }
+
+.tech-complexity__point--layer-1,
+.tech-complexity__swatch--layer-1 { --point-colour: var(--color-band-1); }
+.tech-complexity__point--layer-2,
+.tech-complexity__swatch--layer-2 { --point-colour: var(--color-band-2); }
+.tech-complexity__point--layer-3,
+.tech-complexity__swatch--layer-3 { --point-colour: var(--color-band-3); }
+.tech-complexity__point--layer-4,
+.tech-complexity__swatch--layer-4 { --point-colour: var(--color-band-4); }
+.tech-complexity__point--layer-5,
+.tech-complexity__swatch--layer-5 { --point-colour: var(--color-band-5); }
+.tech-complexity__point--layer-6,
+.tech-complexity__swatch--layer-6 { --point-colour: var(--color-error-text); }
+
+.tech-complexity__hotspots {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-complexity__chain {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.tech-complexity__pick {
+    width: 100%;
+    padding: var(--spacing-2xs) 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-complexity__hotspot {
+    width: 100%;
+    padding: var(--spacing-2xs) 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5rem 1.5rem;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.tech-complexity__hotspot-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tech-complexity__hotspot:hover .tech-complexity__hotspot-name,
+.tech-complexity__pick:hover {
+    color: var(--color-text-link);
+}
+
+.tech-complexity__hotspot--pressed .tech-complexity__hotspot-name,
+.tech-complexity__pick--pressed {
+    color: var(--color-text-link);
+    font-weight: 600;
+}
+
+.tech-complexity__hotspot:focus-visible,
+.tech-complexity__pick:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.tech-complexity__bar {
+    height: 0.375rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.tech-complexity__bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+}
+
+.tech-complexity__bar-fill--deep-leaves {
+    background: var(--color-error-text);
+}
+
+.tech-complexity__bar-fill--foundations {
+    background: var(--color-primary);
+}
+
+.tech-complexity__hotspot-value {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-complexity__companion {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
 /* The inspector: the selected technology beside the list. */
 .tech-inspector {
     display: grid;
