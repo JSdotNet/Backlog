@@ -39,7 +39,6 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     }
 
     [Theory]
-    [InlineData("dependencies")]
     [InlineData("clusters")]
     [InlineData("type-lenses")]
     public async Task A_later_view_renders_its_placeholder(string view)
