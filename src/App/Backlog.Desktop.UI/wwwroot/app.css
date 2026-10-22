@@ -6990,8 +6990,8 @@ a.pull-request-detail-checks__name:hover {
 }
 
 .tech-lens__group {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(4.5rem, max-content) minmax(0, 1fr);
     align-items: baseline;
     gap: var(--spacing-xs);
 }
@@ -7006,6 +7006,15 @@ a.pull-request-detail-checks__name:hover {
     flex-wrap: wrap;
     align-items: baseline;
     gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* A long package id wraps inside its card rather than pushing the board sideways. */
+.tech-lens__chips > * {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: start;
 }
 
 /* The Type lenses board: a card per type in use, then the lens-per-type table. */
