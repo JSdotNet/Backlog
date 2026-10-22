@@ -168,6 +168,28 @@ public sealed class NotificationSyncTests
         Assert.Equal(1, pastIt.Value.Pushed);
     }
 
+    /// <summary>An open question is pushed again every ten minutes, so a phone reading its
+    /// stamp can say whether this desktop is running ("delivers on wake"); an open alert waits
+    /// for the weekly refresh. Every push names the desktop by the name it paired under.</summary>
+    [Fact]
+    public async Task An_open_question_is_pushed_again_ten_minutes_later_to_say_the_desktop_is_running()
+    {
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: false, paired: true);
+        fixture.Replication.Open.Add(Question(Guid.CreateVersion7()));
+        fixture.Replication.Open.Add(Question(Guid.CreateVersion7()) with { Kind = NotificationKind.Alert, AnswerSpec = null });
+
+        await fixture.Session().SyncAsync(Cancellation);
+        fixture.Clock.Advance(NotificationSyncSession.PresenceRefresh - TimeSpan.FromMinutes(1));
+        var within = await fixture.Session().SyncAsync(Cancellation);
+        fixture.Clock.Advance(TimeSpan.FromMinutes(2));
+        var past = await fixture.Session().SyncAsync(Cancellation);
+
+        Assert.Equal(0, within.Value.Pushed);
+        Assert.Equal(1, past.Value.Pushed);
+        Assert.True(NotificationSyncSession.PresenceWindow > NotificationSyncSession.PresenceRefresh + NotificationSyncWorker.CyclePeriod);
+        Assert.Contains("\"ownerName\":\"Workshop PC\"", fixture.PushedBodies.Last(), StringComparison.Ordinal);
+    }
+
     /// <summary>Paired again under the same owner, the instance keeps the rejections it
     /// recorded and pushes everything again under its new device.</summary>
     [Fact]

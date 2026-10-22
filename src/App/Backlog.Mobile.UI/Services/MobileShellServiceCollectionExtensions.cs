@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.Sync;
 using Backlog.Mobile.UI.AppUpdate;
 using Backlog.Mobile.UI.Notes;
+using Backlog.Mobile.UI.Notifications;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Progress;
 using Backlog.Mobile.UI.TalkNotes;
@@ -107,6 +108,13 @@ public static class MobileShellServiceCollectionExtensions
         services.AddSingleton<ProgressViewProjection>();
         services.AddSingleton<PhoneStandUp>();
         services.AddSingleton<IOutboxKind, ImpedimentEditOutboxKind>();
+
+        // Notifications as a viewer (local ADR 0038): the owner's feed folded into its own
+        // view and cursor, and the replies the phone makes queued as their own outbox kind,
+        // so a reply made with no signal is kept.
+        services.AddSingleton<INotificationViewStore>(_ => new SqliteNotificationViewStore(databasePath));
+        services.AddSingleton<NotificationViewProjection>();
+        services.AddSingleton<IOutboxKind, ReplyOutboxKind>();
 
         return services;
     }

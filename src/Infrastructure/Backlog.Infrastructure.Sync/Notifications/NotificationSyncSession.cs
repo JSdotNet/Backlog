@@ -56,6 +56,18 @@ public sealed class NotificationSyncSession
     /// waiting on a running desktop.</summary>
     internal static readonly TimeSpan OpenRefresh = TimeSpan.FromDays(7);
 
+    /// <summary>How often an open question is pushed again although nothing changed, so a
+    /// viewer reading its stamp can tell a desktop that is running from one that is asleep
+    /// (<c>.devbook/domain/notifications/features.md#answering-from-another-device</c>): the
+    /// phone says "delivers on wake" once the owner's newest stamp is older than
+    /// <see cref="PresenceWindow"/>.</summary>
+    public static readonly TimeSpan PresenceRefresh = TimeSpan.FromMinutes(10);
+
+    /// <summary>How old the newest stamp of an owner's open questions may be before a viewer
+    /// reads the owner as offline: one <see cref="PresenceRefresh"/>, a cycle of the worker
+    /// that pushes it, and a margin for a slow pull.</summary>
+    public static readonly TimeSpan PresenceWindow = TimeSpan.FromMinutes(15);
+
     /// <summary>The most rejections one notification carries. More is a viewer replying in a
     /// loop; the oldest drop off.</summary>
     internal const int MaxRejectionsPerNotification = 20;
@@ -166,11 +178,13 @@ public sealed class NotificationSyncSession
 
     /// <summary>A notification open here that was never pushed is new; one pushed open that is
     /// no longer open settled here; one pushed open a week ago is due to refresh its replica
-    /// copy's expiry. All three go on the next push.</summary>
+    /// copy's expiry; an open question pushed more than <see cref="PresenceRefresh"/> ago is
+    /// due to say this desktop is still running. All four go on the next push.</summary>
     private void MarkLocalChanges(IReadOnlyList<NotificationSnapshot> open)
     {
         var tracked = new Dictionary<Guid, TrackedNotification>(_state.Current.Tracked);
         var openIds = open.Select(notification => notification.Id).ToHashSet();
+        var questionIds = open.Where(notification => notification.Kind == NotificationKind.Question).Select(notification => notification.Id).ToHashSet();
         var changed = false;
 
         foreach (var id in openIds.Where(id => !tracked.ContainsKey(id)))
@@ -180,12 +194,16 @@ public sealed class NotificationSyncSession
         }
 
         var refreshBefore = _time.GetUtcNow() - OpenRefresh;
+        var presenceBefore = _time.GetUtcNow() - PresenceRefresh;
 
         foreach (var (id, entry) in tracked.ToList())
         {
             if (entry.Dirty || entry.PushedState != NotificationStates.Open) continue;
 
-            if (!openIds.Contains(id) || entry.PushedAt is not { } pushedAt || pushedAt < refreshBefore)
+            if (!openIds.Contains(id)
+                || entry.PushedAt is not { } pushedAt
+                || pushedAt < refreshBefore
+                || (questionIds.Contains(id) && !entry.Withheld && pushedAt < presenceBefore))
             {
                 tracked[id] = entry with { Dirty = true };
                 changed = true;
@@ -221,7 +239,7 @@ public sealed class NotificationSyncSession
                     continue;
                 }
 
-                var change = NotificationPayloads.ToChange(snapshot, entry.RejectedReplies, StampAfter(entry.PushedAt));
+                var change = NotificationPayloads.ToChange(snapshot, entry.RejectedReplies, StampAfter(entry.PushedAt), _credentials.Current?.DeviceName);
 
                 if (NotificationRecordLimits.WhyRefused(change) is { } reason)
                 {
@@ -231,7 +249,7 @@ public sealed class NotificationSyncSession
                         id,
                         reason);
 
-                    Update(id, entry with { Dirty = false, PushedState = change.State, SettledAt = snapshot.SettledAt, PushedAt = change.UpdatedAt });
+                    Update(id, entry with { Dirty = false, PushedState = change.State, SettledAt = snapshot.SettledAt, PushedAt = change.UpdatedAt, Withheld = true });
                     continue;
                 }
 
@@ -245,7 +263,9 @@ public sealed class NotificationSyncSession
 
             pushed += response.Value.Accepted;
 
-            foreach (var id in response.Value.NotOwned ?? [])
+            var notOwned = (response.Value.NotOwned ?? []).ToHashSet();
+
+            foreach (var id in notOwned)
             {
                 // An id the replica holds under another owner instance: a collision nothing
                 // here can mend, so it is named once and not offered on every cycle.
@@ -264,6 +284,7 @@ public sealed class NotificationSyncSession
                     PushedState = change.State,
                     SettledAt = snapshot.SettledAt,
                     PushedAt = change.UpdatedAt,
+                    Withheld = notOwned.Contains(change.Id),
                 });
             }
         }
