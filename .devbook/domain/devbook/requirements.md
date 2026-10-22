@@ -1327,3 +1327,299 @@ The system SHALL say in the review when GitHub listed only part of a change's co
 - **Given** `feature/x` holds more commits than GitHub lists in one comparison
 - **When** the reader opens its review
 - **Then** the review says how many of the commits are shown
+
+## Technology view
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#technology-view]
+```
+
+> The requirements of the Technology area of the Devbook pane: its five views,
+> the measures they compute from `depends-on`, and how they are operated.
+
+### Requirement: Five views replace the Atlas and Layers tabs
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show the Technology area as five views, Overview, Dependencies, Complexity, Clusters and Type lenses, switched from one tab bar, with no Atlas or Layers tab.
+
+#### Scenario: Opening the Technology area
+
+- **Given** a repository whose devbook has a technology folder
+- **When** the reader opens the Technology area
+- **Then** one tab bar offers Overview, Dependencies, Complexity, Clusters and Type lenses
+- **And** neither an Atlas nor a Layers tab is offered
+
+### Requirement: The selection is shared across the views
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL keep the technology selected in one Technology view selected when the reader switches to another.
+
+#### Scenario: From Overview to Dependencies
+
+- **Given** ASP.NET Core is selected in Overview
+- **When** the reader switches to Dependencies
+- **Then** Dependencies shows ASP.NET Core in focus
+
+#### Scenario: From Clusters back to Overview
+
+- **Given** the reader picked Playwright in Clusters
+- **When** the reader switches to Overview
+- **Then** the inspector shows Playwright
+
+### Requirement: Used by counts the direct users
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show as a technology's Used by the number of technologies whose `depends-on` names it.
+
+#### Scenario: A technology three others sit on
+
+- **Given** Razor Components, Blazor Server and ASP.NET Core are the only technologies whose `depends-on` names C# Language
+- **When** the reader selects C# Language
+- **Then** Used by reads 3
+
+#### Scenario: A leaf
+
+- **Given** no technology's `depends-on` names Playwright
+- **When** the reader selects Playwright
+- **Then** Used by reads 0 and the inspector says nothing depends on it
+
+### Requirement: Breaks if it changes counts the users transitively
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show as a technology's Breaks if it changes the number of technologies that reach it through `depends-on` at any distance, each counted once.
+
+#### Scenario: A user reached two ways
+
+- **Given** Blazor Server depends on Razor Components and on ASP.NET Core, and Razor Components depends on ASP.NET Core
+- **And** nothing else depends on any of them
+- **When** the reader selects ASP.NET Core
+- **Then** Breaks if it changes reads 2
+
+### Requirement: Rests on counts the depends-on transitively
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show as a technology's Rests on the number of technologies it reaches through `depends-on` at any distance, each counted once.
+
+#### Scenario: A framework three deep
+
+- **Given** Razor Components depends on ASP.NET Core and C# Language, ASP.NET Core on .NET Runtime and C# Language, and C# Language on .NET Runtime
+- **When** the reader selects Razor Components
+- **Then** Rests on reads 3
+
+#### Scenario: A foundation
+
+- **Given** .NET Runtime declares no `depends-on`
+- **When** the reader selects .NET Runtime
+- **Then** Rests on reads 0 and the inspector says it sits on nothing
+
+### Requirement: Depth is the longest chain to a foundation
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show as a technology's Depth the number of hops in the longest `depends-on` chain from it to a technology with no `depends-on`.
+
+#### Scenario: The longest of two paths
+
+- **Given** ASP.NET Core depends on .NET Runtime directly and through C# Language
+- **When** the reader selects ASP.NET Core
+- **Then** Depth reads 2
+
+### Requirement: Complexity is rests on plus depth, banded
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show as a technology's Complexity its Rests on plus its Depth, banded Low below 6, Medium from 6 to 9 and High from 10.
+
+#### Scenario: Low
+
+- **Given** ASP.NET Core rests on 2 technologies at a depth of 2
+- **When** the reader selects ASP.NET Core
+- **Then** Complexity reads 4, Low
+
+#### Scenario: Medium at the lower edge
+
+- **Given** Razor Components rests on 3 technologies at a depth of 3
+- **When** the reader selects Razor Components
+- **Then** Complexity reads 6, Medium
+
+#### Scenario: High at the lower edge
+
+- **Given** a technology rests on 6 technologies at a depth of 4
+- **When** the reader selects it
+- **Then** Complexity reads 10, High
+
+### Requirement: Colour follows the type family
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL colour each technology in the Technology views by its type's family: framework; platform; runtime; language and package; library, tool and plugin; skill; agent, service and format; protocol.
+
+#### Scenario: Two types of one family
+
+- **Given** a technology of type `tool` and one of type `plugin`
+- **When** the reader opens Clusters
+- **Then** both are drawn in the colour of the library, tool and plugin family
+
+#### Scenario: Two families
+
+- **Given** a technology of type `skill` and one of type `agent`
+- **When** the reader opens Clusters
+- **Then** they are drawn in two different colours
+
+### Requirement: A technology not yet adopted is drawn hollow
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL draw a technology whose status is not `adopted` hollow in every Technology view that draws it, and an `adopted` one filled.
+
+#### Scenario: A candidate beside an adopted choice
+
+- **Given** Background Workers is `candidate` and .NET Runtime is `adopted`
+- **When** the reader opens Clusters
+- **Then** Background Workers is drawn hollow and .NET Runtime filled
+
+### Requirement: The inspector opens on status, sits on and used by
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open the inspector of every selected technology, whatever its type, on its status, what it sits on and what uses it, with the section its type chooses below them.
+
+#### Scenario: A package
+
+- **Given** the reader selects a technology of type `package`
+- **When** the inspector opens
+- **Then** it shows status, sits on and used by first, and the package section below them
+
+#### Scenario: A type with no section of its own
+
+- **Given** the reader selects a technology of type `protocol`
+- **When** the inspector opens
+- **Then** it shows status, sits on and used by
+
+### Requirement: A lens shows only what the chapter and the graph record
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL fill a type lens only from the technology chapter's metadata and the graph, and leave out each fact the chapter does not record.
+
+#### Scenario: A package with a version
+
+- **Given** a package chapter declares `version: "2.2.0"`
+- **When** the reader opens its lens
+- **Then** the lens shows version 2.2.0
+
+#### Scenario: A package with no version
+
+- **Given** a package chapter declares no `version`
+- **When** the reader opens its lens
+- **Then** the lens shows no version line, neither empty nor a placeholder
+
+#### Scenario: Alternatives
+
+- **Given** the GitHub CLI chapter declares `alternatives: ["Octokit.NET", "raw REST calls"]`
+- **When** the reader opens its lens
+- **Then** the lens names Octokit.NET and raw REST calls as the alternatives
+
+### Requirement: Status is changed from the inspector
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL let the reader change a technology's status from the inspector and write the new status into that technology's chapter in its layer file.
+
+#### Scenario: Adopting a trial
+
+- **Given** Azure Cosmos DB is `trial` in `.devbook/tech/cloud.md`
+- **When** the reader sets its status to `adopted` in the inspector
+- **Then** the Azure Cosmos DB chapter in `cloud.md` reads `status: adopted`
+- **And** the views draw it filled
+
+#### Scenario: A source that cannot be written
+
+- **Given** the pane reads a branch snapshot
+- **When** the reader opens the inspector
+- **Then** the status is shown and cannot be changed
+
+### Requirement: Every drawn technology is a button
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL draw each technology on the Clusters map and the Complexity scatter as a button that selects it.
+
+#### Scenario: Pressing a point
+
+- **Given** the reader opens Complexity
+- **When** the reader presses the point for .NET Runtime
+- **Then** .NET Runtime is selected
+
+#### Scenario: Tabbing to a technology
+
+- **Given** the reader opens a layer in Clusters
+- **When** the reader tabs to one of its technologies and presses Enter
+- **Then** that technology is selected
+
+### Requirement: Every pointer view has a list companion
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL pair each Technology view a pointer operates with a list or table on screen that selects the same technologies and shares its selection.
+
+#### Scenario: Selecting from the companion
+
+- **Given** the reader opens Complexity
+- **When** the reader picks .NET Runtime from its list with the keyboard
+- **Then** the point for .NET Runtime is shown selected
+
+#### Scenario: Selecting from the picture
+
+- **Given** the reader opens Clusters
+- **When** the reader presses SQLite on the map
+- **Then** SQLite is the selected row of the companion list
