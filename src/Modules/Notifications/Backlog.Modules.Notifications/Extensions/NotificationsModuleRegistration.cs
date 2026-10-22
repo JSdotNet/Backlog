@@ -71,6 +71,11 @@ public static class NotificationsModuleRegistration
         services.TryAddSingleton<INotifications>(sp => sp.GetRequiredService<OwnerNotifications>());
         services.TryAddSingleton<INotificationReplies>(sp => sp.GetRequiredService<OwnerNotifications>());
 
+        // What the sync exchange carries to the other devices: read-only, over the same
+        // store. Owner only — a viewer has nothing of its own to carry.
+        services.TryAddSingleton<INotificationReplication>(sp => new NotificationReplication(
+            sp.GetRequiredService<INotificationRepository>()));
+
         services.TryAddSingleton(sp => new NotificationsStartup(
             sp.GetRequiredService<INotificationRepository>(),
             sp.GetRequiredService<INotifications>(),

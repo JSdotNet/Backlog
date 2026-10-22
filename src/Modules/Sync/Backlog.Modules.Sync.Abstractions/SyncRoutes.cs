@@ -55,6 +55,22 @@ public static class SyncRoutes
     /// <see cref="Tasks"/>, over the third replica container.</summary>
     public const string Annotations = "/annotations";
 
+    /// <summary>The notification replica (local ADR 0038): POST pushes a batch of the
+    /// calling owner instance's notifications, GET pulls the owner's notification feed from
+    /// a cursor. Bearer.</summary>
+    public const string Notifications = "/notifications";
+
+    /// <summary>The replies to notifications: POST stores one reply from any device of the
+    /// owner, GET lists the replies addressed to the calling owner instance. Bearer.</summary>
+    public const string NotificationReplies = "/notifications/replies";
+
+    /// <summary>Route template for one reply: DELETE removes it once its owner instance has
+    /// processed it. Use <see cref="NotificationReplyFor"/> to build a concrete URL.</summary>
+    public const string NotificationReply = "/notifications/replies/{id:guid}";
+
+    /// <summary>The full path for one reply.</summary>
+    public static string NotificationReplyFor(Guid id) => $"{Base}/notifications/replies/{id:D}";
+
     /// <summary>Route template for acknowledging one capture. Bearer. Use
     /// <see cref="AcknowledgeInboxItemFor"/> to build a concrete URL.</summary>
     public const string AcknowledgeInboxItem = "/inbox/{id:guid}/ack";

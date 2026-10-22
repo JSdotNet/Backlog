@@ -98,6 +98,7 @@ sync.MapInboxEndpoints();
 sync.MapTaskSyncEndpoints();
 sync.MapSessionSyncEndpoints();
 sync.MapAnnotationSyncEndpoints();
+sync.MapNotificationSyncEndpoints();
 sync.MapAttachmentSyncEndpoints();
 
 // The service saying what it is, and which build it is. No owner, no data,

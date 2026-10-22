@@ -71,12 +71,17 @@ replica needs no merge rule beyond the one ADR 0005 already has.
 The sync API accepts a reply only from a device under the same owner. The owner
 checks that again before it accepts.
 
-### 3. Notifications get their own replica container
+### 3. Notifications get their own replica containers
 
-Notification and reply documents live in a fourth Cosmos container,
-`notifications`, partitioned on `/ownerId`. They do not ride the `tasks` feed:
+Notification documents live in a fourth Cosmos container, `notifications`, and
+reply documents in a fifth, `notificationReplies`. Both are partitioned on
+`/ownerId`. The two have different lives: a notification is a feed every device
+reads, and a reply is a mailbox its owner instance empties. They do not ride the
+`tasks` feed:
 
-- they expire, through Cosmos TTL, 30 days after they close;
+- they expire, through Cosmos TTL, 30 days after they close; an open
+  notification carries a 90-day backstop that its owner's weekly re-push keeps
+  moving, so only an owner that is gone for good lets it lapse;
 - they are high in volume compared with tasks;
 - they need a faster exchange cycle than the task feed's.
 
@@ -166,16 +171,22 @@ Negative, and accepted:
 
 ## Verification
 
-Nothing is built, so nothing here is proved by a test. When slices 2 and 3 of the
-plan land:
+The transport of §1 to §3 is built; the nudge of §4 and §5 is not.
 
-- the endpoint tests prove that a reply from a device under another owner is
-  refused;
-- the owner's unit tests prove that the first valid reply wins and later replies
-  are rejected;
-- `infra/sync/main.bicep` declares the `notifications` container, the Web PubSub
-  hub, and the Notification Hubs namespace with the Send-only key passed as a
-  container app secret.
+- `NotificationSyncEndpointTests.A_reply_from_a_device_under_another_owner_is_refused`
+  proves that the sync API refuses a reply from a device under another owner, and
+  `NotificationSyncTests.A_reply_stamped_with_another_owner_is_rejected_and_never_reaches_the_gate`
+  that the owner checks again.
+- `NotificationExchangeTests.Two_replies_racing_settle_on_the_first_and_the_second_is_rejected_as_already_answered`
+  proves, against a real sync service, that the first valid reply wins and the
+  later one is rejected with its reason.
+- `NotificationSyncEndpointTests.A_notification_held_under_another_owner_instance_is_not_overwritten`
+  proves the single writer, and
+  `A_desktop_that_pairs_again_keeps_its_notifications_and_their_replies` that the
+  owner is the installation rather than the pairing.
+- `infra/sync/main.bicep` declares the `notifications` and `notificationReplies`
+  containers. The Web PubSub hub and the Notification Hubs namespace come with
+  slice 3.
 
 ## History
 
@@ -185,3 +196,4 @@ plan land:
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-10-22 | Notifications are owned documents on a `notifications` container; Web PubSub and Notification Hubs to FCM only nudge. | A desktop must ask and hear the answer from any device while the sync service keeps scaling to zero. |
+| 2026-10-22 | Replies move to their own `notificationReplies` container, and an open notification gets a 90-day backstop expiry. | The plan's transport step asked for two containers, a feed and a mailbox; and §1 says an unpaired owner's notifications expire, which an open one without a TTL never would. |

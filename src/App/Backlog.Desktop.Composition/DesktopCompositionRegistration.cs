@@ -211,6 +211,7 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(options.TaskSyncStateStore);
         services.AddSessionSyncStores(options.SessionSyncFolder);
         services.AddAnnotationSyncStore(options.AnnotationSyncFolder);
+        services.AddNotificationSyncStore(options.NotificationSyncFolder ?? options.AnnotationSyncFolder);
         // What the last backup did, per installation. The worker reads the
         // repository and the schedule off the workspace settings and uploads through
         // the same GitHub client the feedback dialog commits screenshots with.
@@ -370,6 +371,11 @@ public static class DesktopCompositionRegistration
         // the task loop.
         services.AddSessionSyncClient(SyncServiceAddress);
         services.AddAnnotationSyncClient(SyncServiceAddress);
+
+        // The notification exchange (local ADR 0038): this desktop pushes the notifications it
+        // owns and, while a question is open, takes the replies addressed to it every two
+        // minutes. Answers to the sync switch and to the notifications switch.
+        services.AddNotificationSyncClient(SyncServiceAddress);
 
         // Which registered clone a session's working folder lies inside, read off the
         // repository list the Repositories screen writes, so a header scoped to one

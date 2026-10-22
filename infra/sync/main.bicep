@@ -28,7 +28,7 @@ param cosmosLocation string = 'swedencentral'
 @description('Container image for the sync service. Left empty on the first provision so a public placeholder runs; azd sets it to the built image on every deploy after that.')
 param containerImage string = ''
 
-@description('Cosmos DB database holding the three replica containers and the two registry containers beside them.')
+@description('Cosmos DB database holding the replica containers — tasks, sessions, annotations, notifications and notificationReplies — and the two registry containers beside them.')
 param databaseName string = 'backlog'
 
 // ADR 0005 fixes this at 180 days. It is provisioned rather than written into
@@ -42,6 +42,15 @@ param sessionRetentionSeconds int = 31536000
 
 @description('Seconds an annotation tombstone survives in the annotations container. Local ADR 0011 keeps it at the same 180 days as a task tombstone.')
 param annotationTombstoneTtlSeconds int = 15552000
+
+@description('Seconds a notification survives in the notifications container after it left Open. Local ADR 0038 fixes this at 30 days.')
+param notificationSettledTtlSeconds int = 2592000
+
+@description('Seconds an open notification survives after its last push. Not a deadline: the owner desktop re-pushes an open notification well inside it; this is what lets an owner unpaired for good leave nothing behind (local ADR 0038).')
+param notificationOpenTtlSeconds int = 7776000
+
+@description('Seconds an unprocessed reply survives in the notificationReplies container. The owner instance deletes each reply once processed; this is the backstop for one that never comes back.')
+param notificationReplyTtlSeconds int = 2592000
 
 @description('Days Log Analytics keeps ingested telemetry. Application observability only — no domain data reaches this workspace.')
 param logRetentionInDays int = 30
@@ -410,6 +419,86 @@ resource annotationsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabase
   }
 }
 
+// `notifications` — the fourth replica container (local ADR 0038): the notifications
+// a desktop owner instance publishes, one writer per document. defaultTtl -1 enables
+// expiry without expiring anything by itself; the service stamps a notification with
+// Sync__Cosmos__NotificationSettledTtlSeconds once it leaves Open, so it goes 30 days
+// after it settled, and an open one with Sync__Cosmos__NotificationOpenTtlSeconds, which
+// the owner's periodic re-push keeps moving.
+resource notificationsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'notifications'
+  properties: {
+    resource: {
+      id: 'notifications'
+      partitionKey: {
+        paths: [
+          '/ownerId'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      defaultTtl: -1
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/notification/*'
+          }
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
+// `notificationReplies` — the replies viewers post to notifications, each written once
+// and deleted by the owner instance it is addressed to once processed. Queried by
+// `ownerInstanceId` within the owner's partition, in `_ts` order. Each reply carries
+// Sync__Cosmos__NotificationReplyTtlSeconds as a backstop.
+resource notificationRepliesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'notificationReplies'
+  properties: {
+    resource: {
+      id: 'notificationReplies'
+      partitionKey: {
+        paths: [
+          '/ownerId'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      defaultTtl: -1
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/text/?'
+          }
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
 // `devices` — one document per registered device, partitioned on `/id` (the
 // device id) rather than on the owner like the replicas above. The read that runs
 // on every token mint has only the device id in hand — it is the read that finds
@@ -768,6 +857,14 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: annotationsContainer.name
             }
             {
+              name: 'Sync__Cosmos__NotificationsContainerName'
+              value: notificationsContainer.name
+            }
+            {
+              name: 'Sync__Cosmos__NotificationRepliesContainerName'
+              value: notificationRepliesContainer.name
+            }
+            {
               name: 'Sync__Cosmos__DevicesContainerName'
               value: devicesContainer.name
             }
@@ -782,6 +879,18 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'Sync__Cosmos__AnnotationTombstoneTtlSeconds'
               value: string(annotationTombstoneTtlSeconds)
+            }
+            {
+              name: 'Sync__Cosmos__NotificationSettledTtlSeconds'
+              value: string(notificationSettledTtlSeconds)
+            }
+            {
+              name: 'Sync__Cosmos__NotificationOpenTtlSeconds'
+              value: string(notificationOpenTtlSeconds)
+            }
+            {
+              name: 'Sync__Cosmos__NotificationReplyTtlSeconds'
+              value: string(notificationReplyTtlSeconds)
             }
             // The attachment container, in the form Aspire's blob container
             // client reads: an endpoint and a container name, no key. The
