@@ -1030,6 +1030,34 @@ The system SHALL make every control of the atlas a real button at least 44 px sq
 - **When** the reader tabs to a region chip
 - **Then** the chip shows a focus ring, is at least 44 px square, and reports whether it is pressed
 
+### Requirement: Selecting a mark opens its details and follows it into the Devbook
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_brain_note_offers_to_open_in_the_pane, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_resolved_chapter_opens_its_devbook_and_a_dashed_one_says_why_it_cannot, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_devbook_chapter_no_note_links_to_still_opens_in_its_devbook, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_chapter_followed_out_of_the_atlas_opens_the_devbook_in_its_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_heading_chapter_followed_out_of_the_atlas_opens_the_devbook_at_that_heading, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneChapterNavigationTests.A_request_with_an_anchor_into_an_arc42_chapter_brings_the_heading_into_view, unit:dotnet:Backlog.UI.Components.UnitTests.BacklogRevealHeadingScriptTests]
+```
+
+The system SHALL open a mark's details when the reader selects it on the map or in the list beside it, and following a Brain note, a gold chip or a devbook's own chapter out of them SHALL give the Devbook the screen in the atlas's place, at the heading the chapter names when it is a heading inside a file.
+
+#### Scenario: Selecting a mark
+
+- **Given** the atlas is open in the All scope
+- **When** the reader selects a devbook chapter's mark in the list beside the map
+- **Then** its details open, offering to open the chapter in its devbook
+
+#### Scenario: A dashed chip
+
+- **Given** a chapter a note links to in a repository not registered here
+- **When** the reader selects its mark
+- **Then** its details show the dashed chip with the reason it cannot be followed, and nothing to press
+
+#### Scenario: A chapter that is a heading inside a file
+
+- **Given** the atlas shows *Quality Goals*, a heading in `.devbook/arc42/01-introduction-and-goals.md`
+- **When** the reader selects its mark and opens it
+- **Then** the atlas closes, the Devbook opens that file, and the reading is scrolled to *Quality Goals*, whether the chapter was the devbook's own or a note's gold chip
+
 ### Requirement: The pane's Atlas button follows the flag
 
 ```meta

@@ -4,6 +4,7 @@
    `@onkeydown:stopPropagation` as a literal attribute and the boundary does
    nothing. *@
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
 @inject DevbookMenu DevbookMenu
 @inject DevbookFolderOpenService DevbookFolderOpen
 @inject DevbookScope Scope
@@ -14,6 +15,7 @@
    the selection dictionary below stays the pane's own. *@
 @inject DevbookOpenChapter OpenChapter
 @inject IServiceProvider Services
+@inject IJSRuntime JS
 
 @*
     The Devbook pane. Everything it needs arrives as a repository alias:
@@ -1084,7 +1086,7 @@
     /// The open chapter is published first, while that answer is still held:
     /// it is the one read of the selection that happens after the render rather
     /// than during it, and it costs nothing more than the render already paid.</summary>
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // A Brain note is not offered to Ask AI as a repository chapter: what the
         // pane has open on the Brain is the person's own, and handing it on as
@@ -1092,8 +1094,60 @@
         if (BrainMode) OpenChapter.Clear();
         else OpenChapter.Set(ActiveRepositoryAlias, EffectiveSection, SelectedChapterPath);
 
+        var reveal = HeadingToReveal();
         _visibleAreas = null;
+
+        if (reveal is { } heading) await RevealHeadingAsync(heading.Anchor, heading.Path);
     }
+
+    /// <summary>
+    /// The heading a followed reference named, brought into view once the chapter
+    /// it is in is on screen — a chapter followed out of the atlas, a Brain note's
+    /// chip or an entry's reference all end here, so all of them land on it.
+    /// <para>
+    /// Here rather than in each panel, because every panel draws its chapter
+    /// through the same markdown view and none of them was told the heading: only a
+    /// scenario page was, for its parts, and an arc42 or design chapter opened at a
+    /// heading opened at its top. Asked once per request, so the reader scrolling
+    /// away is not pulled back by the next render, and only while the reading is on
+    /// screen — not under the pane's own atlas or search, nor before the menu that
+    /// decides the chapter has loaded. The script waits for the body to be read and
+    /// leaves a scenario part the page has already marked to that page.
+    /// </para>
+    /// </summary>
+    private (string Anchor, string? Path)? HeadingToReveal()
+    {
+        if (_focus is not { } focus || focus.Focus.Sequence == _revealedFocusSequence) return null;
+        if (_menuLoading || _atlasOpen || _searchOpen) return null;
+        if (FocusFor(EffectiveSection, SelectedChapterPath) is null) return null;
+
+        _revealedFocusSequence = focus.Focus.Sequence;
+        return (focus.Focus.Anchor, SelectedChapterPath);
+    }
+
+    private async Task RevealHeadingAsync(string anchor, string? path)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync(RevealHeadingFunction, RevealHeadingScope, anchor, path);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The window went while the pane was drawing; there is nothing to scroll.
+        }
+    }
+
+    /// <summary>The script that finds the heading by its slug and scrolls the
+    /// reading to it.</summary>
+    internal const string RevealHeadingFunction = "backlogRevealHeading";
+
+    /// <summary>Where the heading is looked for: the section the chapter is read
+    /// in, never the menu beside it — the one on screen, because every section
+    /// has a panel and the ones not chosen are there, hidden.</summary>
+    internal const string RevealHeadingScope = "[data-testid='devbook-stack'] .devbook-stack__section:not([hidden])";
+
+    /// <summary>The request whose heading was last brought into view.</summary>
+    private int _revealedFocusSequence;
 
     /// <summary>
     /// The sections this scope shows, asked of the scope once per render.
