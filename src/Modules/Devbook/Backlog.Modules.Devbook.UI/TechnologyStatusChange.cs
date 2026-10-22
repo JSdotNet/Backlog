@@ -1,7 +1,7 @@
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// A reader picked a different state for a technology in the atlas.
+/// A reader picked a different state for a technology in the inspector.
 ///
 /// <para>The current status travels with the new one because writing is the
 /// panel's, and the panel needs both: the write is a no-op when they match, and

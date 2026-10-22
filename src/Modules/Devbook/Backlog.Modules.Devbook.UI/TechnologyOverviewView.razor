@@ -1,0 +1,286 @@
+@inherits TechnologyViewBase
+@using System.Globalization
+
+@*
+    Overview — everything in use (.devbook/domain/devbook/features.md#technology-view).
+    The summary tiles, the type chips, the search and the sort, the table, and the
+    inspector on the selected row, laid out as the design's Overview board.
+
+    Every figure is read off the graph TechnologyGraphMeasures computed: the
+    per-type and per-status counts, the longest chain, and each node's measures.
+    Nothing here counts the stack a second time.
+*@
+
+<div class="tech-overview" data-testid="technology-overview">
+    <section class="tech-overview__summary" aria-label="Summary">
+        <MetricTile Label="Technologies"
+                    Value="@TechnologyCount.ToString(CultureInfo.CurrentCulture)"
+                    Footnote="@LayersFootnote"
+                    TestId="technology-summary-technologies" />
+        <MetricTile Label="Types"
+                    Value="@View.Graph.CountsByType.Count.ToString(CultureInfo.CurrentCulture)"
+                    Footnote="in use"
+                    TestId="technology-summary-types" />
+        <MetricTile Label="Deepest chain"
+                    Value="@ChainHops.ToString(CultureInfo.CurrentCulture)"
+                    Unit="@(ChainHops == 1 ? "hop" : "hops")"
+                    Footnote="@ChainFootnote"
+                    TestId="technology-summary-chain" />
+        <MetricTile Label="Most depended on"
+                    Value="@((MostUsed?.UsedBy ?? 0).ToString(CultureInfo.CurrentCulture))"
+                    Footnote="@(MostUsed is { } top ? $"sit directly on {top.Label}" : null)"
+                    TestId="technology-summary-most-used" />
+        <MetricTile Label="Status ladder"
+                    Value="@AdoptedShare"
+                    Unit="adopted"
+                    Footnote="@LadderText"
+                    TestId="technology-summary-ladder">
+            <Trend>
+                <MetricBreakdownBar Parts="@LadderParts" ShowLegend="false" TestId="technology-summary-ladder-bar" />
+            </Trend>
+        </MetricTile>
+    </section>
+
+    <section class="tech-overview__types" aria-labelledby="tech-overview-types">
+        <h3 id="tech-overview-types" class="tech-overview__heading">Type</h3>
+        <div class="tech-overview__chips" role="group" aria-label="Filter by type" data-testid="technology-type-chips">
+            <ToggleButton CssClass="tech-chip"
+                          Pressed="@(_type is null)"
+                          PressedChanged="_ => _type = null"
+                          TestId="technology-type-chip"
+                          data-type="all">
+                <span class="tech-chip__code">ALL</span>
+                <span>All</span>
+                <span class="tech-chip__tally">@TechnologyCount</span>
+            </ToggleButton>
+            @foreach (var (type, total) in Types)
+            {
+                <ToggleButton CssClass="tech-chip"
+                              Pressed="@IsType(type)"
+                              PressedChanged="_ => _type = type"
+                              TestId="technology-type-chip"
+                              data-type="@type">
+                    <span class="tech-chip__code">@TechnologyTypeCodes.Code(type)</span>
+                    <span>@TechnologyTypeCodes.Label(type)</span>
+                    <span class="tech-chip__tally">@total</span>
+                </ToggleButton>
+            }
+        </div>
+    </section>
+
+    <div class="tech-overview__body">
+        <section class="tech-overview__list" aria-labelledby="tech-overview-list">
+            <div class="tech-overview__toolbar">
+                <h3 id="tech-overview-list" class="tech-overview__heading">@ListTitle</h3>
+                <SearchBox Value="@_query"
+                           ValueChanged="value => _query = value"
+                           AriaLabel="Find a technology"
+                           Placeholder="Name"
+                           DebounceMilliseconds="0"
+                           CssClass="tech-overview__search"
+                           TestId="technology-search" />
+                <ButtonGroup AriaLabel="Sort by" CssClass="tech-overview__sorts" TestId="technology-sorts">
+                    @foreach (var (sort, label) in Sorts)
+                    {
+                        <ToggleButton Pressed="@(_sort == sort)"
+                                      PressedChanged="_ => _sort = sort"
+                                      TestId="technology-sort"
+                                      data-sort="@sort">@label</ToggleButton>
+                    }
+                </ButtonGroup>
+            </div>
+
+            <DataTable TItem="TechnologyGraphNode"
+                       Columns="@Columns"
+                       Items="@Rows"
+                       RowKey="node => node.Id"
+                       RowCssClass="@RowClass"
+                       AriaLabel="Technologies"
+                       EmptyMessage="No technology matches."
+                       RowNoun="technology"
+                       CssClass="tech-overview__table"
+                       TestId="technology-table">
+                <Row Context="node">
+                    <td>
+                        <ToggleButton BaseClass="tech-overview__pick"
+                                      PressedCssClass="tech-overview__pick--pressed"
+                                      Pressed="@IsSelected(node)"
+                                      PressedChanged="_ => SelectAsync(node.Id)"
+                                      Title="@TechnologyTypeCodes.Label(node.Kind)"
+                                      TestId="technology-row">
+                            <span class="tech-overview__code">@TechnologyTypeCodes.Code(node.Kind)</span>
+                            <span class="tech-overview__name">@node.Label</span>
+                        </ToggleButton>
+                    </td>
+                    <td>@TechnologyViews.LayerLabel(node.Layer)</td>
+                    <td>
+                        <MetadataStatusBadge Status="@node.Status" Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)" />
+                    </td>
+                    <td class="tech-overview__figure">@node.UsedBy</td>
+                    <td class="tech-overview__figure">@node.RestsOn</td>
+                    <td class="tech-overview__figure">@node.Depth</td>
+                    <td>
+                        <span class="tech-overview__band tech-overview__band--@node.ComplexityBand.ToString().ToLowerInvariant()">@node.ComplexityBand</span>
+                        <span class="tech-overview__score">@node.Complexity</span>
+                    </td>
+                </Row>
+            </DataTable>
+            <p class="tech-overview__legend">
+                Used by = technologies whose depends-on names this one. Rests on = everything under it, transitively.
+                Complexity = rests on + depth.
+            </p>
+        </section>
+
+        <TechnologyInspector View="@View"
+                             SelectedId="@SelectedId"
+                             SelectedIdChanged="SelectedIdChanged"
+                             OnOpenView="OnOpenView"
+                             OnNavigateToChapter="OnNavigateToChapter"
+                             OnStatusChanged="OnStatusChanged"
+                             StatusError="@StatusError" />
+    </div>
+</div>
+
+@code {
+    /// <summary>The orders the list can be read in, as the design names them.</summary>
+    public enum TechnologySort
+    {
+        MostUsed,
+        MostComplex,
+        Deepest,
+        Name,
+    }
+
+    private static readonly IReadOnlyList<(TechnologySort Sort, string Label)> Sorts =
+    [
+        (TechnologySort.MostUsed, "Most used"),
+        (TechnologySort.MostComplex, "Most complex"),
+        (TechnologySort.Deepest, "Deepest"),
+        (TechnologySort.Name, "A–Z"),
+    ];
+
+    private static readonly IReadOnlyList<DataTableColumn> Columns =
+    [
+        new("Technology"),
+        new("Layer"),
+        new("Status"),
+        new("Used by", "tech-overview__figure"),
+        new("Rests on", "tech-overview__figure"),
+        new("Depth", "tech-overview__figure"),
+        new("Complexity"),
+    ];
+
+    private string? _type;
+    private string _query = string.Empty;
+    private TechnologySort _sort = TechnologySort.MostUsed;
+
+    /// <summary>A re-read, or another repository, can take away the type a chip
+    /// filters on. The filter goes with it, so the list never narrows to a type no
+    /// chip offers any more.</summary>
+    protected override void OnParametersSet()
+    {
+        if (_type is not null && !View.Graph.CountsByType.Keys.Contains(_type, StringComparer.OrdinalIgnoreCase))
+        {
+            _type = null;
+        }
+    }
+
+    private int TechnologyCount => Technologies.Count();
+
+    private string LayersFootnote => View.Layers.Count == 1 ? "in 1 layer" : $"across {View.Layers.Count} layers";
+
+    /// <summary>The types in use, most first, then by name; a type the folder no
+    /// longer has drops out, and so does a filter on it.</summary>
+    private IEnumerable<(string Type, int Total)> Types => View.Graph.CountsByType
+        .OrderByDescending(pair => pair.Value)
+        .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+        .Select(pair => (pair.Key, pair.Value));
+
+    private bool IsType(string type) => string.Equals(_type, type, StringComparison.OrdinalIgnoreCase);
+
+    private bool IsSelected(TechnologyGraphNode node) => string.Equals(node.Id, SelectedId, StringComparison.Ordinal);
+
+    private string? RowClass(TechnologyGraphNode node) => IsSelected(node) ? "tech-overview__row--selected" : null;
+
+    private string ListTitle => _type is null ? "Everything in use" : $"{TechnologyTypeCodes.Label(_type)} technologies";
+
+    /// <summary>The longest chain's hops are one fewer than its ids.</summary>
+    private int ChainHops => Math.Max(0, View.Graph.LongestChain.Count - 1);
+
+    private string? ChainFootnote => View.Graph.LongestChain.Count > 1
+        ? $"{LabelOf(View.Graph.LongestChain[0])} → {LabelOf(View.Graph.LongestChain[^1])}"
+        : null;
+
+    /// <summary>The technology the most others name in their depends-on; the first
+    /// in reading order on a tie.</summary>
+    private TechnologyGraphNode? MostUsed => Technologies
+        .Where(node => node.UsedBy > 0)
+        .OrderByDescending(node => node.UsedBy)
+        .FirstOrDefault();
+
+    /// <summary>The ladder as the design reads it, settled first: adopted, then the
+    /// two steps on the way in, then the two on the way out. Only the folder's own
+    /// words are kept, so a ladder that changes cannot be overridden here.</summary>
+    private static readonly string[] LadderOrder = ["adopted", "trial", "candidate", "hold", "retired"];
+
+    /// <summary>The statuses in ladder order, then any word the ladder does not
+    /// name, so an unrecognised status is counted rather than lost.</summary>
+    private IEnumerable<(string Status, int Total)> Ladder
+    {
+        get
+        {
+            var counts = View.Graph.CountsByStatus;
+            var values = DevbookStatus.Values(DevbookFolder.Tech);
+            var ladder = LadderOrder.Where(status => values.Contains(status, StringComparer.OrdinalIgnoreCase))
+                .Concat(values.Where(status => !LadderOrder.Contains(status, StringComparer.OrdinalIgnoreCase)))
+                .ToList();
+            var named = ladder
+                .Select(status => (Status: status, Total: counts.FirstOrDefault(pair => string.Equals(pair.Key, status, StringComparison.OrdinalIgnoreCase)).Value))
+                .Where(entry => entry.Total > 0);
+            var others = counts
+                .Where(pair => !ladder.Contains(pair.Key, StringComparer.OrdinalIgnoreCase))
+                .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(pair => (pair.Key, pair.Value));
+            return named.Concat(others);
+        }
+    }
+
+    private IReadOnlyList<MetricPart> LadderParts => [.. Ladder.Select(entry => new MetricPart(entry.Status, entry.Total))];
+
+    private string LadderText => string.Join(" · ", Ladder.Select(entry => $"{entry.Total} {entry.Status}"));
+
+    private string AdoptedShare
+    {
+        get
+        {
+            var total = TechnologyCount;
+            var adopted = Technologies.Count(node => node.IsAdopted);
+            return total == 0 ? "0%" : (adopted / (double)total).ToString("P0", CultureInfo.CurrentCulture).Replace(" ", string.Empty, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>The rows on screen: the type chip and the search narrow them, and
+    /// the sort orders what is left, with the name as the last tie-break so the
+    /// same folder lists the same way twice.</summary>
+    private IReadOnlyList<TechnologyGraphNode> Rows
+    {
+        get
+        {
+            var rows = Technologies
+                .Where(node => _type is null || string.Equals(node.Kind, _type, StringComparison.OrdinalIgnoreCase))
+                .Where(node => string.IsNullOrWhiteSpace(_query) || node.Label.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            var ordered = _sort switch
+            {
+                TechnologySort.MostComplex => rows.OrderByDescending(node => node.Complexity),
+                TechnologySort.Deepest => rows.OrderByDescending(node => node.Depth).ThenByDescending(node => node.RestsOn),
+                TechnologySort.Name => rows.OrderBy(node => node.Label, StringComparer.CurrentCultureIgnoreCase),
+                _ => rows.OrderByDescending(node => node.UsedBy).ThenByDescending(node => node.RestsOn),
+            };
+
+            return [.. ordered.ThenBy(node => node.Label, StringComparer.CurrentCultureIgnoreCase)];
+        }
+    }
+
+    private string LabelOf(string id) => NodeById(id)?.Label ?? id;
+}

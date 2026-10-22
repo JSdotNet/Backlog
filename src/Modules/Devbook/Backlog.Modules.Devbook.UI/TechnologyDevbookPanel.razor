@@ -3,14 +3,15 @@
 @inject DevbookFolderOpenService DevbookFolderOpen
 
 @*
-    The "Devbook" eyebrow is gone from both branches: the tab strip above
-    already says Technology and the eyebrow said only where the reader already
-    was. The available branch keeps its heading because that one is the root
-    document's own title read off `.tech`, so it names the document rather than
-    repeating the section — and this is the one section with no Devbook menu
-    beside it, which makes it the only heading that column has. The unavailable
-    branch had no document to title, so its hard-coded "Technology" was the
-    repeat, and it goes with the eyebrow.
+    The Technology page (.devbook/domain/devbook/features.md#technology-view): one
+    tab bar over five views — Overview, Dependencies, Complexity, Clusters and Type
+    lenses — in place of the Atlas and Layers tabs it had before.
+
+    The panel owns three things and hands them to every view: the folder as read,
+    the one selected technology, and the status write. The selection lives here
+    rather than in a view so switching views keeps it. Each view is its own
+    component inheriting TechnologyViewBase, so a view filled in later touches only
+    its own file.
 *@
 
 <aside class="devbook-pane tech-devbook-pane" data-testid="technology-devbook-panel" aria-label="Technology area">
@@ -27,8 +28,6 @@
     }
     else if (_view is null)
     {
-        @* The whole panel waits on one read and has nothing to lay out until it
-           is in, so the spinner rather than a skeleton — and never a sentence. *@
         <Spinner Label="Loading the technology area" TestId="technology-loading" />
     }
     else if (!_view.Available)
@@ -45,16 +44,10 @@
     }
     else
     {
-        @* Title and action on one row. The folder path and the root document's
-           summary used to sit between them: the path named a location the reader
-           cannot act on from here, and the summary explained a section the reader
-           had already chosen. *@
         <header class="devbook-pane__header">
             <h2>@_view.Title</h2>
             @* A branch snapshot is an app-managed cache folder, not somebody's
-               working copy. Opening it in an editor would invite edits into a
-               folder the next fetch replaces wholesale, so the launcher is left
-               out entirely rather than disabled. *@
+               working copy, so the launcher is left out rather than disabled. *@
             @if (CanEdit)
             {
                 <AppButton BaseClass="devbook-folder-open"
@@ -72,180 +65,94 @@
             }
         </header>
 
-        <section class="tech-stats" aria-label="Technology graph summary">
-            <div class="tech-stat">
-                <span class="tech-stat__value">@NodeCount</span>
-                <span class="tech-stat__label">Technologies</span>
-            </div>
-            <div class="tech-stat">
-                <span class="tech-stat__value">@RelationshipCount</span>
-                <span class="tech-stat__label">Depends-on edges</span>
-            </div>
-            <div class="tech-stat">
-                <span class="tech-stat__value">@_view.Layers.Count</span>
-                <span class="tech-stat__label">Layers</span>
-            </div>
-        </section>
-
-        @* Two tabs rather than one long scroll: the graph is what this pane opens
-           with, and the layer detail below it — diagram, layer picker, node grid
-           — is a second reading of the same folder rather than a continuation of
-           the first. *@
-        <Tabs AriaLabel="Technology views" TestId="technology-tabs">
-            <TabPanel Id="graph"
-                      Title="Atlas"
+        <Tabs AriaLabel="Technology views"
+              ActiveId="@_activeView"
+              ActiveIdChanged="OpenViewAsync"
+              TestId="technology-tabs">
+            <TabPanel Id="@TechnologyViews.Overview"
+                      Title="Overview"
                       Element="section"
-                      TestId="technology-graph-panel"
-                      TabTestId="technology-graph-tab"
-                      aria-label="Technology atlas">
-                @if (_view.Graph.Nodes.Count > 0)
-                {
-                    <TechnologyGraphView View="@_view"
-                                         OnNavigateToChapter="OnNavigateToChapter"
-                                         OnStatusChanged="ChangeTechnologyStatusAsync"
-                                         StatusError="@_atlasStatusError" />
-                }
+                      KeepAlive="true"
+                      TestId="technology-overview-panel"
+                      TabTestId="technology-overview-tab">
+                <TechnologyOverviewView @attributes="ViewParameters" />
             </TabPanel>
-
-            <TabPanel Id="layers"
-                      Title="Layers"
+            <TabPanel Id="@TechnologyViews.Dependencies"
+                      Title="Dependencies"
                       Element="section"
-                      TestId="technology-layers-panel"
-                      TabTestId="technology-layers-tab"
-                      aria-label="Technology layer detail">
-                @if (_view.Diagrams.Count > 0)
-                {
-                    <DiagramView Title="@_view.Diagrams[0].Title" Language="@_view.Diagrams[0].Language" Source="@_view.Diagrams[0].Source" />
-                }
-
-                @if (string.IsNullOrWhiteSpace(SelectedPath))
-                {
-                    <section class="tech-layer-tabs" aria-label="Technology layers">
-                        @foreach (var layer in _view.Layers)
-                        {
-                            <ToggleButton BaseClass="tech-layer-tab"
-                                          PressedCssClass="tech-layer-tab--active"
-                                          Pressed="@(ReferenceEquals(layer, ActiveLayer))"
-                                          PressedChanged="() => SelectLayer(layer)">
-                                <span>@LayerLabel(layer)</span>
-                                <Badge BaseClass="tech-layer-tab__count" Kind="">@layer.Nodes.Count</Badge>
-                            </ToggleButton>
-                        }
-                    </section>
-                }
-
-                @if (ActiveLayer is { } activeLayer)
-                {
-                    <section class="tech-layer" aria-label="@activeLayer.Title">
-                        <header class="tech-layer__header">
-                            <div>
-                                <h3>@activeLayer.Title</h3>
-                                <p>@activeLayer.FileName</p>
-                            </div>
-                            @RenderStatusSelect(LayerPath(activeLayer), activeLayer.Title, activeLayer.Metadata.Status ?? "draft")
-                        </header>
-
-                        <div class="tech-node-grid">
-                            @foreach (var node in activeLayer.Nodes)
-                            {
-                                <article class="tech-node tech-node--@node.Status" data-testid="technology-node">
-                                    <header class="tech-node__header">
-                                        <div>
-                                            <h4>@node.Label</h4>
-                                            <p>@node.Description</p>
-                                        </div>
-                                        <span class="tech-node__kind">@node.Kind</span>
-                                    </header>
-
-                                    <div class="tech-node__meta">
-                                        @RenderStatusSelect(node.Id, node.Label, node.Status)
-                                        <MetadataScalar Value="@node.Metadata.Version" Prefix="@MetadataScalar.VersionPrefix(node.Metadata.Version)"Title="@($"version: {node.Metadata.Version}")" />
-                                    </div>
-
-                                    @* Both relation lists draw the shared reference
-                                       control now. They were hand-rolled anchors whose
-                                       href was the reference itself — `.devbook/arc42/03-….md`
-                                       — which the app's own origin has nothing to
-                                       serve, so every relation on every node was a way
-                                       out of the app to a page that does not exist. The
-                                       chip's own class went with them: a reference is a
-                                       link, which is the same trade the metadata strip
-                                       already made when it stopped drawing badges. *@
-                                    @if (node.DependsOn.Count > 0)
-                                    {
-                                        <div class="tech-node__relations">
-                                            <span>Depends on</span>
-                                            <div>@RenderRelations(node.DependsOn)</div>
-                                        </div>
-                                    }
-
-                                    @if (node.Related.Count > 0)
-                                    {
-                                        <div class="tech-node__relations">
-                                            <span>Related</span>
-                                            <div>@RenderRelations(node.Related)</div>
-                                        </div>
-                                    }
-                                </article>
-                            }
-                        </div>
-
-                        @* The layer file itself is not rendered below the grid. The grid is
-                           already that file, read — repeating it as prose put the same
-                           content on screen twice, once as nodes and once as the document
-                           they were parsed from. Editing the file stays available through
-                           "Open in VS Code" in the header. *@
-                    </section>
-                }
+                      TestId="technology-dependencies-panel"
+                      TabTestId="technology-dependencies-tab">
+                <TechnologyDependenciesView @attributes="ViewParameters" />
+            </TabPanel>
+            <TabPanel Id="@TechnologyViews.Complexity"
+                      Title="Complexity"
+                      Element="section"
+                      TestId="technology-complexity-panel"
+                      TabTestId="technology-complexity-tab">
+                <TechnologyComplexityView @attributes="ViewParameters" />
+            </TabPanel>
+            <TabPanel Id="@TechnologyViews.Clusters"
+                      Title="Clusters"
+                      Element="section"
+                      TestId="technology-clusters-panel"
+                      TabTestId="technology-clusters-tab">
+                <TechnologyClustersView @attributes="ViewParameters" />
+            </TabPanel>
+            <TabPanel Id="@TechnologyViews.TypeLenses"
+                      Title="Type lenses"
+                      Element="section"
+                      TestId="technology-type-lenses-panel"
+                      TabTestId="technology-type-lenses-tab">
+                <TechnologyTypeLensesView @attributes="ViewParameters" />
             </TabPanel>
         </Tabs>
     }
 </aside>
 
 @code {
-    private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
     private TechnologyDevbookView? _view;
 
     /// <summary>Why the folder could not be read, when the last load failed.</summary>
     private string? _loadError;
 
-    /// <summary>Whether this panel may write anything back. The view carries the
-    /// whole resolved location, so the answer comes straight off it.</summary>
-    private bool CanEdit => _view?.Location.CanEdit ?? true;
-    private string? _activeLayerFile;
     private string? _loadedRepositoryAlias;
     private bool _openingTechnologyFolder;
     private string? _technologyFolderOpenError;
-    private string? _atlasStatusError;
+    private string? _statusError;
+
+    /// <summary>The view on screen, by its <see cref="TechnologyViews"/> id.</summary>
+    private string _activeView = TechnologyViews.Overview;
+
+    /// <summary>The one selected technology every view shares.</summary>
+    private string? _selectedId;
+
+    /// <summary>Whether this panel may write anything back. The view carries the
+    /// whole resolved location, so the answer comes straight off it.</summary>
+    private bool CanEdit => _view?.Location.CanEdit ?? true;
 
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
-    [Parameter]
-    public string? SelectedPath { get; set; }
-
     /// <summary>
-    /// Raised when a reader follows a relation off a technology node.
-    /// <para>
-    /// This section has no chapter selection of its own — it is the one section with
-    /// no Devbook menu beside it, and its layer tabs are the selection instead —
-    /// so what following a relation can move is the section. Which is most of what
-    /// these relations are for: a node depends on a runtime and is related to an
-    /// architecture chapter, and the chapter is what a reader is trying to get to.
-    /// The host decides whether the target exists; a relation that resolves to no
-    /// section stays the label it was.
-    /// </para>
+    /// Raised to open a chapter: a technology's own, from the inspector's "Open
+    /// chapter", or one in another knowledge folder that a technology sits on. The
+    /// host decides whether the target exists.
     /// </summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
-    private TechnologyLayer? ActiveLayer => !string.IsNullOrWhiteSpace(SelectedPath)
-        ? _view?.Layers.FirstOrDefault(layer => LayerMatches(layer.FileName, SelectedPath)) ?? _view?.Layers.FirstOrDefault()
-        : _view?.Layers.FirstOrDefault(layer => layer.FileName == _activeLayerFile) ?? _view?.Layers.FirstOrDefault();
-
-    private int NodeCount => _view?.Layers.Sum(layer => layer.Nodes.Count) ?? 0;
-
-    private int RelationshipCount => _view?.Relationships.Count ?? 0;
+    /// <summary>The parameters every view takes, as one set, so the five tab panels
+    /// cannot drift apart in what they hand over.</summary>
+    private IReadOnlyDictionary<string, object?> ViewParameters => new Dictionary<string, object?>
+    {
+        [nameof(TechnologyViewBase.View)] = _view,
+        [nameof(TechnologyViewBase.SelectedId)] = _selectedId,
+        [nameof(TechnologyViewBase.SelectedIdChanged)] = EventCallback.Factory.Create<string?>(this, Select),
+        [nameof(TechnologyViewBase.OnOpenView)] = EventCallback.Factory.Create<string>(this, OpenViewAsync),
+        [nameof(TechnologyViewBase.OnNavigateToChapter)] = OnNavigateToChapter,
+        [nameof(TechnologyViewBase.OnStatusChanged)] = EventCallback.Factory.Create<TechnologyStatusChange>(this, ChangeTechnologyStatusAsync),
+        [nameof(TechnologyViewBase.StatusError)] = _statusError,
+    };
 
     protected override void OnInitialized()
     {
@@ -261,10 +168,8 @@
     }
 
     /// <summary>The load a scope change asks for, and the Retry after one failed.
-    /// Caught here rather than in <see cref="LoadAsync"/>, which the status
-    /// changes and the folder-change handler call with layers already on screen
-    /// to keep: a failed first load has nothing to keep, and left to throw it took
-    /// the renderer's pipeline down with the spinner still up.</summary>
+    /// Caught here rather than in <see cref="LoadAsync"/>, which the status change
+    /// and the folder-change handler call with a view already on screen to keep.</summary>
     private async Task LoadOrReportAsync()
     {
         _loadError = null;
@@ -281,44 +186,51 @@
 
     private async Task LoadAsync()
     {
-        // The alias is taken before the await and stamped from that copy, never
-        // from the parameter after it. The read runs off the renderer's thread,
-        // so a scope switch can land while it is out; the parameter is then the
-        // new scope, and a load that stamped from it would mark the old scope's
-        // layers as the new one's — and the guard above, seeing the new alias
-        // loaded, would never ask again. A load the scope has moved on from is
-        // dropped; the switch's own load carries the answer.
+        // The alias is taken before the await and stamped from that copy: a scope
+        // switch can land while the read is out, and a load the scope has moved on
+        // from is dropped — the switch's own load carries the answer.
         var alias = RepositoryAlias;
         var view = await TechnologyDevbook.ReadAsync(alias);
         if (!string.Equals(alias, RepositoryAlias, StringComparison.Ordinal)) return;
 
+        var scopeChanged = !string.Equals(alias, _loadedRepositoryAlias, StringComparison.Ordinal);
         _view = view;
         _loadedRepositoryAlias = alias;
-
-        // The folder read, so an earlier failure no longer describes it. Cleared
-        // here rather than only by LoadOrReportAsync, because a folder change
-        // loads without it and the failure alert is drawn before the layers.
         _loadError = null;
-        if (_view.Layers.All(layer => layer.FileName != _activeLayerFile))
-        {
-            _activeLayerFile = _view.Layers.FirstOrDefault()?.FileName;
-        }
+        _selectedId = KeptOrDefaultSelection(view, scopeChanged ? null : _selectedId);
     }
 
-    private void SelectLayer(TechnologyLayer layer) => _activeLayerFile = layer.FileName;
+    /// <summary>The selection survives a re-read while the technology is still in
+    /// the folder. Otherwise the page opens on the most used technology, so the
+    /// inspector always has one to show.</summary>
+    private static string? KeptOrDefaultSelection(TechnologyDevbookView view, string? current)
+    {
+        var technologies = view.Graph.Nodes.Where(node => !node.IsBoundary).ToList();
+        if (current is not null && view.Graph.Nodes.Any(node => string.Equals(node.Id, current, StringComparison.Ordinal))) return current;
 
-    /// <summary>The folder moved or changed underneath the panel, so the layers
-    /// are read again.
-    /// <para>
-    /// Inside <c>InvokeAsync</c>, because a pull announces itself off the
-    /// dispatcher — <c>DevbookUpdateService</c> raises the event after awaited git
-    /// work — and the load writes fields the render path reads. Guarded, because
-    /// a folder moving mid-pull makes the folder fetch throw, and reached from the
-    /// folder source there is no renderer pipeline underneath to catch it: out of
-    /// an <c>async void</c> it would end the process. The layers that last read
-    /// stay on screen, as the instructions panel's list does, and the next change
-    /// asks again.
-    /// </para></summary>
+        return technologies
+            .OrderByDescending(node => node.UsedBy)
+            .ThenByDescending(node => node.RestsOn)
+            .ThenBy(node => node.Label, StringComparer.CurrentCultureIgnoreCase)
+            .FirstOrDefault()?.Id;
+    }
+
+    private void Select(string? id)
+    {
+        _selectedId = id;
+        _statusError = null;
+    }
+
+    private Task OpenViewAsync(string id)
+    {
+        _activeView = id;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The folder moved or changed underneath the panel, so it is read
+    /// again — inside <c>InvokeAsync</c>, because a pull announces itself off the
+    /// dispatcher, and guarded, because out of an <c>async void</c> an exception
+    /// would end the process. The view that last read stays on screen.</summary>
     private async void OnDevbookChanged() =>
         await InvokeAsync(async () =>
         {
@@ -328,50 +240,12 @@
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
             {
-                // Nothing to record and nothing to show: the layers that last
-                // read stay up.
+                // Nothing to record and nothing to show: the view that last read
+                // stays up.
             }
 
             StateHasChanged();
         });
-
-    /// <summary>A layer is selected the way every panel selects a chapter, or by its
-    /// file name alone, which only this panel allows because a layer is named by its
-    /// file.</summary>
-    private static bool LayerMatches(string fileName, string selectedPath) =>
-        DevbookPath.Matches(fileName, selectedPath)
-        || string.Equals(
-            Path.GetFileName(DevbookPath.Normalize(fileName)),
-            Path.GetFileName(DevbookPath.Normalize(selectedPath)),
-            StringComparison.OrdinalIgnoreCase);
-
-    private RenderFragment RenderStatusSelect(string itemPath, string title, string status) => @<span class="devbook-status-control">
-        @* Read from a branch, the state is shown as the badge rather than the
-           select: still stated, but not offering an edit the next fetch would
-           discard. The same substitution MetadataView makes. *@
-        @if (!CanEdit)
-        {
-            <MetadataStatusBadge Status="@status"
-                                 Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
-                                 TestId="devbook-state-badge" />
-        }
-        else
-        {
-            <StatusSelector Id="@StateSelectId(itemPath)"
-                            CurrentValue="@status"
-                            Options="@StatusOptions(status)"
-                            Label="@($"State for {title}")"
-                            TestId="devbook-state-select"
-                            OnChanged="value => ChangeDevbookStatusAsync(itemPath, status, value)" />
-        }
-        @* Inline for the reason the domain panel's pair is: this sits beside the
-           control that failed, and a block would break the row. *@
-        @if (_statusErrors.TryGetValue(itemPath, out var error))
-        {
-            <Alert Message="@error" BaseClass="domain-devbook__action-error" Role="status" Inline />
-        }
-    </span>;
-
 
     private async Task OpenTechnologyFolderAsync()
     {
@@ -395,13 +269,11 @@
         }
     }
 
-    /// <summary>The atlas's own status write. Same path as the layer grid's — the
-    /// folder is written in one place — with its own error field, because the
-    /// message has to appear beside the control that caused it and the two
-    /// controls are on different tabs.</summary>
+    /// <summary>The inspector's status write, back to the technology's chapter in
+    /// its layer file, then the folder read again so every figure follows.</summary>
     private async Task ChangeTechnologyStatusAsync(TechnologyStatusChange change)
     {
-        _atlasStatusError = null;
+        _statusError = null;
 
         try
         {
@@ -410,84 +282,12 @@
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
-            _atlasStatusError = ex.Message;
+            _statusError = ex.Message;
         }
     }
-
-    private async Task ChangeDevbookStatusAsync(string itemPath, string currentStatus, string? status)
-    {
-        if (string.IsNullOrWhiteSpace(status) || string.Equals(status, currentStatus, StringComparison.OrdinalIgnoreCase)) return;
-
-        _statusErrors.Remove(itemPath);
-        try
-        {
-            await TechnologyDevbook.UpdateStatusAsync(RepositoryAlias, itemPath, status);
-            await LoadAsync();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
-        {
-            _statusErrors[itemPath] = ex.Message;
-        }
-    }
-
-    /// <summary>The folder's own ladder, from <c>DevbookStatus</c>, rather than a
-    /// list kept here. The two had drifted: this offered <c>draft</c>,
-    /// <c>accepted</c> and <c>active</c>, none of which `.tech` defines, and
-    /// omitted <c>trial</c>, <c>hold</c> and <c>retired</c>, all of which it does.
-    /// A status the file already holds is kept in the list even when the
-    /// vocabulary does not name it, so opening the select never silently offers to
-    /// correct a word somebody meant.</summary>
-    private static IReadOnlyList<SelectorOption> StatusOptions(string status)
-    {
-        var values = DevbookStatus.Values(DevbookFolder.Tech);
-        var statuses = values.Contains(status, StringComparer.OrdinalIgnoreCase) ? values : [.. values, status];
-        return [.. statuses.Select(value => new SelectorOption(value, value))];
-    }
-
-    private static string LayerLabel(TechnologyLayer layer) => layer.Title.EndsWith(" Technologies", StringComparison.OrdinalIgnoreCase)
-        ? layer.Title[..^" Technologies".Length]
-        : layer.Title.EndsWith(" Stack", StringComparison.OrdinalIgnoreCase)
-            ? layer.Title[..^" Stack".Length]
-            : layer.Title;
-
-    private static string LayerPath(TechnologyLayer layer) => $".tech/{layer.FileName}";
-
-    private static string ReferenceLabel(string reference)
-    {
-        var label = reference[(reference.LastIndexOf('#') + 1)..];
-        if (label.Length == reference.Length) label = Path.GetFileNameWithoutExtension(reference);
-        return string.Join(' ', label.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(word => char.ToUpperInvariant(word[0]) + word[1..]));
-    }
-
-    /// <summary>One relation list, drawn through the shared reference control so a
-    /// relation reads and behaves the way one does everywhere else. The label stays
-    /// this panel's: the node grid is a summary and a full repository path in a card
-    /// this dense is mostly punctuation, so the shortened words go on the control and
-    /// the reference itself stays on the title.</summary>
-    private RenderFragment RenderRelations(IReadOnlyList<string> references) => __builder =>
-    {
-        @foreach (var reference in references)
-        {
-            @if (DevbookReference.Parse(reference) is { } parsed)
-            {
-                <DevbookReferenceLink Reference="@parsed"
-                                        Text="@ReferenceLabel(reference)"
-                                        OnNavigate="NavigateDevbookReferenceAsync" />
-            }
-        }
-    };
-
-    /// <summary>Follows a relation by asking the host for the chapter it names. A
-    /// relation naming no section resolves to nothing, which leaves the label
-    /// reading as the label it always was.</summary>
-    private Task NavigateDevbookReferenceAsync(DevbookReference reference) =>
-        DevbookChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
-
-    private static string StateSelectId(string itemPath) => "devbook-" + new string(itemPath.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-') + "-state";
 
     public void Dispose()
     {
         TechnologyDevbook.Changed -= OnDevbookChanged;
     }
 }
-

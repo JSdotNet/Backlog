@@ -1,0 +1,168 @@
+@inherits TechnologyViewBase
+
+@*
+    The selected technology, beside whichever view picked it
+    (.devbook/domain/devbook/features.md#technology-view, The inspector and its
+    lenses). Every figure is one the reader's measures computed; nothing here
+    counts anything itself.
+
+    It opens on the facts every technology has, then what it sits on and what
+    uses it, then the status and the ways onward. The section a technology's type
+    chooses goes in the Lens slot, below the common facts; the Type lenses view
+    fills it.
+*@
+
+@if (Selected is { } node)
+{
+    <aside class="tech-inspector" aria-labelledby="tech-inspector-title" data-testid="technology-inspector">
+        <header class="tech-inspector__head">
+            <p class="tech-inspector__kicker">
+                <Badge Kind="" Title="@TechnologyTypeCodes.Label(node.Kind)">@TechnologyTypeCodes.Code(node.Kind)</Badge>
+                <span>@TechnologyViews.LayerLabel(node.Layer)</span>
+            </p>
+            <h3 id="tech-inspector-title" class="tech-inspector__title">@node.Label</h3>
+            @if (!string.IsNullOrWhiteSpace(node.Description))
+            {
+                <p class="tech-inspector__lede">@node.Description</p>
+            }
+        </header>
+
+        <div class="tech-inspector__meta" data-testid="technology-inspector-status">
+            @if (CanEditStatus(node))
+            {
+                <StatusSelector Id="@StatusSelectId(node.Id)"
+                                CurrentValue="@node.Status"
+                                Options="@StatusOptions(node.Status)"
+                                Label="@($"State for {node.Label}")"
+                                TestId="technology-inspector-state-select"
+                                OnChanged="value => ChangeStatusAsync(node, value)" />
+            }
+            else
+            {
+                <MetadataStatusBadge Status="@node.Status"
+                                     Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
+                                     TestId="technology-inspector-state-badge" />
+            }
+            <MetadataScalar Value="@Chapter?.Metadata.Version" Prefix="@MetadataScalar.VersionPrefix(Chapter?.Metadata.Version)" Title="@($"version: {Chapter?.Metadata.Version}")" />
+            <Alert Message="@StatusError" TestId="technology-inspector-state-error" Role="status" />
+        </div>
+
+        <dl class="tech-inspector__facts" data-testid="technology-inspector-facts">
+            <div><dt>Used by</dt><dd>@node.UsedBy</dd></div>
+            <div><dt>Breaks if it changes</dt><dd>@node.BreaksIfItChanges</dd></div>
+            <div><dt>Rests on</dt><dd>@node.RestsOn</dd></div>
+            <div><dt>Depth</dt><dd>@node.Depth</dd></div>
+            <div><dt>Complexity</dt><dd>@node.Complexity · @node.ComplexityBand</dd></div>
+        </dl>
+
+        <section class="tech-inspector__relations" aria-labelledby="tech-inspector-sits-on" data-testid="technology-inspector-sits-on">
+            <h4 id="tech-inspector-sits-on">Sits on</h4>
+            @if (node.DependencyIds.Count == 0)
+            {
+                <p class="tech-inspector__none">Nothing — a foundation</p>
+            }
+            else
+            {
+                <div class="tech-inspector__chips">
+                    @foreach (var id in node.DependencyIds)
+                    {
+                        @RenderRelated(id)
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="tech-inspector__relations" aria-labelledby="tech-inspector-used-by" data-testid="technology-inspector-used-by">
+            <h4 id="tech-inspector-used-by">Used by</h4>
+            @if (node.UserIds.Count == 0)
+            {
+                <p class="tech-inspector__none">Nothing depends on it — a leaf</p>
+            }
+            else
+            {
+                <div class="tech-inspector__chips">
+                    @foreach (var id in node.UserIds)
+                    {
+                        @RenderRelated(id)
+                    }
+                </div>
+            }
+        </section>
+
+        @Lens
+
+        <nav class="tech-inspector__links" aria-label="More about @node.Label">
+            @if (DevbookChapterLink.From(node.Id) is { } chapter)
+            {
+                <AppButton Variant="ButtonVariant.Secondary"
+                           TestId="technology-inspector-open-chapter"
+                           OnClick="() => OnNavigateToChapter.InvokeAsync(chapter)">Open chapter</AppButton>
+            }
+            <AppButton Variant="ButtonVariant.Ghost"
+                       TestId="technology-inspector-show-dependencies"
+                       OnClick="() => OnOpenView.InvokeAsync(TechnologyViews.Dependencies)">Show dependencies</AppButton>
+            <AppButton Variant="ButtonVariant.Ghost"
+                       TestId="technology-inspector-open-lens"
+                       OnClick="() => OnOpenView.InvokeAsync(TechnologyViews.TypeLenses)">@($"Open {TechnologyTypeCodes.Label(node.Kind).ToLowerInvariant()} lens")</AppButton>
+        </nav>
+    </aside>
+}
+
+@code {
+    /// <summary>The section the selected technology's type chooses, drawn below
+    /// the common facts. Empty until a view hands one in.</summary>
+    [Parameter]
+    public RenderFragment? Lens { get; set; }
+
+    /// <summary>The parsed chapter behind the selection, which carries what the
+    /// graph node does not — its version. A boundary node has none.</summary>
+    private TechnologyNode? Chapter => SelectedId is null
+        ? null
+        : View.Layers.SelectMany(layer => layer.Nodes).FirstOrDefault(node => string.Equals(node.Id, SelectedId, StringComparison.Ordinal));
+
+    /// <summary>A boundary node's status belongs to its own folder, and a branch
+    /// snapshot is not somebody's working copy, so neither offers the select.</summary>
+    private bool CanEditStatus(TechnologyGraphNode node) => View.Location.CanEdit && !node.IsBoundary;
+
+    /// <summary>One technology this one sits on or is used by. A technology of this
+    /// folder is selected in place; a chapter in another folder is followed there,
+    /// through the shared reference control.</summary>
+    private RenderFragment RenderRelated(string id) => __builder =>
+    {
+        var related = NodeById(id);
+        if (related is { IsBoundary: true } && DevbookReference.Parse(id) is { } reference)
+        {
+            <DevbookReferenceLink Reference="@reference"
+                                  Text="@related.Label"
+                                  OnNavigate="NavigateAsync" />
+        }
+        else if (related is not null)
+        {
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="technology-inspector-related"
+                       OnClick="() => SelectAsync(related.Id)">@related.Label</AppButton>
+        }
+    };
+
+    private Task NavigateAsync(DevbookReference reference) =>
+        DevbookChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
+
+    private Task ChangeStatusAsync(TechnologyGraphNode node, string? status) =>
+        string.IsNullOrWhiteSpace(status) || string.Equals(status, node.Status, StringComparison.OrdinalIgnoreCase)
+            ? Task.CompletedTask
+            : OnStatusChanged.InvokeAsync(new TechnologyStatusChange(node.Id, node.Status, status));
+
+    /// <summary>The folder's own ladder, with a status the file already holds kept
+    /// even when the ladder does not name it, so opening the select never silently
+    /// offers to correct a word somebody meant.</summary>
+    private static IReadOnlyList<SelectorOption> StatusOptions(string status)
+    {
+        var values = DevbookStatus.Values(DevbookFolder.Tech);
+        var options = values.Contains(status, StringComparer.OrdinalIgnoreCase) ? values : [.. values, status];
+        return [.. options.Select(value => new SelectorOption(value, value))];
+    }
+
+    private static string StatusSelectId(string itemPath) =>
+        "technology-inspector-" + new string([.. itemPath.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')]).Trim('-') + "-state";
+}

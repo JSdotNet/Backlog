@@ -505,7 +505,14 @@ internal static class StorybookIndex
             // not beside Today, above Feedback.
             new("notes", "Notes", "NoteRow and NoteEditor: a list of notes newest first that a search narrows, and one note being written that saves on its own."),
             new("compare", "Section comparison",
-                "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line.")
+                "ChangeScopePicker, ChangedFileList and MarkdownCompareView: which change to look at, which file, and what moved in it — aligned by heading, never by line."),
+
+            // Last: the Devbook pane's Technology page is a whole surface made of
+            // chapters from every group above — the metric tiles from Dashboard,
+            // the table from Content, the status badge and select from Devbook and
+            // Selects, the toggles and search from Input and action. Nothing is
+            // shown before its parts, so it reads after all of them.
+            new("technology", "Technology page", "The Technology page's Overview: summary tiles, type chips, search and sort, the table of technologies, the inspector on the selected one, and the placeholder a later view shows.")
         ])
     ];
 
