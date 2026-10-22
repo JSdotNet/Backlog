@@ -2,14 +2,21 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Adapters;
 using Backlog.Modules.Sync.Features.AcknowledgeInboxItem;
 using Backlog.Modules.Sync.Features.CaptureInboxItem;
+using Backlog.Modules.Sync.Features.DeleteNotificationReply;
 using Backlog.Modules.Sync.Features.DescribeOwner;
+using Backlog.Modules.Sync.Features.Devices;
 using Backlog.Modules.Sync.Features.IssueDeviceToken;
 using Backlog.Modules.Sync.Features.IssuePairingCode;
 using Backlog.Modules.Sync.Features.ListInbox;
+using Backlog.Modules.Sync.Features.ListNotificationReplies;
+using Backlog.Modules.Sync.Features.NegotiateNotificationNudge;
+using Backlog.Modules.Sync.Features.PostNotificationReply;
 using Backlog.Modules.Sync.Features.PullAnnotations;
+using Backlog.Modules.Sync.Features.PullNotifications;
 using Backlog.Modules.Sync.Features.PullSessions;
 using Backlog.Modules.Sync.Features.PullTasks;
 using Backlog.Modules.Sync.Features.PushAnnotations;
+using Backlog.Modules.Sync.Features.PushNotifications;
 using Backlog.Modules.Sync.Features.PushSessions;
 using Backlog.Modules.Sync.Features.PushTasks;
 using Backlog.Modules.Sync.Features.ReadAttachment;
@@ -47,6 +54,8 @@ public static class SyncModuleRegistration
         services.AddScoped<ICommandHandler<RedeemPairingCodeCommand, Result<DeviceRegistrationResponse>>, RedeemPairingCodeCommandHandler>();
         services.AddScoped<ICommandHandler<IssueDeviceTokenCommand, Result<DeviceTokenResponse>>, IssueDeviceTokenCommandHandler>();
         services.AddScoped<IQueryHandler<DescribeOwnerQuery, Result<DeviceStatusResponse>>, DescribeOwnerQueryHandler>();
+        services.AddScoped<IQueryHandler<ListDevicesQuery, Result<DeviceListResponse>>, ListDevicesQueryHandler>();
+        services.AddScoped<ICommandHandler<RevokeDeviceCommand, Result>, RevokeDeviceCommandHandler>();
 
         services.AddScoped<ICommandHandler<PushTasksCommand, Result<PushTasksResponse>>, PushTasksCommandHandler>();
         services.AddScoped<IQueryHandler<PullTasksQuery, Result<PullTasksResponse>>, PullTasksQueryHandler>();
@@ -54,6 +63,12 @@ public static class SyncModuleRegistration
         services.AddScoped<IQueryHandler<PullSessionsQuery, Result<PullSessionsResponse>>, PullSessionsQueryHandler>();
         services.AddScoped<ICommandHandler<PushAnnotationsCommand, Result<PushAnnotationsResponse>>, PushAnnotationsCommandHandler>();
         services.AddScoped<IQueryHandler<PullAnnotationsQuery, Result<PullAnnotationsResponse>>, PullAnnotationsQueryHandler>();
+        services.AddScoped<ICommandHandler<PushNotificationsCommand, Result<PushNotificationsResponse>>, PushNotificationsCommandHandler>();
+        services.AddScoped<IQueryHandler<PullNotificationsQuery, Result<PullNotificationsResponse>>, PullNotificationsQueryHandler>();
+        services.AddScoped<ICommandHandler<PostNotificationReplyCommand, Result<PostNotificationReplyResponse>>, PostNotificationReplyCommandHandler>();
+        services.AddScoped<IQueryHandler<ListNotificationRepliesQuery, Result<PullNotificationRepliesResponse>>, ListNotificationRepliesQueryHandler>();
+        services.AddScoped<ICommandHandler<DeleteNotificationReplyCommand, Result>, DeleteNotificationReplyCommandHandler>();
+        services.AddScoped<IQueryHandler<NegotiateNotificationNudgeQuery, Result<NotificationNudgeNegotiateResponse>>, NegotiateNotificationNudgeQueryHandler>();
         services.AddScoped<IQueryHandler<ListInboxQuery, Result<IReadOnlyList<InboxItem>>>, ListInboxQueryHandler>();
         services.AddScoped<ICommandHandler<CaptureInboxItemCommand, Result<CaptureOutcome>>, CaptureInboxItemCommandHandler>();
         services.AddScoped<ICommandHandler<AcknowledgeInboxItemCommand, Result>, AcknowledgeInboxItemCommandHandler>();
@@ -76,6 +91,8 @@ public static class SyncModuleRegistration
         services.TryAddSingleton<ITaskReplica, InMemoryTaskReplica>();
         services.TryAddSingleton<ISessionReplica, InMemorySessionReplica>();
         services.TryAddSingleton<IAnnotationReplica, InMemoryAnnotationReplica>();
+        services.TryAddSingleton<INotificationReplica, InMemoryNotificationReplica>();
+        services.TryAddSingleton<INotificationNudgeChannel, NoNotificationNudgeChannel>();
         services.TryAddSingleton<IAttachmentStore, InMemoryAttachmentStore>();
 
         return services;

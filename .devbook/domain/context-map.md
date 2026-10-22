@@ -31,6 +31,7 @@ status: draft
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
 | Progress | Supporting | It keeps the goals a person's work is attached to and the impediments that hold it back, and reads both over an iteration as a stand-up, naming tasks by id, plans by tag and pull requests by number without owning any of them. |
 | Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
+| Notifications | Supporting | It lets any context tell the person something or ask them a question, and hands the answer back from whichever paired device they used. It carries no work of its own (local ADR 0038). |
 | Sync | Supporting | It keeps one person's data the same across their devices. It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model, but it carries other contexts' documents rather than being what makes the product different. |
 
 ## Context map
@@ -51,6 +52,7 @@ flowchart LR
     Sessions[Sessions]
     Progress[Progress]
     Sync[Sync]
+    Notify[Notifications]
 
     Capture -->|OHS + Published Language<br/>ItemCaptured| Inbox
     %% Inbox -> Tasks is built as an in-process port (IInboxBacklogTarget in
@@ -112,6 +114,14 @@ flowchart LR
     Sync -->|OHS + Published Language<br/>Session record replica| Sessions
     Sync -->|OHS + Published Language<br/>Annotation replica| Brain
     Sync -->|Customer/Supplier<br/>capture-kind documents for IInboxIntake| Inbox
+
+    %% Notifications. Not built yet: local ADR 0038. It conforms to Sync's replica
+    %% protocol and offers INotifications to the contexts that publish.
+    Sync -.->|"Conformist (not built)<br/>Notification and reply replica"| Notify
+    Notify -.->|"OHS + Published Language (not built)<br/>INotifications, answer handler"| Sessions
+    Notify -.->|"OHS + Published Language (not built)<br/>INotifications, answer handler"| Sync
+    Notify -.->|"OHS + Published Language (not built)<br/>INotifications"| Brain
+    Notify -.->|"OHS + Published Language (not built)<br/>Close by subject"| Tasks
 ```
 
 ## Published languages and contracts
@@ -130,6 +140,7 @@ flowchart LR
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
 | Environment | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Tasks, Dev PC Management |
 | Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.devbook/domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
+| Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` (not built) | Sessions, Sync, Devbook, Tasks |
 | Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
 
 ## Strategic rules
@@ -221,3 +232,13 @@ flowchart LR
   document. A context that wants its documents on every device conforms to the
   replica protocol through an adapter in `Backlog.Infrastructure.Sync`; it never
   reaches into another context's documents on the replica.
+- `Notifications` is downstream of `Sync` and upstream of every context that
+  publishes (local ADR 0038). It conforms to the replica protocol for its
+  `notifications` container, as Tasks, Sessions and Devbook do for theirs. The
+  contexts that publish depend on `Backlog.Modules.Notifications.Abstractions`, the
+  way they depend on `Tasks.Abstractions`, and never on its module. Notifications
+  reads no publisher's data: the context that owns a subject reports the end
+  through `CloseForSubjectAsync`, and answers a probe at startup. The pairing
+  question makes `Sync` both its supplier and a publisher. The two edges run
+  through different parts: the desktop sync client carries the documents, and the
+  pairing flow publishes the question.

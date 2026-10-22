@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Notifications module — the Notifications bounded context
+    (.devbook/domain/notifications, local ADR 0038). Clean architecture, inside out:
+      DomainModels/  the Notification aggregate, its answer-spec and reply rules
+      Services/      the owner's INotifications, the viewer's refusal, answer
+                     delivery and replay, and the startup subject probe pass
+      Extensions/    AddNotificationsModule() and AddNotificationAnswerHandler<T>()
+    INotificationRepository is a port declared here; its adapter is the
+    notifications table in backlog.db, under src/Infrastructure. This project may
+    reference the shared kernel and its own Abstractions, and nothing else in the
+    solution.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Notifications</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only for AddNotificationsModule(); the domain knows nothing about the container. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- A handler or a probe that throws is logged by id and source, never by content. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Backlog.Modules.Notifications.UnitTests" />
+  </ItemGroup>
+
+</Project>

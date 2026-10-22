@@ -86,5 +86,11 @@ internal enum WorkspaceSurface
     /// workspace, as <c>Devbook</c> or the older <c>Knowledge</c>, as this surface.
     /// Appended after <see cref="Inbox"/> for the reason <see cref="PullRequests"/>
     /// was. Escape closes it as it closes the other takeovers.</summary>
-    Devbook
+    Devbook,
+
+    /// <summary>The notification centre — the owner's alerts and questions, grouped by
+    /// subject, with the one picked drawn and answered beside the list — taking the whole
+    /// screen. Appended after <see cref="Devbook"/> for the reason
+    /// <see cref="PullRequests"/> was. Escape closes it as it closes the other takeovers.</summary>
+    Notifications
 }

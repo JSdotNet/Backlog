@@ -34,6 +34,17 @@ public static class SyncRoutes
     /// <summary>Who the bearer of this token turned out to be. Bearer.</summary>
     public const string DeviceStatus = "/devices/me";
 
+    /// <summary>Every device of the caller's owner, with the device that paired
+    /// each one. Bearer.</summary>
+    public const string Devices = "/devices";
+
+    /// <summary>Route template for one device of the caller's owner: DELETE
+    /// revokes it. Bearer. Use <see cref="DeviceFor"/> to build a concrete URL.</summary>
+    public const string Device = "/devices/{id:guid}";
+
+    /// <summary>The full path for one device.</summary>
+    public static string DeviceFor(Guid id) => $"{Base}/devices/{id:D}";
+
     /// <summary>The captures waiting for this owner. Bearer.</summary>
     public const string Inbox = "/inbox";
 
@@ -54,6 +65,27 @@ public static class SyncRoutes
     /// cursor. Bearer, and the same two-halves-one-route shape as
     /// <see cref="Tasks"/>, over the third replica container.</summary>
     public const string Annotations = "/annotations";
+
+    /// <summary>The notification replica (local ADR 0038): POST pushes a batch of the
+    /// calling owner instance's notifications, GET pulls the owner's notification feed from
+    /// a cursor. Bearer.</summary>
+    public const string Notifications = "/notifications";
+
+    /// <summary>The replies to notifications: POST stores one reply from any device of the
+    /// owner, GET lists the replies addressed to the calling owner instance. Bearer.</summary>
+    public const string NotificationReplies = "/notifications/replies";
+
+    /// <summary>Route template for one reply: DELETE removes it once its owner instance has
+    /// processed it. Use <see cref="NotificationReplyFor"/> to build a concrete URL.</summary>
+    public const string NotificationReply = "/notifications/replies/{id:guid}";
+
+    /// <summary>The realtime nudge (local ADR 0038 §4): GET answers a client access URL for
+    /// the Web PubSub hub that joins the caller to its owner's group, or none where the service
+    /// runs without one. Bearer.</summary>
+    public const string NotificationNudge = "/notifications/negotiate";
+
+    /// <summary>The full path for one reply.</summary>
+    public static string NotificationReplyFor(Guid id) => $"{Base}/notifications/replies/{id:D}";
 
     /// <summary>Route template for acknowledging one capture. Bearer. Use
     /// <see cref="AcknowledgeInboxItemFor"/> to build a concrete URL.</summary>

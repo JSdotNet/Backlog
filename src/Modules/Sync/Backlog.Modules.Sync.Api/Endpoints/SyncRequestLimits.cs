@@ -233,6 +233,23 @@ internal static class SyncRequestLimits
     /// remark the two ends disagreed about would refuse every batch it was in.
     /// This one is named here too because a test of the bound reads it.</summary>
     internal const int MaximumAnnotationBody = AnnotationRecordLimits.BodyLength;
+
+    /// <summary>
+    /// The most notifications one push may carry. Lower than the other containers'
+    /// cap because one notification may weigh up to
+    /// <see cref="NotificationRecordLimits.DocumentBytes"/>: this many at that size
+    /// still fits <see cref="NotificationPushBodyBytes"/>. The desktop batches at 50.
+    /// </summary>
+    internal const int MaximumPushNotifications = 100;
+
+    /// <summary>The most a notification push body may weigh: 8 MB, which is
+    /// <see cref="MaximumPushNotifications"/> notifications at their bound with
+    /// room for the envelope.</summary>
+    internal const long NotificationPushBodyBytes = 8L * 1024 * 1024;
+
+    /// <summary>The most one reply post may weigh: 64 KB, far above an open answer
+    /// at <see cref="NotificationRecordLimits.ReplyTextLength"/> characters.</summary>
+    internal const long NotificationReplyBodyBytes = 64L * 1024;
 }
 
 

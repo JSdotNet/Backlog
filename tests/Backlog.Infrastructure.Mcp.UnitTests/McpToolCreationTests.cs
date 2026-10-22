@@ -52,7 +52,8 @@ public class McpToolCreationTests
         DevbookTools.ListAnnotations,
         SessionTools.ListSessions,
         SurfaceTools.ListRuns,
-        SurfaceTools.GetRun
+        SurfaceTools.GetRun,
+        NotificationTools.GetAnswer
     ];
 
     /// <summary>
@@ -127,12 +128,15 @@ public class McpToolCreationTests
 
         Assert.Equal(
             [
+                NotificationTools.Ask,
                 DevbookTools.CaptureNote,
+                NotificationTools.Close,
                 TrackerTools.Comment,
                 TrackerTools.CreateItem,
                 SurfaceTools.FinishRun,
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
+                NotificationTools.Notify,
                 SurfaceTools.OpenDashboard,
                 ImpedimentTools.RaiseImpediment,
                 SurfaceTools.RecordPrompt,
@@ -175,6 +179,14 @@ public class McpToolCreationTests
         Assert.Equal(["id", "blocked"], schemas["set_blocked"]);
         Assert.Equal(["title", "holdsBack", "note"], schemas["raise_impediment"]);
         Assert.Equal(["id", "state", "with"], schemas["set_impediment_state"]);
+        Assert.Equal(["title", "summary", "body", "severity", "sessionId"], schemas["notify"]);
+        Assert.Equal(
+            ["title", "choices", "allowMultiple", "openAnswer", "placeholder", "summary", "body", "severity", "sessionId"],
+            schemas["ask"]);
+        Assert.Equal(["id", "sessionId"], schemas["get_answer"]);
+        Assert.Equal(["id", "reason", "sessionId"], schemas["close"]);
+        Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "ask")));
+        Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "get_answer")));
         Assert.Equal(["id", "text"], schemas["comment"]);
         Assert.Equal(["id", "repository", "externalId"], schemas["link_change"]);
         Assert.Equal(["id", "repository", "sessionId"], schemas["link_session"]);
@@ -259,7 +271,8 @@ public class McpToolCreationTests
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
                 new FakeRepositoryDirectory()),
             [typeof(SurfaceTools)] = new SurfaceTools(new FakeDeliverySurfaceLifecycle()),
-            [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments())
+            [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments()),
+            [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications())
         };
 
         foreach (var group in BacklogMcpTools.Groups)

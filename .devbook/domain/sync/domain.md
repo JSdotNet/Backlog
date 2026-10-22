@@ -25,9 +25,12 @@ person calls it in the device list, and a hash of its
 credential itself, so a copy of the record is not a copy of the secret.
 
 A device comes in once, by registering as the first device of a new owner or by
-redeeming a [Pairing Code](#pairing-code), and the record does not say which. It
-is the consistency boundary for "who is this caller": a token is minted only for
-a device whose stored hash matches the credential it presents.
+redeeming a [Pairing Code](#pairing-code). A paired device also names the device
+whose code it redeemed, so the desktop that issued the code can ask its person
+whether to keep it. It is the consistency boundary for "who is this caller": a
+token is minted only for a device whose stored hash matches the credential it
+presents. The device whose code paired it can revoke it; its credential then
+mints no further token, and a token it already holds lasts until it expires.
 
 It is not the machine. The machine is the shared kernel's
 [Device](../tasks/domain.md#device), which every context shares. This aggregate is

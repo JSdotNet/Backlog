@@ -38,3 +38,12 @@ public sealed record DeviceTokenResponse(string AccessToken, DateTimeOffset Expi
 /// <summary>Who the caller turned out to be, read back from its own token. The
 /// device count is what a settings screen shows beside "paired devices".</summary>
 public sealed record DeviceStatusResponse(Guid OwnerId, Guid DeviceId, string DeviceName, int PairedDeviceCount);
+
+/// <summary>One device of the caller's owner, as the device list shows it.
+/// <paramref name="PairedBy"/> names the device whose pairing code it redeemed,
+/// or is null for the owner's first device.</summary>
+public sealed record DeviceSummary(Guid DeviceId, string Name, DateTimeOffset RegisteredAt, Guid? PairedBy);
+
+/// <summary>Every device of the caller's owner, oldest first, and which of them
+/// is the caller — so a desktop can find the devices its own codes paired.</summary>
+public sealed record DeviceListResponse(Guid CallerDeviceId, IReadOnlyList<DeviceSummary> Devices);

@@ -64,6 +64,14 @@
     <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.1" />
 
     <!--
+      The client-side half of the realtime nudge (local ADR 0038 §4): it registers the
+      WebPubSubServiceClient that Backlog.Infrastructure.WebPubSub mints client access
+      URLs and publishes "pull now" through, with the managed identity as its
+      credential. Moves with the hosting packages above, like the Cosmos one.
+    -->
+    <PackageVersion Include="Aspire.Azure.Messaging.WebPubSub" Version="13.6.1" />
+
+    <!--
       Pinned to the version Aspire.Azure.Storage.Blobs above resolves
       transitively, for the reason Microsoft.Azure.Cosmos below is: the blob
       adapter stages and commits blocks through the SDK's own types, and naming a

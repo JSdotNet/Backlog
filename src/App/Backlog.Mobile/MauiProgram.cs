@@ -4,6 +4,7 @@ using Backlog.Mobile.UI.Services;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
+using Backlog.Modules.Notifications.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Storage;
@@ -117,6 +118,11 @@ public static class MauiProgram
 		// The shell's own state: the capture draft that outlives a tab switch, and
 		// the sync status the app bar reads. The browser harness calls the same method.
 		builder.Services.AddMobileShell();
+
+		// Notifications as a viewer (local ADR 0038): the phone never publishes or changes a
+		// notification, so every write through INotifications is refused here. What it shows,
+		// and the replies it sends through the outbox, arrive with the sync exchange.
+		builder.Services.AddNotificationsModule(NotificationsRole.Viewer);
 
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();

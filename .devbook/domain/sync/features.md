@@ -50,6 +50,12 @@ The sync service enforces that boundary by reading the owner out of the presente
 token, and [every sync call is scoped to that owner](requirements.md#requirement-every-sync-call-is-scoped-to-the-tokens-owner).
 The cloud store does not enforce it on its own.
 
+The desktop that showed the code learns of the redemption by reading the owner's
+device list while the code is open, because the service does not tell it. It then
+asks its person "Pair *device name*?" in a notification only that desktop can
+answer (`.devbook/domain/notifications/context.md`). Allow keeps the device; Refuse
+revokes it, so its credential mints no further token.
+
 ## Syncing between devices
 
 ```meta

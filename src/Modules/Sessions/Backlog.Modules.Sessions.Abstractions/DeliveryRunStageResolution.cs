@@ -197,6 +197,10 @@ public static partial class DeliveryRunStageResolution
         return [.. run.Stages.Select((stage, index) => Resolve(run, stage, index, map, origin))];
     }
 
+    /// <summary>Whether a stage of this name is the Personal Validation gate — the stage the
+    /// person approves, which Sessions asks about in a notification.</summary>
+    public static bool IsGate(string? stageName) => stageName is not null && GateName().IsMatch(stageName);
+
     /// <summary>Whether the run recorded a resolved phase map at all.</summary>
     public static bool RecordsPhases(DeliveryRun run)
     {

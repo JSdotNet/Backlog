@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Notifications module's public surface (.devbook/domain/notifications,
+    local ADR 0038) — everything another context or a host is allowed to see:
+      INotifications            the one port every context publishes through
+      INotificationReplies      where a reply reaches the owner instance
+      INotificationCentre       what the owner's screens read and answer through
+      INotificationReplication  what the sync exchange reads off the owner to
+                                carry its notifications to the other devices
+      INotificationAnswerHandler / INotificationSubjectProbe
+                                what a publishing context registers to hear its
+                                answers and to say whether a subject still lives
+      the draft, the answer spec, the answer and the vocabulary they are written in
+    The aggregate, its repository port and the services stay in the
+    implementation project. Nothing here may reference it, or anything else in
+    the solution beyond the shared kernel.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Notifications.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

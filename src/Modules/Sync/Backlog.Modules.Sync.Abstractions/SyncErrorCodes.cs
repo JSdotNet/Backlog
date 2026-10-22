@@ -33,6 +33,19 @@ public static class SyncErrorCodes
     /// them apart in a list.</summary>
     public const string DeviceNameRequired = "device.name_required";
 
+    /// <summary>The calling owner has no device with that id: never theirs, or
+    /// already revoked. Somebody else's device reads the same way.</summary>
+    public const string DeviceNotFound = "device.not_found";
+
+    /// <summary>A device asked to revoke itself. Leaving is not revoking: the
+    /// device that is calling would lose the credential it is calling with.</summary>
+    public const string DeviceRevokeSelf = "device.revoke_self";
+
+    /// <summary>A device asked to revoke a device it did not pair. Only the
+    /// device whose pairing code paired another may revoke it, so a device that
+    /// redeemed a code cannot revoke the desktop deciding whether to keep it.</summary>
+    public const string DeviceRevokeNotPairer = "device.revoke_not_pairer";
+
     /// <summary>No capture with that id is waiting for the calling owner. An id
     /// belonging to somebody else reads the same way, because the lookup starts
     /// from the owner and never sees it.</summary>
@@ -87,6 +100,11 @@ public static class SyncErrorCodes
     /// told the replica is down would wait on the wrong thing.</summary>
     public const string AttachmentStoreUnavailable = "sync.attachment_store_unavailable";
 
+    /// <summary>The service has a nudge hub but could not mint a client access URL for it just
+    /// now (local ADR 0038 §4). A 503, under its own code, so a desktop retries soon — unlike a
+    /// success with no URL, which says there is no hub and is asked again only rarely.</summary>
+    public const string NudgeUnavailable = "sync.nudge_unavailable";
+
     /// <summary>More task changes in one push than the service will take. The
     /// client batches well below the cap, so reaching it is either a client that
     /// stopped batching or a caller that is not one of ours.</summary>
@@ -137,6 +155,29 @@ public static class SyncErrorCodes
     /// 413 for the reason <see cref="TaskTooLarge"/> is: a retry cannot help,
     /// so it has to be visible as the caller's to fix.</summary>
     public const string AnnotationTooLarge = "sync.annotation_too_large";
+
+    /// <summary>More notifications in one push than the service will take.</summary>
+    public const string NotificationBatchTooLarge = "sync.notification_batch_too_large";
+
+    /// <summary>A notification or a reply the service will not store — a missing id, an
+    /// unknown state, a document that is not a JSON object or is past its bound. Refused at
+    /// the edge, a notification push for the whole batch.</summary>
+    public const string NotificationInvalid = "sync.notification_invalid";
+
+    /// <summary>A push names a notification held under another owner instance. A
+    /// notification has one writer, its owner instance (local ADR 0038 §1), so it is not
+    /// written; the push answers its id in <c>NotOwned</c> and this code is the reason the
+    /// trace carries.</summary>
+    public const string NotificationNotOwner = "sync.notification_not_owner";
+
+    /// <summary>A reply names a notification this owner's replica does not hold — one
+    /// under another account, or one its owner has not pushed — or an owner instance the
+    /// notification does not name. Mapped to 404, so a guessed id confirms nothing.</summary>
+    public const string NotificationNotFound = "sync.notification_not_found";
+
+    /// <summary>A reply id the caller may not delete: there is none, or it is addressed to
+    /// another owner instance. Mapped to 404.</summary>
+    public const string NotificationReplyNotFound = "sync.notification_reply_not_found";
 
     /// <summary>The <c>since</c> cursor is not one this service minted — wrong
     /// prefix, not base64, or a signature that does not verify. Mapped to 400:

@@ -106,6 +106,66 @@ internal sealed class CosmosDeviceRegistry : IDeviceRegistry
     public Task<int> CountByOwner(OwnerId ownerId, CancellationToken cancellationToken = default) =>
         CountOwnedBy(ownerId, cancellationToken);
 
+    /// <summary>The owner's devices: a cross-partition query like
+    /// <see cref="CountOwnedBy"/>, bounded the same way, by how many machines one
+    /// person owns. Run while a pairing code is open, and by the device list.</summary>
+    public async Task<IReadOnlyList<Device>> ListByOwner(OwnerId ownerId, CancellationToken cancellationToken = default)
+    {
+        var query = new QueryDefinition("SELECT * FROM c WHERE c.ownerId = @owner")
+            .WithParameter("@owner", ReplicaDocumentSerialization.Key(ownerId.Value));
+
+        var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+        using var results = container.GetItemQueryIterator<DeviceDocument>(query);
+
+        try
+        {
+            var devices = new List<Device>();
+
+            while (results.HasMoreResults)
+            {
+                foreach (var document in await results.ReadNextAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    if (DeviceDocumentFactory.ToDevice(document) is { } device) devices.Add(device);
+                }
+            }
+
+            return devices;
+        }
+        catch (CosmosException failure)
+        {
+            throw Fault(failure);
+        }
+    }
+
+    /// <summary>A point read to check the owner, then a point delete. The read is
+    /// what keeps one owner from removing another's device: the container is
+    /// partitioned on the device id, so the delete alone could not tell.</summary>
+    public async Task<bool> Remove(OwnerId ownerId, DeviceId id, CancellationToken cancellationToken = default)
+    {
+        if (await FindById(id, cancellationToken).ConfigureAwait(false) is not { } device || device.OwnerId != ownerId)
+        {
+            return false;
+        }
+
+        var key = ReplicaDocumentSerialization.Key(id.Value);
+
+        try
+        {
+            var container = await ContainerAsync(cancellationToken).ConfigureAwait(false);
+            await container.DeleteItemAsync<DeviceDocument>(key, new PartitionKey(key), cancellationToken: cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        catch (CosmosException failure) when (failure.StatusCode is HttpStatusCode.NotFound)
+        {
+            // Removed between the read and the delete: the outcome asked for.
+            return false;
+        }
+        catch (CosmosException failure)
+        {
+            throw Fault(failure);
+        }
+    }
+
     public async Task<bool> OwnerExists(OwnerId ownerId, CancellationToken cancellationToken = default) =>
         await CountOwnedBy(ownerId, cancellationToken).ConfigureAwait(false) > 0;
 
