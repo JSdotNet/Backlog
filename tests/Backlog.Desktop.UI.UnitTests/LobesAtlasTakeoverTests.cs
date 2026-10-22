@@ -4,6 +4,7 @@ using Bunit;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -133,6 +134,34 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-open-note']").Click());
 
         Assert.Equal("projects/plan.md", opened);
+    }
+
+    /// <summary>The keyboard browses the list beside the map without the sheet
+    /// stepping in: an arrow moves to a row and leaves the sheet shut, Enter opens
+    /// that row's details, and Escape closes them again with the list still on
+    /// the row, its tab stop, for the sheet to hand the focus back to.</summary>
+    [Fact]
+    public void The_keyboard_arrows_through_the_list_without_opening_the_sheet_and_enter_opens_it()
+    {
+        var component = Render("brain");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+
+        component.Find("[data-testid='lobes-atlas-graph-index']").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+
+        Assert.Equal("false", component.Find("[data-testid='lobes-atlas-sheet']").GetAttribute("data-open"));
+        var row = Assert.Single(component.FindAll("[data-testid='graph-atlas-index-option']"), option => option.GetAttribute("tabindex") == "0");
+        var rowId = row.GetAttribute("data-node-id");
+        Assert.Equal(component.FindAll("[data-testid='graph-atlas-index-option']")[1].GetAttribute("data-node-id"), rowId);
+
+        component.Find("[data-testid='lobes-atlas-graph-index']").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='lobes-atlas-sheet']").GetAttribute("data-open")));
+        Assert.Equal("true", component.Find($"[data-testid='graph-atlas-index-option'][data-node-id='{rowId}']").GetAttribute("aria-selected"));
+
+        component.Find("[data-testid='lobes-atlas-sheet']").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        component.WaitForAssertion(() => Assert.Equal("false", component.Find("[data-testid='lobes-atlas-sheet']").GetAttribute("data-open")));
+        Assert.Equal("0", component.Find($"[data-testid='graph-atlas-index-option'][data-node-id='{rowId}']").GetAttribute("tabindex"));
     }
 
     [Fact]

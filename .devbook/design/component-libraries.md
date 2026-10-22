@@ -221,8 +221,12 @@ cannot be the primary one, however carefully it is labelled. The canvas is
 nodes. The list is on screen rather than visually hidden, ordered as the folder
 reads, and carries each node's status and relation counts as text. Selection is
 one model behind both, announced once through a polite live region as position,
-status and counts. A reviewer should be able to unplug the mouse and lose nothing
-but the picture.
+status and counts. The list is one tab stop. Its arrows, Home and End move the
+focus and the canvas's spotlight from row to row and leave the selection alone.
+Enter or Space selects, as a click does, so a detail sheet that opens on a
+selection opens only when the reader asks. Escape closes the sheet and gives the
+focus back to its row. A reviewer should be able to unplug the mouse and lose
+nothing but the picture.
 
 ### C4 workspaces
 
