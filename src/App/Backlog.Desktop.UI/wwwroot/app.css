@@ -7685,6 +7685,147 @@ a.pull-request-detail-checks__name:hover {
     gap: var(--spacing-xs);
 }
 
+/* A type lens: the section a technology's type chooses, in the inspector and on
+   each card of the Type lenses board. */
+.tech-lens {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.tech-lens__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.tech-lens__rows {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.tech-lens__row {
+    display: grid;
+    grid-template-columns: minmax(6rem, auto) minmax(0, 1fr);
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.tech-lens__row dt {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-lens__row dd {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.tech-lens__group {
+    display: grid;
+    grid-template-columns: minmax(4.5rem, max-content) minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.tech-lens__layer {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-lens__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* A long package id wraps inside its card rather than pushing the board sideways. */
+.tech-lens__chips > * {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: start;
+}
+
+/* The Type lenses board: a card per type in use, then the lens-per-type table. */
+.tech-lenses {
+    display: grid;
+    gap: var(--spacing-lg);
+}
+
+.tech-lenses__lede {
+    margin: 0;
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.tech-lenses__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+    gap: var(--spacing-md);
+}
+
+.tech-lens-card {
+    align-content: start;
+}
+
+.tech-lens-card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tech-lens-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.tech-lens-card__kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tech-lens-card__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-lens-card__facts {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tech-lenses__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-lenses__table {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tech-lenses__types,
+.tech-lenses__reads {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
 .relation-chip {
     display: inline-flex;
     border: var(--border-width) solid var(--color-border);

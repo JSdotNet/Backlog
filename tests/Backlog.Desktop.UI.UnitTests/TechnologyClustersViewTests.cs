@@ -120,6 +120,26 @@ public sealed class TechnologyClustersViewTests : IDisposable
             Assert.Contains("tech-clusters__satellite--dimmed", satellite.ClassName, StringComparison.Ordinal));
     }
 
+    /// <summary>The side panel is the same inspector the Overview draws, so the
+    /// section the selection's type chooses renders in it too: Blazor is a
+    /// framework, so the stack lens; Playwright is a tool, which has none.</summary>
+    [Fact]
+    public async Task The_side_panel_shows_the_lens_the_selections_type_chooses()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderClustersAsync();
+        component.Find("[data-testid='technology-clusters-cluster'][data-layer='desktop.md']").Click();
+
+        Pill(component, "desktop.md#blazor").Click();
+
+        var lens = component.Find("[data-testid='technology-clusters-side'] [data-testid='technology-inspector'] [data-testid='technology-lens']");
+        Assert.Equal("stack", lens.GetAttribute("data-lens"));
+
+        Pill(component, "desktop.md#playwright").Click();
+
+        Assert.Empty(component.FindAll("[data-testid='technology-clusters-side'] [data-testid='technology-lens']"));
+    }
+
     [Fact]
     public async Task Following_a_link_to_another_layer_opens_that_layer_and_shares_the_selection()
     {

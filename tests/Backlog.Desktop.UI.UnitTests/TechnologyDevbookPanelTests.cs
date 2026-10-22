@@ -38,18 +38,6 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='technology-atlas']"));
     }
 
-    [Theory]
-    [InlineData("type-lenses")]
-    public async Task A_later_view_renders_its_placeholder(string view)
-    {
-        await using var harness = CreateHarness();
-        var component = await harness.RenderOverviewAsync();
-
-        component.Find($"[data-testid='technology-{view}-tab']").Click();
-
-        component.WaitForAssertion(() => Assert.Single(component.FindAll($"[data-testid='technology-{view}-placeholder']")));
-    }
-
     [Fact]
     public async Task The_summary_tiles_read_the_graphs_measures()
     {
@@ -236,6 +224,28 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
         lens.Click();
 
         Assert.Equal("true", component.Find("[data-testid='technology-type-lenses-tab']").GetAttribute("aria-selected"));
+        component.WaitForAssertion(() => Assert.Equal(
+            ["framework", "runtime", "tool"],
+            component.FindAll("[data-testid='technology-lens-card']").Select(card => card.GetAttribute("data-type")).ToArray()));
+    }
+
+    /// <summary>The inspector draws the section the selection's type chooses below
+    /// the common facts: .NET is a runtime, so the stack lens, with what is built
+    /// directly on it grouped by layer.</summary>
+    [Fact]
+    public async Task The_inspector_shows_the_lens_its_type_chooses()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderOverviewAsync();
+
+        var lens = component.Find("[data-testid='technology-inspector'] [data-testid='technology-lens']");
+        Assert.Equal("stack", lens.GetAttribute("data-lens"));
+        Assert.Equal(["built-on-it"], lens.QuerySelectorAll("[data-testid='technology-lens-row']").Select(row => row.GetAttribute("data-row")).ToArray());
+        Assert.Equal(["Shared", "Desktop"], lens.QuerySelectorAll("[data-testid='technology-lens-layer']").Select(group => group.GetAttribute("data-layer")).ToArray());
+
+        Row(component, "Playwright").Click();
+
+        Assert.Empty(component.FindAll("[data-testid='technology-inspector'] [data-testid='technology-lens']"));
     }
 
     [Fact]

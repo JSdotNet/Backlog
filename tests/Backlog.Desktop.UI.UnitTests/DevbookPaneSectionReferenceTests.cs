@@ -144,9 +144,12 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
 
     /// <summary>The reference as the reader meets it, found by the path on its
     /// title rather than by position: a chapter holds several, and which one is
-    /// pressed is the whole point of the test.</summary>
+    /// pressed is the whole point of the test. A technology's type lens can name
+    /// the same chapter again below the inspector's own lists; that second copy is
+    /// passed over, so the one found is the list's.</summary>
     private static IElement Reference(IRenderedComponent<DevbookPane> component, string raw) =>
         component.FindAll("button.devbook-ref--action")
+            .Where(button => button.Closest("[data-testid='technology-lens']") is null)
             .Single(button => string.Equals(button.GetAttribute("title"), raw, StringComparison.Ordinal));
 
     /// <summary>Presses a reference, found and clicked in one dispatch for the
