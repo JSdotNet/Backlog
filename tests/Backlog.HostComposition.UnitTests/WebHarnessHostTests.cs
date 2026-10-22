@@ -354,8 +354,9 @@ public class WebHarnessHostTests
 
     /// <summary>
     /// Every context that asks questions registers an answer handler for its source, and
-    /// the port resolves with them: the MCP tools, a run's Personal Validation (Sessions),
-    /// and the device that redeemed a pairing code (Sync).
+    /// the port resolves with them: the MCP tools, the Settings page's test question
+    /// (Notifications), a run's Personal Validation (Sessions), and the device that
+    /// redeemed a pairing code (Sync).
     /// </summary>
     [Fact]
     public void The_desktop_harness_composes_an_answer_handler_for_every_context_that_asks()
@@ -364,7 +365,7 @@ public class WebHarnessHostTests
 
         var handlers = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationAnswerHandler>().ToList();
 
-        Assert.Equal(["mcp", "sessions", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
+        Assert.Equal(["mcp", "notifications", "sessions", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
         Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Notifications.Abstractions.INotifications>());
     }
 
