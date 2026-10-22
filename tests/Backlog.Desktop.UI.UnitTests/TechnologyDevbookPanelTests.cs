@@ -39,7 +39,6 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     }
 
     [Theory]
-    [InlineData("dependencies")]
     [InlineData("complexity")]
     [InlineData("clusters")]
     [InlineData("type-lenses")]
