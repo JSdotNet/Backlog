@@ -107,7 +107,7 @@ public sealed class TechnologyClustersViewTests : IDisposable
         Assert.Equal(2, component.FindAll("[data-testid='technology-clusters-line'][data-tone='used-by']").Count);
 
         // The panel shows its measures, and every link carries its layer.
-        Assert.Equal("Blazor", component.Find("[data-testid='technology-clusters-side'] #tech-inspector-title").TextContent.Trim());
+        Assert.Equal("Blazor", component.Find("[data-testid='technology-clusters-side'] .tech-inspector__title").TextContent.Trim());
         Assert.Contains("Rests on", component.Find("[data-testid='technology-clusters-side'] [data-testid='technology-inspector-facts']").TextContent, StringComparison.Ordinal);
         Assert.Contains("Breaks if it changes", component.Find("[data-testid='technology-clusters-side'] [data-testid='technology-inspector-facts']").TextContent, StringComparison.Ordinal);
         Assert.Contains("Shared", Related(component, "sits-on", "Razor").TextContent, StringComparison.Ordinal);
@@ -157,7 +157,7 @@ public sealed class TechnologyClustersViewTests : IDisposable
 
         // The selection is the panel's: Overview's inspector shows it.
         component.Find("[data-testid='technology-overview-tab']").Click();
-        component.WaitForAssertion(() => Assert.Equal("Razor", component.Find("[data-testid='technology-overview-panel'] #tech-inspector-title").TextContent.Trim()));
+        component.WaitForAssertion(() => Assert.Equal("Razor", component.Find("[data-testid='technology-overview-panel'] .tech-inspector__title").TextContent.Trim()));
     }
 
     [Fact]
@@ -262,6 +262,111 @@ public sealed class TechnologyClustersViewTests : IDisposable
         Assert.Equal("true", component.Find("[data-testid='technology-clusters-technology-row'][data-id='.tech/testing.md#bunit']").GetAttribute("aria-pressed"));
     }
 
+    /// <summary>Blazor is on the trail twice; only the visit the reader is on is current.</summary>
+    [Fact]
+    public async Task A_technology_on_the_trail_twice_is_current_only_at_its_latest_step()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderClustersAsync();
+        component.Find("[data-testid='technology-clusters-cluster'][data-layer='desktop.md']").Click();
+
+        Pill(component, "desktop.md#playwright").Click();
+        Related(component, "sits-on", "Blazor").Click();
+
+        Assert.Equal(["Blazor", "Playwright", "Blazor"], TrailNames(component));
+        Assert.Equal(
+            [null, null, "step"],
+            component.FindAll("[data-testid='technology-clusters-trail-step']").Select(step => step.GetAttribute("aria-current")).ToArray());
+        Assert.Single(component.FindAll(".tech-clusters__trail-step--current"));
+    }
+
+    /// <summary>The pressed link belongs to the technology just left and is gone
+    /// once the inspector redraws, so focus goes to the new title, not the page.</summary>
+    [Fact]
+    public async Task Following_a_link_in_the_inspector_moves_focus_to_the_new_title()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderClustersAsync();
+        component.Find("[data-testid='technology-clusters-cluster'][data-layer='desktop.md']").Click();
+        Pill(component, "desktop.md#blazor").Click();
+
+        var before = FocusCalls(harness);
+
+        Related(component, "sits-on", "Razor").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var title = component.Find("[data-testid='technology-clusters-side'] .tech-inspector__title");
+            Assert.Equal("Razor", title.TextContent.Trim());
+            Assert.Equal("-1", title.GetAttribute("tabindex"));
+            // One focus call, made after the follow; its target is the title, the inspector's only captured element.
+            Assert.Equal(before + 1, FocusCalls(harness));
+        });
+    }
+
+    [Fact]
+    public async Task The_inspector_renders_a_code_span_in_the_description_as_code()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderClustersAsync();
+        component.Find("[data-testid='technology-clusters-cluster'][data-layer='desktop.md']").Click();
+
+        Pill(component, "desktop.md#blazor").Click();
+
+        var lede = component.Find("[data-testid='technology-clusters-side'] .tech-inspector__lede");
+        Assert.DoesNotContain("`", lede.TextContent, StringComparison.Ordinal);
+        Assert.Equal("Microsoft.AspNetCore.Components", lede.QuerySelector("code")!.TextContent.Trim());
+
+        // The lede is the first paragraph; the list after it stays out.
+        Assert.DoesNotContain("Used for", lede.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>The control pressed leaves the screen — a cluster gives way to the
+    /// layer, the trail collapses, Back disables itself — so focus goes to where the
+    /// reader now is, never to the page.</summary>
+    [Fact]
+    public async Task Focus_goes_to_where_the_reader_is_when_the_pressed_control_leaves()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderClustersAsync();
+
+        component.Find("[data-testid='technology-clusters-cluster'][data-layer='desktop.md']").Click();
+        component.WaitForAssertion(() => Assert.Equal(1, FocusCalls(harness)));
+        Assert.Equal("-1", component.Find("[data-testid='technology-clusters-layer-title']").GetAttribute("tabindex"));
+
+        Pill(component, "desktop.md#playwright").Click();
+        Related(component, "sits-on", "Blazor").Click();
+        var focusCalls = FocusCalls(harness);
+
+        component.FindAll("[data-testid='technology-clusters-trail-step']")[0].Click();
+        component.WaitForAssertion(() => Assert.Equal(focusCalls + 1, FocusCalls(harness)));
+        Assert.Equal("-1", component.Find("[data-testid='technology-clusters-crumb-technology']").GetAttribute("tabindex"));
+
+        component.Find("[data-testid='technology-clusters-crumb-layer']").Click();
+        component.Find("[data-testid='technology-clusters-back']").Click();
+        component.WaitForAssertion(() => Assert.Equal(focusCalls + 2, FocusCalls(harness)));
+        Assert.Equal("-1", component.Find("[data-testid='technology-clusters-stack-title']").GetAttribute("tabindex"));
+    }
+
+    /// <summary>Overview keeps its inspector while Clusters draws one, so each
+    /// carries its own ids and each labels itself.</summary>
+    [Fact]
+    public async Task Two_inspectors_on_the_page_never_share_an_id()
+    {
+        await using var harness = CreateHarness();
+        var component = await harness.RenderClustersAsync();
+        component.Find("[data-testid='technology-clusters-cluster'][data-layer='desktop.md']").Click();
+        Pill(component, "desktop.md#blazor").Click();
+
+        var inspectors = component.FindAll("[data-testid='technology-inspector']");
+        Assert.Equal(2, inspectors.Count);
+        var ids = component.FindAll("[data-testid='technology-devbook-panel'] [id]").Select(element => element.Id).ToArray();
+        Assert.Equal(ids.Length, ids.Distinct(StringComparer.Ordinal).Count());
+        Assert.All(inspectors, inspector => Assert.Equal(
+            inspector.QuerySelector(".tech-inspector__title")!.Id,
+            inspector.GetAttribute("aria-labelledby")));
+    }
+
     public void Dispose()
     {
         foreach (var root in _roots.Where(Directory.Exists))
@@ -286,6 +391,9 @@ public sealed class TechnologyClustersViewTests : IDisposable
 
     private static string[] PillNames(IRenderedComponent<TechnologyDevbookPanel> component) =>
         [.. component.FindAll("[data-testid='technology-clusters-pill'] .tech-clusters__pill-label").Select(label => label.TextContent.Trim())];
+
+    private static int FocusCalls(Harness harness) =>
+        harness.Context.JSInterop.Invocations.Count(invocation => invocation.Identifier.EndsWith(".focus", StringComparison.Ordinal));
 
     private static string[] TrailNames(IRenderedComponent<TechnologyDevbookPanel> component) =>
         [.. component.FindAll("[data-testid='technology-clusters-trail-step']").Select(step => step.TextContent.Trim())];
@@ -375,7 +483,9 @@ public sealed class TechnologyClustersViewTests : IDisposable
         depends-on: [".tech/shared.md#razor", ".tech/shared.md#net"]
         ```
 
-        Component model.
+        Component model, hosted by `Microsoft.AspNetCore.Components`.
+
+        - **Used for** — every screen.
 
         ## Playwright
         ```meta
