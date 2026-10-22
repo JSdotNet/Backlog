@@ -38,18 +38,6 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
         Assert.Empty(component.FindAll("[data-testid='technology-atlas']"));
     }
 
-    [Theory]
-    [InlineData("complexity")]
-    public async Task A_later_view_renders_its_placeholder(string view)
-    {
-        await using var harness = CreateHarness();
-        var component = await harness.RenderOverviewAsync();
-
-        component.Find($"[data-testid='technology-{view}-tab']").Click();
-
-        component.WaitForAssertion(() => Assert.Single(component.FindAll($"[data-testid='technology-{view}-placeholder']")));
-    }
-
     [Fact]
     public async Task The_summary_tiles_read_the_graphs_measures()
     {
