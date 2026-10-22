@@ -806,7 +806,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#session-request-queue]
 ```
 
-> The rules the queue holds every session request to (local ADR 0037). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The Start session action, the wait route and the dispatcher tools are later items of the `session-dispatch` plan.
+> The rules the queue holds every session request to (local ADR 0037). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The Start session and Start plan session actions are built too, in the Tasks pane and the roadmap item's dialog, through `SessionRequestActions`. The wait route and the dispatcher tools are later items of the `session-dispatch` plan.
 
 ### Invariant: A request carries no entry text
 

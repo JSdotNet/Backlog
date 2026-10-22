@@ -204,8 +204,9 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 ```
 
 > The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises. None is built yet:
-> local ADR 0037 decides them.
+> capability is and why it exists; this says what it promises. Local ADR 0037 decides
+> them. The Start session and Start plan session actions, which create a request, are
+> built; the dispatcher side is not yet.
 
 ### Requirement: Only a click in the app requests a session
 
