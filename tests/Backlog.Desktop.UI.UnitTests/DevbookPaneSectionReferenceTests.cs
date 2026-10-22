@@ -64,18 +64,17 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
     }
 
     [Fact]
-    public async Task A_relation_on_a_technology_node_reaches_the_section_it_names()
+    public async Task A_chapter_a_technology_sits_on_reaches_the_section_it_names()
     {
         await using var harness = CreateHarness();
 
         var component = harness.Render();
         await ClickTabAsync(component, "tech");
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-layers-tab']")));
-        await component.InvokeAsync(() => component.Find("[data-testid='technology-layers-tab']").Click());
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-node']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-inspector']")));
 
-        // It used to be an anchor whose href was the repository path itself, so a
-        // relation on a node was a link straight out of the app.
+        // A chapter in another folder that a technology sits on is drawn in the
+        // inspector's Sits on list as the shared reference control, which the pane
+        // follows — never an anchor whose href is the repository path itself.
         await ClickReferenceAsync(component, ".arc42/03-context-and-scope.md");
 
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
@@ -109,19 +108,13 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
     [InlineData("design", "design-chapter-file")]
     [InlineData("ai", "ai-chapter-file")]
     [InlineData("instructions", "instructions-document")]
-    [InlineData("tech", "technology-node")]
+    [InlineData("tech", "technology-inspector")]
     public async Task No_section_leaves_a_reference_as_a_link_out_of_the_app(string section, string readyTestId)
     {
         await using var harness = CreateHarness();
 
         var component = harness.Render();
         await ClickTabAsync(component, section);
-
-        if (section == "tech")
-        {
-            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-layers-tab']")));
-            await component.InvokeAsync(() => component.Find("[data-testid='technology-layers-tab']").Click());
-        }
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll($"[data-testid='{readyTestId}']")));
 
@@ -151,9 +144,12 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
 
     /// <summary>The reference as the reader meets it, found by the path on its
     /// title rather than by position: a chapter holds several, and which one is
-    /// pressed is the whole point of the test.</summary>
+    /// pressed is the whole point of the test. A technology's type lens can name
+    /// the same chapter again below the inspector's own lists; that second copy is
+    /// passed over, so the one found is the list's.</summary>
     private static IElement Reference(IRenderedComponent<DevbookPane> component, string raw) =>
         component.FindAll("button.devbook-ref--action")
+            .Where(button => button.Closest("[data-testid='technology-lens']") is null)
             .Single(button => string.Equals(button.GetAttribute("title"), raw, StringComparison.Ordinal));
 
     /// <summary>Presses a reference, found and clicked in one dispatch for the
@@ -249,7 +245,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
             ```meta
             status: accepted
             kind: runtime
-            related: [".arc42/03-context-and-scope.md"]
+            depends-on: [".arc42/03-context-and-scope.md"]
             ```
 
             The runtime everything is built on.

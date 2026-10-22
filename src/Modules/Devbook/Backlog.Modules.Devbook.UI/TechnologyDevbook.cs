@@ -4,6 +4,7 @@ using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel.Devbook;
 using Backlog.UI.Components.Devbook;
+using Backlog.UI.Components.Markdown;
 using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Desktop.UI.Devbook;
@@ -127,33 +128,58 @@ public sealed record TechnologyNode(
 
 public sealed record TechnologyRelationship(string FromId, string FromLabel, string ToId, string ToLabel);
 
+/// <summary>
+/// The technologies and their <c>depends-on</c> edges, with the measures the
+/// Technology views read off the graph as a whole
+/// (<c>.devbook/domain/devbook/features.md#technology-view</c>). Each is computed by
+/// <see cref="TechnologyGraphMeasures"/> when the reader builds the graph, and is
+/// empty on a graph built any other way.
+/// </summary>
 public sealed record TechnologyGraphData(IReadOnlyList<TechnologyGraphNode> Nodes, IReadOnlyList<TechnologyGraphEdge> Edges)
 {
     public static TechnologyGraphData Empty { get; } = new([], []);
+
+    /// <summary>The <c>depends-on</c> edges between each pair of different layers,
+    /// in reading order of the layer they leave, then of the layer they reach.</summary>
+    public IReadOnlyList<TechnologyLayerLink> LayerLinks { get; init; } = [];
+
+    /// <summary>This folder's technologies by their <c>type</c>; boundary nodes are not counted.</summary>
+    public IReadOnlyDictionary<string, int> CountsByType { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>This folder's technologies by the family their type falls into.</summary>
+    public IReadOnlyDictionary<TechnologyTypeFamily, int> CountsByFamily { get; init; } = new Dictionary<TechnologyTypeFamily, int>();
+
+    /// <summary>This folder's technologies by status.</summary>
+    public IReadOnlyDictionary<string, int> CountsByStatus { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>The ids along the longest <c>depends-on</c> chain, from the deepest
+    /// technology down to a foundation; its hops are one fewer than its ids.</summary>
+    public IReadOnlyList<string> LongestChain { get; init; } = [];
+
+    /// <summary>Every cycle in the <c>depends-on</c> edges, each as its members' ids
+    /// in graph order. A technology naming itself is a cycle of one.</summary>
+    public IReadOnlyList<IReadOnlyList<string>> Cycles { get; init; } = [];
 }
 
 /// <summary>
-/// One technology as the atlas draws it.
+/// One technology as the Technology section's views read it.
 ///
-/// <para>The first six fields are what the graph has always carried. The rest are
-/// what a picture needs and a lane view never did: where a node sits in the
-/// reading order, how many things lean on it, and which tone its status wears.
-/// They are computed here because every one of them is a property of the
-/// knowledge rather than of the viewport — a renderer that derived them would be
-/// a second reading of <c>.tech</c>, and the two would drift.</para>
+/// <para>The first six fields are what the graph has always carried. The next
+/// three place a node in the reading order. The measures below them —
+/// <see cref="UsedBy"/>, <see cref="DependencyIds"/>, <see cref="RestsOn"/> and the
+/// rest — are <see cref="TechnologyGraphMeasures"/>'s, computed once from the
+/// de-duplicated, self-excluded <c>depends-on</c> edges, because every one is a
+/// property of the knowledge rather than of a view: a view that derived them
+/// would be a second reading of <c>.tech</c>, and the two would drift.</para>
 ///
-/// <para>They carry defaults so the six-argument shape still compiles: a caller
-/// that only wants a node to name a technology should not have to know how the
-/// atlas lays one out.</para>
+/// <para>The placement fields carry defaults so the six-argument shape still
+/// compiles: a caller that only wants a node to name a technology should not have
+/// to know where it sits.</para>
 /// </summary>
 /// <param name="LayerFileName">The layer file this node was read from, empty for a boundary node.</param>
 /// <param name="LayerIndex">Position in the folder's committed reading order; <c>-1</c> for a boundary node.</param>
-/// <param name="OrdinalInLayer">Document order within the layer — the atlas's tie-break, so the same graph draws the same picture twice.</param>
-/// <param name="InDegree">How many technologies depend on this one. Sizes the node.</param>
-/// <param name="OutDegree">How many technologies this one depends on.</param>
-/// <param name="ToneSlug">The status badge modifier this node's status wears, through its folder's own vocabulary.</param>
-/// <param name="IsFoundation">Nothing in this project sits below it — no outgoing edge, per <c>.devbook/tech/technology-graph.md</c>.</param>
-/// <param name="IsBoundary">Documented in another knowledge folder; this atlas shows it because something here depends on it.</param>
+/// <param name="OrdinalInLayer">Document order within the layer — the views' tie-break, so the same graph reads the same way twice.</param>
+/// <param name="IsBoundary">Documented in another knowledge folder; the views show it because something here depends on it.</param>
 public sealed record TechnologyGraphNode(
     string Id,
     string Label,
@@ -164,11 +190,44 @@ public sealed record TechnologyGraphNode(
     string LayerFileName = "",
     int LayerIndex = -1,
     int OrdinalInLayer = 0,
-    int InDegree = 0,
-    int OutDegree = 0,
-    string ToneSlug = "",
-    bool IsFoundation = false,
-    bool IsBoundary = false);
+    bool IsBoundary = false)
+{
+    /// <summary>The ids this node's <c>depends-on</c> names, each once, in declaration order, itself never.</summary>
+    public IReadOnlyList<string> DependencyIds { get; init; } = [];
+
+    /// <summary>The ids of the nodes whose <c>depends-on</c> names this one, each once, in graph order.</summary>
+    public IReadOnlyList<string> UserIds { get; init; } = [];
+
+    /// <summary><em>Used by</em>: the technologies whose <c>depends-on</c> names this one.</summary>
+    public int UsedBy { get; init; }
+
+    /// <summary><em>Breaks if it changes</em>: its users, transitively, each counted once.</summary>
+    public int BreaksIfItChanges { get; init; }
+
+    /// <summary><em>Rests on</em>: its <c>depends-on</c>, transitively, each counted once.</summary>
+    public int RestsOn { get; init; }
+
+    /// <summary><em>Depth</em>: the hops in the longest <c>depends-on</c> chain from it
+    /// to a node with none; a hop inside its own cycle does not count.</summary>
+    public int Depth { get; init; }
+
+    /// <summary><em>Complexity</em>: <see cref="RestsOn"/> plus <see cref="Depth"/>.</summary>
+    public int Complexity { get; init; }
+
+    public TechnologyComplexityBand ComplexityBand { get; init; }
+
+    /// <summary>The family its type falls into, which decides its colour.</summary>
+    public TechnologyTypeFamily Family { get; init; } = TechnologyTypeFamily.Other;
+
+    /// <summary>A member of a <c>depends-on</c> cycle, itself included.</summary>
+    public bool InCycle { get; init; }
+
+    /// <summary>Nothing uses it.</summary>
+    public bool IsLeaf => UsedBy == 0;
+
+    /// <summary>Its status is <c>adopted</c>; any other is drawn hollow.</summary>
+    public bool IsAdopted => string.Equals(Status, "adopted", StringComparison.OrdinalIgnoreCase);
+}
 
 public sealed record TechnologyGraphEdge(string Id, string Source, string Target, string Label);
 
@@ -304,11 +363,15 @@ internal static class TechnologyDevbookReader
 
     private static TechnologyNode ToNode(string fileName, string layerTitle, TechnologyMarkdownChapter chapter)
     {
+        // The id keeps the heading as written: its slug is the chapter's anchor, which
+        // the status write-back and every chapter link resolve against. The label is
+        // what a person reads, so its inline Markdown is read once, here, rather than
+        // leaking backticks into every view and aria-label.
         var id = $".tech/{fileName}#{Slug(chapter.Title)}";
 
         return new TechnologyNode(
             id,
-            chapter.Title,
+            MarkdownRender.PlainText(MarkdownPreview.ParseInlines(chapter.Title)),
             fileName,
             layerTitle,
             chapter.Metadata,
@@ -335,29 +398,17 @@ internal static class TechnologyDevbookReader
     }
 
     /// <summary>
-    /// The parsed layers as one graph.
-    ///
-    /// <para>Degrees are counted here, from the relationship list, in the direction
-    /// the metadata means: a <c>depends-on</c> entry is an edge out of the node that
-    /// declares it and into the node it names. In-degree is what sizes a node in the
-    /// atlas, so counting it anywhere else would be a second answer to the same
-    /// question.</para>
+    /// The parsed layers as one graph, in the direction the metadata means: a
+    /// <c>depends-on</c> entry is an edge out of the node that declares it and into
+    /// the node it names. What the edges add up to — used by, rests on, depth — is
+    /// <see cref="TechnologyGraphMeasures"/>'s, counted once over the de-duplicated,
+    /// self-excluded edges.
     /// </summary>
     private static TechnologyGraphData ToGraph(
         IReadOnlyList<TechnologyLayer> layers,
         IReadOnlyList<TechnologyRelationship> relationships,
         IReadOnlyDictionary<string, TechnologyBoundaryNode> boundary)
     {
-        var inDegree = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var outDegree = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var relationship in relationships)
-        {
-            outDegree[relationship.FromId] = outDegree.GetValueOrDefault(relationship.FromId) + 1;
-            inDegree[relationship.ToId] = inDegree.GetValueOrDefault(relationship.ToId) + 1;
-        }
-
-        var techStatuses = DevbookStatus.Vocabulary(DevbookFolder.Tech);
         var graphNodes = new Dictionary<string, TechnologyGraphNode>(StringComparer.OrdinalIgnoreCase);
         var orderedNodes = new List<TechnologyGraphNode>();
 
@@ -368,7 +419,6 @@ internal static class TechnologyDevbookReader
             for (var ordinal = 0; ordinal < layer.Nodes.Count; ordinal++)
             {
                 var node = layer.Nodes[ordinal];
-                var outgoing = outDegree.GetValueOrDefault(node.Id);
 
                 var graphNode = new TechnologyGraphNode(
                     node.Id,
@@ -380,12 +430,6 @@ internal static class TechnologyDevbookReader
                     layer.FileName,
                     layerIndex,
                     ordinal,
-                    inDegree.GetValueOrDefault(node.Id),
-                    outgoing,
-                    techStatuses.SlugFor(node.Status),
-                    // `.devbook/tech/technology-graph.md` calls a node with no outgoing edge a
-                    // foundation: nothing in this project sits below it.
-                    outgoing == 0,
                     false);
 
                 graphNodes[node.Id] = graphNode;
@@ -409,7 +453,6 @@ internal static class TechnologyDevbookReader
             if (graphNodes.ContainsKey(relationship.ToId)) continue;
 
             var known = boundary.GetValueOrDefault(relationship.ToId);
-            var folder = DevbookFolders.FromPath(relationship.ToId);
             var status = known?.Status ?? string.Empty;
 
             var graphNode = new TechnologyGraphNode(
@@ -424,13 +467,6 @@ internal static class TechnologyDevbookReader
                 string.Empty,
                 -1,
                 boundaryOrdinal++,
-                inDegree.GetValueOrDefault(relationship.ToId),
-                0,
-                status.Length == 0 ? string.Empty : DevbookStatus.Vocabulary(folder).SlugFor(status),
-                // Not a foundation. A foundation is a technology this project chose to
-                // sit on; a boundary node is a chapter somewhere else that happens to be
-                // referenced, and calling it one would put .arc42 in the technology stack.
-                false,
                 true);
 
             graphNodes[relationship.ToId] = graphNode;
@@ -445,7 +481,7 @@ internal static class TechnologyDevbookReader
                 "depends on"))
             .ToList();
 
-        return new TechnologyGraphData(orderedNodes, edges);
+        return TechnologyGraphMeasures.Apply(orderedNodes, edges);
     }
 
     /// <summary>
@@ -600,8 +636,8 @@ internal static class TechnologyDevbookReader
         return boundary;
     }
 
-    /// <summary>The index writes a folder as the bare word (<c>arc42</c>); the
-    /// atlas prints it as the cluster's name, so it is titled here rather than in
+    /// <summary>The index writes a folder as the bare word (<c>arc42</c>); a
+    /// boundary node's layer prints it as the folder's name, so it is titled here rather than in
     /// the renderer, which has no business knowing what the knowledge folders are
     /// called.</summary>
     private static string FolderTitle(string? folder) => folder?.ToLowerInvariant() switch
@@ -656,7 +692,7 @@ internal static class TechnologyDevbookReader
 }
 
 /// <summary>What a boundary node's own folder says about it, read from the derived
-/// index. Only the three facts the atlas prints: the rest of that chapter belongs to
+/// index. Only the three facts the views print: the rest of that chapter belongs to
 /// the folder that owns it.</summary>
 internal sealed record TechnologyBoundaryNode(string Label, string Folder, string Status);
 
@@ -873,9 +909,13 @@ internal static class TechnologyMarkdownParser
 
     private static string CleanSummary(IEnumerable<string> lines)
     {
+        // The first paragraph only: the blank line after it ends the summary, so a
+        // list that follows the lede never joins it as a stray "- " marker.
         var selected = lines
             .Select(line => line.Trim())
-            .Where(line => line.Length > 0 && !line.StartsWith("#", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal))
+            .Where(line => !line.StartsWith("#", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal))
+            .SkipWhile(line => line.Length == 0)
+            .TakeWhile(line => line.Length > 0)
             .Take(2)
             .ToList();
 
