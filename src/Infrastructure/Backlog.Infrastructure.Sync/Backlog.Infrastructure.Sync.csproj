@@ -90,6 +90,11 @@
          published surface - which is why the replicated source lives here rather
          than beside the local one. -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <!-- Notifications' published surface, for PairingSubjects: a pairing code this
+         device issues is a subject a notification can be about, and the pairing client
+         that issues it is here, so this is where the pairing's end reaches
+         INotifications (.devbook/domain/notifications/context.md). Never the module. -->
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

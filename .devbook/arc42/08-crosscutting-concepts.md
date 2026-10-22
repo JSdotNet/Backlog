@@ -412,13 +412,14 @@ between devices. Local ADR 0038 records the decision, and the
 [Notifications context](../domain/notifications/context.md) owns the model.
 The owner's side is built: the port, the handler and probe contracts, the
 `notifications` table in `backlog.db`, the answer replay and the startup probe
-pass. The screens, the replica container and the realtime nudge are not yet.
+pass, and each subject context's close and probe. The screens, the replica
+container and the realtime nudge are not yet.
 
 | Concern | How it works |
 |---|---|
 | Publishing | A source on a desktop calls `PublishAsync` with an alert or a question. That desktop becomes the notification's owner instance. |
 | Answering | A source that asks questions registers an `INotificationAnswerHandler` for its source name. The owner hands it the accepted answer, at least once. |
-| Ending | The context that owns a notification's subject calls `CloseForSubjectAsync` when the subject ends. Its `INotificationSubjectProbe` answers at startup and after a sync, to catch an end the owner missed. |
+| Ending | The context that owns a notification's subject calls `CloseForSubjectAsync` when the subject ends. It calls it from wherever it notices the end — a change synced in from another device included, since the context applies that change itself. Its `INotificationSubjectProbe` answers at startup, to catch an end the owner missed while it was not running. |
 | Storage | The owner keeps SQLite as its local store. Notifications and replies replicate through the `notifications` container, which expires them 30 days after they close. |
 | Realtime | A nudge only says "pull now". Desktops get it through Azure Web PubSub, and the Android phone through Azure Notification Hubs to FCM. |
 

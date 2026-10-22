@@ -22,6 +22,9 @@
          the readers, so the registration extension lives beside the adapters it
          registers. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- A notification that could not be closed is logged, and never fails the session
+         reading or the run write that noticed the end. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
@@ -43,6 +46,11 @@
          latest per chapter is the Devbook context's port, kept in a file beside the
          run files this project already writes. -->
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+    <!-- INotifications and INotificationSubjectProbe: Sessions owns the session and run
+         subjects, so its adapter tells Notifications when one ends and answers the
+         startup probe about them (.devbook/domain/notifications/context.md). The
+         published surface only, never the module. -->
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
     <!-- The module's published surface: the ports these answer and the DTOs they
          answer with. -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />

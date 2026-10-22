@@ -7,8 +7,8 @@ related: [.devbook/domain/notifications/features.md]
 ```
 
 > What Notifications guarantees, one chapter per capability. Each requirement is
-> one SHALL sentence with the scenarios that prove it. Nothing is built yet, so no
-> requirement names a test.
+> one SHALL sentence with the scenarios that prove it. A requirement names its tests
+> once what it guarantees is built.
 
 ## Publishing a notification
 
@@ -201,6 +201,7 @@ The system SHALL let the source that published a notification close it, and SHAL
 ```meta
 status: proposed
 type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeSubjectTests.A_task_marked_done_on_the_phone_closes_its_notifications_on_the_owner, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.TaskSubjectClosureTests.Marking_a_task_done_closes_the_notifications_about_it, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.TaskSubjectClosureTests.A_task_that_comes_back_closes_nothing_and_ending_it_again_closes_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.A_session_seen_open_and_then_archived_closes_its_notifications_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.Finishing_a_run_closes_the_notifications_about_it_whatever_it_finished_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestSubjectsTests.A_reading_that_finds_it_merged_or_closed_closes_the_notifications_about_it_once, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.RemarkSubjectClosureTests.A_resolve_synced_in_from_another_device_closes_them_the_same_way, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_code_that_expires_closes_the_notifications_about_its_pairing, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_a_subject_probe_for_every_context_that_owns_subjects]
 ```
 
 The system SHALL close every Open notification about a subject when the context that owns the subject reports that it ended, wherever the end happened.

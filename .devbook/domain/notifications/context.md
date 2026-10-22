@@ -45,7 +45,21 @@ The module is `Backlog.Modules.Notifications`, published to other contexts throu
 `Backlog.Infrastructure.Notifications`. The module, its abstractions and an empty
 UI project exist, with the owner's store as the `notifications` table in
 `backlog.db`; the screens, the sync exchange and the infrastructure project do not
-yet.
+yet. Every context that owns a [Subject](domain.md#subject) closes its
+notifications when the subject ends and answers the startup probe.
+
+A module never references another module, so a context reaches
+`Backlog.Modules.Notifications.Abstractions` through its adapter: the subject's
+names and reason live as plain strings in the context's own abstractions, and the
+adapter that notices the end calls `CloseForSubjectAsync`:
+
+| Context | Adapter | Notices the end in |
+| --- | --- | --- |
+| Sessions | `Backlog.Infrastructure.Sessions` | the session reading, and `finish_run` |
+| Sessions (pull requests) | `Backlog.Desktop.UI` | the session card's pull request reading |
+| Tasks | `Backlog.Infrastructure.Sqlite` | the task store, which the sync merge also writes through |
+| Devbook | `Backlog.Infrastructure.Devbook` | a decorator over the remark store |
+| Sync | `Backlog.Infrastructure.Sync` | the pairing client, and the code's expiry |
 
 ## Dependencies
 
@@ -64,7 +78,7 @@ contract to the contexts that publish, as an open host service.
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Sessions](../sessions/context.md) | OHS + Published Language (Notifications = supplier) | `INotifications.PublishAsync` and an `INotificationAnswerHandler` for its source name; closes by subject when a session is archived or a run ends | `Backlog.Modules.Notifications.Abstractions` | A question at Personal Validation, and the MCP `ask` tool's questions, are answered once and handed back to its handler. |
-| [Sync](../sync/context.md) | OHS + Published Language (Notifications = supplier) | Publishes a "Pair this new device?" question on the owner desktop | `Backlog.Modules.Notifications.Abstractions` | The answer confirms or refuses the pairing code. |
+| [Sessions](../sessions/context.md) | OHS + Published Language (Notifications = supplier) | `INotifications.PublishAsync` and an `INotificationAnswerHandler` for its source name; closes by subject when a session is archived or deleted, a run finishes, or a pull request merges or closes; answers the startup probe for all three | `Backlog.Modules.Notifications.Abstractions` | A question at Personal Validation, and the MCP `ask` tool's questions, are answered once and handed back to its handler. |
+| [Sync](../sync/context.md) | OHS + Published Language (Notifications = supplier) | Publishes a "Pair this new device?" question on the owner desktop; closes by subject when the pairing code is redeemed or expires | `Backlog.Modules.Notifications.Abstractions` | The answer confirms or refuses the pairing code. |
 | [Devbook](../devbook/context.md) | OHS + Published Language (Notifications = supplier) | Publishes an alert when a remark is left on a chapter the person owns; closes it when the remark is resolved | `Backlog.Modules.Notifications.Abstractions` | The alert links to the chapter. |
-| [Tasks](../tasks/domain.md#task) | OHS + Published Language (Notifications = supplier) | Closes by subject when a task is marked Done or deleted | `Backlog.Modules.Notifications.Abstractions` | A question about a finished task is closed on every device. |
+| [Tasks](../tasks/domain.md#task) | OHS + Published Language (Notifications = supplier) | Closes by subject when a task is marked Done, archived or deleted, here or synced in; answers the startup probe | `Backlog.Modules.Notifications.Abstractions` | A question about a finished task is closed on every device. |

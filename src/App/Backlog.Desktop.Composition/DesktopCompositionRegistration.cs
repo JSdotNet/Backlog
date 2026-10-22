@@ -1,4 +1,5 @@
 using Backlog.Desktop.UI.Devbook.Extensions;
+using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.AzureFoundry;
@@ -26,6 +27,7 @@ using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.Extensions;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
@@ -151,6 +153,20 @@ public static class DesktopCompositionRegistration
         // its handler with AddNotificationAnswerHandler<T>(); none does yet. The heads start
         // NotificationsStartup once the container is built.
         services.AddNotificationsModule();
+        // Each context that owns subjects answers the startup probe about them, from its
+        // own data: Sessions for sessions, runs and pull requests, Tasks, Devbook remarks
+        // and Sync pairings. The ends themselves are reported where each context notices
+        // them — the session reading, finish_run, the pull request chip, the task store,
+        // the remark store and the pairing client.
+        services.AddNotificationSubjectProbe<SessionSubjectProbe>();
+        services.AddNotificationSubjectProbe<TaskSubjectProbe>();
+        services.AddNotificationSubjectProbe<RemarkSubjectProbe>();
+        services.AddNotificationSubjectProbe<PairingSubjectProbe>();
+        services.AddSingleton(sp => new PullRequestSubjects(
+            sp.GetService<GitHubIntegration>(),
+            sp.GetService<INotifications>,
+            sp.GetService<ILogger<PullRequestSubjects>>()));
+        services.AddSingleton<ISessionPullRequestStates>(sp => sp.GetRequiredService<PullRequestSubjects>());
         // The stand-up behind the shell's Ask AI port on the Goals view, after the
         // module so the scoped stand-up port it holds exists.
         services.AddGoalsAiContentSource();
@@ -478,9 +494,15 @@ public static class DesktopCompositionRegistration
         // which is why leaving this line out would not fail — it would only forget.
         // The folder source is what lets it name a chapter the way every other
         // device names it, whichever folder this machine has an area pointed at.
+        // Watched for a remark that is resolved or deleted, whichever caller does it — a
+        // panel, the MCP tool, or a resolve synced in from another device — so the
+        // notifications about it close (RemarkSubjectClosingStore).
         services.AddSingleton<IDevbookAnnotationStore>(sp =>
-            new DevbookAnnotationStore(
-                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
-                folders: sp.GetRequiredService<IDevbookFolderSource>()));
+            new RemarkSubjectClosingStore(
+                new DevbookAnnotationStore(
+                    () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+                    folders: sp.GetRequiredService<IDevbookFolderSource>()),
+                sp.GetService<INotifications>,
+                sp.GetService<ILogger<RemarkSubjectClosingStore>>()));
     }
 }

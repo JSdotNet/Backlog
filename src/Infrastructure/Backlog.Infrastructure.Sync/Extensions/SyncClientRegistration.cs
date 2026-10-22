@@ -2,6 +2,7 @@ using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -9,6 +10,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Infrastructure.Sync.Extensions;
 
@@ -98,6 +100,15 @@ public static class SyncClientRegistration
         // is exactly what an unpaired device should do.
         services.AddHttpClient<DevicePairingClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddSyncPipeline();
+
+        // The pairings the codes this device issues open, so a notification about one
+        // closes when its code expires or is redeemed. One for the process, because the
+        // pairing client is transient. Notifications is resolved when a pairing ends,
+        // not here: a host that composed none closes nothing.
+        services.TryAddSingleton(sp => new PairingSubjects(
+            sp.GetService<INotifications>,
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<PairingSubjects>>()));
 
         return services;
     }
