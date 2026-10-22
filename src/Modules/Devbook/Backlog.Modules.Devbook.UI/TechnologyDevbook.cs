@@ -4,6 +4,7 @@ using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel.Devbook;
 using Backlog.UI.Components.Devbook;
+using Backlog.UI.Components.Markdown;
 using Backlog.SharedKernel.Markdown;
 
 namespace Backlog.Desktop.UI.Devbook;
@@ -362,11 +363,15 @@ internal static class TechnologyDevbookReader
 
     private static TechnologyNode ToNode(string fileName, string layerTitle, TechnologyMarkdownChapter chapter)
     {
+        // The id keeps the heading as written: its slug is the chapter's anchor, which
+        // the status write-back and every chapter link resolve against. The label is
+        // what a person reads, so its inline Markdown is read once, here, rather than
+        // leaking backticks into every view and aria-label.
         var id = $".tech/{fileName}#{Slug(chapter.Title)}";
 
         return new TechnologyNode(
             id,
-            chapter.Title,
+            MarkdownRender.PlainText(MarkdownPreview.ParseInlines(chapter.Title)),
             fileName,
             layerTitle,
             chapter.Metadata,

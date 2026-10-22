@@ -433,6 +433,35 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Empty(target.DependencyIds);
     }
 
+    /// <summary>A technology's name is its heading, and a heading may hold inline
+    /// Markdown — <c>App Installer (`.appinstaller`)</c>. The label reads plain, so
+    /// no view or <c>aria-label</c> shows a backtick; the id keeps the heading's own
+    /// slug, because the status write-back and the chapter links resolve against
+    /// it.</summary>
+    [Fact]
+    public void A_heading_with_inline_markdown_labels_the_node_in_plain_text_and_keeps_its_anchor()
+    {
+        using var workspace = TestWorkspace.Create();
+        var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
+
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
+        File.WriteAllText(Path.Combine(techPath, "desktop.md"),
+            "# Desktop Stack\n\n"
+            + "## App Installer (`.appinstaller`)\n```meta\nstatus: adopt\nkind: format\n```\n\nThe update feed.\n\n"
+            + "## MSIX packaging\n```meta\nstatus: adopt\nkind: tool\ndepends-on: [\".tech/desktop.md#app-installer-appinstaller\"]\n```\n\nThe package.\n");
+
+        var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
+
+        var node = Assert.Single(view.Layers.Single().Nodes, node => node.Id == ".tech/desktop.md#app-installer-appinstaller");
+        Assert.Equal("App Installer (.appinstaller)", node.Label);
+
+        var graphNode = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/desktop.md#app-installer-appinstaller");
+        Assert.Equal("App Installer (.appinstaller)", graphNode.Label);
+        Assert.DoesNotContain(view.Graph.Nodes, node => node.IsBoundary);
+        Assert.Equal("App Installer (.appinstaller)", Assert.Single(view.Relationships).ToLabel);
+    }
+
     /// <summary>A node documented in another folder is walked like any other but is
     /// no technology of this stack: it falls in no family and no count.</summary>
     [Fact]
