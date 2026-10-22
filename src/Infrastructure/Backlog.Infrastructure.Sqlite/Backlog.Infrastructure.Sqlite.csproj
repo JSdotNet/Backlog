@@ -40,7 +40,9 @@
          project, so the port comes from its abstractions; same direction otherwise. -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <!-- Notifications' INotificationRepository, answered under Notifications/ by the
-         notifications table in the same database (local ADR 0038 §3). Same direction. -->
+         notifications table in the same database (local ADR 0038 §3). Same direction.
+         Its published INotifications too: the task store is where a task's end is
+         noticed, so it closes the notifications about that task. -->
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
   </ItemGroup>
 
@@ -48,6 +50,8 @@
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <!-- For SqliteRegistration, the one place the three stores are registered. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- A task notification that could not be closed is logged, and never fails the write. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

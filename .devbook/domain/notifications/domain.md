@@ -73,6 +73,22 @@ subject that comes back, such as a reopened task, does not reopen its
 notifications. Two notifications are equal in subject when all three parts are
 equal.
 
+The subjects a notification can be about, and when each ends:
+
+| Subject | Owning context | Ends when | Closed with |
+| --- | --- | --- | --- |
+| `sessions` / `session` / session id | Sessions | archived or deleted in the Claude desktop app | "Session archived" |
+| `sessions` / `run` / run id | Sessions | the delivery run finishes on any status, or no run file holds it any more | "Run finished" |
+| `sessions` / `pull-request` / `owner/name#number` | Sessions | merged or closed | "Pull request merged" |
+| `tasks` / `task` / task id | Tasks | marked Done or Archived, or deleted | "Task done" |
+| `devbook` / `remark` / remark id | Devbook | resolved or deleted | "Remark resolved" |
+| `sync` / `pairing` / pairing id | Sync | its pairing code expires, or is reported redeemed | "Pairing finished" |
+
+The owning context reports the end where it notices it, and answers a probe
+about each subject at startup for the ends it missed. An end made on another
+device reaches the owner instance as that context's own change, and closes there
+the same way.
+
 ### Answer Spec
 
 ```meta

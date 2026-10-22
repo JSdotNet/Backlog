@@ -2,6 +2,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+    <!-- The task store every head registers, for TaskReplicaMergeSubjectTests: a task
+         ended on another device closes its notifications because the merge writes
+         through this store, and only the real one shows that. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -9,6 +13,10 @@
          thirty-minute lifetime, and a test that proves the cache renews has to
          move the clock rather than wait for it. -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\RecordingNotifications.cs" Link="Shared\TestDoubles\RecordingNotifications.cs" />
   </ItemGroup>
 
 </Project>

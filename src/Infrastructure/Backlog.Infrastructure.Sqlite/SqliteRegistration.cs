@@ -5,12 +5,14 @@ using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Infrastructure.Sqlite.Sessions;
 using Backlog.Modules.Inbox;
 using Backlog.Modules.Notifications;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Progress;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Infrastructure.Sqlite;
 
@@ -52,7 +54,11 @@ public static class SqliteRegistration
         services.AddSingleton<ITaskRepository>(sp =>
             new RootedSqliteTaskRepository(
                 () => rootDirectory(sp),
-                sp.GetService<ITaskChangeSignal>()));
+                sp.GetService<ITaskChangeSignal>(),
+                // Resolved when a task ends rather than here, so a context whose answer
+                // handler writes tasks cannot make the two singletons wait on each other.
+                sp.GetService<INotifications>,
+                sp.GetService<ILogger<RootedSqliteTaskRepository>>()));
 
         services.AddSingleton(sp =>
             new RootedSqliteRoadmapPlanRepository(() => rootDirectory(sp)));
