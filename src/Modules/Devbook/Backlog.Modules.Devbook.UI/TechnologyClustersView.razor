@@ -1,13 +1,516 @@
 @inherits TechnologyViewBase
 
 @*
-    Clusters — the whole stack by layer (.devbook/domain/devbook/features.md#technology-view).
-    A placeholder until the plan step that builds it fills this file in. It is
-    handed the folder, the shared selection and the panel's callbacks through
-    TechnologyViewBase, like every Technology view.
+    Clusters — the whole stack by layer (.devbook/domain/devbook/features.md#technology-view),
+    laid out as the design's Clusters board.
+
+    All layers: one cluster per layer file, sized by its technologies, one
+    dot per technology coloured by its type family and hollow when not adopted,
+    and a weighted line with its count between every two layers whose technologies
+    name each other in depends-on. Open a layer and its technologies become pills,
+    the other layers satellites; select one and its links light up — gold to what
+    it sits on, blue to what uses it — and following one moves the map with it,
+    leaving a trail to step back along.
+
+    The map is buttons on a stage and lines drawn as rotated borders, every
+    position worked out by TechnologyClustersLayout; nothing is measured in the
+    browser. The selection is the panel's shared one, and the view opens on it,
+    in focus on its layer; All layers is one step back. What this view keeps for
+    itself is where the reader is: the layer open, whether the selection is in
+    focus here, and the trail.
+
+    The side panel is the map's companion (requirements.md, Every pointer view has
+    a list companion): the layer list, then the open layer's technologies, which
+    stays on screen under the inspector so the selection is always a row there too.
 *@
 
-<EmptyState Title="Clusters"
-            Description="This view is not built yet."
-            TestId="technology-clusters-placeholder"
-            role="status" />
+<div class="tech-clusters" data-testid="technology-clusters">
+    <nav class="tech-clusters__crumbs" aria-label="Where you are" data-testid="technology-clusters-crumbs">
+        <AppButton BaseClass="tech-clusters__back"
+                   Variant="ButtonVariant.None"
+                   Disabled="@(_layer is null)"
+                   aria-label="Back"
+                   title="Back"
+                   TestId="technology-clusters-back"
+                   OnClick="BackAsync">
+            <span aria-hidden="true">‹</span>
+        </AppButton>
+        <AppButton BaseClass="tech-clusters__crumb"
+                   Variant="ButtonVariant.None"
+                   TestId="technology-clusters-crumb-all"
+                   OnClick="OpenAllLayers">All layers</AppButton>
+        @if (OpenLayer is { } open)
+        {
+            <span class="tech-clusters__sep" aria-hidden="true">›</span>
+            <AppButton BaseClass="tech-clusters__crumb"
+                       Variant="ButtonVariant.None"
+                       TestId="technology-clusters-crumb-layer"
+                       OnClick="LeaveTechnology">@open.Label</AppButton>
+        }
+        @if (Focus is { } focus)
+        {
+            <span class="tech-clusters__sep" aria-hidden="true">›</span>
+            <span class="tech-clusters__here" aria-current="location" data-testid="technology-clusters-crumb-technology">@focus.Label</span>
+        }
+        @if (_trail.Count > 1)
+        {
+            <span class="tech-clusters__trail-label">Trail</span>
+            <span class="tech-clusters__trail" data-testid="technology-clusters-trail">
+                @for (var index = 0; index < _trail.Count; index++)
+                {
+                    var step = index;
+                    var id = _trail[step];
+                    var isCurrent = Focus is { } shown && string.Equals(shown.Id, id, StringComparison.Ordinal);
+                    <AppButton BaseClass="tech-clusters__trail-step"
+                               CssClass="@(isCurrent ? "tech-clusters__trail-step--current" : null)"
+                               Variant="ButtonVariant.None"
+                               aria-current="@(isCurrent ? "step" : null)"
+                               TestId="technology-clusters-trail-step"
+                               OnClick="() => StepBackToAsync(step)">@(NodeById(id)?.Label ?? id)</AppButton>
+                }
+            </span>
+        }
+    </nav>
+
+    <p class="tech-clusters__hint" aria-live="polite" data-testid="technology-clusters-hint">@Hint</p>
+
+    <div class="tech-clusters__body">
+        <div class="tech-clusters__map" data-testid="technology-clusters-map">
+            @if (OpenLayer is { } layer)
+            {
+                var map = TechnologyClustersLayout.Layer(Layers, layer, Focus, NodeById);
+                <div class="tech-clusters__stage" style="@StageStyle(map.Width, map.Height)" data-testid="technology-clusters-layer-map">
+                    <div class="tech-clusters__halo" aria-hidden="true" style="@Box(map.Halo.X, map.Halo.Y, map.Halo.Width, map.Halo.Height, map.Width, map.Height)"></div>
+                    <span class="tech-clusters__halo-title" aria-hidden="true" style="@At(map.Halo.X + 24, map.Halo.Y + 12, map.Width, map.Height, map.Halo.Width - 48)">
+                        @layer.Label <span class="tech-clusters__muted">· @TechnologyCount(layer.Technologies.Count)</span>
+                    </span>
+                    @foreach (var line in map.Lines)
+                    {
+                        @Line(line, map.Width, map.Height)
+                    }
+                    @foreach (var satellite in map.Satellites)
+                    {
+                        var other = satellite.Layer;
+                        <AppButton BaseClass="tech-clusters__satellite"
+                                   CssClass="@SatelliteClass(satellite.State)"
+                                   Variant="ButtonVariant.None"
+                                   style="@Centred(satellite.X, satellite.Y, TechnologyClustersLayout.SatelliteDiameter, TechnologyClustersLayout.SatelliteDiameter, map.Width, map.Height)"
+                                   aria-label="@($"Open the {other.Label} layer{(satellite.Links > 0 ? $", {Links(satellite.Links)}" : string.Empty)}")"
+                                   data-layer="@other.FileName"
+                                   TestId="technology-clusters-satellite"
+                                   OnClick="() => OpenLayerAt(other.FileName)">@other.Technologies.Count</AppButton>
+                        <span class="@($"tech-clusters__satellite-name{(satellite.State == ClustersSatelliteState.Dimmed ? " tech-clusters__satellite-name--dimmed" : string.Empty)}")"
+                              aria-hidden="true"
+                              style="@At(satellite.X - 70, satellite.Y + 42, map.Width, map.Height, 140)">@other.Label</span>
+                        @if (satellite.Links > 0)
+                        {
+                            <span class="@($"tech-clusters__tally tech-clusters__tally--{TallyTone(satellite.State)}")"
+                                  aria-hidden="true"
+                                  data-testid="technology-clusters-satellite-links"
+                                  style="@At(satellite.X + 18, satellite.Y - 44, map.Width, map.Height)">@satellite.Links</span>
+                        }
+                    }
+                    @foreach (var pill in map.Pills)
+                    {
+                        var node = pill.Node;
+                        <ToggleButton BaseClass="tech-clusters__pill"
+                                      PressedCssClass="tech-clusters__pill--selected"
+                                      CssClass="@PillClass(pill.State)"
+                                      Pressed="@(pill.State == ClustersPillState.Selected)"
+                                      PressedChanged="_ => FollowAsync(node.Id)"
+                                      Title="@node.Label"
+                                      style="@Box(pill.X, pill.Y, TechnologyClustersLayout.PillWidth, TechnologyClustersLayout.PillHeight, map.Width, map.Height)"
+                                      data-id="@node.Id"
+                                      TestId="technology-clusters-pill">
+                            @Dot(node)
+                            <span class="tech-clusters__pill-label">@node.Label</span>
+                        </ToggleButton>
+                    }
+                </div>
+            }
+            else
+            {
+                var map = TechnologyClustersLayout.Overview(Layers, View.Graph.LayerLinks);
+                <div class="tech-clusters__stage" style="@StageStyle(map.Width, map.Height)" data-testid="technology-clusters-overview-map">
+                    @foreach (var line in map.Lines)
+                    {
+                        @Line(line, map.Width, map.Height)
+                    }
+                    @foreach (var badge in map.Badges)
+                    {
+                        <span class="tech-clusters__tally tech-clusters__tally--link"
+                              aria-hidden="true"
+                              data-testid="technology-clusters-link-count"
+                              style="@Centred(badge.X, badge.Y, 32, 20, map.Width, map.Height)">@badge.Count</span>
+                    }
+                    @foreach (var cluster in map.Clusters)
+                    {
+                        var each = cluster.Layer;
+                        <AppButton BaseClass="tech-clusters__cluster"
+                                   Variant="ButtonVariant.None"
+                                   style="@Centred(cluster.X, cluster.Y, cluster.Diameter, cluster.Diameter, map.Width, map.Height)"
+                                   aria-label="@($"Open the {each.Label} layer, {TechnologyCount(each.Technologies.Count)}")"
+                                   data-layer="@each.FileName"
+                                   TestId="technology-clusters-cluster"
+                                   OnClick="() => OpenLayerAt(each.FileName)" />
+                        @foreach (var dot in cluster.Dots)
+                        {
+                            <span class="@DotClass(dot.Node, IsSelected(dot.Node.Id))"
+                                  aria-hidden="true"
+                                  data-id="@dot.Node.Id"
+                                  data-testid="technology-clusters-dot"
+                                  style="@Centred(dot.X, dot.Y, dot.Size, dot.Size, map.Width, map.Height)"></span>
+                        }
+                        <span class="tech-clusters__cluster-name"
+                              aria-hidden="true"
+                              style="@At(cluster.X - 90, cluster.Y + (cluster.Diameter / 2) + 8, map.Width, map.Height, 180)"><b>@each.Label</b> <span class="tech-clusters__muted">· @each.Technologies.Count</span></span>
+                    }
+                </div>
+            }
+        </div>
+
+        <section class="tech-clusters__side" aria-label="Clusters companion" data-testid="technology-clusters-side">
+            @if (OpenLayer is not { } current)
+            {
+                <header class="tech-clusters__side-head">
+                    <p class="tech-clusters__kicker">The whole stack</p>
+                    <h3 class="tech-clusters__side-title">@TechnologyCount(Layers.Sum(each => each.Technologies.Count))</h3>
+                    <p class="tech-clusters__muted">@(Layers.Count == 1 ? "1 layer" : $"{Layers.Count} layers"). Open one to see its technologies and follow their links.</p>
+                </header>
+                <ul class="tech-clusters__list" aria-label="Layers" data-testid="technology-clusters-layer-list">
+                    @foreach (var each in Layers)
+                    {
+                        <li>
+                            <AppButton BaseClass="tech-clusters__row"
+                                       Variant="ButtonVariant.None"
+                                       data-layer="@each.FileName"
+                                       TestId="technology-clusters-layer-row"
+                                       OnClick="() => OpenLayerAt(each.FileName)">
+                                <span class="tech-clusters__row-name">@each.Label</span>
+                                <span class="tech-clusters__muted">@Links(LinksOut(each.FileName)) out</span>
+                                <span class="tech-clusters__row-figure">@each.Technologies.Count</span>
+                            </AppButton>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                @if (Focus is not null)
+                {
+                    <TechnologyInspector View="@View"
+                                         SelectedId="@SelectedId"
+                                         SelectedIdChanged="FollowAsync"
+                                         OnOpenView="OnOpenView"
+                                         OnNavigateToChapter="OnNavigateToChapter"
+                                         OnStatusChanged="OnStatusChanged"
+                                         StatusError="@StatusError"
+                                         RelatedLayerFile="@current.FileName" />
+                }
+                else
+                {
+                    <header class="tech-clusters__side-head">
+                        <p class="tech-clusters__kicker">Layer · <code>@current.FileName</code></p>
+                        <h3 class="tech-clusters__side-title" data-testid="technology-clusters-layer-title">@current.Label</h3>
+                        <p class="tech-clusters__muted">@TechnologyCount(current.Technologies.Count) · @Links(LinksOut(current.FileName)) to other layers</p>
+                    </header>
+                }
+
+                <h4 class="tech-clusters__list-heading">
+                    @(Focus is null ? "Pick one to follow its links" : $"In {current.Label}")
+                </h4>
+                <ul class="tech-clusters__list" aria-label="@($"Technologies in {current.Label}")" data-testid="technology-clusters-technology-list">
+                    @foreach (var node in current.Technologies)
+                    {
+                        var id = node.Id;
+                        <li>
+                            <ToggleButton BaseClass="tech-clusters__row"
+                                          PressedCssClass="tech-clusters__row--selected"
+                                          Pressed="@(Focus is { } shown && string.Equals(shown.Id, id, StringComparison.Ordinal))"
+                                          PressedChanged="_ => FollowAsync(id)"
+                                          data-id="@id"
+                                          TestId="technology-clusters-technology-row">
+                                @Dot(node)
+                                <span class="tech-clusters__row-name">@node.Label</span>
+                                <span class="tech-clusters__muted">@node.DependencyIds.Count ↓ · @node.UserIds.Count ↑</span>
+                            </ToggleButton>
+                        </li>
+                    }
+                </ul>
+            }
+
+            <ul class="tech-clusters__legend" aria-label="Colours">
+                @foreach (var family in Families)
+                {
+                    <li><span class="@($"tech-clusters__dot tech-family--{FamilySlug(family)}")" aria-hidden="true"></span>@TechnologyTypeFamilies.Label(family)</li>
+                }
+                <li><span class="tech-clusters__dot tech-clusters__dot--hollow tech-family--other" aria-hidden="true"></span>Not adopted yet</li>
+            </ul>
+        </section>
+    </div>
+</div>
+
+@code {
+    /// <summary>How many visited technologies the trail keeps.</summary>
+    public const int TrailLength = 6;
+
+    /// <summary>The open layer's file name; null on All layers.</summary>
+    private string? _layer;
+
+    /// <summary>Whether the shared selection is drawn in focus on the open layer.
+    /// Opening a layer, or stepping back to it from the breadcrumb, takes the focus
+    /// away without clearing the selection the other views share.</summary>
+    private bool _focused;
+
+    /// <summary>The technologies visited here, oldest first, at most <see cref="TrailLength"/>.</summary>
+    private readonly List<string> _trail = [];
+
+    private IReadOnlyList<ClustersLayer> _layers = [];
+    private IReadOnlyDictionary<(string First, string Second), int> _pairCounts = new Dictionary<(string, string), int>();
+    private TechnologyDevbookView? _layersFor;
+
+    /// <summary>The folder's layers, worked out once per read of the folder.</summary>
+    private IReadOnlyList<ClustersLayer> Layers
+    {
+        get
+        {
+            Refresh();
+            return _layers;
+        }
+    }
+
+    /// <summary>The cross-layer links between each pair of layers, once per read.</summary>
+    private IReadOnlyDictionary<(string First, string Second), int> PairCounts
+    {
+        get
+        {
+            Refresh();
+            return _pairCounts;
+        }
+    }
+
+    private void Refresh()
+    {
+        if (ReferenceEquals(_layersFor, View)) return;
+
+        _layers = TechnologyClustersLayout.Layers(View);
+        _pairCounts = TechnologyClustersLayout.PairCounts(_layers, View.Graph.LayerLinks);
+        _layersFor = View;
+    }
+
+    private ClustersLayer? OpenLayer => _layer is null ? null : Layers.FirstOrDefault(each => string.Equals(each.FileName, _layer, StringComparison.Ordinal));
+
+    /// <summary>The technology in focus: the shared selection, while the reader
+    /// has it in focus and it sits in the open layer.</summary>
+    private TechnologyGraphNode? Focus =>
+        _focused && OpenLayer is { } open && Selected is { IsBoundary: false } node && string.Equals(node.LayerFileName, open.FileName, StringComparison.Ordinal)
+            ? node
+            : null;
+
+    private string Hint => OpenLayer is null
+        ? "One cluster per layer, one dot per technology. Open a cluster to see its technologies."
+        : Focus is null
+            ? "Pick a technology to light up what it sits on and what uses it."
+            : "Pick any linked technology, on the map or in the panel, to follow the link.";
+
+    /// <summary>The families the folder's technologies fall into, in the families' order.</summary>
+    private IEnumerable<TechnologyTypeFamily> Families =>
+        Layers.SelectMany(each => each.Technologies).Select(node => node.Family).Distinct().Order();
+
+    /// <summary>The view opens on the shared selection, in focus on its layer, so a
+    /// technology picked in another view is the one shown here; with nothing
+    /// selected it opens on All layers.</summary>
+    protected override void OnInitialized()
+    {
+        if (Selected is { IsBoundary: false } node && node.LayerFileName.Length > 0)
+        {
+            _layer = node.LayerFileName;
+            _focused = true;
+            _trail.Add(node.Id);
+        }
+    }
+
+    /// <summary>A re-read can take away the open layer or the trail's steps; what
+    /// is gone goes from here too.</summary>
+    protected override void OnParametersSet()
+    {
+        if (_layer is not null && OpenLayer is null)
+        {
+            _layer = null;
+            _focused = false;
+        }
+
+        _trail.RemoveAll(id => NodeById(id) is null);
+    }
+
+    private void OpenAllLayers()
+    {
+        _layer = null;
+        _focused = false;
+    }
+
+    private void OpenLayerAt(string fileName)
+    {
+        _layer = fileName;
+        _focused = false;
+    }
+
+    private void LeaveTechnology() => _focused = false;
+
+    /// <summary>Selects a technology and moves to it: its layer opens when it sits
+    /// in another, and it joins the trail. A chapter in another folder is not on the
+    /// map, so following one only selects it.</summary>
+    private async Task FollowAsync(string? id)
+    {
+        if (id is null || NodeById(id) is not { } node) return;
+
+        if (!node.IsBoundary)
+        {
+            _layer = node.LayerFileName;
+            _focused = true;
+            if (_trail.Count == 0 || !string.Equals(_trail[^1], id, StringComparison.Ordinal))
+            {
+                _trail.Add(id);
+                if (_trail.Count > TrailLength) _trail.RemoveRange(0, _trail.Count - TrailLength);
+            }
+        }
+
+        await SelectAsync(id);
+    }
+
+    /// <summary>Back to a step on the trail, dropping the steps after it.</summary>
+    private async Task StepBackToAsync(int index)
+    {
+        if (index < 0 || index >= _trail.Count) return;
+
+        var id = _trail[index];
+        _trail.RemoveRange(index + 1, _trail.Count - index - 1);
+        await ShowAsync(id);
+    }
+
+    /// <summary>One step back: to the technology before this one on the trail, or
+    /// out of the technology to its layer when it is the first, or from a layer to
+    /// All layers.</summary>
+    private async Task BackAsync()
+    {
+        if (_focused)
+        {
+            if (_trail.Count > 0) _trail.RemoveAt(_trail.Count - 1);
+
+            if (_trail.Count > 0)
+            {
+                await ShowAsync(_trail[^1]);
+            }
+            else
+            {
+                _focused = false;
+            }
+        }
+        else
+        {
+            OpenAllLayers();
+        }
+    }
+
+    private async Task ShowAsync(string id)
+    {
+        if (NodeById(id) is { } node)
+        {
+            _layer = node.LayerFileName;
+            _focused = true;
+        }
+
+        await SelectAsync(id);
+    }
+
+    private bool IsSelected(string id) => string.Equals(SelectedId, id, StringComparison.Ordinal);
+
+    /// <summary>The cross-layer links a layer takes part in, either direction.</summary>
+    private int LinksOut(string fileName) =>
+        PairCounts
+            .Where(pair => pair.Key.First == fileName || pair.Key.Second == fileName)
+            .Sum(pair => pair.Value);
+
+    private static string TechnologyCount(int count) => count == 1 ? "1 technology" : $"{count} technologies";
+
+    private static string Links(int count) => count == 1 ? "1 link" : $"{count} links";
+
+    private static string FamilySlug(TechnologyTypeFamily family) => family switch
+    {
+        TechnologyTypeFamily.LanguageAndPackage => "language-package",
+        TechnologyTypeFamily.LibraryToolAndPlugin => "library-tool-plugin",
+        TechnologyTypeFamily.AgentServiceAndFormat => "agent-service-format",
+        _ => family.ToString().ToLowerInvariant(),
+    };
+
+    private static string DotClass(TechnologyGraphNode node, bool selected = false) =>
+        $"tech-clusters__dot tech-family--{FamilySlug(node.Family)}"
+        + (node.IsAdopted ? string.Empty : " tech-clusters__dot--hollow")
+        + (selected ? " tech-clusters__dot--selected" : string.Empty);
+
+    private static RenderFragment Dot(TechnologyGraphNode node) => __builder =>
+    {
+        <span class="@DotClass(node)" aria-hidden="true" data-adopted="@(node.IsAdopted ? "true" : "false")"></span>
+    };
+
+    private static string? PillClass(ClustersPillState state) => state switch
+    {
+        ClustersPillState.SitsOn => "tech-clusters__pill--sits-on",
+        ClustersPillState.UsedBy => "tech-clusters__pill--used-by",
+        ClustersPillState.Dimmed => "tech-clusters__pill--dimmed",
+        _ => null,
+    };
+
+    private static string? SatelliteClass(ClustersSatelliteState state) => state switch
+    {
+        ClustersSatelliteState.SitsOn or ClustersSatelliteState.Both => "tech-clusters__satellite--sits-on",
+        ClustersSatelliteState.UsedBy => "tech-clusters__satellite--used-by",
+        ClustersSatelliteState.Dimmed => "tech-clusters__satellite--dimmed",
+        _ => null,
+    };
+
+    private static string TallyTone(ClustersSatelliteState state) => state switch
+    {
+        ClustersSatelliteState.SitsOn or ClustersSatelliteState.Both => "sits-on",
+        ClustersSatelliteState.UsedBy => "used-by",
+        _ => "link",
+    };
+
+    private static string LineTone(ClustersLineTone tone) => tone switch
+    {
+        ClustersLineTone.SitsOn => "sits-on",
+        ClustersLineTone.UsedBy => "used-by",
+        ClustersLineTone.Link => "link",
+        _ => "quiet",
+    };
+
+    /// <summary>A line as a border on a box as long as the line, turned about its
+    /// left end. The stage keeps its aspect ratio, so a length in percent of its
+    /// width and the angle from the stage's own units stay true at any size.</summary>
+    private static RenderFragment Line(ClustersLine line, double width, double height) => __builder =>
+    {
+        var style = $"left: {TechnologyClustersLayout.Percent(line.X1, width)}; top: {TechnologyClustersLayout.Percent(line.Y1, height)}; "
+            + $"width: {TechnologyClustersLayout.Percent(line.Length, width)}; border-top-width: {TechnologyClustersLayout.Css(line.Weight)}px; "
+            + $"margin-top: -{TechnologyClustersLayout.Css(line.Weight / 2)}px; transform: rotate({TechnologyClustersLayout.Css(line.Angle)}deg)";
+        <span class="@($"tech-clusters__line tech-clusters__line--{LineTone(line.Tone)}{(line.Dashed ? " tech-clusters__line--dashed" : string.Empty)}")"
+              aria-hidden="true"
+              data-testid="technology-clusters-line"
+              data-tone="@LineTone(line.Tone)"
+              data-dashed="@(line.Dashed ? "true" : "false")"
+              style="@style"></span>
+    };
+
+    private static string StageStyle(double width, double height) =>
+        $"aspect-ratio: {TechnologyClustersLayout.Css(width)} / {TechnologyClustersLayout.Css(height)}";
+
+    private static string Box(double x, double y, double boxWidth, double boxHeight, double width, double height) =>
+        $"left: {TechnologyClustersLayout.Percent(x, width)}; top: {TechnologyClustersLayout.Percent(y, height)}; "
+        + $"width: {TechnologyClustersLayout.Percent(boxWidth, width)}; height: {TechnologyClustersLayout.Percent(boxHeight, height)}";
+
+    private static string Centred(double x, double y, double boxWidth, double boxHeight, double width, double height) =>
+        Box(x - (boxWidth / 2), y - (boxHeight / 2), boxWidth, boxHeight, width, height);
+
+    private static string At(double x, double y, double width, double height, double? boxWidth = null) =>
+        $"left: {TechnologyClustersLayout.Percent(x, width)}; top: {TechnologyClustersLayout.Percent(y, height)}"
+        + (boxWidth is { } across ? $"; width: {TechnologyClustersLayout.Percent(across, width)}" : string.Empty);
+}
