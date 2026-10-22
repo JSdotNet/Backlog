@@ -353,6 +353,18 @@ Archive is no region: its notes are the faint dust around the outside.
 | Cerebellum | `ai/` |
 | Brain stem | Each folder's convention root and the reading-order roots |
 
+**Hubs and ghost chapters.** The Brain stem holds one hub for `CONVENTIONS.md`
+and one for each area. Occipital draws the repository chapters the notes link
+to as one hub per repository alias, with a bundle to each chapter. A chapter of
+a note takes the note's region, and a PARA area kept under another folder name
+keeps its region. A chapter a registered devbook's index does not hold is drawn
+dashed inside that devbook, in the link's own words, as is every chapter the
+notes name in a devbook not indexed yet.
+
+**Counts.** Each scope counts its marks per region, its notes or chapters
+without the hubs, and the Brain notes that link into it. The Brain's count is
+the notes that link into any devbook.
+
 **Colour and bundles.** Brain marks wear the Brain's accent, `color-band-2`;
 devbook marks are gold. In All, bundles run from the Brain's repository hubs
 to the chapters the notes link. In a devbook's scope, a Brain hub floats beside
