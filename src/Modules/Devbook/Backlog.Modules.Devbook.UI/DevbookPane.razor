@@ -1675,6 +1675,15 @@
     {
         if (!_atlasOpen) return;
 
+        // Technology is not drawn on the atlas, and its section hides the atlas
+        // toggle, so the map closes rather than following there with no way to
+        // hide it again.
+        if (string.Equals(key, "tech", StringComparison.Ordinal) && !BrainMode)
+        {
+            CloseAtlas();
+            return;
+        }
+
         _atlasScopeKey = AtlasScopes.Any(scope => string.Equals(scope.Key, key, StringComparison.Ordinal))
             ? key
             : DevbookAtlasScope.All.Key;
@@ -1736,13 +1745,15 @@
     /// <summary>The scopes the atlas offers: whichever sections this repository
     /// has turned on, and all of them together. Built from the same list the
     /// section strip is built from, so a folder switched off disappears from both
-    /// at once.</summary>
+    /// at once. Technology is never among them: its section has views of its own,
+    /// and <see cref="DevbookAtlasScope.ForArea"/> gives it no scope.</summary>
     private IReadOnlyList<DevbookAtlasScope> AtlasScopes =>
     [
         DevbookAtlasScope.All,
         .. VisibleAreas
             .Where(area => !string.Equals(area.Key, "instructions", StringComparison.Ordinal))
             .Select(DevbookAtlasScope.ForArea)
+            .OfType<DevbookAtlasScope>()
     ];
 
     private DevbookAtlasScope AtlasScope =>

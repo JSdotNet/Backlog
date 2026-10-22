@@ -261,12 +261,11 @@ public sealed class TechnologyDevbookReaderTests
     }
 
     /// <summary>
-    /// Everything the atlas needs beyond what a lane view did: how much leans on a
-    /// node, where it sits in the reading order, which tone its status wears, and
-    /// which nodes are foundations.
+    /// What the views read beyond what a lane view did: how much leans on a node,
+    /// what it names, and where it sits in the reading order.
     /// </summary>
     [Fact]
-    public void The_graph_carries_degree_reading_order_tone_and_which_nodes_are_foundations()
+    public void The_graph_carries_users_dependencies_and_reading_order()
     {
         using var workspace = TestWorkspace.Create();
         var techPath = WriteAtlasFolder(workspace.RepositoryPath);
@@ -277,16 +276,14 @@ public sealed class TechnologyDevbookReaderTests
         var blazor = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/desktop.md#blazor");
         var winui = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/desktop.md#winui");
 
-        // Two things depend on .NET and .NET depends on nothing, which is exactly
-        // what makes it a foundation.
-        Assert.Equal(2, dotnet.InDegree);
-        Assert.Equal(0, dotnet.OutDegree);
-        Assert.True(dotnet.IsFoundation);
+        // Two things depend on .NET and .NET depends on nothing.
+        Assert.Equal(2, dotnet.UsedBy);
+        Assert.Empty(dotnet.DependencyIds);
+        Assert.Equal(0, dotnet.RestsOn);
 
-        Assert.Equal(0, blazor.InDegree);
-        Assert.Equal(1, blazor.OutDegree);
-        Assert.False(blazor.IsFoundation);
-        Assert.Equal(1, winui.OutDegree);
+        Assert.True(blazor.IsLeaf);
+        Assert.Equal([".tech/shared.md#net"], blazor.DependencyIds);
+        Assert.Single(winui.DependencyIds);
 
         // Reading order is the convention's — shared pinned first — not
         // alphabetical, which would put desktop first.
@@ -297,16 +294,14 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Equal(1, winui.OrdinalInLayer);
     }
 
-    /// <summary>Pinned as a theory against <c>DevbookStatus</c> so a change to
-    /// one folder's tone mapping fails here rather than quietly repainting the
-    /// atlas.</summary>
+    /// <summary>Every rung of the ladder is read as the chapter writes it.</summary>
     [Theory]
-    [InlineData("candidate", "ready")]
-    [InlineData("trial", "draft")]
-    [InlineData("adopted", "active")]
-    [InlineData("hold", "blocked")]
-    [InlineData("retired", "archived")]
-    public void Every_rung_of_the_ladder_wears_the_tone_the_vocabulary_gives_it(string status, string tone)
+    [InlineData("candidate")]
+    [InlineData("trial")]
+    [InlineData("adopted")]
+    [InlineData("hold")]
+    [InlineData("retired")]
+    public void Every_rung_of_the_ladder_is_read_as_written(string status)
     {
         using var workspace = TestWorkspace.Create();
         var techPath = WriteAtlasFolder(workspace.RepositoryPath, sharedStatus: status);
@@ -316,8 +311,6 @@ public sealed class TechnologyDevbookReaderTests
         var dotnet = Assert.Single(view.Graph.Nodes, node => node.Id == ".tech/shared.md#net");
 
         Assert.Equal(status, dotnet.Status);
-        Assert.Equal(tone, dotnet.ToneSlug);
-        Assert.Equal(DevbookStatus.Vocabulary(DevbookFolder.Tech).SlugFor(status), dotnet.ToneSlug);
     }
 
     /// <summary>A `depends-on` target outside `.tech` is a real chapter documented
@@ -338,16 +331,11 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Equal("Architecture", outside.Layer);
         Assert.Equal("external", outside.Kind);
         Assert.Equal(-1, outside.LayerIndex);
-        Assert.Equal(1, outside.InDegree);
+        Assert.Equal(1, outside.UsedBy);
 
-        // Its status answers to .arc42's vocabulary, where `active` is Active — not
-        // to this folder's, which does not define the word at all.
+        // Its status is .arc42's, read from the index — a word this folder's own
+        // vocabulary does not define at all.
         Assert.Equal("active", outside.Status);
-        Assert.Equal("active", outside.ToneSlug);
-
-        // Not a foundation. A foundation is a technology this project chose to sit
-        // on; this is a chapter somewhere else that happens to be referenced.
-        Assert.False(outside.IsFoundation);
     }
 
     /// <summary>The index is generated, so a checkout that has not run the
@@ -366,7 +354,6 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Equal("technology choices", outside.Label);
         Assert.Equal("External reference", outside.Layer);
         Assert.Equal("unknown", outside.Status);
-        Assert.Equal(string.Empty, outside.ToneSlug);
     }
 
     /// <summary>
@@ -442,8 +429,8 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Equal(2, view.Graph.Nodes.Count);
 
         var target = Assert.Single(view.Graph.Nodes, node => node.Label == "ASP.NET Core Minimal APIs");
-        Assert.Equal(1, target.InDegree);
-        Assert.True(target.IsFoundation);
+        Assert.Equal(1, target.UsedBy);
+        Assert.Empty(target.DependencyIds);
     }
 
     /// <summary>A node documented in another folder is walked like any other but is
@@ -605,7 +592,7 @@ public sealed class TechnologyGraphMeasuresTests : IDisposable
         var graph = ReadFixture();
 
         Assert.Equal(0, Node(graph, Runtime).RestsOn);
-        Assert.True(Node(graph, Runtime).IsFoundation);
+        Assert.Empty(Node(graph, Runtime).DependencyIds);
         Assert.Equal(1, Node(graph, CSharp).RestsOn);
         Assert.Equal(2, Node(graph, AspNet).RestsOn);
         Assert.Equal(3, Node(graph, Razor).RestsOn);

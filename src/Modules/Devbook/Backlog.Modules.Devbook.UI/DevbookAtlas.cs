@@ -330,14 +330,19 @@ public sealed record DevbookAtlasScope(string Key, string Label, string? FolderK
     public bool IsBrain { get; init; }
 
     /// <summary>The scope for one knowledge area, named as that area is named in
-    /// the section strip so the two cannot drift apart.</summary>
-    public static DevbookAtlasScope ForArea(DevbookArea area) =>
-        new(area.Key, area.Label, DevbookAtlasFolders.KeyFor(area.Key));
+    /// the section strip so the two cannot drift apart — or <see langword="null"/>
+    /// for an area the atlas does not draw. Technology is one: its section has
+    /// views of its own, and the canvas atlas no longer draws the stack.</summary>
+    public static DevbookAtlasScope? ForArea(DevbookArea area) =>
+        DevbookAtlasFolders.KeyFor(area.Key) is { } folderKey
+            ? new(area.Key, area.Label, folderKey)
+            : null;
 }
 
 /// <summary>The folder key behind a section key. The section strip says
 /// <c>arc42</c>; the folder settings say <c>.arc42</c>; the two have to be
-/// mapped somewhere and this is the only place that needs it.</summary>
+/// mapped somewhere and this is the only place that needs it. <c>tech</c> has no
+/// key: the atlas does not draw the technology stack.</summary>
 internal static class DevbookAtlasFolders
 {
     public static string? KeyFor(string areaKey) => areaKey switch
@@ -345,7 +350,6 @@ internal static class DevbookAtlasFolders
         "instructions" => "instructions",
         "domain" => ".domain",
         "arc42" => ".arc42",
-        "tech" => ".tech",
         "design" => ".design",
         "ai" => ".ai",
         _ => null
@@ -573,7 +577,18 @@ internal static class DevbookAtlasReader
         IReadOnlyList<DevbookAtlasSourceNode> sourceNodes,
         IReadOnlyList<DevbookAtlasSourceEdge> rawEdges)
     {
+        var technologiesLeftOut = false;
         var entries = sourceNodes
+            // The technology stack is drawn by the Technology section's own views,
+            // not on this canvas: a repository reading leaves `.tech` out, the
+            // whole devbook and a folder scope's boundary nodes alike, and the
+            // edges to it go with it. The Brain is not a repository devbook.
+            .Where(node =>
+            {
+                if (scope.IsBrain || !IsTechnology(node)) return true;
+                technologiesLeftOut = true;
+                return false;
+            })
             .Select(node => new Entry(
                 node.Id,
                 node.Label is { Length: > 0 } label ? label : node.Id,
@@ -586,7 +601,9 @@ internal static class DevbookAtlasReader
 
         if (entries.Count == 0)
         {
-            return DevbookAtlasGraph.Unavailable(scope, "The devbook database names no documents yet.");
+            return DevbookAtlasGraph.Unavailable(scope, technologiesLeftOut
+                ? TechnologyOnly
+                : "The devbook database names no documents yet.");
         }
 
         var edges = DrawnEdges(rawEdges, entries);
@@ -625,8 +642,8 @@ internal static class DevbookAtlasReader
                 entry.Type,
                 entry.Status,
                 // Each folder answers to its own status vocabulary, which matters
-                // most in the whole-repository scope: `active` is a real status in
-                // .arc42 and no status at all in .tech, and one shared list would
+                // most in the whole-repository scope: `proposed` is a real status
+                // in .domain and no status at all in .ai, and one shared list would
                 // have to be wrong about one of them.
                 entry.Status.Length == 0 ? string.Empty : DevbookStatus.Vocabulary(folder).SlugFor(entry.Status),
                 entry.Path,
@@ -640,6 +657,17 @@ internal static class DevbookAtlasReader
 
         return new DevbookAtlasGraph(scope, true, null, nodes, edges);
     }
+
+    /// <summary>What the atlas says when the reading holds nothing but the
+    /// technology stack, which it leaves to the Technology section.</summary>
+    internal const string TechnologyOnly =
+        "Nothing here to map: the technology stack is read in the Technology section, not on the atlas.";
+
+    /// <summary>Whether a node belongs to the technology stack: by its path, in
+    /// either layout, or by the folder the index wrote when it has no path.</summary>
+    private static bool IsTechnology(DevbookAtlasSourceNode node) =>
+        DevbookFolders.FromPath(node.Path.Length > 0 ? node.Path : node.Id) == DevbookFolder.Tech
+        || string.Equals(node.Folder, "tech", StringComparison.OrdinalIgnoreCase);
 
     private static List<DevbookAtlasSourceNode> ReadEntries(JsonElement elements)
     {
