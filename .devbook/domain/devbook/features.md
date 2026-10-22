@@ -828,6 +828,63 @@ A technology with nothing under it is a foundation; one nothing uses is a leaf.
 The measures are read from the layer files' own metadata, so a repository whose
 devbook database has not been built shows the same numbers (local ADR 0004).
 
+**Cycles.** The metadata permits a cycle, though a stack should not have one. Every
+walk ends at a technology it has already visited, so a cycle is found and recorded on
+the graph rather than walked forever. A technology never counts itself: one that names
+itself in `depends-on` is not its own user and does not rest on itself. Depth needs one
+more rule, because inside a cycle the longest chain has no end. The members of a cycle
+share one depth, that of the longest chain that leaves the cycle, and a hop between two
+members is not a hop down the stack.
+
+**Technologies from other folders.** A `depends-on` may name a chapter in another
+devbook folder. The walks run through it: it counts in rests on, used by, breaks if it
+changes and depth, as a foundation of its own. It is not one of the folder's
+technologies, though. It is left out of the per-type, per-family and per-status
+counts, and it is not drawn on the Complexity scatter or the Clusters map. The
+Dependencies view shows it where it is reached, and the inspector links to its chapter.
+
+**Complexity.** The scatter places each technology by used by across and rests on up.
+The used-by axis is square-root scaled, so the long tail of technologies with one or
+two users stays apart. It runs to the largest used by, and never ends short of 4. The
+rests-on axis is linear and runs to one above the largest rests on, never short of 5.
+The quadrants split at used by 3.5 and rests on 4.5:
+
+| Quadrant | Where | Its line |
+| --- | --- | --- |
+| **Deep leaves** | Rests on 5 or more, used by 3 or fewer | Rest on a lot, nothing rests on them. They break when anything under them moves. |
+| **Hubs** | Rests on 5 or more, used by 4 or more | Many users and a deep stack. |
+| **Foundations** | Rests on 4 or fewer, used by 4 or more | Load-bearing. Upgrade on purpose, never in passing. |
+| **Leaves** | Rests on 4 or fewer, used by 3 or fewer | Cheap to change or replace. |
+
+A quadrant with no technology in it adds "None today." to its line. Technologies at the
+same used by and rests on would hide each other, so they are drawn as one point labelled
+with every name. A crowded point prints three names and a count of the rest. Pressing
+the point selects its first technology, and pressing it again selects the next one. The
+point is filled while any of its technologies is adopted. Beside the scatter, Most
+complex lists the six that rest on the most, and Widest blast radius the five used by
+the most.
+
+**Dependencies.** The view walks out from the selected technology hop by hop, on the
+side the reader chooses: what it sits on, what uses it, or both. The reader limits the
+hops to 1, 2 or all, and groups the cards by hop or by layer. A technology reached at
+several hops shows once, at its nearest hop, marked with every further hop it is also
+reached at ("also 3, 4 hops"). From 2 hops, a card names the technology one hop nearer
+that it is reached through ("via ASP.NET Core"). Below the board, the view lists at most
+10 paths down to a foundation, says when more lead down, and shows the longest path
+running through the selected technology.
+
+**Clusters.** The view opens on the selected technology's layer, with that technology
+in focus. With nothing selected, it opens on All layers. Each technology followed from
+the open layer joins a trail of the last 6 visited, and pressing a step goes back to it.
+Back steps to the previous technology on the trail, then out to its layer, then to All
+layers. The breadcrumb reads All layers, the open layer and the technology in focus, and
+its layer step takes the technology out of focus without clearing the shared selection.
+
+**Type lenses.** The board shows one card per type in use, the types with the most
+technologies first. A card shows its type's lens for the selected technology when that
+technology is of its type, and otherwise for the type's most-used technology. Below the
+cards, the Lens per type table says what each lens shows and which metadata it reads.
+
 **Type families and status.** A technology's type decides its colour. The thirteen types fall into eight
 families, so the views stay readable:
 
