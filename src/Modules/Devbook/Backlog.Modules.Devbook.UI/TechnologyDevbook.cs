@@ -127,9 +127,37 @@ public sealed record TechnologyNode(
 
 public sealed record TechnologyRelationship(string FromId, string FromLabel, string ToId, string ToLabel);
 
+/// <summary>
+/// The technologies and their <c>depends-on</c> edges, with the measures the
+/// Technology views read off the graph as a whole
+/// (<c>.devbook/domain/devbook/features.md#technology-view</c>). Each is computed by
+/// <see cref="TechnologyGraphMeasures"/> when the reader builds the graph, and is
+/// empty on a graph built any other way.
+/// </summary>
 public sealed record TechnologyGraphData(IReadOnlyList<TechnologyGraphNode> Nodes, IReadOnlyList<TechnologyGraphEdge> Edges)
 {
     public static TechnologyGraphData Empty { get; } = new([], []);
+
+    /// <summary>The <c>depends-on</c> edges between each pair of different layers,
+    /// in reading order of the layer they leave, then of the layer they reach.</summary>
+    public IReadOnlyList<TechnologyLayerLink> LayerLinks { get; init; } = [];
+
+    /// <summary>This folder's technologies by their <c>type</c>; boundary nodes are not counted.</summary>
+    public IReadOnlyDictionary<string, int> CountsByType { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>This folder's technologies by the family their type falls into.</summary>
+    public IReadOnlyDictionary<TechnologyTypeFamily, int> CountsByFamily { get; init; } = new Dictionary<TechnologyTypeFamily, int>();
+
+    /// <summary>This folder's technologies by status.</summary>
+    public IReadOnlyDictionary<string, int> CountsByStatus { get; init; } = new Dictionary<string, int>();
+
+    /// <summary>The ids along the longest <c>depends-on</c> chain, from the deepest
+    /// technology down to a foundation; its hops are one fewer than its ids.</summary>
+    public IReadOnlyList<string> LongestChain { get; init; } = [];
+
+    /// <summary>Every cycle in the <c>depends-on</c> edges, each as its members' ids
+    /// in graph order. A technology naming itself is a cycle of one.</summary>
+    public IReadOnlyList<IReadOnlyList<string>> Cycles { get; init; } = [];
 }
 
 /// <summary>
@@ -168,7 +196,44 @@ public sealed record TechnologyGraphNode(
     int OutDegree = 0,
     string ToneSlug = "",
     bool IsFoundation = false,
-    bool IsBoundary = false);
+    bool IsBoundary = false)
+{
+    /// <summary>The ids this node's <c>depends-on</c> names, each once, in declaration order, itself never.</summary>
+    public IReadOnlyList<string> DependencyIds { get; init; } = [];
+
+    /// <summary>The ids of the nodes whose <c>depends-on</c> names this one, each once, in graph order.</summary>
+    public IReadOnlyList<string> UserIds { get; init; } = [];
+
+    /// <summary><em>Used by</em>: the technologies whose <c>depends-on</c> names this one.</summary>
+    public int UsedBy { get; init; }
+
+    /// <summary><em>Breaks if it changes</em>: its users, transitively, each counted once.</summary>
+    public int BreaksIfItChanges { get; init; }
+
+    /// <summary><em>Rests on</em>: its <c>depends-on</c>, transitively, each counted once.</summary>
+    public int RestsOn { get; init; }
+
+    /// <summary><em>Depth</em>: the hops in the longest <c>depends-on</c> chain from it
+    /// to a node with none; a hop inside its own cycle does not count.</summary>
+    public int Depth { get; init; }
+
+    /// <summary><em>Complexity</em>: <see cref="RestsOn"/> plus <see cref="Depth"/>.</summary>
+    public int Complexity { get; init; }
+
+    public TechnologyComplexityBand ComplexityBand { get; init; }
+
+    /// <summary>The family its type falls into, which decides its colour.</summary>
+    public TechnologyTypeFamily Family { get; init; } = TechnologyTypeFamily.Other;
+
+    /// <summary>A member of a <c>depends-on</c> cycle, itself included.</summary>
+    public bool InCycle { get; init; }
+
+    /// <summary>Nothing uses it.</summary>
+    public bool IsLeaf => UsedBy == 0;
+
+    /// <summary>Its status is <c>adopted</c>; any other is drawn hollow.</summary>
+    public bool IsAdopted => string.Equals(Status, "adopted", StringComparison.OrdinalIgnoreCase);
+}
 
 public sealed record TechnologyGraphEdge(string Id, string Source, string Target, string Label);
 
@@ -445,7 +510,7 @@ internal static class TechnologyDevbookReader
                 "depends on"))
             .ToList();
 
-        return new TechnologyGraphData(orderedNodes, edges);
+        return TechnologyGraphMeasures.Apply(orderedNodes, edges);
     }
 
     /// <summary>
