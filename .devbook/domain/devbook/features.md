@@ -781,6 +781,89 @@ says so instead of passing a partial answer off as whole. The review is read fro
 GitHub and held only for the session. Nothing is cloned, written to disk, or
 prepared, so a review leaves no trace in the repository or the app's storage.
 
+## Technology view
+
+```meta
+type: feature
+status: draft
+feature-flag: .devbook/domain/devbook/context.md#devbook-pane
+depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
+related: [.devbook/domain/devbook/requirements.md#technology-view, .devbook/tech/technology-graph.md#graph, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md#how-a-reader-degrades]
+```
+
+See what a repository's technology stack rests on and what would break if one
+part of it changed, in the Technology area of the Devbook pane. A layer file reads
+one technology at a time; the questions a reader brings to a stack are about the
+links between them: what sits under this, what uses it, and how far a change
+travels. The view answers them from the stack's own `depends-on` metadata, so it
+needs nothing a repository does not already write. The agreed design is the
+artifact <https://claude.ai/artifact/D5xzbYTojBsrWQwaN89QBK>.
+
+The area shows five views, switched from one tab bar, in place of the Atlas and
+Layers tabs it had before:
+
+| View | What it answers |
+| --- | --- |
+| **Overview** | Everything in use: the technologies as a table that sorts by each measure, narrowed by type, with the selected one in an inspector beside it. |
+| **Dependencies** | One technology in context: what it sits on and what sits on it, hop by hop, and how far a breaking change reaches. |
+| **Complexity** | Blast radius against depth: each technology placed by how many use it and how much sits under it. |
+| **Clusters** | The whole stack by layer: open a layer to see its technologies, then follow one's links. |
+| **Type lenses** | One technology read through the lens its type chooses. |
+
+One technology is selected at a time, and the selection is shared: picking one in
+any view and switching views keeps it selected.
+
+**Measures.** Every number the views show is computed from `depends-on`, the edges each
+technology chapter declares to what it sits on:
+
+| Measure | What it counts |
+| --- | --- |
+| **Used by** | The technologies whose `depends-on` names this one. |
+| **Breaks if it changes** | Those users, transitively: everything that sits on this one at any distance. |
+| **Rests on** | Its `depends-on`, transitively: everything under it. |
+| **Depth** | The longest `depends-on` chain from it down to a technology with none. |
+| **Complexity** | Rests on plus depth, banded Low below 6, Medium from 6 to 9, and High from 10. |
+
+A technology with nothing under it is a foundation; one nothing uses is a leaf.
+The measures are read from the layer files' own metadata, so a repository whose
+devbook database has not been built shows the same numbers (local ADR 0004).
+
+**Type families and status.** A technology's type decides its colour. The thirteen types fall into eight
+families, so the views stay readable:
+
+1. framework;
+2. platform;
+3. runtime;
+4. language and package;
+5. library, tool and plugin;
+6. skill;
+7. agent, service and format;
+8. protocol.
+
+Status is never left to colour. A technology not yet `adopted` is drawn hollow,
+so a candidate or a trial reads apart from an adopted choice in any family.
+
+**The inspector and its lenses.** The inspector opens on the same three facts for every technology: its status,
+what it sits on, and what uses it. Below them comes a section its type chooses:
+a package's version, a framework's stack above and below it, the alternatives a
+tool was chosen over. A lens shows only what the pane already holds: the
+chapter's metadata (`version`, `alternatives`, `related`, `depends-on`) and the
+graph. A fact the chapter does not record is left out rather than shown empty
+or filled in from somewhere else.
+
+Status stays editable from the inspector. A change is written back to the
+technology's chapter in its layer file under `.devbook/tech`, as the Technology
+area has always done.
+
+**Drawn as buttons, operated from a list.** The Clusters map and the Complexity scatter are drawn as components the app
+positions with CSS, and every technology on them is a real button. The
+first-party canvas atlas no longer draws the stack; it stays for the Brain's
+atlas.
+
+Every view a pointer operates has a list or table companion, on screen, that
+operates the same selection. A reader without a mouse, or with a screen reader,
+picks a technology from the companion and loses nothing but the picture.
+
 ## Instruction optimization
 
 ```meta
