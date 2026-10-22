@@ -16764,8 +16764,12 @@ select.field__input {
     align-items: center;
     gap: var(--spacing-sm);
 
-    /* 44px, because this is the target the canvas cannot be. */
+    /* 44px, because this is the target the canvas cannot be. An explicit
+       min-height replaces the flex item's content-based minimum, so without the
+       flex-shrink an overflowing list squeezed a row whose label or status wraps
+       back to 44px, and it spilled over the row under it. */
     min-height: 2.75rem;
+    flex-shrink: 0;
     padding: var(--spacing-xs) var(--spacing-sm);
     border-bottom: var(--border-width) solid var(--color-border);
     cursor: pointer;
