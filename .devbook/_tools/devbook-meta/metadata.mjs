@@ -367,6 +367,12 @@ const TYPE_BY_FOLDER = {
             "platform",
             "protocol",
             "format",
+            // The `.ai` words, meaning the same thing: a technology that is a
+            // Claude Code plugin, skill, or agent. `.ai` records how it is
+            // used; `.tech` registers and rates the thing itself.
+            "plugin",
+            "skill",
+            "agent",
         ],
         file: [],
     },

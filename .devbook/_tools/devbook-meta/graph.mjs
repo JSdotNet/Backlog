@@ -271,7 +271,12 @@ export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT, CHANGES_ROOT };
 // a view no chapter embeds and a debt record without `severity` are warnings.
 // A corpus with no workspace and none of the fields validates as under 32, so
 // no migration is owed.
-export const CONTRACT_VERSION = 33;
+//
+// Version 34 lets a `.tech` chapter be typed `plugin`, `skill`, or `agent`,
+// the `.ai` words meaning the same thing: a technology that is a Claude Code
+// plugin, skill, or agent. Each is an added value, so a corpus written under
+// 33 validates unchanged and no migration is owed.
+export const CONTRACT_VERSION = 34;
 
 // The oldest contract a reconcile still carries forward. A migration lives
 // for the major version it ships in: a major release raises this to the
