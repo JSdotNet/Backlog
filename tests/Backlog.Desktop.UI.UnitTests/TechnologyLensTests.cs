@@ -366,15 +366,106 @@ public sealed class TechnologyLensTests : IDisposable
         Assert.Equal(TechnologyViews.Overview, opened);
     }
 
+    /// <summary>The shared selection wins on its own type's card — a package fewer
+    /// use than bUnit — and only there: every other card keeps its most-used one.</summary>
+    [Fact]
+    public void The_selected_technologys_type_card_shows_it_and_says_it_is_the_selection()
+    {
+        _context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var view = BoardFolder();
+
+        var board = RenderBoard(view, selectedId: Id("polly"));
+
+        var package = Card(board, "package");
+        Assert.Equal("polly", CardName(package));
+        Assert.Equal("true", package.GetAttribute("aria-current"));
+        Assert.Contains("tech-lens-card--selected", package.ClassList);
+        Assert.NotNull(package.QuerySelector("[data-testid='technology-lens-card-selected']"));
+        Assert.Equal("Sits on 1 · used by 0", package.QuerySelector("[data-testid='technology-lens-card-facts']")!.TextContent.Trim());
+        Assert.Contains("8.4.0", package.QuerySelector("[data-testid='technology-lens']")!.TextContent, StringComparison.Ordinal);
+
+        var framework = Card(board, "framework");
+        Assert.Equal("blazor", CardName(framework));
+        Assert.Null(framework.GetAttribute("aria-current"));
+        Assert.Single(board.FindAll("[data-testid='technology-lens-card'][aria-current]"));
+    }
+
+    [Fact]
+    public void With_nothing_selected_every_card_shows_its_most_used_technology_and_none_is_marked()
+    {
+        _context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var board = RenderBoard(BoardFolder());
+
+        Assert.Equal("bunit", CardName(Card(board, "package")));
+        Assert.Equal("blazor", CardName(Card(board, "framework")));
+        Assert.Empty(board.FindAll("[data-testid='technology-lens-card'][aria-current]"));
+        Assert.Empty(board.FindAll("[data-testid='technology-lens-card-selected']"));
+        Assert.Empty(_context.JSInterop.Invocations["backlogRevealRow"]);
+    }
+
+    [Fact]
+    public void The_board_brings_the_selected_card_into_view_and_focuses_it_only_when_a_link_opened_it()
+    {
+        _context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var view = BoardFolder();
+
+        RenderBoard(view, selectedId: Id("polly"));
+
+        Assert.Equal(
+            "[data-testid='technology-lens-card'][aria-current='true']",
+            Assert.Single(_context.JSInterop.Invocations["backlogRevealRow"]).Arguments[0]);
+        Assert.Empty(_context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
+
+        RenderBoard(view, selectedId: Id("polly"), focusSelection: true);
+
+        Assert.Equal(2, _context.JSInterop.Invocations["backlogRevealRow"].Count);
+        Assert.Single(_context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"]);
+    }
+
+    /// <summary>A technology with no type has no card on the board, so the
+    /// inspector offers no lens link to land on nothing.</summary>
+    [Fact]
+    public void The_inspector_offers_the_lens_link_only_for_a_type_the_board_has_a_card_for()
+    {
+        _context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var view = Folder(Tech("net", "runtime"), Tech("untyped", " "));
+
+        IRenderedComponent<TechnologyInspector> Inspect(string slug) =>
+            _context.Render<TechnologyInspector>(parameters => parameters
+                .Add(component => component.View, view)
+                .Add(component => component.SelectedId, Id(slug)));
+
+        Assert.Equal("Open runtime lens", Inspect("net").Find("[data-testid='technology-inspector-open-lens']").TextContent.Trim());
+        Assert.Empty(Inspect("untyped").FindAll("[data-testid='technology-inspector-open-lens']"));
+    }
+
     public void Dispose() => _context.Dispose();
+
+    private static TechnologyDevbookView BoardFolder() => Folder(
+        Tech("net", "runtime"),
+        Tech("razor", "framework", dependsOn: ["net"]),
+        Tech("blazor", "framework", dependsOn: ["razor", "net"]),
+        Tech("hybrid", "framework", dependsOn: ["blazor"]),
+        Tech("bunit", "package", version: "2.4.1", dependsOn: ["blazor"]),
+        Tech("polly", "package", version: "8.4.0", dependsOn: ["net"]),
+        Tech("tests", "tool", dependsOn: ["bunit"]));
+
+    private static AngleSharp.Dom.IElement Card(IRenderedComponent<TechnologyTypeLensesView> board, string type) =>
+        board.Find($"[data-testid='technology-lens-card'][data-type='{type}']");
+
+    private static string CardName(AngleSharp.Dom.IElement card) =>
+        card.QuerySelector("[data-testid='technology-lens-card-name']")!.TextContent.Trim();
 
     private IRenderedComponent<TechnologyLens> RenderLens(TechnologyDevbookView view, string slug) =>
         _context.Render<TechnologyLens>(parameters => parameters
             .Add(component => component.View, view)
             .Add(component => component.Technology, view.Graph.Nodes.Single(node => node.Id == Id(slug))));
 
-    private IRenderedComponent<TechnologyTypeLensesView> RenderBoard(TechnologyDevbookView view) =>
-        _context.Render<TechnologyTypeLensesView>(parameters => parameters.Add(component => component.View, view));
+    private IRenderedComponent<TechnologyTypeLensesView> RenderBoard(TechnologyDevbookView view, string? selectedId = null, bool focusSelection = false) =>
+        _context.Render<TechnologyTypeLensesView>(parameters => parameters
+            .Add(component => component.View, view)
+            .Add(component => component.SelectedId, selectedId)
+            .Add(component => component.FocusSelection, focusSelection));
 
     private static string[] Rows(IRenderedComponent<TechnologyLens> lens) =>
         [.. lens.FindAll("[data-testid='technology-lens-row']").Select(row => row.GetAttribute("data-row")!)];

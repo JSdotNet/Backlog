@@ -229,6 +229,45 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
             component.FindAll("[data-testid='technology-lens-card']").Select(card => card.GetAttribute("data-type")).ToArray()));
     }
 
+    /// <summary>The lens link lands on the technology it was pressed for, not its
+    /// type's most-used one: Polly selected in Overview, "Open package lens", and
+    /// the Package card names Polly, is marked as the selection and takes focus.</summary>
+    [Fact]
+    public async Task The_lens_link_lands_on_the_selected_technologys_card()
+    {
+        await using var harness = CreateHarness(withPackages: true);
+        var component = await harness.RenderOverviewAsync();
+
+        Row(component, "Polly").Click();
+        var focusesBefore = harness.Context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"].Count;
+        component.Find("[data-testid='technology-inspector-open-lens']").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("Polly", LensCardName(component, "package")));
+        var package = LensCard(component, "package");
+        Assert.Equal("true", package.GetAttribute("aria-current"));
+        Assert.Single(component.FindAll("[data-testid='technology-lens-card'][aria-current]"));
+        Assert.Equal(".NET", LensCardName(component, "runtime"));
+        Assert.Equal("Agent host", LensCardName(component, "service"));
+        component.WaitForAssertion(() => Assert.Equal(focusesBefore + 1, harness.Context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"].Count));
+    }
+
+    /// <summary>Opened from the tab strip the board still shows and marks the
+    /// selection, but the focus stays on the tab.</summary>
+    [Fact]
+    public async Task The_type_lenses_tab_shows_the_selection_without_moving_focus()
+    {
+        await using var harness = CreateHarness(withPackages: true);
+        var component = await harness.RenderOverviewAsync();
+
+        Row(component, "Polly").Click();
+        var focusesBefore = harness.Context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"].Count;
+        component.Find("[data-testid='technology-type-lenses-tab']").Click();
+
+        component.WaitForAssertion(() => Assert.Equal("Polly", LensCardName(component, "package")));
+        Assert.Equal("true", LensCard(component, "package").GetAttribute("aria-current"));
+        Assert.Equal(focusesBefore, harness.Context.JSInterop.Invocations["Blazor._internal.domWrapper.focus"].Count);
+    }
+
     /// <summary>The inspector draws the section the selection's type chooses below
     /// the common facts: .NET is a runtime, so the stack lens, with what is built
     /// directly on it grouped by layer.</summary>
@@ -358,13 +397,19 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
         component.FindAll("[data-testid='technology-row']")
             .Single(row => row.QuerySelector(".tech-overview__name")!.TextContent.Trim() == name);
 
+    private static AngleSharp.Dom.IElement LensCard(IRenderedComponent<TechnologyDevbookPanel> component, string type) =>
+        component.Find($"[data-testid='technology-lens-card'][data-type='{type}']");
+
+    private static string LensCardName(IRenderedComponent<TechnologyDevbookPanel> component, string type) =>
+        LensCard(component, type).QuerySelector("[data-testid='technology-lens-card-name']")!.TextContent.Trim();
+
     private static string InspectorTitle(IRenderedComponent<TechnologyDevbookPanel> component) =>
         component.Find(".tech-inspector__title").TextContent.Trim();
 
     private static string[] RelatedNames(IRenderedComponent<TechnologyDevbookPanel> component, string list) =>
         [.. component.FindAll($"[data-testid='technology-inspector-{list}'] [data-testid='technology-inspector-related']").Select(button => button.TextContent.Trim())];
 
-    private Harness CreateHarness(bool withTechFolder = true)
+    private Harness CreateHarness(bool withTechFolder = true, bool withPackages = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-technology-panel-tests", Guid.NewGuid().ToString("n"));
         var repository = Path.Combine(root, "repo");
@@ -377,6 +422,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
             File.WriteAllText(Path.Combine(tech, "technology-graph.md"), TechnologyGraph);
             File.WriteAllText(Path.Combine(tech, "shared.md"), SharedLayer);
             File.WriteAllText(Path.Combine(tech, "desktop.md"), DesktopLayer);
+            if (withPackages) File.WriteAllText(Path.Combine(tech, "packages.md"), PackagesLayer);
         }
 
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
@@ -462,6 +508,48 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
         ```
 
         Browser tests.
+        """;
+
+    /// <summary>Two packages, one of them used: the Package lens card's most-used
+    /// technology is ModelContextProtocol, so Polly is the one it does not show
+    /// until it is selected.</summary>
+    private const string PackagesLayer = """
+        # Package Technologies
+        ```meta
+        status: adopted
+        type: layer
+        ```
+
+        Packages.
+
+        ## ModelContextProtocol
+        ```meta
+        status: adopted
+        type: package
+        version: "1.1.0"
+        depends-on: [".tech/shared.md#net"]
+        ```
+
+        The MCP C# SDK.
+
+        ## Polly
+        ```meta
+        status: adopted
+        type: package
+        version: "8.4.0"
+        depends-on: [".tech/shared.md#net"]
+        ```
+
+        Resilience.
+
+        ## Agent host
+        ```meta
+        status: trial
+        type: service
+        depends-on: [".tech/packages.md#modelcontextprotocol"]
+        ```
+
+        Hosts the agents.
         """;
 
     private sealed record Harness(BunitContext Context, string TechFolder, RecordingDevbookFolderSource Folders) : IAsyncDisposable

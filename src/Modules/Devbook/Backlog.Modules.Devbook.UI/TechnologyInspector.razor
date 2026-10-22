@@ -105,9 +105,15 @@
             <AppButton Variant="ButtonVariant.Ghost"
                        TestId="technology-inspector-show-dependencies"
                        OnClick="() => OnOpenView.InvokeAsync(TechnologyViews.Dependencies)">Show dependencies</AppButton>
-            <AppButton Variant="ButtonVariant.Ghost"
-                       TestId="technology-inspector-open-lens"
-                       OnClick="() => OnOpenView.InvokeAsync(TechnologyViews.TypeLenses)">@($"Open {TechnologyTypeCodes.Label(node.Kind).ToLowerInvariant()} lens")</AppButton>
+            @* The Type lenses board has a card for each of this folder's types in
+               use, so a chapter of another folder, or a technology with no type,
+               has no card for the link to land on. *@
+            @if (!node.IsBoundary && !string.IsNullOrWhiteSpace(node.Kind))
+            {
+                <AppButton Variant="ButtonVariant.Ghost"
+                           TestId="technology-inspector-open-lens"
+                           OnClick="() => OnOpenView.InvokeAsync(TechnologyViews.TypeLenses)">@($"Open {TechnologyTypeCodes.Label(node.Kind).ToLowerInvariant()} lens")</AppButton>
+            }
         </nav>
     </aside>
 }

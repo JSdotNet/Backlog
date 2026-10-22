@@ -67,9 +67,11 @@
             }
             if (!container || container === document.body) return;
 
+            // A row taller than the container — a Type lenses card — shows its
+            // start, where its name is, rather than its end.
             const bounds = container.getBoundingClientRect();
             const box = row.getBoundingClientRect();
-            if (box.top < bounds.top) container.scrollTop -= bounds.top - box.top;
+            if (box.top < bounds.top || box.height > bounds.height) container.scrollTop -= bounds.top - box.top;
             else if (box.bottom > bounds.bottom) container.scrollTop += box.bottom - bounds.bottom;
         };
 
