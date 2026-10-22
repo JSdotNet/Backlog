@@ -68,6 +68,18 @@ internal sealed class InMemoryNotificationRepository : INotificationRepository
         lock (_lock) return Task.FromResult<IReadOnlyList<Notification>>([.. _rows.Values.Where(row => row.AwaitsDelivery).Select(Copy)]);
     }
 
+    public Task<IReadOnlyList<Notification>> ListOpenOrSettledSinceAsync(DateTimeOffset settledSince, CancellationToken cancellationToken = default)
+    {
+        lock (_lock)
+        {
+            return Task.FromResult<IReadOnlyList<Notification>>(
+                [.. _rows.Values
+                    .Where(row => row.IsOpen || row.SettledAt >= settledSince)
+                    .OrderByDescending(row => row.CreatedAt)
+                    .Select(Copy)]);
+        }
+    }
+
     public Task SaveAsync(Notification notification, CancellationToken cancellationToken = default)
     {
         lock (_lock)

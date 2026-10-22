@@ -534,7 +534,7 @@ as its kind:
 | Inbox toggle | `Inbox`, before the view switch | An on-or-off of its own that gives the Inbox the whole screen in place of the main view; pressed again, it returns to that view. Escape does not leave the Inbox: it is the Inbox's own key, leaving triage for the list. |
 | Devbook toggle | `Devbook`, after the view switch; `Brain` while the Devbook shows the Brain | An on-or-off of its own that gives the Devbook the whole screen in place of the main view; pressed again, it returns to that view, and Escape does too. See `#workspace-panes`. It is named for what the Devbook shows, open or closed: **Brain**, in the Brain's accent (`color-scheme.md#the-brains-accent`), while the Devbook reads or would open on the Brain — nothing pressed, the Brain as anchor, or the Brain side of its `Brain \| <repo>` switch — and **Devbook** otherwise. The word changes, the control does not. |
 | Work in progress group | `Goals` (a view), `Sessions`, `Pull requests` (takeovers) | One fused group of the work in flight: the Progress context's [Goals view](../domain/progress/features.md#the-goals-view) and the Sessions context's two lists. Goals acts as a view option does; Sessions and Pull requests act as takeovers. Always renders, because Goals is always offered. |
-| Remaining takeovers | `Dashboard`, `Tools` | A loose group, each under its own flag. Renders while one of them is offered. |
+| Remaining takeovers | `Dashboard`, `Notifications`, `Tools` | A loose group, each under its own flag. Renders while one of them is offered. **Notifications** opens the notification centre and wears the count of questions waiting for an answer, in the question's gold, and no count while none wait. |
 
 | Rule | Requirement |
 |---|---|

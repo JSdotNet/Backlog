@@ -619,6 +619,14 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
+      "backlog.modules.notifications.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
+          "Backlog.UI.Components": "[1.0.0, )",
+          "Microsoft.AspNetCore.Components.Web": "[10.0.12, )"
+        }
+      },
       "backlog.modules.progress": {
         "type": "Project",
         "dependencies": {

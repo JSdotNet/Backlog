@@ -42,10 +42,34 @@ the realtime nudge is
 The module is `Backlog.Modules.Notifications`, published to other contexts through
 `Backlog.Modules.Notifications.Abstractions`, with its screens in
 `Backlog.Modules.Notifications.UI`. The delivery technology sits behind ports in
-`Backlog.Infrastructure.Notifications`. The module, its abstractions and an empty
-UI project exist, with the owner's store as the `notifications` table in
-`backlog.db`; the screens, the sync exchange and the infrastructure project do not
-yet.
+`Backlog.Infrastructure.Notifications`. The module and its abstractions exist,
+with the owner's store as the `notifications` table in `backlog.db`. The sync
+exchange and the infrastructure project do not yet.
+
+## Owner screens
+
+On the owner desktop the person reads and answers through `INotificationCentre`,
+in two places:
+
+- **The notification centre**, a takeover the shell's **Notifications** option
+  opens. The option wears the count of open questions. The centre lists the open
+  notifications, and those settled in the last seven days, grouped by
+  [Subject](domain.md#subject). The one picked is drawn whole beside the list as
+  the library's `NotificationCard`. Its Markdown body renders through
+  `MarkdownView`, Mermaid through `DiagramView`. A single-choice question shows
+  buttons, a multiple-choice one checkboxes, an open one a plain-text box, and an
+  alert Acknowledge. An answered card names the winning answer and the device it
+  came from. A closed card names its reason.
+- **Windows app notifications**, raised through the Windows App SDK for every
+  notification the desktop publishes, and taken down once it settles. Set answers
+  become action buttons, at most three. An open answer gets an inline text box
+  and Send. A question whose answers do not fit offers **Open in Backlog**, which
+  opens the centre on it.
+
+Both hand an answer to `INotificationCentre.AnswerAsync`, which passes it to
+`INotificationReplies.AcceptReplyAsync` as a [Reply](domain.md#reply) from this
+device. That is the path a viewer's reply takes, so the owner checks every answer
+the same way, whichever channel it came from.
 
 ## Dependencies
 

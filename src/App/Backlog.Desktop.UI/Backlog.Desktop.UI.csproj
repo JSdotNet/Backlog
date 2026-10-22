@@ -49,6 +49,7 @@
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.UI\Backlog.Modules.Sessions.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.UI\Backlog.Modules.Notifications.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.UI\Backlog.Modules.Capture.UI.csproj" />
     <!-- Progress's Goals view and attach-to-goal control, drawn behind the goals
          key the catalog lists. -->

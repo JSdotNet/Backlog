@@ -278,6 +278,7 @@
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.UI": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Notifications.UI": "[1.0.0, )",
           "Backlog.Modules.Progress.UI": "[1.0.0, )",
           "Backlog.Modules.Roadmap.UI": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
@@ -525,6 +526,13 @@
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.notifications.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
+          "Backlog.UI.Components": "[1.0.0, )"
         }
       },
       "backlog.modules.progress": {

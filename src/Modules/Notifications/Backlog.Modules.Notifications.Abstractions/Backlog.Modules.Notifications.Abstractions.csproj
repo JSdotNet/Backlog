@@ -5,6 +5,7 @@
     local ADR 0038) — everything another context or a host is allowed to see:
       INotifications            the one port every context publishes through
       INotificationReplies      where a reply reaches the owner instance
+      INotificationCentre       what the owner's screens read and answer through
       INotificationAnswerHandler / INotificationSubjectProbe
                                 what a publishing context registers to hear its
                                 answers and to say whether a subject still lives
