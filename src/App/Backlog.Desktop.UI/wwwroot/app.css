@@ -7794,6 +7794,19 @@ a.pull-request-detail-checks__name:hover {
     align-content: start;
 }
 
+/* The shared selection's card: the Overview's selected-row treatment — a raised
+   surface and a rule on the leading edge — with "Selected" in its kicker and
+   aria-current on the card, so colour is never the only carrier. */
+.tech-lens-card--selected {
+    background: var(--color-background-raised);
+    box-shadow: inset var(--border-width-4) 0 0 var(--color-primary);
+}
+
+.tech-lens-card__selected {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
 .tech-lens-card__body {
     display: grid;
     gap: var(--spacing-sm);

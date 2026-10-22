@@ -104,7 +104,7 @@
                       Element="section"
                       TestId="technology-type-lenses-panel"
                       TabTestId="technology-type-lenses-tab">
-                <TechnologyTypeLensesView @attributes="ViewParameters" />
+                <TechnologyTypeLensesView @attributes="ViewParameters" FocusSelection="@_openedByLink" />
             </TabPanel>
         </Tabs>
     }
@@ -123,6 +123,10 @@
 
     /// <summary>The view on screen, by its <see cref="TechnologyViews"/> id.</summary>
     private string _activeView = TechnologyViews.Overview;
+
+    /// <summary>Whether the view on screen was opened by a link in another view
+    /// rather than from the tab strip.</summary>
+    private bool _openedByLink;
 
     /// <summary>The one selected technology every view shares.</summary>
     private string? _selectedId;
@@ -149,7 +153,7 @@
         [nameof(TechnologyViewBase.View)] = _view,
         [nameof(TechnologyViewBase.SelectedId)] = _selectedId,
         [nameof(TechnologyViewBase.SelectedIdChanged)] = EventCallback.Factory.Create<string?>(this, Select),
-        [nameof(TechnologyViewBase.OnOpenView)] = EventCallback.Factory.Create<string>(this, OpenViewAsync),
+        [nameof(TechnologyViewBase.OnOpenView)] = EventCallback.Factory.Create<string>(this, OpenViewByLink),
         [nameof(TechnologyViewBase.OnNavigateToChapter)] = OnNavigateToChapter,
         [nameof(TechnologyViewBase.OnStatusChanged)] = EventCallback.Factory.Create<TechnologyStatusChange>(this, ChangeTechnologyStatusAsync),
         [nameof(TechnologyViewBase.StatusError)] = _statusError,
@@ -222,11 +226,26 @@
         _statusError = null;
     }
 
+    /// <summary>A view picked on the tab strip, where the focus stays.</summary>
     private Task OpenViewAsync(string id)
     {
         _activeView = id;
+        _openedByLink = false;
         return Task.CompletedTask;
     }
+
+    /// <summary>A view opened by a link in another view. The link went with the
+    /// view it sat in, so the view opened is told to take the focus.</summary>
+    private void OpenViewByLink(string id)
+    {
+        _activeView = id;
+        _openedByLink = true;
+    }
+
+    /// <summary>The view a link opened took the flag on its first render, which
+    /// is this one; cleared after it, so a later rebuild of the tabs — the folder
+    /// going and coming back, a Retry — never takes the focus again.</summary>
+    protected override void OnAfterRender(bool firstRender) => _openedByLink = false;
 
     /// <summary>The folder moved or changed underneath the panel, so it is read
     /// again — inside <c>InvokeAsync</c>, because a pull announces itself off the
