@@ -49,7 +49,7 @@ public sealed class ReplyOutboxKindTests
             return new HttpResponseMessage(HttpStatusCode.Created) { Content = JsonContent.Create(new PostNotificationReplyResponse(Reply.Id, true)) };
         }));
 
-        var delivery = await kind.SendAsync(Entry(), CancellationToken.None);
+        var delivery = await kind.SendAsync(Entry(), TestContext.Current.CancellationToken);
 
         Assert.Equal(OutboxDeliveryKind.Delivered, delivery.Kind);
         Assert.Equal(HttpMethod.Post, sent!.Method);
@@ -64,7 +64,7 @@ public sealed class ReplyOutboxKindTests
     {
         var kind = new ReplyOutboxKind(Client(_ => throw new HttpRequestException("No such host is known.")));
 
-        Assert.Equal(OutboxDeliveryKind.Transient, (await kind.SendAsync(Entry(), CancellationToken.None)).Kind);
+        Assert.Equal(OutboxDeliveryKind.Transient, (await kind.SendAsync(Entry(), TestContext.Current.CancellationToken)).Kind);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public sealed class ReplyOutboxKindTests
             Content = new StringContent("""{"title":"Refused","status":400,"detail":"A reply picks at most 6 choices.","code":"notification.reply_invalid"}""", Encoding.UTF8, "application/problem+json")
         }));
 
-        var delivery = await kind.SendAsync(Entry(), CancellationToken.None);
+        var delivery = await kind.SendAsync(Entry(), TestContext.Current.CancellationToken);
 
         Assert.Equal(OutboxDeliveryKind.Refused, delivery.Kind);
         Assert.Equal("A reply picks at most 6 choices.", delivery.Error);
