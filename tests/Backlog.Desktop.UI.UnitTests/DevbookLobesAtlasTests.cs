@@ -137,6 +137,18 @@ public sealed class DevbookLobesAtlasTests
     }
 
     [Fact]
+    public void A_brain_mark_wears_the_brains_tone_in_the_index_and_a_devbook_mark_stays_gold()
+    {
+        // Found in the live QA pass: every list mark read gold, the Brain's notes
+        // included, where the map draws them in color-band-2.
+        var nodes = DevbookLobesAtlas.IndexNodes(Graph(), LobesAtlasModel.AllLayout);
+
+        Assert.Equal("brain", nodes.Single(node => node.Id == "brain|projects/plan.md").ToneSlug);
+        Assert.Equal("active", nodes.Single(node => node.Id == "repo:backlog|arc42/adr.md").ToneSlug);
+        Assert.Equal("archived", nodes.Single(node => node.Id == "ghost:stack|ghost:arc42/x.md").ToneSlug);
+    }
+
+    [Fact]
     public void The_model_serializes_in_the_shape_the_renderer_reads()
     {
         var json = JsonSerializer.Serialize(DevbookLobesAtlas.Model(Graph(), LobesAtlasModel.AllLayout), new JsonSerializerOptions(JsonSerializerDefaults.Web));

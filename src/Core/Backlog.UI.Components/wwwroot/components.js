@@ -4147,13 +4147,23 @@
                 .slice(0, Math.round(items.length * packing.glow))
                 .map((mark) => mark.id));
 
+            // A region's hubs — the Brain stem's area roots and conventions, a
+            // devbook's convention and reading-order roots, Occipital's repository
+            // hubs — lie on a golden spiral round its centre, each a little lower
+            // than the last. Both the spread and the drop grow with the square root
+            // of the hub's place, so a Brain's nine area roots or a devbook's twenty
+            // reading-order roots stay a compact cluster rather than a column running
+            // off the bottom of the canvas, and the design's two or three hubs keep
+            // their short staircase. Both are capped, so a stem of sixty still sits
+            // inside the brain's width.
             hubs.forEach((mark, index) => {
                 const angle = index * BACKLOG_ATLAS_GOLDEN;
-                const radius = 40 * Math.sqrt(index);
+                const step = Math.sqrt(index);
+                const radius = Math.min(36 * step, 200);
                 points.push({
                     mark,
                     x: centre[0] + Math.cos(angle) * radius,
-                    y: centre[1] + index * 12,
+                    y: centre[1] + Math.min(12 * step, 80),
                     z: centre[2] + Math.sin(angle) * radius,
                     glow: false
                 });

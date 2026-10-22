@@ -8534,8 +8534,9 @@ a.pull-request-detail-checks__name:hover {
 
 /* The Lobes atlas takeover (.devbook/domain/devbook/features.md#lobes-atlas): a
    header row with the scope switch, the picture's controls and the close, then
-   the left panel beside the map. The map fills what is left; the panel scrolls
-   on its own when a scope has more rows than the window is tall. */
+   the left panel beside the map. The map fills what is left; the panel's rows
+   scroll on their own when a scope has more of them than the window is tall,
+   and the scope card under them stays in view. */
 .workspace-surface > .lobes-atlas {
     flex: 1 1 auto;
     min-height: 0;
@@ -8595,6 +8596,19 @@ a.pull-request-detail-checks__name:hover {
     background: var(--color-text-secondary);
 }
 
+/* The scope switch scrolls sideways when its scopes outgrow the row, and no
+   option shrinks below its name. It clipped until the live QA pass found six
+   of thirteen scopes out of reach at 390 px and the rest squeezed until their
+   names ran into each other. */
+.lobes-atlas__scopes {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.lobes-atlas__scopes > .header-group__option {
+    flex: none;
+}
+
 /* A ghost devbook's scope option is dashed, as its outline is on the map. */
 .lobes-atlas__scopes .lobes-atlas__scope--ghost {
     outline: var(--border-width) dashed var(--color-border-strong);
@@ -8621,15 +8635,21 @@ a.pull-request-detail-checks__name:hover {
     min-height: 0;
 }
 
+/* The rows scroll before anything else does. The panel scrolled as a whole
+   until the live QA pass found the scope card's one action under its fold at
+   1440 x 900; the title and the card now keep their height and the list gives
+   way, down to two rows. Only a window too short even for that scrolls the
+   panel itself, so the card is never cut off out of reach. */
 .lobes-atlas__panel {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
     min-height: 0;
-    overflow: auto;
+    overflow-y: auto;
 }
 
 .lobes-atlas__panel-title {
+    flex: none;
     margin: 0 0 0 var(--spacing-xs);
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
@@ -8639,11 +8659,17 @@ a.pull-request-detail-checks__name:hover {
     text-transform: uppercase;
 }
 
+/* The padding keeps a focused row's ring, 2 px out and 2 px wide, clear of
+   the scrolling edge. The floor is two rows. */
 .lobes-atlas__rows {
     display: grid;
+    flex: 0 1 auto;
+    align-content: start;
     gap: var(--spacing-2xs);
+    min-height: calc(2 * 44px + var(--spacing-2xs) + 2 * var(--spacing-xs));
     margin: 0;
-    padding: 0;
+    padding: var(--spacing-xs);
+    overflow-y: auto;
     list-style: none;
 }
 
@@ -8826,6 +8852,7 @@ a.pull-request-detail-checks__name:hover {
 
 .lobes-atlas__card {
     display: flex;
+    flex: none;
     flex-direction: column;
     gap: var(--spacing-xs);
     padding: var(--spacing-sm) var(--spacing-md);
