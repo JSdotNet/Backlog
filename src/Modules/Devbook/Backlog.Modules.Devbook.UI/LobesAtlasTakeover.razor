@@ -388,7 +388,8 @@
 
     /// <summary>The scope to open on: <c>brain</c>, <c>repo:&lt;alias&gt;</c> or
     /// <c>ghost:&lt;alias&gt;</c> — <see cref="DevbookLobesAtlas.ScopeKeyFor"/> —
-    /// or null for All. A scope the graph does not hold opens All.</summary>
+    /// or null for All. A ghost whose alias has been registered since opens that
+    /// devbook; any other scope the graph does not hold opens All.</summary>
     [Parameter]
     public string? Scope { get; set; }
 
@@ -410,6 +411,11 @@
     /// alias) or on that repository's devbook.</summary>
     [Parameter]
     public EventCallback<string> OnOpenScope { get; set; }
+
+    /// <summary>Register repository pressed on a ghost's card, with that ghost's
+    /// scope key, just before the atlas leaves for the Repositories settings.</summary>
+    [Parameter]
+    public EventCallback<string> OnRegisterRepository { get; set; }
 
     private bool IsAll => _scope == LobesAtlasModel.AllLayout;
 
@@ -581,8 +587,13 @@
             return;
         }
 
-        // A reread keeps the reader's place while it is still there.
-        if (_scope != LobesAtlasModel.AllLayout && _graph.Scope(_scope) is null) _scope = LobesAtlasModel.AllLayout;
+        // A reread keeps the reader's place while it is still there — a ghost
+        // whose alias was registered meanwhile as that devbook.
+        if (_scope != LobesAtlasModel.AllLayout && _graph.Scope(_scope) is null)
+        {
+            var registered = RegisteredSince(_scope);
+            _scope = _graph.Scope(registered) is null ? LobesAtlasModel.AllLayout : registered;
+        }
 
         Project();
     }
@@ -592,6 +603,7 @@
     /// the new layout starts from the renderer's default camera.</summary>
     private void SwitchScope(string key)
     {
+        key = RegisteredSince(key);
         _scope = key == LobesAtlasModel.AllLayout || _graph?.Scope(key) is null
             ? LobesAtlasModel.AllLayout
             : _graph.Scope(key)!.Key;
@@ -718,9 +730,26 @@
         return bar < 0 ? null : BrainRepoLink.Parse($"{BrainRepoLink.Scheme}{alias}/{node.Id[(bar + 1)..]}");
     }
 
+    /// <summary>A ghost's key whose alias has been registered since — the graph
+    /// holding its devbook instead — as that devbook's key; any other key as it
+    /// is.</summary>
+    private string RegisteredSince(string key)
+    {
+        const string ghost = DevbookLobesGraph.GhostScopePrefix;
+        if (_graph is null || !key.StartsWith(ghost, StringComparison.Ordinal) || _graph.Scope(key) is not null) return key;
+
+        var devbook = DevbookLobesAtlas.ScopeKeyFor(key[ghost.Length..]);
+        return _graph.Scope(devbook) is null ? key : devbook;
+    }
+
     /// <summary>The ghost card's Register repository: the Repositories settings,
-    /// where a clone of that alias is registered.</summary>
-    private void RegisterRepository() => Navigation.NavigateTo(RepositorySettings);
+    /// where a clone of that alias is registered. The host hears the scope first,
+    /// to reopen the atlas on it once the reader comes back.</summary>
+    private async Task RegisterRepository()
+    {
+        await OnRegisterRepository.InvokeAsync(_scope);
+        Navigation.NavigateTo(RepositorySettings);
+    }
 
     /// <summary>Where Register repository goes.</summary>
     internal const string RepositorySettings = "settings/repositories";

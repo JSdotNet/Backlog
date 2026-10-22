@@ -131,6 +131,8 @@ public sealed class ShellNavigationStore
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
+        AtlasReturnSurface = string.IsNullOrWhiteSpace(dto?.AtlasReturnSurface) ? null : dto.AtlasReturnSurface;
+        AtlasScope = string.IsNullOrWhiteSpace(dto?.AtlasScope) ? null : dto.AtlasScope;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
         GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
         GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
@@ -209,6 +211,18 @@ public sealed class ShellNavigationStore
     /// <summary>The system tools pane's host filter, by the pane's own id; null until
     /// one was chosen.</summary>
     public string? ToolsHostFilter { get; private set; }
+
+    /// <summary>The surface the Lobes atlas was opened over, which its way back
+    /// returns to, by the shell's own surface name; null until the atlas was opened.
+    /// Kept beside <see cref="LastSurface"/> because the Router remounts the shell on
+    /// every route change — Register repository's trip to Settings among them — and
+    /// a reopened atlas must still know where it came from.</summary>
+    public string? AtlasReturnSurface { get; private set; }
+
+    /// <summary>The scope the Lobes atlas was opened on, or the ghost its Register
+    /// repository left from — <c>brain</c>, <c>repo:&lt;alias&gt;</c> or
+    /// <c>ghost:&lt;alias&gt;</c> — or null for All.</summary>
+    public string? AtlasScope { get; private set; }
 
     /// <summary>Whether the archived repositories are shown where they are otherwise
     /// hidden — show archived (local ADR 0029, §3): off until turned on on this device.
@@ -357,6 +371,18 @@ public sealed class ShellNavigationStore
         if (tab == ToolsTab) return;
 
         ToolsTab = tab;
+        Save();
+    }
+
+    /// <summary>Replaces the atlas's place — its way back and its scope — in one save.</summary>
+    public void SetAtlasPlace(string? returnSurface, string? scope)
+    {
+        returnSurface = string.IsNullOrWhiteSpace(returnSurface) ? null : returnSurface;
+        scope = string.IsNullOrWhiteSpace(scope) ? null : scope;
+        if (returnSurface == AtlasReturnSurface && scope == AtlasScope) return;
+
+        AtlasReturnSurface = returnSurface;
+        AtlasScope = scope;
         Save();
     }
 
@@ -647,6 +673,10 @@ public sealed class ShellNavigationStore
                 // Left out until the tools pane has been on a tab or a filter here.
                 ToolsTab = ToolsTab,
                 ToolsHostFilter = ToolsHostFilter,
+                // Left out until the atlas has been opened here. Both keys are stored
+                // names: never rename them without reading the old ones.
+                AtlasReturnSurface = AtlasReturnSurface,
+                AtlasScope = AtlasScope,
                 // Left out while off, the default. The key is a stored name: never
                 // rename it without reading the old one.
                 ShowArchivedRepositories = ShowArchivedRepositories ? true : null,
@@ -718,6 +748,14 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ToolsHostFilter { get; init; }
+
+        /// <summary>Written as <c>atlasReturnSurface</c>, a surface name.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? AtlasReturnSurface { get; init; }
+
+        /// <summary>Written as <c>atlasScope</c>, a Lobes scope key.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? AtlasScope { get; init; }
 
         /// <summary>Written as <c>showArchivedRepositories</c>, and only while on.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

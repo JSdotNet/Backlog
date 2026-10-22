@@ -100,6 +100,45 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         unknown.WaitForAssertion(() => Assert.Equal("true", Scope(unknown, LobesAtlasModel.AllLayout).GetAttribute("aria-pressed")));
     }
 
+    /// <summary>A ghost handed back after its alias was registered — the graph
+    /// holds that devbook now — opens on the devbook.</summary>
+    [Fact]
+    public void A_ghost_handed_in_whose_alias_is_registered_since_opens_its_devbook()
+    {
+        var component = Render("ghost:backlog");
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("repo:backlog", LastModel().Layout);
+            Assert.Equal("true", Scope(component, "repo:backlog").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>Register repository tells the host which ghost it left on before
+    /// it leaves for the settings.</summary>
+    [Fact]
+    public void Register_repository_hands_the_host_the_ghosts_scope_before_it_leaves()
+    {
+        string? heard = null;
+        string? uriWhenHeard = null;
+        var navigation = _context.Services.GetRequiredService<NavigationManager>();
+        var component = _context.Render<LobesAtlasTakeover>(parameters => parameters
+            .Add(atlas => atlas.Scope, "ghost:devbook-stack")
+            .Add(atlas => atlas.OnRegisterRepository, (string scope) =>
+            {
+                heard = scope;
+                uriWhenHeard = navigation.Uri;
+            }));
+
+        component.WaitForAssertion(() =>
+            Assert.Equal("Register repository", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim()));
+        component.Find("[data-testid='lobes-atlas-card-action']").Click();
+
+        Assert.Equal("ghost:devbook-stack", heard);
+        Assert.DoesNotContain("settings/repositories", uriWhenHeard, StringComparison.Ordinal);
+        Assert.EndsWith("/settings/repositories", navigation.Uri, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_region_row_hides_that_region_of_the_scope_on_screen()
     {
@@ -688,6 +727,27 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         _lobes.RaiseChanged();
 
         component.WaitForAssertion(() => Assert.Equal(3, component.FindAll("[data-testid='lobes-atlas-scope']").Count));
+    }
+
+    /// <summary>On a ghost when its alias gets registered — the devbook built into
+    /// the graph after the reader came back — the reread moves to that devbook
+    /// rather than dropping to All.</summary>
+    [Fact]
+    public void A_reread_after_the_ghosts_alias_is_registered_moves_to_its_devbook()
+    {
+        var component = Render("ghost:devbook-stack");
+        component.WaitForAssertion(() => Assert.Equal("ghost:devbook-stack", LastModel().Layout));
+
+        var graph = SampleGraph();
+        _lobes.Graph = graph with
+        {
+            Scopes = [.. graph.Scopes.Select(scope => scope.Kind == DevbookLobesScopeKind.Ghost
+                ? scope with { Key = "repo:devbook-stack", Kind = DevbookLobesScopeKind.Devbook }
+                : scope)]
+        };
+        _lobes.RaiseChanged();
+
+        component.WaitForAssertion(() => Assert.Equal("true", Scope(component, "repo:devbook-stack").GetAttribute("aria-pressed")));
     }
 
     // ----- Fixtures ------------------------------------------------------------------

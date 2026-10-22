@@ -316,7 +316,8 @@ from the shell header's **Atlas**, in place of whatever was on screen, and
 draws each of them as a brain: drag to rotate it, scroll to zoom. Its close
 button, Escape and a second press of **Atlas** return to where the person was:
 the main view, the takeover that was up, or the Devbook when its button opened
-the atlas.
+the atlas. If that takeover or the Devbook has since been switched off, they
+return to the main view instead, and the tooltip names the main view.
 
 **Scopes.** A switch in the atlas's header picks what the atlas shows: **All**,
 **Brain**, then each registered devbook by alias, then each ghost devbook in a
@@ -402,6 +403,9 @@ counts, says when its index was last built, such as "Indexed 4 minutes ago" or
 | A ghost devbook | **Register repository**, which opens the Repositories settings |
 
 A ghost devbook has no index of its own here, so its card gives no time.
+Coming back from the Repositories settings reopens the atlas on that ghost,
+with the same way back as before. Once the alias is registered, it opens on
+that devbook's scope instead.
 
 **The foot.** Under the map, the hint "Drag — rotate · Scroll — zoom" ends with
 the zoom level, and an orientation marker draws the superior, anterior and left
