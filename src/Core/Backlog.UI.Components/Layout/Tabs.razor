@@ -34,6 +34,15 @@
     private ElementReference[] _elements = [];
     private int _focusTarget = -1;
 
+    /// <summary>The tab a keyboard move sent the focus to, until the browser has
+    /// put it there; <see langword="null"/> once it has. See
+    /// <see cref="OnKeyDownAsync"/>.</summary>
+    private string? _focusInFlight;
+
+    /// <summary>Counts the focus moves, so a move that lands late does not clear
+    /// the one sent after it.</summary>
+    private int _focusMoves;
+
     [Parameter]
     public string? ActiveId { get; set; }
 
@@ -159,6 +168,7 @@
     private RenderFragment NavTabList =>
         @<nav class="@ListClassValue"
               data-testid="@ListTestId"
+              data-roving-tabs
               role="tablist"
               aria-label="@AriaLabel"
               aria-orientation="horizontal">@RenderTabs()</nav>;
@@ -166,6 +176,7 @@
     private RenderFragment DivTabList =>
         @<div class="@ListClassValue"
               data-testid="@ListTestId"
+              data-roving-tabs
               role="tablist"
               aria-label="@AriaLabel"
               aria-orientation="horizontal">@RenderTabs()</div>;
@@ -187,7 +198,7 @@
                         aria-controls="@PanelId(id)"
                         tabindex="@(IsActive(id) ? 0 : -1)"
                         disabled="@panel.Disabled"
-                        @onclick="() => ActivateAsync(id)"
+                        @onclick="() => OnClickAsync(id)"
                         @onkeydown="e => OnKeyDownAsync(e, id)">@(panel.TitleContent ?? RenderTitle(panel))</button>
             }
         </text>;
@@ -232,8 +243,13 @@
 
         var target = _focusTarget;
         _focusTarget = -1;
+        var move = _focusMoves;
 
-        if (target >= _elements.Length) return;
+        if (target >= _elements.Length)
+        {
+            _focusInFlight = null;
+            return;
+        }
 
         try
         {
@@ -244,6 +260,10 @@
         }
         catch (InvalidOperationException)
         {
+        }
+        finally
+        {
+            if (move == _focusMoves) _focusInFlight = null;
         }
     }
 
@@ -259,7 +279,17 @@
         if (index < 0) return;
 
         _focusTarget = index;
+        _focusInFlight = id;
+        _focusMoves++;
         StateHasChanged();
+    }
+
+    /// <summary>A click puts the focus on the tab it pressed, so no earlier move
+    /// is still on its way there.</summary>
+    private Task OnClickAsync(string id)
+    {
+        _focusInFlight = null;
+        return ActivateAsync(id);
     }
 
     private Task ActivateAsync(string id)
@@ -297,12 +327,27 @@
         foreach (var panel in _panels) panel.Redraw();
     }
 
+    /// <summary>
+    /// Moves from the tab that has the focus now, which is not always the tab the
+    /// key was pressed on. The focus follows a move only after the strip has
+    /// rendered and the browser has run the focus call; a second arrow pressed
+    /// inside that window is still dispatched from the tab the reader started on.
+    /// Taken at its word it moved from there again, and two fast ArrowLefts from
+    /// the third tab landed on the second. While a move is in flight its target is
+    /// where the next one starts.
+    /// <para>A key held with a modifier is not the strip's — Alt+ArrowLeft is the
+    /// browser's Back — and components.js leaves its default alone for the same
+    /// reason, so it moves nothing here either.</para>
+    /// </summary>
     private Task OnKeyDownAsync(KeyboardEventArgs e, string id)
     {
+        if (e.AltKey || e.CtrlKey || e.MetaKey || e.ShiftKey) return Task.CompletedTask;
+
         var enabled = _panels.Where(panel => !panel.Disabled).Select(panel => panel.Id).ToList();
         if (enabled.Count == 0) return Task.CompletedTask;
 
-        var current = enabled.IndexOf(id);
+        var from = _focusInFlight is { } inFlight && enabled.Contains(inFlight) ? inFlight : id;
+        var current = enabled.IndexOf(from);
         if (current < 0) current = 0;
 
         var target = e.Key switch
@@ -319,6 +364,8 @@
         // The index into the strip, not into the enabled subset: a disabled tab is
         // skipped over by the keyboard but still rendered, so it still has a slot.
         _focusTarget = _panels.FindIndex(panel => panel.Id == enabled[target]);
+        _focusInFlight = enabled[target];
+        _focusMoves++;
 
         return ActivateAsync(enabled[target]);
     }
