@@ -76,6 +76,108 @@
         attempt(focusFrames);
     };
 
+    // The heading a followed reference named — `#quality-goals` on a chapter
+    // opened out of the atlas, a Brain note's chip or an entry — brought to the
+    // top of the reading it is in. A rendered heading carries no id, so it is
+    // found by its text, slugged by GitHub's rule as the devbook generator spells
+    // it (DevbookMarkdown.Slugify), the type mark a heading may lead with left
+    // out: the anchor as written, then the anchor slugged too, so one typed as
+    // the heading reads still lands — the reference resolver's order. The
+    // generator slugs the source, so a heading holding a link slugs its target
+    // there and only its words here; such a heading is not found.
+    //
+    // Looked for in the file the pane opened, where its file view says so —
+    // a design or domain reading stacks several files — and anywhere in the
+    // reading otherwise. Only the nearest scroll container moves, for the reason
+    // backlogRevealRow gives. Waited for a few seconds, because the chapter's body
+    // is read off disk after the pane selects it, then kept at the top for a
+    // second more: a panel switches its path before the new body lands, so the
+    // first match may be a heading of the same name in the file it is leaving,
+    // and diagrams drawn above the heading push it down. The reader scrolling,
+    // pressing a key or a pointer in the reading ends that at once. A scenario
+    // part its page has marked is that page's to reveal, and the heading under
+    // it is left alone.
+    const headingFrames = 300;
+    const headingSettleFrames = 60;
+
+    const headingSlug = text => text.toLowerCase().trim()
+        .replace(/[^\p{L}\p{N}_\s-]/gu, '')
+        .replace(/\s/g, '-');
+
+    window.backlogRevealHeading = (scopeSelector, anchor, path) => {
+        const written = (anchor ?? '').trim();
+        if (!written) return;
+        const wanted = [written.toLowerCase(), headingSlug(written)];
+        const expected = (path ?? '').trim().toLowerCase();
+
+        const textOf = heading => {
+            const copy = heading.cloneNode(true);
+            copy.querySelectorAll('[data-testid="markdown-chapter-type-mark"]').forEach(mark => mark.remove());
+            return copy.textContent ?? '';
+        };
+
+        const opened = view => {
+            const shown = (view.querySelector('.file-view__path')?.textContent ?? '').trim().toLowerCase();
+            return expected.length > 0 && (shown === expected || shown.endsWith('/' + expected));
+        };
+
+        const find = scope => {
+            const views = Array.from(scope.querySelectorAll('.file-view')).filter(opened);
+            const headings = views.length > 0
+                ? views.flatMap(view => Array.from(view.querySelectorAll('[role="heading"]')))
+                : Array.from(scope.querySelectorAll('[role="heading"]'));
+            const slugged = headings.map(heading => ({ heading, slug: headingSlug(textOf(heading)) }));
+            for (const slug of wanted) {
+                const match = slugged.find(entry => entry.slug === slug);
+                if (match) return match.heading;
+            }
+            return null;
+        };
+
+        const scrollerOf = heading => {
+            let container = heading.parentElement;
+            while (container && container !== document.body) {
+                const overflowY = getComputedStyle(container).overflowY;
+                if (overflowY === 'auto' || overflowY === 'scroll') return container;
+                container = container.parentElement;
+            }
+            return null;
+        };
+
+        let readerMoved = false;
+        let watched = null;
+        const moved = () => { readerMoved = true; };
+        const readerEvents = ['wheel', 'touchstart', 'keydown', 'pointerdown'];
+        const done = () => readerEvents.forEach(type => watched?.removeEventListener(type, moved));
+
+        const attempt = (waitLeft, settleLeft, found) => {
+            const scope = document.querySelector(scopeSelector);
+            if (!scope || readerMoved || scope.querySelector('[data-testid="devbook-scenario-part"][aria-current="true"]')) return done();
+
+            if (watched !== scope) {
+                done();
+                watched = scope;
+                readerEvents.forEach(type => scope.addEventListener(type, moved, { passive: true }));
+            }
+
+            const heading = find(scope);
+            const container = heading ? scrollerOf(heading) : null;
+            if (container) {
+                const offset = heading.getBoundingClientRect().top - container.getBoundingClientRect().top;
+                if (Math.abs(offset) > 1) container.scrollTop += offset;
+            }
+
+            const settling = found || container !== null;
+            if (settling ? settleLeft > 0 : waitLeft > 0) {
+                requestAnimationFrame(() => attempt(waitLeft - 1, settling ? settleLeft - 1 : settleLeft, settling));
+            } else {
+                done();
+            }
+        };
+
+        attempt(headingFrames, headingSettleFrames, false);
+    };
+
     // A card the settings search found, brought into view when its link is
     // followed. The link names the card by its title, so the card's heading is
     // looked for on the page on screen — the settings page that is not hidden —

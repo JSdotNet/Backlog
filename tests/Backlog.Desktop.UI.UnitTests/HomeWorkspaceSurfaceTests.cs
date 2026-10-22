@@ -3120,6 +3120,47 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// A chapter that is a heading inside a file — Quality Goals in an arc42 file —
+    /// followed out of the atlas opens the file in the Devbook and asks for that
+    /// heading to be brought into view, whether it is the devbook's own chapter or
+    /// one a Brain note links to through its gold chip: both take the shell's one
+    /// road into the pane, and the anchor rides it to the end. Before, the file
+    /// opened at its top.
+    /// </summary>
+    [Theory]
+    [InlineData("lobes-atlas-open-chapter", false)]
+    [InlineData("lobes-atlas-repo-link", true)]
+    public void A_heading_chapter_followed_out_of_the_atlas_opens_the_devbook_at_that_heading(string control, bool linkedFromTheBrain)
+    {
+        const string chapter = ".devbook/arc42/01-introduction-and-goals.md#quality-goals";
+        var heading = new DevbookLobesNode(
+            $"repo:backlog|{chapter}", "Quality Goals", "repo:backlog", DevbookLobe.Frontal, DevbookLobesNodeKind.Chapter, chapter,
+            RepositoryLink: linkedFromTheBrain ? new DevbookAtlasRepositoryLink("backlog", $"repo:backlog/{chapter}", true, null) : null);
+        var sample = LobesAtlasTakeoverTests.Sample();
+        var graph = sample with { Nodes = [.. sample.Nodes, heading] };
+
+        using var harness = CreateHarness(
+            features => features.SetEnabled(DevbookFeatures.LobesAtlas, true),
+            configureServices: services => services.AddSingleton<IDevbookLobesSource>(new LobesAtlasTakeoverTests.FixedLobes(graph)));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='atlas-toggle-button']")));
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+
+        component.Find($"[data-testid='graph-atlas-index-option'][data-node-id='repo:backlog|{chapter}']").Click();
+        component.WaitForAssertion(() => component.Find(linkedFromTheBrain ? $"[data-testid='{control}'] button" : $"[data-testid='{control}']").Click());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
+            Assert.Equal(".devbook/arc42/01-introduction-and-goals.md", component.Find("[data-testid='arc42-chapter-file'] .file-view__path").TextContent);
+            var reveal = Assert.Single(harness.Context.JSInterop.Invocations, invocation => invocation.Identifier == DevbookPane.RevealHeadingFunction);
+            Assert.Equal("quality-goals", reveal.Arguments[1]);
+        });
+    }
+
     /// <summary>Switching the flag off while the atlas has the screen puts the
     /// workspace back, and the header offers no Atlas.</summary>
     [Fact]

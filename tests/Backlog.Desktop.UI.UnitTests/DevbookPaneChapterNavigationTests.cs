@@ -384,6 +384,61 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         Assert.Null(component.FindComponent<DomainDevbookPanel>().Instance.Focus?.Anchor);
     }
 
+    /// <summary>
+    /// A request naming a heading in a chapter that is not a scenario page — an
+    /// arc42 file's Quality goals, followed out of the atlas — asks the script to
+    /// bring that heading into view once the chapter is on screen, in the section
+    /// the chapter is read in. Once per request: the renders after it do not pull
+    /// the reader back, the same heading asked for again is scrolled to again, and
+    /// a request naming no heading asks for nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_request_with_an_anchor_into_an_arc42_chapter_brings_the_heading_into_view()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", ChapterPath(component)));
+        Assert.Empty(RevealedHeadings(harness));
+
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".devbook/arc42/03-context-and-scope.md#quality-goals", 1)));
+
+        WaitForChapter(component, ".arc42/03-context-and-scope.md", "The system in its surroundings");
+        component.WaitForAssertion(() => Assert.Equal(["quality-goals"], RevealedHeadings(harness)));
+        // The script is told where to look and which file it is: the section on
+        // screen — the hidden panels of the other sections come first and hold
+        // nothing — and a path the file view on screen ends with.
+        var asked = Assert.Single(harness.Context.JSInterop.Invocations[DevbookPane.RevealHeadingFunction]);
+        Assert.Equal(DevbookPane.RevealHeadingScope, asked.Arguments[0]);
+        var reading = component.Find(DevbookPane.RevealHeadingScope);
+        var shownPath = reading.QuerySelector("[data-testid='arc42-chapter-file'] .file-view__path")?.TextContent;
+        Assert.NotNull(shownPath);
+        var expectedPath = Assert.IsType<string>(asked.Arguments[2]);
+        Assert.True(
+            shownPath == expectedPath || shownPath.EndsWith("/" + expectedPath, StringComparison.OrdinalIgnoreCase),
+            $"The script would look for '{expectedPath}' in a reading showing '{shownPath}'.");
+
+        // The renders that follow — a keystroke beside the pane — ask nothing more.
+        component.Render();
+        Assert.Single(RevealedHeadings(harness));
+
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".devbook/arc42/03-context-and-scope.md#quality-goals", 2)));
+        component.WaitForAssertion(() => Assert.Equal(["quality-goals", "quality-goals"], RevealedHeadings(harness)));
+
+        component.Render(parameters => parameters
+            .Add(pane => pane.OpenReference, new DevbookOpenRequest(".devbook/arc42/03-context-and-scope.md", 3)));
+        WaitForChapter(component, ".arc42/03-context-and-scope.md", "The system in its surroundings");
+        component.Render();
+        Assert.Equal(2, RevealedHeadings(harness).Count);
+    }
+
+    private static List<string?> RevealedHeadings(Harness harness) =>
+        [.. harness.Context.JSInterop.Invocations
+            .Where(invocation => invocation.Identifier == DevbookPane.RevealHeadingFunction)
+            .Select(invocation => invocation.Arguments[1] as string)];
+
     /// <summary>A section switched to and back is the reader's own pick too.</summary>
     [Fact]
     public async Task Switching_section_drops_the_focused_anchor()
@@ -452,7 +507,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
     private Harness CreateHarness(string? contextMap = null, bool withDecisionRecords = false, bool withFork = false)
     {
         var root = NewRoot(contextMap);
-        File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), $"# Context and scope\n\nThe system in its surroundings{(withDecisionRecords ? ", decided in `.arc42/adr/0004-index.md`" : string.Empty)}.\n");
+        File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), $"# Context and scope\n\nThe system in its surroundings{(withDecisionRecords ? ", decided in `.arc42/adr/0004-index.md`" : string.Empty)}.\n\n## Quality goals\n\nFast to open.\n");
 
         if (withDecisionRecords)
         {
