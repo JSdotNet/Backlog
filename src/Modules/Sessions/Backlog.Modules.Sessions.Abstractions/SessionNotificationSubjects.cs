@@ -35,6 +35,39 @@ public static class SessionNotificationSubjects
     /// <summary>Why a notification about a pull request closes: it merged or closed.</summary>
     public const string PullRequestEndedReason = "Pull request merged";
 
+    /// <summary>Why the Personal Validation question about a run closes unanswered: the
+    /// gate was decided at the desktop, so the stage moved on without it.</summary>
+    public const string ValidationDecidedReason = "Validation decided at the desktop";
+
+    /// <summary>The choice that approves a run's Personal Validation.</summary>
+    public const string ApproveChoice = "approve";
+
+    /// <summary>The choice that rejects a run's Personal Validation.</summary>
+    public const string RejectChoice = "reject";
+
+    /// <summary>
+    /// The source key of the Personal Validation question about a run: the run and the
+    /// worktree it is recorded in, so the answer finds the run file after a restart, when
+    /// nothing in memory remembers either.
+    /// </summary>
+    public static string ValidationSourceKey(string runId, string worktree)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(worktree);
+
+        return $"{runId.Trim()}@{worktree.Trim()}";
+    }
+
+    /// <summary>The run and worktree a <see cref="ValidationSourceKey"/> names, or null for
+    /// a key that is not one.</summary>
+    public static (string RunId, string Worktree)? ParseValidationSourceKey(string? key)
+    {
+        var at = key?.IndexOf('@', StringComparison.Ordinal) ?? -1;
+        if (at <= 0 || at == key!.Length - 1) return null;
+
+        return (key[..at], key[(at + 1)..]);
+    }
+
     /// <summary>A pull request's subject id: <c>owner/name#number</c>, the repository as
     /// GitHub spells it in lower case so two spellings of one repository are one subject.</summary>
     public static string PullRequestId(string repository, int number)

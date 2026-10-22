@@ -24,6 +24,22 @@ public static class DevbookNotificationSubjects
     /// <summary>A remark's subject id.</summary>
     public static string Id(Guid remarkId) => remarkId.ToString("D");
 
+    /// <summary>
+    /// The deep link to the chapter a remark is on:
+    /// <c>backlog://devbook/&lt;repository alias&gt;/&lt;chapter path&gt;</c>, each segment
+    /// escaped and the path's slashes kept, so any channel that has a Devbook view can
+    /// open the chapter.
+    /// </summary>
+    public static string ChapterLink(string? repositoryAlias, string chapterPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(chapterPath);
+
+        var alias = string.IsNullOrWhiteSpace(repositoryAlias) ? "_" : Uri.EscapeDataString(repositoryAlias.Trim());
+        var path = string.Join('/', chapterPath.Trim().Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.EscapeDataString));
+
+        return $"backlog://devbook/{alias}/{path}";
+    }
+
     /// <summary>Whether a remark is still open: there, not deleted, and not resolved.</summary>
     public static bool IsOpen(DevbookAnnotation? remark) => remark is { IsLive: true, Resolved: false };
 }

@@ -82,7 +82,7 @@ The subjects a notification can be about, and when each ends:
 | `sessions` / `pull-request` / `owner/name#number` | Sessions | merged or closed | "Pull request merged" |
 | `tasks` / `task` / task id | Tasks | marked Done or Archived, or deleted | "Task done" |
 | `devbook` / `remark` / remark id | Devbook | resolved or deleted | "Remark resolved" |
-| `sync` / `pairing` / pairing id | Sync | its pairing code expires, or is reported redeemed | "Pairing finished" |
+| `sync` / `pairing` / pairing id | Sync | its pairing code expires unredeemed, or the question about the device that redeemed it is answered; a pairing from an earlier run stays live | "Pairing finished" |
 
 The owning context reports the end where it notices it, and answers a probe
 about each subject at startup for the ends it missed. An end made on another

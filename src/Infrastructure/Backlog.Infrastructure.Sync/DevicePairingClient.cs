@@ -26,7 +26,7 @@ namespace Backlog.Infrastructure.Sync;
 /// <see cref="SyncErrorCodes"/> is what it branches on.
 /// </para>
 /// </summary>
-public sealed class DevicePairingClient
+public sealed class DevicePairingClient : IDeviceRoster
 {
     /// <summary>Where a failure that never reached the service is filed. It is
     /// not one of <see cref="SyncErrorCodes"/> on purpose — those are codes the
@@ -144,6 +144,25 @@ public sealed class DevicePairingClient
         await SyncHttp.SendAsync<DeviceStatusResponse>(
             () => _http.GetAsync(SyncRoutes.Absolute(SyncRoutes.DeviceStatus), cancellationToken),
             cancellationToken).ConfigureAwait(false);
+
+    /// <summary>Every device of this device's owner, with the device that paired each.</summary>
+    public async Task<Result<DeviceListResponse>> ListDevicesAsync(CancellationToken cancellationToken = default) =>
+        await SyncHttp.SendAsync<DeviceListResponse>(
+            () => _http.GetAsync(SyncRoutes.Absolute(SyncRoutes.Devices), cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+
+    /// <summary>Revokes another device of this owner. A device that is gone already
+    /// answers <see cref="SyncErrorCodes.DeviceNotFound"/>, which a caller that only
+    /// wants it gone treats as done.</summary>
+    public async Task<Result> RevokeDeviceAsync(Guid deviceId, CancellationToken cancellationToken = default)
+    {
+        var revoked = await SyncHttp.SendAsync(
+            () => _http.DeleteAsync(SyncRoutes.DeviceFor(deviceId), cancellationToken),
+            (_, _) => Task.FromResult(true),
+            cancellationToken).ConfigureAwait(false);
+
+        return revoked.IsSuccess ? Result.Success() : Result.Failure(revoked.Error);
+    }
 
     private async Task<Result<DeviceCredential>> StoreAsync(
         Func<Task<HttpResponseMessage>> send,

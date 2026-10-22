@@ -171,6 +171,64 @@ The system SHALL deliver notifications to a phone only on Android.
 - **When** Desktop A publishes a question
 - **Then** the phone shows an OS notification with the title and summary, and set choices as notification actions
 
+## Asking from the contexts
+
+```meta
+status: proposed
+type: requirements
+related: [.devbook/domain/notifications/features.md#asking-from-the-contexts, .devbook/domain/notifications/context.md]
+```
+
+> What the contexts that publish promise the person.
+
+### Requirement: A run at Personal Validation asks to be approved
+
+```meta
+status: proposed
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Reaching_personal_validation_asks_to_approve_the_run_with_approve_reject_and_an_open_answer, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_answer_is_recorded_on_the_run_as_its_gate_decision, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_replayed_answer_changes_nothing_and_the_next_gate_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Re_reporting_the_gate_after_it_was_approved_asks_nothing_more, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_decision_the_desktop_recorded_after_the_question_wins_over_a_late_answer, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_gate_moving_on_at_the_desktop_closes_the_unanswered_question]
+```
+
+The system SHALL ask "Approve the validation of *run*?" with Approve, Reject and an open answer when a delivery run's Personal Validation stage goes in progress, and SHALL record the answer on the run as its gate decision, an open answer as a rejection in the person's words.
+
+#### Scenario: Approved from the phone
+
+- **Given** a delivery run on Desktop A reaches Personal Validation
+- **When** the person taps Approve on the phone, and Desktop A accepts it
+- **Then** the run records the approval, and the pull request is still opened at Desktop A
+
+### Requirement: A redeemed pairing code is confirmed on the desktop that showed it
+
+```meta
+status: proposed
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_device_this_desktops_code_paired_is_asked_about_here_only_as_allow_or_refuse, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.Refuse_revokes_the_device_and_ends_the_pairing, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.Allow_keeps_the_device_and_ends_the_pairing, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_code_redeemed_in_its_last_seconds_is_still_asked_about, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.The_probe_calls_a_pairing_ended_only_when_this_process_saw_it_end, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_refusal_replayed_after_a_restart_revokes_from_the_source_key_and_a_device_already_gone_counts]
+```
+
+The system SHALL ask "Pair *device name*?" with Allow and Refuse, answerable only on the desktop whose pairing code the device redeemed, and SHALL revoke the device when the answer is Refuse.
+
+#### Scenario: A device the person does not know
+
+- **Given** Desktop A shows a pairing code
+- **When** a device called "Unknown" redeems it, and the person answers Refuse on Desktop A
+- **Then** the device is revoked, and the pairing ends
+
+### Requirement: A remark left elsewhere raises an alert
+
+```meta
+status: proposed
+type: requirement
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.RemarkNotificationStoreTests.A_remark_left_on_another_device_raises_an_info_alert_about_it_linking_to_its_chapter, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.RemarkNotificationStoreTests.A_remark_typed_here_a_draft_or_one_already_known_raises_no_alert, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.RemarkNotificationStoreTests.A_first_pull_of_old_remarks_raises_no_alert]
+```
+
+The system SHALL raise an info alert about a remark left on a Devbook chapter on another device, linking to the chapter, and SHALL raise none for a remark typed on the desktop itself.
+
+#### Scenario: A remark from the laptop
+
+- **Given** the person leaves a remark on "Storage and sync" on Desktop B
+- **When** the remark syncs to Desktop A
+- **Then** Desktop A raises an info alert about the remark that links to the chapter
+
 ## Closing a notification
 
 ```meta
@@ -201,7 +259,7 @@ The system SHALL let the source that published a notification close it, and SHAL
 ```meta
 status: proposed
 type: requirement
-tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeSubjectTests.A_task_marked_done_on_the_phone_closes_its_notifications_on_the_owner, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.TaskSubjectClosureTests.Marking_a_task_done_closes_the_notifications_about_it, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.TaskSubjectClosureTests.A_task_that_comes_back_closes_nothing_and_ending_it_again_closes_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.A_session_seen_open_and_then_archived_closes_its_notifications_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.Finishing_a_run_closes_the_notifications_about_it_whatever_it_finished_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestSubjectsTests.A_reading_that_finds_it_merged_or_closed_closes_the_notifications_about_it_once, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.RemarkSubjectClosureTests.A_resolve_synced_in_from_another_device_closes_them_the_same_way, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_code_that_expires_closes_the_notifications_about_its_pairing, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_a_subject_probe_for_every_context_that_owns_subjects]
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeSubjectTests.A_task_marked_done_on_the_phone_closes_its_notifications_on_the_owner, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.TaskSubjectClosureTests.Marking_a_task_done_closes_the_notifications_about_it, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.TaskSubjectClosureTests.A_task_that_comes_back_closes_nothing_and_ending_it_again_closes_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.A_session_seen_open_and_then_archived_closes_its_notifications_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.SessionSubjectClosureTests.Finishing_a_run_closes_the_notifications_about_it_whatever_it_finished_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestSubjectsTests.A_reading_that_finds_it_merged_or_closed_closes_the_notifications_about_it_once, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.RemarkNotificationStoreTests.A_resolve_synced_in_from_another_device_closes_them_the_same_way, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.PairingSubjectsTests.A_code_that_expires_unredeemed_closes_the_notifications_about_its_pairing, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_a_subject_probe_for_every_context_that_owns_subjects, unit:dotnet:Backlog.HostComposition.UnitTests.WebHarnessHostTests.The_desktop_harness_composes_an_answer_handler_for_every_context_that_asks]
 ```
 
 The system SHALL close every Open notification about a subject when the context that owns the subject reports that it ended, wherever the end happened.

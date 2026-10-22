@@ -58,6 +58,11 @@ internal sealed class DeviceDocument
     /// the record does not distinguish.</summary>
     public DateTimeOffset RegisteredAt { get; set; }
 
+    /// <summary>The device whose pairing code this one redeemed, <c>"D"</c>
+    /// format; null for an owner's first device, and absent on a document
+    /// written before the field existed.</summary>
+    public string? PairedBy { get; set; }
+
     /// <summary>Cosmos's own write stamp, in unix seconds. Read-only and set by
     /// the store; mapped so it round-trips rather than being dropped.</summary>
     [JsonPropertyName("_ts")]

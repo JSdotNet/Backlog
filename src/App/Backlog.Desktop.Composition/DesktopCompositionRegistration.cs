@@ -175,6 +175,11 @@ public static class DesktopCompositionRegistration
         // The Settings page's test question: the page reads its answer off the centre, so the
         // handler only takes it, for the same reason.
         services.AddNotificationAnswerHandler<TestNotificationAnswers>();
+        // The questions Sessions and Sync ask: a run's Personal Validation, recorded on the
+        // run file; and the device that redeemed this desktop's pairing code, which Refuse
+        // revokes.
+        services.AddNotificationAnswerHandler<SessionValidationAnswers>();
+        services.AddNotificationAnswerHandler<PairingAnswers>();
         // The stand-up behind the shell's Ask AI port on the Goals view, after the
         // module so the scoped stand-up port it holds exists.
         services.AddGoalsAiContentSource();
@@ -513,13 +518,14 @@ public static class DesktopCompositionRegistration
         // device names it, whichever folder this machine has an area pointed at.
         // Watched for a remark that is resolved or deleted, whichever caller does it — a
         // panel, the MCP tool, or a resolve synced in from another device — so the
-        // notifications about it close (RemarkSubjectClosingStore).
+        // notifications about it close, and for a remark left on another device that syncs
+        // in, which raises an alert linking to its chapter (RemarkNotificationStore).
         services.AddSingleton<IDevbookAnnotationStore>(sp =>
-            new RemarkSubjectClosingStore(
+            new RemarkNotificationStore(
                 new DevbookAnnotationStore(
                     () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
                     folders: sp.GetRequiredService<IDevbookFolderSource>()),
                 sp.GetService<INotifications>,
-                sp.GetService<ILogger<RemarkSubjectClosingStore>>()));
+                sp.GetService<ILogger<RemarkNotificationStore>>()));
     }
 }

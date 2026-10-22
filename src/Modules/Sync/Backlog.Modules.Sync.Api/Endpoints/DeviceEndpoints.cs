@@ -2,6 +2,7 @@ using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Api.Security;
 using Backlog.Modules.Sync.Features.DescribeOwner;
+using Backlog.Modules.Sync.Features.Devices;
 using Backlog.Modules.Sync.Features.IssueDeviceToken;
 using Backlog.Modules.Sync.Features.IssuePairingCode;
 using Backlog.Modules.Sync.Features.RedeemPairingCode;
@@ -54,6 +55,12 @@ internal static class DeviceEndpoints
 
         paired.MapGet(SyncRoutes.DeviceStatus, DescribeOwner)
             .WithSummary("Describes the calling device and its owner.");
+
+        paired.MapGet(SyncRoutes.Devices, ListDevices)
+            .WithSummary("Lists the owner's devices, each with the device that paired it.");
+
+        paired.MapDelete(SyncRoutes.Device, RevokeDevice)
+            .WithSummary("Revokes one of the owner's other devices.");
 
         return sync;
     }
@@ -120,5 +127,26 @@ internal static class DeviceEndpoints
         var result = await handler.Handle(new DescribeOwnerQuery(context.GetOwnerScope()), cancellationToken);
 
         return SyncResults.From(context, result, Results.Ok);
+    }
+
+    private static async Task<IResult> ListDevices(
+        HttpContext context,
+        IQueryHandler<ListDevicesQuery, Result<DeviceListResponse>> handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(new ListDevicesQuery(context.GetOwnerScope()), cancellationToken);
+
+        return SyncResults.From(context, result, Results.Ok);
+    }
+
+    private static async Task<IResult> RevokeDevice(
+        HttpContext context,
+        Guid id,
+        ICommandHandler<RevokeDeviceCommand, Result> handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(new RevokeDeviceCommand(context.GetOwnerScope(), id), cancellationToken);
+
+        return SyncResults.From(context, result, Results.NoContent);
     }
 }

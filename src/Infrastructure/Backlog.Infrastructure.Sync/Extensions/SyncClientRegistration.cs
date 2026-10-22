@@ -102,14 +102,18 @@ public static class SyncClientRegistration
         services.AddHttpClient<DevicePairingClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddSyncPipeline();
 
-        // The pairings the codes this device issues open, so a notification about one
-        // closes when its code expires or is redeemed. One for the process, because the
-        // pairing client is transient. Notifications is resolved when a pairing ends,
-        // not here: a host that composed none closes nothing.
+        // The pairings the codes this device issues open. While a code waits, the device
+        // list is read through the pairing client to see the device that redeemed it, and
+        // the person is asked on this desktop whether to keep it; a notification about the
+        // pairing closes when that is answered or the code expires unredeemed. One for the
+        // process, because the pairing client is transient. Notifications and the client
+        // are resolved when they are needed, not here: a host that composed no
+        // notifications asks and closes nothing.
         services.TryAddSingleton(sp => new PairingSubjects(
             sp.GetService<INotifications>,
             sp.GetService<TimeProvider>(),
-            sp.GetService<ILogger<PairingSubjects>>()));
+            sp.GetService<ILogger<PairingSubjects>>(),
+            sp.GetService<DevicePairingClient>));
 
         return services;
     }

@@ -62,7 +62,32 @@ adapter that notices the end calls `CloseForSubjectAsync`:
 | Sessions (pull requests) | `Backlog.Desktop.UI` | the session card's pull request reading |
 | Tasks | `Backlog.Infrastructure.Sqlite` | the task store, which the sync merge also writes through |
 | Devbook | `Backlog.Infrastructure.Devbook` | a decorator over the remark store |
-| Sync | `Backlog.Infrastructure.Sync` | the pairing client, and the code's expiry |
+| Sync | `Backlog.Infrastructure.Sync` | the answer to the pairing question, and the code's expiry |
+
+Three contexts publish through the same adapters, and two of them register an
+answer handler for their source:
+
+| Context | Publishes | About | Answer handler |
+| --- | --- | --- | --- |
+| Sessions | "Approve the validation of *run*?": Approve, Reject, or an open answer, when a run's Personal Validation stage goes in progress | the run | `SessionValidationAnswers` records the decision on the run file; an open answer is a rejection in the person's words |
+| Sync | "Pair *device name*?": Allow or Refuse, `answerOn: owner`, when a device redeems this desktop's code | the pairing | `PairingAnswers` revokes the device on Refuse, then ends the pairing |
+| Devbook | An info alert "Remark left on *chapter*", with a `backlog://devbook/<alias>/<chapter>` deep link, when a remark left on another device syncs in | the remark | none |
+
+Sessions asks when the gate moves into progress, or is reported in progress again
+after a rejection set the approval back to pending, and only once its earlier
+question is settled. It closes an unanswered question when the gate moves on at
+the desktop, with the reason "Validation decided at the desktop", and a decision
+the desktop recorded after the question went out wins over a late answer.
+
+Sync learns of a redemption by reading the owner's device list every five seconds
+while its code waits, and for thirty seconds past its expiry, because the service
+does not tell the issuing desktop. A redeemed pairing stops expiring and lasts
+until the question is answered, across a restart too: the device is paired from
+the moment it redeemed the code, so its question stays open rather than letting
+the device stay unasked. Only the device whose code paired another may revoke it.
+
+A remark typed on this desktop raises no alert, nor does one made more than a day
+before it arrives, so a first pull of every remark raises none.
 
 ## Owner screens
 
@@ -119,8 +144,8 @@ contract to the contexts that publish, as an open host service.
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Sessions](../sessions/context.md) | OHS + Published Language (Notifications = supplier) | `INotifications.PublishAsync` and an `INotificationAnswerHandler` for its source name; closes by subject when a session is archived or deleted, a run finishes, or a pull request merges or closes; answers the startup probe for all three | `Backlog.Modules.Notifications.Abstractions` | A question at Personal Validation is answered once and handed back to its handler; closing by subject also closes the MCP tools' notifications about a session. |
+| [Sessions](../sessions/context.md) | OHS + Published Language (Notifications = supplier) | `INotifications.PublishAsync` when a run reaches Personal Validation, and `SessionValidationAnswers` for the `sessions` source; closes by subject when a session is archived or deleted, a run finishes, or a pull request merges or closes; answers the startup probe for all three | `Backlog.Modules.Notifications.Abstractions` | A question at Personal Validation is answered once and handed back to its handler; closing by subject also closes the MCP tools' notifications about a session. |
 | MCP server (`Backlog.Infrastructure.Mcp`) | OHS + Published Language (Notifications = supplier) | `notify` and `ask` publish as source `mcp`, keyed by the call, about the calling session (`sessions` / `session` / its id) when the caller names one, otherwise a question is about itself (`mcp` / `ask` / the key); `get_answer` and `close` read and withdraw through `INotificationStatuses` and `INotifications.CloseAsync`, only for notifications source `mcp` published; its answer handler only takes the answer | `Backlog.Modules.Notifications.Abstractions` | `ask` answers the id at once and never waits; the session polls `get_answer` for pending, the answer, or closed with its reason. |
-| [Sync](../sync/context.md) | OHS + Published Language (Notifications = supplier) | Publishes a "Pair this new device?" question on the owner desktop; closes by subject when the pairing code is redeemed or expires | `Backlog.Modules.Notifications.Abstractions` | The answer confirms or refuses the pairing code. |
-| [Devbook](../devbook/context.md) | OHS + Published Language (Notifications = supplier) | Publishes an alert when a remark is left on a chapter the person owns; closes it when the remark is resolved | `Backlog.Modules.Notifications.Abstractions` | The alert links to the chapter. |
+| [Sync](../sync/context.md) | OHS + Published Language (Notifications = supplier) | Publishes "Pair *device name*?" on the desktop whose code a device redeemed, `answerOn: owner`, and `PairingAnswers` for the `sync` source; closes by subject when the question is answered or the code expires unredeemed | `Backlog.Modules.Notifications.Abstractions` | Allow keeps the device; Refuse revokes it. |
+| [Devbook](../devbook/context.md) | OHS + Published Language (Notifications = supplier) | Publishes an info alert when a remark left on another device syncs in; closes it when the remark is resolved | `Backlog.Modules.Notifications.Abstractions` | The alert links to the chapter. |
 | [Tasks](../tasks/domain.md#task) | OHS + Published Language (Notifications = supplier) | Closes by subject when a task is marked Done, archived or deleted, here or synced in; answers the startup probe | `Backlog.Modules.Notifications.Abstractions` | A question about a finished task is closed on every device. |
