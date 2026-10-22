@@ -41,6 +41,14 @@ public static class DevbookLobesAtlas
     /// reason of its own.</summary>
     public const string NotOnThisMachine = "not on this machine";
 
+    /// <summary>The Lobes scope that shows what the Devbook pane reads: the Brain
+    /// for a blank alias, else that repository's devbook — the key
+    /// <see cref="DevbookLobesReader"/> gives it.</summary>
+    public static string ScopeKeyFor(string? repositoryAlias) =>
+        string.IsNullOrWhiteSpace(repositoryAlias)
+            ? DevbookLobesGraph.BrainScopeKey
+            : "repo:" + repositoryAlias.Trim().ToLowerInvariant();
+
     /// <summary>The name a region of this kind of scope goes by.</summary>
     public static string RegionName(DevbookLobesScopeKind kind, DevbookLobe lobe) =>
         (kind == DevbookLobesScopeKind.Brain ? BrainRegionNames : DevbookRegionNames)[lobe];

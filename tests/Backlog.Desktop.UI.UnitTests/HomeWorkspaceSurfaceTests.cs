@@ -1910,14 +1910,14 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The surfaces are stored by name, so each is appended and none reordered, and
-    /// the Devbook joined last, after the Inbox (local ADR 0022, amendment of
-    /// 2026-10-15). A tripwire on a later tidy-up rather than a test of behaviour,
-    /// which is why it lists members.
+    /// the Devbook joined after the Inbox (local ADR 0022, amendment of
+    /// 2026-10-15), then the Lobes atlas after it. A tripwire on a later tidy-up
+    /// rather than a test of behaviour, which is why it lists members.
     /// </summary>
     [Fact]
-    public void The_devbook_is_the_last_surface_appended_after_the_inbox()
+    public void The_devbook_is_appended_after_the_inbox_and_the_atlas_after_it()
     {
-        string[] expected = ["Workspace", "Tools", "Dashboard", "Roadmap", "Sessions", "PullRequests", "Inbox", "Devbook"];
+        string[] expected = ["Workspace", "Tools", "Dashboard", "Roadmap", "Sessions", "PullRequests", "Inbox", "Devbook", "Atlas"];
 
         Assert.Equal(expected, Enum.GetNames<WorkspaceSurface>());
     }
@@ -2993,6 +2993,205 @@ public sealed class HomeWorkspaceSurfaceTests
         component.Find("[data-testid='roadmap-view-option']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']")));
     }
+
+    // ----- The Lobes atlas (.devbook/domain/devbook/context.md#lobes-atlas) ------------
+
+    /// <summary>With the atlas-lobes flag off — its default — the header offers no
+    /// Atlas.</summary>
+    [Fact]
+    public void With_the_lobes_flag_off_the_header_offers_no_atlas()
+    {
+        using var harness = CreateHarness(configureServices: AddLobes);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        Assert.Empty(component.FindAll("[data-testid='atlas-toggle-button']"));
+    }
+
+    /// <summary>With the flag on, the header's Atlas gives the atlas the whole
+    /// screen in place of the view, and its close button returns to that view.</summary>
+    [Fact]
+    public void With_the_lobes_flag_on_the_headers_atlas_takes_the_screen_and_its_close_returns_to_the_view()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='board-view-option']")));
+        component.Find("[data-testid='board-view-option']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("Open the atlas", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title")));
+
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var surface = component.Find("[data-testid='atlas-surface']");
+            Assert.Equal("MAIN", surface.TagName);
+            Assert.True(surface.HasAttribute("data-escape-closes"));
+            Assert.Equal("all", surface.QuerySelector("[data-testid='lobes-atlas']")!.GetAttribute("data-scope"));
+            Assert.Single(component.FindAll("main"));
+            Assert.Empty(component.FindAll("[data-testid='workspace']"));
+
+            var option = component.Find("[data-testid='atlas-toggle-button']");
+            Assert.Equal("true", option.GetAttribute("aria-pressed"));
+            Assert.Equal("atlas-surface", option.GetAttribute("aria-controls"));
+            Assert.Equal("Back to Board", option.GetAttribute("title"));
+            Assert.Equal("false", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
+        });
+
+        component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas-close']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane']"));
+            Assert.Equal("true", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>The Devbook's Atlas button, with the flag on, opens the atlas at the
+    /// Devbook's scope over the Devbook; its close, Escape and its option pressed
+    /// again return to the Devbook rather than the view under it — where the person
+    /// was.</summary>
+    [Theory]
+    [InlineData("close")]
+    [InlineData("escape")]
+    [InlineData("option")]
+    public async Task The_devbooks_atlas_button_opens_the_atlas_at_its_scope_and_the_way_back_returns_to_the_devbook(string wayBack)
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
+        var component = Render(harness);
+
+        // Scoped to the repository, as the application hosts require before they
+        // offer its Devbook.
+        component.WaitForElement("[data-testid='repository-filter-option']").Click();
+        OpenTheDevbook(component);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-atlas-toggle']")));
+        component.Find("[data-testid='devbook-atlas-toggle']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+            Assert.Equal("repo:backlog", component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
+            Assert.Equal("Back to Devbook", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
+        });
+
+        switch (wayBack)
+        {
+            case "close":
+                component.Find("[data-testid='lobes-atlas-close']").Click();
+                break;
+            case "escape":
+                await component.Find("[data-testid='atlas-surface']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+                break;
+            case "option":
+                component.Find("[data-testid='atlas-toggle-button']").Click();
+                break;
+        }
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface'] [data-testid='devbook-stack']"));
+            Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>A resolved chapter followed out of the atlas opens that repository's
+    /// devbook in the atlas's place, which closes the atlas.</summary>
+    [Fact]
+    public void A_chapter_followed_out_of_the_atlas_opens_the_devbook_in_its_place()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='atlas-toggle-button']")));
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+
+        component.Find("[data-testid='graph-atlas-index-option'][data-node-id='repo:backlog|.devbook/arc42/adr/0001-use-sqlite.md']").Click();
+        component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-repo-link'] button").Click());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface'] [data-testid='devbook-stack']"));
+        });
+    }
+
+    /// <summary>Switching the flag off while the atlas has the screen puts the
+    /// workspace back, and the header offers no Atlas.</summary>
+    [Fact]
+    public void Switching_the_lobes_flag_off_leaves_the_atlas_for_the_workspace()
+    {
+        AppFeatureSettingsStore? features = null;
+        using var harness = CreateHarness(
+            store =>
+            {
+                features = store;
+                _ = store.SetEnabled(DevbookFeatures.LobesAtlas, true);
+            },
+            configureServices: AddLobes);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='atlas-toggle-button']")));
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='atlas-surface']")));
+
+        _ = features!.SetEnabled(DevbookFeatures.LobesAtlas, false);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='atlas-toggle-button']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+        });
+
+        // Back on, the switch offers the atlas again but does not reopen it unasked.
+        _ = features.SetEnabled(DevbookFeatures.LobesAtlas, true);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='atlas-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+        });
+    }
+
+    /// <summary>The header's Atlas over another takeover returns to that takeover,
+    /// and Escape heard at the document takes the same way back.</summary>
+    [Fact]
+    public async Task The_atlas_opened_over_another_takeover_returns_to_it_on_escape_at_the_document()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
+
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='atlas-surface']"));
+            Assert.Equal("false", component.Find("[data-testid='dashboard-toggle-button']").GetAttribute("aria-pressed"));
+            Assert.Equal("Back to Dashboard", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
+        });
+
+        await component.InvokeAsync(component.Instance.CloseSurfaceOnEscapeAsync);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Equal("true", component.Find("[data-testid='dashboard-toggle-button']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    private static void AddLobes(IServiceCollection services) =>
+        services.AddSingleton<IDevbookLobesSource>(new LobesAtlasTakeoverTests.FixedLobes(LobesAtlasTakeoverTests.Sample()));
 
     /// <summary>Gives the Devbook the screen through its header option.</summary>
     private static void OpenTheDevbook(IRenderedComponent<Home> component)

@@ -495,6 +495,27 @@
                                                 TestId="tools-feature-status" />
                         </ToggleButton>
                     }
+
+                    @* The Lobes atlas, while its flag is on: the Brain and every
+                       devbook in one full-window map. A takeover like its
+                       neighbours, except that closing it returns to whichever
+                       surface it was opened over — the Devbook opens it too. *@
+                    @if (AtlasOffered)
+                    {
+                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="AtlasVisible"
+                                      id="atlas-toggle-button"
+                                      Title="@AtlasOptionTitle"
+                                      TestId="atlas-toggle-button"
+                                      aria-controls="atlas-surface"
+                                      PressedChanged="ToggleAtlas">
+                            Atlas
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.LobesAtlas)"
+                                                Title="@FeatureStatusTitle(DevbookFeatures.LobesAtlas)"
+                                                TestId="atlas-feature-status" />
+                        </ToggleButton>
+                    }
                 </ButtonGroup>
             }
         </nav>
@@ -717,6 +738,27 @@
                               FocusPullRequest="@_focusPullRequest" />
         </main>
     }
+    else if (AtlasVisible)
+    {
+        @* The Lobes atlas takes the screen as the takeovers above do, Escape
+           included, but its close, its option pressed again and Escape all return
+           to the surface it was opened over — the Devbook, when its Atlas button
+           opened it. A node followed out of it opens the Devbook in its place. *@
+        <main class="workspace-surface"
+              id="atlas-surface"
+              data-testid="atlas-surface"
+              tabindex="-1"
+              @ref="_surfaceElement"
+              @onkeydown="OnAtlasKeyDown"
+              data-escape-closes
+              aria-label="Atlas">
+            <LobesAtlasTakeover Scope="@_atlasScope"
+                                OnClose="CloseAtlas"
+                                OnOpenNote="OpenBrainNoteFromAtlasAsync"
+                                OnOpenRepositoryChapter="OpenBrainRepoLinkAsync"
+                                OnOpenScope="OpenDevbookFromAtlasAsync" />
+        </main>
+    }
     else if (InboxVisible)
     {
         @* The Inbox takes the screen like the takeovers above, but Escape is not
@@ -758,7 +800,8 @@
                          OnOpenReferenceFollowed="OnDevbookReferenceFollowed"
                          OnOpenRepositoryChapter="OpenBrainRepoLinkAsync"
                          TaskTitleFor="TaskTitleFor"
-                         OnOpenTask="OpenTaskFromBrainAsync" />
+                         OnOpenTask="OpenTaskFromBrainAsync"
+                         OnOpenLobesAtlas="OpenAtlasAsync" />
         </main>
     }
     else
@@ -1062,7 +1105,24 @@
     /// <summary>Whether the workspace — the main view — is on screen. Anything that
     /// is not a takeover is the workspace, including a surface whose feature has
     /// been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible;
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible && !AtlasVisible;
+
+    /// <summary>Whether the header offers the Lobes atlas: its flag and Devbook's
+    /// are on, which Devbook answers.</summary>
+    private bool AtlasOffered => Devbook.LobesAtlasOffered;
+
+    /// <summary>Whether the Lobes atlas has the screen. The same shape as the
+    /// takeovers above: its flag off returns the reader to the workspace.</summary>
+    private bool AtlasVisible => _surface == WorkspaceSurface.Atlas && AtlasOffered;
+
+    /// <summary>The surface the atlas was opened over, which its way back
+    /// returns to: the workspace from the header, the Devbook from its Atlas
+    /// button, or the takeover that was up.</summary>
+    private WorkspaceSurface _surfaceBeforeAtlas = WorkspaceSurface.Workspace;
+
+    /// <summary>The scope the atlas opens on: the Devbook's when its button opened
+    /// it, null — All — from the header.</summary>
+    private string? _atlasScope;
 
     /// <summary>The view the workspace shows: the one chosen, unless its feature
     /// has since been switched off — then Tasks, which is always offered. The
@@ -1190,7 +1250,7 @@
     /// offered at all: with both features off it would be an empty group. Sessions
     /// and Pull requests have a group of their own. The name is older than that and
     /// is kept; nothing persists it.</summary>
-    private bool SurfaceSwitcherVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered;
+    private bool SurfaceSwitcherVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered || AtlasOffered;
 
     /// <summary>Whether the view switch offers the Roadmap. The feature decides
     /// whether there is an option; the option decides what is on screen.</summary>
@@ -1340,6 +1400,122 @@
         _surface = WorkspaceSurface.Workspace;
         RememberSurface();
         KeepRepositoryScopeSingleWhereOnlyOneFits();
+    }
+
+    /// <summary>The Atlas option: opens the atlas on All over whatever is on
+    /// screen, or takes the way back when it already has the screen.</summary>
+    private void ToggleAtlas()
+    {
+        if (AtlasVisible)
+        {
+            CloseAtlas();
+            return;
+        }
+
+        OpenAtlas(null);
+    }
+
+    /// <summary>What the Atlas option's press will do.</summary>
+    private string AtlasOptionTitle => AtlasVisible ? $"Back to {AtlasReturnName}" : "Open the atlas";
+
+    /// <summary>The name of the surface the atlas returns to.</summary>
+    private string AtlasReturnName => _surfaceBeforeAtlas switch
+    {
+        WorkspaceSurface.Devbook => DevbookPaneOptionName,
+        WorkspaceSurface.PullRequests => "Pull requests",
+        WorkspaceSurface.Workspace or WorkspaceSurface.Roadmap => EffectiveView.ToString(),
+        var surface => surface.ToString()
+    };
+
+    /// <summary>The Devbook's Atlas button: the atlas on the pane's scope, over
+    /// the Devbook, which its way back returns to.</summary>
+    private Task OpenAtlasAsync(string scope)
+    {
+        OpenAtlas(scope);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Gives the atlas the screen on <paramref name="scope"/>, keeping
+    /// the surface it opens over for its way back. Never onto an atlas the shell
+    /// does not offer, for the reason <see cref="ShowDevbook"/> gives.</summary>
+    private void OpenAtlas(string? scope)
+    {
+        if (!AtlasOffered || _surface == WorkspaceSurface.Atlas) return;
+
+        _focusSessionId = null;
+        _focusPullRequest = null;
+        _surfaceBeforeAtlas = _surface;
+        _atlasScope = scope;
+        _surface = WorkspaceSurface.Atlas;
+        _focusSurfacePending = true;
+        RememberSurface();
+        KeepRepositoryScopeSingleWhereOnlyOneFits();
+    }
+
+    /// <summary>The atlas's way back — its close button, its option pressed again,
+    /// or Escape: the surface it was opened over. A surface switched off since is
+    /// simply not visible, and the workspace shows in its place.</summary>
+    private void CloseAtlas()
+    {
+        _surface = _surfaceBeforeAtlas;
+        _surfaceBeforeAtlas = WorkspaceSurface.Workspace;
+        _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
+        RememberSurface();
+        KeepRepositoryScopeSingleWhereOnlyOneFits();
+    }
+
+    private void OnAtlasKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") CloseAtlas();
+    }
+
+    /// <summary>A Brain note followed out of the atlas: the Devbook on the
+    /// Brain, at the note, in the atlas's place.</summary>
+    private Task OpenBrainNoteFromAtlasAsync(string notePath) =>
+        OpenBrainNoteAsync(new Backlog.UI.Components.Brain.BrainNoteLink(notePath, notePath));
+
+    /// <summary>
+    /// The atlas's scope card: the Devbook on screen in the atlas's place, reading
+    /// the Brain (an empty alias) or that repository's devbook — the road an
+    /// entry's reference takes, without a chapter, so the header's scope stays as
+    /// the reader left it.
+    /// </summary>
+    private Task OpenDevbookFromAtlasAsync(string repositoryAlias)
+    {
+        _devbookSwitch = null;
+
+        if (string.IsNullOrWhiteSpace(repositoryAlias))
+        {
+            if (!IsFeatureEnabled(DevbookFeatures.RepositoryDevbook) || _brainFolders is null)
+            {
+                Toasts.Publish(ToastMessage.Warning(
+                    "The Devbook is not available here, so the Brain cannot be opened in it.",
+                    DevbookUnavailableTestId));
+                return Task.CompletedTask;
+            }
+
+            _devbookRepositoryRequest = BrainScope.Is(State.AnchorRepositoryAlias)
+                ? null
+                : new DevbookRepositoryRequest(DevbookRequestAnchor, BrainScope.Value);
+        }
+        else
+        {
+            var alias = Devbook.Repository(repositoryAlias)?.Alias ?? repositoryAlias;
+            if (!IsFeatureEnabled(DevbookFeatures.RepositoryDevbook) || Devbook.VisibleAreas(alias).Count == 0)
+            {
+                Toasts.Publish(ToastMessage.Warning(
+                    $"The Devbook of {alias} is not available here.",
+                    DevbookUnavailableTestId));
+                return Task.CompletedTask;
+            }
+
+            _devbookRepositoryRequest = string.Equals(alias, State.AnchorRepositoryAlias, StringComparison.Ordinal)
+                ? null
+                : new DevbookRepositoryRequest(DevbookRequestAnchor, alias);
+        }
+
+        ShowDevbook();
+        return Task.CompletedTask;
     }
 
     /// <summary>What the reader is looking at, written for the next fresh shell
@@ -1882,7 +2058,8 @@
         // the Inbox keeps Escape for its own keys.
         if (WorkspaceVisible || InboxVisible) return Task.CompletedTask;
 
-        CloseSurface();
+        if (AtlasVisible) CloseAtlas();
+        else CloseSurface();
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -2515,6 +2692,10 @@
     private void SynchronizeDevbookAvailability()
     {
         if (_surface == WorkspaceSurface.Devbook && !DevbookPaneOptionVisible) CloseSurface();
+
+        // The atlas likewise, once its flag or Devbook's goes off: back to the
+        // workspace, remembered so, rather than coming back unasked with the flag.
+        if (_surface == WorkspaceSurface.Atlas && !AtlasOffered) CloseSurface();
 
         KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
