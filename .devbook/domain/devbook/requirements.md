@@ -776,6 +776,34 @@ The system SHALL open one full-window atlas from the shell header that draws the
 - **When** the reader drags across it and then scrolls
 - **Then** the drag rotates the brains and the scroll changes the zoom the atlas reports
 
+### Requirement: The map fills the atlas and its controls float over it
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_floats_every_part_over_a_full_bleed_map, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_parts_are_siblings_of_the_atlas_in_the_order_the_eye_meets_them, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_stacks_a_narrow_window_in_one_column_with_the_panel_in_a_sheet, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_panels_disclosure_names_the_panel_and_the_card_and_opens_the_sheet]
+```
+
+The system SHALL draw the map across the whole atlas in a window wider than 60rem, with the title, the scope switch, the left panel, the scope card, the top-right controls, the chips, the list of marks and the foot floating over it, and SHALL stack them in one column in a window 60rem wide or narrower, with the panel and the scope card folded behind one disclosure, the map in view and nothing overlapping.
+
+#### Scenario: A wide window
+
+- **Given** the atlas at 1440 × 900
+- **When** the reader opens it
+- **Then** the map fills the atlas, and the panel, the card, the controls, the chips, the list and the foot float over it
+
+#### Scenario: Dragging on a control
+
+- **Given** the atlas is open in a wide window
+- **When** the reader drags or scrolls on the left panel, a chip or the list
+- **Then** the camera does not move
+
+#### Scenario: A phone
+
+- **Given** the atlas at 390 × 844
+- **When** the reader opens it
+- **Then** the scope switch and the chips each keep one sideways-scrolling row, the panel and the card sit behind one disclosure, the map is in view with its list under it, and nothing overlaps
+
 ### Requirement: The atlas offers All, Brain and one scope per devbook
 
 ```meta

@@ -329,6 +329,17 @@ dashed button. Switching scope resets the camera to its default view.
 | **Brain** | The Brain alone, by region |
 | One per devbook | That devbook alone, by region, with a Brain hub beside it |
 
+**Layout.** The map fills the atlas, and everything else floats over it: the
+title and the scope switch at the top left, the left panel with the scope card
+under it, the picture's controls and the chips at the top right, the list of
+marks down the right, and the foot along the bottom. A drag or a scroll that
+starts on any of them leaves the camera alone. In a window 60rem wide or
+narrower nothing floats. The parts stack in one column, in the order the
+keyboard meets them: the title, the scope switch, the controls, the chips, one
+disclosure that folds the panel and the scope card away, the map with its list
+under it, and the foot. The scope switch and the chips each keep one row and
+scroll sideways.
+
 A repository alias the Brain links to that is not registered on this machine
 is a **ghost devbook**. It has a scope of its own and is drawn dashed: its
 outline, and only the chapters the notes name, in the link's own words. The
@@ -407,9 +418,9 @@ Coming back from the Repositories settings reopens the atlas on that ghost,
 with the same way back as before. Once the alias is registered, it opens on
 that devbook's scope instead.
 
-**The foot.** Under the map, the hint "Drag — rotate · Scroll — zoom" ends with
-the zoom level, and an orientation marker draws the superior, anterior and left
-axes turning with the camera.
+**The foot.** Along the map's bottom edge, the hint "Drag — rotate · Scroll —
+zoom" ends with the zoom level, and an orientation marker draws the superior,
+anterior and left axes turning with the camera.
 
 **Every control.** Each control of the atlas is a real button at least 44 px
 square with a visible focus ring, and every toggle reports whether it is
