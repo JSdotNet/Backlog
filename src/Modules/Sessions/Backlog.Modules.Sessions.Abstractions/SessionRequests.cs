@@ -127,6 +127,41 @@ public static class SessionRequests
     /// <summary>How long a claim holds a request before it reads as Requested again.</summary>
     public static readonly TimeSpan Lease = TimeSpan.FromMinutes(2);
 
+    /// <summary>
+    /// The brief a dispatcher starts the session with (local ADR 0037 §2): the fixed
+    /// <c>run-plan-item</c> line for an entry request, the fixed <c>execute-plan</c> line
+    /// for a plan request. Built from the kind and the id alone, so no entry text can
+    /// become one; a dispatcher passes it on and never writes its own.
+    /// <para>
+    /// A plan tag is the one piece of a brief that started as text a person typed, so it
+    /// is checked against the tag grammar here as well as when the request is made: a
+    /// row that holds anything else — a space, a backtick, a line break — gets no brief.
+    /// </para>
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The request has no entry id or no
+    /// well-formed plan tag for its kind.</exception>
+    public static string BriefFor(SessionRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return request.Kind switch
+        {
+            SessionRequestKind.Entry when request.EntryId is { } entryId && entryId != Guid.Empty =>
+                $"/backlog-tools:run-plan-item entry `{entryId:D}`:",
+            SessionRequestKind.Plan when IsPlanTag(request.PlanTag) =>
+                $"/backlog-tools:execute-plan +{request.PlanTag}",
+            _ => throw new InvalidOperationException(
+                $"Session request {request.Id:D} has no well-formed target for a {request.Kind} brief.")
+        };
+    }
+
+    /// <summary>Whether <paramref name="tag"/>, without its sigil, is a plan tag as the
+    /// entry grammar writes one: a letter, then letters, digits, <c>_</c> or <c>-</c>.</summary>
+    public static bool IsPlanTag(string? tag) =>
+        !string.IsNullOrEmpty(tag)
+        && char.IsAsciiLetter(tag[0])
+        && tag.All(c => char.IsLetterOrDigit(c) || c is '_' or '-');
+
     /// <summary>A new entry request, Requested.</summary>
     public static SessionRequest ForEntry(Guid entryId, string repository, string cloneFolder, DateTimeOffset now)
     {
@@ -142,6 +177,7 @@ public static class SessionRequests
         var tag = NormalizeTag(planTag);
 
         if (tag.Length == 0) throw new ArgumentException("A plan request needs the plan's tag.", nameof(planTag));
+        if (!IsPlanTag(tag)) throw new ArgumentException($"'{tag}' is not a plan tag: a letter, then letters, digits, '_' or '-'.", nameof(planTag));
 
         return New(SessionRequestKind.Plan, null, tag, repository, cloneFolder, now);
     }
