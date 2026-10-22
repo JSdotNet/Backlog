@@ -819,6 +819,28 @@ The system SHALL draw a repository alias the Brain links to that is not register
 - **When** the reader opens the atlas
 - **Then** the alias has a dashed scope of its own, and its brain is a dashed outline holding those three chapters, each named as its link wrote it
 
+### Requirement: A chapter of a devbook not indexed yet says the index is missing
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.A_chapter_of_a_devbook_not_indexed_yet_says_so_rather_than_that_it_is_no_chapter, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.A_chapter_an_indexed_devbook_does_not_hold_is_still_no_chapter_in_its_devbook, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_chapter_of_a_devbook_not_indexed_yet_says_so_on_its_chip_as_the_card_does]
+```
+
+The system SHALL give a chapter the notes name in a registered devbook whose index is not built yet a chip that reads *its devbook is not indexed yet — see its scope card*, and keep *not a chapter in its devbook* for a chapter an indexed devbook does not hold.
+
+#### Scenario: A devbook not indexed yet
+
+- **Given** a Brain note linking a chapter of a registered repository whose devbook index has not been built
+- **When** the reader selects that chapter in the atlas
+- **Then** it is drawn dashed, its chip reads *its devbook is not indexed yet — see its scope card*, and the scope's card says "Not indexed yet"
+
+#### Scenario: A chapter an indexed devbook does not hold
+
+- **Given** a Brain note linking a path that a registered, indexed devbook has no chapter for
+- **When** the reader selects that chapter in the atlas
+- **Then** it is drawn dashed and its chip reads *not a chapter in its devbook*
+
 ### Requirement: A Brain note's region comes from its PARA area
 
 ```meta

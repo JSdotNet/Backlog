@@ -200,6 +200,11 @@ internal static class DevbookLobesReader
     /// <summary>The label of the Brain stem's hub for <c>CONVENTIONS.md</c>.</summary>
     public const string ConventionsHubLabel = BrainConventions.FileName;
 
+    /// <summary>What the chip of a chapter a note names says while its devbook's
+    /// index has not been built: the index is missing, not the chapter, and the
+    /// scope card says the same.</summary>
+    public const string NotIndexedYet = "its devbook is not indexed yet — see its scope card";
+
     private const char Bar = '|';
 
     public static DevbookLobesGraph Read(
@@ -251,7 +256,7 @@ internal static class DevbookLobesReader
         AddOwnEdges(brainKey, brain.Edges, notes, edges, pairs);
 
         // ----- The registered devbooks -----
-        var registered = new Dictionary<string, (string Key, Dictionary<string, string> Chapters)>(StringComparer.OrdinalIgnoreCase);
+        var registered = new Dictionary<string, (string Key, bool Indexed, Dictionary<string, string> Chapters)>(StringComparer.OrdinalIgnoreCase);
         var scopes = new List<(string Key, string Label, DevbookLobesScopeKind Kind, string? Alias, bool Available, string? Message, DateTimeOffset? IndexedAt)>
         {
             (brainKey, BrainConventions.ScopeLabel, DevbookLobesScopeKind.Brain, null, true, null, brain.IndexedAt)
@@ -264,7 +269,7 @@ internal static class DevbookLobesReader
             var key = "repo:" + devbook.Alias.ToLowerInvariant();
             var chapters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var own = new Dictionary<string, DevbookAtlasSourceNode>(StringComparer.OrdinalIgnoreCase);
-            registered[devbook.Alias] = (key, chapters);
+            registered[devbook.Alias] = (key, devbook.Available, chapters);
             scopes.Add((key, devbook.Alias, DevbookLobesScopeKind.Devbook, devbook.Alias, devbook.Available, devbook.Message, devbook.IndexedAt));
 
             foreach (var chapter in devbook.Nodes)
@@ -338,10 +343,15 @@ internal static class DevbookLobesReader
             if (linkedNodes.Add(target))
             {
                 // An alias with no devbook registered is not on this machine as
-                // far as the atlas goes, whatever the folder settings say.
-                var problem = isRegistered
-                    ? resolution.Problem ?? BrainRepoLinkResolver.NotADevbookChapter
-                    : BrainRepoLinkResolver.NotOnThisMachine;
+                // far as the atlas goes, whatever the folder settings say. In a
+                // devbook not indexed yet, no chapter can be found, so a chapter
+                // the resolver did not place on another machine says that the
+                // index is missing rather than that the chapter is.
+                var problem = !isRegistered
+                    ? BrainRepoLinkResolver.NotOnThisMachine
+                    : !devbook.Indexed && (resolution.Problem is null or BrainRepoLinkResolver.NotADevbookChapter)
+                        ? NotIndexedYet
+                        : resolution.Problem ?? BrainRepoLinkResolver.NotADevbookChapter;
                 var repositoryLink = new DevbookAtlasRepositoryLink(link.Alias, raw, !dashed, dashed ? problem : null);
                 if (indexes.TryGetValue(target, out var index))
                 {

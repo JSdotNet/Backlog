@@ -251,6 +251,59 @@ public sealed class DevbookLobesTests : IDisposable
         Assert.True(Assert.Single(graph.Edges, edge => edge.Kind == DevbookLobesReader.RepoLinkEdgeKind).Dashed);
     }
 
+    /// <summary>A chapter named in a devbook not indexed yet is not a broken link:
+    /// its chip says the index does not exist yet, whatever the resolver made of
+    /// the path, and points at the scope card that says the same.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_chapter_of_a_devbook_not_indexed_yet_says_so_rather_than_that_it_is_no_chapter(bool resolves)
+    {
+        var graph = DevbookLobesReader.Read(
+            new DevbookLobesBrainSource(
+                [new("projects/plan.md", "Plan", "projects", "file", string.Empty, "projects/plan.md", false)],
+                [new("related", "projects/plan.md", "repo:backlog/.devbook/arc42/05-building-block-view.md")],
+                new Dictionary<string, string>(),
+                ["projects"]),
+            [DevbookLobesDevbookSource.Missing("backlog", "No index yet.")],
+            link => resolves
+                ? new BrainRepoLinkResolution(link, true, null)
+                : new BrainRepoLinkResolution(link, false, BrainRepoLinkResolver.NotADevbookChapter));
+
+        var node = Assert.Single(graph.Nodes, node => node.ScopeKey == BacklogScope);
+        Assert.True(node.Dashed);
+        Assert.False(node.RepositoryLink!.Resolved);
+        Assert.Equal(DevbookLobesReader.NotIndexedYet, node.RepositoryLink.Problem);
+        Assert.Contains("scope card", DevbookLobesReader.NotIndexedYet, StringComparison.Ordinal);
+    }
+
+    /// <summary>A chapter an indexed devbook does not hold still reads as no
+    /// chapter of it.</summary>
+    [Fact]
+    public void A_chapter_an_indexed_devbook_does_not_hold_is_still_no_chapter_in_its_devbook()
+    {
+        var graph = DevbookLobesReader.Read(
+            new DevbookLobesBrainSource(
+                [new("projects/plan.md", "Plan", "projects", "file", string.Empty, "projects/plan.md", false)],
+                [new("related", "projects/plan.md", "repo:backlog/.devbook/arc42/99-missing.md")],
+                new Dictionary<string, string>(),
+                ["projects"]),
+            [
+                new DevbookLobesDevbookSource(
+                    "backlog",
+                    true,
+                    null,
+                    [new(".arc42/05-building-block-view.md", "Building blocks", "arc42", "file", string.Empty, ".arc42/05-building-block-view.md", false)],
+                    [],
+                    new HashSet<string>())
+            ],
+            link => new BrainRepoLinkResolution(link, true, null));
+
+        var ghost = Assert.Single(graph.Nodes, node => node.Kind == DevbookLobesNodeKind.GhostChapter);
+        Assert.Equal(BacklogScope, ghost.ScopeKey);
+        Assert.Equal(BrainRepoLinkResolver.NotADevbookChapter, ghost.RepositoryLink!.Problem);
+    }
+
     /// <summary>A chapter the devbook's index holds is always its own node — in a
     /// root-layout repository too, whose ids are the folded spelling — and a link
     /// the resolver cannot follow is dashed to it rather than to a ghost beside
