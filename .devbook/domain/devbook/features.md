@@ -376,10 +376,21 @@ to the chapters the notes link. In a devbook's scope, a Brain hub floats beside
 the devbook with those same bundles. A bundle is solid when the link resolves
 and dashed when it does not, as in [Atlas edges](#atlas-edges).
 
-**The left panel.** In All it lists the scopes; in a single scope it lists that
-scope's six regions. The region chips, **Labels**, **All** and **None** act on
-the current scope only. Below the list, a scope card names the scope with its
-counts and offers one action:
+**The left panel.** In All it lists the scopes, each with its count; a row
+opens that scope. In a single scope it lists that scope's six regions, each
+with what it holds and its count; a row shows or hides the region. The panel's
+heading names what it lists: **Scopes**, **Anatomical regions** for the Brain,
+**Devbook folders** for a devbook.
+
+**The top right.** **Labels**, **All** and **None** sit beside the close
+button, and under them one chip per region of the current scope, or one per
+scope in All, named by a short code such as `FRO` or `ARC`. A chip shows or
+hides what it names, as the panel's row does. **All** and **None** act on the
+current scope only, so the regions hidden in another scope stay hidden.
+
+**The scope card.** Below the list, a scope card names the scope with its
+counts, says when its index was last built, such as "Indexed 4 minutes ago" or
+"Not indexed yet", and offers one action:
 
 | Scope | The card's action |
 | --- | --- |
@@ -387,6 +398,16 @@ counts and offers one action:
 | The Brain | **Open in the pane** |
 | A devbook | **Open devbook** |
 | A ghost devbook | **Register repository**, which opens the Repositories settings |
+
+A ghost devbook has no index of its own here, so its card gives no time.
+
+**The foot.** Under the map, the hint "Drag — rotate · Scroll — zoom" ends with
+the zoom level, and an orientation marker draws the superior, anterior and left
+axes turning with the camera.
+
+**Every control.** Each control of the atlas is a real button at least 44 px
+square with a visible focus ring, and every toggle reports whether it is
+pressed.
 
 **Selecting a mark.** A mark selected on the map or in the list beside it opens
 its details, as [Atlas edges](#atlas-edges) does. A Brain note offers to open
@@ -396,8 +417,13 @@ cannot be followed. A devbook's own chapter opens in its devbook. Following
 any of them, or the card's **Open in the pane** or **Open devbook**, gives the
 Devbook the screen, which closes the atlas.
 
-**No index yet.** With no Brain index built yet, the atlas says so and offers
-to build it, rather than drawing an empty map.
+**No index yet.** With no Brain index built yet, the atlas shows an empty state
+instead of a map: it says the Brain is not indexed yet, and offers **Build the
+index now** and **Back to notes**. Building runs the same refresher that builds
+the index in the background, and the map takes the empty state's place once the
+index exists. A build that fails, or finds nothing to index, says why and keeps
+the offer. A host that cannot build the index offers only **Back to notes**.
+Back to notes leaves the atlas the way its close button does.
 
 **Where it opens.** While the flag is on, the Devbook pane's **Atlas** button
 opens this atlas at the pane's scope: the Brain, or that repository. While it

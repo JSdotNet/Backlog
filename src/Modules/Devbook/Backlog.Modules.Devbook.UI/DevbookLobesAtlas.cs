@@ -53,6 +53,30 @@ public static class DevbookLobesAtlas
     public static string RegionName(DevbookLobesScopeKind kind, DevbookLobe lobe) =>
         (kind == DevbookLobesScopeKind.Brain ? BrainRegionNames : DevbookRegionNames)[lobe];
 
+    /// <summary>A region's short name, as its chip at the top of the atlas prints
+    /// it: the lobe's for the Brain, the folder's for a devbook.</summary>
+    public static string RegionAbbreviation(DevbookLobesScopeKind kind, DevbookLobe lobe) => kind == DevbookLobesScopeKind.Brain
+        ? lobe switch
+        {
+            DevbookLobe.Frontal => "FRO",
+            DevbookLobe.Parietal => "PAR",
+            DevbookLobe.Temporal => "TEM",
+            DevbookLobe.Occipital => "OCC",
+            DevbookLobe.Cerebellum => "CER",
+            DevbookLobe.Stem => "STM",
+            _ => "DST"
+        }
+        : lobe switch
+        {
+            DevbookLobe.Frontal => "ARC",
+            DevbookLobe.Parietal => "TEC",
+            DevbookLobe.Temporal => "DOM",
+            DevbookLobe.Occipital => "DES",
+            DevbookLobe.Cerebellum => "AI",
+            DevbookLobe.Stem => "IDX",
+            _ => "OUT"
+        };
+
     /// <summary>The renderer's key for a region.</summary>
     public static string LobeKey(DevbookLobe lobe) => lobe switch
     {

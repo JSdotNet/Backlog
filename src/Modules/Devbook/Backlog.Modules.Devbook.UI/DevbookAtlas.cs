@@ -164,7 +164,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
             DevbookLobesBrainSource brain;
             using (var database = DevbookDatabase.TryOpen(databaseFor(root)))
             {
-                if (database is null) return DevbookLobesGraph.Unavailable(BrainIndexMissing);
+                if (database is null) return DevbookLobesGraph.MissingBrainIndex(BrainIndexMissing);
 
                 var para = new Dictionary<string, string>(StringComparer.Ordinal);
                 foreach (var values in database.Attributes("para"))
@@ -179,7 +179,8 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
                     [.. database.Outline(DevbookDatabaseSchema.RepositoryScope)
                         .Where(row => row.Type == "area")
                         .Select(row => row.Path)],
-                    declared);
+                    declared,
+                    IndexedAt(database));
             }
 
             var devbooks = new List<DevbookLobesDevbookSource>();
@@ -211,13 +212,18 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
                 .Select(row => row.Path)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            return new DevbookLobesDevbookSource(alias, true, null, SourceNodes(database.Nodes()), SourceEdges(database.Edges()), roots);
+            return new DevbookLobesDevbookSource(alias, true, null, SourceNodes(database.Nodes()), SourceEdges(database.Edges()), roots, IndexedAt(database));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
         {
             return DevbookLobesDevbookSource.Missing(alias, $"The {alias} devbook could not be read: {ex.Message}");
         }
     }
+
+    /// <summary>When a database was built, as it records it; null when it
+    /// recorded nothing readable.</summary>
+    private static DateTimeOffset? IndexedAt(DevbookDatabase database) =>
+        database.GeneratedUtc == DateTime.MinValue ? null : new DateTimeOffset(DateTime.SpecifyKind(database.GeneratedUtc, DateTimeKind.Utc));
 
     private static List<DevbookAtlasSourceNode> SourceNodes(IEnumerable<DevbookNodeRow> rows) =>
         [.. rows.Select(node => new DevbookAtlasSourceNode(

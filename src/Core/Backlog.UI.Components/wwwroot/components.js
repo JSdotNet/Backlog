@@ -4228,6 +4228,9 @@
         return seats;
     }
 
+    // The shortest gap between two camera reports to the host.
+    const BACKLOG_LOBES_CAMERA_REPORT_MS = 60;
+
     function backlogLobesRender(element, id, model, dotnet) {
         backlogDiagramInstances.get(id)?.destroy?.();
         element.replaceChildren();
@@ -4701,6 +4704,29 @@
             // Every mounted atlas has an id of its own, so the oldest are let go
             // rather than kept for atlases long since closed.
             while (backlogLobesCameras.size > 16) backlogLobesCameras.delete(backlogLobesCameras.keys().next().value);
+            report();
+        }
+
+        // The camera told to the host, so the zoom level and the orientation
+        // marker it draws follow the drag and the wheel. At most one call per
+        // stretch of BACKLOG_LOBES_CAMERA_REPORT_MS, the last position always
+        // sent: a call per pointer move would queue renders faster than they
+        // land.
+        let reportTimer = 0;
+        let reportedAt = 0;
+
+        function sendCamera() {
+            reportTimer = 0;
+            reportedAt = performance.now();
+            if (dotnet && dotnet.invokeMethodAsync) {
+                dotnet.invokeMethodAsync('CameraMoved', view.yaw, view.pitch, view.zoom).catch(() => { });
+            }
+        }
+
+        function report() {
+            if (reportTimer) return;
+            const wait = Math.max(0, BACKLOG_LOBES_CAMERA_REPORT_MS - (performance.now() - reportedAt));
+            reportTimer = setTimeout(sendCamera, wait);
         }
 
         let dragging = false;
@@ -4820,12 +4846,17 @@
             destroy() {
                 if (frame) cancelAnimationFrame(frame);
                 frame = 0;
+                if (reportTimer) clearTimeout(reportTimer);
+                reportTimer = 0;
                 for (const remove of listeners) remove();
                 listeners.length = 0;
             }
         });
 
         resize();
+        // The camera this layout starts at — its default, or the one it was left
+        // at — so the host's marker matches the picture from the first frame.
+        sendCamera();
     }
 
     // The lobes drawing, beside the atlas: GraphAtlas hosts it by naming

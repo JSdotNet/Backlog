@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +24,17 @@ public interface IDevbookLobesSource
 
     /// <summary>The Lobes graph as it stands now.</summary>
     Task<DevbookLobesGraph> ReadAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Whether <see cref="BuildBrainIndexAsync"/> can build anything here:
+    /// a Brain folder is set and the host runs the devbook database
+    /// refresher.</summary>
+    bool CanBuildBrainIndex { get; }
+
+    /// <summary>Builds the Brain's index now, waiting for it, so the atlas's empty
+    /// state can offer to build it rather than only say it is missing. Returns
+    /// null when it was built — or was current already — and the reason in words
+    /// when it could not be.</summary>
+    Task<string?> BuildBrainIndexAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -54,4 +66,35 @@ internal sealed class DevbookLobesSource(DevbookAtlasService atlas, DevbookScope
         Brain is { } brain
             ? atlas.ReadLobesAsync(brain, scope.DevbookRepositoryAliases(), cancellationToken)
             : Task.FromResult(DevbookLobesGraph.Unavailable(DevbookAtlasService.NoBrainFolder));
+
+    /// <summary>The app's one refresher, the same that builds the Brain in the
+    /// background when it is read (local ADR 0015); a host without one — a test
+    /// host — cannot build.</summary>
+    private DevbookDatabaseRefresher? Refresher => services.GetService<DevbookDatabaseRefresher>();
+
+    public bool CanBuildBrainIndex => Brain is { BrainRoot.Length: > 0 } && Refresher is not null;
+
+    public async Task<string?> BuildBrainIndexAsync(CancellationToken cancellationToken = default)
+    {
+        if (Brain is not { BrainRoot: { Length: > 0 } root }) return DevbookAtlasService.NoBrainFolder;
+        if (Refresher is not { } refresher) return BuildUnavailable;
+
+        try
+        {
+            // Recorded as the Brain first, so the refresher builds it under the
+            // Brain's convention rather than a repository's. A build that ran
+            // raises the refresher's Rebuilt, which the Brain's watch turns into
+            // Changed, and every open atlas reads again.
+            DevbookDatabaseLocation.RegisterBrainRoot(root);
+            await refresher.RefreshAsync(root, cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return $"The Brain's index could not be built: {ex.Message}";
+        }
+    }
+
+    /// <summary>What a host that cannot build the index says.</summary>
+    internal const string BuildUnavailable = "This app cannot build the Brain's index from here.";
 }

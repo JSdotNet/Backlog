@@ -899,9 +899,10 @@ The system SHALL draw Brain marks in `color-band-2` and devbook marks in gold, w
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_panel_lists_each_scope_with_its_count_and_a_row_opens_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_panel_lists_its_six_regions_with_what_each_holds_and_its_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_top_right_has_labels_all_none_and_one_chip_per_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_chips_are_one_per_scope_and_hide_that_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.All_and_none_act_on_the_current_scope_only, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Labels_is_a_toggle_that_reports_its_state]
 ```
 
-The system SHALL list the scopes in the left panel in All and the six regions in a single scope, and apply the region chips, Labels, All and None to the current scope only.
+The system SHALL list the scopes with their counts in the left panel in All and the six regions with what each holds and its count in a single scope, offer Labels, All, None and one chip per region (per scope in All) at the top right, and apply the chips, Labels, All and None to the current scope only.
 
 #### Scenario: None in one scope
 
@@ -913,16 +914,23 @@ The system SHALL list the scopes in the left panel in All and the six regions in
 
 - **Given** the atlas in All
 - **When** the reader picks the Brain scope
-- **Then** the left panel lists the six regions in place of the scopes
+- **Then** the left panel, headed Anatomical regions, lists the six regions in place of the scopes, and the chips at the top right are the six regions'
+
+#### Scenario: A row opens a scope
+
+- **Given** the atlas in All
+- **When** the reader presses a devbook's row in the left panel
+- **Then** the atlas shows that devbook's scope
 
 ### Requirement: The scope card offers one action for its scope
 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_card_says_when_the_scope_was_last_indexed_and_offers_its_action, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_close_button_and_the_card_raise_the_hosts_callbacks]
 ```
 
-The system SHALL show a scope card naming the scope with its counts and one action: Open in the pane for the Brain, Open devbook for a devbook, Register repository for a ghost devbook.
+The system SHALL show a scope card naming the scope with its counts, when its index was last built, and one action: Open in the pane for the Brain, Open devbook for a devbook, Register repository for a ghost devbook.
 
 #### Scenario: A devbook
 
@@ -936,20 +944,65 @@ The system SHALL show a scope card naming the scope with its counts and one acti
 - **When** the reader reads its card
 - **Then** the card's one action is Register repository
 
+#### Scenario: When it was indexed
+
+- **Given** the Brain's index was built four minutes ago
+- **When** the reader opens the Brain scope
+- **Then** its card says "Indexed 4 minutes ago"
+
 ### Requirement: Without a Brain index the atlas offers to build one
 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.With_no_brain_index_the_empty_state_offers_to_build_it_and_a_way_back_instead_of_a_map, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Build_the_index_now_builds_it_and_the_map_takes_the_empty_states_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_build_that_fails_or_finds_nothing_says_why_and_keeps_the_offer, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_host_that_cannot_build_the_index_offers_only_the_way_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.While_the_index_builds_the_button_is_busy_says_so_and_a_second_press_starts_no_second_build, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.An_atlas_opened_on_a_scope_over_the_empty_state_opens_there_once_the_index_is_built, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.The_lobes_source_builds_the_brains_index_through_the_refresher]
 ```
 
-The system SHALL, with no Brain index built yet, say so and offer to build it instead of drawing an empty map.
+The system SHALL, with no Brain index built yet, say so and offer Build the index now and Back to notes instead of drawing an empty map.
 
 #### Scenario: A Brain never indexed
 
 - **Given** a Brain folder whose index has not been built
 - **When** the reader opens the atlas
-- **Then** it says the Brain is not indexed yet and offers to build the index, and draws no map
+- **Then** it says the Brain is not indexed yet and offers Build the index now and Back to notes, and draws no map
+
+#### Scenario: Building it
+
+- **Given** the atlas shows that the Brain is not indexed yet
+- **When** the reader presses Build the index now
+- **Then** the index is built and the map takes the empty state's place
+
+### Requirement: The foot shows the zoom and the orientation
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_foot_shows_the_hint_with_the_zoom_level_and_the_marker_turns_with_the_camera]
+```
+
+The system SHALL show under the map the drag and scroll hint with the zoom level, and an orientation marker that turns with the camera.
+
+#### Scenario: Zooming in
+
+- **Given** the atlas at its default view
+- **When** the reader scrolls to zoom in to 150%
+- **Then** the hint ends with 150% and the orientation marker has turned with the camera
+
+### Requirement: Every atlas control is a full-size button
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Every_control_of_the_atlas_is_a_real_button, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Every_control_of_the_empty_state_is_a_real_button, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_gives_every_atlas_control_a_44px_target_and_a_focus_ring]
+```
+
+The system SHALL make every control of the atlas a real button at least 44 px square with a visible focus ring, and every toggle report `aria-pressed`.
+
+#### Scenario: A region chip
+
+- **Given** the atlas in the Brain scope
+- **When** the reader tabs to a region chip
+- **Then** the chip shows a focus ring, is at least 44 px square, and reports whether it is pressed
 
 ### Requirement: The pane's Atlas button follows the flag
 

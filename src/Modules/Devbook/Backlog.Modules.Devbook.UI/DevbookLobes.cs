@@ -100,6 +100,9 @@ public sealed record DevbookLobesEdge(string Source, string Target, string Kind,
 /// counted.</param>
 /// <param name="LinkingNotes">How many Brain notes link into this devbook; for
 /// the Brain, how many link into any.</param>
+/// <param name="IndexedAt">When the scope's index was last built, as its database
+/// records it; null for a ghost, an unbuilt index, or one that recorded no
+/// time.</param>
 public sealed record DevbookLobesScope(
     string Key,
     string Label,
@@ -109,7 +112,8 @@ public sealed record DevbookLobesScope(
     string? Message,
     IReadOnlyDictionary<DevbookLobe, int> LobeCounts,
     int ItemCount,
-    int LinkingNotes);
+    int LinkingNotes,
+    DateTimeOffset? IndexedAt = null);
 
 /// <summary>
 /// The Lobes atlas: the Brain and every registered devbook in one graph, each
@@ -125,7 +129,14 @@ public sealed record DevbookLobesGraph(
     /// <summary>The key of the Brain's scope.</summary>
     public const string BrainScopeKey = "brain";
 
+    /// <summary>True when the graph is unavailable because the Brain's index has
+    /// not been built yet — the one absence the atlas can offer to mend.</summary>
+    public bool BrainIndexMissing { get; init; }
+
     public static DevbookLobesGraph Unavailable(string message) => new(false, message, [], [], []);
+
+    /// <summary>No Brain index yet: unavailable, and saying which absence it is.</summary>
+    public static DevbookLobesGraph MissingBrainIndex(string message) => Unavailable(message) with { BrainIndexMissing = true };
 
     /// <summary>The scope with this key, or null.</summary>
     public DevbookLobesScope? Scope(string key) =>
@@ -140,25 +151,29 @@ public sealed record DevbookLobesGraph(
 /// <param name="Areas">The area folders the index holds, in order.</param>
 /// <param name="Declared">The areas the Brain declares, so an area is known by
 /// its name whatever folder holds it.</param>
+/// <param name="IndexedAt">When the Brain's database was built.</param>
 internal sealed record DevbookLobesBrainSource(
     IReadOnlyList<DevbookAtlasSourceNode> Nodes,
     IReadOnlyList<DevbookAtlasSourceEdge> Edges,
     IReadOnlyDictionary<string, string> Para,
     IReadOnlyList<string> Areas,
-    IReadOnlyList<BrainArea>? Declared = null);
+    IReadOnlyList<BrainArea>? Declared = null,
+    DateTimeOffset? IndexedAt = null);
 
 /// <summary>What the Lobes read takes from one registered repository's devbook
 /// database — or, with <see cref="Available"/> false, the absence of one.</summary>
 /// <param name="Alias">The alias as registered.</param>
 /// <param name="RootPaths">The files the reading order roots on: each folder's
 /// convention root and every directory's root document.</param>
+/// <param name="IndexedAt">When its database was built.</param>
 internal sealed record DevbookLobesDevbookSource(
     string Alias,
     bool Available,
     string? Message,
     IReadOnlyList<DevbookAtlasSourceNode> Nodes,
     IReadOnlyList<DevbookAtlasSourceEdge> Edges,
-    IReadOnlySet<string> RootPaths)
+    IReadOnlySet<string> RootPaths,
+    DateTimeOffset? IndexedAt = null)
 {
     public static DevbookLobesDevbookSource Missing(string alias, string message) =>
         new(alias, false, message, [], [], new HashSet<string>());
@@ -237,9 +252,9 @@ internal static class DevbookLobesReader
 
         // ----- The registered devbooks -----
         var registered = new Dictionary<string, (string Key, Dictionary<string, string> Chapters)>(StringComparer.OrdinalIgnoreCase);
-        var scopes = new List<(string Key, string Label, DevbookLobesScopeKind Kind, string? Alias, bool Available, string? Message)>
+        var scopes = new List<(string Key, string Label, DevbookLobesScopeKind Kind, string? Alias, bool Available, string? Message, DateTimeOffset? IndexedAt)>
         {
-            (brainKey, BrainConventions.ScopeLabel, DevbookLobesScopeKind.Brain, null, true, null)
+            (brainKey, BrainConventions.ScopeLabel, DevbookLobesScopeKind.Brain, null, true, null, brain.IndexedAt)
         };
 
         foreach (var devbook in devbooks)
@@ -250,7 +265,7 @@ internal static class DevbookLobesReader
             var chapters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var own = new Dictionary<string, DevbookAtlasSourceNode>(StringComparer.OrdinalIgnoreCase);
             registered[devbook.Alias] = (key, chapters);
-            scopes.Add((key, devbook.Alias, DevbookLobesScopeKind.Devbook, devbook.Alias, devbook.Available, devbook.Message));
+            scopes.Add((key, devbook.Alias, DevbookLobesScopeKind.Devbook, devbook.Alias, devbook.Available, devbook.Message, devbook.IndexedAt));
 
             foreach (var chapter in devbook.Nodes)
             {
@@ -312,7 +327,7 @@ internal static class DevbookLobesReader
                 {
                     ghostKey = "ghost:" + link.Alias.ToLowerInvariant();
                     ghosts[link.Alias] = ghostKey;
-                    scopes.Add((ghostKey, link.Alias, DevbookLobesScopeKind.Ghost, link.Alias, false, BrainRepoLinkResolver.NotOnThisMachine));
+                    scopes.Add((ghostKey, link.Alias, DevbookLobesScopeKind.Ghost, link.Alias, false, BrainRepoLinkResolver.NotOnThisMachine, null));
                 }
 
                 scopeKey = ghostKey;
@@ -362,7 +377,7 @@ internal static class DevbookLobesReader
                 var own = byScope[scope.Key].ToList();
                 var counts = Enum.GetValues<DevbookLobe>().ToDictionary(lobe => lobe, lobe => own.Count(node => node.Lobe == lobe));
                 var items = own.Count(node => node.Kind is DevbookLobesNodeKind.Note or DevbookLobesNodeKind.Chapter or DevbookLobesNodeKind.GhostChapter);
-                return new DevbookLobesScope(scope.Key, scope.Label, scope.Kind, scope.Alias, scope.Available, scope.Message, counts, items, linking.GetValueOrDefault(scope.Key)?.Count ?? 0);
+                return new DevbookLobesScope(scope.Key, scope.Label, scope.Kind, scope.Alias, scope.Available, scope.Message, counts, items, linking.GetValueOrDefault(scope.Key)?.Count ?? 0, scope.IndexedAt);
             })
             .ToList();
 
