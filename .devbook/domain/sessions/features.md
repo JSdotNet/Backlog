@@ -1676,6 +1676,29 @@ Nothing the entry says reaches the brief. The session reads the entry by its id
 through `run-plan-item`, which first checks it is still outstanding, so a request
 answered twice, or late, does no harm.
 
-Not built yet: local
+Local
 [ADR 0037](../../arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
-decides it, and it sits behind the `session-requests` flag, off by default.
+decides it, and it sits behind the `session-requests` flag, off by default. The
+actions and the waiting chip are built; the dispatcher that answers a request is a
+later item of the `session-dispatch` plan.
+
+- **Start session** is on a saved prompt entry, in the hand-over buttons of the open
+  entry and in its row's right-click menu. A task, a test or an idea does not have it.
+- A prompt that names several repositories asks which one first. A repository with no
+  clone folder on this machine is offered there disabled, with the reason.
+- When no repository the prompt names has a clone folder, or it names none, the action
+  is disabled. The button's tooltip names the missing clone folder or says no repository
+  is named; the row menu says it in the item's label. An archived repository is not
+  offered.
+- **Start plan session** is in the dialog of a saved roadmap item that has a tag; a new
+  item, or one without a tag, does not have it. It asks for the item's tag in
+  the first of the item's repositories that has a clone folder, so there is nothing to
+  choose.
+- While the request is Requested, Claimed or Started, a **Waiting for a session** chip
+  stands on the entry's row, in the open entry and in the item's dialog, and the action
+  is gone. Its tooltip says which of the three it is. Cancel is offered only while it is
+  Requested: the queue would also cancel a Claimed request, but by then a dispatcher is
+  already starting the session, so the screen does not offer it.
+- Once the session links itself the chip goes, and the entry shows the linked session as
+  a pasted run's does. The app reads the queue again every five seconds while the flag
+  is on, because a dispatcher moves a request without the app hearing it.
