@@ -1623,3 +1623,228 @@ The system SHALL pair each Technology view a pointer operates with a list or tab
 - **Given** the reader opens Clusters
 - **When** the reader presses SQLite on the map
 - **Then** SQLite is the selected row of the companion list
+
+### Requirement: A technology naming itself is not its own user
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL leave a technology out of its own Used by, Breaks if it changes and Rests on when its `depends-on` names itself.
+
+#### Scenario: A self-reference
+
+- **Given** Playwright's `depends-on` names Playwright and .NET Runtime, .NET Runtime declares no `depends-on`, and no other technology names Playwright
+- **When** the reader selects Playwright
+- **Then** Used by reads 0 and Rests on reads 1
+
+### Requirement: The members of a cycle share one depth
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL give every member of a `depends-on` cycle the depth of the longest chain that leaves the cycle, count no hop between two members, and end every walk at a technology it has already visited.
+
+#### Scenario: Two technologies naming each other
+
+- **Given** Razor Components depends on Blazor Server, Blazor Server on Razor Components and on .NET Runtime, and .NET Runtime on nothing
+- **When** the reader selects Razor Components and then Blazor Server
+- **Then** each reads Depth 1 and Rests on 2
+- **And** the Technology area stays responsive
+
+### Requirement: A technology from another folder is measured, not counted
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL count a chapter of another devbook folder that a technology's `depends-on` names in the measures, and leave it out of the folder's per-type, per-family and per-status counts, the Complexity scatter and the Clusters map.
+
+#### Scenario: A depends-on into another folder
+
+- **Given** Blazor Server's `depends-on` names .NET Runtime and a chapter of `.devbook/arc42/`, and .NET Runtime declares no `depends-on`
+- **When** the reader selects Blazor Server
+- **Then** Rests on reads 2
+- **And** the Overview's type and status counts leave the `arc42/` chapter out
+- **And** neither the Complexity scatter nor the Clusters map draws it
+
+### Requirement: The Complexity quadrants split at 3.5 and 4.5
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL place a technology on the Complexity scatter in Hubs at used by 4 or more and rests on 5 or more, in Foundations at used by 4 or more and rests on 4 or fewer, in Deep leaves at used by 3 or fewer and rests on 5 or more, and in Leaves otherwise, and show each quadrant's name with its one line.
+
+#### Scenario: Each side of each split
+
+- **Given** .NET Runtime is used by 4 and rests on 0, Razor Components is used by 3 and rests on 5, Blazor Server is used by 4 and rests on 5, and Playwright is used by 3 and rests on 4
+- **When** the reader opens Complexity
+- **Then** .NET Runtime is in Foundations, Razor Components in Deep leaves, Blazor Server in Hubs and Playwright in Leaves
+
+#### Scenario: The quadrant lines
+
+- **Given** every quadrant holds a technology
+- **When** the reader opens Complexity
+- **Then** Foundations reads "Load-bearing. Upgrade on purpose, never in passing." and Leaves reads "Cheap to change or replace."
+
+#### Scenario: An empty quadrant
+
+- **Given** no technology is used by 4 or more and rests on 5 or more
+- **When** the reader opens Complexity
+- **Then** the Hubs line ends "None today."
+
+### Requirement: The used-by axis is square-root scaled
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL place a technology across the Complexity scatter at the square root of its used by over the square root of the axis's end, the end being the largest used by and never less than 4.
+
+#### Scenario: Half way across
+
+- **Given** the most-used technology is used by 4
+- **When** the reader opens Complexity
+- **Then** a technology used by 1 is drawn half way across the plot
+
+### Requirement: Technologies at one place are one point
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL draw the technologies with the same used by and rests on as one point labelled with every name, and select the next of them each time the point is pressed again.
+
+#### Scenario: Pressing a merged point twice
+
+- **Given** Playwright and SQLite, in that reading order, are each used by 0 and rest on 1
+- **When** the reader opens Complexity
+- **Then** one point reads "Playwright · SQLite"
+- **When** the reader presses it
+- **Then** Playwright is selected
+- **When** the reader presses it again
+- **Then** SQLite is selected
+
+### Requirement: Dependencies shows a technology at its nearest hop
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show each technology the Dependencies view reaches once, at its nearest hop, marked with every further hop it is also reached at, and from 2 hops with the technology one hop nearer that it is reached through.
+
+#### Scenario: Reached at one and two hops
+
+- **Given** ASP.NET Core depends on .NET Runtime directly and through C# Language
+- **When** the reader selects ASP.NET Core in Dependencies
+- **Then** .NET Runtime shows once, in the 1 hop column, marked "also 2 hops"
+
+#### Scenario: Via
+
+- **Given** Razor Components depends only on ASP.NET Core, and ASP.NET Core on .NET Runtime
+- **When** the reader selects Razor Components in Dependencies
+- **Then** .NET Runtime shows at 2 hops marked "via ASP.NET Core"
+
+### Requirement: Dependencies groups by hop or by layer
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL let the reader group the Dependencies cards by hop or by layer.
+
+#### Scenario: Grouping by layer
+
+- **Given** the reader selects ASP.NET Core in Dependencies
+- **When** the reader sets Group by to Layer
+- **Then** the cards stand in one column per layer, and each card names its hop
+
+### Requirement: At most ten paths to a foundation
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL list at most 10 paths from the selected technology down to a foundation, say when more exist, and show the longest path running through it.
+
+#### Scenario: More paths than the list holds
+
+- **Given** more than 10 paths lead down from Blazor Server to a foundation
+- **When** the reader selects Blazor Server in Dependencies
+- **Then** 10 paths are listed with a note that more lead down
+- **And** the longest path through Blazor Server is shown below them
+
+### Requirement: Clusters opens on the selection's layer
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open Clusters on the selected technology's layer, with that technology in focus, and on All layers when nothing is selected.
+
+#### Scenario: Arriving with a selection
+
+- **Given** SQLite is selected in Overview
+- **When** the reader switches to Clusters
+- **Then** SQLite's layer is open with SQLite in focus
+- **And** the breadcrumb reads All layers, the layer and SQLite
+
+### Requirement: The Clusters trail keeps the last six
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL keep the last 6 technologies the reader followed in Clusters as a trail, and step back along it with Back.
+
+#### Scenario: A seventh step
+
+- **Given** the reader has followed six technologies in Clusters
+- **When** the reader follows a seventh
+- **Then** the trail shows the last six, without the first
+
+#### Scenario: Back
+
+- **Given** the trail ends Razor Components, then ASP.NET Core
+- **When** the reader presses Back
+- **Then** Razor Components is in focus and ends the trail
+
+### Requirement: Type lenses shows one card per type in use
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show on the Type lenses board one card per type in use, each with its type's lens for the selected technology when that technology is of its type and otherwise for the type's most-used technology, and a Lens per type table below the cards.
+
+#### Scenario: The most-used technology of a type
+
+- **Given** no framework is selected, and ASP.NET Core is the framework the most others use
+- **When** the reader opens Type lenses
+- **Then** the framework card shows ASP.NET Core's lens
+
+#### Scenario: The selected technology's own card
+
+- **Given** Razor Components, a framework, is selected
+- **When** the reader opens Type lenses
+- **Then** the framework card shows Razor Components' lens
+
+#### Scenario: The lens table
+
+- **Given** the reader opens Type lenses
+- **When** the board is drawn
+- **Then** a Lens per type table names, for each lens, the types it serves, what it shows and what it reads
