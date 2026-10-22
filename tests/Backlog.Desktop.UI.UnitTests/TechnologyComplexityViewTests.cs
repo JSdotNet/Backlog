@@ -197,6 +197,45 @@ public sealed class TechnologyComplexityViewTests : IDisposable
         Assert.Contains("tech-complexity__point--layer-2", Point(component, 0, 6).ClassName, StringComparison.Ordinal);
     }
 
+    /// <summary>A heading with inline Markdown — <c>App Installer (`.appinstaller`)</c>
+    /// (#1517) — reaches the board through the reader, and neither the table name nor
+    /// any point's <c>aria-label</c> shows its backticks.</summary>
+    [Fact]
+    public void A_heading_with_inline_markdown_reads_plain_in_the_table_and_every_aria_label()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-tests", Guid.NewGuid().ToString("n"));
+        var techPath = Path.Combine(root, ".tech");
+        Directory.CreateDirectory(techPath);
+        try
+        {
+            AssertPlainLabels(techPath);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private void AssertPlainLabels(string techPath)
+    {
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
+        File.WriteAllText(Path.Combine(techPath, "desktop.md"),
+            "# Desktop Stack\n\n"
+            + "## App Installer (`.appinstaller`)\n```meta\nstatus: adopt\ntype: format\n```\n\nThe update feed.\n\n"
+            + "## MSIX packaging\n```meta\nstatus: adopt\ntype: tool\ndepends-on: [\".tech/desktop.md#app-installer-appinstaller\"]\n```\n\nThe package.\n");
+
+        var component = _context.Render<TechnologyComplexityView>(parameters => parameters
+            .Add(view => view.View, TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath))));
+
+        var names = component.FindAll("[data-testid='technology-complexity-table-table'] tbody .tech-overview__name")
+            .Select(name => name.TextContent.Trim())
+            .ToArray();
+        Assert.Contains("App Installer (.appinstaller)", names);
+
+        Assert.Equal("App Installer (.appinstaller): used by 1, rests on 0, Leaves", Point(component, 1, 0).GetAttribute("aria-label"));
+        Assert.DoesNotContain('`', component.Markup);
+    }
+
     private IRenderedComponent<TechnologyComplexityView> Render(bool withHubUsers = true, string? selected = null)
     {
         _selected = selected;
