@@ -817,9 +817,15 @@ owner's waiting captures from the same route, and it acknowledges one with
 behind the same paired-device authorization, owner-scope and replica-fault
 filters as every other sync route.
 
-The Cosmos database therefore holds five containers. `tasks`, `sessions` and
-`annotations` are partitioned on the owner, and `devices` and `pairingCodes`
-on their own id.
+Notifications have two containers (local ADR 0038). The owner desktop pushes to
+`POST /api/sync/notifications`, every device reads the feed from
+`GET /api/sync/notifications`, and a viewer posts a reply to
+`POST /api/sync/notifications/replies`. The owner instance lists the replies
+addressed to it and deletes each once processed.
+
+The Cosmos database therefore holds seven containers. `tasks`, `sessions`,
+`annotations`, `notifications` and `notificationReplies` are partitioned on the
+owner, and `devices` and `pairingCodes` on their own id.
 
 The blob store stages an upload as uncommitted blocks. It commits them only once
 the handler has checked the size and digest, so a refused upload never becomes a
