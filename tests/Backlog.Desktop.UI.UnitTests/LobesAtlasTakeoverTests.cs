@@ -676,6 +676,13 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
 
         Assert.Contains("flex: none;", Rule(css, ".lobes-atlas__card {"), StringComparison.Ordinal);
         Assert.Contains("flex: none;", Rule(css, ".lobes-atlas__panel-title {"), StringComparison.Ordinal);
+
+        // The rows' own box gives way too, down to the title and two rows, and
+        // clips below its content height so the rows cannot run over the card.
+        var legend = Rule(css, ".lobes-atlas__legend {");
+        Assert.Contains("flex: 0 1 auto;", legend, StringComparison.Ordinal);
+        Assert.Contains("min-height: calc(2 * 44px", legend, StringComparison.Ordinal);
+        Assert.Contains("overflow: hidden;", legend, StringComparison.Ordinal);
     }
 
     /// <summary>Found in the live QA pass: at 390 px the fused scope switch clipped
@@ -691,6 +698,133 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         Assert.Contains("max-width: 100%;", scopes, StringComparison.Ordinal);
 
         Assert.Contains("flex: none;", Rule(css, ".lobes-atlas__scopes > .header-group__option {"), StringComparison.Ordinal);
+    }
+
+    /// <summary>Lobes.dc.html draws the map full-bleed and floats everything over
+    /// it. The takeover put the parts in rows and a grid column instead, and the
+    /// map got about 760 x 494 px of a 1440 x 960 window (#1494, #1498, #1500).
+    /// Over 60rem the atlas's canvas fills the takeover; the header, the panel and
+    /// the foot float above it, taking no pointer where they draw nothing, and
+    /// the index floats down the right under the chips.</summary>
+    [Fact]
+    public void The_stylesheet_floats_every_part_over_a_full_bleed_map()
+    {
+        var css = AppCss();
+        var wide = MediaBlock(css, "@media (width > 60rem) {");
+
+        var graph = NestedRule(wide, ".lobes-atlas__graph {");
+        Assert.Contains("position: absolute;", graph, StringComparison.Ordinal);
+        Assert.Contains("inset: 0;", graph, StringComparison.Ordinal);
+        // No size container, so no stacking context: the detail sheet inside the
+        // atlas rises above every floating box, and fills the takeover.
+        Assert.Contains("container-type: normal;", Rule(css, ".lobes-atlas__graph {"), StringComparison.Ordinal);
+        Assert.Contains("contain: layout;", Rule(css, ".lobes-atlas {"), StringComparison.Ordinal);
+
+        var canvas = NestedRule(wide, ".lobes-atlas__graph .graph-atlas__canvas {");
+        Assert.Contains("position: absolute;", canvas, StringComparison.Ordinal);
+        Assert.Contains("inset: 0;", canvas, StringComparison.Ordinal);
+
+        var floating = NestedRule(wide, ".lobes-atlas__header,");
+        Assert.Contains(".lobes-atlas__panel,", floating, StringComparison.Ordinal);
+        Assert.Contains(".lobes-atlas__footer {", floating, StringComparison.Ordinal);
+        Assert.Contains("position: absolute;", floating, StringComparison.Ordinal);
+        Assert.Contains("z-index: 1;", floating, StringComparison.Ordinal);
+        Assert.Contains("pointer-events: none;", floating, StringComparison.Ordinal);
+
+        var controls = NestedRule(wide, ".lobes-atlas__scopes,");
+        foreach (var part in new[] { ".lobes-atlas__tools,", ".lobes-atlas__chips,", ".lobes-atlas__sheet {" })
+        {
+            Assert.Contains(part, controls, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("pointer-events: auto;", controls, StringComparison.Ordinal);
+
+        var panel = NestedRule(wide, ".lobes-atlas__panel {");
+        Assert.Contains("top: var(--lobes-atlas-left-top);", panel, StringComparison.Ordinal);
+        Assert.Contains("width: var(--lobes-atlas-side);", panel, StringComparison.Ordinal);
+        Assert.Contains("max-height: calc(100% - var(--lobes-atlas-left-top)", panel, StringComparison.Ordinal);
+
+        var index = NestedRule(wide, ".lobes-atlas__graph .graph-atlas-index {");
+        Assert.Contains("position: absolute;", index, StringComparison.Ordinal);
+        Assert.Contains("top: var(--lobes-atlas-right-top);", index, StringComparison.Ordinal);
+        Assert.Contains("right: var(--lobes-atlas-inset);", index, StringComparison.Ordinal);
+        Assert.Contains("var(--lobes-atlas-foot)", index, StringComparison.Ordinal);
+    }
+
+    /// <summary>The floating parts are the takeover's own children, siblings of
+    /// the atlas rather than inside its canvas — the renderer listens on the
+    /// canvas alone, so a drag or a wheel on a control never reaches the camera
+    /// (proved live, since bUnit runs no renderer). And they come in the order
+    /// the eye meets them in both layouts, which is the order the keyboard
+    /// does (accessibility.md, Logical order).</summary>
+    [Fact]
+    public void The_parts_are_siblings_of_the_atlas_in_the_order_the_eye_meets_them()
+    {
+        var component = Render("brain");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-chip']")));
+
+        var root = component.Find("[data-testid='lobes-atlas']");
+        Assert.Equal(
+            ["lobes-atlas__header", "lobes-atlas__panel", "graph-atlas", "lobes-atlas__footer"],
+            root.Children.Select(child => child.ClassList.First()));
+        Assert.Equal(
+            ["lobes-atlas__lead", "lobes-atlas__controls"],
+            root.QuerySelector(".lobes-atlas__header")!.Children.Select(child => child.ClassName));
+    }
+
+    /// <summary>At 390 px the map sat low under several rows of wrapped chips, and
+    /// the foot overlapped the index list (#1500). Under 60rem nothing floats: the
+    /// parts stack in one column, the chips scroll sideways in one row, the panel
+    /// and the card fold into a sheet behind one disclosure, and the map takes
+    /// what is left with its list under it.</summary>
+    [Fact]
+    public void The_stylesheet_stacks_a_narrow_window_in_one_column_with_the_panel_in_a_sheet()
+    {
+        var css = AppCss();
+        var narrow = MediaBlock(css, "@media (width <= 60rem) {");
+
+        Assert.DoesNotContain("position: absolute;", narrow, StringComparison.Ordinal);
+        Assert.Contains("overflow-y: auto;", NestedRule(narrow, ".lobes-atlas {"), StringComparison.Ordinal);
+        Assert.Contains("display: flex;", NestedRule(narrow, ".lobes-atlas__sheet-toggle {"), StringComparison.Ordinal);
+        Assert.Contains("display: none;", NestedRule(narrow, ".lobes-atlas:not(.lobes-atlas--sheet-open) .lobes-atlas__sheet {"), StringComparison.Ordinal);
+        Assert.Contains("flex: 1 0 26rem;", NestedRule(narrow, ".lobes-atlas__graph {"), StringComparison.Ordinal);
+        Assert.Contains("grid-template-rows: minmax(12rem, 1fr) minmax(8rem, 0.75fr);", NestedRule(narrow, ".lobes-atlas__graph > .graph-atlas__stage {"), StringComparison.Ordinal);
+
+        // Over the map the disclosure is not there at all.
+        Assert.Contains("display: none;", Rule(css, ".lobes-atlas__sheet-toggle {"), StringComparison.Ordinal);
+
+        var chips = Rule(css, ".lobes-atlas__chips {");
+        Assert.Contains("flex-wrap: nowrap;", chips, StringComparison.Ordinal);
+        Assert.Contains("overflow-x: auto;", chips, StringComparison.Ordinal);
+        Assert.Contains("padding: var(--spacing-xs);", chips, StringComparison.Ordinal);
+        Assert.Contains("flex: none;", Rule(css, ".lobes-atlas__chip {"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_panels_disclosure_names_the_panel_and_the_card_and_opens_the_sheet()
+    {
+        var component = Render("repo:backlog");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-sheet-toggle']")));
+
+        var toggle = component.Find("[data-testid='lobes-atlas-sheet-toggle']");
+        AssertRealButton(toggle);
+        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
+        Assert.Equal(component.Find("[data-testid='lobes-atlas-panel-sheet']").Id, toggle.GetAttribute("aria-controls"));
+        Assert.Equal("Devbook folders backlog", Collapse(toggle.TextContent));
+        Assert.DoesNotContain("lobes-atlas--sheet-open", component.Find("[data-testid='lobes-atlas']").ClassList);
+
+        toggle.Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("[data-testid='lobes-atlas-sheet-toggle']").GetAttribute("aria-expanded"));
+            Assert.Contains("lobes-atlas--sheet-open", component.Find("[data-testid='lobes-atlas']").ClassList);
+        });
+
+        // The panel and the card are in the sheet, so the sheet is what folds.
+        var sheet = component.Find("[data-testid='lobes-atlas-panel-sheet']");
+        Assert.NotNull(sheet.QuerySelector("[data-testid='lobes-atlas-rows']"));
+        Assert.NotNull(sheet.QuerySelector("[data-testid='lobes-atlas-card']"));
     }
 
     /// <summary>The index's mark for a Brain note wears the Brain's accent, as the
@@ -762,6 +896,36 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         var start = css.IndexOf("\n" + opening, StringComparison.Ordinal);
         Assert.True(start >= 0, $"{opening} should exist.");
         return css[start..css.IndexOf('}', start)];
+    }
+
+    private static string AppCss() =>
+        File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+
+    /// <summary>The body of the atlas's own top-level at-rule that opens with
+    /// <paramref name="opening"/>, up to its closing brace in the first column:
+    /// the first such block that styles the atlas, since other screens share the
+    /// same breakpoint.</summary>
+    private static string MediaBlock(string css, string opening)
+    {
+        for (var start = css.IndexOf("\n" + opening, StringComparison.Ordinal);
+             start >= 0;
+             start = css.IndexOf("\n" + opening, start + 1, StringComparison.Ordinal))
+        {
+            var block = css[start..css.IndexOf("\n}", start, StringComparison.Ordinal)];
+            if (block.Contains("\n    .lobes-atlas", StringComparison.Ordinal)) return block;
+        }
+
+        Assert.Fail($"{opening} should open a block that styles the atlas.");
+        return string.Empty;
+    }
+
+    /// <summary>A rule one level into an at-rule's body, found as
+    /// <see cref="Rule"/> finds a top-level one.</summary>
+    private static string NestedRule(string block, string opening)
+    {
+        var start = block.IndexOf("\n    " + opening, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"{opening} should exist in the block.");
+        return block[start..block.IndexOf('}', start)];
     }
 
     private static AngleSharp.Dom.IElement Scope(IRenderedComponent<LobesAtlasTakeover> component, string key) =>
