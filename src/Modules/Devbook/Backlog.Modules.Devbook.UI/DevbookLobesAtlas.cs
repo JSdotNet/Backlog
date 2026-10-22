@@ -41,6 +41,10 @@ public static class DevbookLobesAtlas
     /// reason of its own.</summary>
     public const string NotOnThisMachine = "not on this machine";
 
+    /// <summary>What a ghost devbook's tag says over its brain in All, where a
+    /// registered scope's tag gives its count.</summary>
+    public const string NotRegistered = "not registered";
+
     /// <summary>The Lobes scope that shows what the Devbook pane reads: the Brain
     /// for a blank alias, else that repository's devbook — the key
     /// <see cref="DevbookLobesReader"/> gives it.</summary>
@@ -209,7 +213,8 @@ public static class DevbookLobesAtlas
             kind,
             scope.Kind == DevbookLobesScopeKind.Ghost ? null : scope.ItemCount,
             regions,
-            satellite);
+            satellite,
+            scope.Kind == DevbookLobesScopeKind.Ghost ? NotRegistered : null);
     }
 
     private static LobesAtlasMark Mark(DevbookLobesNode node) => new(

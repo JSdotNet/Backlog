@@ -60,13 +60,16 @@ public sealed record LobesAtlasModel(
 /// <param name="SatelliteLabel">In this scope's own layout, the words beside the
 /// Brain hub drawn next to it, whose bundles reach this scope's marks. Null draws
 /// no satellite.</param>
+/// <param name="Status">Written beside its name in the All layout where it has no
+/// <paramref name="Count"/> — a ghost's "not registered". Null writes none.</param>
 public sealed record LobesAtlasScope(
     string Key,
     string Label,
     string Kind,
     int? Count = null,
     IReadOnlyList<LobesAtlasRegion>? Regions = null,
-    string? SatelliteLabel = null)
+    string? SatelliteLabel = null,
+    string? Status = null)
 {
     public const string Brain = "brain";
     public const string Devbook = "devbook";

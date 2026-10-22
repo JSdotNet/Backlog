@@ -760,6 +760,7 @@ related: [.devbook/domain/devbook/features.md#lobes-atlas, .devbook/domain/devbo
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_the_lobes_flag_on_the_headers_atlas_takes_the_screen_and_its_close_returns_to_the_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.Each_scope_counts_its_regions_its_items_and_the_notes_linking_in, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_foot_shows_the_hint_with_the_zoom_level_and_the_marker_turns_with_the_camera, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_spaces_the_headline_from_the_title_as_the_design_does]
 ```
 
 The system SHALL open one full-window atlas from the shell header that draws the Brain and the devbook of every registered repository as brains the reader rotates by dragging and zooms by scrolling.
@@ -775,6 +776,12 @@ The system SHALL open one full-window atlas from the shell header that draws the
 - **Given** the atlas is open
 - **When** the reader drags across it and then scrolls
 - **Then** the drag rotates the brains and the scroll changes the zoom the atlas reports
+
+#### Scenario: The headline
+
+- **Given** the atlas is open in All
+- **When** the reader reads its header
+- **Then** the dash before the headline stands apart from the title, as in "ATLAS — Brain + 2 devbooks"
 
 ### Requirement: The map fills the atlas and its controls float over it
 
@@ -837,6 +844,7 @@ The system SHALL offer the scopes All, Brain and one per devbook, drawing the Br
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.An_unregistered_alias_is_a_ghost_scope_holding_only_the_named_chapters_in_the_links_words, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.In_all_each_tag_carries_its_count_and_a_ghosts_says_it_is_not_registered]
 ```
 
 The system SHALL draw a repository alias the Brain links to that is not registered on this machine as a dashed ghost devbook holding only the chapters the notes name, in the link's own words.
@@ -846,6 +854,12 @@ The system SHALL draw a repository alias the Brain links to that is not register
 - **Given** Brain notes linking three chapters of an alias not registered here
 - **When** the reader opens the atlas
 - **Then** the alias has a dashed scope of its own, and its brain is a dashed outline holding those three chapters, each named as its link wrote it
+
+#### Scenario: Its tag in All
+
+- **Given** a ghost devbook and a registered devbook
+- **When** the reader opens the atlas in All
+- **Then** the registered devbook's tag gives its name and its count, and the ghost's reads its alias and "· not registered"
 
 ### Requirement: A chapter of a devbook not indexed yet says the index is missing
 
@@ -874,6 +888,7 @@ The system SHALL give a chapter the notes name in a registered devbook whose ind
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.A_brain_note_is_placed_by_its_para_area, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.The_para_field_wins_over_the_folder, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.An_area_declared_beyond_para_is_parietal, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.Archive_is_the_dust_and_no_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.The_brain_stem_holds_conventions_and_the_area_roots_and_occipital_the_repository_hubs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.The_para_attribute_wins_over_the_folder_for_a_note_and_its_chapters, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.A_para_area_in_a_folder_of_another_name_keeps_its_region]
 ```
 
 The system SHALL place each Brain note in a region by its PARA area: Projects in Frontal; Areas, Resources and any area `CONVENTIONS.md` declares beyond PARA in Parietal; People in Temporal; the linked repository chapters in Occipital; Journal and the inbox in Cerebellum; area roots and `CONVENTIONS.md` in the Brain stem; and Archive as the faint outer dust.
@@ -969,10 +984,10 @@ The system SHALL draw Brain marks in `color-band-2` and devbook marks in gold, w
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_panel_lists_each_scope_with_its_count_and_a_row_opens_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_panel_lists_its_six_regions_with_what_each_holds_and_its_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_top_right_has_labels_all_none_and_one_chip_per_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_chips_are_one_per_scope_and_hide_that_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.All_and_none_act_on_the_current_scope_only, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Labels_is_a_toggle_that_reports_its_state]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_panel_lists_each_scope_with_its_count_and_a_row_opens_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_panel_lists_its_six_regions_with_what_each_holds_and_its_count, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_a_scope_the_top_right_has_labels_all_none_and_one_chip_per_region, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.In_all_the_chips_are_one_per_scope_and_hide_that_scope, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.All_and_none_act_on_the_current_scope_only, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Labels_is_a_toggle_that_reports_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.None_in_a_scope_hides_its_archive_dust_and_its_rows_and_all_brings_them_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_show_all_tool_is_named_apart_from_the_scope_switchs_all_and_starts_with_its_word]
 ```
 
-The system SHALL list the scopes with their counts in the left panel in All and the six regions with what each holds and its count in a single scope, offer Labels, All, None and one chip per region (per scope in All) at the top right, and apply the chips, Labels, All and None to the current scope only.
+The system SHALL list the scopes with their counts in the left panel in All and the six regions with what each holds and its count in a single scope, offer Labels, All, None and one chip per region (per scope in All) at the top right, apply the chips, Labels, All and None to the current scope only, hide a scope's Archive dust with its regions on None and show it again on All, and name the top right's All apart from the scope switch's All with a name that starts with "All".
 
 #### Scenario: None in one scope
 
@@ -991,6 +1006,18 @@ The system SHALL list the scopes with their counts in the left panel in All and 
 - **Given** the atlas in All
 - **When** the reader presses a devbook's row in the left panel
 - **Then** the atlas shows that devbook's scope
+
+#### Scenario: None hides the Archive
+
+- **Given** the atlas in the Brain scope with a note in the Archive
+- **When** the reader presses None, then All
+- **Then** None leaves no mark on the map and no row in the list, the archived note among them, and All brings the note back
+
+#### Scenario: Two buttons read All
+
+- **Given** the atlas in the Brain scope
+- **When** a screen reader reads the header
+- **Then** the scope switch's option is named "All" and the picture's tool "All regions"
 
 ### Requirement: The scope card offers one action for its scope
 
@@ -1031,16 +1058,16 @@ The system SHALL show a scope card naming the scope with its counts, when its in
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.With_no_brain_index_the_empty_state_offers_to_build_it_and_a_way_back_instead_of_a_map, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Build_the_index_now_builds_it_and_the_map_takes_the_empty_states_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_build_that_fails_or_finds_nothing_says_why_and_keeps_the_offer, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_host_that_cannot_build_the_index_offers_only_the_way_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.While_the_index_builds_the_button_is_busy_says_so_and_a_second_press_starts_no_second_build, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.An_atlas_opened_on_a_scope_over_the_empty_state_opens_there_once_the_index_is_built, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.The_lobes_source_builds_the_brains_index_through_the_refresher]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.With_no_brain_index_the_empty_state_offers_to_build_it_and_a_way_back_instead_of_a_map, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Build_the_index_now_builds_it_and_the_map_takes_the_empty_states_place, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_build_that_fails_or_finds_nothing_says_why_and_keeps_the_offer, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.A_host_that_cannot_build_the_index_offers_only_the_way_back, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.While_the_index_builds_the_button_is_busy_says_so_and_a_second_press_starts_no_second_build, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.An_atlas_opened_on_a_scope_over_the_empty_state_opens_there_once_the_index_is_built, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesTests.The_lobes_source_builds_the_brains_index_through_the_refresher, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_empty_states_header_names_the_brain_beside_the_title]
 ```
 
-The system SHALL, with no Brain index built yet, say so and offer Build the index now and Back to notes instead of drawing an empty map.
+The system SHALL, with no Brain index built yet, name the Brain beside the atlas's title, say the Brain is not indexed yet and offer Build the index now and Back to notes instead of drawing an empty map.
 
 #### Scenario: A Brain never indexed
 
 - **Given** a Brain folder whose index has not been built
 - **When** the reader opens the atlas
-- **Then** it says the Brain is not indexed yet and offers Build the index now and Back to notes, and draws no map
+- **Then** its header reads "Atlas" with the Brain's badge beside it, it says the Brain is not indexed yet and offers Build the index now and Back to notes, and draws no map
 
 #### Scenario: Building it
 

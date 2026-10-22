@@ -4764,7 +4764,8 @@
                     const scope = scopes.get(key);
                     if (!scope) continue;
                     const q = project(world, seat.offset[0], seat.offset[1] - 330 * seat.scale, seat.offset[2]);
-                    const text = scope.label + (typeof scope.count === 'number' ? ' · ' + scope.count : '');
+                    // Each tag carries its count; a ghost, which has none, says why.
+                    const text = scope.label + (typeof scope.count === 'number' ? ' · ' + scope.count : scope.status ? ' · ' + scope.status : '');
                     tag(text, q.x - 14, q.y, (palette[scope.kind] || palette.devbook).accent, 600, 12);
                 }
             } else {

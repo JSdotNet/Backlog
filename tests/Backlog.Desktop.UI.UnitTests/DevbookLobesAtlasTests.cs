@@ -49,6 +49,23 @@ public sealed class DevbookLobesAtlasTests
     }
 
     [Fact]
+    public void In_all_each_tag_carries_its_count_and_a_ghosts_says_it_is_not_registered()
+    {
+        var model = DevbookLobesAtlas.Model(Graph(), LobesAtlasModel.AllLayout);
+
+        var brain = model.Scopes.Single(scope => scope.Key == Brain);
+        Assert.Equal(3, brain.Count);
+        Assert.Null(brain.Status);
+        var backlog = model.Scopes.Single(scope => scope.Key == Backlog);
+        Assert.Equal(2, backlog.Count);
+        Assert.Null(backlog.Status);
+
+        var ghost = model.Scopes.Single(scope => scope.Key == Stack);
+        Assert.Null(ghost.Count);
+        Assert.Equal("not registered", ghost.Status);
+    }
+
+    [Fact]
     public void Hubs_and_a_devbooks_roots_are_hubs_and_ghost_chapters_are_hollow()
     {
         var model = DevbookLobesAtlas.Model(Graph(), LobesAtlasModel.AllLayout);
@@ -162,7 +179,7 @@ public sealed class DevbookLobesAtlasTests
         var link = root.GetProperty("links")[0];
         foreach (var name in new[] { "source", "target", "kind", "dashed" }) Assert.True(link.TryGetProperty(name, out _), name);
         var scope = root.GetProperty("scopes")[0];
-        foreach (var name in new[] { "key", "label", "kind", "count", "regions", "satelliteLabel" }) Assert.True(scope.TryGetProperty(name, out _), name);
+        foreach (var name in new[] { "key", "label", "kind", "count", "regions", "satelliteLabel", "status" }) Assert.True(scope.TryGetProperty(name, out _), name);
         Assert.Equal(JsonValueKind.Array, root.GetProperty("hiddenScopes").ValueKind);
         Assert.Equal(JsonValueKind.Array, root.GetProperty("hiddenLobes").ValueKind);
     }
