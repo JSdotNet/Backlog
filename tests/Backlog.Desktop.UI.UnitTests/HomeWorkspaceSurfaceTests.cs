@@ -3231,6 +3231,176 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// Register repository on a ghost's card leaves for Settings, and the Router
+    /// remounts the shell on the way back: the atlas reopens on that ghost, with
+    /// the surface it was opened over still its way back.
+    /// </summary>
+    [Fact]
+    public void Register_repository_and_back_reopens_the_atlas_on_the_ghost_with_its_way_back()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+
+            using (var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), shellNavigation, configureServices: AddLobes))
+            {
+                var component = Render(harness);
+
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+                component.Find("[data-testid='dashboard-toggle-button']").Click();
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
+                component.Find("[data-testid='atlas-toggle-button']").Click();
+                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-scope'][data-scope='ghost:devbook-stack']")));
+
+                component.Find("[data-testid='lobes-atlas-scope'][data-scope='ghost:devbook-stack']").Click();
+                component.WaitForAssertion(() =>
+                    Assert.Equal("Register repository", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim()));
+                component.Find("[data-testid='lobes-atlas-card-action']").Click();
+
+                Assert.EndsWith("/settings/repositories", harness.Context.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri, StringComparison.Ordinal);
+            }
+
+            // Settings and back: a fresh shell instance over the same navigation file.
+            using var back = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), new ShellNavigationStore(path), configureServices: AddLobes);
+            var reopened = Render(back);
+
+            reopened.WaitForAssertion(() =>
+            {
+                Assert.Equal("ghost:devbook-stack", reopened.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
+                Assert.Equal("Back to Dashboard", reopened.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
+            });
+
+            reopened.Find("[data-testid='lobes-atlas-close']").Click();
+
+            reopened.WaitForAssertion(() =>
+            {
+                Assert.Empty(reopened.FindAll("[data-testid='atlas-surface']"));
+                Assert.NotEmpty(reopened.FindAll("[data-testid='dashboard-surface']"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// Back from Settings once the ghost's alias is registered: the atlas opens on
+    /// that devbook's scope rather than on a ghost the graph no longer holds.
+    /// </summary>
+    [Fact]
+    public void Back_from_registering_the_ghosts_alias_opens_that_devbooks_scope()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastSurface("Atlas");
+            shellNavigation.SetAtlasPlace("Devbook", "ghost:backlog");
+
+            using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), shellNavigation, configureServices: AddLobes);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.Equal("repo:backlog", component.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
+                Assert.Equal("Back to Devbook", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The surface the atlas opened over switched off since: the tooltip names
+    /// the view the close will really land on, and the close lands there.
+    /// </summary>
+    [Fact]
+    public void The_atlas_names_the_view_its_close_lands_on_once_the_surface_it_opened_over_is_off()
+    {
+        AppFeatureSettingsStore? features = null;
+        using var harness = CreateHarness(
+            store =>
+            {
+                features = store;
+                _ = store.SetEnabled(DevbookFeatures.LobesAtlas, true);
+            },
+            configureServices: AddLobes);
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("Back to Dashboard", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title")));
+
+        _ = features!.SetEnabled(DashboardFeatures.Dashboard, false);
+
+        component.WaitForAssertion(() =>
+            Assert.Equal("Back to Tasks", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title")));
+
+        component.Find("[data-testid='lobes-atlas-close']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+        });
+
+        // The dashboard back on does not put a takeover the reader left back on screen.
+        _ = features.SetEnabled(DashboardFeatures.Dashboard, true);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+        });
+    }
+
+    /// <summary>
+    /// The atlas's scope card takes the one road every Devbook opening takes: a
+    /// devbook on this machine opens in the atlas's place, and a Devbook that
+    /// cannot read the Brain says so and leaves the atlas where it was.
+    /// </summary>
+    [Fact]
+    public void The_atlas_scope_card_opens_the_devbook_or_says_why_it_cannot()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
+        var component = Render(harness);
+        var toasts = harness.Context.Services.GetRequiredService<ToastChannel>();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='atlas-toggle-button']")));
+        component.Find("[data-testid='atlas-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-scope'][data-scope='brain']")));
+
+        // No Brain composed in this host: said out loud, the atlas stays.
+        component.Find("[data-testid='lobes-atlas-scope'][data-scope='brain']").Click();
+        component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-card-action']").Click());
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("tasks-devbook-unavailable", Assert.Single(toasts.Visible).TestId);
+            Assert.NotEmpty(component.FindAll("[data-testid='atlas-surface']"));
+        });
+
+        component.Find("[data-testid='lobes-atlas-scope'][data-scope='repo:backlog']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("Open devbook", component.Find("[data-testid='lobes-atlas-card-action']").TextContent.Trim()));
+        component.Find("[data-testid='lobes-atlas-card-action']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface']"));
+        });
+    }
+
     private static void AddLobes(IServiceCollection services) =>
         services.AddSingleton<IDevbookLobesSource>(new LobesAtlasTakeoverTests.FixedLobes(LobesAtlasTakeoverTests.Sample()));
 

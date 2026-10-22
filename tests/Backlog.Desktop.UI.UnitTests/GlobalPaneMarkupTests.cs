@@ -624,8 +624,10 @@ public sealed class GlobalPaneMarkupTests
             "private bool DevbookVisible => _surface == WorkspaceSurface.Devbook && DevbookPaneOptionVisible;",
             home,
             StringComparison.Ordinal);
-        // An entry's reference, a Brain note's badge, and the Lobes atlas's card.
-        Assert.Equal(3, CountOccurrences(home, "        ShowDevbook();\n"));
+        // An entry's reference, a Brain note's badge and the Lobes atlas's card all
+        // open it through OpenDevbookOnAsync, the one road.
+        Assert.Equal(1, CountOccurrences(home, "        ShowDevbook();\n"));
+        Assert.Contains("private Task OpenDevbookOnAsync(string alias, string? reference, string unavailable)", home, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -129,6 +129,10 @@ public sealed record DevbookLobesGraph(
     /// <summary>The key of the Brain's scope.</summary>
     public const string BrainScopeKey = "brain";
 
+    /// <summary>What a ghost devbook's scope key starts with, its alias in lower
+    /// case after it.</summary>
+    public const string GhostScopePrefix = "ghost:";
+
     /// <summary>True when the graph is unavailable because the Brain's index has
     /// not been built yet — the one absence the atlas can offer to mend.</summary>
     public bool BrainIndexMissing { get; init; }
@@ -330,7 +334,7 @@ internal static class DevbookLobesReader
             {
                 if (!ghosts.TryGetValue(link.Alias, out var ghostKey))
                 {
-                    ghostKey = "ghost:" + link.Alias.ToLowerInvariant();
+                    ghostKey = DevbookLobesGraph.GhostScopePrefix + link.Alias.ToLowerInvariant();
                     ghosts[link.Alias] = ghostKey;
                     scopes.Add((ghostKey, link.Alias, DevbookLobesScopeKind.Ghost, link.Alias, false, BrainRepoLinkResolver.NotOnThisMachine, null));
                 }

@@ -1117,6 +1117,49 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>
+    /// The atlas's place — the surface it was opened over and the scope it is on —
+    /// survives a restart, so leaving it for Settings and coming back keeps both;
+    /// neither key is written until the atlas has been opened.
+    /// </summary>
+    [Fact]
+    public void The_atlas_place_survives_a_restart_and_writes_no_key_until_the_atlas_opens()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.Null(store.AtlasReturnSurface);
+            Assert.Null(store.AtlasScope);
+
+            store.SetLastSurface("Dashboard");
+            using (var none = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(none.RootElement.TryGetProperty("atlasReturnSurface", out _));
+                Assert.False(none.RootElement.TryGetProperty("atlasScope", out _));
+            }
+
+            store.SetLastSurface("Atlas");
+            store.SetAtlasPlace("Dashboard", "ghost:devbook-stack");
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.Equal("Atlas", restarted.LastSurface);
+            Assert.Equal("Dashboard", restarted.AtlasReturnSurface);
+            Assert.Equal("ghost:devbook-stack", restarted.AtlasScope);
+
+            // All, from the header, is no scope at all.
+            restarted.SetAtlasPlace("Workspace", null);
+            var again = new ShellNavigationStore(path);
+            Assert.Equal("Workspace", again.AtlasReturnSurface);
+            Assert.Null(again.AtlasScope);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// The setters are on the click path, so the file is written off it, and a
     /// burst of presses — the view options pressed in quick succession — still
     /// leaves the last one on disk, never an earlier one that finished later.
