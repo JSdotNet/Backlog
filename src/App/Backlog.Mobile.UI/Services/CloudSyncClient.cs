@@ -108,6 +108,43 @@ public sealed class CloudSyncClient(HttpClient http)
             ?? new PullTasksResponse([], since ?? string.Empty, HasMore: false);
     }
 
+    /// <summary>One page of the owner's notification feed from <paramref name="since"/>,
+    /// or from the beginning when it is null (local ADR 0038) — the same paging and the
+    /// same <see cref="SyncUnavailableException"/> as <see cref="PullTasksAsync"/>.</summary>
+    public async Task<PullNotificationsResponse> PullNotificationsAsync(string? since, CancellationToken ct = default)
+    {
+        var route = SyncRoutes.Absolute(SyncRoutes.Notifications);
+        route = string.IsNullOrWhiteSpace(since)
+            ? $"{route}?maxItems={PullPageSize}"
+            : $"{route}?maxItems={PullPageSize}&since={Uri.EscapeDataString(since)}";
+
+        using var response = await http.GetAsync(route, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var problem = await SyncProblem.ReadAsync(response, ct);
+            throw new SyncUnavailableException(response.StatusCode, problem.Code, problem.Detail);
+        }
+
+        return await response.Content.ReadFromJsonAsync<PullNotificationsResponse>(ct)
+            ?? new PullNotificationsResponse([], since ?? string.Empty, HasMore: false);
+    }
+
+    /// <summary>One attempt at one reply to a question: the status, and the problem's
+    /// detail when it failed. Throws only when there was no answer at all. Posting the
+    /// same reply id twice stores it once, so a retry is safe.</summary>
+    public async Task<(HttpStatusCode Status, string? Detail)> PostNotificationReplyAsync(NotificationReplyPost reply, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(reply);
+
+        using var response = await http.PostAsJsonAsync(SyncRoutes.Absolute(SyncRoutes.NotificationReplies), reply, ct);
+
+        if (response.IsSuccessStatusCode) return (response.StatusCode, null);
+
+        var problem = await SyncProblem.ReadAsync(response, ct);
+        return (response.StatusCode, problem.Detail);
+    }
+
     /// <summary>One attempt at one task: the status, and the problem's detail
     /// when it failed. Throws only when there was no answer at all.</summary>
     public async Task<(HttpStatusCode Status, string? Detail)> PushTaskAsync(TaskChange change, CancellationToken ct = default)

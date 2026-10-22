@@ -81,6 +81,27 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task The_centre_read_holds_every_open_row_and_the_rows_written_since_newest_first()
+    {
+        var older = Question(Now.AddMinutes(-5));
+        var newer = Question(Now);
+        var acknowledged = Alert();
+        acknowledged.Acknowledge(Owner, Now);
+
+        await _repository.SaveAsync(older, Cancellation);
+        await _repository.SaveAsync(newer, Cancellation);
+        await _repository.SaveAsync(acknowledged, Cancellation);
+
+        // Written moments ago, so a window from an hour back holds it and one from the
+        // future does not; the open rows are listed whatever the window.
+        var recent = await _repository.ListOpenOrSettledSinceAsync(DateTimeOffset.UtcNow.AddHours(-1), Cancellation);
+        var future = await _repository.ListOpenOrSettledSinceAsync(DateTimeOffset.UtcNow.AddHours(1), Cancellation);
+
+        Assert.Contains(acknowledged.Id, recent.Select(n => n.Id));
+        Assert.Equal([newer.Id, older.Id], future.Select(n => n.Id));
+    }
+
+    [Fact]
     public async Task An_unknown_id_reads_as_null()
     {
         Assert.Null(await _repository.GetAsync(Guid.NewGuid(), Cancellation));

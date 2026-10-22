@@ -47,6 +47,9 @@ public sealed class RootedSqliteNotificationRepository(Func<string> currentRootD
     public Task<IReadOnlyList<Notification>> ListAwaitingDeliveryAsync(CancellationToken cancellationToken = default) =>
         Current.ListAwaitingDeliveryAsync(cancellationToken);
 
+    public Task<IReadOnlyList<Notification>> ListOpenOrSettledSinceAsync(DateTimeOffset settledSince, CancellationToken cancellationToken = default) =>
+        Current.ListOpenOrSettledSinceAsync(settledSince, cancellationToken);
+
     public Task SaveAsync(Notification notification, CancellationToken cancellationToken = default) =>
         Current.SaveAsync(notification, cancellationToken);
 }

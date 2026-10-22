@@ -56,6 +56,20 @@ public sealed class SqliteNotificationRepository : INotificationRepository
     public Task<IReadOnlyList<Notification>> ListAwaitingDeliveryAsync(CancellationToken cancellationToken = default) =>
         ListAsync("WHERE awaits_delivery = 1", cancellationToken);
 
+    public async Task<IReadOnlyList<Notification>> ListOpenOrSettledSinceAsync(DateTimeOffset settledSince, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+
+        // updated_at is the stamp of the last write, so a settled row's is at or after the
+        // moment it settled; both stamps are round-trip UTC, which orders as text.
+        command.CommandText =
+            $"SELECT document FROM notifications WHERE state = '{nameof(NotificationState.Open)}' OR updated_at >= $since ORDER BY created_at DESC, id;";
+        command.Parameters.AddWithValue("$since", Stamp(settledSince));
+
+        return await ReadAllAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task SaveAsync(Notification notification, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(notification);
@@ -92,6 +106,11 @@ public sealed class SqliteNotificationRepository : INotificationRepository
 
         command.CommandText = $"SELECT document FROM notifications {where} ORDER BY created_at, id;";
 
+        return await ReadAllAsync(command, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<IReadOnlyList<Notification>> ReadAllAsync(SqliteCommand command, CancellationToken cancellationToken)
+    {
         var all = new List<Notification>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))

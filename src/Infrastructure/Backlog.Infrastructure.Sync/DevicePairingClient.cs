@@ -41,14 +41,20 @@ public sealed class DevicePairingClient
 
     private readonly HttpClient _http;
     private readonly IDeviceCredentialStore _credentials;
+    private readonly PairingSubjects? _pairings;
 
-    public DevicePairingClient(HttpClient http, IDeviceCredentialStore credentials)
+    /// <param name="http">The client <c>AddSyncClient</c> configures.</param>
+    /// <param name="credentials">Where a credential the service issues is kept.</param>
+    /// <param name="pairings">Where an issued code opens a pairing a notification can be
+    /// about; none on a host that composed no notifications.</param>
+    public DevicePairingClient(HttpClient http, IDeviceCredentialStore credentials, PairingSubjects? pairings = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(credentials);
 
         _http = http;
         _credentials = credentials;
+        _pairings = pairings;
     }
 
     /// <summary>First device in: claims an owner of its own and stores the
@@ -78,12 +84,19 @@ public sealed class DevicePairingClient
     }
 
     /// <summary>A paired device asks for a short code to read out loud. Bearer:
-    /// only a device that is already in may invite another one.</summary>
+    /// only a device that is already in may invite another one. A code issued opens a
+    /// pairing in <see cref="PairingSubjects"/>, which ends when the code expires.</summary>
     public async Task<Result<PairingCodeResponse>> IssuePairingCodeAsync(
-        CancellationToken cancellationToken = default) =>
-        await SyncHttp.SendAsync<PairingCodeResponse>(
+        CancellationToken cancellationToken = default)
+    {
+        var issued = await SyncHttp.SendAsync<PairingCodeResponse>(
             () => _http.PostAsync(SyncRoutes.Absolute(SyncRoutes.PairingCodes), content: null, cancellationToken),
             cancellationToken).ConfigureAwait(false);
+
+        if (issued.IsSuccess) _pairings?.Issued(issued.Value);
+
+        return issued;
+    }
 
     /// <summary>Second device in: trades a code somebody read out for a
     /// credential under the same owner, and stores it.</summary>

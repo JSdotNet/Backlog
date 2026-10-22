@@ -20,7 +20,13 @@ namespace Backlog.Infrastructure.Sync.Notifications;
 /// </summary>
 /// <param name="Notification">The notification as the owner holds it.</param>
 /// <param name="RejectedReplies">The replies the owner rejected, oldest first.</param>
-public sealed record NotificationPayload(NotificationSnapshot Notification, IReadOnlyList<NotificationReplyRejection> RejectedReplies);
+/// <param name="OwnerName">What the owner instance calls itself — the name it paired under,
+/// such as its machine name — so a viewer can say which desktop holds the question. Null from
+/// an owner that predates the field.</param>
+public sealed record NotificationPayload(
+    NotificationSnapshot Notification,
+    IReadOnlyList<NotificationReplyRejection> RejectedReplies,
+    string? OwnerName = null);
 
 /// <summary>A reply the owner instance rejected, and why.</summary>
 /// <param name="ReplyId">The reply.</param>
@@ -85,11 +91,12 @@ public static class NotificationPayloads
     };
 
     /// <summary>The change to push for <paramref name="snapshot"/>, stamped
-    /// <paramref name="updatedAt"/>.</summary>
+    /// <paramref name="updatedAt"/>, naming its owner as <paramref name="ownerName"/>.</summary>
     public static NotificationChange ToChange(
         NotificationSnapshot snapshot,
         IReadOnlyList<NotificationReplyRejection> rejected,
-        DateTimeOffset updatedAt)
+        DateTimeOffset updatedAt,
+        string? ownerName = null)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(rejected);
@@ -99,7 +106,7 @@ public static class NotificationPayloads
             snapshot.OwnerInstanceId,
             StateOf(snapshot.State),
             updatedAt,
-            JsonSerializer.SerializeToElement(new NotificationPayload(snapshot, rejected), Options));
+            JsonSerializer.SerializeToElement(new NotificationPayload(snapshot, rejected, ownerName), Options));
     }
 
     /// <summary>The payload a change carries, or null for one this build cannot read.</summary>

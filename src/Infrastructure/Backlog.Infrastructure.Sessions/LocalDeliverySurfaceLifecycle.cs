@@ -1,8 +1,11 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Backlog.Infrastructure.Sessions;
 
@@ -27,22 +30,29 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     private readonly DeliveryRunReader _reader;
     private readonly ISessionsSurfaceActivator? _shell;
     private readonly IDevbookSyncVerdicts? _verdicts;
+    private readonly Func<INotifications?>? _notifications;
+    private readonly ILogger _logger;
 
     /// <summary>What a host composes: the dashboards' folders under the signed-in
     /// profile, this device's identity, whatever is showing the application — which
     /// may be nothing, on a host that composed the port without a window — and where
     /// chapter verdicts are kept, which may also be nothing: the run keeps its own
-    /// verdicts either way.</summary>
+    /// verdicts either way. And Notifications, told when a run finishes so a question
+    /// about it closes — nothing, on a host that composed no notifications.</summary>
     internal LocalDeliverySurfaceLifecycle(
         IDeviceIdentitySource identity,
         ISessionsSurfaceActivator? shell = null,
-        IDevbookSyncVerdicts? verdicts = null)
+        IDevbookSyncVerdicts? verdicts = null,
+        Func<INotifications?>? notifications = null,
+        ILogger? logger = null)
         : this(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
             IdOf(identity),
             identity.Current.Name,
             shell,
-            verdicts)
+            verdicts,
+            notifications,
+            logger)
     {
     }
 
@@ -53,12 +63,16 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         string environmentId,
         string environment,
         ISessionsSurfaceActivator? shell = null,
-        IDevbookSyncVerdicts? verdicts = null)
+        IDevbookSyncVerdicts? verdicts = null,
+        Func<INotifications?>? notifications = null,
+        ILogger? logger = null)
     {
         _store = new DeliveryRunStore(home);
         _reader = new DeliveryRunReader(home, environmentId, environment);
         _shell = shell;
         _verdicts = verdicts;
+        _notifications = notifications;
+        _logger = logger ?? NullLogger.Instance;
     }
 
     private static string IdOf(IDeviceIdentitySource identity)
@@ -506,6 +520,17 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
 
             repository = Text(run, "repo");
         }
+
+        // The run's end, whatever status it finished on: done, blocked, parked, or
+        // cancelled for a run abandoned. Every question about it closes — outside the
+        // gate, before anything else that could throw — and a run reopened later reopens
+        // none of them.
+        await SessionSubjectEnds.CloseAsync(
+            _notifications,
+            SessionSubjectEnds.Run(runId),
+            SessionNotificationSubjects.RunEndedReason,
+            _logger,
+            cancellationToken).ConfigureAwait(false);
 
         // Outside the run's gate: the chapter store has a gate of its own, and holding
         // one while waiting on the other is how two writers come to wait on each other.
