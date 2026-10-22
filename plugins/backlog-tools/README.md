@@ -1,10 +1,11 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or knowledge-folder tooling. Six skills: one for each direction of a plan,
+general-purpose or knowledge-folder tooling. Seven skills: one for each direction of a plan,
 one for running a whole plan, one for closing the entries whose pull request merged, one for
-bringing another tool's items into the Inbox, and one for the remarks a person leaves while
-reading — and a pane that follows a running plan.
+bringing another tool's items into the Inbox, one for the remarks a person leaves while
+reading, and one that dispatches the session requests the app queues — and a pane that follows
+a running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -119,6 +120,33 @@ reading — and a pane that follows a running plan.
   `.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md` §6 is the decision,
   and the app is never the fence's writer. `run-plan-item` carries a short form of
   the same procedure for the notes an item it just ran leaves answerable.
+- **`dispatch-sessions`** — this machine's Manager session, the first dispatcher of local
+  ADR 0037 (`.devbook/arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md`).
+  A person starts it once as `/loop /backlog-tools:dispatch-sessions` in a pinned Claude
+  Desktop session. A Monitor runs `skills/dispatch-sessions/assets/wait-requests.mjs`, which
+  finds the app's port and token the way the telemetry forwarder does, loops on
+  `GET /session-requests/wait` and prints each request once, so the Manager spends no turn
+  while nothing is queued; it never polls the request tools in a loop. Before each start it
+  checks capacity, cheapest first: fewer than 3 of its own linked sessions working, every plan
+  limit under 80%, and — through the PowerShell probe `assets/capacity.ps1` — average CPU
+  under 80% over 30 seconds and at least 4 GB free; all four are arguments with these
+  defaults, and a request that does not fit stays Requested. Oldest first, it claims the
+  request (`claim_session_request`), starts a local session in the request's clone folder in
+  its own worktree with the app's fixed brief as its whole prompt and `wake_when_done` on, and
+  reports it (`mark_session_request` `started`), or gives the claim back (`released`) when
+  the start fails. A new request wakes it through the Monitor and a finished session through
+  `wake_when_done`; the `/loop` tick is the fallback only, 300 seconds while usage, CPU or
+  memory holds the queue and 1800 otherwise. On restart it releases the claims its dispatcher
+  still holds. The dispatcher is named for the machine, and the skill runs one Manager per
+  machine. A request released after a failed start is skipped for that turn and comes up again
+  on the next tick or re-armed Monitor. It writes no brief — the app builds each from the request's kind and id — so
+  the session it starts goes through `run-plan-item` or `execute-plan` and the repository's
+  gate like any pasted entry: it changes no file, is no flow, and adds no execution path beside
+  the gate. It needs the `session-requests` flag on in the app. User-invoked only
+  (`disable-model-invocation: true`). `tests/dispatch-sessions.test.ts` drives the wait
+  script's decisions under `claude plugin test`; the two processes themselves run under
+  `node --test plugins/backlog-tools/tests/dispatch-sessions-assets.test.mjs`, since that
+  sandbox spawns nothing.
 
 The plan-item marker exists because a plan is written before the app has given its entries
 an id, so it restates the `id:`, `+tag`, `repo:` and `after:` the metadata line carries. The
@@ -172,7 +200,8 @@ It writes nothing and calls nothing: it reads the calls the run already makes.
 
 The module's state is declared in `types/index.d.ts`. `claude plugin validate plugins/backlog-tools`
 checks the module against it, and `claude plugin test plugins/backlog-tools` runs `tests/`,
-which drive the hooks against the engine and a scripted run (`tests/demo.ts`). Once Claude
+which drive the hooks against the engine and a scripted run (`tests/demo.ts`), and the
+`dispatch-sessions` wait script's decisions. Once Claude
 Code has loaded the plugin from this checkout it lays its declarations in the ignored
 `.claude-plugin/types/`, and `tsc -p plugins/backlog-tools` type-checks the module. Function hooks
 are early access in Claude Code: a release can change the API, and the pane is what breaks.

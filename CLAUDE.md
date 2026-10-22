@@ -50,7 +50,7 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its six skills, nor its hooks,
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its seven skills, nor its hooks,
 changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
 calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
@@ -66,6 +66,11 @@ whose pull request merged into the default branch or a `plan/` branch to Done, s
 `handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it writes
 only `annotation` fences, through `.devbook/_tools/devbook-meta/annotations.mjs`, offers the
 commit and never pushes.
+`dispatch-sessions` is user-invoked and changes no file: started once as
+`/loop /backlog-tools:dispatch-sessions` in a pinned Claude Desktop session, it turns each
+session request the app queues into a new session whose whole prompt is the app's fixed
+`run-plan-item` or `execute-plan` brief, so that session meets the gate like a pasted entry. It
+is no flow and adds no execution path beside the gate.
 
 `.agents/rules/context-loading.md` says how a change confined to `.devbook/` is verified.
 
@@ -173,3 +178,5 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   on Devbook chapters in the Backlog app as `annotation` fences and resolves each note.
 - `plugins/backlog-tools/skills/close-merged/SKILL.md` — moves the Backlog entries whose
   pull request merged into the default branch or a `plan/` branch to Done.
+- `plugins/backlog-tools/skills/dispatch-sessions/SKILL.md` — the Manager session that
+  dispatches the app's session requests (local ADR 0037); user-invoked only, no flow.
