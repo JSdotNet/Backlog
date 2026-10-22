@@ -20,7 +20,9 @@ public enum NotificationsRole
 
 /// <summary>
 /// The module's composition root. A host calls <see cref="AddNotificationsModule"/> once and gets
-/// <see cref="INotifications"/> and <see cref="INotificationReplies"/>; each context that asks
+/// <see cref="INotifications"/>, <see cref="INotificationReplies"/> and
+/// <see cref="INotificationStatuses"/> — and, as an owner,
+/// <see cref="INotificationCentre"/> for its screens; each context that asks
 /// questions adds its handler with <see cref="AddNotificationAnswerHandler{THandler}"/>, and each
 /// context that owns subjects its probe with <see cref="AddNotificationSubjectProbe{TProbe}"/>.
 /// <para>
@@ -43,6 +45,7 @@ public static class NotificationsModuleRegistration
                 services.TryAddSingleton<ViewerNotifications>();
                 services.TryAddSingleton<INotifications>(sp => sp.GetRequiredService<ViewerNotifications>());
                 services.TryAddSingleton<INotificationReplies>(sp => sp.GetRequiredService<ViewerNotifications>());
+                services.TryAddSingleton<INotificationStatuses, ViewerNotificationStatuses>();
                 return services;
 
             case NotificationsRole.Owner:
@@ -54,25 +57,42 @@ public static class NotificationsModuleRegistration
 
         services.TryAddSingleton(TimeProvider.System);
 
+        // The host's store, observed: every write raises the change the centre and the
+        // operating system's notifications redraw on, whichever channel made it.
+        services.TryAddSingleton(sp => new ObservedNotificationRepository(sp.GetRequiredService<INotificationRepository>()));
+
         services.TryAddSingleton(sp => new AnswerDelivery(
             sp.GetServices<INotificationAnswerHandler>(),
-            sp.GetRequiredService<INotificationRepository>(),
+            sp.GetRequiredService<ObservedNotificationRepository>(),
             sp.GetRequiredService<TimeProvider>(),
             sp.GetService<ILogger<AnswerDelivery>>()));
 
         // One instance behind both ports: the gate that makes the first valid reply win has to
         // be the one every change passes through.
         services.TryAddSingleton(sp => new OwnerNotifications(
-            sp.GetRequiredService<INotificationRepository>(),
+            sp.GetRequiredService<ObservedNotificationRepository>(),
             sp.GetRequiredService<IDeviceIdentitySource>(),
             sp.GetRequiredService<AnswerDelivery>(),
             sp.GetRequiredService<TimeProvider>(),
             sp.GetService<IAppFeatureSettings>()));
         services.TryAddSingleton<INotifications>(sp => sp.GetRequiredService<OwnerNotifications>());
         services.TryAddSingleton<INotificationReplies>(sp => sp.GetRequiredService<OwnerNotifications>());
+        services.TryAddSingleton<INotificationStatuses>(sp => new OwnerNotificationStatuses(sp.GetRequiredService<INotificationRepository>()));
+
+        services.TryAddSingleton(sp => new NotificationCentre(
+            sp.GetRequiredService<ObservedNotificationRepository>(),
+            sp.GetRequiredService<INotificationReplies>(),
+            sp.GetRequiredService<IDeviceIdentitySource>(),
+            sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<INotificationCentre>(sp => sp.GetRequiredService<NotificationCentre>());
+
+        // What the sync exchange carries to the other devices: read-only, over the same
+        // store. Owner only — a viewer has nothing of its own to carry.
+        services.TryAddSingleton<INotificationReplication>(sp => new NotificationReplication(
+            sp.GetRequiredService<INotificationRepository>()));
 
         services.TryAddSingleton(sp => new NotificationsStartup(
-            sp.GetRequiredService<INotificationRepository>(),
+            sp.GetRequiredService<ObservedNotificationRepository>(),
             sp.GetRequiredService<INotifications>(),
             sp.GetRequiredService<IDeviceIdentitySource>(),
             sp.GetRequiredService<AnswerDelivery>(),

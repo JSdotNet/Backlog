@@ -34,6 +34,11 @@ var cosmosDatabase = cosmos.AddCosmosDatabase("backlog");
 cosmosDatabase.AddContainer("tasks", "/ownerId");
 cosmosDatabase.AddContainer("sessions", "/ownerId");
 cosmosDatabase.AddContainer("annotations", "/ownerId");
+// Notifications and the replies to them (local ADR 0038), partitioned on the owner like
+// the other replicas. Their TTLs — 30 days after a notification settles, and the reply
+// backstop — are stamped per document and live only in the bicep, as the others do.
+cosmosDatabase.AddContainer("notifications", "/ownerId");
+cosmosDatabase.AddContainer("notificationReplies", "/ownerId");
 cosmosDatabase.AddContainer("devices", "/id");
 cosmosDatabase.AddContainer("pairingCodes", "/id");
 

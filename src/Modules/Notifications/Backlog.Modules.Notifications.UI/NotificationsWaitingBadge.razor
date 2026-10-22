@@ -1,0 +1,57 @@
+@implements IDisposable
+@inject INotificationCentre Centre
+
+@*
+    How many questions wait for an answer, on the shell's Notifications option.
+    Nothing when none do: a zero would be a badge that asks for nothing. It counts
+    open questions only — an alert never waits on anyone — and redraws on the
+    centre's Changed event, so it moves the moment a question is published,
+    answered from any channel, or closed by its source.
+*@
+
+@if (_waiting > 0)
+{
+    <Badge Kind="notification"
+           Slug="waiting"
+           Title="@Title"
+           TestId="@TestId"
+           aria-label="@Title">@_waiting</Badge>
+}
+
+@code {
+    private int _waiting;
+
+    [Parameter]
+    public string? TestId { get; set; } = "notifications-waiting";
+
+    private string Title => _waiting == 1 ? "1 question waiting for an answer" : $"{_waiting} questions waiting for an answer";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Centre.Changed += OnChanged;
+        await CountAsync();
+    }
+
+    public void Dispose() => Centre.Changed -= OnChanged;
+
+    private void OnChanged(object? sender, NotificationChanged change) =>
+        _ = InvokeAsync(async () =>
+        {
+            await CountAsync();
+            StateHasChanged();
+        });
+
+    private async Task CountAsync()
+    {
+        try
+        {
+            _waiting = (await Centre.ListAsync()).Count(n => n.IsOpenQuestion);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A badge that cannot count shows nothing rather than a wrong number; the centre
+            // itself says why it cannot read.
+            _waiting = 0;
+        }
+    }
+}

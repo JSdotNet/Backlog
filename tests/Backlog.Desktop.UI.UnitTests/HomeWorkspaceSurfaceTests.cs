@@ -1910,14 +1910,14 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The surfaces are stored by name, so each is appended and none reordered, and
-    /// the Devbook joined last, after the Inbox (local ADR 0022, amendment of
-    /// 2026-10-15). A tripwire on a later tidy-up rather than a test of behaviour,
+    /// the Devbook joined after the Inbox (local ADR 0022, amendment of
+    /// 2026-10-15) and the notification centre last. A tripwire on a later tidy-up rather than a test of behaviour,
     /// which is why it lists members.
     /// </summary>
     [Fact]
-    public void The_devbook_is_the_last_surface_appended_after_the_inbox()
+    public void The_notification_centre_is_the_last_surface_appended_after_the_devbook()
     {
-        string[] expected = ["Workspace", "Tools", "Dashboard", "Roadmap", "Sessions", "PullRequests", "Inbox", "Devbook"];
+        string[] expected = ["Workspace", "Tools", "Dashboard", "Roadmap", "Sessions", "PullRequests", "Inbox", "Devbook", "Notifications"];
 
         Assert.Equal(expected, Enum.GetNames<WorkspaceSurface>());
     }

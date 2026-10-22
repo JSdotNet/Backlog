@@ -2,9 +2,12 @@
 
   <!--
     The Notifications module's UI (.devbook/domain/notifications/features.md): the
-    notification centre and the question card the shells will draw. Empty in this
-    step on purpose — the module core lands first, and the screens follow in their
-    own plan entry.
+    notification centre the desktop shell opens as a takeover (NotificationCentrePane),
+    its list grouped by subject (NotificationList), and the count of open questions
+    the shell's option wears (NotificationsWaitingBadge). The question card itself is
+    the library's NotificationCard, so the storybook can draw it with nothing behind
+    it; this project maps a notification onto it (NotificationPresentation). The
+    layout ships in wwwroot/notifications.css.
 
     It references the shared control library rather than growing its own controls,
     which is the rule every module UI project follows, and the module's published

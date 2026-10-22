@@ -41,7 +41,7 @@ Optional cloud sync carries this state between a person's devices:
 | Impediment | kind `impediment` in `tasks`, one document per impediment under its own id; the phone's edits go through the device outbox | last-write-wins per impediment on its `updated_at` | local ADR 0018's arrangement, local ADR 0035 |
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
-| Notifications and replies (not built) | a document in the `notifications` container | not reconciled: the owner instance writes each notification, and a viewer writes each reply once ([Notifications](#notifications)) | local ADR 0038 |
+| Notifications and replies | a notification in the `notifications` container, a reply in `notificationReplies` | not reconciled: the owner instance writes each notification, and a viewer writes each reply once ([Notifications](#notifications)) | local ADR 0038 |
 
 - **A capture is a task-shaped document with its own kind token.** On the desktop
   it is handed to the Inbox's intake before the task merge. It becomes an inbox
@@ -84,8 +84,9 @@ carried by a file-sync product is the hazard
 `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` exists
 to remove.
 
-- **Five containers in the cloud.** The replicas `tasks`, `sessions` and
-  `annotations` are all partitioned on `/ownerId`. They are separate because each
+- **Seven containers in the cloud.** The replicas `tasks`, `sessions`,
+  `annotations`, `notifications` and `notificationReplies` are all partitioned on
+  `/ownerId`. They are separate because each
   wants its own change feed, indexing policy, and retention, and serverless
   billing levies no per-container charge to trade against. Beside them, `devices`
   and `pairingCodes` hold the device registry. They are not replicas, since no
@@ -93,7 +94,9 @@ to remove.
   on every token mint has only the device id in hand.
 - **Retention is a store setting, not code.** Cosmos TTL expires task and
   annotation tombstones after 180 days, stamped on each tombstone. It expires
-  whole session records after 12 months, set on the `sessions` container. Nothing
+  whole session records after 12 months, set on the `sessions` container. It
+  expires a notification 30 days after it settled, and an unprocessed reply after
+  30 days, both stamped per document. Nothing
   reaps, so no scheduled job can fail silently at the moment nobody is watching,
   which is when a code-based reaper stops running.
 - **The sync service, not the store, keeps a device inside its own data.** The
@@ -412,15 +415,17 @@ between devices. Local ADR 0038 records the decision, and the
 [Notifications context](../domain/notifications/context.md) owns the model.
 The owner's side is built: the port, the handler and probe contracts, the
 `notifications` table in `backlog.db`, the answer replay and the startup probe
-pass, and each subject context's close and probe. The screens, the replica
-container and the realtime nudge are not yet.
+pass, and each subject context's close and probe. So is the transport: the two
+replica containers, the sync routes and the owner desktop's exchange. The
+screens and the realtime nudge are not yet.
 
 | Concern | How it works |
 |---|---|
 | Publishing | A source on a desktop calls `PublishAsync` with an alert or a question. That desktop becomes the notification's owner instance. |
 | Answering | A source that asks questions registers an `INotificationAnswerHandler` for its source name. The owner hands it the accepted answer, at least once. |
-| Ending | The context that owns a notification's subject calls `CloseForSubjectAsync` when the subject ends. It calls it from wherever it notices the end — a change synced in from another device included, since the context applies that change itself. Its `INotificationSubjectProbe` answers at startup, to catch an end the owner missed while it was not running. |
-| Storage | The owner keeps SQLite as its local store. Notifications and replies replicate through the `notifications` container, which expires them 30 days after they close. |
+| Ending | The context that owns a notification's subject calls `CloseForSubjectAsync` when the subject ends. It calls it from wherever it notices the end — a change synced in from another device included, since the context applies that change itself. Its `INotificationSubjectProbe` answers at startup and after a sync, to catch an end the owner missed. |
+| Storage | The owner keeps SQLite as its local store. Notifications replicate through the `notifications` container, which expires them 30 days after they close. Replies wait in `notificationReplies` until the owner deletes them. |
+| Exchange | The owner desktop pushes what it published or settled, and while a question is open lists the replies addressed to it every two minutes. It accepts the first valid reply, rejects the rest as already answered, closed or invalid, and puts each rejection on the notification it pushes next. A quiet desktop sends nothing. |
 | Realtime | A nudge only says "pull now". Desktops get it through Azure Web PubSub, and the Android phone through Azure Notification Hubs to FCM. |
 
 - **One writer per document.** Only the owner instance writes a notification. A

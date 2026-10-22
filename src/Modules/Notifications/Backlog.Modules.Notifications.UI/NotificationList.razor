@@ -1,0 +1,98 @@
+@*
+    The centre's list: every notification grouped under the subject it is about,
+    the group with an open question first, and each row the notification's kind
+    or how it settled, its title, and one line — who raised it and when, the
+    answer that won and the device it came from, or why it closed.
+
+    A row is a library AppButton wearing this list's own class: pressing it
+    selects the notification, and the detail beside the list draws it. The
+    list holds no state of its own beyond what it is handed.
+*@
+
+<nav class="notification-list" aria-label="Notifications" data-testid="notification-list">
+    @if (Notifications.Count == 0)
+    {
+        <EmptyState Title="Nothing waiting"
+                    Description="Alerts and questions from your sessions and tools appear here."
+                    TestId="notification-list-none" />
+    }
+    else
+    {
+        @foreach (var group in _groups)
+        {
+            <section class="notification-list__group" data-testid="notification-group" data-subject="@group.Key">
+                <h3 class="notification-list__subject">@group.Label</h3>
+                <ul class="notification-list__rows">
+                    @foreach (var notification in group.Notifications)
+                    {
+                        var selected = notification.Id == SelectedId;
+                        <li>
+                            <AppButton BaseClass="notification-list__row"
+                                       Variant="ButtonVariant.None"
+                                       CssClass="@RowClass(notification, selected)"
+                                       TestId="@($"notification-row-{notification.Id:N}")"
+                                       aria-current="@(selected ? "true" : null)"
+                                       OnClick="@(() => OnSelect.InvokeAsync(notification.Id))">
+                                <span class="notification-list__line">
+                                    <Badge Kind="@BadgeKind(notification)"
+                                           Slug="@BadgeSlug(notification)"
+                                           TestId="notification-row-badge">@BadgeLabel(notification)</Badge>
+                                    <span class="notification-list__title">@notification.Title</span>
+                                </span>
+                                <span class="notification-list__meta" data-testid="notification-row-line">
+                                    @NotificationPresentation.RowLine(notification, Now, ThisDeviceId)
+                                </span>
+                            </AppButton>
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+    }
+</nav>
+
+@code {
+    private IReadOnlyList<NotificationGroup> _groups = [];
+
+    /// <summary>The notifications to list, in any order; the list groups and orders them.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<NotificationView> Notifications { get; set; } = [];
+
+    /// <summary>The notification the detail shows.</summary>
+    [Parameter]
+    public Guid? SelectedId { get; set; }
+
+    /// <summary>Raised with the id of the row pressed.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnSelect { get; set; }
+
+    /// <summary>The time "2 min ago" is measured from.</summary>
+    [Parameter]
+    public DateTimeOffset Now { get; set; }
+
+    /// <summary>This device, so an answer given here reads "this desktop".</summary>
+    [Parameter]
+    public Guid ThisDeviceId { get; set; }
+
+    protected override void OnParametersSet() =>
+        _groups = NotificationPresentation.Group(Notifications ?? []);
+
+    private static string RowClass(NotificationView notification, bool selected)
+    {
+        var state = notification.State.ToString().ToLowerInvariant();
+        return selected
+            ? $"notification-list__row--{state} notification-list__row--selected"
+            : $"notification-list__row--{state}";
+    }
+
+    private static string BadgeKind(NotificationView notification) =>
+        notification.IsOpen ? "notification" : "notification-state";
+
+    private static string BadgeSlug(NotificationView notification) =>
+        notification.IsOpen
+            ? notification.Kind == NotificationKind.Question ? "question" : "alert"
+            : notification.State.ToString().ToLowerInvariant();
+
+    private static string BadgeLabel(NotificationView notification) =>
+        notification.IsOpen ? notification.Kind.ToString() : notification.State.ToString();
+}

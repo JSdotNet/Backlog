@@ -48,14 +48,15 @@ public class InfrastructureGraphTests
             + "of the settings. Splitting it by context would mean one registry per context."),
         ("Backlog.Infrastructure.Sync", 8,
             "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Progress, "
-            + "Devbook and Sessions — over the Sync module's own contract, so it sees each context's published "
-            + "surface by design. The eighth is Notifications' published surface: the pairing client here "
-            + "issues the pairing codes a notification can be about, so it tells Notifications when one ends."),
-        ("Backlog.Infrastructure.Mcp", 5,
+            + "Devbook, Sessions and Notifications — over the Sync module's own contract, so it sees each "
+            + "context's published surface by design. Notifications' surface is also how the pairing client "
+            + "here, which issues the pairing codes a notification can be about, tells Notifications when one ends."),
+        ("Backlog.Infrastructure.Mcp", 6,
             "The MCP server is one adapter: the agent tools over each context's published port, one tool "
             + "group per context behind that context's own key (local ADR 0012 §7) — Tasks, Roadmap, Devbook, "
-            + "Sessions and, for the impediment tools beside set_blocked, Progress (local ADR 0035). It "
-            + "references abstractions only, never a module's implementation.")
+            + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0038) and, for the "
+            + "impediment tools beside set_blocked, Progress (local ADR 0035). It references abstractions "
+            + "only, never a module's implementation.")
     ];
 
     /// <summary>

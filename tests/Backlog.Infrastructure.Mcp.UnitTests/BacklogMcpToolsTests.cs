@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Reflection;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
@@ -62,7 +63,13 @@ public class BacklogMcpToolsTests
 
                 // Progress's impediments, beside set_blocked (local ADR 0035).
                 "raise_impediment",
-                "set_impediment_state"
+                "set_impediment_state",
+
+                // Notifications' four (local ADR 0038).
+                "notify",
+                "ask",
+                "get_answer",
+                "close"
             ],
             BacklogMcpTools.ToolNames);
     }
@@ -84,6 +91,7 @@ public class BacklogMcpToolsTests
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
         // Progress has no switch: its impediment tools ride the always-on Tasks key.
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Impediments.FeatureKey);
+        Assert.Equal(NotificationsFeatures.Notifications, BacklogMcpTools.Notifications.FeatureKey);
     }
 
     /// <summary>
@@ -110,7 +118,7 @@ public class BacklogMcpToolsTests
     /// No key crosses a bounded context but one: the Tasks key also gates Progress's
     /// impediment tools, because Progress has no switch of its own — goals are always
     /// on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
-    /// keys the seven groups name are four.
+    /// keys the eight groups name are five.
     /// </para>
     /// </summary>
     [Fact]
@@ -120,7 +128,7 @@ public class BacklogMcpToolsTests
             .GroupBy(group => group.FeatureKey, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
-        Assert.Equal(4, byKey.Count);
+        Assert.Equal(5, byKey.Count);
 
         // The impediment tools are Progress's, which has no switch of its own: goals are
         // always on, so they ride the Tasks key, which cannot be turned off either.
@@ -222,7 +230,10 @@ public class BacklogMcpToolsTests
             SurfaceTools.UpdateStage,
             SurfaceTools.FinishRun,
             ImpedimentTools.RaiseImpediment,
-            ImpedimentTools.SetImpedimentState
+            ImpedimentTools.SetImpedimentState,
+            NotificationTools.Notify,
+            NotificationTools.Ask,
+            NotificationTools.Close
         ];
 
         // The writes a client may safely repeat, and which ones is not guessable

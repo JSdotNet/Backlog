@@ -777,7 +777,7 @@ sequenceDiagram
   choices become notification actions, up to three, and an open answer uses
   inline reply.
 - **An offline owner delays the answer, not the reply.** The reply waits in the
-  `notifications` container. The phone shows "delivers on wake" until Desktop A
+  `notificationReplies` container. The phone shows "delivers on wake" until Desktop A
   wakes, pulls the reply and accepts it.
 - **A missed nudge costs only time.** While a question is open, Desktop A also
   polls for replies every two minutes, so a lost Web PubSub message delays the

@@ -52,6 +52,9 @@
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <!-- IImpediments: the impediments raise_impediment and set_impediment_state write. -->
     <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
+    <!-- INotifications and INotificationStatuses: what notify and ask publish, and
+         what get_answer and close read (local ADR 0038). -->
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
     <!-- Result and Error, and IAppFeatureSettings for the exposure predicate the
          host's list-tools filter reads. Arrives transitively through every
          abstractions project above; named anyway, because this project uses it

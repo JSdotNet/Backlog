@@ -165,6 +165,11 @@ public static class MauiProgram
         // The Brain card's Browse: this head has a window to open the Windows
         // folder picker over, so it is the one host that registers one.
         builder.Services.TryAddSingleton<IBrainFolderPicker, WindowsBrainFolderPicker>();
+
+        // The owner's Windows app notifications (local ADR 0038, the notification centre's
+        // plan entry), and the channel a press in one opens the shell's centre through.
+        builder.Services.TryAddSingleton<Backlog.Modules.Notifications.UI.NotificationCentreRequests>();
+        builder.Services.TryAddSingleton<WindowsAppNotifications>();
         // What the tools pane asks about that server: the port, the address it
         // makes, and whether the socket was taken. Beside the worker
         // because it reads it — and through a Func, so that resolving the tool
@@ -221,6 +226,9 @@ public static class MauiProgram
         // And annotation replication's loop, the third sibling, on the same terms.
         _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+        // And the notification exchange's loop (local ADR 0038), on the same terms.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
+
         // And the backup loop, on the same terms: a timer that only existed
         // while the Storage tab was open would miss every slot it was set for.
         _ = app.Services.GetRequiredService<BackupWorker>();
@@ -232,6 +240,13 @@ public static class MauiProgram
         // And the blocked-task watcher, on the same terms: it raises an impediment for a
         // task marked blocked (local ADR 0035), and a watcher nobody resolves hears nothing.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
+
+        // And the Windows notifications, before the notifications startup pass below: listening
+        // first, so a notification that pass closes takes its Windows notification down with it.
+        // Registered for presses before the first window, so a press that launched the app is
+        // delivered once it is up, and raising one for every alert or question published from
+        // here on.
+        app.Services.GetRequiredService<WindowsAppNotifications>().Start();
 
         // And the notifications startup pass (local ADR 0038): it closes the open notifications
         // whose subject ended while the app was closed, and hands every stored answer no handler

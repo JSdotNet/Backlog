@@ -14,6 +14,7 @@ using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Infrastructure.SpecManager;
 using Backlog.Infrastructure.Sqlite;
@@ -150,7 +151,7 @@ public static class DesktopCompositionRegistration
 
         // Notifications (local ADR 0038): this desktop owns what it publishes, kept in the
         // notifications table AddSqlite registered above. Each context that asks questions adds
-        // its handler with AddNotificationAnswerHandler<T>(); none does yet. The heads start
+        // its handler with AddNotificationAnswerHandler<T>(). The heads start
         // NotificationsStartup once the container is built.
         services.AddNotificationsModule();
         // Each context that owns subjects answers the startup probe about them, from its
@@ -167,6 +168,9 @@ public static class DesktopCompositionRegistration
             sp.GetService<INotifications>,
             sp.GetService<ILogger<PullRequestSubjects>>()));
         services.AddSingleton<ISessionPullRequestStates>(sp => sp.GetRequiredService<PullRequestSubjects>());
+        // The MCP ask tool's questions: the asking session polls get_answer, so its handler
+        // only takes the answer, which stops the startup pass replaying it on every start.
+        services.AddNotificationAnswerHandler<McpNotificationAnswers>();
         // The stand-up behind the shell's Ask AI port on the Goals view, after the
         // module so the scoped stand-up port it holds exists.
         services.AddGoalsAiContentSource();
@@ -227,6 +231,7 @@ public static class DesktopCompositionRegistration
         services.AddSingleton(options.TaskSyncStateStore);
         services.AddSessionSyncStores(options.SessionSyncFolder);
         services.AddAnnotationSyncStore(options.AnnotationSyncFolder);
+        services.AddNotificationSyncStore(options.NotificationSyncFolder ?? options.AnnotationSyncFolder);
         // What the last backup did, per installation. The worker reads the
         // repository and the schedule off the workspace settings and uploads through
         // the same GitHub client the feedback dialog commits screenshots with.
@@ -386,6 +391,11 @@ public static class DesktopCompositionRegistration
         // the task loop.
         services.AddSessionSyncClient(SyncServiceAddress);
         services.AddAnnotationSyncClient(SyncServiceAddress);
+
+        // The notification exchange (local ADR 0038): this desktop pushes the notifications it
+        // owns and, while a question is open, takes the replies addressed to it every two
+        // minutes. Answers to the sync switch and to the notifications switch.
+        services.AddNotificationSyncClient(SyncServiceAddress);
 
         // Which registered clone a session's working folder lies inside, read off the
         // repository list the Repositories screen writes, so a header scoped to one

@@ -20,6 +20,11 @@ public interface INotificationRepository
     /// <summary>Every Open notification, oldest first.</summary>
     Task<IReadOnlyList<Notification>> ListOpenAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Every Open notification, and every one stored at or after
+    /// <paramref name="settledSince"/> in any other state, newest first — what the notification
+    /// centre lists.</summary>
+    Task<IReadOnlyList<Notification>> ListOpenOrSettledSinceAsync(DateTimeOffset settledSince, CancellationToken cancellationToken = default);
+
     /// <summary>Every notification with an accepted answer its handler has not taken yet,
     /// oldest first.</summary>
     Task<IReadOnlyList<Notification>> ListAwaitingDeliveryAsync(CancellationToken cancellationToken = default);
