@@ -363,8 +363,10 @@ and one for each area. Occipital draws the repository chapters the notes link
 to as one hub per repository alias, with a bundle to each chapter. A chapter of
 a note takes the note's region, and a PARA area kept under another folder name
 keeps its region. A chapter a registered devbook's index does not hold is drawn
-dashed inside that devbook, in the link's own words, as is every chapter the
-notes name in a devbook not indexed yet.
+dashed inside that devbook, in the link's own words, and its chip reads *not a
+chapter in its devbook*. Every chapter the notes name in a devbook not indexed
+yet is drawn the same way, but its chip reads *its devbook is not indexed yet —
+see its scope card*: the index is missing, not the chapter, as the card says.
 
 **Counts.** Each scope counts its marks per region, its notes or chapters
 without the hubs, and the Brain notes that link into it. The Brain's count is

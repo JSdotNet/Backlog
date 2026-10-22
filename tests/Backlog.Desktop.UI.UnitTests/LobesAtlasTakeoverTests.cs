@@ -155,6 +155,35 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         Assert.Equal(".devbook/arc42/adr/0001-use-sqlite.md", opened.Path);
     }
 
+    /// <summary>A chapter a note names in a devbook not indexed yet says that, as
+    /// its scope card does, rather than that it is no chapter of the devbook.</summary>
+    [Fact]
+    public void A_chapter_of_a_devbook_not_indexed_yet_says_so_on_its_chip_as_the_card_does()
+    {
+        _lobes.Graph = DevbookLobesReader.Read(
+            new DevbookLobesBrainSource(
+                [new("projects/plan.md", "Plan", "projects", "file", string.Empty, "projects/plan.md", false)],
+                [new("related", "projects/plan.md", "repo:backlog/.devbook/arc42/05-building-block-view.md")],
+                new Dictionary<string, string>(),
+                ["projects"]),
+            [DevbookLobesDevbookSource.Missing("backlog", "Its index has not been built yet.")],
+            link => new BrainRepoLinkResolution(link, false, BrainRepoLinkResolver.NotADevbookChapter));
+        var chapter = Assert.Single(_lobes.Graph.Nodes, node => node.Kind == DevbookLobesNodeKind.GhostChapter);
+
+        var component = Render("repo:backlog");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+        component.Find($"[data-testid='graph-atlas-index-option'][data-node-id='{chapter.Id}']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var chip = component.Find("[data-testid='lobes-atlas-repo-link']").TextContent;
+            Assert.Contains(DevbookLobesReader.NotIndexedYet, chip, StringComparison.Ordinal);
+            Assert.DoesNotContain(BrainRepoLinkResolver.NotADevbookChapter, chip, StringComparison.Ordinal);
+        });
+        Assert.Empty(component.FindAll("[data-testid='lobes-atlas-repo-link'] button"));
+        Assert.Contains("Not indexed yet", component.Find("[data-testid='lobes-atlas-card']").TextContent, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_devbook_chapter_no_note_links_to_still_opens_in_its_devbook()
     {
