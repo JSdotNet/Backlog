@@ -7405,6 +7405,508 @@ a.pull-request-detail-checks__name:hover {
     overflow: hidden;
 }
 
+/* --------------------------------------------------------------------------
+   Technology Clusters
+   --------------------------------------------------------------------------
+   The whole stack by layer, as the design's Clusters board: a map of buttons
+   and lines on a stage beside a side panel.
+   .devbook/domain/devbook/features.md#technology-view
+
+   Every position is set inline, in percent of the stage, by
+   TechnologyClustersLayout; the stage keeps the layout's aspect ratio, so a
+   line's angle holds at any width. A line is a border on a box turned about
+   its left end.
+
+   The eight type families take a hue each, derived from the chart category
+   hues and the neutrals as color-scheme.md#role-tokens requires, and never from
+   a semantic token; a technology not adopted is hollow, so status never rests on
+   colour alone. What it sits on is gold, what uses it the primary ink.
+   -------------------------------------------------------------------------- */
+
+.tech-clusters {
+    --tech-clusters-sits-on: var(--chart-series);
+    --tech-clusters-used-by: var(--chart-ink);
+    --tech-family-framework: var(--chart-category-2);
+    --tech-family-platform: var(--chart-category-3);
+    --tech-family-runtime: var(--chart-category-4);
+    --tech-family-language-package: color-mix(in srgb, var(--chart-category-3) 50%, var(--chart-category-4));
+    --tech-family-library-tool-plugin: var(--chart-category-5);
+    --tech-family-skill: color-mix(in srgb, var(--chart-category-4) 50%, var(--chart-category-5));
+    --tech-family-agent-service-format: color-mix(in srgb, var(--chart-category-2) 50%, var(--chart-category-5));
+    --tech-family-protocol: var(--chart-ink-muted);
+    --tech-family-other: var(--chart-axis);
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    padding-top: var(--spacing-md);
+}
+
+.tech-clusters .tech-family--framework { --tech-family: var(--tech-family-framework); }
+.tech-clusters .tech-family--platform { --tech-family: var(--tech-family-platform); }
+.tech-clusters .tech-family--runtime { --tech-family: var(--tech-family-runtime); }
+.tech-clusters .tech-family--language-package { --tech-family: var(--tech-family-language-package); }
+.tech-clusters .tech-family--library-tool-plugin { --tech-family: var(--tech-family-library-tool-plugin); }
+.tech-clusters .tech-family--skill { --tech-family: var(--tech-family-skill); }
+.tech-clusters .tech-family--agent-service-format { --tech-family: var(--tech-family-agent-service-format); }
+.tech-clusters .tech-family--protocol { --tech-family: var(--tech-family-protocol); }
+.tech-clusters .tech-family--other { --tech-family: var(--tech-family-other); }
+
+/* Where you are: Back, All layers › layer › technology, then the trail. */
+.tech-clusters__crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.tech-clusters__back,
+.tech-clusters__crumb {
+    min-height: 2.25rem;
+    min-width: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.tech-clusters__back:disabled {
+    color: var(--color-border);
+    cursor: default;
+}
+
+.tech-clusters__sep {
+    color: var(--color-border-strong);
+}
+
+.tech-clusters__here {
+    padding: 0 var(--spacing-xs);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.tech-clusters__trail-label {
+    margin-left: var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-clusters__trail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.tech-clusters__trail-step {
+    min-height: 1.75rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.tech-clusters__trail-step--current {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.tech-clusters__hint {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.tech-clusters__muted {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+}
+
+/* The map beside its companion; the companion goes under the map in a narrow pane. */
+.tech-clusters__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+    gap: var(--spacing-md);
+    align-items: start;
+}
+
+@container (max-width: 60rem) {
+    .tech-clusters__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.tech-clusters__map {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background);
+}
+
+.tech-clusters__stage {
+    position: relative;
+    width: 100%;
+    min-width: 40rem;
+    overflow: hidden;
+    font-size: var(--font-size-xs);
+}
+
+.tech-clusters__stage > * {
+    position: absolute;
+    box-sizing: border-box;
+}
+
+.tech-clusters__line {
+    height: 0;
+    border-top-style: solid;
+    border-top-color: var(--color-background-raised);
+    transform-origin: 0 50%;
+    pointer-events: none;
+}
+
+.tech-clusters__line--link {
+    border-top-color: var(--color-border-strong);
+}
+
+.tech-clusters__line--sits-on {
+    border-top-color: var(--tech-clusters-sits-on);
+}
+
+.tech-clusters__line--used-by {
+    border-top-color: var(--tech-clusters-used-by);
+}
+
+.tech-clusters__line--dashed {
+    border-top-style: dashed;
+}
+
+.tech-clusters__tally {
+    min-width: 1.5rem;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.5rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+.tech-clusters__tally--link {
+    min-width: 2rem;
+    min-height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-normal);
+    line-height: 1;
+}
+
+.tech-clusters__tally--sits-on {
+    background: var(--tech-clusters-sits-on);
+    color: var(--color-text-inverse);
+}
+
+.tech-clusters__tally--used-by {
+    background: var(--tech-clusters-used-by);
+    color: var(--color-text-inverse);
+}
+
+.tech-clusters__cluster {
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    box-shadow: 0 0 4.5rem color-mix(in srgb, var(--color-primary) 10%, transparent);
+    cursor: pointer;
+}
+
+.tech-clusters__cluster:hover,
+.tech-clusters__satellite:hover {
+    border-color: var(--color-border-strong);
+}
+
+.tech-clusters__cluster:focus-visible,
+.tech-clusters__satellite:focus-visible,
+.tech-clusters__pill:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 3px;
+}
+
+.tech-clusters__cluster-name {
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tech-clusters__satellite-name {
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tech-clusters__satellite {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
+.tech-clusters__satellite--sits-on {
+    border: var(--border-width-2) solid var(--tech-clusters-sits-on);
+}
+
+.tech-clusters__satellite--used-by {
+    border: var(--border-width-2) solid var(--tech-clusters-used-by);
+}
+
+.tech-clusters__satellite--dimmed,
+.tech-clusters__satellite-name--dimmed {
+    opacity: 0.5;
+}
+
+.tech-clusters__halo {
+    border: var(--border-width) solid var(--color-border);
+    border-radius: 1.75rem;
+    background: var(--color-background-alt);
+    box-shadow: 0 0 7.5rem color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.tech-clusters__halo-title {
+    overflow: hidden;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tech-clusters__pill {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-clusters__pill-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tech-clusters__pill--selected {
+    border: var(--border-width-2) solid var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.tech-clusters__pill--sits-on {
+    border: var(--border-width-2) solid var(--tech-clusters-sits-on);
+}
+
+.tech-clusters__pill--used-by {
+    border: var(--border-width-2) solid var(--tech-clusters-used-by);
+}
+
+/* Dimmed by its edge and its dot, never by its text, which stays readable. */
+.tech-clusters__pill--dimmed {
+    border-color: var(--color-background-raised);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+}
+
+.tech-clusters__pill--dimmed .tech-clusters__dot {
+    opacity: 0.45;
+}
+
+/* A dot: filled in its family's hue when adopted, a ring of it when not. */
+.tech-clusters__dot {
+    display: inline-block;
+    flex: none;
+    width: 0.625rem;
+    height: 0.625rem;
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--tech-family, var(--tech-family-other));
+    border-radius: var(--border-radius-full);
+    background: var(--tech-family, var(--tech-family-other));
+    pointer-events: none;
+}
+
+.tech-clusters__dot--hollow {
+    background: transparent;
+}
+
+.tech-clusters__dot--selected {
+    outline: var(--border-width-2) solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* The companion: the layers, or the open layer's technologies, as a list. */
+.tech-clusters__side {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    align-content: start;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+/* The inspector is the side panel's own content here, so the panel's frame is
+   the only one drawn. */
+.tech-clusters__side > .tech-inspector {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    overflow-wrap: anywhere;
+}
+
+.tech-clusters__side > .tech-inspector > * {
+    min-width: 0;
+}
+
+.tech-clusters__side-head {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.tech-clusters__kicker {
+    margin: 0;
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-clusters__kicker code {
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-normal);
+    text-transform: none;
+}
+
+.tech-clusters__side-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+}
+
+.tech-clusters__list-heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-clusters__list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-clusters__row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-clusters__row:hover {
+    border-color: var(--color-border);
+}
+
+.tech-clusters__row--selected {
+    border-color: var(--color-primary);
+}
+
+.tech-clusters__row-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tech-clusters__row-figure {
+    min-width: 1.5rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.tech-clusters__legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0;
+    padding: var(--spacing-sm) 0 0;
+    list-style: none;
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-clusters__legend li {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* The inspector names each related technology's layer in Clusters. */
+.tech-inspector__layer {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
 /* The `folder-*` family is the document-folder view — one view for `.design`
    and `.ai`, told which folder it is drawing — so nothing below names a folder;
    the token strip is the exception and keeps its `design-` prefix because only a
