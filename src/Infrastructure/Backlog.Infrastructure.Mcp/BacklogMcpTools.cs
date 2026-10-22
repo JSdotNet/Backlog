@@ -1,4 +1,5 @@
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions;
@@ -204,8 +205,19 @@ public static class BacklogMcpTools
         typeof(ImpedimentTools),
         [ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState]);
 
+    /// <summary>
+    /// The notification tools - <c>notify</c>, <c>ask</c>, <c>get_answer</c> and <c>close</c> -
+    /// behind <c>notifications</c>, the key Notifications owns (local ADR 0038). Off, a desktop
+    /// publishes nothing, so the tools that publish and poll are absent rather than present and
+    /// refusing with <c>notifications.not_available</c>.
+    /// </summary>
+    public static McpToolGroup Notifications { get; } = new(
+        NotificationsFeatures.Notifications,
+        typeof(NotificationTools),
+        [NotificationTools.Notify, NotificationTools.Ask, NotificationTools.GetAnswer, NotificationTools.Close]);
+
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments, Notifications];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>
