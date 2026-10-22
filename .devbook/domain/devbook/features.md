@@ -914,8 +914,9 @@ area has always done.
 
 **Drawn as buttons, operated from a list.** The Clusters map and the Complexity scatter are drawn as components the app
 positions with CSS, and every technology on them is a real button. The
-first-party canvas atlas no longer draws the stack; it stays for the Brain's
-atlas.
+first-party canvas atlas no longer draws the stack; it draws the Brain's atlas
+and the repository devbook atlas, which offers no Technology scope and leaves
+`.tech` chapters out.
 
 Every view a pointer operates has a list or table companion, on screen, that
 operates the same selection. A reader without a mouse, or with a screen reader,
