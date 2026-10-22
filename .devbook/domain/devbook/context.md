@@ -76,10 +76,12 @@ repository, and offers the atlas from the shell header. Off, the button opens
 today's atlas, and the header offers none. The technology atlas on the Tech tab
 is the same either way.
 
-It ships off while the Lobes atlas is built. It is not in the feature catalog
-yet: when the atlas lands, the key joins `DevbookFeatures` and the catalog in
-`AppFeatures.cs`, and a person's choice is kept in `features.json` like the
-pane's.
+It ships off, marked in development, while the Lobes atlas is finished. The key
+is in `DevbookFeatures` and the feature catalog in `AppFeatures.cs`, so the
+settings screen lists it with the other switches, and a person's choice is kept
+in `features.json` like the pane's. It means nothing with Devbook off: the
+context's scope service answers both the header and the pane from the two
+switches together.
 
 ## Brain folder
 

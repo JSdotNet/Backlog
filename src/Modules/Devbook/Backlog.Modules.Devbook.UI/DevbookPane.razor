@@ -261,8 +261,8 @@
             <AppButton BaseClass="devbook-stack__atlas-toggle"
                        Variant="ButtonVariant.None"
                        TestId="devbook-atlas-toggle"
-                       title="@(_atlasOpen ? "Close the atlas" : BrainMode ? "See how the Brain links together, and into your repositories" : "See how this devbook links together")"
-                       aria-expanded="@(_atlasOpen ? "true" : "false")"
+                       title="@AtlasButtonTitle"
+                       aria-expanded="@(OpensLobesAtlas && !_atlasOpen ? null : _atlasOpen ? "true" : "false")"
                        OnClick="ToggleAtlasAsync">
                 @(_atlasOpen ? "Hide atlas" : "Atlas")
             </AppButton>
@@ -794,6 +794,26 @@
     /// </summary>
     [Parameter]
     public EventCallback<BrainRepoLink> OnOpenRepositoryChapter { get; set; }
+
+    /// <summary>
+    /// Raised by the Atlas button, with the Lobes scope of what the pane reads —
+    /// the Brain, or this repository's devbook — while the Lobes atlas is offered
+    /// (<c>.devbook/domain/devbook/context.md#lobes-atlas</c>). The host gives that
+    /// atlas the screen. A host that passes nothing, or the flag off, keeps the
+    /// button on the pane's own atlas.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnOpenLobesAtlas { get; set; }
+
+    /// <summary>Whether the Atlas button opens the Lobes atlas rather than the
+    /// pane's own.</summary>
+    private bool OpensLobesAtlas => OnOpenLobesAtlas.HasDelegate && Scope.LobesAtlasOffered;
+
+    private string AtlasButtonTitle =>
+        _atlasOpen ? "Close the atlas"
+        : OpensLobesAtlas ? BrainMode ? "Open the Brain in the atlas, beside every devbook" : "Open this devbook in the atlas, beside the Brain"
+        : BrainMode ? "See how the Brain links together, and into your repositories"
+        : "See how this devbook links together";
 
     private Task OpenRepositoryChapterAsync(BrainRepoLink link) => OnOpenRepositoryChapter.InvokeAsync(link);
 
@@ -1758,6 +1778,18 @@
         {
             CloseAtlas();
             return Task.CompletedTask;
+        }
+
+        // The Lobes atlas, at the pane's scope, when it is offered: the host gives
+        // it the screen, so nothing opens in the pane. A repository the pane
+        // cannot name — a host that answers an unscoped ask with a devbook of its
+        // choosing — opens All rather than the Brain it is not showing.
+        if (OpensLobesAtlas)
+        {
+            var scope = BrainMode
+                ? DevbookLobesAtlas.ScopeKeyFor(null)
+                : ActiveRepositoryAlias is { } alias ? DevbookLobesAtlas.ScopeKeyFor(alias) : LobesAtlasModel.AllLayout;
+            return OnOpenLobesAtlas.InvokeAsync(scope);
         }
 
         _atlasScopeKey = AtlasScopes.Any(scope => string.Equals(scope.Key, EffectiveSection, StringComparison.Ordinal))

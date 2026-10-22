@@ -144,8 +144,8 @@ public sealed class GlobalPaneMarkupTests
             StringComparison.Ordinal);
         Assert.DoesNotContain("header-group--panes", home, StringComparison.Ordinal);
 
-        // Two standalone toggles and the two loose takeovers wear the loose option.
-        Assert.Equal(4, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
+        // Two standalone toggles and the three loose takeovers wear the loose option.
+        Assert.Equal(5, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
 
         // The workspace's own three controls are one cluster, closer together than
         // the groups around them.
@@ -232,7 +232,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("@if (RoadmapViewOffered)", home, StringComparison.Ordinal);
         Assert.Contains("private bool RoadmapViewOffered => IsFeatureEnabled(RoadmapFeatures.Roadmap);", home, StringComparison.Ordinal);
         Assert.Contains(
-            "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible;",
+            "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible && !AtlasVisible;",
             home,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -494,7 +494,9 @@ public sealed class GlobalPaneMarkupTests
 
         // One landmark per branch, and the branches are exclusive, so the page has
         // exactly one. The roadmap gave up its own when it became a view.
-        Assert.Equal(7, CountOccurrences(home, "<main class="));
+        Assert.Equal(8, CountOccurrences(home, "<main class="));
+        Assert.Contains("else if (AtlasVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"atlas-surface\"", home, StringComparison.Ordinal);
 
         // The Devbook is rendered once, inside its own surface.
         Assert.Equal(1, CountOccurrences(home, "<DevbookPane "));
@@ -525,9 +527,9 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("@onkeydown=\"OnSurfaceKeyDown\"", home, StringComparison.Ordinal);
         Assert.Contains("await _surfaceElement.FocusAsync();", home, StringComparison.Ordinal);
         Assert.Contains("if (e.Key == \"Escape\") CloseSurface();", home, StringComparison.Ordinal);
-        // Five takeovers close on Escape, the Devbook among them; the Inbox keeps
-        // Escape for its own keys.
-        Assert.Equal(5, CountOccurrences(home, "data-escape-closes"));
+        // Six takeovers close on Escape, the Devbook and the Lobes atlas among them;
+        // the Inbox keeps Escape for its own keys.
+        Assert.Equal(6, CountOccurrences(home, "data-escape-closes"));
 
         // A view option pressed during a takeover closes it the same way.
         Assert.Contains("if (!WorkspaceVisible) CloseSurface();", home, StringComparison.Ordinal);
@@ -555,7 +557,8 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("Tools,", surface, StringComparison.Ordinal);
         Assert.Contains("Dashboard", surface, StringComparison.Ordinal);
         Assert.Contains("    Inbox,\n", surface, StringComparison.Ordinal);
-        Assert.Contains("    Devbook\n", surface, StringComparison.Ordinal);
+        Assert.Contains("    Devbook,\n", surface, StringComparison.Ordinal);
+        Assert.Contains("    Atlas\n", surface, StringComparison.Ordinal);
 
         Assert.DoesNotContain("_workspaceWasHidden", home, StringComparison.Ordinal);
     }
@@ -621,7 +624,8 @@ public sealed class GlobalPaneMarkupTests
             "private bool DevbookVisible => _surface == WorkspaceSurface.Devbook && DevbookPaneOptionVisible;",
             home,
             StringComparison.Ordinal);
-        Assert.Equal(2, CountOccurrences(home, "        ShowDevbook();\n"));
+        // An entry's reference, a Brain note's badge, and the Lobes atlas's card.
+        Assert.Equal(3, CountOccurrences(home, "        ShowDevbook();\n"));
     }
 
     [Fact]

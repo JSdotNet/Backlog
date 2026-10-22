@@ -65,4 +65,13 @@ public static class DevbookFeatures
     /// Wired and making no live call yet.
     /// </para></summary>
     public const string SemanticSearch = "devbook-semantic-search";
+
+    /// <summary>Map the Brain and every registered devbook as brains in one
+    /// full-window atlas (<c>.devbook/domain/devbook/context.md#lobes-atlas</c>).
+    /// <para>
+    /// A devbook key by the same rule as its neighbours: the pane's own Atlas
+    /// button reads it to choose which atlas it opens, and the Shell reads it to
+    /// decide whether the header offers the atlas at all.
+    /// </para></summary>
+    public const string LobesAtlas = "atlas-lobes";
 }

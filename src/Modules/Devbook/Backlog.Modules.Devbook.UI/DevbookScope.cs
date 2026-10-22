@@ -62,4 +62,20 @@ public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolde
     /// where the person is asked for one.
     /// </summary>
     public bool BrainOffered => features.IsEnabled(DevbookFeatures.RepositoryDevbook);
+
+    /// <summary>
+    /// Whether the Lobes atlas is offered
+    /// (<c>.devbook/domain/devbook/context.md#lobes-atlas</c>): its own switch is
+    /// on, and so is Devbook, whose Brain and devbooks it maps. The shell's header
+    /// and the pane's Atlas button both ask this one question.
+    /// </summary>
+    public bool LobesAtlasOffered =>
+        features.IsEnabled(DevbookFeatures.RepositoryDevbook) && features.IsEnabled(DevbookFeatures.LobesAtlas);
+
+    /// <summary>Every configured repository that has a devbook to read, in the
+    /// registry's order — the devbook scopes the Lobes atlas offers.</summary>
+    public IReadOnlyList<string> DevbookRepositoryAliases() =>
+        [.. repositories.Current.Repositories
+            .Where(repository => VisibleAreas(repository.Alias).Count > 0)
+            .Select(repository => repository.Alias)];
 }

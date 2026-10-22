@@ -312,10 +312,15 @@ related: [.devbook/domain/devbook/requirements.md#lobes-atlas, .devbook/domain/d
 
 See the Brain and every devbook on this machine in one picture. One atlas maps
 the Brain and the devbook of every registered repository. It opens full-window
-from the shell header and draws each of them as a brain: drag to rotate it,
-scroll to zoom.
+from the shell header's **Atlas**, in place of whatever was on screen, and
+draws each of them as a brain: drag to rotate it, scroll to zoom. Its close
+button, Escape and a second press of **Atlas** return to where the person was:
+the main view, the takeover that was up, or the Devbook when its button opened
+the atlas.
 
-**Scopes.** A switch at the top picks what the atlas shows.
+**Scopes.** A switch in the atlas's header picks what the atlas shows: **All**,
+**Brain**, then each registered devbook by alias, then each ghost devbook in a
+dashed button. Switching scope resets the camera to its default view.
 
 | Scope | The atlas shows |
 | --- | --- |
@@ -378,9 +383,18 @@ counts and offers one action:
 
 | Scope | The card's action |
 | --- | --- |
+| All | **Step into the Brain**, which switches to the Brain's scope |
 | The Brain | **Open in the pane** |
 | A devbook | **Open devbook** |
-| A ghost devbook | **Register repository** |
+| A ghost devbook | **Register repository**, which opens the Repositories settings |
+
+**Selecting a mark.** A mark selected on the map or in the list beside it opens
+its details, as [Atlas edges](#atlas-edges) does. A Brain note offers to open
+it in the pane. A chapter a note links to shows the link's chip: a gold chip
+opens that repository's devbook at the chapter, and a dashed one says why it
+cannot be followed. A devbook's own chapter opens in its devbook. Following
+any of them, or the card's **Open in the pane** or **Open devbook**, gives the
+Devbook the screen, which closes the atlas.
 
 **No index yet.** With no Brain index built yet, the atlas says so and offers
 to build it, rather than drawing an empty map.
