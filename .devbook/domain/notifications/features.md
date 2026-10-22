@@ -39,6 +39,22 @@ rejects it with a reason. Every viewer shows which desktop owns the notification
 and whether it is online, because an answer counts only once that desktop accepts
 it.
 
+On the phone this is the Notifications tab in `Backlog.Mobile.UI`. It pulls the
+feed when it opens and when the app comes back to the front, and every 30 seconds
+while a reply made there waits for its owner. Each card shows the kind, the
+severity, the age, the owner desktop's name and whether it is online; an owner
+offline reads "delivers on wake". The detail draws the Markdown body, Mermaid
+included. A question takes choice buttons, checkboxes for multiple choice, or a
+plain-text answer, and the reply leaves through the device outbox as a
+`notification-reply` entry, so a reply made offline is kept. Once the owner's
+verdict syncs back the card reads "Answered from this phone", "Answered
+elsewhere" with the answer that won, or the owner's reason for rejecting it with
+the controls back. A question that says `answerOn: owner` is read-only there.
+
+The phone reads presence off the owner's own pushes: an owner desktop pushes each
+open question again every 10 minutes, and a phone that has seen no push from it
+for 15 minutes reads it as offline.
+
 ## Closing a notification
 
 ```meta

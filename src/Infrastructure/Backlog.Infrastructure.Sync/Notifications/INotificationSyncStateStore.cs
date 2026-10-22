@@ -33,12 +33,16 @@ public sealed record NotificationSyncState(
 /// <param name="PushedAt">The stamp the last push carried. The next one is always later, so a
 /// clock that stepped back cannot make the replica drop a change as stale; and an open
 /// notification is pushed again before its replica copy's backstop expiry.</param>
+/// <param name="Withheld">Whether the last push left it out — the service would refuse it, or
+/// holds its id under another owner instance — so the presence refresh does not offer it, and
+/// warn about it, every few minutes.</param>
 public sealed record TrackedNotification(
     string? PushedState,
     bool Dirty,
     IReadOnlyList<NotificationReplyRejection> RejectedReplies,
     DateTimeOffset? SettledAt = null,
-    DateTimeOffset? PushedAt = null);
+    DateTimeOffset? PushedAt = null,
+    bool Withheld = false);
 
 /// <summary>
 /// Where this device keeps its notification-exchange progress between runs — its own store,
