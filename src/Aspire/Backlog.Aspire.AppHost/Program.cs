@@ -64,6 +64,10 @@ var attachments = builder.AddAzureStorage("storage")
 // front of an unrelated harness on every run. The attachment store is referenced
 // the same way: until Azurite answers, the attachment routes say 503
 // sync.attachment_store_unavailable rather than holding the service back.
+//
+// No Web PubSub, on purpose (local ADR 0038 §4). There is no emulator for it, and the nudge
+// holds no data: with no hub configured the sync service's negotiate hands out no URL, and
+// every desktop harness stays on its two-minute reply poll.
 var sync = builder.AddProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sync.Api\\Backlog.Modules.Sync.Api.csproj")
     .WithReference(cosmosDatabase)
     .WithReference(attachments);

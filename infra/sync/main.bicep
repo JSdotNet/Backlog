@@ -111,6 +111,11 @@ var containerAppName = 'ca-sync-${resourceToken}'
 // Storage account names are 3-24 lowercase letters and digits, no hyphen, and
 // globally unique; 'st' plus the 13-character token fits.
 var storageAccountName = 'st${resourceToken}'
+var webPubSubName = 'wps-${resourceToken}'
+
+// The one hub the desktops connect to (local ADR 0038 §4). The service reads the same
+// name from Sync__WebPubSub__Hub, so the two are written down here once.
+var notificationsHubName = 'notifications'
 
 // First provision has no built image yet. A public placeholder lets the container
 // app and its ingress come up so the rest of the template can be validated; azd
@@ -127,6 +132,9 @@ var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
 // Storage Blob Data Contributor: read, write and delete blobs, and nothing on the
 // account's control plane.
 var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+// Web PubSub Service Owner: send to groups and mint client access tokens through the
+// data-plane REST API. With local auth off, this role is the only way in.
+var webPubSubServiceOwnerRoleId = '12cf5a90-567b-43ae-8102-96cf46c7d9b4'
 
 // ---------------------------------------------------------------------------
 // Identity
@@ -685,6 +693,61 @@ resource attachmentsDataContributor 'Microsoft.Authorization/roleAssignments@202
 }
 
 // ---------------------------------------------------------------------------
+// Web PubSub
+//
+// The realtime nudge to the desktops (local ADR 0038 §4). The sync service publishes
+// "pull now" to an owner's group when a notification or a reply lands, and a desktop
+// holds the WebSocket here instead of on the sync service, which therefore keeps
+// scaling to zero. The hub carries no document: a missed nudge costs only time,
+// because the desktop's two-minute poll is the fallback while its socket is down.
+//
+// Free tier: one unit, 20 concurrent connections, 20,000 messages a day — far above
+// a personal setup. No access key is usable: local auth is off, so the service mints
+// client tokens and publishes with its managed identity, and a desktop only ever
+// holds the short-lived client access URL the negotiate endpoint hands it.
+// ---------------------------------------------------------------------------
+
+resource webPubSub 'Microsoft.SignalRService/webPubSub@2024-03-01' = {
+  name: webPubSubName
+  location: location
+  tags: allTags
+  sku: {
+    name: 'Free_F1'
+    tier: 'Free'
+    capacity: 1
+  }
+  properties: {
+    disableLocalAuth: true
+    disableAadAuth: false
+    publicNetworkAccess: 'Enabled'
+    tls: {
+      clientCertEnabled: false
+    }
+  }
+}
+
+// Declared rather than left to appear on first use, so anonymous connects are refused:
+// a desktop connects only with the token negotiate minted for its owner's group.
+resource notificationsHub 'Microsoft.SignalRService/webPubSub/hubs@2024-03-01' = {
+  parent: webPubSub
+  name: notificationsHubName
+  properties: {
+    anonymousConnectPolicy: 'deny'
+    eventHandlers: []
+  }
+}
+
+resource webPubSubServiceOwner 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(webPubSub.id, syncIdentity.id, webPubSubServiceOwnerRoleId)
+  scope: webPubSub
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', webPubSubServiceOwnerRoleId)
+    principalId: syncIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Container registry
 //
 // Not named in ADR 0005's resource list, but `azd` deploying a container app has
@@ -899,6 +962,17 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'ConnectionStrings__attachments'
               value: 'Endpoint=${storageAccount.properties.primaryEndpoints.blob};ContainerName=${attachmentsContainer.name}'
             }
+            // The Web PubSub hub the nudge goes through: an endpoint and a hub
+            // name, no key. The credential is the managed identity, as it is for
+            // Cosmos and the attachments.
+            {
+              name: 'Sync__WebPubSub__Endpoint'
+              value: 'https://${webPubSub.properties.hostName}'
+            }
+            {
+              name: 'Sync__WebPubSub__Hub'
+              value: notificationsHub.name
+            }
             // Double underscore is how .NET reads a ':' configuration path from
             // an environment variable, so this lands on SyncTokenOptions as
             // Modules:Sync:Tokens:SigningKey. No Key Vault endpoint is passed:
@@ -925,6 +999,7 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
     attachmentsDataContributor
     cosmosDataContributor
     keyVaultSecretsUser
+    webPubSubServiceOwner
   ]
 }
 
@@ -953,6 +1028,10 @@ output COSMOS_DATABASE_NAME string = cosmosDatabase.name
 
 output STORAGE_ACCOUNT_NAME string = storageAccount.name
 output STORAGE_BLOB_ENDPOINT string = storageAccount.properties.primaryEndpoints.blob
+
+output WEB_PUBSUB_NAME string = webPubSub.name
+output WEB_PUBSUB_ENDPOINT string = 'https://${webPubSub.properties.hostName}'
+output WEB_PUBSUB_HUB string = notificationsHub.name
 
 output APPLICATIONINSIGHTS_NAME string = appInsights.name
 output LOG_ANALYTICS_WORKSPACE_NAME string = logAnalytics.name

@@ -54,6 +54,14 @@
           "System.Memory.Data": "10.0.10"
         }
       },
+      "Azure.Messaging.WebPubSub": {
+        "type": "Transitive",
+        "resolved": "1.6.0",
+        "contentHash": "ewewoRnw/wJZMBuALoaIB8raguqM4aXp2Za3jhGYoAp0EEmKw9ZfHVXARzkB7Pb+aoOSwnsudL+izMhD9PA85Q==",
+        "dependencies": {
+          "Azure.Core": "1.46.0"
+        }
+      },
       "Azure.Storage.Common": {
         "type": "Transitive",
         "resolved": "12.29.0",
@@ -357,6 +365,13 @@
           "Microsoft.Azure.Cosmos": "[3.63.2, )"
         }
       },
+      "backlog.infrastructure.webpubsub": {
+        "type": "Project",
+        "dependencies": {
+          "Aspire.Azure.Messaging.WebPubSub": "[13.6.1, )",
+          "Backlog.Modules.Sync": "[1.0.0, )"
+        }
+      },
       "backlog.modules.sync": {
         "type": "Project",
         "dependencies": {
@@ -372,6 +387,18 @@
       },
       "backlog.sharedkernel": {
         "type": "Project"
+      },
+      "Aspire.Azure.Messaging.WebPubSub": {
+        "type": "CentralTransitive",
+        "requested": "[13.6.1, )",
+        "resolved": "13.6.1",
+        "contentHash": "HDLLyW9cSalwmpNGISuHtg52ofwo+HHbnRM630+pOUOez4kz5j5/MCE+R1VLbZp+jnyJfm3pOQ9jG1oEWmruhA==",
+        "dependencies": {
+          "Azure.Core": "1.62.0",
+          "Azure.Messaging.WebPubSub": "1.6.0",
+          "Microsoft.Extensions.Azure": "1.14.1",
+          "OpenTelemetry.Extensions.Hosting": "1.17.0"
+        }
       },
       "Aspire.Azure.Storage.Blobs": {
         "type": "CentralTransitive",

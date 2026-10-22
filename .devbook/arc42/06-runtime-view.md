@@ -779,9 +779,10 @@ sequenceDiagram
 - **An offline owner delays the answer, not the reply.** The reply waits in the
   `notificationReplies` container. The phone shows "delivers on wake" until Desktop A
   wakes, pulls the reply and accepts it.
-- **A missed nudge costs only time.** While a question is open, Desktop A also
-  polls for replies every two minutes, so a lost Web PubSub message delays the
-  answer and never loses it.
+- **A missed nudge costs only time.** On every nudge, Desktop A runs a full
+  exchange. When its socket opens, it runs one exchange to catch up. While a
+  question is open and the socket is down, it polls for replies every two minutes.
+  So a lost Web PubSub message delays the answer and never loses it.
 - **The answer survives a restart.** Desktop A stores the accepted answer in
   SQLite before it calls the source's handler. It replays the answer to a handler
   that was not running, so the handler must accept the same answer twice.

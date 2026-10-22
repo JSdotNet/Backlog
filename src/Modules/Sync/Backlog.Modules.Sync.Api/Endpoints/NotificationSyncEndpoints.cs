@@ -3,6 +3,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Api.Security;
 using Backlog.Modules.Sync.Features.DeleteNotificationReply;
 using Backlog.Modules.Sync.Features.ListNotificationReplies;
+using Backlog.Modules.Sync.Features.NegotiateNotificationNudge;
 using Backlog.Modules.Sync.Features.PostNotificationReply;
 using Backlog.Modules.Sync.Features.PullNotifications;
 using Backlog.Modules.Sync.Features.PushNotifications;
@@ -22,6 +23,11 @@ namespace Backlog.Modules.Sync.Api.Endpoints;
 /// <see cref="OwnerScopeFilter"/>: the owner is read from the token and from nowhere else, so a
 /// reply is stored only in the caller's own partition. That is the service's half of "a reply
 /// comes from a device under the same owner"; the owner instance checks it again.
+/// </para>
+/// <para>
+/// A sixth route, negotiate, hands a desktop the Web PubSub URL its nudge socket opens on
+/// (ADR 0038 §4), behind the same filter: the group in the URL is the token's owner, so no
+/// device can listen to another owner's nudges.
 /// </para>
 /// </summary>
 internal static class NotificationSyncEndpoints
@@ -58,6 +64,9 @@ internal static class NotificationSyncEndpoints
 
         notifications.MapDelete(SyncRoutes.NotificationReply, DeleteReply)
             .WithSummary("Deletes a reply the calling owner instance has processed.");
+
+        notifications.MapGet(SyncRoutes.NotificationNudge, NegotiateNudge)
+            .WithSummary("Hands the calling device a Web PubSub client access URL for its owner's nudge group, or none where the service runs without one.");
 
         return sync;
     }
@@ -144,6 +153,16 @@ internal static class NotificationSyncEndpoints
         var page = Math.Clamp(maxItems ?? DefaultMaxReplies, 1, MaximumMaxReplies);
 
         var result = await handler.Handle(new ListNotificationRepliesQuery(context.GetOwnerScope(), instance, page), cancellationToken);
+
+        return SyncResults.From(context, result, Results.Ok);
+    }
+
+    private static async Task<IResult> NegotiateNudge(
+        HttpContext context,
+        IQueryHandler<NegotiateNotificationNudgeQuery, Result<NotificationNudgeNegotiateResponse>> handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.Handle(new NegotiateNotificationNudgeQuery(context.GetOwnerScope()), cancellationToken);
 
         return SyncResults.From(context, result, Results.Ok);
     }

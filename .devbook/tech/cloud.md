@@ -300,10 +300,16 @@ The realtime channel to the desktops (local ADR 0038).
 - **Why** — the hub holds the connections, so the sync service keeps scaling to
   zero. An SSE stream on the sync service would hold a replica awake around the
   clock.
-- **How** — the Free tier, which allows 20 concurrent connections and 20,000
-  messages a day. That covers a personal setup. Check the current limits before
-  building.
-- **Status** — `candidate`: decided, and nothing is provisioned yet.
+- **How** — the Free tier (`Free_F1`), which allows 20 concurrent connections
+  and 20,000 messages a day. That covers a personal setup. `infra/sync/main.bicep`
+  declares the resource with local auth off and a `notifications` hub that refuses
+  anonymous connects. The sync service reaches it with its managed identity, which
+  holds the Web PubSub Service Owner role. The service-side client is
+  `Aspire.Azure.Messaging.WebPubSub`, in `Backlog.Infrastructure.WebPubSub` alone.
+  A desktop holds a plain `ClientWebSocket` on the URL that negotiate hands it.
+  There is no emulator, so the Aspire run has no hub and polls.
+- **Status** — `candidate`: built and declared in Bicep, but not yet deployed or
+  used for real.
 
 ## Azure Notification Hubs
 
