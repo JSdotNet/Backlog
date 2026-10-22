@@ -118,4 +118,41 @@ public sealed class CosmosOptions
     /// change.</summary>
     [Range(86_400, 63_072_000)]
     public int AnnotationTombstoneTtlSeconds { get; set; } = 15_552_000;
+
+    /// <summary>
+    /// The container holding notification documents (local ADR 0038), partitioned on
+    /// <c>/ownerId</c> — the fourth replica container. Each notification has one writer, its
+    /// owner instance, and expires <see cref="NotificationSettledTtlSeconds"/> after it left
+    /// Open.
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string NotificationsContainerName { get; set; } = "notifications";
+
+    /// <summary>
+    /// The container holding replies to notifications, partitioned on <c>/ownerId</c>. A
+    /// reply is written once by a viewer and deleted by the owner instance once processed;
+    /// <see cref="NotificationReplyTtlSeconds"/> is only the backstop for an owner that never
+    /// comes back.
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string NotificationRepliesContainerName { get; set; } = "notificationReplies";
+
+    /// <summary>How long a notification is kept after it left Open, in seconds — 30 days
+    /// (local ADR 0038 §3).</summary>
+    [Range(86_400, 63_072_000)]
+    public int NotificationSettledTtlSeconds { get; set; } = 2_592_000;
+
+    /// <summary>
+    /// How long an open notification is kept after its last push, in seconds — 90 days. Not a
+    /// deadline: the owner instance pushes an open notification again well inside it, so a
+    /// question on a running desktop never expires. It is what makes an owner that is unpaired
+    /// for good leave nothing behind (ADR 0038 §1, "those expire").
+    /// </summary>
+    [Range(86_400, 63_072_000)]
+    public int NotificationOpenTtlSeconds { get; set; } = 7_776_000;
+
+    /// <summary>How long an unprocessed reply is kept, in seconds — 30 days, the same as a
+    /// settled notification: past it, the question the reply answers is gone too.</summary>
+    [Range(86_400, 63_072_000)]
+    public int NotificationReplyTtlSeconds { get; set; } = 2_592_000;
 }

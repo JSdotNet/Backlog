@@ -107,6 +107,12 @@ internal static class SyncResults
         // And over the annotation container, under the same rule.
         SyncErrorCodes.AnnotationBatchTooLarge => StatusCodes.Status400BadRequest,
 
+        // And over the notification container. A notification the store refused
+        // as too large surfaces under the same invalid code the edge uses, and
+        // as the same 400: the owner has to change it, not send it again.
+        SyncErrorCodes.NotificationBatchTooLarge => StatusCodes.Status400BadRequest,
+        SyncErrorCodes.NotificationInvalid => StatusCodes.Status400BadRequest,
+
         // An upload over the per-file cap (local ADR 0014). The same 413 as a
         // task too large for the store: sending it again will not help.
         SyncErrorCodes.AttachmentTooLarge => StatusCodes.Status413PayloadTooLarge,

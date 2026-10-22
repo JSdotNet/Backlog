@@ -221,6 +221,9 @@ public static class MauiProgram
         // And annotation replication's loop, the third sibling, on the same terms.
         _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+        // And the notification exchange's loop (local ADR 0038), on the same terms.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
+
         // And the backup loop, on the same terms: a timer that only existed
         // while the Storage tab was open would miss every slot it was set for.
         _ = app.Services.GetRequiredService<BackupWorker>();

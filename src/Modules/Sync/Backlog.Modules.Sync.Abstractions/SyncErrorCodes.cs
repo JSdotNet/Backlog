@@ -138,6 +138,29 @@ public static class SyncErrorCodes
     /// so it has to be visible as the caller's to fix.</summary>
     public const string AnnotationTooLarge = "sync.annotation_too_large";
 
+    /// <summary>More notifications in one push than the service will take.</summary>
+    public const string NotificationBatchTooLarge = "sync.notification_batch_too_large";
+
+    /// <summary>A notification or a reply the service will not store — a missing id, an
+    /// unknown state, a document that is not a JSON object or is past its bound. Refused at
+    /// the edge, a notification push for the whole batch.</summary>
+    public const string NotificationInvalid = "sync.notification_invalid";
+
+    /// <summary>A push names a notification held under another owner instance. A
+    /// notification has one writer, its owner instance (local ADR 0038 §1), so it is not
+    /// written; the push answers its id in <c>NotOwned</c> and this code is the reason the
+    /// trace carries.</summary>
+    public const string NotificationNotOwner = "sync.notification_not_owner";
+
+    /// <summary>A reply names a notification this owner's replica does not hold — one
+    /// under another account, or one its owner has not pushed — or an owner instance the
+    /// notification does not name. Mapped to 404, so a guessed id confirms nothing.</summary>
+    public const string NotificationNotFound = "sync.notification_not_found";
+
+    /// <summary>A reply id the caller may not delete: there is none, or it is addressed to
+    /// another owner instance. Mapped to 404.</summary>
+    public const string NotificationReplyNotFound = "sync.notification_reply_not_found";
+
     /// <summary>The <c>since</c> cursor is not one this service minted — wrong
     /// prefix, not base64, or a signature that does not verify. Mapped to 400:
     /// the caller sent something that is not a cursor, and the fix is to drop it

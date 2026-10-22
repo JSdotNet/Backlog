@@ -45,8 +45,9 @@ The module is `Backlog.Modules.Notifications`, published to other contexts throu
 `Backlog.Infrastructure.Notifications`. The module, its abstractions and an empty
 UI project exist, with the owner's store as the `notifications` table in
 `backlog.db`, and the MCP server publishes through it with its `notify`, `ask`,
-`get_answer` and `close` tools; the screens, the sync exchange and the
-infrastructure project do not yet.
+`get_answer` and `close` tools. So does the sync exchange: the owner desktop
+reads its notifications through `INotificationReplication` and hands each reply
+to `INotificationReplies`. The screens and the infrastructure project do not yet.
 
 ## Dependencies
 
@@ -58,7 +59,7 @@ contract to the contexts that publish, as an open host service.
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Sync](../sync/context.md) | Conformist (Notifications = conformist) | A notification exchange in `Backlog.Infrastructure.Sync` pushes and pulls the `notifications` container; the phone posts replies through its device outbox | The replica protocol in `Backlog.Modules.Sync.Abstractions`; local ADR 0038 | Notifications and replies reach every paired device, and the sync service checks the owner before it stores a reply. |
+| [Sync](../sync/context.md) | Conformist (Notifications = conformist) | A notification exchange in `Backlog.Infrastructure.Sync` pushes to the `notifications` container and takes replies from `notificationReplies`; the phone posts replies through its device outbox | The replica protocol in `Backlog.Modules.Sync.Abstractions`; local ADR 0038 | Notifications and replies reach every paired device, and the sync service checks the owner before it stores a reply. |
 | Shared kernel device identity | Conformist | `DeviceIdentity` in `Backlog.SharedKernel` | `.devbook/domain/tasks/domain.md#device` | The owner instance is named by the device that published the notification. |
 
 ### Inbound dependents (known)

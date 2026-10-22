@@ -152,10 +152,11 @@ Enforced at: `Accept()` on the Notification
 ```meta
 status: proposed
 type: invariant
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.NotificationSyncEndpointTests.A_reply_from_a_device_under_another_owner_is_refused, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.NotificationSyncTests.A_reply_stamped_with_another_owner_is_rejected_and_never_reaches_the_gate]
 ```
 
 A reply is accepted only from a device under the same owner as the notification (`reply.foreign_owner`). The sync service checks it first, and the owner instance checks it again.
 
-Enforced at: the sync reply endpoint, and `Accept()` on the Notification
+Enforced at: the sync reply endpoint, and the owner desktop's notification exchange before `Accept()`
 
-The module core checks only that a reply is addressed to this owner instance (`reply.wrong_instance`); the account check lands with the sync exchange, which carries the owner the replica partitions on.
+The sync service stores a reply only in its poster's own partition, against a notification found there. The owner's exchange compares the account the replica stamped on the reply with its own and rejects a mismatch before the reply reaches `Accept()`, which then checks that it is addressed to this owner instance (`reply.wrong_instance`).

@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.Sync.Annotations;
+using Backlog.Infrastructure.Sync.Notifications;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
@@ -497,6 +498,53 @@ public static class SyncClientRegistration
         services.TryAddTransient<AnnotationSyncSession>();
 
         services.TryAddSingleton<AnnotationSyncWorker>();
+
+        return services;
+    }
+
+    /// <summary>Where <see cref="AddNotificationSyncStore"/> puts this device's
+    /// notification-exchange progress inside the folder it is given.</summary>
+    private const string NotificationSyncStateFileName = "notification-sync-state.json";
+
+    /// <summary>
+    /// The one file the notification exchange keeps, inside <paramref name="folderPath"/> —
+    /// the per-installation folder the other feeds' progress sits in. <c>TryAdd</c>, so a host
+    /// or a test that chose its store keeps it.
+    /// </summary>
+    public static IServiceCollection AddNotificationSyncStore(this IServiceCollection services, string folderPath)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
+
+        services.TryAddSingleton<INotificationSyncStateStore>(
+            _ => new FileNotificationSyncStateStore(Path.Combine(folderPath, NotificationSyncStateFileName)));
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds the notification exchange (local ADR 0038) on top of <see cref="AddSyncClient"/>:
+    /// the client, the exchange and the two-minute loop that runs it on an owner desktop.
+    /// <para>
+    /// Opt-in like the other feeds: the exchange takes the Notifications module's
+    /// <c>INotificationReplication</c> and <c>INotificationReplies</c>, which an owner head
+    /// composes with <c>AddNotificationsModule()</c>, and an <see cref="INotificationSyncStateStore"/>
+    /// from <see cref="AddNotificationSyncStore"/>. The loop is a singleton with a timer inside
+    /// it, so a head that calls this resolves <see cref="NotificationSyncWorker"/> once after
+    /// <c>Build()</c>.
+    /// </para>
+    /// </summary>
+    public static IServiceCollection AddNotificationSyncClient(this IServiceCollection services, Func<IServiceProvider, Uri> baseAddress)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(baseAddress);
+
+        services.AddHttpClient<NotificationSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
+            .AddSyncPipeline()
+            .WithReplicationPipeline();
+
+        services.TryAddTransient<NotificationSyncSession>();
+        services.TryAddSingleton<NotificationSyncWorker>();
 
         return services;
     }
