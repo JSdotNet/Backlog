@@ -781,7 +781,7 @@ The system SHALL open one full-window atlas from the shell header that draws the
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Switching_scope_hands_the_renderer_a_new_layout_which_resets_the_camera]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_switch_offers_all_the_brain_each_devbook_and_each_ghost_dashed, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.Switching_scope_hands_the_renderer_a_new_layout_which_resets_the_camera, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_lets_the_scope_switch_scroll_rather_than_clip_or_squeeze_its_options]
 ```
 
 The system SHALL offer the scopes All, Brain and one per devbook, drawing the Brain in the middle of All with each devbook as a smaller brain around it.
@@ -797,6 +797,12 @@ The system SHALL offer the scopes All, Brain and one per devbook, drawing the Br
 - **Given** the atlas is open in All
 - **When** the reader picks a devbook's scope
 - **Then** only that devbook is drawn, by region
+
+#### Scenario: A narrow window
+
+- **Given** the atlas at 390 px wide with the Brain, eleven devbooks and a ghost devbook
+- **When** the reader looks for the last scope in the switch
+- **Then** the switch scrolls sideways to it, and no scope's name runs into its neighbour's
 
 ### Requirement: An unregistered alias is a ghost devbook
 
@@ -851,6 +857,7 @@ The system SHALL place each Brain note in a region by its PARA area: Projects in
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesAnatomyScriptTests]
 ```
 
 The system SHALL place each devbook chapter in a region by its folder: `arc42` in Frontal, `tech` in Parietal, `domain` in Temporal, `design` in Occipital, `ai` in Cerebellum, and each folder's convention root and the reading-order roots in the Brain stem.
@@ -867,11 +874,18 @@ The system SHALL place each devbook chapter in a region by its folder: `arc42` i
 - **When** the reader opens that devbook's scope
 - **Then** the root is drawn in the Brain stem, not Temporal
 
+#### Scenario: Many roots
+
+- **Given** a devbook with twenty-two convention and reading-order roots
+- **When** the reader opens that devbook's scope at the default view
+- **Then** its Brain stem draws the twenty-two as one cluster under the brain, inside the map
+
 ### Requirement: Brain and devbook marks keep their colours and bundles show the links
 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookLobesAtlasTests.A_brain_mark_wears_the_brains_tone_in_the_index_and_a_devbook_mark_stays_gold, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_component_stylesheet_paints_a_brain_mark_in_the_brains_accent]
 ```
 
 The system SHALL draw Brain marks in `color-band-2` and devbook marks in gold, with a bundle from each Brain repository hub to the chapters the notes link, solid when the link resolves and dashed when it does not.
@@ -893,6 +907,12 @@ The system SHALL draw Brain marks in `color-band-2` and devbook marks in gold, w
 - **Given** a Brain note linking an alias not registered here
 - **When** the reader opens the All scope
 - **Then** the bundle from the Brain's hub for that alias is dashed
+
+#### Scenario: The list beside the map
+
+- **Given** the atlas in All
+- **When** the reader reads the list beside the map
+- **Then** each Brain note's mark is in `color-band-2` and each devbook chapter's is gold, as on the map
 
 ### Requirement: The panel and its controls act on the current scope
 
@@ -927,7 +947,7 @@ The system SHALL list the scopes with their counts in the left panel in All and 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_card_says_when_the_scope_was_last_indexed_and_offers_its_action, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_close_button_and_the_card_raise_the_hosts_callbacks]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_scope_card_says_when_the_scope_was_last_indexed_and_offers_its_action, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_close_button_and_the_card_raise_the_hosts_callbacks, unit:dotnet:Backlog.Desktop.UI.UnitTests.LobesAtlasTakeoverTests.The_stylesheet_scrolls_only_the_panels_rows_so_the_scope_card_stays_in_view]
 ```
 
 The system SHALL show a scope card naming the scope with its counts, when its index was last built, and one action: Open in the pane for the Brain, Open devbook for a devbook, Register repository for a ghost devbook.
@@ -949,6 +969,12 @@ The system SHALL show a scope card naming the scope with its counts, when its in
 - **Given** the Brain's index was built four minutes ago
 - **When** the reader opens the Brain scope
 - **Then** its card says "Indexed 4 minutes ago"
+
+#### Scenario: A short window
+
+- **Given** the atlas at 1440 by 900 in the scope of a devbook not indexed yet, whose card explains why
+- **When** the reader reads its card
+- **Then** the card and its action are in view without scrolling the panel; the rows above it scroll instead
 
 ### Requirement: Without a Brain index the atlas offers to build one
 

@@ -172,7 +172,9 @@ public static class DevbookLobesAtlas
                     node.Label,
                     KindName(node.Kind),
                     hollow ? node.RepositoryLink?.Problem ?? NotOnThisMachine : string.Empty,
-                    hollow ? "archived" : "active",
+                    // The list's mark keeps the map's colour: the Brain's accent for a
+                    // Brain mark, gold for a devbook's, hollow for a ghost.
+                    hollow ? "archived" : kind == DevbookLobesScopeKind.Brain ? "brain" : "active",
                     $"{scope?.Label ?? node.ScopeKey} · {RegionName(kind, node.Lobe)}",
                     inDegree.GetValueOrDefault(node.Id),
                     outDegree.GetValueOrDefault(node.Id));

@@ -146,7 +146,7 @@
                     mark.Label,
                     mark.Kind switch { LobesAtlasMark.Hub => "Hub", LobesAtlasMark.GhostItem => "Ghost chapter", _ => scopes[mark.Scope].Kind == LobesAtlasScope.Brain ? "Note" : "Chapter" },
                     mark.Kind == LobesAtlasMark.GhostItem || mark.Dashed ? "not on this machine" : string.Empty,
-                    mark.Kind == LobesAtlasMark.GhostItem || mark.Dashed ? "archived" : "active",
+                    mark.Kind == LobesAtlasMark.GhostItem || mark.Dashed ? "archived" : scopes[mark.Scope].Kind == LobesAtlasScope.Brain ? "brain" : "active",
                     $"{scopes[mark.Scope].Label} · {scopes[mark.Scope].Regions?.FirstOrDefault(region => region.Lobe == mark.Lobe)?.Label ?? "Archive"}"))
         ];
     }

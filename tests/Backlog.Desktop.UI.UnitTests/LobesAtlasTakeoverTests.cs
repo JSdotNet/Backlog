@@ -602,6 +602,52 @@ public sealed class LobesAtlasTakeoverTests : IDisposable
         Assert.Contains("outline: var(--border-width-2) solid var(--color-border-focus);", focus, StringComparison.Ordinal);
     }
 
+    /// <summary>Found in the live QA pass: at 1440 x 900 the panel scrolled as a
+    /// whole, so the scope card's one action sat under its fold. The rows give way
+    /// first, down to two; the title and the card keep their height.</summary>
+    [Fact]
+    public void The_stylesheet_scrolls_only_the_panels_rows_so_the_scope_card_stays_in_view()
+    {
+        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+
+        var rows = Rule(css, ".lobes-atlas__rows {");
+        Assert.Contains("flex: 0 1 auto;", rows, StringComparison.Ordinal);
+        Assert.Contains("overflow-y: auto;", rows, StringComparison.Ordinal);
+        Assert.Contains("min-height: calc(2 * 44px", rows, StringComparison.Ordinal);
+        Assert.Contains("padding: var(--spacing-xs);", rows, StringComparison.Ordinal);
+
+        Assert.Contains("flex: none;", Rule(css, ".lobes-atlas__card {"), StringComparison.Ordinal);
+        Assert.Contains("flex: none;", Rule(css, ".lobes-atlas__panel-title {"), StringComparison.Ordinal);
+    }
+
+    /// <summary>Found in the live QA pass: at 390 px the fused scope switch clipped
+    /// six of thirteen scopes and squeezed the rest until their names overlapped.
+    /// The switch scrolls sideways instead and no option shrinks below its name.</summary>
+    [Fact]
+    public void The_stylesheet_lets_the_scope_switch_scroll_rather_than_clip_or_squeeze_its_options()
+    {
+        var css = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css")).Replace("\r\n", "\n");
+
+        var scopes = Rule(css, ".lobes-atlas__scopes {");
+        Assert.Contains("overflow-x: auto;", scopes, StringComparison.Ordinal);
+        Assert.Contains("max-width: 100%;", scopes, StringComparison.Ordinal);
+
+        Assert.Contains("flex: none;", Rule(css, ".lobes-atlas__scopes > .header-group__option {"), StringComparison.Ordinal);
+    }
+
+    /// <summary>The index's mark for a Brain note wears the Brain's accent, as the
+    /// mark on the map does.</summary>
+    [Fact]
+    public void The_component_stylesheet_paints_a_brain_mark_in_the_brains_accent()
+    {
+        var css = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");
+
+        Assert.Contains(
+            ".graph-atlas-index__mark[data-tone=\"brain\"] { background: var(--color-band-2); }",
+            css,
+            StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_change_reads_the_atlas_again()
     {
