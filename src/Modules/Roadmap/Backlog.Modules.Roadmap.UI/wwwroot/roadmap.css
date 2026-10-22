@@ -320,6 +320,15 @@
     min-width: min(28rem, 80vw);
 }
 
+/* The session the plan asked for and has not got yet, above the fields. */
+.roadmap-editor__session {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-sm);
+}
+
 .roadmap-editor__row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));

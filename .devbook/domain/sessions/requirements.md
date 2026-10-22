@@ -194,3 +194,169 @@ The system SHALL mark every percentage of a weekly limit it shows as an estimate
 - **Given** a weekly-limit refusal has been recorded and a session has reported cost this week
 - **When** the person opens that session's detail
 - **Then** its share of the weekly limit is shown marked as an estimate
+
+## Start a session from an entry
+
+```meta
+status: draft
+type: requirements
+related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/sessions/domain.md#session-request-queue]
+```
+
+> The requirements of one feature. The feature chapter itself says what the
+> capability is and why it exists; this says what it promises. Local ADR 0037 decides
+> them. The Start session and Start plan session actions, which create a request, are
+> built; the dispatcher side is not yet.
+
+### Requirement: Only a click in the app requests a session
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL create a session request only from the person's Start session or Start plan session action in the desktop app.
+
+#### Scenario: A person starts a session on an entry
+
+- **Given** the `session-requests` flag is on and a prompt entry targets one repository with a known clone folder
+- **When** the person presses Start session on the entry
+- **Then** an entry request for that entry, repository and clone folder is Requested
+
+#### Scenario: An imported entry asks for a session in its text
+
+- **Given** an entry whose body says to start a session
+- **When** the entry is imported, synced or captured
+- **Then** no session request is created
+
+### Requirement: A dispatcher is handed no entry text
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL hand a dispatcher a request's kind, entry id or plan tag, repository and clone folder, and nothing an entry says.
+
+#### Scenario: A dispatcher receives an entry request
+
+- **Given** an entry request for an entry whose body holds instructions
+- **When** a dispatcher waiting on the listener receives the request
+- **Then** the request it receives names the entry id, the repository and the clone folder and holds no text of the entry
+
+### Requirement: A waiting dispatcher gets the oldest request first
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL answer a dispatcher waiting on `GET /session-requests/wait` with the oldest Requested request as soon as one exists.
+
+#### Scenario: A request arrives while a dispatcher waits
+
+- **Given** a dispatcher waiting on the route and no request Requested
+- **When** the person presses Start session on an entry
+- **Then** the waiting call answers with that request
+
+#### Scenario: Nothing arrives
+
+- **Given** a dispatcher waiting on the route and no request Requested
+- **When** 50 seconds pass with no request
+- **Then** the call answers with no request and the dispatcher waits again
+
+### Requirement: The wait takes the MCP listener's token
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL refuse a call to `GET /session-requests/wait` that does not carry the MCP listener's bearer token.
+
+#### Scenario: A call without the token
+
+- **Given** a request is Requested
+- **When** a caller on this machine waits on the route without the bearer token
+- **Then** the call is refused and the request stays Requested
+
+### Requirement: Only one dispatcher holds a request
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL let only one dispatcher claim a request at a time.
+
+#### Scenario: Two dispatchers claim the same request
+
+- **Given** a request is Requested and two dispatchers received it
+- **When** both claim it
+- **Then** the first claim holds it and the second is refused
+
+### Requirement: A claim that is not answered in time lapses
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL return a Claimed request to Requested when two minutes pass without its dispatcher reporting a session.
+
+#### Scenario: A dispatcher stops mid-dispatch
+
+- **Given** a dispatcher claimed a request
+- **When** two minutes pass without it reporting a session
+- **Then** the request is Requested again and the next waiting dispatcher receives it
+
+### Requirement: A request waits until it is answered or cancelled
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL keep a request until a session answers it or the person cancels it, however long no dispatcher runs.
+
+#### Scenario: No dispatcher runs for days
+
+- **Given** a request was made while no dispatcher was running
+- **When** a dispatcher starts days later
+- **Then** it receives that request
+
+#### Scenario: The person cancels a waiting request
+
+- **Given** a request is Requested
+- **When** the person cancels it on the entry
+- **Then** the request is Cancelled and no dispatcher receives it
+
+### Requirement: The started session links the request
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL mark a Started request Linked when the session its dispatcher reported calls `link_session` on its entry.
+
+#### Scenario: The started session picks the entry up
+
+- **Given** an entry request a dispatcher reported as Started with a session id
+- **When** that session calls `link_session` on the entry
+- **Then** the request is Linked and the entry shows the session instead of the waiting request
+
+### Requirement: The flag off offers no session requests
+
+```meta
+status: draft
+type: requirement
+```
+
+The system SHALL offer no Start session action, no wait route and no dispatcher tool while the `session-requests` flag is off.
+
+#### Scenario: The flag is off
+
+- **Given** the `session-requests` flag is off
+- **When** the person opens a prompt entry and a dispatcher calls the wait route
+- **Then** the entry offers no Start session, the route answers `404` and the MCP endpoint lists no dispatcher tool

@@ -1887,6 +1887,43 @@ h1, h2, h3 {
 
 .entry-doc__icon-action--copilot { border-color: var(--color-primary-dark); }
 
+/*
+  Start session (local ADR 0037). Drawn in the primary colour, because it is the
+  one hand-over here that starts work rather than copying it somewhere.
+*/
+.entry-doc__icon-action--session { border-color: var(--color-primary); color: var(--color-primary); }
+
+/* The session a prompt asked for and has not got yet, above the linked work. */
+.entry-session-request {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0 0 var(--spacing-sm);
+}
+
+/* The repositories a prompt naming several could start its session in. */
+.session-chooser__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.session-chooser__item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+}
+
+.session-chooser__reason {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
 .entry-doc__gh-error {
     margin: var(--spacing-xs) 0 0;
     font-size: var(--font-size-sm);

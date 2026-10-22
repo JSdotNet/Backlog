@@ -1115,6 +1115,108 @@ Invocation semantics: query/composition-oriented; invoked per view, never stored
 Which grouping is in force is the reader's choice and is not part of this context's
 state.
 
+## Session Request Queue
+
+```meta
+type: aggregate
+status: draft
+related: [.devbook/arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/sessions/context.md#session-requests, .devbook/domain/sessions/domain.invariants.md#session-request-queue]
+```
+
+The sessions a person has asked for and no session has answered yet. It is the one
+part of this context that is not a reading of evidence: a person creates a request
+with a click, a dispatcher outside the context turns it into a running session, and
+the request then joins the session the [Session Log](#session-log) reads. The queue
+never starts a session itself (local
+[ADR 0037](../../arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)).
+
+The queue is this machine's: a request names a clone folder on this machine, and is
+kept in the app's local database. It does not replicate.
+
+Invocation semantics: command-oriented. A click creates a request and the person
+cancels it. A dispatcher claims it and reports its session through the MCP listener.
+`link_session` from the started session links it. A dispatcher reads the next request
+by waiting on the listener's long poll.
+
+| Dispatcher call | What it does |
+| --- | --- |
+| `GET /session-requests/wait` | Answers the oldest Requested request at once, or holds the call up to 50 seconds and answers `204`. It hands the request out without claiming it. |
+| `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. The holder asking again is told it holds it; the lease is not renewed. |
+| `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. Only the dispatcher holding the claim may mark it. |
+| `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
+
+Every answer carries the request's brief, built by the server from its kind and id. A
+dispatcher passes the brief on and never writes its own. All four sit behind the
+`session-requests` flag: off, the route answers `404` and the tools leave the endpoint.
+
+### Session Request
+
+```meta
+type: entity
+status: draft
+aliases: [SessionRequest, session request, entry request, plan request, dispatcher, Manager session]
+related: [.devbook/domain/sessions/domain.md#agent-session, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
+```
+
+A person's ask for a session that runs one entry or one plan. It carries:
+
+- its **kind**, an entry request or a plan request;
+- the **entry id** of an entry request, or the **plan tag** of a plan request;
+- the **repository**, as `owner/name`;
+- that repository's **clone folder** on this machine;
+- its **state**, and while Claimed, the dispatcher that claimed it and the lease's end;
+- once Started, the **session id** the dispatcher reported;
+- when the person asked, which orders the queue.
+
+[It carries nothing of the entry's text](domain.invariants.md#invariant-a-request-carries-no-entry-text):
+the brief a dispatcher hands the new session is fixed by its kind.
+
+| Kind | Brief |
+| --- | --- |
+| Entry request | `/backlog-tools:run-plan-item entry `<id>`:` |
+| Plan request | `/backlog-tools:execute-plan +<tag>` |
+
+**States.**
+
+```mermaid
+stateDiagram-v2
+  [*] --> Requested: a click in the app
+  Requested --> Claimed: a dispatcher claims it
+  Claimed --> Requested: the lease runs out
+  Claimed --> Started: the dispatcher reports the session
+  Started --> Linked: the session calls link_session
+  Requested --> Cancelled: the person cancels it
+  Claimed --> Cancelled: the person cancels it
+  Linked --> [*]
+  Cancelled --> [*]
+```
+
+- **Requested.** Waiting for a dispatcher. The long poll hands out the oldest first.
+- **Claimed.** One dispatcher holds it. The dispatcher may release it back to
+  Requested before the lease ends. [Only a Requested request can be
+  claimed](domain.invariants.md#invariant-only-a-requested-request-can-be-claimed),
+  so two dispatchers never start the same request.
+- **Started.** The dispatcher reported the session it started.
+- **Linked.** The started session called `link_session`. For a plan request, on any
+  entry of its plan.
+- **Cancelled.** The person cancelled it.
+
+**The lease.** A claim holds the request for two minutes. [A lease that runs out
+returns the request to Requested](domain.invariants.md#invariant-a-lapsed-claim-returns-the-request-to-requested),
+so a dispatcher that stopped mid-dispatch does not keep it.
+
+**One open request per target.** [A second ask returns the open
+request](domain.invariants.md#invariant-one-open-request-per-entry-or-plan): an entry or plan
+with a request in Requested, Claimed or Started gets that request back rather than a second one.
+
+**No expiry.** [A request never expires](domain.invariants.md#invariant-a-request-never-expires):
+it waits for a dispatcher until the person cancels it. Linked and Cancelled are final.
+
+A **dispatcher** is whatever claims requests and starts their sessions. The first is
+the **Manager session**, a long-lived Claude Desktop session running a skill. A direct
+launch from the app is a later one. The context holds no record of a dispatcher beyond
+the claim it made.
+
 ## Session Activity Publishing
 
 ```meta
@@ -1163,8 +1265,8 @@ type: shared-value-objects
 
 > Value Objects used by more than one aggregate in this bounded context.
 
-Sessions has a single aggregate; every value object is documented under it.
-This chapter is reserved for a second aggregate.
+No value object is shared yet: the Session Log's are documented under it, and the
+[Session Request Queue](#session-request-queue) shares none of them.
 
 ## Shared Enums
 
@@ -1174,8 +1276,8 @@ type: shared-enums
 
 > Enums used by more than one aggregate in this bounded context.
 
-Single aggregate, so `Agent` and `Session State` are documented under it. Reserved
-for the same reason as the chapter above.
+`Agent` and `Session State` belong to the Session Log alone, so they are documented
+under it. The Session Request's states are its own.
 
 ## Ubiquitous Language
 

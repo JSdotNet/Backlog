@@ -4,8 +4,11 @@ using System.Net.Sockets;
 
 using Backlog.Desktop.Mcp;
 using Backlog.Desktop.UI.Mcp;
+using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.SharedKernel;
+using Backlog.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -252,6 +255,76 @@ public sealed class McpServerWorkerTests : IDisposable
         }
 
         Assert.Equal(["req_011CYfixture0000000000001", "req_011CYfixture0000000000002"], store.Added.Select(request => request.RequestId));
+    }
+
+    /// <summary>
+    /// The session-request long poll reaches the head's listener behind the same bearer
+    /// token as <c>/mcp</c> (local ADR 0037 §4): the real listener refuses a wait with no
+    /// token and one with the wrong token, and answers the right one with the waiting
+    /// request at once.
+    /// </summary>
+    [Fact]
+    public async Task The_session_request_wait_refuses_a_missing_or_wrong_token_and_answers_the_right_one()
+    {
+        var queue = new InMemorySessionRequestStore();
+        var request = queue.Add(SessionRequests.ForEntry(Guid.NewGuid(), "JSdotNet/Backlog", @"D:\Repos\Backlog", DateTimeOffset.UtcNow));
+        var services = new GatedProvider(new ServiceCollection()
+            .AddSingleton<ISessionRequestStore>(queue)
+            .AddSingleton<IAppFeatureSettings>(new SessionRequestsOn())
+            .BuildServiceProvider());
+        var settings = Settings(FreePort());
+
+        using var worker = new McpServerWorker(services, settings);
+        await ListeningAsync(worker, settings.McpServerPort);
+
+        using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
+        var token = settings.EnsureMcpServerToken();
+
+        using (var response = await client.SendAsync(Wait(null), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal("Bearer", response.Headers.WwwAuthenticate.Single().Scheme);
+        }
+
+        using (var response = await client.SendAsync(Wait(token + "-wrong"), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        Assert.Equal(0, queue.NextCalls);
+
+        using (var response = await client.SendAsync(Wait(token), TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+            Assert.Contains(request.Id.ToString("D"), await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+        }
+    }
+
+    private static HttpRequestMessage Wait(string? token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, SessionRequestWaitEndpoint.RoutePath);
+        if (token is not null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return request;
+    }
+
+    /// <summary>Every key on, <c>session-requests</c> among them.</summary>
+    private sealed class SessionRequestsOn : IAppFeatureSettings
+    {
+        public event Action? Changed;
+
+        public AppFeatureSettings Current { get; } = new();
+
+        public string SettingsPath => "(replaced for this test)";
+
+        public bool IsEnabled(string key) => true;
+
+        public string? SetEnabled(string key, bool enabled)
+        {
+            Changed?.Invoke();
+            return null;
+        }
     }
 
     /// <summary>The JSON fixture <c>ClaudeCodeOtlpLogsTests</c> describes, posted the

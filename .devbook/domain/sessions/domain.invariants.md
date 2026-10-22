@@ -797,3 +797,100 @@ Only the When grouping reads a clock and a time zone, and both are handed in: th
 So a press in the filter bar never moves a row from one day into another.
 
 Enforced at: `AgentSessionGroups.Of()` (its `now` and `zone` parameters); the Sessions pane, which passes the instant of its reading
+
+## Session Request Queue
+
+```meta
+status: draft
+type: invariants
+related: [.devbook/domain/sessions/domain.md#session-request-queue]
+```
+
+> The rules the queue holds every session request to (local ADR 0037). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The Start session and Start plan session actions are built too, in the Tasks pane and the roadmap item's dialog, through `SessionRequestActions`. The wait route and the dispatcher tools are later items of the `session-dispatch` plan.
+
+### Invariant: A request carries no entry text
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_new_entry_request_is_Requested_and_carries_only_its_target_repository_and_folder
+```
+
+A session request holds its kind, an entry id or a plan tag, a repository, a clone folder, its state, lease and claiming dispatcher, the session id it was answered with and when it was asked, and no field for anything an entry says.
+Entry text arrives through sync, imports and capture, so a brief built from it would run whatever anyone who can write an entry wrote.
+
+Enforced at: `SessionRequest`, which has no field for entry text (ADR 0037 §1)
+
+### Invariant: Only the app creates a request
+
+```meta
+status: draft
+type: invariant
+```
+
+A request is created only by the desktop app's own Start session action; no MCP tool, import, sync or capture creates one.
+
+Enforced at: `ISessionRequestStore.RequestAsync()`, which no MCP tool calls (ADR 0037 §1)
+
+### Invariant: One open request per entry or plan
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Claimed_or_Started_request_also_blocks_a_duplicate, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Linked_or_Cancelled_request_does_not_block_a_new_one, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_second_ask_for_an_entry_with_an_open_request_returns_the_open_one_and_stores_nothing]
+```
+
+A second ask for an entry or a plan that already has a request in Requested, Claimed or Started answers that request and queues nothing; once it is Linked or Cancelled, a new ask queues a new one.
+A second click while the first waits must not start the same work twice.
+
+Enforced at: `SessionRequests.OpenDuplicateOf()`, applied by `SqliteSessionRequestStore.RequestAsync()` inside one immediate transaction
+
+### Invariant: Only a Requested request can be claimed
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_second_claim_on_a_held_request_is_refused, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_Linked_or_Cancelled_request_cannot_be_claimed, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.Two_dispatchers_claiming_at_once_get_one_claim_between_them]
+```
+
+A claim succeeds only on a request in Requested, and moves it to Claimed in the same write; a claim on any other state is refused.
+So two dispatchers waiting at once never both start one request.
+
+Enforced at: `SessionRequests.Claim()`, applied by `SqliteSessionRequestStore.ClaimAsync()` inside one immediate transaction (ADR 0037 §3)
+
+### Invariant: A lapsed claim returns the request to Requested
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_claim_reads_as_Claimed_until_its_lease_ends_and_as_Requested_from_then, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_lapsed_claim_can_be_claimed_by_the_next_dispatcher, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_lapsed_claim_reads_as_Requested_and_is_handed_out_again]
+```
+
+A claim holds the request for two minutes; a request still Claimed when its lease ends reads as Requested again, and its claim is no longer the dispatcher's.
+A dispatcher that stopped mid-dispatch does not keep the request from the next one.
+
+Enforced at: `SessionRequest.StateAt()`, which every read of `SqliteSessionRequestStore` and every transition in `SessionRequests` asks (ADR 0037 §3)
+
+### Invariant: A request never expires
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Requested_request_never_expires, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.A_Requested_request_is_still_waiting_a_year_on]
+```
+
+A Requested request stays Requested however long no dispatcher runs; only the person's cancel ends it unanswered.
+
+Enforced at: `SessionRequests` and `SqliteSessionRequestStore`, which have no expiry (ADR 0037 §3)
+
+### Invariant: Linked and Cancelled are final
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Started_Linked_or_Cancelled_request_cannot_be_cancelled, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.Only_a_Started_request_can_be_Linked, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteSessionRequestStoreTests.Cancel_is_written_and_a_Cancelled_request_is_never_handed_out]
+```
+
+A Linked or Cancelled request changes no further: it cannot be claimed, reported, linked again or cancelled.
+
+Enforced at: `SessionRequests.Claim()`, `Report()`, `Link()` and `Cancel()` (ADR 0037 §3)

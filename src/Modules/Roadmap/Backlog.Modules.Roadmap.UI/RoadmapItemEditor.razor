@@ -14,6 +14,7 @@
     close or to show why not — the same arrangement as a drag on the chart.
 *@
 @using global::Backlog.UI.Components.Goals
+@using global::Backlog.UI.Components.Integrations
 @implements IDisposable
 
 <Modal Open="@Open"
@@ -22,6 +23,35 @@
        CssClass="roadmap-editor"
        TestId="roadmap-editor">
     <ChildContent>
+        @* The session this plan asked for and has not got yet (local ADR 0037): the
+           waiting chip, with Cancel while no dispatcher has picked the request up.
+           Above the fields, because it is news about the plan rather than one of
+           its fields; once the session links itself it goes, and the plan's entries
+           show the session. *@
+        @if (WaitingSession is { } waiting)
+        {
+            <div class="roadmap-editor__session" data-testid="roadmap-editor-session-request">
+                <IntegrationStateChip Session="IntegrationSessionState.Starting"
+                                      Kind="IntegrationLinkKind.Session"
+                                      Text="Waiting for a session"
+                                      Title="@WaitingTitle(waiting)"
+                                      TestId="roadmap-editor-session-chip" />
+
+                @if (waiting.State is PlanSessionRequestState.Requested)
+                {
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               Busy="@SessionBusy"
+                               BusyLabel="Cancelling"
+                               aria-label="Cancel the plan session request"
+                               OnClick="() => OnCancelPlanSession.InvokeAsync()"
+                               TestId="roadmap-editor-session-cancel">
+                        Cancel request
+                    </AppButton>
+                }
+            </div>
+        }
+
         <div class="roadmap-editor__fields">
             <TextField Label="Title"
                        Value="@_title"
@@ -259,6 +289,32 @@
             }
         }
 
+        @* Start plan session: one session that runs the whole plan by its tag, in
+           the item's first repository with a clone folder. It writes nothing to the
+           plan and leaves the dialog open, so it does not wait out an unsaved change
+           the way Open in Tasks does. Disabled with the reason when no repository has
+           a clone folder; gone while a request is open, when the chip above says so. *@
+        @if (PlanSession is { } offer && WaitingSession is null)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       Disabled="@(!offer.IsEnabled)"
+                       Busy="@SessionBusy"
+                       BusyLabel="Asking"
+                       title="@(offer.DisabledReason ?? $"Start a session that runs the {offer.Tag} plan in {offer.Repository}")"
+                       aria-describedby="@(offer.IsEnabled ? null : _sessionReasonId)"
+                       OnClick="() => OnStartPlanSession.InvokeAsync()"
+                       TestId="roadmap-editor-start-session">
+                Start plan session
+            </AppButton>
+
+            @if (offer.DisabledReason is { } reason)
+            {
+                <span id="@_sessionReasonId"
+                      class="sr-only"
+                      data-testid="roadmap-editor-start-session-reason">@reason</span>
+            }
+        }
+
         <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-editor-cancel">
             Cancel
         </AppButton>
@@ -284,6 +340,7 @@
     // Unique per instance: two editors on one page would otherwise send
     // aria-describedby to whichever reason the browser saw first.
     private readonly string _openTasksReasonId = $"roadmap-editor-open-tasks-reason-{Guid.NewGuid():N}";
+    private readonly string _sessionReasonId = $"roadmap-editor-start-session-reason-{Guid.NewGuid():N}";
 
     private string _title = string.Empty;
     private string _start = string.Empty;
@@ -413,6 +470,36 @@
     /// <summary>Raised with the item's id when the person reopens work they completed.</summary>
     [Parameter]
     public EventCallback<Guid> OnReopen { get; set; }
+
+    /// <summary>What Start plan session offers for this item (local ADR 0037 §2), or
+    /// null when it offers nothing — the action is not offered, or the item is new or
+    /// has no tag. The band decides; the dialog only shows it.</summary>
+    [Parameter]
+    public PlanSessionOffer? PlanSession { get; set; }
+
+    /// <summary>The session request the item's plan is waiting on, or null.</summary>
+    [Parameter]
+    public PlanSessionRequest? WaitingSession { get; set; }
+
+    /// <summary>Whether a Start plan session or Cancel press is still on its way.</summary>
+    [Parameter]
+    public bool SessionBusy { get; set; }
+
+    /// <summary>Raised when the person asks for a session that runs the plan.</summary>
+    [Parameter]
+    public EventCallback OnStartPlanSession { get; set; }
+
+    /// <summary>Raised when the person withdraws the plan's waiting request.</summary>
+    [Parameter]
+    public EventCallback OnCancelPlanSession { get; set; }
+
+    /// <summary>The waiting chip's sentence for each open state.</summary>
+    private static string WaitingTitle(PlanSessionRequest request) => request.State switch
+    {
+        PlanSessionRequestState.Claimed => $"Waiting for a session in {request.Repository} — a dispatcher is starting it",
+        PlanSessionRequestState.Started => $"Waiting for a session in {request.Repository} — started, not yet linked to the plan",
+        _ => $"Waiting for a session in {request.Repository} — no dispatcher has picked the request up yet"
+    };
 
     /// <summary>Whether tasks carry the item and whether it was completed by hand, read
     /// from the item and what it gathered — the same answer its bar is drawn from.</summary>

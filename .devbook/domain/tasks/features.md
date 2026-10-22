@@ -935,6 +935,21 @@ more line on top.
 Every [type](domain.md#task-type) is copied this way, a `task` too. The copy says
 which entry it is, and the session, not the copy, decides whether to run it.
 
+### Start a session on a prompt
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/sessions/context.md#session-requests
+related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#multi-repo-targeting]
+```
+
+Ask for a coding session that runs a prompt, in its repository's clone folder, without
+copying it anywhere. The press creates a session request in the Sessions context. The
+entry shows that it is waiting for a session until the session links itself. The
+[Sessions feature](../sessions/features.md#start-a-session-from-an-entry) says who is
+offered it and what the waiting chip shows.
+
 ### Hand-off to Copilot CLI
 
 ```meta
