@@ -6663,6 +6663,24 @@ a.pull-request-detail-checks__name:hover {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
+}
+
+/* Five tabs are wider than a phone. The strip scrolls on its own, so its width
+   never stretches the pane and the whole area does not scroll sideways. */
+.tech-devbook-pane__tabs {
+    flex: none;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+.tech-devbook-pane__tabs > [role="tab"] {
+    flex: none;
+    white-space: nowrap;
 }
 
 .tech-devbook-pane .tabs__panels {
@@ -8251,7 +8269,10 @@ a.pull-request-detail-checks__name:hover {
 
 .tech-clusters__cluster:focus-visible,
 .tech-clusters__satellite:focus-visible,
-.tech-clusters__pill:focus-visible {
+.tech-clusters__pill:focus-visible,
+.tech-clusters__back:focus-visible,
+.tech-clusters__crumb:focus-visible,
+.tech-clusters__trail-step:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 3px;
 }

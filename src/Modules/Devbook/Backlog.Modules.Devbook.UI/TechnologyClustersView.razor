@@ -1,4 +1,5 @@
 @inherits TechnologyViewBase
+@using Microsoft.JSInterop
 
 @*
     Clusters — the whole stack by layer (.devbook/domain/devbook/features.md#technology-view),
@@ -50,7 +51,7 @@
         @if (Focus is { } focus)
         {
             <span class="tech-clusters__sep" aria-hidden="true">›</span>
-            <span class="tech-clusters__here" aria-current="location" data-testid="technology-clusters-crumb-technology">@focus.Label</span>
+            <span class="tech-clusters__here" aria-current="location" tabindex="-1" @ref="_here" data-testid="technology-clusters-crumb-technology">@focus.Label</span>
         }
         @if (_trail.Count > 1)
         {
@@ -60,7 +61,9 @@
                 {
                     var step = index;
                     var id = _trail[step];
-                    var isCurrent = Focus is { } shown && string.Equals(shown.Id, id, StringComparison.Ordinal);
+                    @* The last step is where the reader is; a technology visited twice
+                       is on the trail twice, and only the latest visit is current. *@
+                    var isCurrent = step == _trail.Count - 1 && Focus is { } shown && string.Equals(shown.Id, id, StringComparison.Ordinal);
                     <AppButton BaseClass="tech-clusters__trail-step"
                                CssClass="@(isCurrent ? "tech-clusters__trail-step--current" : null)"
                                Variant="ButtonVariant.None"
@@ -174,7 +177,7 @@
             {
                 <header class="tech-clusters__side-head">
                     <p class="tech-clusters__kicker">The whole stack</p>
-                    <h3 class="tech-clusters__side-title">@TechnologyCount(Layers.Sum(each => each.Technologies.Count))</h3>
+                    <h3 class="tech-clusters__side-title" tabindex="-1" @ref="_stackTitle" data-testid="technology-clusters-stack-title">@TechnologyCount(Layers.Sum(each => each.Technologies.Count))</h3>
                     <p class="tech-clusters__muted">@(Layers.Count == 1 ? "1 layer" : $"{Layers.Count} layers"). Open one to see its technologies and follow their links.</p>
                 </header>
                 <ul class="tech-clusters__list" aria-label="Layers" data-testid="technology-clusters-layer-list">
@@ -211,7 +214,7 @@
                 {
                     <header class="tech-clusters__side-head">
                         <p class="tech-clusters__kicker">Layer · <code>@current.FileName</code></p>
-                        <h3 class="tech-clusters__side-title" data-testid="technology-clusters-layer-title">@current.Label</h3>
+                        <h3 class="tech-clusters__side-title" tabindex="-1" @ref="_layerTitle" data-testid="technology-clusters-layer-title">@current.Label</h3>
                         <p class="tech-clusters__muted">@TechnologyCount(current.Technologies.Count) · @Links(LinksOut(current.FileName)) to other layers</p>
                     </header>
                 }
@@ -303,9 +306,28 @@
     /// <summary>The technology in focus: the shared selection, while the reader
     /// has it in focus and it sits in the open layer.</summary>
     private TechnologyGraphNode? Focus =>
-        _focused && OpenLayer is { } open && Selected is { IsBoundary: false } node && string.Equals(node.LayerFileName, open.FileName, StringComparison.Ordinal)
+        _focused && OpenLayer is { } open && Moving is { IsBoundary: false } node && string.Equals(node.LayerFileName, open.FileName, StringComparison.Ordinal)
             ? node
             : null;
+
+    /// <summary>The technology the view is moving to while the panel has yet to
+    /// hand the new selection back; null when no move is under way.</summary>
+    private string? _movingTo;
+
+    /// <summary>The selection, or the one on its way. A move opens the new layer
+    /// before the panel's selection arrives; reading the old selection against the
+    /// new layer would drop the focus — and the inspector with it, and with the
+    /// inspector the reader's keyboard focus — for one render.</summary>
+    private TechnologyGraphNode? Moving => _movingTo is { } id ? NodeById(id) : Selected;
+
+    /// <summary>Selects through the panel, with <see cref="_movingTo"/> set until the
+    /// panel hands the selection back — which can come after this view has already
+    /// rendered once, so it is cleared in <see cref="OnParametersSet"/>, not here.</summary>
+    private Task MoveToAsync(string id)
+    {
+        _movingTo = string.Equals(SelectedId, id, StringComparison.Ordinal) ? null : id;
+        return SelectAsync(id);
+    }
 
     private string Hint => OpenLayer is null
         ? "One cluster per layer, one dot per technology. Open a cluster to see its technologies."
@@ -320,6 +342,35 @@
     /// <summary>The view opens on the shared selection, in focus on its layer, so a
     /// technology picked in another view is the one shown here; with nothing
     /// selected it opens on All layers.</summary>
+    /// <summary>Set when a control the reader pressed is about to leave the screen —
+    /// a cluster or layer row giving way to the open layer, a satellite moving, the
+    /// trail collapsing, Back disabling itself on All layers — so the next render
+    /// puts focus on where the reader now is instead of on the page.</summary>
+    private bool _focusLocation;
+
+    private ElementReference _here;
+    private ElementReference _layerTitle;
+    private ElementReference _stackTitle;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusLocation) return;
+
+        _focusLocation = false;
+        var target = Focus is not null ? _here : OpenLayer is not null ? _layerTitle : _stackTitle;
+
+        try
+        {
+            await target.FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
     protected override void OnInitialized()
     {
         if (Selected is { IsBoundary: false } node && node.LayerFileName.Length > 0)
@@ -341,7 +392,19 @@
         }
 
         _trail.RemoveAll(id => NodeById(id) is null);
+
+        // Any new selection — the handback of a move or a pick made elsewhere — ends
+        // the move; so does a re-read that took the technology away.
+        if (!string.Equals(SelectedId, _lastSelectedId, StringComparison.Ordinal) || (_movingTo is not null && NodeById(_movingTo) is null))
+        {
+            _movingTo = null;
+        }
+
+        _lastSelectedId = SelectedId;
     }
+
+    /// <summary>The selection the panel handed in last time, so a new one is noticed.</summary>
+    private string? _lastSelectedId;
 
     private void OpenAllLayers()
     {
@@ -351,6 +414,7 @@
 
     private void OpenLayerAt(string fileName)
     {
+        _focusLocation = true;
         _layer = fileName;
         _focused = false;
     }
@@ -375,7 +439,7 @@
             }
         }
 
-        await SelectAsync(id);
+        await MoveToAsync(id);
     }
 
     /// <summary>Back to a step on the trail, dropping the steps after it.</summary>
@@ -385,6 +449,7 @@
 
         var id = _trail[index];
         _trail.RemoveRange(index + 1, _trail.Count - index - 1);
+        _focusLocation = true;
         await ShowAsync(id);
     }
 
@@ -409,6 +474,7 @@
         else
         {
             OpenAllLayers();
+            _focusLocation = true;
         }
     }
 
@@ -420,7 +486,7 @@
             _focused = true;
         }
 
-        await SelectAsync(id);
+        await MoveToAsync(id);
     }
 
     private bool IsSelected(string id) => string.Equals(SelectedId, id, StringComparison.Ordinal);

@@ -1,4 +1,5 @@
 @inherits TechnologyViewBase
+@using Microsoft.JSInterop
 
 @*
     The selected technology, beside whichever view picked it
@@ -14,23 +15,23 @@
 
 @if (Selected is { } node)
 {
-    <aside class="tech-inspector" aria-labelledby="tech-inspector-title" data-testid="technology-inspector">
+    <aside class="tech-inspector" aria-labelledby="@IdFor("title")" data-testid="technology-inspector">
         <header class="tech-inspector__head">
             <p class="tech-inspector__kicker">
                 <Badge Kind="" Title="@TechnologyTypeCodes.Label(node.Kind)">@TechnologyTypeCodes.Code(node.Kind)</Badge>
                 <span>@TechnologyViews.LayerLabel(node.Layer)</span>
             </p>
-            <h3 id="tech-inspector-title" class="tech-inspector__title">@node.Label</h3>
+            <h3 id="@IdFor("title")" class="tech-inspector__title" tabindex="-1" @ref="_title">@node.Label</h3>
             @if (!string.IsNullOrWhiteSpace(node.Description))
             {
-                <p class="tech-inspector__lede">@node.Description</p>
+                <p class="tech-inspector__lede">@MarkdownRender.Inlines(MarkdownPreview.ParseInlines(node.Description), LedeTarget(node))</p>
             }
         </header>
 
         <div class="tech-inspector__meta" data-testid="technology-inspector-status">
             @if (CanEditStatus(node))
             {
-                <StatusSelector Id="@StatusSelectId(node.Id)"
+                <StatusSelector Id="@IdFor(StatusSelectId(node.Id))"
                                 CurrentValue="@node.Status"
                                 Options="@StatusOptions(node.Status)"
                                 Label="@($"State for {node.Label}")"
@@ -55,8 +56,8 @@
             <div><dt>Complexity</dt><dd>@node.Complexity · @node.ComplexityBand</dd></div>
         </dl>
 
-        <section class="tech-inspector__relations" aria-labelledby="tech-inspector-sits-on" data-testid="technology-inspector-sits-on">
-            <h4 id="tech-inspector-sits-on">Sits on</h4>
+        <section class="tech-inspector__relations" aria-labelledby="@IdFor("sits-on")" data-testid="technology-inspector-sits-on">
+            <h4 id="@IdFor("sits-on")">Sits on</h4>
             @if (node.DependencyIds.Count == 0)
             {
                 <p class="tech-inspector__none">Nothing — a foundation</p>
@@ -72,8 +73,8 @@
             }
         </section>
 
-        <section class="tech-inspector__relations" aria-labelledby="tech-inspector-used-by" data-testid="technology-inspector-used-by">
-            <h4 id="tech-inspector-used-by">Used by</h4>
+        <section class="tech-inspector__relations" aria-labelledby="@IdFor("used-by")" data-testid="technology-inspector-used-by">
+            <h4 id="@IdFor("used-by")">Used by</h4>
             @if (node.UserIds.Count == 0)
             {
                 <p class="tech-inspector__none">Nothing depends on it — a leaf</p>
@@ -91,7 +92,7 @@
 
         <TechnologyLens View="@View"
                         Technology="@node"
-                        SelectedIdChanged="SelectedIdChanged"
+                        SelectedIdChanged="FollowAsync"
                         OnNavigateToChapter="OnNavigateToChapter" />
 
         <nav class="tech-inspector__links" aria-label="More about @node.Label">
@@ -112,6 +113,16 @@
 }
 
 @code {
+    private ElementReference _title;
+
+    /// <summary>The technology a link here was followed to; once the inspector shows
+    /// it, focus goes to its title. Null when no follow is pending.</summary>
+    private string? _focusFor;
+
+    /// <summary>The selection the inspector last showed, to tell a selection made
+    /// elsewhere from the one a follow is waiting for.</summary>
+    private string? _shownId;
+
     /// <summary>When set, each technology it sits on or is used by names its layer
     /// beside it — "here" for this layer file — so a view that draws one layer at a
     /// time says where a link leads. Clusters sets it; Overview does not.</summary>
@@ -145,7 +156,7 @@
             <AppButton Variant="ButtonVariant.Ghost"
                        Size="ButtonSize.Small"
                        TestId="technology-inspector-related"
-                       OnClick="() => SelectAsync(related.Id)">
+                       OnClick="() => FollowAsync(related.Id)">
                 @related.Label
                 @if (RelatedLayerFile is not null)
                 {
@@ -154,6 +165,52 @@
             </AppButton>
         }
     };
+
+    /// <summary>Selects a technology this one links to. The button that was pressed
+    /// belongs to the technology just left and goes when the inspector redraws,
+    /// so focus moves to the new technology's title rather than to the page.</summary>
+    private Task FollowAsync(string? id)
+    {
+        _focusFor = id;
+        return SelectAsync(id);
+    }
+
+    /// <summary>A selection that moves somewhere other than the followed one —
+    /// another view's pick, a re-read that dropped it — cancels the pending focus.</summary>
+    protected override void OnParametersSet()
+    {
+        if (!string.Equals(SelectedId, _shownId, StringComparison.Ordinal))
+        {
+            if (!string.Equals(SelectedId, _focusFor, StringComparison.Ordinal)) _focusFor = null;
+            _shownId = SelectedId;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusFor is null || Selected is null || !string.Equals(SelectedId, _focusFor, StringComparison.Ordinal)) return;
+
+        _focusFor = null;
+
+        try
+        {
+            await _title.FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    /// <summary>A link in the description is read against the technology's own
+    /// layer file and followed the way every chapter link in the pane is.</summary>
+    private MarkdownRender.MarkdownInlineTarget LedeTarget(TechnologyGraphNode node) =>
+        DevbookInlineTargets.For(
+            node.LayerFileName.Length == 0 ? null : $".tech/{node.LayerFileName}",
+            null,
+            EventCallback.Factory.Create<DevbookReference>(this, NavigateAsync));
 
     private Task NavigateAsync(DevbookReference reference) =>
         DevbookChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
@@ -173,6 +230,15 @@
         return [.. options.Select(value => new SelectorOption(value, value))];
     }
 
+    /// <summary>Overview keeps its inspector rendered while another view draws its
+    /// own, so two can be on the page at once; each instance's ids carry its own
+    /// number, or the second one's labels would point at the first one's headings.</summary>
+    private static int _instances;
+
+    private readonly int _instance = Interlocked.Increment(ref _instances);
+
+    private string IdFor(string part) => $"tech-inspector-{_instance}-{part}";
+
     private static string StatusSelectId(string itemPath) =>
-        "technology-inspector-" + new string([.. itemPath.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')]).Trim('-') + "-state";
+        new string([.. itemPath.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')]).Trim('-') + "-state";
 }

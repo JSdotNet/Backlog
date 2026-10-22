@@ -359,7 +359,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
             .Single(row => row.QuerySelector(".tech-overview__name")!.TextContent.Trim() == name);
 
     private static string InspectorTitle(IRenderedComponent<TechnologyDevbookPanel> component) =>
-        component.Find("#tech-inspector-title").TextContent.Trim();
+        component.Find(".tech-inspector__title").TextContent.Trim();
 
     private static string[] RelatedNames(IRenderedComponent<TechnologyDevbookPanel> component, string list) =>
         [.. component.FindAll($"[data-testid='technology-inspector-{list}'] [data-testid='technology-inspector-related']").Select(button => button.TextContent.Trim())];

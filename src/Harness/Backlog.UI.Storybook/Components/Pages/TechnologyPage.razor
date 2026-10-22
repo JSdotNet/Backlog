@@ -3,7 +3,7 @@
 <PageTitle>Technology page — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Technology page"
-           Summary="The library parts the Devbook pane's Technology page draws on its Overview view: summary tiles over the stack, a chip per type, a name search and a sort, the table of technologies, the inspector on the one selected technology, and the placeholder a view not yet built shows. The page itself lives in the Devbook module and is not rendered here; every figure below is handed in, the way the page hands in what the reader computed from the stack's depends-on."
+           Summary="The library parts the Devbook pane's Technology page draws on its Overview view: summary tiles over the stack, a chip per type, a name search and a sort, the table of technologies, and the inspector on the one selected technology. The page and its four other views live in the Devbook module and are not rendered here; every figure below is handed in, the way the page hands in what the reader computed from the stack's depends-on."
            Guidelines="@Rules">
 
     <Story Name="Summary tiles"
@@ -91,12 +91,6 @@
             </div>
         </div>
     </Story>
-
-    <Story Name="A view not built yet"
-           Description="Dependencies, Complexity, Clusters and Type lenses each render an EmptyState in the status role, titled with the view's name, until their plan steps fill them in."
-           Code="@PlaceholderCode">
-        <EmptyState Title="Dependencies" Description="This view is not built yet." TestId="technology-page-placeholder" role="status" />
-    </Story>
 </StoryPage>
 
 @code {
@@ -105,8 +99,7 @@
         new("color-scheme.md#badge-and-chip-tones", "Which tone each status on the ladder wears, and why the word always goes with it."),
         new("color-scheme.md#chart-roles", "Why the status ladder is one hue in ramp steps."),
         new("accessibility.md#target-sizes-and-text", "Why the ladder's counts are printed beside its bar."),
-        new("interaction-guidelines.md#group-shape-says-cardinality", "Why the type chips and the sort are toggles that say aria-pressed."),
-        new("interaction-guidelines.md#empty-loading-and-error-states", "What a view that is not built yet shows in its place.")
+        new("interaction-guidelines.md#group-shape-says-cardinality", "Why the type chips and the sort are toggles that say aria-pressed.")
     ];
 
     private sealed record Row(string Code, string Name, string Layer, string Status, int UsedBy, int RestsOn, int Depth, int Complexity, string Band);
@@ -189,9 +182,5 @@
                         Label="@($"State for {node.Label}")" OnChanged="value => ChangeStatusAsync(node, value)" />
         <DevbookReferenceLink Reference="@reference" Text="@related.Label" OnNavigate="NavigateAsync" />
         <AppButton Variant="ButtonVariant.Secondary" OnClick="() => OnNavigateToChapter.InvokeAsync(chapter)">Open chapter</AppButton>
-        """;
-
-    private const string PlaceholderCode = """
-        <EmptyState Title="Dependencies" Description="This view is not built yet." role="status" />
         """;
 }

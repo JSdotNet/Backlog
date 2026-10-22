@@ -938,9 +938,13 @@ internal static class TechnologyMarkdownParser
 
     private static string CleanSummary(IEnumerable<string> lines)
     {
+        // The first paragraph only: the blank line after it ends the summary, so a
+        // list that follows the lede never joins it as a stray "- " marker.
         var selected = lines
             .Select(line => line.Trim())
-            .Where(line => line.Length > 0 && !line.StartsWith("#", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal))
+            .Where(line => !line.StartsWith("#", StringComparison.Ordinal) && !line.StartsWith("---", StringComparison.Ordinal))
+            .SkipWhile(line => line.Length == 0)
+            .TakeWhile(line => line.Length > 0)
             .Take(2)
             .ToList();
 
