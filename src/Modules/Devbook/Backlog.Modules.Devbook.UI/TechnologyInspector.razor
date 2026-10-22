@@ -8,8 +8,8 @@
 
     It opens on the facts every technology has, then what it sits on and what
     uses it, then the status and the ways onward. The section a technology's type
-    chooses goes in the Lens slot, below the common facts; the Type lenses view
-    fills it.
+    chooses is TechnologyLens, below the common facts; the Type lenses board draws
+    the same component on each type's card.
 *@
 
 @if (Selected is { } node)
@@ -89,7 +89,10 @@
             }
         </section>
 
-        @Lens
+        <TechnologyLens View="@View"
+                        Technology="@node"
+                        SelectedIdChanged="SelectedIdChanged"
+                        OnNavigateToChapter="OnNavigateToChapter" />
 
         <nav class="tech-inspector__links" aria-label="More about @node.Label">
             @if (DevbookChapterLink.From(node.Id) is { } chapter)
@@ -109,11 +112,6 @@
 }
 
 @code {
-    /// <summary>The section the selected technology's type chooses, drawn below
-    /// the common facts. Empty until a view hands one in.</summary>
-    [Parameter]
-    public RenderFragment? Lens { get; set; }
-
     /// <summary>The parsed chapter behind the selection, which carries what the
     /// graph node does not — its version. A boundary node has none.</summary>
     private TechnologyNode? Chapter => SelectedId is null

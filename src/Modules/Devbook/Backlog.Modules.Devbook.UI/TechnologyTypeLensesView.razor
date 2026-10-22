@@ -1,13 +1,100 @@
 @inherits TechnologyViewBase
 
 @*
-    Type lenses — one technology read through the lens its type chooses (.devbook/domain/devbook/features.md#technology-view).
-    A placeholder until the plan step that builds it fills this file in. It is
-    handed the folder, the shared selection and the panel's callbacks through
-    TechnologyViewBase, like every Technology view.
+    Type lenses — one technology read through the lens its type chooses
+    (.devbook/domain/devbook/features.md#technology-view), laid out as the design's
+    Type lenses board: a card per type in use, each showing that type's lens for
+    its most-used technology, and the "Lens per type" table saying what each lens
+    shows and which metadata it reads.
+
+    The card draws the same TechnologyLens the inspector does, so a card and the
+    inspector never disagree about a technology. A type whose lens has no row the
+    chapter records — or that has no lens of its own — shows the common facts only.
 *@
 
-<EmptyState Title="Type lenses"
-            Description="This view is not built yet."
-            TestId="technology-type-lenses-placeholder"
-            role="status" />
+<div class="tech-lenses" data-testid="technology-type-lenses">
+    <p class="tech-lenses__lede">
+        Every technology opens on the same three facts — status, what it sits on, what uses it.
+        Below that, its type decides the rest of the panel.
+    </p>
+
+    <div class="tech-lenses__cards">
+        @foreach (var (type, node) in Cards)
+        {
+            <Card CssClass="tech-lens-card"
+                  AriaLabel="@($"{TechnologyTypeCodes.Label(type)} lens")"
+                  TestId="technology-lens-card"
+                  data-type="@type">
+                <div class="tech-lens-card__body">
+                    <div class="tech-lens-card__head">
+                        <span class="tech-lens-card__kicker">
+                            <Badge Kind="" Title="@TechnologyTypeCodes.Label(type)">@TechnologyTypeCodes.Code(type)</Badge>
+                            <span>@($"{TechnologyTypeCodes.Label(type)} lens")</span>
+                        </span>
+                        <MetadataStatusBadge Status="@node.Status" Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)" />
+                    </div>
+                    <h3 class="tech-lens-card__title">
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   TestId="technology-lens-card-name"
+                                   OnClick="() => OpenAsync(node.Id)">@node.Label</AppButton>
+                    </h3>
+                    <p class="tech-lens-card__facts" data-testid="technology-lens-card-facts">
+                        @($"Sits on {node.DependencyIds.Count} · used by {node.UsedBy}")
+                    </p>
+                    <TechnologyLens View="@View"
+                                    Technology="@node"
+                                    SelectedIdChanged="OpenAsync"
+                                    OnNavigateToChapter="OnNavigateToChapter" />
+                </div>
+            </Card>
+        }
+    </div>
+
+    <section class="tech-lenses__table" aria-labelledby="tech-lenses-table-title">
+        <h3 id="tech-lenses-table-title" class="tech-lenses__heading">Lens per type</h3>
+        <DataTable TItem="TechnologyLens.LensDefinition"
+                   Columns="@Columns"
+                   Items="@TechnologyLens.Lenses.All"
+                   RowKey="lens => lens.Key"
+                   AriaLabel="Lens per type"
+                   RowNoun="lens"
+                   TestId="technology-lens-table">
+            <Row Context="lens">
+                <td class="tech-lenses__types">@string.Join(" · ", lens.Types)</td>
+                <td>@lens.Shows</td>
+                <td class="tech-lenses__reads">@lens.ReadsFrom</td>
+            </Row>
+        </DataTable>
+    </section>
+</div>
+
+@code {
+    private static readonly IReadOnlyList<DataTableColumn> Columns =
+    [
+        new("Type"),
+        new("Lens shows"),
+        new("Read from"),
+    ];
+
+    /// <summary>One card per type in use — the most-used types first, as the
+    /// Overview's chips order them — each with the technology the most others use;
+    /// the first in reading order on a tie.</summary>
+    private IEnumerable<(string Type, TechnologyGraphNode Node)> Cards => View.Graph.CountsByType
+        .Where(pair => !string.IsNullOrWhiteSpace(pair.Key))
+        .OrderByDescending(pair => pair.Value)
+        .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+        .Select(pair => (pair.Key, Node: Technologies
+            .Where(node => string.Equals(node.Kind, pair.Key, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(node => node.UsedBy)
+            .FirstOrDefault()))
+        .Where(card => card.Node is not null)
+        .Select(card => (card.Key, card.Node!));
+
+    /// <summary>A technology picked on a card — its name, or one its lens names —
+    /// opens in the Overview's inspector, selected, so the pick is seen.</summary>
+    private async Task OpenAsync(string? id)
+    {
+        await SelectAsync(id);
+        await OnOpenView.InvokeAsync(TechnologyViews.Overview);
+    }
+}
