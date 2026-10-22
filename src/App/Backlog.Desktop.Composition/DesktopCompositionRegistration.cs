@@ -28,6 +28,7 @@ using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Notifications.Extensions;
+using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Progress.Extensions;
 using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Progress.UI.Goals;
@@ -155,6 +156,9 @@ public static class DesktopCompositionRegistration
         // The MCP ask tool's questions: the asking session polls get_answer, so its handler
         // only takes the answer, which stops the startup pass replaying it on every start.
         services.AddNotificationAnswerHandler<McpNotificationAnswers>();
+        // The Settings page's test question: the page reads its answer off the centre, so the
+        // handler only takes it, for the same reason.
+        services.AddNotificationAnswerHandler<TestNotificationAnswers>();
         // The stand-up behind the shell's Ask AI port on the Goals view, after the
         // module so the scoped stand-up port it holds exists.
         services.AddGoalsAiContentSource();
@@ -315,6 +319,9 @@ public static class DesktopCompositionRegistration
         // The Devices page: register or pair this device, where the sync service
         // is, and the task and session loops. Offered behind the sync switch.
         services.AddSyncSettings();
+        // The Notifications page: send a test alert or question and follow it. Offered
+        // behind the notifications switch.
+        services.AddNotificationsSettings();
         // "Attach to goal" on tasks, plans and pull requests, cascaded to every screen.
         services.AddGoalControls();
         // The band under every route reads the backlog's save state through the

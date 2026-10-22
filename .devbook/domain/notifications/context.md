@@ -69,6 +69,19 @@ in two places:
   and Send. A question whose answers do not fit offers **Open in Backlog**, which
   opens the centre on it.
 
+The person tries the system out on **Settings › Notifications**
+(`settings/notifications`, offered behind the `notifications` switch). **Send test
+alert** publishes an info alert whose Markdown body carries a small Mermaid
+diagram. **Send test question** publishes a question with the choices "It works"
+and "Not yet" and an open answer, about the subject `notifications` / `test` / a
+fresh id. Both are raised by the source `notifications` / `settings-test`, whose
+answer handler only takes the answer. Under the buttons the page follows the last
+test through `INotificationCentre.Changed`: published, pushed to the phone,
+answered with the answer and the device it came from (or acknowledged, for the
+alert), and closed. **Clear test** closes the test, and sending a new one closes
+the one still open. The push row reads *not reported* until the phone push is
+built.
+
 Both hand an answer to `INotificationCentre.AnswerAsync`, which passes it to
 `INotificationReplies.AcceptReplyAsync` as a [Reply](domain.md#reply) from this
 device. That is the path a viewer's reply takes, so the owner checks every answer
