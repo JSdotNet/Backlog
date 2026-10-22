@@ -134,6 +134,16 @@
     [Parameter]
     public RenderFragment? Detail { get; set; }
 
+    /// <summary>Told where the picture's camera is whenever it moves — a drag, the
+    /// wheel, a new layout — for a host that draws the zoom level or an
+    /// orientation marker beside it. A plain delegate rather than an
+    /// <see cref="EventCallback"/> on purpose: a callback re-renders the host on
+    /// every report, and the host's index can be thousands of rows long, so the
+    /// host decides what re-renders. Only renderers that keep a camera report
+    /// one.</summary>
+    [Parameter]
+    public Action<GraphAtlasCamera>? OnCameraMoved { get; set; }
+
     [Parameter]
     public string? CssClass { get; set; }
 
@@ -165,6 +175,12 @@
     /// a reader would see as the picture going dead to clicks.</para></summary>
     [JSInvokable]
     public Task NodePicked(string? nodeId) => InvokeAsync(() => SelectAsync(nodeId));
+
+    /// <summary>Reported by a renderer that keeps a camera, as it moves. On the
+    /// renderer's dispatcher, for the reason <see cref="NodePicked"/> is.</summary>
+    [JSInvokable]
+    public Task CameraMoved(double yaw, double pitch, double zoom) =>
+        InvokeAsync(() => OnCameraMoved?.Invoke(new GraphAtlasCamera(yaw, pitch, zoom)));
 
     /// <summary>Reported when the drawing context goes away — WebView2 drops one on
     /// resume and on a display change, silently. Forgetting the rendered model is

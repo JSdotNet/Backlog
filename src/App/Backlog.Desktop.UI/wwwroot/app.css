@@ -8712,10 +8712,116 @@ a.pull-request-detail-checks__name:hover {
     font-size: var(--font-size-xs);
 }
 
+/* The chips sit on a row of their own under the tools, right-aligned as the
+   design draws them at the top right of the map. */
 .lobes-atlas__chips {
     display: flex;
+    flex: 1 0 100%;
     flex-wrap: wrap;
+    justify-content: flex-end;
     gap: var(--spacing-2xs);
+}
+
+.lobes-atlas__chip {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+}
+
+/* Every control of the atlas is a full target (accessibility.md#target-size):
+   at least 44 x 44 px whatever its glyph, the scope switch's fused options
+   included, which the shell header draws shorter. */
+.lobes-atlas__header :is(button, a),
+.lobes-atlas__panel :is(button, a),
+.lobes-atlas__empty button {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+/* And every one shows where the keyboard is: the panel's rows are bare
+   buttons with no .btn ring of their own. */
+.lobes-atlas__row:focus-visible,
+.lobes-atlas__chip:focus-visible,
+.lobes-atlas__header .header-group__option:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The foot: the drag/scroll hint on the left, the orientation marker turning
+   with the camera on the right. */
+.lobes-atlas__footer {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.lobes-atlas__hint {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.lobes-atlas__orientation {
+    flex: none;
+}
+
+.lobes-atlas__orientation-ring {
+    fill: none;
+    stroke: var(--color-border);
+}
+
+.lobes-atlas__orientation-axis {
+    stroke: var(--color-text-secondary);
+    stroke-width: 1;
+}
+
+.lobes-atlas__orientation-tag {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: 11px;
+}
+
+/* No Brain index yet: the shared empty state, centred where the map would be,
+   with the offer to build it and the way back side by side. */
+.lobes-atlas__empty {
+    flex: 0 1 auto;
+    width: 100%;
+    max-width: 34rem;
+    margin: auto;
+}
+
+.lobes-atlas__art {
+    stroke: var(--color-text-secondary);
+}
+
+.lobes-atlas__art path {
+    stroke: var(--color-border-strong);
+}
+
+/* The empty state's action slot is a row; here it stacks the buttons, the
+   alert a failed build leaves and the footnote. */
+.lobes-atlas__empty .empty-state__action {
+    flex-direction: column;
+    align-items: center;
+}
+
+.lobes-atlas__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.lobes-atlas__footnote {
+    margin: var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
 .lobes-atlas__card {

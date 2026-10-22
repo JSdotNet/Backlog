@@ -2,6 +2,7 @@ using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
 
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -345,6 +346,69 @@ public sealed class DevbookLobesTests : IDisposable
         var unbuilt = await service.ReadLobesAsync(new FixedBrain(Path.Combine(_scratch, "never-built")), [], TestContext.Current.CancellationToken);
         Assert.False(unbuilt.Available);
         Assert.Equal(DevbookAtlasService.BrainIndexMissing, unbuilt.Message);
+
+        // Only the missing index is the absence the atlas offers to mend.
+        Assert.True(unbuilt.BrainIndexMissing);
+        Assert.False(unset.BrainIndexMissing);
+    }
+
+    [Fact]
+    public async Task Each_indexed_scope_says_when_its_database_was_built()
+    {
+        var before = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var graph = await ReadAsync();
+
+        var brain = graph.Scope(Brain)!.IndexedAt;
+        var backlog = graph.Scope(BacklogScope)!.IndexedAt;
+        Assert.NotNull(brain);
+        Assert.NotNull(backlog);
+        Assert.InRange(brain.Value, before, DateTimeOffset.UtcNow.AddMinutes(1));
+        Assert.InRange(backlog.Value, before, DateTimeOffset.UtcNow.AddMinutes(1));
+
+        // A ghost has no database of its own here.
+        Assert.Null(graph.Scope(Homelab)!.IndexedAt);
+    }
+
+    [Fact]
+    public async Task The_lobes_source_builds_the_brains_index_through_the_refresher()
+    {
+        var brain = WriteBrain();
+        var cache = Path.Combine(_scratch, "devbook-cache");
+        using var refresher = new DevbookDatabaseRefresher(() => cache, watchFolder: (_, _) => null);
+        using var services = new ServiceCollection()
+            .AddSingleton<IBrainFolderSource>(new FixedBrain(brain))
+            .AddSingleton(refresher)
+            .BuildServiceProvider();
+        var atlas = new DevbookAtlasService(new Registered(Array.Empty<string>())) { BrainDatabaseFor = DatabaseFor };
+        var source = new DevbookLobesSource(atlas, new DevbookScope(null!, null!, null!), services);
+
+        Assert.True(source.CanBuildBrainIndex);
+        Assert.False(File.Exists(DatabaseFor(brain)));
+
+        Assert.Null(await source.BuildBrainIndexAsync(TestContext.Current.CancellationToken));
+
+        Assert.True(File.Exists(DatabaseFor(brain)));
+        var graph = await atlas.ReadLobesAsync(new FixedBrain(brain), [], TestContext.Current.CancellationToken);
+        Assert.True(graph.Available, graph.Message);
+    }
+
+    [Fact]
+    public async Task A_host_without_the_refresher_or_a_brain_cannot_build_and_says_why()
+    {
+        var atlas = new DevbookAtlasService(new Registered(Array.Empty<string>())) { BrainDatabaseFor = DatabaseFor };
+
+        using (var noRefresher = new ServiceCollection().AddSingleton<IBrainFolderSource>(new FixedBrain(WriteBrain())).BuildServiceProvider())
+        {
+            var source = new DevbookLobesSource(atlas, new DevbookScope(null!, null!, null!), noRefresher);
+            Assert.False(source.CanBuildBrainIndex);
+            Assert.Equal(DevbookLobesSource.BuildUnavailable, await source.BuildBrainIndexAsync(TestContext.Current.CancellationToken));
+        }
+
+        using var refresher = new DevbookDatabaseRefresher(() => Path.Combine(_scratch, "devbook-cache"), watchFolder: (_, _) => null);
+        using var noBrain = new ServiceCollection().AddSingleton<IBrainFolderSource>(new FixedBrain(null)).AddSingleton(refresher).BuildServiceProvider();
+        var unset = new DevbookLobesSource(atlas, new DevbookScope(null!, null!, null!), noBrain);
+        Assert.False(unset.CanBuildBrainIndex);
+        Assert.Equal(DevbookAtlasService.NoBrainFolder, await unset.BuildBrainIndexAsync(TestContext.Current.CancellationToken));
     }
 
     // ----- Fixtures ------------------------------------------------------------------
