@@ -56,8 +56,8 @@ public sealed class SelectorMarkupTests
     /// same shared selector the backlog does — through the library, not through
     /// the backlog folder.
     /// <para>
-    /// Two of the three panels draw a selector of their own directly: Technology on
-    /// a node, Domain beside a section while its body is being edited. The third,
+    /// Two of the three panels draw a selector of their own directly: Technology in
+    /// its inspector, Domain beside a section while its body is being edited. The third,
     /// arc42, no longer draws one at all — it hands the whole status to the shared
     /// <c>FileView</c> through <c>RenderDevbookMetadata</c>, which is the same
     /// shared selector reached one control further in. That is the stronger form of
@@ -70,7 +70,7 @@ public sealed class SelectorMarkupTests
     [Fact]
     public void Devbook_panels_use_the_same_shared_status_selector()
     {
-        foreach (var panel in new[] { "Arc42DevbookPanel.razor", "DomainDevbookPanel.razor", "TechnologyDevbookPanel.razor" })
+        foreach (var panel in new[] { "Arc42DevbookPanel.razor", "DomainDevbookPanel.razor", "TechnologyInspector.razor" })
         {
             var markup = NormalizeLineEndings(File.ReadAllText(
                 RepositoryRoot.File("src", "Modules", "Devbook", "Backlog.Modules.Devbook.UI", panel)));

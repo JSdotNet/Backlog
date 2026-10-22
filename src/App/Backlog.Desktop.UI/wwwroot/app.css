@@ -6635,16 +6635,10 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /*
-    The Technology pane holds a map, and a map does not scroll — you look at the
-    whole of it and move about inside it. So the pane itself clips instead of
-    scrolling, the header and the stat tiles keep their own height, and the tab
-    strip takes everything that is left.
-
-    Which tab scrolls is then the tab's own business, and the two want opposite
-    things: the atlas fits its area exactly, and the layer detail is a document
-    that runs past the bottom. The scroll moved off the pane and onto the Layers
-    panel below for exactly that reason — a scrollbar on the pane scrolled the
-    atlas out of the frame it had just been fitted to.
+    The Technology pane clips instead of scrolling: the header keeps its own
+    height, and the tab strip takes everything that is left. Which view scrolls
+    is then the view's own business — a later view may draw a map that fits
+    its area — so the scroll sits on the tab panel, not on the pane.
 */
 .tech-devbook-pane {
     display: flex;
@@ -6678,24 +6672,14 @@ a.pull-request-detail-checks__name:hover {
     flex-direction: column;
 }
 
+/* Each view scrolls on its own, under a header and a strip that stay put. */
 .tech-devbook-pane .tabs__panel {
     flex: 1 1 auto;
     min-height: 0;
-}
-
-/* The atlas fits. */
-.tech-devbook-pane [data-testid="technology-graph-panel"] {
-    overflow: hidden;
-}
-
-/* The layer detail scrolls. */
-.tech-devbook-pane [data-testid="technology-layers-panel"] {
-    display: grid;
-    align-content: start;
-    gap: var(--spacing-md);
     overflow-y: auto;
     scrollbar-gutter: stable;
     padding-right: var(--spacing-2xs);
+    container-type: inline-size;
 }
 
 /* The Technology header holds a title and one action and nothing else, so it is
@@ -6713,136 +6697,254 @@ a.pull-request-detail-checks__name:hover {
     grid-column: 1 / -1;
 }
 
-.tech-devbook-pane > .devbook-pane__header,
-.tech-devbook-pane > .tech-stats {
-    flex: 0 0 auto;
+/* --------------------------------------------------------------------------
+   Technology views
+   --------------------------------------------------------------------------
+   The Overview board and the inspector beside it.
+   .devbook/domain/devbook/features.md#technology-view
+   -------------------------------------------------------------------------- */
+
+.tech-overview {
+    display: grid;
+    gap: var(--spacing-lg);
+    align-content: start;
+    padding-top: var(--spacing-md);
 }
 
-.tech-stats {
+.tech-overview__summary {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
     gap: var(--spacing-sm);
 }
 
-.tech-stat {
+.tech-overview__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-overview__types {
     display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tech-overview__chips {
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-xs);
-    padding: var(--spacing-sm);
+}
+
+.tech-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+}
+
+.tech-chip__code,
+.tech-overview__code {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+}
+
+.tech-chip__tally {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The table and the inspector side by side while there is room; the inspector
+   drops under the list on a narrow pane rather than squeezing the columns. */
+.tech-overview__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: var(--spacing-lg);
+    align-items: start;
+}
+
+@container (max-width: 56rem) {
+    .tech-overview__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.tech-overview__list {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.tech-overview__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.tech-overview__toolbar .tech-overview__heading {
+    flex: 1 1 auto;
+}
+
+.tech-overview__search {
+    flex: 0 1 16rem;
+}
+
+.tech-overview__figure {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The selected row: a raised surface and a rule on its leading edge, and the
+   row's button says aria-pressed, so colour is never the only carrier. */
+.tech-overview__row--selected {
+    background: var(--color-background-raised);
+    box-shadow: inset var(--border-width-4) 0 0 var(--color-primary);
+}
+
+.tech-overview__pick {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-overview__pick:hover .tech-overview__name,
+.tech-overview__pick--pressed .tech-overview__name {
+    color: var(--color-text-link);
+}
+
+.tech-overview__pick:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.tech-overview__name {
+    font-weight: 500;
+}
+
+/* The band is printed as its word; the ink only repeats it. */
+.tech-overview__band {
+    font-weight: 600;
+}
+
+.tech-overview__band--high {
+    color: var(--color-error-text);
+}
+
+.tech-overview__band--medium {
+    color: var(--color-primary);
+}
+
+.tech-overview__band--low {
+    color: var(--color-success-text);
+}
+
+.tech-overview__score {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-overview__legend {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The inspector: the selected technology beside the list. */
+.tech-inspector {
+    display: grid;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
-    background: var(--color-background);
+    background: var(--color-background-alt);
 }
 
-.tech-stat__value {
-    color: var(--color-primary);
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-xl);
-    font-weight: 700;
+.tech-inspector__head {
+    display: grid;
+    gap: var(--spacing-xs);
 }
 
-.tech-stat__label,
-.tech-layer__header p,
-.tech-node__header p,
-.tech-node__relations > span {
+.tech-inspector__kicker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.tech-layer-tabs {
+.tech-inspector__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+}
+
+.tech-inspector__lede,
+.tech-inspector__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tech-inspector__meta {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-xs);
-}
-
-.tech-layer-tab {
-    display: inline-flex;
     align-items: center;
-    gap: var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background);
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.tech-inspector__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+}
+
+.tech-inspector__facts > div {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.tech-inspector__facts dt {
     color: var(--color-text-secondary);
-    cursor: pointer;
-    font: inherit;
-    font-size: var(--font-size-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-}
-
-.tech-layer-tab:hover,
-.tech-layer-tab:focus-visible,
-.tech-layer-tab--active {
-    border-color: var(--color-primary);
-    color: var(--color-text-primary);
-}
-
-.tech-layer-tab--active {
-    background: var(--color-warning);
-}
-
-.tech-layer-tab__count {
-    color: var(--color-primary);
     font-size: var(--font-size-xs);
+}
+
+.tech-inspector__facts dd {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
     font-variant-numeric: tabular-nums;
 }
 
-.tech-layer,
-.tech-node-grid {
+.tech-inspector__relations {
     display: grid;
-    gap: var(--spacing-md);
-}
-
-.tech-layer__header,
-.tech-node__header {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-md);
-    align-items: center;
-}
-
-.tech-layer__header h3,
-.tech-node__header h4 {
-    margin: 0 0 var(--spacing-xs);
-}
-
-.tech-node-grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-
-.tech-node--accepted {
-    border-left-color: var(--color-primary);
-}
-
-.tech-node--proposed {
-    border-left-color: var(--color-secondary);
-}
-
-.tech-node--candidate {
-    border-left-color: var(--color-border-focus);
-}
-
-.tech-node__kind {
-    color: var(--color-primary);
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.tech-node__meta,
-.tech-node__relations div {
-    display: flex;
-    flex-wrap: wrap;
     gap: var(--spacing-xs);
 }
 
-/* The status select sets the row's height; the version beside it is a line of
-   text and sits on its centre rather than stretching to match. */
-.tech-node__meta {
-    align-items: center;
+.tech-inspector__relations h4 {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
-.tech-node__relations {
-    display: grid;
+.tech-inspector__chips,
+.tech-inspector__links {
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-xs);
 }
 
@@ -7431,9 +7533,7 @@ a.pull-request-detail-checks__name:hover {
 .folder-section__header,
 .domain-context__header,
 .domain-document__header,
-.domain-section__header,
-.tech-layer__header,
-.tech-node__header {
+.domain-section__header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -7626,19 +7726,6 @@ a.pull-request-detail-checks__name:hover {
 .design-token,
 .folder-section,
 .domain-document {
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
-}
-
-/* The `border` after `border-left` resets it, as it did when the two sat in
-   separate rules, so neither this accent nor the status colours above it show.
-   Kept as it was: folding the rules was not meant to change what is drawn. */
-.tech-node {
-    display: grid;
-    gap: var(--spacing-sm);
-    border-left: 4px solid var(--color-border-strong);
     padding: var(--spacing-md);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
@@ -8411,69 +8498,11 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /* --------------------------------------------------------------------------
-   Technology atlas sheet
-   --------------------------------------------------------------------------
-   The parts of the atlas's detail sheet that are about technologies rather than
-   about sheets: the fact strip, the boundary-node note, and the three reference
-   lists. The sheet itself, its motion and its focus behaviour are the library's.
-   -------------------------------------------------------------------------- */
-
-.tech-atlas-facts {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-2xs) var(--spacing-xs);
-}
-
-.tech-atlas-status {
-    display: grid;
-    gap: var(--spacing-2xs);
-    justify-items: start;
-}
-
-.tech-atlas-prose,
-.tech-atlas-note {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
-}
-
-/* A boundary node is a chapter this folder does not own, and the note saying so
-   is the one piece of prose in the sheet that explains rather than reports. */
-.tech-atlas-note {
-    padding: var(--spacing-sm);
-    border-left: var(--border-width-2) solid var(--color-border-strong);
-    background: var(--color-background-raised);
-    border-radius: var(--border-radius-sm);
-}
-
-.tech-atlas-relations {
-    display: grid;
-    gap: var(--spacing-2xs);
-}
-
-.tech-atlas-relations__label {
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.tech-atlas-relations > div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-2xs) var(--spacing-sm);
-}
-
-/* --------------------------------------------------------------------------
    Devbook atlas
    --------------------------------------------------------------------------
    The map over a knowledge folder, or over all of them. It takes the section
    body when it is open, so it is a column that fills the room and clips: the
-   map fits and the list inside it scrolls, exactly as the technology atlas
-   does.
+   map fits and the list inside it scrolls.
    -------------------------------------------------------------------------- */
 
 .devbook-atlas {
