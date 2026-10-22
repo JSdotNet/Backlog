@@ -480,6 +480,29 @@
                         </ToggleButton>
                     }
 
+                    @* The notification centre, with the count of questions waiting
+                       for an answer on the option itself: the one number in the
+                       header that asks the person for something, so it rides the
+                       control that answers it rather than a status region. *@
+                    @if (NotificationsOffered)
+                    {
+                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="NotificationsVisible"
+                                      id="notifications-toggle-button"
+                                      Title="Notifications"
+                                      TestId="notifications-toggle-button"
+                                      aria-controls="notifications-surface"
+                                      PressedChanged="ToggleNotifications">
+                            <BellIcon />
+                            <span class="header-nav-label header-nav-label--tier-1">Notifications</span>
+                            <NotificationsWaitingBadge />
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(NotificationsFeatures.Notifications)"
+                                                Title="@FeatureStatusTitle(NotificationsFeatures.Notifications)"
+                                                TestId="notifications-feature-status" />
+                        </ToggleButton>
+                    }
+
                     @if (IsFeatureEnabled(DevPcFeatures.SystemTools))
                     {
                         <ToggleButton BaseClass="header-group__option header-group__option--loose"
@@ -694,6 +717,20 @@
                           SessionTask="SessionTaskFor"
                           PullRequestStatus="@(PullRequestsOffered ? SessionPullRequestStatusFor : null)"
                           FocusSessionId="@_focusSessionId" />
+        </main>
+    }
+    else if (NotificationsVisible)
+    {
+        <main class="workspace-surface"
+              id="notifications-surface"
+              data-testid="notifications-surface"
+              tabindex="-1"
+              @ref="_surfaceElement"
+              @onkeydown="OnSurfaceKeyDown"
+              data-escape-closes
+              aria-label="Notifications">
+            <NotificationCentrePane OnClose="CloseSurface"
+                                    FocusNotificationId="@_focusNotificationId" />
         </main>
     }
     else if (PullRequestsVisible)
@@ -912,6 +949,12 @@
         // simply is not asked, which is the correct behaviour rather than a gap.
         _surfaceAttachment = Services.GetService<SessionsSurfaceActivator>()?.Attach(DescribeSessionsAsync);
 
+        // The notification centre on the same optional terms: an owner desktop composes it, a
+        // test rendering this page or a host without the module does not, and then the option
+        // is simply not offered. The requests are a Windows notification asking for the centre.
+        _notificationCentreComposed = Services.GetService<INotificationCentre>() is not null;
+        _notificationRequests = Services.GetService<NotificationCentreRequests>()?.Listen(OpenNotificationCentre);
+
         // The scenario screenshots an entry's body names, answered for the Tasks
         // pane, which may not reach the scenario pages. A host that composed no
         // scenario store gets no source, and an entry's images render as before.
@@ -1051,10 +1094,18 @@
 
     private bool PullRequestsOffered => IsFeatureEnabled(SessionFeatures.PullRequests);
 
+    /// <summary>Whether the notification centre is on screen. The same shape again, for
+    /// the Notifications context, and only where the host composed the owner's centre —
+    /// a host without it offers no option rather than one that opens on nothing.</summary>
+    private bool NotificationsVisible => _surface == WorkspaceSurface.Notifications && NotificationsOffered;
+
+    private bool NotificationsOffered =>
+        IsFeatureEnabled(NotificationsFeatures.Notifications) && _notificationCentreComposed;
+
     /// <summary>Whether the workspace — the main view — is on screen. Anything that
     /// is not a takeover is the workspace, including a surface whose feature has
     /// been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible;
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible && !NotificationsVisible;
 
     /// <summary>The view the workspace shows: the one chosen, unless its feature
     /// has since been switched off — then Tasks, which is always offered. The
@@ -1178,11 +1229,11 @@
     /// <summary>The sentence under the panel's title, naming the area that answers.</summary>
     private string AiPanelBody => $"Answers from the {OpenAiArea?.AreaTitle} content.";
 
-    /// <summary>Whether the loose takeover group — the Dashboard and Tools — is
+    /// <summary>Whether the loose takeover group — the Dashboard, Notifications and Tools — is
     /// offered at all: with both features off it would be an empty group. Sessions
     /// and Pull requests have a group of their own. The name is older than that and
     /// is kept; nothing persists it.</summary>
-    private bool SurfaceSwitcherVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered;
+    private bool SurfaceSwitcherVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered || NotificationsOffered;
 
     /// <summary>Whether the view switch offers the Roadmap. The feature decides
     /// whether there is an option; the option decides what is on screen.</summary>
@@ -1268,6 +1319,29 @@
     private void ToggleTools() => ToggleSurface(WorkspaceSurface.Tools);
 
     private void ToggleDashboard() => ToggleSurface(WorkspaceSurface.Dashboard);
+
+    /// <summary>The Notifications option: opens the centre on what is waiting, or returns
+    /// to the workspace when it is already on screen.</summary>
+    private void ToggleNotifications()
+    {
+        _focusNotificationId = null;
+        ToggleSurface(WorkspaceSurface.Notifications);
+    }
+
+    /// <summary>
+    /// The centre asked for from outside the shell — a Windows notification pressed — open on
+    /// the notification named. Never closes it: a second press on the same notification shows
+    /// the centre again rather than toggling it away.
+    /// </summary>
+    private void OpenNotificationCentre(Guid? notificationId) =>
+        _ = InvokeAsync(() =>
+        {
+            if (!NotificationsOffered) return;
+
+            _focusNotificationId = notificationId;
+            if (_surface != WorkspaceSurface.Notifications) ToggleSurface(WorkspaceSurface.Notifications);
+            StateHasChanged();
+        });
 
     private void ToggleSessions() => ToggleSurface(WorkspaceSurface.Sessions);
 
@@ -1382,6 +1456,16 @@
     /// <summary>The pull request a card asked the pull requests list to open on, by
     /// its <c>owner/name#number</c> key, until the reader leaves the list.</summary>
     private string? _focusPullRequest;
+
+    /// <summary>The notification a Windows notification asked the centre to open on, until
+    /// the reader opens the centre from its own option.</summary>
+    private Guid? _focusNotificationId;
+
+    /// <summary>Whether the host composed the owner's notification centre at all.</summary>
+    private bool _notificationCentreComposed;
+
+    /// <summary>The listener on the requests to open the centre from outside the shell.</summary>
+    private IDisposable? _notificationRequests;
 
     /// <summary>
     /// A pull request a card in a task's side panel names,
@@ -2900,6 +2984,7 @@
         InboxState.RouteUndone -= HandleInboxRouteUndone;
         Features.Changed -= HandleFeaturesChanged;
         if (_taskSync is not null) _taskSync.Changed -= HandleTaskSyncChanged;
+        _notificationRequests?.Dispose();
         if (_devbookImages is not null)
         {
             _devbookImages.Changed -= HandleDevbookImagesChanged;
