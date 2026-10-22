@@ -49,11 +49,12 @@ public class InfrastructureGraphTests
             "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Progress, "
             + "Devbook, Sessions and Notifications — over the Sync module's own contract, so it sees each "
             + "context's published surface by design."),
-        ("Backlog.Infrastructure.Mcp", 5,
+        ("Backlog.Infrastructure.Mcp", 6,
             "The MCP server is one adapter: the agent tools over each context's published port, one tool "
             + "group per context behind that context's own key (local ADR 0012 §7) — Tasks, Roadmap, Devbook, "
-            + "Sessions and, for the impediment tools beside set_blocked, Progress (local ADR 0035). It "
-            + "references abstractions only, never a module's implementation.")
+            + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0038) and, for the "
+            + "impediment tools beside set_blocked, Progress (local ADR 0035). It references abstractions "
+            + "only, never a module's implementation.")
     ];
 
     /// <summary>

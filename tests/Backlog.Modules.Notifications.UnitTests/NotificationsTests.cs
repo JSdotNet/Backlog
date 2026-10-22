@@ -356,6 +356,49 @@ public sealed class NotificationsTests
         Assert.Single(probe.Asked);
     }
 
+    // --- Status --------------------------------------------------------------------------
+
+    [Fact]
+    public async Task The_status_reads_back_the_source_subject_state_and_close_reason()
+    {
+        var owner = Owner_();
+        var statuses = new OwnerNotificationStatuses(_store);
+        var ct = TestContext.Current.CancellationToken;
+        var draft = Question();
+        var id = (await owner.PublishAsync(draft, ct)).Value;
+
+        var open = (await statuses.GetStatusAsync(id, ct)).Value;
+        Assert.Equal((id, draft.Source, draft.Subject, NotificationKind.Question, NotificationState.Open), (open.Id, open.Source, open.Subject, open.Kind, open.State));
+        Assert.Null(open.Answer);
+
+        await owner.CloseAsync(id, "No longer needed", ct);
+
+        var closed = (await statuses.GetStatusAsync(id, ct)).Value;
+        Assert.Equal((NotificationState.Closed, "No longer needed"), (closed.State, closed.CloseReason));
+    }
+
+    [Fact]
+    public async Task The_status_carries_the_accepted_answer()
+    {
+        var owner = Owner_();
+        var ct = TestContext.Current.CancellationToken;
+        var id = (await owner.PublishAsync(Question(), ct)).Value;
+        await owner.AcceptReplyAsync(ReplyTo(id, "yes"), ct);
+
+        var status = (await new OwnerNotificationStatuses(_store).GetStatusAsync(id, ct)).Value;
+
+        Assert.Equal(NotificationState.Answered, status.State);
+        Assert.Equal(["yes"], status.Answer!.ChoiceIds);
+    }
+
+    [Fact]
+    public async Task The_status_of_an_unknown_notification_is_refused()
+    {
+        var result = await new OwnerNotificationStatuses(_store).GetStatusAsync(Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.Equal("notification.not_found", result.Error.Code);
+    }
+
     // --- Viewer --------------------------------------------------------------------------
 
     [Fact]
@@ -370,6 +413,7 @@ public sealed class NotificationsTests
         Assert.Equal("notifications.viewer_only", (await viewer.GetAnswerAsync(Guid.NewGuid(), ct)).Error.Code);
         Assert.Equal("notifications.viewer_only", (await viewer.AcceptReplyAsync(ReplyTo(Guid.NewGuid(), "yes"), ct)).Error.Code);
         Assert.Equal("notifications.viewer_only", (await viewer.AcknowledgeAsync(Guid.NewGuid(), ct)).Error.Code);
+        Assert.Equal("notifications.viewer_only", (await new ViewerNotificationStatuses().GetStatusAsync(Guid.NewGuid(), ct)).Error.Code);
     }
 
     // --- Registration ----------------------------------------------------------------------
@@ -390,6 +434,7 @@ public sealed class NotificationsTests
         var notifications = provider.GetRequiredService<INotifications>();
         Assert.Same(notifications, provider.GetRequiredService<INotificationReplies>());
         Assert.Single(provider.GetServices<INotificationAnswerHandler>());
+        Assert.IsType<OwnerNotificationStatuses>(provider.GetRequiredService<INotificationStatuses>());
 
         var id = (await notifications.PublishAsync(Question(), TestContext.Current.CancellationToken)).Value;
         await provider.GetRequiredService<INotificationReplies>().AcceptReplyAsync(ReplyTo(id, "yes"), TestContext.Current.CancellationToken);
@@ -409,6 +454,7 @@ public sealed class NotificationsTests
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
 
         Assert.IsType<ViewerNotifications>(provider.GetRequiredService<INotifications>());
+        Assert.IsType<ViewerNotificationStatuses>(provider.GetRequiredService<INotificationStatuses>());
         Assert.Null(provider.GetService<NotificationsStartup>());
     }
 
