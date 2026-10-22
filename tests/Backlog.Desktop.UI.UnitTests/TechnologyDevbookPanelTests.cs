@@ -39,9 +39,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     }
 
     [Theory]
-    [InlineData("dependencies")]
     [InlineData("complexity")]
-    [InlineData("clusters")]
     public async Task A_later_view_renders_its_placeholder(string view)
     {
         await using var harness = CreateHarness();

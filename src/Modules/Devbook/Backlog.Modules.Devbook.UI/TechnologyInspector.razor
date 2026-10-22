@@ -112,6 +112,12 @@
 }
 
 @code {
+    /// <summary>When set, each technology it sits on or is used by names its layer
+    /// beside it — "here" for this layer file — so a view that draws one layer at a
+    /// time says where a link leads. Clusters sets it; Overview does not.</summary>
+    [Parameter]
+    public string? RelatedLayerFile { get; set; }
+
     /// <summary>The parsed chapter behind the selection, which carries what the
     /// graph node does not — its version. A boundary node has none.</summary>
     private TechnologyNode? Chapter => SelectedId is null
@@ -139,7 +145,13 @@
             <AppButton Variant="ButtonVariant.Ghost"
                        Size="ButtonSize.Small"
                        TestId="technology-inspector-related"
-                       OnClick="() => SelectAsync(related.Id)">@related.Label</AppButton>
+                       OnClick="() => SelectAsync(related.Id)">
+                @related.Label
+                @if (RelatedLayerFile is not null)
+                {
+                    <span class="tech-inspector__layer">@(string.Equals(related.LayerFileName, RelatedLayerFile, StringComparison.Ordinal) ? "here" : TechnologyViews.LayerLabel(related.Layer))</span>
+                }
+            </AppButton>
         }
     };
 
