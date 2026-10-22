@@ -4,6 +4,7 @@ using Backlog.Modules.Sync.Features.AcknowledgeInboxItem;
 using Backlog.Modules.Sync.Features.CaptureInboxItem;
 using Backlog.Modules.Sync.Features.DeleteNotificationReply;
 using Backlog.Modules.Sync.Features.DescribeOwner;
+using Backlog.Modules.Sync.Features.Devices;
 using Backlog.Modules.Sync.Features.IssueDeviceToken;
 using Backlog.Modules.Sync.Features.IssuePairingCode;
 using Backlog.Modules.Sync.Features.ListInbox;
@@ -52,6 +53,8 @@ public static class SyncModuleRegistration
         services.AddScoped<ICommandHandler<RedeemPairingCodeCommand, Result<DeviceRegistrationResponse>>, RedeemPairingCodeCommandHandler>();
         services.AddScoped<ICommandHandler<IssueDeviceTokenCommand, Result<DeviceTokenResponse>>, IssueDeviceTokenCommandHandler>();
         services.AddScoped<IQueryHandler<DescribeOwnerQuery, Result<DeviceStatusResponse>>, DescribeOwnerQueryHandler>();
+        services.AddScoped<IQueryHandler<ListDevicesQuery, Result<DeviceListResponse>>, ListDevicesQueryHandler>();
+        services.AddScoped<ICommandHandler<RevokeDeviceCommand, Result>, RevokeDeviceCommandHandler>();
 
         services.AddScoped<ICommandHandler<PushTasksCommand, Result<PushTasksResponse>>, PushTasksCommandHandler>();
         services.AddScoped<IQueryHandler<PullTasksQuery, Result<PullTasksResponse>>, PullTasksQueryHandler>();

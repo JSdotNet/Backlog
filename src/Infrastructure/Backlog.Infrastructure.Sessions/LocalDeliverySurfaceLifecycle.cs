@@ -405,6 +405,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         var now = Now();
         var done = string.Equals(status, DeliveryStageStatuses.Done, StringComparison.Ordinal);
         var doneCount = Count(stage, "doneCount") + (done ? 1 : 0);
+        var previousStatus = Text(stage, "status");
 
         stage["status"] = status;
         stage["updatedAt"] = now;
@@ -472,6 +473,11 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         // describes one pass of the stage, and a re-run delegated to another agent is
         // a different pass rather than an amendment to the first.
         if (execution is not null) stage["execution"] = execution.DeepClone();
+
+        // The gate asks the person in a notification, or closes the question once the
+        // gate moved on at the desktop — recorded on the run in the same write.
+        await ValidationQuestions.OnStageAsync(
+            run, Text(stage, "name") ?? string.Empty, previousStatus, status, worktree, runId, _notifications, _logger, cancellationToken).ConfigureAwait(false);
 
         WritePhaseDoneCounts(run);
 
@@ -615,6 +621,25 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         }
 
         return filed;
+    }
+
+    /// <summary>
+    /// Records the answer to a run's Personal Validation question as its gate decision, under
+    /// the run's gate, and says whether anything changed — nothing for a run that is gone, a
+    /// replayed answer, or one to a question the run moved past
+    /// (<see cref="ValidationQuestions.Record"/>).
+    /// </summary>
+    internal async Task<bool> RecordValidationAnswerAsync(string worktree, string runId, NotificationAnswer answer, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(answer);
+
+        using var held = await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
+
+        if (await _store.ReadAsync(worktree, runId, cancellationToken).ConfigureAwait(false) is not { } run) return false;
+        if (!ValidationQuestions.Record(run, answer)) return false;
+
+        await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     public async Task<IReadOnlyList<DeliveryRun>> ListRunsAsync(string worktree, CancellationToken cancellationToken = default)

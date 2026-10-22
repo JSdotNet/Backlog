@@ -74,6 +74,11 @@ internal static class SyncResults
         // loud about.
         SyncErrorCodes.SyncCursorNotYours => StatusCodes.Status403Forbidden,
 
+        // A device of the same owner, named correctly, that the caller did not
+        // pair: the caller knows it exists, so 404 would hide nothing, and 403
+        // says it is this caller who may not revoke it.
+        SyncErrorCodes.DeviceRevokeNotPairer => StatusCodes.Status403Forbidden,
+
         // The replica is not there yet — locally, the Cosmos emulator still
         // starting. Come back; there is nothing to change about the request.
         SyncErrorCodes.ReplicaUnavailable => StatusCodes.Status503ServiceUnavailable,

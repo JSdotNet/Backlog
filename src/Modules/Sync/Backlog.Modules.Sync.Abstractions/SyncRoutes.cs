@@ -34,6 +34,17 @@ public static class SyncRoutes
     /// <summary>Who the bearer of this token turned out to be. Bearer.</summary>
     public const string DeviceStatus = "/devices/me";
 
+    /// <summary>Every device of the caller's owner, with the device that paired
+    /// each one. Bearer.</summary>
+    public const string Devices = "/devices";
+
+    /// <summary>Route template for one device of the caller's owner: DELETE
+    /// revokes it. Bearer. Use <see cref="DeviceFor"/> to build a concrete URL.</summary>
+    public const string Device = "/devices/{id:guid}";
+
+    /// <summary>The full path for one device.</summary>
+    public static string DeviceFor(Guid id) => $"{Base}/devices/{id:D}";
+
     /// <summary>The captures waiting for this owner. Bearer.</summary>
     public const string Inbox = "/inbox";
 

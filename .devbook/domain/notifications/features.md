@@ -55,6 +55,21 @@ The phone reads presence off the owner's own pushes: an owner desktop pushes eac
 open question again every 10 minutes, and a phone that has seen no push from it
 for 15 minutes reads it as offline.
 
+## Asking from the contexts
+
+```meta
+status: proposed
+type: feature
+related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts]
+```
+
+Three contexts reach the person through notifications. A delivery run that
+reaches Personal Validation asks to be approved, and the answer is recorded on the
+run; the pull request is still opened at the desktop. A device that redeems a
+pairing code is asked about on the desktop that showed the code, and only there:
+Allow keeps it, Refuse revokes it. A remark left on a Devbook chapter on another
+device raises an alert that links to the chapter.
+
 ## Closing a notification
 
 ```meta

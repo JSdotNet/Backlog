@@ -416,8 +416,10 @@ between devices. Local ADR 0038 records the decision, and the
 The owner's side is built: the port, the handler and probe contracts, the
 `notifications` table in `backlog.db`, the answer replay and the startup probe
 pass, and each subject context's close and probe. So is the transport: the two
-replica containers, the sync routes and the owner desktop's exchange. The
-screens and the realtime nudge are not yet.
+replica containers, the sync routes and the owner desktop's exchange. So are
+the first publishers: a run's Personal Validation, the device that redeemed a
+pairing code, and a remark left on another device. The screens and the realtime
+nudge are not yet.
 
 | Concern | How it works |
 |---|---|

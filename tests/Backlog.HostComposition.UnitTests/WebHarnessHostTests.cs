@@ -345,11 +345,27 @@ public class WebHarnessHostTests
         var probes = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationSubjectProbe>().ToList();
 
         Assert.Equal(["devbook", "sessions", "sync", "tasks"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
-        Assert.IsType<Backlog.Infrastructure.Devbook.RemarkSubjectClosingStore>(
+        Assert.IsType<Backlog.Infrastructure.Devbook.RemarkNotificationStore>(
             harness.Services.GetRequiredService<Backlog.Modules.Devbook.Abstractions.IDevbookAnnotationStore>());
         Assert.IsType<Backlog.Desktop.UI.PullRequests.PullRequestSubjects>(
             harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.ISessionPullRequestStates>());
         Assert.NotNull(harness.Services.GetRequiredService<Backlog.Infrastructure.Sync.PairingSubjects>());
+    }
+
+    /// <summary>
+    /// Every context that asks questions registers an answer handler for its source, and
+    /// the port resolves with them: the MCP tools, a run's Personal Validation (Sessions),
+    /// and the device that redeemed a pairing code (Sync).
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_an_answer_handler_for_every_context_that_asks()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        var handlers = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationAnswerHandler>().ToList();
+
+        Assert.Equal(["mcp", "sessions", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
+        Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Notifications.Abstractions.INotifications>());
     }
 
     /// <summary>

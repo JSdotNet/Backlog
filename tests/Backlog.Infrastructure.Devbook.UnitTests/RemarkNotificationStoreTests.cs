@@ -1,20 +1,23 @@
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Tests;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Devbook.UnitTests;
 
 /// <summary>
-/// The Devbook context closing the notifications about a remark when it is resolved —
-/// from a panel, the MCP tool, or a resolve synced in from another device — and answering
-/// the startup probe about it (<c>.devbook/domain/notifications/domain.md#subject</c>).
+/// The Devbook context raising an alert when a remark left on another device syncs in,
+/// closing the notifications about a remark when it is resolved — from a panel, the MCP
+/// tool, or a resolve synced in from another device — and answering the startup probe about
+/// it (<c>.devbook/domain/notifications/domain.md#subject</c>).
 /// </summary>
-public sealed class RemarkSubjectClosureTests
+public sealed class RemarkNotificationStoreTests
 {
     private static readonly DateTimeOffset Noon = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
 
     private readonly RecordingNotifications _notifications = new RecordingNotifications();
     private readonly MemoryRemarks _inner = new();
+    private readonly FakeTimeProvider _clock = new(Noon.AddHours(1));
 
     [Fact]
     public async Task Resolving_a_remark_closes_the_notifications_about_it_once()
@@ -64,7 +67,7 @@ public sealed class RemarkSubjectClosureTests
     {
         _notifications.Fails = new InvalidOperationException("locked");
         var failing = Store();
-        var absent = new RemarkSubjectClosingStore(_inner, () => null);
+        var absent = new RemarkNotificationStore(_inner, () => null);
         var one = _inner.Seed(Remark());
         var two = _inner.Seed(Remark());
 
@@ -94,6 +97,82 @@ public sealed class RemarkSubjectClosureTests
     }
 
     [Fact]
+    public async Task A_remark_left_on_another_device_raises_an_info_alert_about_it_linking_to_its_chapter()
+    {
+        var store = Store();
+        var remark = Remark() with { RepositoryAlias = "backlog", ChapterPath = ".devbook/arc42/05 building blocks.md", Body = "Does the reply container\nneed its own TTL?" };
+
+        store.Apply(remark);
+        await store.LastAlert;
+
+        var (_, draft) = Assert.Single(_notifications.Published);
+        Assert.Equal(NotificationKind.Alert, draft.Kind);
+        Assert.Equal(NotificationSeverity.Info, draft.Severity);
+        Assert.Null(draft.Answer);
+        Assert.Equal(Subject(remark.Id), draft.Subject);
+        Assert.Equal(new NotificationSource("devbook", remark.Id.ToString("D")), draft.Source);
+        Assert.Equal("Remark left on .devbook/arc42/05 building blocks.md", draft.Title);
+        Assert.Equal("Does the reply container need its own TTL?", draft.Summary);
+        Assert.Contains("> Does the reply container", draft.BodyMarkdown, StringComparison.Ordinal);
+        Assert.Equal("backlog://devbook/backlog/.devbook/arc42/05%20building%20blocks.md", draft.DeepLink);
+    }
+
+    [Fact]
+    public async Task A_remark_typed_here_a_draft_or_one_already_known_raises_no_alert()
+    {
+        var store = Store();
+        var known = _inner.Seed(Remark());
+
+        var added = store.Add("backlog", "arc42/05.md", 3, "Job");
+        store.Edit(added.Id, "Mine.");
+        store.Apply(known with { Body = "Edited elsewhere.", UpdatedAt = Noon.AddMinutes(1) });
+        store.Apply(Remark() with { Body = string.Empty });
+        store.Apply(Remark() with { Resolved = true });
+        await store.LastAlert;
+
+        Assert.Empty(_notifications.Published);
+    }
+
+    [Fact]
+    public async Task A_first_pull_of_old_remarks_raises_no_alert()
+    {
+        var store = Store();
+        _clock.Advance(TimeSpan.FromDays(3));
+
+        store.Apply(Remark());
+        store.Apply(Remark());
+        await store.LastAlert;
+
+        Assert.Empty(_notifications.Published);
+    }
+
+    [Fact]
+    public async Task A_draft_known_here_that_arrives_with_words_raises_the_alert_once()
+    {
+        var store = Store();
+        var draft = _inner.Seed(Remark() with { Body = string.Empty });
+
+        store.Apply(draft with { Body = "Typed on the phone.", UpdatedAt = Noon.AddMinutes(1) });
+        await store.LastAlert;
+        store.Apply(draft with { Body = "Typed on the phone, again.", UpdatedAt = Noon.AddMinutes(2) });
+        await store.LastAlert;
+
+        Assert.Single(_notifications.Published);
+    }
+
+    [Fact]
+    public void The_remark_is_kept_when_raising_its_alert_fails()
+    {
+        _notifications.Fails = new InvalidOperationException("locked");
+        var store = Store();
+        var remark = Remark();
+
+        store.Apply(remark);
+
+        Assert.NotNull(store.Find(remark.Id));
+    }
+
+    [Fact]
     public void The_decorator_hands_every_other_call_to_the_store_it_wraps()
     {
         var store = Store();
@@ -107,7 +186,7 @@ public sealed class RemarkSubjectClosureTests
         Assert.Equal(1, changed);
     }
 
-    private RemarkSubjectClosingStore Store() => new(_inner, () => _notifications);
+    private RemarkNotificationStore Store() => new(_inner, () => _notifications, time: _clock);
 
     private static DevbookAnnotation Remark() =>
         new(Guid.NewGuid(), "backlog", "arc42/05.md", 2, "This is wrong.", "Job", Noon, Noon);

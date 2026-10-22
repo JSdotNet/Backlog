@@ -33,6 +33,19 @@ public static class SyncErrorCodes
     /// them apart in a list.</summary>
     public const string DeviceNameRequired = "device.name_required";
 
+    /// <summary>The calling owner has no device with that id: never theirs, or
+    /// already revoked. Somebody else's device reads the same way.</summary>
+    public const string DeviceNotFound = "device.not_found";
+
+    /// <summary>A device asked to revoke itself. Leaving is not revoking: the
+    /// device that is calling would lose the credential it is calling with.</summary>
+    public const string DeviceRevokeSelf = "device.revoke_self";
+
+    /// <summary>A device asked to revoke a device it did not pair. Only the
+    /// device whose pairing code paired another may revoke it, so a device that
+    /// redeemed a code cannot revoke the desktop deciding whether to keep it.</summary>
+    public const string DeviceRevokeNotPairer = "device.revoke_not_pairer";
+
     /// <summary>No capture with that id is waiting for the calling owner. An id
     /// belonging to somebody else reads the same way, because the lookup starts
     /// from the owner and never sees it.</summary>
