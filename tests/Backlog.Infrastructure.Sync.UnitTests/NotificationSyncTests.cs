@@ -79,6 +79,92 @@ public sealed class NotificationSyncTests
         Assert.Equal(2, fixture.SessionsResolved);
     }
 
+    /// <summary>
+    /// The realtime nudge's fallback (local ADR 0038 §4): opening the socket runs a full cycle
+    /// at once; while it is open the two-minute tick leaves the replies to it and lists nothing;
+    /// once it closes the tick polls the replies again.
+    /// </summary>
+    [Fact]
+    public async Task While_the_nudge_socket_is_open_the_tick_leaves_the_replies_to_it_and_polls_again_once_it_closes()
+    {
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true);
+        fixture.Replication.Open.Add(Question(Guid.CreateVersion7()));
+
+        var opened = fixture.NextCycle();
+        fixture.Worker.SetNudgeOpen(true);
+        await opened.WaitAsync(Fixture.Patience, Cancellation);
+
+        Assert.True(fixture.Worker.IsNudgeOpen);
+        Assert.Equal(1, fixture.ReplyListings);
+
+        var tick = fixture.NextCycle();
+        fixture.Clock.Advance(NotificationSyncWorker.FirstCycleDelay);
+        await tick.WaitAsync(Fixture.Patience, Cancellation);
+
+        Assert.False(fixture.Worker.LastSummary!.PolledReplies);
+        Assert.Equal(1, fixture.ReplyListings);
+
+        fixture.Worker.SetNudgeOpen(false);
+        var fallback = fixture.NextCycle();
+        fixture.Clock.Advance(NotificationSyncWorker.CyclePeriod);
+        await fallback.WaitAsync(Fixture.Patience, Cancellation);
+
+        Assert.True(fixture.Worker.LastSummary!.PolledReplies);
+        Assert.Equal(2, fixture.ReplyListings);
+    }
+
+    /// <summary>A nudge that lands while a cycle is in flight is not dropped: that cycle may have
+    /// listed the replies before the reply arrived, so one more full cycle runs after it.</summary>
+    [Fact]
+    public async Task A_nudge_during_a_cycle_runs_one_more_full_cycle_after_it()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var held = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true, before: () =>
+        {
+            held.TrySetResult();
+            return release.Task;
+        });
+        fixture.Replication.Open.Add(Question(Guid.CreateVersion7()));
+
+        fixture.Clock.Advance(NotificationSyncWorker.FirstCycleDelay);
+        await held.Task.WaitAsync(Fixture.Patience, Cancellation);
+
+        fixture.Worker.RequestSync();
+        await Task.Delay(TimeSpan.FromMilliseconds(50), Cancellation);
+        Assert.Equal(1, fixture.SessionsResolved);
+
+        release.SetResult();
+
+        var deadline = DateTime.UtcNow + Fixture.Patience;
+        while (fixture.SessionsResolved < 2 || fixture.Worker.IsSyncing)
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The owed cycle never ran.");
+            await Task.Delay(10, Cancellation);
+        }
+
+        Assert.Equal(2, fixture.SessionsResolved);
+    }
+
+    /// <summary>A nudge runs a full cycle — the replies listed — even while the socket is open.</summary>
+    [Fact]
+    public async Task A_nudge_runs_a_full_cycle_while_the_socket_is_open()
+    {
+        using var fixture = Fixture.Create(syncOn: true, notificationsOn: true, paired: true);
+        fixture.Replication.Open.Add(Question(Guid.CreateVersion7()));
+
+        var opened = fixture.NextCycle();
+        fixture.Worker.SetNudgeOpen(true);
+        await opened.WaitAsync(Fixture.Patience, Cancellation);
+
+        var nudged = fixture.NextCycle();
+        fixture.Worker.RequestSync();
+        await nudged.WaitAsync(Fixture.Patience, Cancellation);
+
+        Assert.True(fixture.Worker.LastSummary!.PolledReplies);
+        Assert.Equal(2, fixture.ReplyListings);
+    }
+
     /// <summary>Idle otherwise: no open question and nothing new means not one request.</summary>
     [Fact]
     public async Task A_cycle_with_nothing_open_sends_no_request()
@@ -444,7 +530,10 @@ public sealed class NotificationSyncTests
 
         public int SessionsResolved => Volatile.Read(ref _sessionsResolved);
 
-        public static Fixture Create(bool syncOn, bool notificationsOn, bool paired, IReadOnlyList<NotificationReplyRecord>? replies = null)
+        /// <summary>How many times the replies addressed to this instance were listed.</summary>
+        public int ReplyListings => Handler.Requests.Count(request => request.Method == HttpMethod.Get);
+
+        public static Fixture Create(bool syncOn, bool notificationsOn, bool paired, IReadOnlyList<NotificationReplyRecord>? replies = null, Func<Task>? before = null)
         {
             Fixture? fixture = null;
             var listed = false;
@@ -466,7 +555,7 @@ public sealed class NotificationSyncTests
                 return StubHttpMessageHandler.Json(
                     HttpStatusCode.OK,
                     JsonSerializer.Serialize(new PullNotificationRepliesResponse(waiting), JsonSerializerOptions.Web));
-            });
+            }, before);
 
             var http = new HttpClient(handler) { BaseAddress = new Uri("https://sync.test") };
             var credentials = paired ? new InMemoryDeviceCredentialStore(Paired) : new InMemoryDeviceCredentialStore();

@@ -66,6 +66,14 @@ public sealed class NotificationSyncClient
                 cancellationToken),
             cancellationToken);
 
+    /// <summary>Asks for the Web PubSub URL this device's nudge socket opens on (local ADR 0038
+    /// §4). A success with no URL means the service runs without a hub, and the desktop keeps
+    /// polling.</summary>
+    public Task<Result<NotificationNudgeNegotiateResponse>> NegotiateNudgeAsync(CancellationToken cancellationToken = default) =>
+        SyncHttp.SendAsync<NotificationNudgeNegotiateResponse>(
+            () => _http.GetAsync(SyncRoutes.Absolute(SyncRoutes.NotificationNudge), cancellationToken),
+            cancellationToken);
+
     /// <summary>Deletes a reply this instance has processed.</summary>
     public async Task<Result> DeleteReplyAsync(Guid replyId, CancellationToken cancellationToken = default)
     {

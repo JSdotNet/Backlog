@@ -99,7 +99,17 @@ public sealed class NotificationSyncSession
 
     /// <summary>Push, then — only while a question is open — process the replies and push what
     /// they changed. Nothing open and nothing new means no request at all.</summary>
-    public async Task<Result<NotificationSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
+    public Task<Result<NotificationSyncSummary>> SyncAsync(CancellationToken cancellationToken = default) =>
+        SyncAsync(pollReplies: true, cancellationToken);
+
+    /// <summary>
+    /// The same exchange, with the reply listing left to the caller. <paramref name="pollReplies"/>
+    /// false is the scheduled tick while the desktop's nudge socket is open (local ADR 0038 §4):
+    /// a reply then announces itself, so the tick only pushes, and the sync service is not woken
+    /// every two minutes to say there is nothing. The cycle that settles a question still lists
+    /// the replies once, whatever this says.
+    /// </summary>
+    public async Task<Result<NotificationSyncSummary>> SyncAsync(bool pollReplies, CancellationToken cancellationToken = default)
     {
         if (_credentials.Current is not { } me)
         {
@@ -118,7 +128,7 @@ public sealed class NotificationSyncSession
         // Replies are listed while a question is open, and once more in the cycle that pushes a
         // notification as settled: a reply that reached the service before the question closed
         // here is then rejected as closed rather than left waiting for the backstop expiry.
-        if (!open.Any(notification => notification.Kind == NotificationKind.Question) && !pushed.Value.Settled)
+        if ((!pollReplies || !open.Any(notification => notification.Kind == NotificationKind.Question)) && !pushed.Value.Settled)
         {
             Prune();
             return Result.Success(new NotificationSyncSummary(pushed.Value.Pushed, 0, 0, PolledReplies: false, _time.GetUtcNow()));

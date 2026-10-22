@@ -68,6 +68,11 @@ public static class SyncRoutes
     /// processed it. Use <see cref="NotificationReplyFor"/> to build a concrete URL.</summary>
     public const string NotificationReply = "/notifications/replies/{id:guid}";
 
+    /// <summary>The realtime nudge (local ADR 0038 §4): GET answers a client access URL for
+    /// the Web PubSub hub that joins the caller to its owner's group, or none where the service
+    /// runs without one. Bearer.</summary>
+    public const string NotificationNudge = "/notifications/negotiate";
+
     /// <summary>The full path for one reply.</summary>
     public static string NotificationReplyFor(Guid id) => $"{Base}/notifications/replies/{id:D}";
 

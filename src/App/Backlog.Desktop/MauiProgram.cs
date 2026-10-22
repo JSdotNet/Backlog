@@ -224,6 +224,10 @@ public static class MauiProgram
         // And the notification exchange's loop (local ADR 0038), on the same terms.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
 
+        // And its realtime nudge (local ADR 0038 §4): the Web PubSub socket that has the loop
+        // above run at once when a reply lands, with the two-minute poll as its fallback.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationNudgeListener>();
+
         // And the backup loop, on the same terms: a timer that only existed
         // while the Storage tab was open would miss every slot it was set for.
         _ = app.Services.GetRequiredService<BackupWorker>();

@@ -8,6 +8,7 @@ using Backlog.Modules.Sync.Features.IssueDeviceToken;
 using Backlog.Modules.Sync.Features.IssuePairingCode;
 using Backlog.Modules.Sync.Features.ListInbox;
 using Backlog.Modules.Sync.Features.ListNotificationReplies;
+using Backlog.Modules.Sync.Features.NegotiateNotificationNudge;
 using Backlog.Modules.Sync.Features.PostNotificationReply;
 using Backlog.Modules.Sync.Features.PullAnnotations;
 using Backlog.Modules.Sync.Features.PullNotifications;
@@ -64,6 +65,7 @@ public static class SyncModuleRegistration
         services.AddScoped<ICommandHandler<PostNotificationReplyCommand, Result<PostNotificationReplyResponse>>, PostNotificationReplyCommandHandler>();
         services.AddScoped<IQueryHandler<ListNotificationRepliesQuery, Result<PullNotificationRepliesResponse>>, ListNotificationRepliesQueryHandler>();
         services.AddScoped<ICommandHandler<DeleteNotificationReplyCommand, Result>, DeleteNotificationReplyCommandHandler>();
+        services.AddScoped<IQueryHandler<NegotiateNotificationNudgeQuery, Result<NotificationNudgeNegotiateResponse>>, NegotiateNotificationNudgeQueryHandler>();
         services.AddScoped<IQueryHandler<ListInboxQuery, Result<IReadOnlyList<InboxItem>>>, ListInboxQueryHandler>();
         services.AddScoped<ICommandHandler<CaptureInboxItemCommand, Result<CaptureOutcome>>, CaptureInboxItemCommandHandler>();
         services.AddScoped<ICommandHandler<AcknowledgeInboxItemCommand, Result>, AcknowledgeInboxItemCommandHandler>();
@@ -87,6 +89,7 @@ public static class SyncModuleRegistration
         services.TryAddSingleton<ISessionReplica, InMemorySessionReplica>();
         services.TryAddSingleton<IAnnotationReplica, InMemoryAnnotationReplica>();
         services.TryAddSingleton<INotificationReplica, InMemoryNotificationReplica>();
+        services.TryAddSingleton<INotificationNudgeChannel, NoNotificationNudgeChannel>();
         services.TryAddSingleton<IAttachmentStore, InMemoryAttachmentStore>();
 
         return services;

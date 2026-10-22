@@ -108,7 +108,14 @@ misses a nudge still finds every document on its next pull.
 
 - **Desktops** hold a WebSocket to an Azure Web PubSub hub on its Free tier. The
   sync service publishes to the hub when a notification or a reply lands. While a
-  question is open, the owner also polls every two minutes as the fallback.
+  question is open and the socket is down, the owner polls every two minutes as
+  the fallback.
+- **One group per owner.** A desktop asks the sync service's negotiate route,
+  behind its device token, for a client access URL. The URL's token joins it to
+  its owner's group and grants nothing else. The message is
+  `{"type":"pull","kind":"notification"|"reply"}`, with no id and no content.
+- **No hub, no nudge.** The hub has no local emulator. Under Aspire the sync
+  service runs without one, negotiate answers no URL, and every desktop polls.
 - **The Android phone** receives an OS push. The sync service sends it through
   Azure Notification Hubs on its Free tier, which relays it to FCM. The payload
   carries the notification's id, title and summary, and never its body. A source
@@ -171,7 +178,8 @@ Negative, and accepted:
 
 ## Verification
 
-The transport of §1 to §3 is built; the nudge of §4 and §5 is not.
+The transport of §1 to §3 is built, and so is §4's desktop nudge. The Android
+push of §4 and §5 is not.
 
 - `NotificationSyncEndpointTests.A_reply_from_a_device_under_another_owner_is_refused`
   proves that the sync API refuses a reply from a device under another owner, and
@@ -185,8 +193,20 @@ The transport of §1 to §3 is built; the nudge of §4 and §5 is not.
   `A_desktop_that_pairs_again_keeps_its_notifications_and_their_replies` that the
   owner is the installation rather than the pairing.
 - `infra/sync/main.bicep` declares the `notifications` and `notificationReplies`
-  containers. The Web PubSub hub and the Notification Hubs namespace come with
-  slice 3.
+  containers, and the Web PubSub resource on `Free_F1` with local auth off, its
+  `notifications` hub refusing anonymous connects, and the Web PubSub Service
+  Owner role for the sync identity. The Notification Hubs namespace comes with the
+  phone push.
+- `NotificationNudgeEndpointTests` proves that negotiate refuses an unpaired
+  caller, hands a paired one a URL for its own owner, and answers no URL without a
+  hub. It also proves that a push that wrote something and a newly stored reply
+  each publish one nudge to their owner, and that a refused push or a repeated
+  reply publishes none.
+- `NotificationNudgeListenerTests` proves that the desktop runs the loop on each
+  pull and hands the replies back to the poll when its socket drops. It also proves
+  the reconnect on a growing wait, and that a service without a hub leaves the
+  desktop polling. `NotificationSyncTests` proves that the tick skips the reply
+  listing only while the socket is open.
 
 ## History
 
@@ -197,3 +217,4 @@ The transport of §1 to §3 is built; the nudge of §4 and §5 is not.
 | --- | --- | --- |
 | 2026-10-22 | Notifications are owned documents on a `notifications` container; Web PubSub and Notification Hubs to FCM only nudge. | A desktop must ask and hear the answer from any device while the sync service keeps scaling to zero. |
 | 2026-10-22 | Replies move to their own `notificationReplies` container, and an open notification gets a 90-day backstop expiry. | The plan's transport step asked for two containers, a feed and a mailbox; and §1 says an unpaired owner's notifications expire, which an open one without a TTL never would. |
+| 2026-10-22 | §4: the desktop nudge is built — one group per owner, a negotiate route behind the device token, and the poll only while the socket is down. Aspire runs without a hub. | The plan's desktop-nudge step built it, and a poll that keeps running beside an open socket would wake the sync service every two minutes for nothing. |
