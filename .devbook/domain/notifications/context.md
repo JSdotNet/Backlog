@@ -42,9 +42,11 @@ the realtime nudge is
 The module is `Backlog.Modules.Notifications`, published to other contexts through
 `Backlog.Modules.Notifications.Abstractions`, with its screens in
 `Backlog.Modules.Notifications.UI`. The delivery technology sits behind ports in
-`Backlog.Infrastructure.Notifications`. The module and its abstractions exist,
-with the owner's store as the `notifications` table in `backlog.db`. The sync
-exchange and the infrastructure project do not yet.
+`Backlog.Infrastructure.Notifications`. The module, its abstractions and its
+screens exist, with the owner's store as the `notifications` table in
+`backlog.db`, and the MCP server publishes through it with its `notify`, `ask`,
+`get_answer` and `close` tools; the sync exchange and the infrastructure project
+do not yet.
 
 ## Owner screens
 
@@ -88,7 +90,8 @@ contract to the contexts that publish, as an open host service.
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Sessions](../sessions/context.md) | OHS + Published Language (Notifications = supplier) | `INotifications.PublishAsync` and an `INotificationAnswerHandler` for its source name; closes by subject when a session is archived or a run ends | `Backlog.Modules.Notifications.Abstractions` | A question at Personal Validation, and the MCP `ask` tool's questions, are answered once and handed back to its handler. |
+| [Sessions](../sessions/context.md) | OHS + Published Language (Notifications = supplier) | `INotifications.PublishAsync` and an `INotificationAnswerHandler` for its source name; closes by subject when a session is archived or a run ends | `Backlog.Modules.Notifications.Abstractions` | A question at Personal Validation is answered once and handed back to its handler; closing by subject also closes the MCP tools' notifications about a session. |
+| MCP server (`Backlog.Infrastructure.Mcp`) | OHS + Published Language (Notifications = supplier) | `notify` and `ask` publish as source `mcp`, keyed by the call, about the calling session (`sessions` / `session` / its id) when the caller names one, otherwise a question is about itself (`mcp` / `ask` / the key); `get_answer` and `close` read and withdraw through `INotificationStatuses` and `INotifications.CloseAsync`, only for notifications source `mcp` published; its answer handler only takes the answer | `Backlog.Modules.Notifications.Abstractions` | `ask` answers the id at once and never waits; the session polls `get_answer` for pending, the answer, or closed with its reason. |
 | [Sync](../sync/context.md) | OHS + Published Language (Notifications = supplier) | Publishes a "Pair this new device?" question on the owner desktop | `Backlog.Modules.Notifications.Abstractions` | The answer confirms or refuses the pairing code. |
 | [Devbook](../devbook/context.md) | OHS + Published Language (Notifications = supplier) | Publishes an alert when a remark is left on a chapter the person owns; closes it when the remark is resolved | `Backlog.Modules.Notifications.Abstractions` | The alert links to the chapter. |
 | [Tasks](../tasks/domain.md#task) | OHS + Published Language (Notifications = supplier) | Closes by subject when a task is marked Done or deleted | `Backlog.Modules.Notifications.Abstractions` | A question about a finished task is closed on every device. |

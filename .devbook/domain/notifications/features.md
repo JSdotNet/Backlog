@@ -21,7 +21,9 @@ A source on a desktop tells the person something with an alert, or asks them
 something with a question, through one port. The desktop that publishes becomes
 the notification's owner instance. A Claude session asking through the MCP `ask`
 tool is the first case: the tool returns the notification's id at once, and the
-agent polls for the answer.
+agent polls `get_answer` for the answer, or withdraws its question with `close`
+once it no longer needs one. The MCP `notify` tool tells the person something the
+same way, with nothing to wait for.
 
 ## Answering from another device
 
