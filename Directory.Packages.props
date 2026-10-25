@@ -71,7 +71,7 @@
       of one assembly. Bump the two together or not at all.
     -->
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" />
-    <PackageVersion Include="bunit" Version="2.11.3" />
+    <PackageVersion Include="bunit" Version="2.12.5" />
     <!--
       Named explicitly so the lock files stop depending on which SDK restored them.
       A Microsoft.NET.Sdk.Web project with .razor content gets an implicit
