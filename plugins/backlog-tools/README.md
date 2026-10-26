@@ -1,7 +1,7 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or knowledge-folder tooling. Six skills: one for each direction of a plan,
+general-purpose or devbook tooling. Six skills: one for each direction of a plan,
 one for running a whole plan, one for closing the entries whose pull request merged, one for
 bringing another tool's items into the Inbox, and one for the remarks a person leaves while
 reading — and a pane that follows a running plan.
