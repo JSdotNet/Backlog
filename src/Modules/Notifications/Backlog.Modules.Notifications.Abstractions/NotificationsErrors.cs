@@ -43,6 +43,9 @@ public static class NotificationsErrors
     public static Error TitleRequired() =>
         Error.Validation("notification.title_required", "A notification needs a one-line title.");
 
+    public static Error IdRequired() =>
+        Error.Validation("notification.id_required", "A notification a source names by its own id needs an id that is not empty.");
+
     public static Error SourceRequired() =>
         Error.Validation("notification.source_required", "A notification names its source context and key.");
 

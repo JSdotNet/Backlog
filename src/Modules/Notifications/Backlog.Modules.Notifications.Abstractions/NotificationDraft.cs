@@ -105,6 +105,9 @@ public static class NotificationOrigins
     /// <summary>A Claude Code session, as a delivery run reports it.</summary>
     public const string ClaudeCode = "Claude Code";
 
+    /// <summary>A spec-manager installation: a question parked on a backlog item or a change.</summary>
+    public const string SpecManager = "spec-manager";
+
     /// <summary>Asked by an agent in a session.</summary>
     public const string AgentSession = "Agent session";
 
@@ -176,6 +179,11 @@ public sealed record AnswerSpec(
 /// <param name="DeepLink">A link that opens the item that raised it, or null.</param>
 /// <param name="IsPrivate">Replace the summary with a fixed text outside the app.</param>
 /// <param name="Origin">Where it came from, in words a person reads, or null.</param>
+/// <param name="Id">The id the source names it by, or null for a fresh one. A source that asks
+/// about something with an identity of its own — a question in another system — derives the id
+/// from it, so publishing the same thing twice is one notification: an id this instance already
+/// holds publishes nothing and answers that id, and an id another desktop already put on the
+/// replica stays that desktop's (<c>.devbook/domain/notifications/domain.md#notification</c>).</param>
 public sealed record NotificationDraft(
     NotificationSource Source,
     NotificationSubject? Subject,
@@ -187,7 +195,8 @@ public sealed record NotificationDraft(
     AnswerSpec? Answer = null,
     string? DeepLink = null,
     bool IsPrivate = false,
-    NotificationOrigin? Origin = null);
+    NotificationOrigin? Origin = null,
+    Guid? Id = null);
 
 /// <summary>
 /// What a person submitted to answer a question, from any instance

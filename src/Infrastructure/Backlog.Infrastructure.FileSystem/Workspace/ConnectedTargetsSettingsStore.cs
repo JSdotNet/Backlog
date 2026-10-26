@@ -238,6 +238,10 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
         /// setting existed completes nothing at the source.</summary>
         public bool CompleteAtSource { get; init; }
 
+        /// <summary>False when the key is missing, so a file written before the
+        /// setting existed brings the unassigned questions too.</summary>
+        public bool OnlyQuestionsAssignedToMe { get; init; }
+
         public DateTimeOffset? LastSyncedAt { get; init; }
 
         public DateTimeOffset? IgnoreUntouchedBefore { get; init; }
@@ -267,6 +271,7 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
             TitleFollowsSource = target.TitleFollowsSource,
             SyncInterval = target.SyncInterval,
             CompleteAtSource = target.CompleteAtSource,
+            OnlyQuestionsAssignedToMe = target.OnlyQuestionsAssignedToMe,
             LastSyncedAt = target.LastSyncedAt,
             IgnoreUntouchedBefore = target.IgnoreUntouchedBefore,
             LastSyncError = target.LastSyncError,
@@ -288,6 +293,7 @@ public sealed class ConnectedTargetsSettingsStore : IConnectedTargets
                     TitleFollowsSource = TitleFollowsSource,
                     SyncInterval = SyncInterval is { Ticks: > 0 } interval ? interval : ConnectedTarget.DefaultSyncInterval,
                     CompleteAtSource = CompleteAtSource,
+                    OnlyQuestionsAssignedToMe = OnlyQuestionsAssignedToMe,
                     LastSyncedAt = LastSyncedAt,
                     IgnoreUntouchedBefore = IgnoreUntouchedBefore,
                     LastSyncError = string.IsNullOrWhiteSpace(LastSyncError) ? null : LastSyncError,

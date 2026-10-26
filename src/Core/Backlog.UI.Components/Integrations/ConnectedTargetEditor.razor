@@ -82,6 +82,14 @@
                     CheckedChanged="value => ChangeAsync(Options with { CompleteAtSource = value })"
                     TestId="@Suffix("complete-at-source")" />
         }
+        @if (Options.HasQuestions)
+        {
+            <Toggle Label="Only questions assigned to me"
+                    Description="Off also brings the unassigned questions you may answer."
+                    Checked="@Options.OnlyQuestionsAssignedToMe"
+                    CheckedChanged="value => ChangeAsync(Options with { OnlyQuestionsAssignedToMe = value })"
+                    TestId="@Suffix("only-assigned-questions")" />
+        }
         <SelectField Form="true"
                      Label="Sync every"
                      Id="@IdOf("interval")"

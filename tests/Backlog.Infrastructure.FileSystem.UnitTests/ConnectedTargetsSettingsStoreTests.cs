@@ -39,6 +39,7 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
             TitleFollowsSource = false,
             SyncInterval = TimeSpan.FromMinutes(30),
             CompleteAtSource = true,
+            OnlyQuestionsAssignedToMe = true,
             LastSyncedAt = Synced,
             IgnoreUntouchedBefore = Synced.AddDays(-90),
         };
@@ -155,6 +156,20 @@ public sealed class ConnectedTargetsSettingsStoreTests : IDisposable
             """);
 
         Assert.False(Assert.Single(Store().List()).CompleteAtSource);
+    }
+
+    /// <summary>A file written before questions came in has no such key, and reads as the
+    /// setting's default: the unassigned questions the person may answer come in too.</summary>
+    [Fact]
+    public void A_file_written_before_the_questions_setting_existed_brings_every_question()
+    {
+        File.WriteAllText(SettingsFile, """
+            { "targets": [
+                { "connectorId": "spec-manager", "target": "billing", "enabled": true }
+            ] }
+            """);
+
+        Assert.False(Assert.Single(Store().List()).OnlyQuestionsAssignedToMe);
     }
 
     /// <summary>Promote to plan was dropped unbuilt, and its setting with it. A file

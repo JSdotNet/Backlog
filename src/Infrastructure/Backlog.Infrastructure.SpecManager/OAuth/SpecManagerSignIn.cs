@@ -149,6 +149,25 @@ internal sealed class SpecManagerSignIn : IDisposable
         AccountChanged?.Invoke();
     }
 
+    /// <summary>What the sign-in line asks of the person while an answer waits on a
+    /// sign-in.</summary>
+    public const string AnswersWaitingNotice = "Sign in to spec-manager to send answers.";
+
+    private int _answersWaiting;
+
+    /// <summary><see cref="AnswersWaitingNotice"/> while an answer given in Backlog waits on
+    /// a sign-in to reach spec-manager, else null.</summary>
+    public string? Notice => Volatile.Read(ref _answersWaiting) == 1 ? AnswersWaitingNotice : null;
+
+    /// <summary>Whether an answer waits on a sign-in, which <see cref="Notice"/> says on the
+    /// sign-in line. A change is announced through <see cref="AccountChanged"/>.</summary>
+    public void SetAnswersWaiting(bool waiting)
+    {
+        if (Interlocked.Exchange(ref _answersWaiting, waiting ? 1 : 0) == (waiting ? 1 : 0)) return;
+
+        AccountChanged?.Invoke();
+    }
+
     /// <summary>Records whose account this is, once the installation has said.</summary>
     public void SetAccountName(string name)
     {

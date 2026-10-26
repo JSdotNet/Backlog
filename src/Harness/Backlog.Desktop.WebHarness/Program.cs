@@ -116,6 +116,9 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     // Per worktree, like the device credential: a sign-in here is not the installed
     // app's, and DPAPI still keeps the refresh token out of the clear.
     SpecManagerTokenStore = _ => CreateLocalDevelopmentSpecManagerTokenStore(builder.Environment.ContentRootPath),
+    // The SpecManager section, bound by the composition (ADR 0018): SpecManager__BaseUrl in
+    // this harness's environment points it at a local spec-manager.
+    Configuration = builder.Configuration,
     InboxRoutingRules = _ => CreateLocalDevelopmentInboxRoutingRulesStore(builder.Environment.ContentRootPath),
     GitHubSettings = root => CreateLocalDevelopmentGitHubSettingsStore(builder.Environment.ContentRootPath, root),
     PullRequestPins = _ => CreateLocalDevelopmentPullRequestPinsStore(builder.Environment.ContentRootPath),
@@ -260,6 +263,10 @@ _ = app.Services.GetRequiredService<BackupWorker>();
 // And the linked task sync's timer, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
+
+// And the spec-manager question source, on the same terms and for the same reason the
+// desktop head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
 
 // And the blocked-task watcher, on the same terms and for the same reason the desktop
 // head resolves it.
