@@ -24,8 +24,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// read asks again.</item>
 /// </list>
 /// <para>
-/// Each answer is kept under the reference it was asked by, not the name GitHub answers
-/// with: a renamed repository answers under its new name, and a key the next read never
+/// Each answer is kept under the reference it was asked by: a key the next read never
 /// asks by would send the same question again every time. What the caller gets back is
 /// GitHub's answer as it came.
 /// </para>
@@ -171,12 +170,13 @@ internal sealed class GitHubLinkedPullRequestCache(
         }
     }
 
-    /// <summary>The answer to <paramref name="link"/>: the one in its own repository, or —
-    /// a repository renamed since it was linked — the only one with its number.</summary>
+    /// <summary>The answer to <paramref name="link"/>: the one in its own repository.
+    /// GitHub answers under the name it was asked by — a renamed repository too — so a
+    /// pull request under another name is another repository's, never this link's,
+    /// however alone its number is in the batch.</summary>
     private static GitHubLinkedPullRequest? Find(IReadOnlyList<GitHubLinkedPullRequest> pulls, GitHubPullRequestReference link) =>
         pulls.FirstOrDefault(pull => pull.Number == link.Number
-                                     && string.Equals(pull.RepositoryFullName, link.RepositoryFullName, StringComparison.OrdinalIgnoreCase))
-        ?? (pulls.Count(pull => pull.Number == link.Number) == 1 ? pulls.Single(pull => pull.Number == link.Number) : null);
+                                     && string.Equals(pull.RepositoryFullName, link.RepositoryFullName, StringComparison.OrdinalIgnoreCase));
 
     private static string Key(GitHubPullRequestReference link) =>
         $"{link.RepositoryFullName.Trim()}#{link.Number.ToString(CultureInfo.InvariantCulture)}";

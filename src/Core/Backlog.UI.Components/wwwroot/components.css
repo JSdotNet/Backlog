@@ -21516,11 +21516,38 @@ select.field__input {
     padding: var(--spacing-md);
 }
 
+/* The whole row opens and folds the goal, so the whole row says it can be pressed. */
 .goal-card__head {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+}
+
+/* ChevronUpIcon turned half a turn: down while folded, up once open, as the
+   ChevronAtEnd fold does it. */
+.goal-card__chevron {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    transform: rotate(180deg);
+    transition: transform var(--transition-fast);
+}
+
+.goal-card__chevron--open {
+    transform: none;
+}
+
+.goal-card__head:hover .goal-card__chevron {
+    color: var(--color-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .goal-card__chevron {
+        transition: none;
+    }
 }
 
 .goal-card__title {
