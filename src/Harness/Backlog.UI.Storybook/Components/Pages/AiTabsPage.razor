@@ -1,0 +1,71 @@
+@page "/devbook/ai-tabs"
+
+<PageTitle>AI tabs — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="AI tabs"
+           Summary="The tab strip the Devbook pane draws above the AI section's chapters, in place of the adoption map's diagram: four views of the `.devbook/ai/` record — Adoption, Cohesion, Model and Devbook — on the library's Tabs, Adoption open first. The views themselves live in the Devbook module and are not rendered here; each panel below holds the EmptyState a view shows until it is drawn."
+           Guidelines="@Rules">
+
+    <Story Name="The four views"
+           Description="Tabs with one TabPanel per view, in the order a reader takes them: how far each usage has got, how the usages form a whole, the model they sit on, and how far the devbook itself is adopted. Adoption is open first. The strip is one tab stop; the arrow keys, Home and End move between the tabs and choose as they go.
+
+The host holds the open tab rather than leaving it to the strip, because the pane draws the picture in two places — over the folder's overview and over the open adoption map — and a choice kept by the strip would be lost on every move between them. The chapter list is drawn below the strip, as for every folder, and is not part of this sample.
+
+The usage below is the module's own, with each view in its panel; the sample above hands each panel the EmptyState that view draws today, under ids of its own."
+           Code="@TabsCode">
+        <Tabs AriaLabel="AI adoption views"
+              TestId="ai-tabs"
+              ListTestId="ai-tabs-list"
+              ActiveId="@_tab"
+              ActiveIdChanged="id => _tab = id">
+            <TabPanel Id="sb-ai-adoption" Title="Adoption" Element="section" TabTestId="ai-adoption-tab">
+                <EmptyState Title="Adoption is not drawn yet"
+                            Description="How far each AI usage has got on the adoption ladder will be drawn here." />
+            </TabPanel>
+            <TabPanel Id="sb-ai-cohesion" Title="Cohesion" Element="section" TabTestId="ai-cohesion-tab">
+                <EmptyState Title="Cohesion is not drawn yet"
+                            Description="How the AI usages hand work on and lean on each other will be drawn here." />
+            </TabPanel>
+            <TabPanel Id="sb-ai-model" Title="Model" Element="section" TabTestId="ai-model-tab">
+                <EmptyState Title="The model is not drawn yet"
+                            Description="The seven stages, their sub-stages and the three layers beneath, with the AI usages at each, will be drawn here." />
+            </TabPanel>
+            <TabPanel Id="sb-ai-devbook" Title="Devbook" Element="section" TabTestId="ai-devbook-tab">
+                <EmptyState Title="Devbook adoption is not drawn yet"
+                            Description="How far this repository has taken up the devbook will be drawn here." />
+            </TabPanel>
+        </Tabs>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("interaction-guidelines.md#focus-and-selection", "What the open tab looks like, and where focus goes when the arrows move it."),
+        new("interaction-guidelines.md#empty-states", "What a view says while it has nothing drawn yet."),
+        new("design-principles.md#low-chrome-content-first", "Why the strip is one quiet row over the picture and not a frame around it.")
+    ];
+
+    private string _tab = "sb-ai-adoption";
+
+    private const string TabsCode = """
+        <Tabs AriaLabel="AI adoption views"
+              TestId="ai-tabs"
+              ListTestId="ai-tabs-list"
+              ActiveId="@_tab"
+              ActiveIdChanged="SelectTab">
+            <TabPanel Id="ai-adoption" Title="Adoption" Element="section" TabTestId="ai-adoption-tab">
+                <AiAdoptionView Model="@model" OnNavigateToChapter="@OnNavigateToChapter" />
+            </TabPanel>
+            <TabPanel Id="ai-cohesion" Title="Cohesion" Element="section" TabTestId="ai-cohesion-tab">
+                <AiCohesionView Model="@model" OnNavigateToChapter="@OnNavigateToChapter" />
+            </TabPanel>
+            <TabPanel Id="ai-model" Title="Model" Element="section" TabTestId="ai-model-tab">
+                <AiModelView Model="@model" OnNavigateToChapter="@OnNavigateToChapter" />
+            </TabPanel>
+            <TabPanel Id="ai-devbook" Title="Devbook" Element="section" TabTestId="ai-devbook-tab">
+                <DevbookAdoptionView Model="@model" OnNavigateToChapter="@OnNavigateToChapter" />
+            </TabPanel>
+        </Tabs>
+        """;
+}

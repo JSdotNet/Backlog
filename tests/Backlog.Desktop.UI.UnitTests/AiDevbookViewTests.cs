@@ -122,72 +122,84 @@ public sealed class AiDevbookViewTests : IDisposable
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-section")));
 
         var sections = component.FindAll(".folder-section");
-        // The concept lists `specify`, so the map's section draws it in the
-        // picture too; the chapter's own section is the one without the picture.
+        // The chapter's own section, not the map's: the picture above the map
+        // is drawn by the tabs and carries no status control of its own.
         var contextEngineering = Assert.Single(
             sections,
             section => section.TextContent.Contains("Context engineering", StringComparison.Ordinal)
-                && section.QuerySelector("[data-testid='ai-loop']") is null);
+                && section.QuerySelector("[data-testid='ai-tabs']") is null);
         Assert.Empty(contextEngineering.QuerySelectorAll(".devbook-record select"));
         Assert.Contains("draft", contextEngineering.TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task The_overview_draws_the_loop_in_place_of_the_map_s_diagram()
+    public async Task The_overview_draws_the_tabs_in_place_of_the_map_s_diagram()
     {
         await using var harness = CreateHarness();
 
         var component = harness.Render(selectedPath: null);
 
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-loop']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-tabs']")));
 
-        // The picture replaced the hand-drawn form rather than sitting beside it.
+        // The picture replaced the hand-drawn form rather than sitting beside it,
+        // and the chapter list is still drawn under it.
         Assert.DoesNotContain("flowchart LR", component.Markup, StringComparison.Ordinal);
-        Assert.Equal(
-            ["decide", "specify", "code", "verify", "integrate", "release", "operate"],
-            component.FindAll("[data-testid^='ai-loop-stage-']").Select(stage => stage.GetAttribute("data-testid")!["ai-loop-stage-".Length..]));
-        Assert.Equal(3, component.FindAll("[data-testid^='ai-loop-layer-']").Count);
+        Assert.Equal(3, component.FindAll(".folder-document").Count);
 
-        // The skill lists `specify`, so it is drawn there, shaded by its rating,
-        // and an unused stage is drawn empty rather than dropped.
-        var plan = component.Find("[data-testid='ai-loop-stage-specify']");
-        Assert.Contains("ai-loop__stage--trial", plan.ClassList);
-        Assert.Contains("Devbook skills", plan.TextContent, StringComparison.Ordinal);
-        Assert.Contains("claude code", plan.TextContent, StringComparison.Ordinal);
-        Assert.Contains("No AI usage", component.Find("[data-testid='ai-loop-stage-release']").TextContent, StringComparison.Ordinal);
+        // The four views in order, on the shared strip, Adoption open first.
+        var tabs = component.FindAll("[data-testid='ai-tabs-list'] [role='tab']");
+        Assert.Equal(["Adoption", "Cohesion", "Model", "Devbook"], tabs.Select(tab => tab.TextContent.Trim()));
+        Assert.Equal(["true", "false", "false", "false"], tabs.Select(tab => tab.GetAttribute("aria-selected")));
+        Assert.Single(component.FindAll("[data-testid='ai-adoption-view']"));
+        Assert.Empty(component.FindAll("[data-testid='ai-cohesion-view']"));
     }
 
-    [Fact]
-    public async Task A_usage_on_the_loop_opens_its_chapter()
+    [Theory]
+    [InlineData("ai-cohesion-tab", "ai-cohesion-view")]
+    [InlineData("ai-model-tab", "ai-model-view")]
+    [InlineData("ai-devbook-tab", "devbook-adoption-view")]
+    public async Task Each_tab_opens_its_own_view(string tab, string view)
     {
         await using var harness = CreateHarness();
-        DevbookChapterLink? opened = null;
+        var component = harness.Render(selectedPath: null);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-tabs']")));
 
-        var component = harness.Context.Render<AiDevbookView>(parameters => parameters
-            .Add(view => view.RepositoryAlias, "backlog")
-            .Add(view => view.OnNavigateToChapter, link => opened = link));
+        component.Find($"[data-testid='{tab}']").Click();
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-loop-usage']")));
-        component.Find("[data-testid='ai-loop-stage-specify'] [data-testid='ai-loop-usage']").Click();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll($"[data-testid='{view}']")));
+        Assert.Equal("true", component.Find($"[data-testid='{tab}']").GetAttribute("aria-selected"));
+        Assert.Empty(component.FindAll("[data-testid='ai-adoption-view']"));
+    }
 
-        // The callback is raised through the renderer and can land after Click
-        // returns, so the link is waited for rather than read straight away.
-        component.WaitForAssertion(() => Assert.NotNull(opened));
-        Assert.NotNull(opened);
-        Assert.Equal("ai", opened.AreaKey);
-        Assert.EndsWith("01-specify.md", opened.Path, StringComparison.Ordinal);
-        Assert.Equal("devbook-skills", opened.Anchor);
+    /// <summary>The overview and the open map draw the picture in two places in
+    /// the tree, so the open tab is the host's to keep: opening the map must not
+    /// send the reader back to Adoption.</summary>
+    [Fact]
+    public async Task The_chosen_tab_survives_opening_the_adoption_map()
+    {
+        await using var harness = CreateHarness();
+        var component = harness.Render(selectedPath: null);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-tabs']")));
+
+        component.Find("[data-testid='ai-model-tab']").Click();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-model-view']")));
+
+        component.Render(parameters => parameters.Add(view => view.SelectedPath, "adoption-map.md"));
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-chapter-file']")));
+        Assert.Equal("true", component.Find("[data-testid='ai-model-tab']").GetAttribute("aria-selected"));
+        Assert.Single(component.FindAll("[data-testid='ai-model-view']"));
     }
 
     [Fact]
-    public async Task The_open_adoption_map_is_headed_by_the_loop()
+    public async Task The_open_adoption_map_is_headed_by_the_tabs()
     {
         await using var harness = CreateHarness();
 
         var component = harness.Render("adoption-map.md");
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-chapter-file']")));
-        Assert.Single(component.FindAll("[data-testid='ai-loop']"));
+        Assert.Single(component.FindAll("[data-testid='ai-tabs']"));
 
         // Capped to fill the pane under the picture, the file would be a sliver;
         // the section scrolls the two together instead.

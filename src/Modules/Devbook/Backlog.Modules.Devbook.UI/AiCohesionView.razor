@@ -1,0 +1,20 @@
+@*
+    The AI section's Cohesion tab: how the usages form a whole — the hand-offs
+    their `feeds` name and the support their `related` links give — read from
+    AiModel. Empty for now; until it is drawn the tab says so rather than
+    showing a blank panel.
+*@
+<div data-testid="ai-cohesion-view">
+    <EmptyState Title="Cohesion is not drawn yet"
+                Description="How the AI usages hand work on and lean on each other will be drawn here." />
+</div>
+
+@code {
+    /// <summary>The model the tab draws, read from the folder by <see cref="AiModel.From"/>.</summary>
+    [Parameter, EditorRequired]
+    public AiModel Model { get; set; } = default!;
+
+    /// <summary>Raised when a reader opens a usage's chapter; the host owns the selection.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+}
