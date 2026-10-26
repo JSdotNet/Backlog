@@ -27,10 +27,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.6.4" />
     <!--
       The Azure sign-in the Foundry cost reader borrows: Azure CLI, Azure
       Developer CLI, or Visual Studio. Cost Management is a Resource Manager API
@@ -44,8 +44,8 @@
       hosting package from another release binds against a different
       Aspire.Hosting than the AppHost resolves.
     -->
-    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.1-preview.1.26506.6" />
-    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.1-preview.1.26506.6" />
+    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.4-preview.1.26523.11" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.4-preview.1.26523.11" />
 
     <!--
       The client-side half of the Cosmos wiring: it reads the connection string
@@ -53,7 +53,7 @@
       Backlog.Infrastructure.Cosmos resolves. It moves with the hosting packages
       above for the same reason they move with each other.
     -->
-    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.6.4" />
 
     <!--
       The client-side half of the attachment store (local ADR 0014): it reads the
@@ -61,7 +61,7 @@
       the BlobContainerClient that Backlog.Infrastructure.BlobStorage resolves.
       Moves with the hosting packages above, like the Cosmos one.
     -->
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.4" />
 
     <!--
       Pinned to the version Aspire.Azure.Storage.Blobs above resolves
