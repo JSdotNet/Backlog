@@ -43,6 +43,21 @@ public static class SettingsBadges
         return Fraction(configured, offered);
     }
 
+    /// <summary>
+    /// The MCP server page's badge: the listener's state in a word or two -
+    /// <c>Listening</c>, <c>Not listening</c> once a bind has failed, or
+    /// <c>Starting</c> between asking and knowing. <see langword="null"/> where
+    /// <paramref name="isListening"/> is, which is a host with no listener of its
+    /// own to report on: the browser harness, whose endpoint is the host's.
+    /// </summary>
+    public static string? McpServer(bool? isListening, bool failed) => isListening switch
+    {
+        null => null,
+        true => "Listening",
+        false when failed => "Not listening",
+        false => "Starting",
+    };
+
     /// <summary>A count as its figure, zero included: an empty list says so.</summary>
     public static string Count(int count) => count.ToString(CultureInfo.InvariantCulture);
 

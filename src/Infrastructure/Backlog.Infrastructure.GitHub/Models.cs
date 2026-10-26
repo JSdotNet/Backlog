@@ -37,7 +37,18 @@ public sealed record GitHubPullRequest(
     string Url,
     string Title,
     GitHubItemState State,
-    string? RepositoryFullName);
+    string? RepositoryFullName)
+{
+    /// <summary>The branch it merges into, or null where the read did not say. An
+    /// init property for the reason <see cref="GitHubPullRequestStatus.ReviewState"/>
+    /// is one.</summary>
+    public string? BaseRefName { get; init; }
+
+    /// <summary>The repository's default branch, read in the same round trip, or
+    /// null where the read did not say. With <see cref="BaseRefName"/>, what tells a
+    /// merge that landed from one into a stacked parent's branch.</summary>
+    public string? DefaultBranch { get; init; }
+}
 
 /// <summary>
 /// The combined result of every check and commit status on a pull request's head
@@ -100,6 +111,14 @@ public sealed record GitHubPullRequestStatus(
     /// one, so every construction written before it existed still compiles and
     /// reads as no decision.</summary>
     public GitHubReviewState ReviewState { get; init; } = GitHubReviewState.None;
+
+    /// <summary>The branch it merges into, or null where the read did not say. Init
+    /// for the reason <see cref="ReviewState"/> is.</summary>
+    public string? BaseRefName { get; init; }
+
+    /// <summary>The repository's default branch, read in the same round trip, or
+    /// null where the read did not say. See <see cref="GitHubPullRequest.DefaultBranch"/>.</summary>
+    public string? DefaultBranch { get; init; }
 }
 
 /// <summary>
@@ -382,13 +401,37 @@ public enum GitHubReviewState
 /// <summary>
 /// What a pull request's reviewers decided: GitHub's decision, when the repository
 /// asks for one, and how many of the latest opinionated reviews approve or ask for
-/// changes. No "of N required": the number required needs rights to read the branch's
-/// protection that most accounts do not have, and <see cref="GitHubReviewState.ReviewRequired"/>
-/// already says approvals are still missing.
+/// changes — and, where the read asked for it, how many approvals the base branch
+/// requires (<see cref="Required"/>).
 /// </summary>
 public sealed record GitHubReviewSummary(GitHubReviewState Decision, int Approvals, int ChangesRequested)
 {
     public static GitHubReviewSummary None { get; } = new(GitHubReviewState.None, 0, 0);
+
+    /// <summary>
+    /// The approving reviews the base branch requires before a merge: the larger of
+    /// its branch protection rule's <c>requiredApprovingReviewCount</c> (where that
+    /// rule requires approving reviews at all) and every pull request rule a ruleset
+    /// applies to it. Null where no rule asks for an approval, where the branch is
+    /// gone, where the token could not read the rules, and for every read that does not
+    /// ask — the status read
+    /// (<see cref="IGitHubClient.ReadLinkedPullRequestStatusesAsync"/>) asks, and the
+    /// adapter's open and pinned lists ask through
+    /// <see cref="IGitHubClient.ReadRequiredApprovalsAsync"/>. Zero is never
+    /// reported: a rule requiring no approval is no rule for this count. An init
+    /// property, so every construction written before it reads as no rule.
+    /// </summary>
+    public int? Required { get; init; }
+
+    /// <summary>
+    /// Whether the base branch's rules were read at all, so a null
+    /// <see cref="Required"/> means "no rule asks for an approval" rather than "nobody
+    /// asked". False for every read that does not ask — the slim linked read, and an
+    /// open or pinned row whose base branch's rules could not be read — and then the
+    /// status line says how many approvals there are with no verdict
+    /// (<c>.devbook/domain/progress/features.md#pull-request-status</c>).
+    /// </summary>
+    public bool RequiredRead { get; init; }
 }
 
 /// <summary>One pull request somebody pinned on this device, by <c>owner/name</c> and
@@ -407,12 +450,16 @@ public sealed record GitHubPullRequestReference(string RepositoryFullName, int N
 
 /// <summary>
 /// One pull request a task links, as a read by number finds it: what it is called,
-/// where it stands, who opened it and when it merged.
+/// where it stands, who opened it, when it merged, how its checks stand and how its
+/// approvals stand against what its base branch requires.
 /// <para>
 /// Its own record rather than a <see cref="GitHubOpenPullRequest"/>, because the read
-/// that answers it asks for these facts and no others. The checks, the merge state and
-/// the branches are what an act on an open pull request needs, they cost the most to
-/// read, and a linked pull request is read for the record of its work, not to act on.
+/// that answers it asks for these facts and no others. The merge state, the branches
+/// and the distance from the base are what an act on an open pull request needs, and a
+/// linked pull request is read for the record of its work and its status, not to act
+/// on. The checks and reviews are filled by the status read alone
+/// (<see cref="IGitHubClient.ReadLinkedPullRequestStatusesAsync"/>), and are init
+/// properties, so a caller written before them still constructs one.
 /// </para>
 /// </summary>
 /// <param name="AuthorLogin">Who opened it; null where GitHub no longer knows the
@@ -429,7 +476,22 @@ public sealed record GitHubLinkedPullRequest(
     GitHubItemState State,
     string? AuthorLogin,
     DateTimeOffset? MergedAt,
-    DateTimeOffset? CreatedAt = null);
+    DateTimeOffset? CreatedAt = null)
+{
+    /// <summary>How far the head commit's checks have got, or null where it has none,
+    /// the token was refused them, or the answer did not say.</summary>
+    public GitHubCheckCounts? CheckCounts { get; init; }
+
+    /// <summary>The names of the head commit's failed checks, each once, in the order
+    /// GitHub lists them — from the first <see cref="GitHubClient.HeadCheckLimit"/>
+    /// checks, so a commit with more can have failures <see cref="CheckCounts"/> counts
+    /// and this does not name. Empty where none failed or the checks were not read.</summary>
+    public IReadOnlyList<string> FailingChecks { get; init; } = [];
+
+    /// <summary>What the reviewers decided, with the approvals the base branch requires
+    /// (<see cref="GitHubReviewSummary.Required"/>).</summary>
+    public GitHubReviewSummary Reviews { get; init; } = GitHubReviewSummary.None;
+}
 
 /// <summary>The linked pull requests of several repositories, read together, and the
 /// repositories that could not be read — failures beside the answers, as

@@ -33,13 +33,13 @@ public sealed class SpecManagerSignInTests : IDisposable
         Assert.Null(error);
 
         // Registered as Backlog, for the loopback redirect on any port.
-        var registration = Assert.Single(scenario.Server.To("/oauth/registreren"));
+        var registration = Assert.Single(scenario.Server.To("/oauth/register"));
         Assert.Contains("\"client_name\":\"Backlog\"", registration.Body, StringComparison.Ordinal);
         Assert.Contains("\"redirect_uris\":[\"http://127.0.0.1/callback\"]", registration.Body, StringComparison.Ordinal);
 
         // The authorization request.
         var authorize = visit.Authorize!;
-        Assert.Equal("https://spec.test/oauth/autoriseren", authorize.GetLeftPart(UriPartial.Path));
+        Assert.Equal("https://spec.test/oauth/authorize", authorize.GetLeftPart(UriPartial.Path));
         var query = HttpUtility.ParseQueryString(authorize.Query);
         Assert.Equal(ConnectorScenario.ClientId, query["client_id"]);
         Assert.Equal("code", query["response_type"]);
@@ -77,7 +77,7 @@ public sealed class SpecManagerSignInTests : IDisposable
     public async Task A_signed_in_account_takes_the_name_the_installation_gives_it()
     {
         using var scenario = new ConnectorScenario();
-        scenario.Server.Json(HttpMethod.Get, $"/api/producten/{StubSpecManager.Product}/backlogleden", "leden.json");
+        scenario.Server.Json(HttpMethod.Get, $"/api/products/{StubSpecManager.Product}/backlog-members", "members.json");
         ComeBack(scenario, (_, state) => $"code=the-code&state={state}");
 
         Assert.Null(await scenario.Connector.SignInAsync(TestContext.Current.CancellationToken));
@@ -96,7 +96,7 @@ public sealed class SpecManagerSignInTests : IDisposable
         ComeBack(scenario, (_, state) => $"code=second&state={state}");
         Assert.Null(await scenario.Connector.SignInAsync(TestContext.Current.CancellationToken));
 
-        Assert.Single(scenario.Server.To("/oauth/registreren"));
+        Assert.Single(scenario.Server.To("/oauth/register"));
         Assert.Single(scenario.Server.To("/.well-known/oauth-authorization-server"));
         Assert.Equal(2, scenario.Server.To(TokenPath).Count);
     }
@@ -181,7 +181,7 @@ public sealed class SpecManagerSignInTests : IDisposable
         scenario.Server.Json(HttpMethod.Post, TokenPath, "token.json");
         ComeBack(scenario, (_, state) => $"code=the-code&state={state}");
         Assert.Null(await scenario.Connector.SignInAsync(TestContext.Current.CancellationToken));
-        Assert.Single(scenario.Server.To("/oauth/registreren"));
+        Assert.Single(scenario.Server.To("/oauth/register"));
     }
 
     [Fact]
@@ -199,11 +199,11 @@ public sealed class SpecManagerSignInTests : IDisposable
 
         Assert.NotNull(await scenario.Connector.SignInAsync(TestContext.Current.CancellationToken));
         Assert.Null(scenario.Store.Get(scenario.Options.Root));
-        Assert.Empty(scenario.Server.To("/oauth/registreren"));
+        Assert.Empty(scenario.Server.To("/oauth/register"));
 
         ComeBack(scenario, (_, state) => $"code=the-code&state={state}");
         Assert.Null(await scenario.Connector.SignInAsync(TestContext.Current.CancellationToken));
-        Assert.Single(scenario.Server.To("/oauth/registreren"));
+        Assert.Single(scenario.Server.To("/oauth/register"));
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public sealed class SpecManagerSignInTests : IDisposable
     public async Task Failing_to_name_the_account_does_not_fail_the_sign_in()
     {
         using var scenario = new ConnectorScenario();
-        scenario.Server.Route(HttpMethod.Get, $"/api/producten/{StubSpecManager.Product}/backlogleden", (_, _) => throw new Polly.CircuitBreaker.BrokenCircuitException());
+        scenario.Server.Route(HttpMethod.Get, $"/api/products/{StubSpecManager.Product}/backlog-members", (_, _) => throw new Polly.CircuitBreaker.BrokenCircuitException());
         ComeBack(scenario, (_, state) => $"code=the-code&state={state}");
 
         Assert.Null(await scenario.Connector.SignInAsync(TestContext.Current.CancellationToken));
@@ -323,7 +323,7 @@ public sealed class SpecManagerSignInTests : IDisposable
         Assert.Equal("smr_current", refresh["refresh_token"]);
         Assert.Equal(ConnectorScenario.ClientId, refresh["client_id"]);
 
-        Assert.Equal("sma_second", Assert.Single(scenario.Server.To($"/api/producten/{StubSpecManager.Product}/backlogstatussen")).Bearer);
+        Assert.Equal("sma_second", Assert.Single(scenario.Server.To($"/api/products/{StubSpecManager.Product}/backlog-statuses")).Bearer);
         var kept = scenario.Store.Get(scenario.Options.Root)!;
         Assert.Equal("smr_second", kept.RefreshToken);
         Assert.Equal("sma_second", kept.AccessToken);
@@ -360,7 +360,7 @@ public sealed class SpecManagerSignInTests : IDisposable
         using var scenario = new ConnectorScenario();
         scenario.SignedIn();
         AnswerRefreshWith(scenario, "sma_second", "smr_second");
-        var path = $"/api/producten/{StubSpecManager.Product}/backlogstatussen";
+        var path = $"/api/products/{StubSpecManager.Product}/backlog-statuses";
         scenario.Server.Route(HttpMethod.Get, path, (request, _) =>
             request.Headers.Authorization?.Parameter == "sma_second"
                 ? StubSpecManager.Respond(HttpStatusCode.OK, Fixtures.Read("statuses.json"))
@@ -379,7 +379,7 @@ public sealed class SpecManagerSignInTests : IDisposable
     {
         using var scenario = new ConnectorScenario();
         scenario.SignedIn();
-        var path = $"/api/producten/{StubSpecManager.Product}/backlogstatussen";
+        var path = $"/api/products/{StubSpecManager.Product}/backlog-statuses";
         scenario.Server.Route(HttpMethod.Get, path, (_, _) => StubSpecManager.Respond(HttpStatusCode.Unauthorized, "{}"));
 
         await Assert.ThrowsAsync<HttpRequestException>(() =>

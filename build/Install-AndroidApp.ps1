@@ -4,9 +4,9 @@
     running emulator via adb.
 
 .DESCRIPTION
-    Developer sideload helper. It is the local counterpart of the "Release mobile"
-    GitHub Actions workflow: same publish command, same package format (APK, not
-    AAB), but signed with a throwaway *developer* keystore instead of the release
+    Developer sideload helper. It is the local counterpart of the mobile job of the
+    "Release All" GitHub Actions workflow: same publish command, same package
+    format (APK, not AAB), but signed with a throwaway *developer* keystore instead of the release
     keystore held in repository secrets.
 
     On first run it creates that developer keystore under the main checkout's

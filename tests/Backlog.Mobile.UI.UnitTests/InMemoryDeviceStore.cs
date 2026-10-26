@@ -1,5 +1,6 @@
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Outbox;
+using Backlog.Mobile.UI.Progress;
 using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Mobile.UI.Tasks;
 
@@ -74,6 +75,10 @@ internal static class TestOutbox
         services.AddSingleton<INoteViewStore>(new InMemoryNoteViewStore());
         services.AddSingleton<NoteViewProjection>();
         services.AddSingleton<IOutboxKind, NoteOutboxKind>();
+        services.TryAddSingleton<IProgressViewStore>(new InMemoryProgressViewStore());
+        services.AddSingleton<ProgressViewProjection>();
+        services.AddSingleton<PhoneStandUp>();
+        services.AddSingleton<IOutboxKind, ImpedimentEditOutboxKind>();
         return services;
     }
 }

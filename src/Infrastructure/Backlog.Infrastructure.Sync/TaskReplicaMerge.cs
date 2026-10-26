@@ -125,16 +125,25 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// notes on the replica, as it holds captures.
 /// </para>
 /// <para>
-/// <b>Nor is a sprint series.</b> A <c>sprint-series</c> document is one of
-/// Progress's series, whole, and goes to its replication port on the terms the
-/// roadmap's documents do: the port decides by the series' own stamp, and a head
-/// without it skips the document.
+/// <b>Nor is a retired kind.</b> A <c>sprint-series</c> document, one of the sprint
+/// series an older build pushed, is read and dropped (<see cref="RetiredReplicaDocuments"/>,
+/// local ADR 0035): counted as nothing to do, never written and never taken as a task.
+/// </para>
+/// <para>
+/// <b>Nor is a goal.</b> A <c>goal</c> document is one of Progress's goals, whole
+/// (local ADR 0035 §9), and goes to its replication port on the roadmap's terms. So does
+/// an <c>impediment</c> document, to its own port.
 /// </para>
 /// <para>
 /// <b>Nor are the My Day preferences.</b> A <c>my-day-preferences</c> document goes to
 /// the preferences port on the same terms (local ADR 0032, §3): before the local task is
 /// read, decided by its own stamp, and Skipped on a head without the port — which is
 /// what an older desktop build does with it.
+/// </para>
+/// <para>
+/// <b>Nor are the iteration settings.</b> An <c>iteration-settings</c> document goes to
+/// Progress's iteration settings port on the same terms (local ADR 0036, §4), and is
+/// Skipped on a head without the port.
 /// </para>
 /// </summary>
 public sealed class TaskReplicaMerge(
@@ -146,8 +155,13 @@ public sealed class TaskReplicaMerge(
     IRoadmapReplication? roadmap = null,
     IGitHubSettingsReplication? github = null,
     IInboxNoteReplication? notes = null,
-    ISprintSeriesReplication? sprints = null,
-    IMyDayPreferencesReplication? myDay = null)
+    IMyDayPreferencesReplication? myDay = null,
+    IGoalReplication? goals = null,
+    IImpedimentReplication? impediments = null,
+    IImpedimentEditIntake? impedimentEdits = null,
+    ImpedimentEditRetirements? retirements = null,
+    TimeProvider? time = null,
+    IIterationSettingsReplication? iteration = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -176,14 +190,33 @@ public sealed class TaskReplicaMerge(
     /// which leaves notes on the replica.</summary>
     private readonly IInboxNoteReplication? _notes = notes;
 
-    /// <summary>Where a sprint series goes, or null on a head without Progress — the
-    /// phone, or a build from before the port.</summary>
-    private readonly ISprintSeriesReplication? _sprints = sprints;
-
     /// <summary>Where the My Day preferences go, or null on a head that keeps none — an
     /// older desktop build. The phone folds the document itself and composes no
     /// merge.</summary>
     private readonly IMyDayPreferencesReplication? _myDay = myDay;
+
+    /// <summary>Where the iteration settings go, or null on a head that keeps none — an
+    /// older desktop build, or the phone, which reads the iteration from the stand-up
+    /// context instead.</summary>
+    private readonly IIterationSettingsReplication? _iteration = iteration;
+
+    /// <summary>Where a goal goes, or null on a head without Progress — the phone, or a
+    /// build from before the port.</summary>
+    private readonly IGoalReplication? _goals = goals;
+
+    /// <summary>Where an impediment goes, or null on a head without Progress.</summary>
+    private readonly IImpedimentReplication? _impediments = impediments;
+
+    /// <summary>Where an impediment edit the phone asked for is applied, or null on a head
+    /// without Progress, which leaves the edit on the replica for one that has it.</summary>
+    private readonly IImpedimentEditIntake? _impedimentEdits = impedimentEdits;
+
+    /// <summary>Where the tombstone of an edit Progress answered waits for the push, or null
+    /// on a head that sends none — the edit then stays on the replica, and the next desktop
+    /// refuses it as stale.</summary>
+    private readonly ImpedimentEditRetirements? _retirements = retirements;
+
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <summary>The signal the host's repository raises on every write, held
     /// here only to be silenced. A document arriving from the replica is not a
@@ -273,7 +306,11 @@ public sealed class TaskReplicaMerge(
 
         try
         {
-            foreach (var record in Winners(page))
+            // A page's impediment edits go after its other documents: an edit a closed desktop
+            // never retired then meets the latest copy of its impediment, and a change made
+            // since stands, rather than the edit stamping over it (local ADR 0035 §8). Stable,
+            // so edits keep the order they were asked in.
+            foreach (var record in Winners(page).OrderBy(record => ImpedimentEditReplicaDocuments.Is(record.Change)))
             {
                 switch (await ApplyOneAsync(record, moved, cancellationToken).ConfigureAwait(false))
                 {
@@ -620,14 +657,43 @@ public sealed class TaskReplicaMerge(
             return await ApplyGitHubSettingsAsync(record, settings, moved, cancellationToken).ConfigureAwait(false);
         }
 
-        if (SprintReplicaDocuments.IsSeries(record.Change))
+        if (RetiredReplicaDocuments.IsRetired(record.Change))
         {
-            return await ApplySprintSeriesAsync(record, moved, cancellationToken).ConfigureAwait(false);
+            _log.LogDebug(
+                "Dropping {Kind} document {DocumentId} from the replica: this build no longer keeps that kind.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Held;
         }
 
         if (MyDayReplicaDocuments.Is(record.Change))
         {
             return await ApplyMyDayPreferencesAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (IterationReplicaDocuments.Is(record.Change))
+        {
+            return await ApplyIterationSettingsAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (GoalReplicaDocuments.IsGoal(record.Change))
+        {
+            return await ApplyGoalAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (ImpedimentReplicaDocuments.IsImpediment(record.Change))
+        {
+            return await ApplyImpedimentAsync(record, moved, cancellationToken).ConfigureAwait(false);
+        }
+
+        // Written for the phone, which reads it; a desktop takes nothing from it, and it is
+        // never a task (local ADR 0035 §8).
+        if (StandUpContextReplicaDocuments.Is(record.Change)) return ApplyOutcome.Held;
+
+        if (ImpedimentEditReplicaDocuments.Is(record.Change))
+        {
+            return await ApplyImpedimentEditAsync(record, moved, cancellationToken).ConfigureAwait(false);
         }
 
         var local = await _tasks
@@ -813,40 +879,39 @@ public sealed class TaskReplicaMerge(
     }
 
     /// <summary>
-    /// Hands a sprint series document to Progress's port and counts what it answered,
-    /// exactly as <see cref="ApplyRoadmapAsync"/> does for the roadmap's.
+    /// Hands a goal document to Progress's port and counts what it answered, exactly as
+    /// <see cref="ApplyRoadmapAsync"/> does for the roadmap's (local ADR 0035 §9).
     /// </summary>
-    private async Task<ApplyOutcome> ApplySprintSeriesAsync(
+    private async Task<ApplyOutcome> ApplyGoalAsync(
         TaskChangeRecord record,
         List<SyncActivityEntry> moved,
         CancellationToken cancellationToken)
     {
-        // Skipped, not held, on a head without the port, for the reason the roadmap's
-        // documents give: the series will not land until this build can take it.
-        if (_sprints is null)
+        // Skipped, not held, on a head without the port: the goal will not land until
+        // this build can take it, and it never becomes a task.
+        if (_goals is null)
         {
             _log.LogWarning(
-                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no sprint series.",
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no goals.",
                 record.Change.Task.Type,
                 record.Change.Id);
 
             return ApplyOutcome.Unreadable;
         }
 
-        var outcome = await _sprints
-            .ApplyAsync(SprintReplicaDocuments.ToCopy(record.Change), cancellationToken)
+        var outcome = await _goals
+            .ApplyAsync(GoalReplicaDocuments.ToCopy(record.Change), cancellationToken)
             .ConfigureAwait(false);
 
         switch (outcome)
         {
-            case SprintSeriesReplicaOutcome.Taken:
-                Moved(
-                    moved, SyncDirection.Received, SyncItemKind.SprintSeries, record.Change.Id.ToString("D"), record.Change.Task.Title);
+            case GoalReplicaOutcome.Taken:
+                Moved(moved, SyncDirection.Received, SyncItemKind.Goal, record.Change.Id.ToString("D"), record.Change.Task.Title);
                 return ApplyOutcome.Written;
 
-            case SprintSeriesReplicaOutcome.Unreadable:
+            case GoalReplicaOutcome.Unreadable:
                 _log.LogWarning(
-                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that series. "
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that goal. "
                     + "The local copy is left as it is.",
                     record.Change.Task.Type,
                     record.Change.Id);
@@ -856,6 +921,133 @@ public sealed class TaskReplicaMerge(
             default:
                 return ApplyOutcome.Held;
         }
+    }
+
+    /// <summary>
+    /// Hands an impediment document to Progress's port and counts what it answered, exactly
+    /// as <see cref="ApplyGoalAsync"/> does for a goal (local ADR 0035 §9).
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyImpedimentAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        if (_impediments is null)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no impediments.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _impediments
+            .ApplyAsync(ImpedimentReplicaDocuments.ToCopy(record.Change), cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case ImpedimentReplicaOutcome.Taken:
+                Moved(moved, SyncDirection.Received, SyncItemKind.Impediment, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                return ApplyOutcome.Written;
+
+            case ImpedimentReplicaOutcome.Unreadable:
+                _log.LogWarning(
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that impediment. "
+                    + "The local copy is left as it is.",
+                    record.Change.Task.Type,
+                    record.Change.Id);
+                return ApplyOutcome.Unreadable;
+
+            default:
+                return ApplyOutcome.Held;
+        }
+    }
+
+    /// <summary>
+    /// Offers again every impediment edit a pull deferred because this desktop did not hold
+    /// its impediment yet — the session calls it once a pull has finished, when the
+    /// impediment may have arrived. One still unknown is deferred again, for the life of the
+    /// process; one Progress answers is retired as any other.
+    /// </summary>
+    public async Task<int> RetryDeferredEditsAsync(CancellationToken cancellationToken = default)
+    {
+        if (_retirements?.TakeDeferred() is not { Count: > 0 } deferred) return 0;
+
+        var applied = 0;
+        var moved = new List<SyncActivityEntry>();
+
+        try
+        {
+            foreach (var change in deferred)
+            {
+                var record = new TaskChangeRecord(change, Guid.Empty, 0);
+                if (await ApplyImpedimentEditAsync(record, moved, cancellationToken).ConfigureAwait(false) == ApplyOutcome.Written) applied++;
+            }
+        }
+        finally
+        {
+            _activity?.RecordRange(moved);
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// Hands an impediment edit the phone asked for to Progress, which applies it through its
+    /// impediment features, and queues the edit's tombstone once Progress has answered it —
+    /// applied, already so, stale or refused alike, since none of those answers changes on a
+    /// second asking (local ADR 0035 §8). A retired edit, or one on a head without Progress, is
+    /// left alone: another desktop may still apply it.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyImpedimentEditAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        if (record.Change.DeletedAt is not null || _impedimentEdits is null) return ApplyOutcome.Held;
+
+        if (ImpedimentEditReplicaDocuments.ToEdit(record.Change) is not { } edit)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this build cannot read the edit. "
+                + "It is left on the replica.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _impedimentEdits.ApplyAsync(edit, cancellationToken).ConfigureAwait(false);
+
+        // An impediment this desktop has not got yet may arrive later in the same pull: the
+        // edit is kept and offered again once the pull is done (RetryDeferredEditsAsync).
+        if (outcome == ImpedimentEditOutcome.Unknown)
+        {
+            _log.LogInformation(
+                "Deferring impediment edit {DocumentId}: this desktop holds no impediment {ImpedimentId} yet.",
+                record.Change.Id,
+                edit.ImpedimentId);
+
+            _retirements?.Defer(record.Change);
+            return ApplyOutcome.Held;
+        }
+
+        _retirements?.Add(ImpedimentEditReplicaDocuments.Retire(record.Change, _time.GetUtcNow()));
+
+        if (outcome != ImpedimentEditOutcome.Applied)
+        {
+            _log.LogInformation(
+                "Impediment edit {DocumentId} from the phone was not applied ({Outcome}).",
+                record.Change.Id,
+                outcome);
+
+            return ApplyOutcome.Held;
+        }
+
+        Moved(moved, SyncDirection.Received, SyncItemKind.Impediment, edit.ImpedimentId.ToString("D"), record.Change.Task.Title, "edited on the phone");
+        return ApplyOutcome.Written;
     }
 
     /// <summary>
@@ -893,6 +1085,53 @@ public sealed class TaskReplicaMerge(
             case MyDayPreferencesReplicaOutcome.Unreadable:
                 _log.LogWarning(
                     "Skipping {Kind} document {DocumentId} from the replica: it does not read as the My Day preferences. "
+                    + "The local copy is left as it is.",
+                    record.Change.Task.Type,
+                    record.Change.Id);
+                return ApplyOutcome.Unreadable;
+
+            // An echo or an older copy: the local one stands, as it does for a task.
+            default:
+                return ApplyOutcome.Held;
+        }
+    }
+
+    /// <summary>
+    /// Hands the iteration settings document to its port and counts what it answered,
+    /// exactly as <see cref="ApplyMyDayPreferencesAsync"/> does for the My Day
+    /// preferences.
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyIterationSettingsAsync(
+        TaskChangeRecord record,
+        List<SyncActivityEntry> moved,
+        CancellationToken cancellationToken)
+    {
+        // Skipped, not held, on a head without the port: the settings will not land until
+        // this build can take them, and the one-time feed replay brings them in then.
+        if (_iteration is null)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no iteration settings.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _iteration
+            .ApplyAsync(IterationReplicaDocuments.ToCopy(record.Change), cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case IterationSettingsReplicaOutcome.Taken:
+                Moved(
+                    moved, SyncDirection.Received, SyncItemKind.IterationSettings, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                return ApplyOutcome.Written;
+
+            case IterationSettingsReplicaOutcome.Unreadable:
+                _log.LogWarning(
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as the iteration settings. "
                     + "The local copy is left as it is.",
                     record.Change.Task.Type,
                     record.Change.Id);

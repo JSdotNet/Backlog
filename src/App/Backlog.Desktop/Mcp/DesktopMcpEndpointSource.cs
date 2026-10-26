@@ -7,9 +7,10 @@ using Backlog.SharedKernel;
 namespace Backlog.Desktop.Mcp;
 
 /// <summary>
-/// This machine's own MCP server, answered for the tools pane: the configured
-/// port, why nothing is listening when nothing is, and the token a registration
-/// has to carry.
+/// This machine's own MCP server, answered for the tools pane and the Settings
+/// screen's MCP server page: the configured port, whether and where the listener
+/// holds it, why nothing is listening when nothing is, and the token a
+/// registration has to carry.
 /// <para>
 /// Two sources, because the facts genuinely live in two places. The port and
 /// the token are the workspace settings, and why the socket was not taken is
@@ -33,10 +34,11 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
     /// before <c>Build()</c> had finished would be what bound the port.
     /// </para>
     /// <para>
-    /// So it is reached only where the answer genuinely requires it: the two
-    /// properties that are about a socket, and the subscription. All three
-    /// happen when the pane opens, long after the head has already composed the
-    /// worker — so in the app this is a singleton lookup, not a construction.
+    /// So it is reached only where the answer genuinely requires it: the
+    /// properties that are about a socket, <see cref="Retry"/>, and the
+    /// subscription. All of them happen when a pane or the Settings page opens,
+    /// long after the head has already composed the worker — so in the app this
+    /// is a singleton lookup, not a construction.
     /// </para>
     /// </summary>
     private readonly Func<McpServerWorker> _worker;
@@ -84,6 +86,24 @@ public sealed class DesktopMcpEndpointSource : IMcpEndpointSource, IDisposable
     /// telling the reader to change it in every registration too. That is
     /// precisely what the row this feeds makes actionable.</summary>
     public string? Unavailable => _worker().LastError;
+
+    /// <inheritdoc />
+    public bool IsListening => _worker().IsListening;
+
+    /// <inheritdoc />
+    /// <remarks>The worker's own <c>Address</c>, which it builds with
+    /// <c>BacklogMcpServerRegistration.EndpointUri</c> as it binds — the helper a
+    /// registration is written with — so it is never restated here.</remarks>
+    public Uri? Endpoint => _worker().Address;
+
+    /// <inheritdoc />
+    /// <remarks>Through the store and not the worker: the port is a setting, and
+    /// the worker already follows the store's <c>McpChanged</c> to rebind. Going
+    /// to the worker directly would be a second path to the same rebind.</remarks>
+    public string? SetPort(int port) => _settings.SetMcpServerPort(port);
+
+    /// <inheritdoc />
+    public void Retry() => _worker().Retry();
 
     /// <inheritdoc />
     public string EnsureToken()

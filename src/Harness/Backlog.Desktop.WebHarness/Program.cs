@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.Composition;
 using Backlog.UI.Components.AppUpdate;
@@ -103,6 +104,10 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     // Under the content root, never %LOCALAPPDATA%: that folder is shared by every
     // worktree's harness and by the installed app.
     MyDayPreferences = _ => CreateLocalDevelopmentMyDayPreferencesStore(builder.Environment.ContentRootPath),
+    // Under the content root for the same reason, seeded from this harness's own shell
+    // navigation file.
+    IterationSettings = sp => CreateLocalDevelopmentIterationSettingsStore(
+        builder.Environment.ContentRootPath, sp.GetRequiredService<ShellNavigationStore>()),
     ShellNavigation = _ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath),
     CaptureSourceSettings = _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath),
     CaptureRunLog = _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath),
@@ -248,6 +253,10 @@ _ = app.Services.GetRequiredService<BackupWorker>();
 // And the linked task sync's timer, on the same terms and for the same reason the
 // desktop head resolves it.
 _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
+
+// And the blocked-task watcher, on the same terms and for the same reason the desktop
+// head resolves it.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
 
 // And the devbook database refresher: resolving it points every database reader
 // at the app's storage, so it has to exist before the first pane opens.
@@ -493,6 +502,17 @@ static MyDayPreferencesStore CreateLocalDevelopmentMyDayPreferencesStore(string 
     }
 
     return new MyDayPreferencesStore(settingsPath);
+}
+
+static IterationSettingsStore CreateLocalDevelopmentIterationSettingsStore(string contentRootPath, ShellNavigationStore legacy)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_ITERATION_SETTINGS_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "iteration-settings.settings.json");
+    }
+
+    return new IterationSettingsStore(settingsPath, legacy);
 }
 
 static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsStore(string contentRootPath)

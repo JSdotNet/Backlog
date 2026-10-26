@@ -24,17 +24,31 @@ namespace Backlog.UI.Components.UnitTests;
 /// </summary>
 public sealed class C4WorkspaceTests
 {
-    private const string WorkspaceFolder = "_c4";
+    /// <summary>devbook's contract 33: one workspace beside the architecture chapters.</summary>
+    private const string WorkspaceFile = "workspace.dsl";
+
+    /// <summary>The only folder the workspace may <c>!include</c> from.</summary>
+    private const string IncludeFolder = "c4";
+
+    /// <summary>The folder that held the workspaces before contract 33, and still holds
+    /// the authored reference map.</summary>
+    private const string ReferenceFolder = "_c4";
 
     /// <summary>A reference to a workspace as a chapter would spell one. Present in a
     /// chapter it is a problem rather than a feature — see the test that says why.</summary>
     private static readonly Regex WorkspaceReferencePattern =
-        new(@"(?:\.devbook/arc42|\.arc42)/_c4/[A-Za-z0-9._-]+\.dsl", RegexOptions.Compiled);
+        new(@"(?:\.devbook/arc42|\.arc42)/(?:_c4/|c4/)?[A-Za-z0-9._-]+\.dsl", RegexOptions.Compiled);
+
+    /// <summary>How a chapter shows a view under contract 33: <c>![…](c4:&lt;view key&gt;)</c>.</summary>
+    private static readonly Regex EmbedPattern =
+        new(@"!\[[^\]]*\]\(c4:(?<key>[A-Za-z0-9._-]+)\)", RegexOptions.Compiled);
+
+    private static string Arc42Folder => Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "arc42");
 
     /// <summary>The authored view-to-chapters map beside the workspace.</summary>
     private static Dictionary<string, string[]> References()
     {
-        var path = Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "arc42", WorkspaceFolder, "references.json");
+        var path = Path.Combine(Arc42Folder, ReferenceFolder, "references.json");
         Assert.True(File.Exists(path), $"Expected an authored reference map at {path}.");
 
         using var document = JsonDocument.Parse(File.ReadAllText(path));
@@ -48,8 +62,27 @@ public sealed class C4WorkspaceTests
 
     private static IReadOnlyList<FileInfo> Workspaces()
     {
-        var folder = new DirectoryInfo(Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "arc42", WorkspaceFolder));
-        return folder.Exists ? [.. folder.EnumerateFiles("*.dsl", SearchOption.TopDirectoryOnly)] : [];
+        var file = new FileInfo(Path.Combine(Arc42Folder, WorkspaceFile));
+        return file.Exists ? [file] : [];
+    }
+
+    /// <summary>The chapters each view is embedded in, by view key — the contract 33
+    /// statement of which chapter a view documents.</summary>
+    private static Dictionary<string, List<string>> Embeds()
+    {
+        var embeds = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var chapter in Chapters())
+        {
+            foreach (Match match in EmbedPattern.Matches(File.ReadAllText(chapter.FullName)))
+            {
+                var key = match.Groups["key"].Value;
+                if (!embeds.TryGetValue(key, out var chapters)) embeds[key] = chapters = [];
+                chapters.Add(Relative(chapter));
+            }
+        }
+
+        return embeds;
     }
 
     private static IEnumerable<FileInfo> Chapters()
@@ -74,7 +107,7 @@ public sealed class C4WorkspaceTests
     }
 
     private static C4Workspace Read(string name) =>
-        C4DslReader.Read(File.ReadAllText(Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "arc42", WorkspaceFolder, name)));
+        C4DslReader.Read(File.ReadAllText(Path.Combine(Arc42Folder, name)));
 
     [Fact]
     public void The_architecture_folder_carries_at_least_one_workspace()
@@ -264,7 +297,7 @@ public sealed class C4WorkspaceTests
         var references = References();
         Assert.NotEmpty(references);
 
-        var keys = Read("backlog.dsl").Views.Select(view => view.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var keys = Read(WorkspaceFile).Views.Select(view => view.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var unknown = references.Keys.Where(key => !keys.Contains(key)).ToList();
 
         Assert.Empty(unknown);
@@ -297,20 +330,38 @@ public sealed class C4WorkspaceTests
     /// <summary>
     /// A view nothing documents is a view the app can draw and no chapter admits to,
     /// which is the arrangement failing quietly — the whole point is that the two sit
-    /// beside each other with references.
+    /// beside each other with references. Either statement counts: a chapter embedding
+    /// the view as <c>![…](c4:&lt;key&gt;)</c>, or the authored reference map naming it.
     /// </summary>
     [Theory]
     [MemberData(nameof(WorkspaceFiles))]
     public void Every_view_of_the_committed_workspace_documents_a_chapter(string name)
     {
         var references = References();
+        var embeds = Embeds();
 
         var undocumented = Read(name).Views
             .Select(view => view.Key)
+            .Where(key => !embeds.ContainsKey(key))
             .Where(key => !references.TryGetValue(key, out var chapters) || chapters.Length == 0)
             .ToList();
 
         Assert.Empty(undocumented);
+    }
+
+    /// <summary>Every embed has to name a view the workspace declares. A typo in one is
+    /// a chapter showing nothing where its picture should be.</summary>
+    [Fact]
+    public void Every_embedded_view_exists_in_the_committed_workspace()
+    {
+        var keys = Read(WorkspaceFile).Views.Select(view => view.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var unknown = Embeds()
+            .Where(pair => !keys.Contains(pair.Key))
+            .Select(pair => $"{string.Join(", ", pair.Value)} embeds c4:{pair.Key}, which the workspace does not declare")
+            .ToList();
+
+        Assert.Empty(unknown);
     }
 
     /// <summary>
@@ -329,17 +380,41 @@ public sealed class C4WorkspaceTests
 
     /// <summary>
     /// <c>.domain</c> links to the architecture model rather than carrying one. A
-    /// <c>_c4</c> folder there would be a C4 model of a bounded context, and Structurizr
-    /// has no vocabulary for what a domain chapter says — no aggregate root, no value
-    /// object, no multiplicity.
+    /// workspace there would be a C4 model of a bounded context, and Structurizr has no
+    /// vocabulary for what a domain chapter says — no aggregate root, no value object,
+    /// no multiplicity.
     /// </summary>
     [Fact]
     public void No_knowledge_folder_other_than_arc42_carries_a_C4_workspace()
     {
-        var stray = new[] { ".devbook/domain", ".devbook/tech", ".devbook/design", ".devbook/ai" }
+        var folders = new[] { ".devbook/domain", ".devbook/tech", ".devbook/design", ".devbook/ai" }
             .Select(folder => new DirectoryInfo(Path.Combine([RepositoryRoot.Root.FullName, .. folder.Split('/')])))
             .Where(folder => folder.Exists)
-            .SelectMany(folder => folder.EnumerateDirectories(WorkspaceFolder, SearchOption.AllDirectories))
+            .ToList();
+
+        var stray = folders
+            .SelectMany(folder => folder.EnumerateFiles("*.dsl", SearchOption.AllDirectories))
+            .Cast<FileSystemInfo>()
+            .Concat(folders.SelectMany(folder => folder.EnumerateDirectories(ReferenceFolder, SearchOption.AllDirectories)))
+            .Select(Relative)
+            .ToList();
+
+        Assert.Empty(stray);
+    }
+
+    /// <summary>Includes, when the workspace has any, come from <c>c4/</c> and nowhere
+    /// else — the only folder devbook lets a workspace include from — so a <c>.dsl</c>
+    /// anywhere else under the architecture folder is a model nothing reads.</summary>
+    [Fact]
+    public void Every_dsl_under_the_architecture_folder_is_the_workspace_or_one_it_includes_from_c4()
+    {
+        var workspace = Path.Combine(Arc42Folder, WorkspaceFile);
+        var includes = Path.Combine(Arc42Folder, IncludeFolder) + Path.DirectorySeparatorChar;
+
+        var stray = new DirectoryInfo(Arc42Folder)
+            .EnumerateFiles("*.dsl", SearchOption.AllDirectories)
+            .Where(file => !string.Equals(file.FullName, workspace, StringComparison.OrdinalIgnoreCase))
+            .Where(file => !file.FullName.StartsWith(includes, StringComparison.OrdinalIgnoreCase))
             .Select(Relative)
             .ToList();
 
@@ -366,19 +441,22 @@ public sealed class C4WorkspaceTests
     }
 
     /// <summary>
-    /// Both existing mermaid C4 fences stay exactly where they were. The feature is
-    /// additive, and removing either would be the one thing this change was told not to
-    /// do.
+    /// The two chapters whose mermaid C4 fences devbook's migration 033 moved into the
+    /// workspace now embed the view each fence became, and the workspace declares it.
+    /// Losing either embed would leave the chapter with no picture at all.
     /// </summary>
     [Theory]
-    [InlineData(".devbook/arc42/03-context-and-scope.md", "C4Context")]
-    [InlineData(".devbook/arc42/05-building-block-view.md", "C4Container")]
-    public void The_existing_mermaid_C4_fences_are_still_in_their_chapters(string chapter, string keyword)
+    [InlineData(".devbook/arc42/03-context-and-scope.md", "business-context")]
+    [InlineData(".devbook/arc42/05-building-block-view.md", "container-view")]
+    public void The_migrated_chapters_embed_the_view_their_fence_became(string chapter, string viewKey)
     {
         var text = File.ReadAllText(Path.Combine(RepositoryRoot.Root.FullName, chapter.Replace('/', Path.DirectorySeparatorChar)));
 
-        Assert.Contains("```mermaid", text, StringComparison.Ordinal);
-        Assert.Contains(keyword, text, StringComparison.Ordinal);
+        Assert.Contains(
+            viewKey,
+            EmbedPattern.Matches(text).Select(match => match.Groups["key"].Value),
+            StringComparer.OrdinalIgnoreCase);
+        Assert.NotNull(Read(WorkspaceFile).View(viewKey));
     }
 
     private static string Relative(FileSystemInfo file) =>

@@ -1746,6 +1746,17 @@ button.badge:hover {
     transform: rotate(90deg);
 }
 
+/* ChevronAtEnd: a drawn chevron that points down closed and turns to point up open,
+   so the row reads as a list that opens below it. */
+.fold__chevron--end {
+    display: inline-flex;
+    font-size: inherit;
+}
+
+.fold__chevron--end.fold__chevron--open {
+    transform: rotate(180deg);
+}
+
 @media (prefers-reduced-motion: reduce) {
     .fold__chevron,
     .entry-doc__fold-chevron {
@@ -3648,8 +3659,7 @@ button.devbook-chip__label:focus-visible {
 }
 
 .devbook-scenario-shot--unknown-label .devbook-scenario-shot__source,
-.devbook-scenario-shot--unknown-page .devbook-scenario-shot__source,
-.devbook-scenario-shot--ambiguous-stem .devbook-scenario-shot__source { color: var(--color-error-text); }
+.devbook-scenario-shot--unknown-page .devbook-scenario-shot__source { color: var(--color-error-text); }
 
 /* --- Devbook type marker ------------------------------------------------ */
 /*
@@ -4804,10 +4814,14 @@ button.task-panel__check:focus-visible {
    the badge's slug is the one thing both shapes carry. The child combinators keep
    a row from reading a sub-item's badge in the fold under it. The ancestor sits in
    :where so each rule weighs no more than the circle's own: the hover and focus
-   edge above still repaints it, and a completed circle's edge still wins. */
+   edge above still repaints it, and a completed circle's edge still wins.
+
+   Draft is the one exception to "the fill": its badge is filled with
+   --color-background-raised, the panel's own fill, so a circle in it vanished in
+   the detail pane. It takes the badge's text colour instead. */
 :where(.task-item:has(> :is(.task-item__head, .task-item__line, .task-item__actions) .badge--status-draft)) > .task-item__check,
 :where(.task-panel__header:has(> .task-panel__status.badge--status-draft, > .task-panel__status .badge--status-draft)) .task-panel__check {
-    border-color: var(--color-background-raised);
+    border-color: var(--color-text-secondary);
 }
 
 :where(.task-item:has(> :is(.task-item__head, .task-item__line, .task-item__actions) .badge--status-ready)) > .task-item__check,
@@ -6341,25 +6355,20 @@ button.task-panel__check:focus-visible {
    me" and "Reminder, Monday 09:00" are the same control in two states rather
    than two controls.
 */
-/* One height, set or not, and it is the reason the two columns line up.
+/* One line, set or not, and it is the reason the two columns line up.
 
-   A row that is set carries a second line under its label and a row that is not
-   carries nothing, so left to their contents the rows of one column stand at
-   different heights from the rows of the other and the pane stops being two
-   columns after the first row of it. The value's line is reserved on the row
-   itself: it is part of what a row is, whether or not there is a value on it yet.
+   The value sits after the label on the same line rather than under it, so a row
+   that is set is as tall as one that is not and the rows of one column stay level
+   with the rows of the other without reserving a line nobody may fill. A side
+   panel's height is what everything in it competes for; a reserved second line
+   on every row was a third of the pane spent on blanks.
 
-   The row is the box that gets taller; what is in it stays at the top of it. A
-   row that centred its contents would set the same word lower on a row with
-   nothing under it than on the row beside it, which is the misalignment this rule
-   exists to remove, one line down.
-
-   Stated as the sum rather than as a number so it follows the type ramp — the day
-   font-size-xs changes, this changes with it. */
+   2rem is the floor `.btn--icon` keeps, so the ✕ fits the row and the row is
+   still a comfortable target; the button and the ✕ stretch to it. */
 .task-action {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
+    align-items: stretch;
     /* Positioned because a disabled row carries an `.sr-only` copy of its reason.
        `.sr-only` is absolutely positioned, so without a positioned ancestor its
        containing block is the page: the hidden sentence then lands at page
@@ -6367,10 +6376,7 @@ button.task-panel__check:focus-visible {
        `.devbook-fields` carries the same note for the same reason. Nothing
        moves — the copy has no offsets to resolve against. */
     position: relative;
-    min-height: calc(
-        (var(--font-size-sm) + var(--font-size-xs)) * var(--line-height-normal)
-        + var(--spacing-sm) * 2
-    );
+    min-height: 2rem;
     border-radius: var(--border-radius-md);
 }
 
@@ -6384,7 +6390,7 @@ button.task-panel__check:focus-visible {
     align-items: center;
     gap: var(--spacing-sm);
     width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-xs) var(--spacing-md);
     border: none;
     border-radius: var(--border-radius-md);
     background: transparent;
@@ -6393,6 +6399,24 @@ button.task-panel__check:focus-visible {
     font-size: var(--font-size-sm);
     text-align: left;
     cursor: pointer;
+}
+
+/* Label, then value, on one baseline. Only the value gives way — the label does
+   not shrink, and the value ellipsises with its title carrying the whole of it — so "Waiting for" stays readable while the list of
+   names it waits on is cut. */
+.task-action__label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.task-action__text {
+    flex: 0 0 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .task-action__main:focus-visible {
@@ -6454,7 +6478,7 @@ button.task-panel__check:focus-visible {
 }
 
 .task-action--prominent .task-action__main {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
 }
 
 .task-action--prominent .task-action__icon {
@@ -6472,26 +6496,19 @@ button.task-panel__check:focus-visible {
 }
 
 .task-action__value {
-    display: block;
+    flex: 0 100 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
 }
 
-/* Icon-only, for an act that shares a row with another action instead of owning
-   one of its own — "Create follow-up" beside "Waiting for" is the case this was
-   built for. The two-column grid above exists to line a label up against a value
-   down every row of a group; a compact action carries neither, so there is
-   nothing left for the grid to reserve room for, and it collapses to the one
-   thing still in it — the button, sized to its icon rather than stretched to
-   fill a row it does not have to itself. */
-/* A row that has shrunk to its icon, for an act that shares a line with a row
-   that needs the width. The grid the full-size row uses is a label column and a
-   clear column, and a compact one has neither — no label to lay out and nothing
-   to clear — so it stops being a grid and becomes as wide as its glyph. The
-   2rem below is the same floor `.btn--icon` keeps, because a control the size of
-   its own glyph is smaller than a finger. `.task-action`'s own min-height is
-   sized to a label over a value and would hold this open to two lines it has no
-   text for, which is why it is dropped rather than overridden with a number. */
+/* Icon-only, for an act that shares a line with a row that needs the width —
+   "Create follow-up" beside "Waiting for" is the case this was built for. The
+   grid the full-size row uses is a label column and a clear column, and a compact
+   one has neither, so it stops being a grid and becomes as wide as its glyph. The
+   button keeps the 2rem floor itself, so the row's own min-height is dropped. */
 .task-action--compact {
     display: inline-flex;
     width: auto;
@@ -6562,7 +6579,7 @@ button.task-panel__check:focus-visible {
 .task-action-pane {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     min-width: 0;
 }
 
@@ -6615,9 +6632,9 @@ button.task-panel__check:focus-visible {
    narrow case working with nothing said about it: at a width that holds one row,
    every row wraps and the band is the stack it always was.
 
-   And a row is as tall as its label. The reserved line — every row keeping the
-   height its value would take whether or not it has one — exists so two columns
-   stay level with each other, and in a band there are no columns to level.
+   And a row is as tall as its label. The 2rem floor is there so the column
+   shape's rows make a comfortable target stacked down a panel; a strip is
+   denser than that, and nothing in it has to line up with a column beside it.
 */
 .task-action-pane--band {
     /* Both hosts of a band were declaring these two lines, in the same order and
@@ -6684,7 +6701,7 @@ button.task-panel__check:focus-visible {
 .task-panel {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
     min-width: 0;
     padding: var(--spacing-lg);
     border: var(--border-width) solid var(--color-border);
@@ -17238,6 +17255,18 @@ select.field__input {
     min-height: 0;
 }
 
+/* Inside running text: a block the width of the text, as tall as the picture's own
+   aspect ratio makes it, never taller than most of the screen. */
+.c4-diagram-host--inline {
+    display: block;
+    height: auto;
+}
+
+.c4-diagram-host--inline .c4-diagram {
+    height: auto;
+    max-height: 70vh;
+}
+
 .c4-diagram {
     display: block;
     width: 100%;
@@ -17657,6 +17686,8 @@ select.field__input {
 
 .tab-bar__tab {
     display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
     align-items: center;
     justify-content: center;
     min-height: 3rem;
@@ -17671,6 +17702,16 @@ select.field__input {
 .tab-bar__tab:focus-visible {
     background: var(--color-background-raised);
     color: var(--color-text-primary);
+}
+
+/*
+  A tab's glyph sits above its word, in the word's ink, so the lit tab's glyph
+  lights with it. The glyph is drawn at icon-md (20px) by the host; the slot
+  only keeps its line box from adding height under it.
+*/
+.tab-bar__icon {
+    display: inline-flex;
+    line-height: 0;
 }
 
 /* Weight and a bar, not colour alone, say which tab is current. */
@@ -18700,6 +18741,367 @@ select.field__input {
     .focus__ring-fill {
         transition: none;
     }
+}
+
+/* --- Phone stand-up: goals, blocks and impediments ---------------------- */
+/*
+  The parts of the phone's Stand-up, goal and impediment pages
+  (PhoneStandup/*.razor): a goal's card and the bar of how its items stand,
+  the done-per-week spark, a block's items grouped by goal, an impediment's
+  row, its state list, and the iteration switch the page draws with a
+  RadioGroup. Every target keeps the 44px touch minimum of
+  accessibility.md#target-sizes-and-text.
+
+  Each state takes the tone it wears everywhere else — done the success ink,
+  doing the accent, blocked the error ink — and the badges sit on the one tone
+  scale (color-scheme.md#goal-forecast-badges, #impediment-state-tones). The
+  words always say what the colour says.
+*/
+
+.standup-switch {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--spacing-xs);
+    padding: var(--spacing-2xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+}
+
+.standup-switch__option {
+    min-height: 44px;
+    padding: 0 var(--spacing-xs);
+    border: 0;
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.standup-switch__option--checked {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.badge--standup,
+.badge--standup-impediment {
+    gap: var(--spacing-xs);
+    flex: none;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    color: var(--color-secondary);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+}
+
+.badge--standup-at-risk,
+.badge--standup-impediment-escalated {
+    border-color: var(--color-error-text);
+    background: var(--color-error);
+    color: var(--color-error-text);
+}
+
+.badge--standup-on-track,
+.badge--standup-impediment-resolved {
+    background: var(--color-success);
+    color: var(--color-success-text);
+}
+
+.badge--standup-impediment-new {
+    border-color: var(--color-secondary);
+}
+
+.badge--standup-impediment-being-handled {
+    background: var(--color-warning);
+    color: var(--color-text-primary);
+}
+
+.standup-impediment-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-error-text);
+}
+
+.standup-impediment-arrow {
+    flex: none;
+}
+
+.goal-bar {
+    display: flex;
+    gap: 2px;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+}
+
+.goal-bar__part {
+    flex-basis: 0;
+    min-width: 2px;
+}
+
+.goal-bar__part--done {
+    background: var(--color-success-text);
+}
+
+.goal-bar__part--doing {
+    background: var(--color-primary);
+}
+
+.goal-bar__part--blocked {
+    background: var(--color-error-text);
+}
+
+.goal-bar__part--to-do {
+    background: var(--color-background-raised);
+}
+
+.week-spark {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: var(--spacing-xs);
+    height: 28px;
+}
+
+.week-spark__bar {
+    width: 10px;
+    border-radius: 2px;
+    background: var(--color-border);
+}
+
+.week-spark__bar--current {
+    background: var(--color-success-text);
+}
+
+.standup-goal {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: 14px var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.standup-goal:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.standup-goal:focus-visible,
+.standup-impediment:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.standup-goal__head,
+.standup-impediment__head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.standup-goal__title {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9375rem;
+    font-weight: var(--font-weight-semibold);
+}
+
+.standup-goal__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.standup-goal__done {
+    color: var(--color-text-primary);
+}
+
+.standup-work {
+    margin: 0;
+    padding: var(--spacing-xs) 0;
+    list-style: none;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.standup-work__goal {
+    display: block;
+    padding: var(--spacing-sm) var(--spacing-md) 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.standup-work__items {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.standup-work__item {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding: 6px var(--spacing-md);
+}
+
+.standup-work__line {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.standup-work__title {
+    flex: 1;
+    min-width: 0;
+}
+
+.standup-work__trailing {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.standup-work__detail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.standup-impediment {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-xs);
+    min-height: 44px;
+    padding: 12px var(--spacing-md);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+.standup-impediment:hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.standup-impediment__title {
+    flex: 1;
+    min-width: 0;
+    font-weight: var(--font-weight-medium);
+}
+
+/* One line, as the artboard draws it: what does not fit ends in an ellipsis. */
+.standup-impediment__meta {
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.standup-impediment__goal {
+    color: var(--color-error-text);
+}
+
+/* A radio group laid out as a column of rows rather than a row of pills. */
+.impediment-steps {
+    display: grid;
+}
+
+.impediment-steps__step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 10px;
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+}
+
+/* A state the impediment cannot move to is still part of its history, not a
+   dimmed control: it cannot be taken, and still reads at full strength. */
+.impediment-steps__step:disabled {
+    cursor: default;
+    opacity: 1;
+}
+
+.impediment-steps__step:not(:disabled):hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.impediment-steps__step--current {
+    min-height: 48px;
+    border-color: var(--color-border-strong);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.impediment-steps__step--current:has(.impediment-steps__marker--escalated) {
+    border-color: var(--color-error-text);
+    background: var(--color-error);
+    color: var(--color-error-text);
+}
+
+.impediment-steps__marker {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--border-radius-full);
+    color: var(--color-background);
+}
+
+.impediment-steps__marker--passed {
+    background: var(--color-success-text);
+}
+
+.impediment-steps__marker--current {
+    background: var(--color-primary);
+}
+
+.impediment-steps__marker--current.impediment-steps__marker--escalated,
+.impediment-steps__marker--current.impediment-steps__marker--new {
+    background: var(--color-error-text);
+}
+
+.impediment-steps__marker--current.impediment-steps__marker--resolved {
+    background: var(--color-success-text);
+}
+
+.impediment-steps__marker--open {
+    box-shadow: inset 0 0 0 2px var(--color-border);
+}
+
+.impediment-steps__label {
+    flex: 1;
+    min-width: 0;
+}
+
+.impediment-steps__with {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-normal);
+}
+
+.impediment-steps__day {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
 }
 
 /* --- Attachment strip ---------------------------------------------------- */
@@ -19855,6 +20257,11 @@ select.field__input {
     font-family: var(--font-family-mono);
 }
 
+/* The pull request status line among a card's facts, at the facts' size. */
+.work-card__status {
+    font-size: inherit;
+}
+
 /* The two columns: Sessions, then Pull requests, side by side while there is room
    and under each other where there is not. Stacked puts them under each other
    always, for a host as narrow as a side panel. */
@@ -19875,11 +20282,20 @@ select.field__input {
 
 .work-links--stacked {
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .work-links--stacked .work-links__column {
     flex: none;
+}
+
+/* An empty column in a stack says so on its heading's line — "SESSIONS None
+   yet" — rather than spending a second line on two words. A column with cards
+   keeps them under the heading. */
+.work-links--stacked .work-links__column:has(> .work-links__none) {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--spacing-sm);
 }
 
 .work-links__heading {
@@ -19913,8 +20329,9 @@ select.field__input {
     flex: none;
 }
 
-/* The side panel section: the heading with "Open in In progress" beside it, the
-   two columns stacked, and the link action under them. */
+/* The side panel section: the heading with the link action at the end of its
+   line, then the two columns stacked. Wrapping, so a panel too narrow for both
+   puts the action under the heading rather than squeezing either. */
 .work-links-panel {
     display: flex;
     flex-direction: column;
@@ -19923,8 +20340,9 @@ select.field__input {
 
 .work-links-panel__header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs) var(--spacing-sm);
 }
 
 .work-links-panel__heading {
@@ -19936,12 +20354,8 @@ select.field__input {
     text-transform: uppercase;
 }
 
-.work-links-panel__open {
-    margin-left: auto;
-}
-
 .work-links-panel__link {
-    align-self: flex-start;
+    margin-left: auto;
 }
 
 /* The picker behind "Link to a task…": one full-width button per choice, the
@@ -20031,215 +20445,6 @@ select.field__input {
 
 .work-link-picker__reference-link {
     line-height: var(--line-height-normal);
-}
-
-/* --- In progress, by task -------------------------------------------------------
-   InProgressBoard: the header with its two toggles, then one section per rule —
-   Needs you, Moving, and last Not linked to a task — each a dot, a name, a count
-   and a hint over its cards. A task card is the facts on the left and its
-   WorkLinks on the right, wrapping under each other where the view is narrow. */
-.in-progress-board {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-    min-width: 0;
-}
-
-.in-progress-board__header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm) var(--spacing-md);
-}
-
-.in-progress-board__title {
-    margin: 0;
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-semibold);
-}
-
-.in-progress-board__summary {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.in-progress-board__spacer {
-    flex: 1 1 2.5rem;
-}
-
-.in-progress-board__toggles {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-}
-
-.in-progress-board__section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-}
-
-.in-progress-board__section-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
-}
-
-.in-progress-board__dot {
-    width: 0.625rem;
-    height: 0.625rem;
-    border-radius: var(--border-radius-full);
-    background: var(--color-text-disabled);
-}
-
-.in-progress-board__section--needs-you .in-progress-board__dot {
-    background: var(--color-primary);
-}
-
-.in-progress-board__section--moving .in-progress-board__dot,
-.in-progress-board__section--all .in-progress-board__dot {
-    background: var(--color-success-text);
-}
-
-.in-progress-board__section-title {
-    margin: 0;
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-}
-
-.in-progress-board__count {
-    padding: 0 var(--spacing-sm);
-    border-radius: var(--border-radius-full);
-    background: var(--color-background-raised);
-    font-size: var(--font-size-xs);
-}
-
-.in-progress-board__hint,
-.in-progress-board__nothing {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.in-progress-task {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-md) var(--spacing-lg);
-    min-width: 0;
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-lg);
-    background: var(--color-background-alt);
-}
-
-.in-progress-task.repo-mark {
-    padding-left: calc(var(--spacing-md) + var(--border-width-4));
-}
-
-/* The focus a link lands on the card it moved the item under: the shared ring, so
-   the reader sees where the item went. */
-.in-progress-task:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
-.in-progress-task--loose {
-    border-style: dashed;
-    background: transparent;
-}
-
-.in-progress-task__facts {
-    display: flex;
-    flex: 1 1 18rem;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    min-width: 0;
-}
-
-.in-progress-task__links {
-    flex: 2 1 32rem;
-}
-
-.in-progress-task__top,
-.in-progress-task__meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-2xs) var(--spacing-sm);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.in-progress-task__status {
-    padding: 0 var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-primary);
-    color: var(--color-text-inverse);
-    font-weight: var(--font-weight-semibold);
-}
-
-.in-progress-task--finished .in-progress-task__status {
-    background: var(--color-background-raised);
-    color: var(--color-text-secondary);
-}
-
-.in-progress-task__plan {
-    color: var(--color-primary-light);
-    font-family: var(--font-family-mono);
-}
-
-.in-progress-task__effort {
-    font-family: var(--font-family-mono);
-}
-
-.in-progress-task__title {
-    color: var(--color-text-primary);
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-    line-height: var(--line-height-tight);
-}
-
-.in-progress-task__title--opens {
-    padding: 0;
-    border: 0;
-    background: none;
-    font-family: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-.in-progress-task__title--opens:hover {
-    text-decoration: underline;
-}
-
-.in-progress-task__title--opens:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: var(--border-width-2);
-}
-
-.in-progress-task__due--overdue {
-    color: var(--color-error-text);
-    font-weight: var(--font-weight-semibold);
-}
-
-.in-progress-loose__text {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
-}
-
-.in-progress-loose__link {
-    align-self: flex-start;
-}
-
-.in-progress-loose__item {
-    display: flex;
-    flex: 2 1 32rem;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    min-width: 0;
 }
 
 /* --- Notes ----------------------------------------------------------------- */
@@ -20990,626 +21195,328 @@ select.field__input {
     min-width: 0;
 }
 
-/* --- Sprint series card (Settings › Sprints) ----------------------------- */
-
-/* One series per card: a heading row with its switch, then label-and-value rows
-   in two columns that fold to one at a narrow width. A series switched off keeps
-   every row editable and drawn in the secondary ink, so it reads as resting
-   rather than as disabled. */
-.sprint-card {
-    display: grid;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md) var(--spacing-lg);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-lg);
-    background: var(--color-background-raised);
-    min-width: 0;
-}
-
-.sprint-card__head {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs) var(--spacing-sm);
-}
-
-/* Start Sprint 1…, after the running line on a series with no sprint yet. */
-.sprint-card__start {
-    margin-left: auto;
-}
-
-.sprint-card__title {
-    margin: 0;
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-semibold);
-}
-
-.sprint-card__running,
-.sprint-card__hint {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.sprint-card--off .sprint-card__title {
-    color: var(--color-text-secondary);
-}
-
-.sprint-card__section {
-    margin: var(--spacing-xs) 0 0;
-    padding-top: var(--spacing-sm);
-    border-top: var(--border-width) solid var(--color-border);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-}
-
-.sprint-card__field {
-    display: grid;
-    grid-template-columns: 12rem minmax(0, 1fr);
-    align-items: start;
-    gap: var(--spacing-xs) var(--spacing-md);
-    min-width: 0;
-}
-
-/* Goal is met when: the select and, for a share, its field and the reason on
-   one line, each dropping under the one before where the row is too narrow. */
-.sprint-card__inline {
-    display: flex;
+/*
+  The pull request status line (.devbook/design/color-scheme.md#pull-request-status-marks):
+  the #n pill in the gh family, then a checks mark and an approvals mark, each a glyph and
+  a count in the mark's ink. Running and Short share the live ink; a different glyph tells
+  them apart. A received count with no required total keeps the secondary ink: it is
+  information, not a verdict. Each mark is positioned because it holds an sr-only phrase,
+  for the reason .status-editor gives.
+*/
+.pull-request-status {
+    display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-xs) var(--spacing-sm);
     min-width: 0;
-}
-
-.sprint-card__met {
-    display: inline-flex;
-    max-width: 100%;
-}
-
-.sprint-card__inline > .field__control {
-    flex: 0 0 8rem;
-}
-
-.sprint-card__key {
-    padding-top: var(--spacing-xs);
-    color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.sprint-card__value {
-    display: grid;
-    gap: var(--spacing-xs);
-    min-width: 0;
-}
-
-.sprint-card__statement {
-    margin: 0;
-    padding-top: var(--spacing-xs);
-    font-size: var(--font-size-sm);
-}
-
-.sprint-card__select,
-.sprint-card__input {
-    max-width: 14rem;
-}
-
-.sprint-card__next {
-    grid-column: 2;
-}
-
-.sprint-card__share {
-    max-width: 8rem;
-}
-
-.sprint-card__chips {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.sprint-card__nest {
-    display: grid;
-    gap: var(--spacing-xs);
-    padding-left: var(--spacing-lg);
-}
-
-.sprint-card__chip-input {
-    max-width: 12rem;
-}
-
-/* Add repository is a select drawn as the dashed pill a suggested chip wears:
-   it adds a chip to the row it sits at the end of. */
-.sprint-card__add {
-    display: inline-flex;
-}
-
-.sprint-card__add-select {
-    min-height: 32px;
-    padding: 0 var(--spacing-sm);
-    border: var(--border-width) dashed var(--color-border);
+.pull-request-status__number {
+    font-family: var(--font-family-mono);
     border-radius: var(--border-radius-full);
-    background: transparent;
-    color: var(--color-text-primary);
-    font: inherit;
-    font-size: var(--font-size-sm);
 }
 
-.sprint-card__add-select:disabled {
-    color: var(--color-text-secondary);
+.pull-request-status__mark {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
-/* Delete series…, last on the card and set apart from the settings above it:
-   the one act on the card that cannot be taken back, so it asks first. */
-.sprint-card__foot {
-    display: flex;
-    justify-content: flex-end;
-    padding-top: var(--spacing-sm);
-    border-top: var(--border-width) solid var(--color-border);
+.pull-request-status__glyph {
+    flex: none;
 }
 
-/* Scoped by the foot so it outranks the ghost button's own hover colour: the
-   control keeps its red at the moment it is about to be pressed. */
-.sprint-card__foot .sprint-card__delete,
-.sprint-card__foot .sprint-card__delete:hover {
+.pull-request-status__mark--passed,
+.pull-request-status__mark--met {
+    color: var(--color-success-text);
+}
+
+.pull-request-status__mark--running,
+.pull-request-status__mark--short {
+    color: var(--color-primary-light);
+}
+
+.pull-request-status__mark--failing {
     color: var(--color-error-text);
 }
 
-@media (max-width: 640px) {
-    .sprint-card__field {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .sprint-card__next {
-        grid-column: 1;
-    }
-}
-
-/* --- Sprint view (In progress › Sprint n) ------------------------------------
-   SprintBoard: the header with the series, the sprint steps and the filters; the
-   goal card and the done line side by side, wrapping under each other where the
-   view is narrow; Needs you; one group per plan, a row per member in five columns
-   that stack on a phone; and the dashed, folded Outside the sprint line.
-   SprintViewSwitch: the Now | Sprint n radio pair in either view's header. */
-.sprint-view-switch {
-    display: inline-flex;
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    overflow: hidden;
-}
-
-.sprint-view-switch .btn--toggle {
-    border: 0;
-    border-radius: 0;
-}
-
-.sprint-view-switch .btn--pressed {
-    background: var(--color-primary);
-    color: var(--color-text-inverse);
-    font-weight: var(--font-weight-semibold);
-}
-
-.sprint-board {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-    min-width: 0;
-    /* The rows stack by the board's own width, not the viewport's: the board sits
-       beside the Devbook pane and in the storybook's narrow frame. */
-    container-type: inline-size;
-}
-
-.sprint-board__header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm) var(--spacing-md);
-}
-
-.sprint-board__title {
-    margin: 0;
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-semibold);
-}
-
-.sprint-board__series,
-.sprint-board__group-count,
-.sprint-board__outside-line {
+.pull-request-status__mark--unrequired,
+.pull-request-status__mark--received,
+.pull-request-status__merged {
     color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
 }
 
-.sprint-board__spacer {
-    flex: 1 1 2.5rem;
+/*
+  Goal forecast badges (.devbook/design/color-scheme.md#goal-forecast-badges): At risk the
+  fault fill with its own ink as edge, which the tone scale allows a fault chip alone; On
+  track the settled fill inside the strong edge, so the two differ by more than hue.
+*/
+.badge--forecast {
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-full);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
 }
 
-.sprint-board__select-control {
-    min-height: 2.25rem;
-    padding: 0 var(--spacing-sm);
+.badge--forecast-at-risk {
+    background: var(--color-error);
+    border-color: var(--color-error-text);
+    color: var(--color-error-text);
+}
+
+.badge--forecast-on-track {
+    background: var(--color-success);
+    border-color: var(--color-border-strong);
+    color: var(--color-success-text);
+}
+
+/*
+  Impediment state tones (.devbook/design/color-scheme.md#impediment-state-tones). New and
+  Reported are quiet and outlined, New with a leading dot in color-error-text - drawn as
+  a pseudo-element, so assistive technology never reads it; the badge's word says New.
+  Escalated is the fault fill, Being handled the alert fill with the primary ink, and
+  Resolved the settled fill. The family dresses Badge and the BadgeSelect state picker
+  alike, so an editable state and a read-only one are the same badge.
+*/
+.badge--impediment {
+    gap: var(--spacing-xs);
+    background: var(--color-background-alt);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
-    background: transparent;
-    color: var(--color-text-primary);
-    font: inherit;
-    font-size: var(--font-size-sm);
+    color: var(--color-secondary);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
 }
 
-.sprint-board__select-control:focus-visible {
+.badge--impediment-new::before {
+    content: "";
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-error-text);
+}
+
+.badge--impediment-escalated {
+    background: var(--color-error);
+    border-color: var(--color-error-text);
+    color: var(--color-error-text);
+}
+
+.badge--impediment-being-handled {
+    background: var(--color-warning);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--impediment-resolved {
+    background: var(--color-success);
+    border-color: var(--color-border-strong);
+    color: var(--color-success-text);
+}
+
+/* The picker inside the badge: the control takes the badge's ink and face and draws no
+   chrome of its own. Positioned for its sr-only label, as .status-editor is. */
+.impediment-editor {
+    position: relative;
+    padding-right: 0;
+}
+
+.impediment-editor__select {
+    min-width: 0;
+    min-height: 1.5rem;
+    padding: 0 var(--spacing-sm) 0 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: inherit;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.impediment-editor__select:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
-.sprint-board__cards {
+.impediment-editor__select:disabled {
+    cursor: default;
+}
+
+/* GoalProgressBar: done, in progress and blocked over the raised track, which is what
+   reads as not started. */
+.goal-progress-bar {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-md);
-}
-
-.sprint-board__card {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    min-width: 0;
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-lg);
-    background: var(--color-background-alt);
-}
-
-.sprint-board__card--goal {
-    flex: 2 1 32rem;
-}
-
-.sprint-board__card--pace {
-    flex: 1 1 18rem;
-}
-
-.sprint-board__eyebrow {
-    color: var(--color-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.sprint-board__goal-line {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--spacing-sm) var(--spacing-md);
-}
-
-.sprint-board__goal-text {
-    font-weight: 500;
-}
-
-.sprint-board__goal-body {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-md) var(--spacing-lg);
-}
-
-.sprint-board__goal-figure {
-    display: flex;
-    flex-direction: column;
     gap: var(--spacing-2xs);
-    min-width: 10rem;
-}
-
-.sprint-board__goal-done {
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-2xl);
-    font-weight: var(--font-weight-semibold);
-}
-
-.sprint-board__goal-of {
-    font-family: var(--font-family-base);
-    font-size: var(--font-size-sm);
-    font-weight: normal;
-    color: var(--color-text-secondary);
-}
-
-.sprint-board__day,
-.sprint-board__rules,
-.sprint-board__all-extra,
-.sprint-board__pace,
-.sprint-board__hint,
-.sprint-board__outside-what {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.sprint-board__goal-bars {
-    display: flex;
-    flex: 1 1 15rem;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    min-width: 12rem;
-}
-
-.sprint-board__legend {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs) var(--spacing-md);
-}
-
-.sprint-board__all {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm) var(--spacing-md);
-    padding-top: var(--spacing-sm);
-    border-top: var(--border-width) solid var(--color-border);
-}
-
-.sprint-board__all-count {
-    font-size: var(--font-size-sm);
-}
-
-.sprint-board__bar {
-    display: flex;
     height: 0.375rem;
     overflow: hidden;
     border-radius: var(--border-radius-full);
     background: var(--color-background-raised);
 }
 
-.sprint-board__bar--goal {
-    height: 0.625rem;
-}
-
-.sprint-board__bar--all {
-    flex: 1 1 12rem;
-    min-width: 10rem;
-}
-
-.sprint-board__bar--group {
-    width: 7.5rem;
-}
-
-.sprint-board__bar-done {
-    background: var(--color-success-text);
-}
-
-.sprint-board__bar-progress {
-    background: var(--color-primary);
-}
-
-.sprint-board__bar-blocked {
-    background: var(--color-error-text);
-}
-
-.sprint-board__chart {
-    width: 100%;
-    height: 6rem;
-}
-
-.sprint-board__chart-pace {
-    stroke: var(--color-border);
-    stroke-width: 1.5;
-    stroke-dasharray: 4 4;
-    vector-effect: non-scaling-stroke;
-}
-
-.sprint-board__chart-done {
-    fill: none;
-    stroke: var(--color-success-text);
-    stroke-width: 2.5;
-    vector-effect: non-scaling-stroke;
-}
-
-.sprint-board__chart-today {
-    fill: var(--color-success-text);
-}
-
-.sprint-board__chart-now {
-    stroke: var(--color-border-strong);
-    stroke-width: 1;
-    vector-effect: non-scaling-stroke;
-}
-
-.sprint-status {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-.sprint-status i {
-    display: inline-block;
-    width: 0.5rem;
+.goal-progress-bar--large {
     height: 0.5rem;
-    border-radius: var(--border-radius-full);
 }
 
-.sprint-status--done {
-    color: var(--color-success-text);
-}
-
-.sprint-status--done i {
+.goal-progress-bar__done {
     background: var(--color-success-text);
 }
 
-.sprint-status--progress {
-    color: var(--color-primary-light);
-}
-
-.sprint-status--progress i {
+.goal-progress-bar__doing {
     background: var(--color-primary);
 }
 
-.sprint-status--blocked {
-    color: var(--color-error-text);
-}
-
-.sprint-status--blocked i {
+.goal-progress-bar__blocked {
     background: var(--color-error-text);
 }
 
-.sprint-status--todo {
-    color: var(--color-secondary);
-}
-
-.sprint-status--todo i {
-    box-sizing: border-box;
-    border: 1.5px solid var(--color-secondary);
-}
-
-.sprint-board__needs {
+/*
+  The Goals view: GoalsBoard, its header, the goals column with a GoalCard per goal and
+  No goal, and the StandUpPanel aside. The board is its own container, so the aside falls
+  under the goals by the board's width rather than the viewport's: the view sits beside
+  the Devbook pane and in the storybook's frame.
+*/
+.goals-board {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-lg);
+    min-width: 0;
+    container: goals-board / inline-size;
 }
 
-.sprint-board__needs-head,
-.sprint-board__outside-head {
+.goals-board__header {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-sm) var(--spacing-md);
 }
 
-.sprint-board__dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: var(--border-radius-full);
-    background: var(--color-error-text);
-}
-
-.sprint-board__section-title {
+.goals-board__title {
     margin: 0;
     font-family: var(--font-family-heading);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-2xl);
     font-weight: var(--font-weight-semibold);
 }
 
-.sprint-board__count {
-    padding: 0 var(--spacing-sm);
-    border-radius: var(--border-radius-full);
-    background: var(--color-background-raised);
-    font-size: var(--font-size-xs);
+.goals-board__window {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
 }
 
-.sprint-board__needs-list {
+.goals-board__spacer {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.goals-board__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+    align-items: start;
+    gap: var(--spacing-lg);
+}
+
+.goals-board__goals {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* The Goals heading carries its count beside it, as each stand-up block's does. */
+.goals-board__section-header {
+    justify-content: flex-start;
+    align-items: center;
     gap: var(--spacing-sm);
 }
 
-.sprint-board__need {
-    display: flex;
-    flex: 1 1 17.5rem;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-2xs);
-    min-height: 2.75rem;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background-alt);
-    color: var(--color-text-primary);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-.sprint-board__need:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
-.sprint-board__need--blocked {
-    border-color: var(--color-error-text);
-    background: var(--color-error);
-}
-
-.sprint-board__need--review {
-    border-color: var(--color-primary-dark);
-    background: var(--color-warning);
-}
-
-.sprint-board__need-title {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-}
-
-.sprint-board__need-reason {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.sprint-board__need--blocked .sprint-board__need-reason {
-    color: var(--color-error-text);
-}
-
-.sprint-board__need--review .sprint-board__need-reason {
-    color: var(--color-primary-light);
-}
-
-.sprint-board__group {
-    overflow: hidden;
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-lg);
-    background: var(--color-background-alt);
-}
-
-.sprint-board__group-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm) var(--spacing-md);
-    padding: var(--spacing-sm) var(--spacing-md);
-}
-
-.sprint-board__goal-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0 var(--spacing-sm);
-    border-radius: var(--border-radius-full);
-    background: var(--color-primary);
-    color: var(--color-text-inverse);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-}
-
-.sprint-row {
-    display: grid;
-    grid-template-columns: 7.5rem minmax(8rem, 1fr) minmax(0, 12rem) 6rem 10.5rem;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-top: var(--border-width) solid var(--color-border);
-}
-
-.sprint-row--head {
-    padding-block: 0;
-    border-top: 0;
-    color: var(--color-secondary);
+.goals-board__section-header .section-header__title,
+.stand-up-panel__header .section-header__title {
+    font-family: var(--font-family-base);
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
     letter-spacing: 0.06em;
     text-transform: uppercase;
+    color: var(--color-text-secondary);
 }
 
-.sprint-row__title {
+.goals-board__no-goal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-lg);
+}
+
+.goals-board__no-goal-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.goals-board__no-goal-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.goals-board__no-goal-item {
+    flex: 1 1 auto;
     min-width: 0;
-    font-size: var(--font-size-sm);
-    font-weight: 500;
 }
 
-.sprint-row--done .sprint-row__title {
-    color: var(--color-secondary);
+.goals-board__number,
+.goal-card__number {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
 }
 
-.sprint-row__open {
+.goal-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+}
+
+.goal-card--expanded {
+    padding: var(--spacing-md);
+}
+
+.goal-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.goal-card__title {
+    flex: 1 1 12rem;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.goal-card--expanded .goal-card__title {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-medium);
+}
+
+.goal-card__toggle {
     padding: 0;
-    border: 0;
+    border: none;
     background: none;
     color: inherit;
     font: inherit;
@@ -21617,368 +21524,416 @@ select.field__input {
     cursor: pointer;
 }
 
-.sprint-row__open:hover {
-    text-decoration: underline;
-}
-
-.sprint-row__open:focus-visible {
+.goal-card__toggle:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
-}
-
-.sprint-row__tag {
-    margin-left: var(--spacing-sm);
-}
-
-.sprint-row__added {
-    display: inline-block;
-    margin-left: var(--spacing-sm);
-    padding: 0 var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-sm);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
 }
 
-.sprint-row__pulls {
+.goal-card__bar {
+    flex: 1 1 10rem;
+}
+
+.goal-card__meta {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.goal-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.goal-card__details {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-xs);
+    align-items: flex-end;
+    gap: var(--spacing-sm) var(--spacing-md);
 }
 
-.sprint-pr {
+.goal-card__fields {
+    display: grid;
+    flex: 1 1 24rem;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) minmax(9rem, 1fr);
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.goal-card__outcome {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* A row's Detach: a quiet glyph at the row's end; the button keeps its full target. */
+.goal-card__detach {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+}
+
+.goal-card__field-box {
+    min-width: 0;
+}
+
+.goal-card__merged-pull {
     display: inline-flex;
     align-items: center;
-    padding: 0 var(--spacing-sm);
-    border: 0;
-    border-radius: var(--border-radius-full);
-    background: var(--color-background-raised);
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-xs);
-    white-space: nowrap;
 }
 
-button.sprint-pr {
-    cursor: pointer;
+.goal-card__merged-pull .goal-card__detach {
+    margin-left: 0;
 }
 
-button.sprint-pr:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 2px;
-}
-
-.sprint-pr--merged {
-    background: var(--color-success);
-    color: var(--color-success-text);
-}
-
-.sprint-pr--open {
-    background: var(--color-warning);
-    color: var(--color-primary-light);
-}
-
-.sprint-pr--unknown {
-    border: var(--border-width) dashed var(--color-border);
-    background: transparent;
-}
-
-.sprint-row__owner,
-.sprint-row__note {
-    min-width: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.sprint-row__question {
-    display: inline-block;
-    padding: 0 var(--spacing-sm);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-warning);
-    color: var(--color-primary-light);
-    font-size: var(--font-size-xs);
-}
-
-.sprint-board__outside {
+.goal-card__pull {
     display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: var(--border-width) dashed var(--color-border);
-    border-radius: var(--border-radius-lg);
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
 }
 
-.sprint-board__outside-list {
+.goal-card__task-title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.goal-card__columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-md);
+}
+
+.goal-card__column {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
+    min-width: 0;
 }
 
-.sprint-board__outside-list[hidden] {
-    display: none;
+.goal-card__column-title,
+.goal-card__none,
+.goal-card__plan-count {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
 }
 
-.sprint-board__outside-item {
+.goal-card__plan {
     display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
+    align-items: center;
+    justify-content: space-between;
     gap: var(--spacing-sm);
-    font-size: var(--font-size-sm);
 }
 
-/*
-  The sprint view's Since yesterday strip: the stand-up at the top of the sprint
-  view. Its header is the fold's toggle and keeps the label and the headline when
-  folded; the blocked section is the one part dressed as an alert.
-*/
-.sprint-daily {
+.goal-card__plan-title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.goal-card__task {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.goal-card__task .status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+}
+
+.goal-card__merged {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.goal-card__attach {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-lg);
-    background: var(--color-background-alt);
+    gap: var(--spacing-xs);
 }
 
-.sprint-daily__toggle {
+.goal-card__matches {
     display: flex;
-    align-items: flex-start;
-    gap: var(--spacing-md);
+    flex-direction: column;
+    margin: 0;
+    padding: var(--spacing-xs);
+    list-style: none;
+    background: var(--color-background-raised);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+}
+
+.goal-card__match {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
     width: 100%;
-    min-height: 2.75rem;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--color-text-primary);
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: none;
+    color: inherit;
     font: inherit;
     text-align: left;
     cursor: pointer;
 }
 
-.sprint-daily__toggle:focus-visible {
+.goal-card__match:hover {
+    background: var(--color-background-alt);
+}
+
+.goal-card__match:focus-visible {
+    background: var(--color-background-alt);
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
-.sprint-daily__head {
-    display: flex;
+.goal-card__match-kind {
+    flex: 0 0 3rem;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.goal-card__match-title {
     flex: 1 1 auto;
-    flex-direction: column;
-    gap: var(--spacing-2xs);
     min-width: 0;
 }
 
-.sprint-daily__label {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+/* One column under 900 px of board: the aside under the goals, and an open goal's three
+   columns stacked. */
+@container goals-board (max-width: 900px) {
+    .goals-board__layout,
+    .goal-card__columns,
+    .goal-card__fields {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
-.sprint-daily__headline {
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
-}
-
-.sprint-daily__chevron {
-    flex: none;
-    margin-top: var(--spacing-xs);
-    color: var(--color-text-secondary);
-    transition: transform var(--transition-fast);
-}
-
-.sprint-daily[data-open="false"] .sprint-daily__chevron {
-    transform: rotate(-90deg);
-}
-
-.sprint-daily__body {
+.stand-up-panel {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
+    min-width: 0;
 }
 
-.sprint-daily__body[hidden] {
-    display: none;
-}
-
-.sprint-daily__summary {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.sprint-daily__section {
+.stand-up-panel__block {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
-}
-
-.sprint-daily__section--blocked {
     padding: var(--spacing-sm) var(--spacing-md);
-    border: var(--border-width) solid var(--color-error-text);
-    border-radius: var(--border-radius-md);
-    background: var(--color-error);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
 }
 
-.sprint-daily__title {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+.stand-up-panel__block--impediments {
+    gap: var(--spacing-sm);
 }
 
-.sprint-daily__section--blocked .sprint-daily__title {
-    color: var(--color-error-text);
-}
-
-.sprint-daily__lines {
+.stand-up-panel__block-head {
     display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.sprint-daily__line {
-    display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-sm);
-    font-size: var(--font-size-sm);
 }
 
-.sprint-daily__text {
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.sprint-daily__marker {
+.stand-up-panel__dot {
     flex: none;
     width: 0.5rem;
     height: 0.5rem;
     border-radius: var(--border-radius-full);
-    background: var(--color-primary);
 }
 
-.sprint-daily__marker--done {
+.stand-up-panel__dot--finished {
     background: var(--color-success-text);
 }
 
-.sprint-daily__marker--added,
-.sprint-daily__marker--quiet {
-    box-sizing: border-box;
-    border: 1.5px solid var(--color-secondary);
-    background: transparent;
+.stand-up-panel__dot--planned {
+    background: var(--color-primary);
 }
 
-.sprint-daily__marker--blocked,
-.sprint-daily__marker--question {
-    display: none;
+.stand-up-panel__dot--impediments {
+    background: var(--color-error-text);
 }
 
-.sprint-daily__pace {
+.stand-up-panel__block-title {
+    flex: 1 1 auto;
     margin: 0;
     font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
 }
 
-.sprint-daily__pace--risk {
+.stand-up-panel__points {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary-light);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.stand-up-panel__item--no-goal {
+    color: var(--color-text-secondary);
+}
+
+/* A planned item's effort sits at the row's end, in the points tag's figures. */
+.stand-up-panel__item--planned {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.stand-up-panel__effort {
+    flex: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.stand-up-panel__resolved {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.stand-up-panel__pull {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.impediment-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-background-raised);
+}
+
+.impediment-row__head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.impediment-row__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: var(--font-weight-medium);
+}
+
+.impediment-row__meta {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.impediment-row__goal {
     color: var(--color-error-text);
 }
 
-.sprint-daily__actions {
+/* The impediment's note, wrapped as written, with the quiet button that opens it in
+   place; the box that replaces the line while it is edited. */
+.impediment-row__note-line {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding-top: var(--spacing-sm);
-    border-top: var(--border-width) solid var(--color-border);
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
 }
 
-.sprint-daily__copy {
-    min-height: 2.5rem;
-    padding: 0 var(--spacing-md);
+.impediment-row__note {
+    flex: 1 1 12rem;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.impediment-row__note-edit {
+    flex: 0 0 auto;
+}
+
+.impediment-row__note-editor .field {
+    margin: 0;
+}
+
+/* The grow wrapper sets the raw editor's monospace; a note is prose. The textarea
+   and its replica inherit the face from it, so the box still grows with the text. */
+.impediment-row__note-editor .grow-wrap {
+    font-family: var(--font-family-base);
     font-size: var(--font-size-sm);
 }
 
-@container (max-width: 760px) {
-    .sprint-row {
-        grid-template-columns: minmax(0, 1fr);
-        gap: var(--spacing-xs);
-    }
-
-    .sprint-row--head {
-        display: none;
-    }
+.goal-create-dialog .field + .field {
+    margin-top: var(--spacing-sm);
 }
 
-/* Planning a sprint (.devbook/domain/progress/features.md#filling-a-sprint): the row
-   menu a board carries while its sprint takes writes, the "Add to sprint" picker, the
-   note dialog and a task's Sprint section. */
-.sprint-board--editable .sprint-row {
-    grid-template-columns: 7.5rem minmax(8rem, 1fr) minmax(0, 12rem) 6rem 10.5rem 2rem;
+.two-week-start-dialog__text {
+    margin: 0 0 var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+/* The goal a piece of work counts toward: a small label and one quiet button, inline
+   so it sits in a heading line, a card row or a field list without a row of its own. */
+.goal-control {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
 }
 
-.sprint-row__menu {
-    justify-self: end;
+.goal-control__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
-.sprint-add-picker__description,
-.sprint-note-dialog__description,
-.sprint-start-dialog__description {
+.goal-control__button {
+    min-width: 0;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.goal-control__button--none {
+    color: var(--color-text-secondary);
+}
+
+.goal-picker__description {
     margin: 0 0 var(--spacing-sm);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.sprint-add-picker__filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
+.goal-picker__search {
     margin-bottom: var(--spacing-sm);
 }
 
-.sprint-add-picker__status {
+.goal-picker__options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 20rem;
     margin: 0 0 var(--spacing-sm);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.sprint-add-picker__lists {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-    max-height: 24rem;
-    overflow-y: auto;
-}
-
-.sprint-add-picker__section {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-}
-
-.sprint-add-picker__options {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    margin: 0;
     padding: 0;
+    overflow-y: auto;
     list-style: none;
 }
 
-.sprint-add-picker__option {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2xs);
+.goal-picker__option {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--spacing-2xs) var(--spacing-sm);
     width: 100%;
     padding: var(--spacing-sm);
     border: var(--border-width) solid var(--color-border);
@@ -21990,196 +21945,78 @@ button.sprint-pr:focus-visible {
     cursor: pointer;
 }
 
-.sprint-add-picker__option:hover:not(:disabled) {
+.goal-picker__option:hover:not(:disabled) {
     border-color: var(--color-border-strong);
 }
 
-.sprint-add-picker__option:focus-visible {
+.goal-picker__option:focus-visible {
     border-color: var(--color-border-focus);
     outline: var(--border-width) solid var(--color-border-focus);
     outline-offset: 0;
 }
 
-.sprint-add-picker__option:disabled {
+.goal-picker__option--selected {
+    border-color: var(--color-border-focus);
+}
+
+.goal-picker__option:disabled {
     cursor: default;
     opacity: 0.6;
 }
 
-.sprint-add-picker__label {
+.goal-picker__title {
     font-weight: var(--font-weight-semibold);
-}
-
-.sprint-add-picker__detail {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.sprint-task-panel {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-}
-
-.sprint-task-panel__header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--spacing-sm);
-}
-
-.sprint-task-panel__heading {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-2xs);
-    font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.sprint-task-panel__series {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.sprint-task-panel__line {
-    margin: 0;
-    font-size: var(--font-size-sm);
-}
-
-.sprint-task-panel__note {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.sprint-task-panel__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-}
-
-@container (max-width: 760px) {
-    .sprint-board--editable .sprint-row {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .sprint-row__menu {
-        justify-self: start;
-    }
-}
-
-/* Closing a sprint (.devbook/domain/progress/features.md#closing-a-sprint): the review
-   figures, an outcome per unfinished item, the next goal and the review table. */
-.sprint-close-dialog {
-    width: min(46rem, calc(100vw - 2 * var(--spacing-md)));
-    max-width: 46rem;
-}
-
-.sprint-close-dialog__description {
-    margin: 0 0 var(--spacing-sm);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-}
-
-.sprint-close-dialog__figures {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-lg);
-    margin-bottom: var(--spacing-md);
-}
-
-.sprint-close-dialog__figure {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2xs);
-}
-
-.sprint-close-dialog__figure strong {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-semibold);
-}
-
-.sprint-close-dialog__figure span {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.sprint-close-dialog__verdict--met {
-    color: var(--color-success-text);
-}
-
-.sprint-close-dialog__verdict--missed {
-    color: var(--color-error-text);
-}
-
-.sprint-close-dialog__items {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: var(--spacing-md);
-}
-
-.sprint-close-dialog__items-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-    padding-bottom: var(--spacing-xs);
-}
-
-.sprint-close-dialog__heading {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-2xs);
-    font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.sprint-close-dialog__list {
-    max-height: 22rem;
-    margin: 0;
-    padding: 0;
-    overflow-y: auto;
-    list-style: none;
-}
-
-.sprint-close-dialog__item {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 12rem;
-    gap: var(--spacing-sm);
-    align-items: center;
-    padding: var(--spacing-xs) 0;
-    border-top: var(--border-width) solid var(--color-border);
-}
-
-.sprint-close-dialog__title {
-    min-width: 0;
-    font-size: var(--font-size-sm);
     overflow-wrap: anywhere;
 }
 
-.sprint-close-dialog__detail {
-    display: block;
+.goal-picker__meta {
+    grid-column: 1;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
 }
 
-.sprint-close-dialog__choice {
-    display: block;
+.goal-picker__attached {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.goal-picker__new {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.goal-picker__mode {
+    align-self: flex-start;
+}
+
+.goal-picker__move {
+    margin-top: var(--spacing-sm);
+}
+
+/* A shelf row's goal sits with its "Plan it", the tag keeping the rest of the line. */
+.roadmap-shelf__goal {
+    display: inline-flex;
+    flex: none;
+    margin-left: auto;
+}
+
+/* A work card's goal sits at its top edge beside Unlink, as quiet as it. */
+.work-links__goal {
+    display: inline-flex;
+    flex: none;
+}
+
+/* The task panel's goal line: under the detail rows, above the body. */
+.task-panel__goal {
+    display: flex;
+    align-items: center;
     min-width: 0;
-}
-
-.sprint-close-dialog__choice .field__input {
-    width: 100%;
-}
-
-.sprint-close-dialog__copy {
-    margin-right: auto;
-}
-
-@media (max-width: 560px) {
-    .sprint-close-dialog__item {
-        grid-template-columns: minmax(0, 1fr);
-    }
 }

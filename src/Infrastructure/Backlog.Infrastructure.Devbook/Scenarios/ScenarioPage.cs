@@ -3,31 +3,71 @@ using System.Text.RegularExpressions;
 namespace Backlog.Infrastructure.Devbook.Scenarios;
 
 /// <summary>
-/// One scenario page, read: a <c>type: scenario</c> file under <c>.devbook/domain/</c>
-/// holding one end-to-end journey, its six setup fields, its <c>##</c> parts with their
-/// steps, and the <c>shot:&lt;label&gt;</c> screenshot points between the step lists.
+/// One scenarios file, read: a bounded context's <c>scenarios.md</c>, or a split
+/// <c>scenarios.&lt;name&gt;.md</c>, whose <c>##</c> chapters are its journeys.
 /// <para>
-/// A port of devbook's <c>parse.mjs</c> (<c>.devbook/_tools/scenarios/</c>), line for
-/// line where it decides anything the signature hashes: the signature is only worth
-/// comparing because every implementation reads a page the same way, and
+/// A port of devbook's <c>parseScenariosFile</c> (<c>.devbook/_tools/scenarios/parse.mjs</c>),
+/// line for line where it decides anything the signature hashes: the signature is only
+/// worth comparing because every implementation reads a journey the same way, and
 /// <c>scenario-page.vector.json</c> beside that file is what proves this one does.
 /// </para>
 /// </summary>
-public sealed record ScenarioPage(
+/// <param name="Meta">The file's own block, under its <c>#</c> title.</param>
+/// <param name="Journeys">Every <c>##</c> chapter, in file order, whether or not its
+/// block says <c>type: scenario</c>; <see cref="Scenarios"/> is the ones that do.</param>
+/// <param name="Shots">Every screenshot point in the file, in document order.</param>
+public sealed record ScenariosFile(
     string Path,
-    string Stem,
     string? Title,
+    IReadOnlyDictionary<string, ScenarioMetaValue> Meta,
+    IReadOnlyList<ScenarioJourney> Journeys,
+    IReadOnlyList<ScenarioShotPoint> Shots)
+{
+    /// <summary>The journeys: the <c>##</c> chapters typed <c>scenario</c>.</summary>
+    public IReadOnlyList<ScenarioJourney> Scenarios => [.. Journeys.Where(journey => journey.IsScenario)];
+
+    /// <summary>Whether the whole file is typed <c>scenario</c> — a journey page of the
+    /// contract before devbook's 32, which the <c>032-scenarios-md</c> migration folds
+    /// into its context's <c>scenarios.md</c>. Such a page holds no journey.</summary>
+    public bool LegacyPage => Meta.TryGetValue("type", out var type) && string.Equals(type.Scalar, "scenario", StringComparison.Ordinal);
+}
+
+/// <summary>
+/// One journey, read: a <c>##</c> chapter of a scenarios file, its own <c>meta</c>
+/// block with the six setup fields, its <c>###</c> parts with their steps, and the
+/// <c>shot:&lt;label&gt;</c> screenshot points between the step lists.
+/// </summary>
+/// <param name="Path">The scenarios file the journey is written in, repository-relative.</param>
+/// <param name="Slug">The journey heading's anchor.</param>
+/// <param name="IsScenario">Whether the journey's block says <c>type: scenario</c>.</param>
+public sealed record ScenarioJourney(
+    string Path,
+    string Slug,
+    string Title,
+    int Line,
     bool IsScenario,
     IReadOnlyDictionary<string, ScenarioMetaValue> Meta,
     ScenarioSetup Setup,
     IReadOnlyList<ScenarioPart> Parts,
     IReadOnlyList<ScenarioShotPoint> Shots)
 {
-    /// <summary>The page's <c>status</c> — <c>draft</c> or <c>proposed</c> — or null:
+    /// <summary>The journey's address: <c>&lt;scenarios file&gt;#&lt;journey&gt;</c>, what a
+    /// spec's <c>// scenario:</c> header and a version 3 run's <c>journey</c> name.</summary>
+    public string Address => $"{Path}#{Slug}";
+
+    /// <summary>
+    /// Where the journey's runs live, repository-relative: its scenarios file without
+    /// <c>.md</c>, then the journey's anchor — <c>scenarios.returns.md#return-a-parcel</c>
+    /// runs into <c>scenarios.returns/return-a-parcel/</c> (parse.mjs <c>runFolderOf</c>).
+    /// </summary>
+    public string RunFolder =>
+        $"{(Path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ? Path[..^3] : Path)}/{Slug}";
+
+    /// <summary>The journey's <c>status</c> — <c>draft</c> or <c>proposed</c> — or null:
     /// the journey is in force.</summary>
     public string? Status => Meta.TryGetValue("status", out var status) ? status.Scalar : null;
 
-    /// <summary>Every label in page order, each once.</summary>
+    /// <summary>Every label in the journey, in document order, each once.</summary>
     public IReadOnlyList<string> Labels => [.. Shots.Select(shot => shot.Label).Distinct(StringComparer.Ordinal)];
 }
 
@@ -46,16 +86,16 @@ public sealed record ScenarioSetup(
     public bool IsEmpty => Start is null && Actor.Count == 0 && Data.Count == 0 && Profile is null && Flags.Count == 0 && Settings.Count == 0;
 }
 
-/// <summary>One <c>##</c> part: a title the actor reaches, its anchor, its steps and
-/// its screenshot points.</summary>
+/// <summary>One <c>###</c> part of a journey: a title the actor reaches, its anchor,
+/// its steps and its screenshot points.</summary>
 public sealed record ScenarioPart(string Title, string Anchor, int Line, IReadOnlyList<ScenarioStep> Steps, IReadOnlyList<ScenarioShotPoint> Shots);
 
 /// <summary>One step. <see cref="Keyword"/> is null for a list item that opens with
 /// none of <c>Given</c>, <c>When</c>, <c>Then</c>, <c>And</c>.</summary>
 public sealed record ScenarioStep(string? Keyword, string Text, int Line);
 
-/// <summary>A <c>![caption](shot:label)</c> on the page. <see cref="Part"/> is the
-/// anchor of the part it sits in, null above the first part.</summary>
+/// <summary>A <c>![caption](shot:label)</c> in a scenarios file. <see cref="Part"/> is
+/// the anchor of the part it sits in, null above its journey's first part.</summary>
 public sealed record ScenarioShotPoint(string Label, string Caption, int Line, string? Part, bool InStepList);
 
 /// <summary>A <c>meta</c> value: a scalar, or a <c>[a, b]</c> list.</summary>
@@ -65,14 +105,15 @@ public sealed record ScenarioMetaValue(string? Scalar, IReadOnlyList<string>? Li
         List ?? (string.IsNullOrEmpty(Scalar) ? [] : [Scalar]);
 }
 
-/// <summary>The parser. See <see cref="ScenarioPage"/>.</summary>
+/// <summary>The parser. See <see cref="ScenariosFile"/>.</summary>
 public static partial class ScenarioPageParser
 {
-    /// <summary>Where a repository keeps its runs, profiles and data sets.</summary>
+    /// <summary>Where a repository keeps its profiles and data sets. A journey's runs
+    /// live beside its scenarios file instead (<see cref="ScenarioJourney.RunFolder"/>).</summary>
     public const string ScenarioFolder = ".devbook/scenarios";
 
     /// <summary>The classic layout's scenario folder, which spec-manager's
-    /// <c>.test</c> tooling writes version 1 runs into.</summary>
+    /// <c>.test</c> tooling keeps its data sets in.</summary>
     public const string LegacyScenarioFolder = ".domain/_tests";
 
     private static readonly string[] StepKeywords = ["Given", "When", "Then", "And"];
@@ -81,31 +122,32 @@ public static partial class ScenarioPageParser
     public static string Slugify(string text) =>
         Whitespace().Replace(NotSlugCharacter().Replace(text.ToLowerInvariant().Trim(), string.Empty), "-");
 
-    /// <summary>A page's stem: its file name without <c>.md</c>.</summary>
-    public static string StemOf(string relativePath)
-    {
-        var name = relativePath.Replace('\\', '/').Split('/')[^1];
-        return name.EndsWith(".md", StringComparison.OrdinalIgnoreCase) ? name[..^3] : name;
-    }
-
     /// <summary>Collapse runs of whitespace to one space and trim.</summary>
     public static string Collapse(string text) => WhitespaceRun().Replace(text, " ").Trim();
 
-    /// <summary>Whether the file-level <c>meta</c> block under a page's title says
-    /// <c>type: scenario</c> — the one question the listing asks, without reading
-    /// further than the block.</summary>
-    public static bool IsScenarioPage(string markdown) =>
-        Parse(markdown, string.Empty).IsScenario;
+    /// <summary>Whether a file is named as a scenarios file: <c>scenarios.md</c>, or a
+    /// split <c>scenarios.&lt;name&gt;.md</c> (parse.mjs <c>isScenariosPath</c>, without
+    /// its folder depth, which differs between the devbook and the root layout).</summary>
+    public static bool IsScenariosFileName(string path) =>
+        ScenariosFileName().IsMatch(path.Replace('\\', '/').Split('/')[^1]);
 
-    public static ScenarioPage Parse(string markdown, string relativePath)
+    /// <summary>
+    /// Reads one scenarios file. The <c>#</c> title carries the file's block; each
+    /// <c>##</c> opens a journey with its own block after optional blank lines; a
+    /// <c>###</c> is a part only inside a journey; a screenshot point belongs to the
+    /// journey and part it sits in.
+    /// </summary>
+    public static ScenariosFile ParseFile(string markdown, string relativePath)
     {
+        var path = relativePath.Replace('\\', '/');
         var lines = LineBreak().Split(markdown ?? string.Empty);
         string? title = null;
         IReadOnlyDictionary<string, ScenarioMetaValue> meta = new Dictionary<string, ScenarioMetaValue>(StringComparer.Ordinal);
-        var parts = new List<MutablePart>();
+        var journeys = new List<MutableJourney>();
         var shots = new List<ScenarioShotPoint>();
 
         string? fence = null;
+        MutableJourney? journey = null;
         MutablePart? part = null;
         var inList = false;
         var blankSince = false;
@@ -131,24 +173,28 @@ public static partial class ScenarioPageParser
             if (heading.Success && heading.Groups[1].Length == 1 && title is null)
             {
                 title = heading.Groups[2].Value.Trim();
-                var j = i + 1;
-                while (j < lines.Length && lines[j].Trim().Length == 0) j++;
-                if (j < lines.Length && MetaOpen().IsMatch(lines[j].Trim()))
-                {
-                    var body = new List<string>();
-                    var k = j + 1;
-                    while (k < lines.Length && lines[k].Trim() != "```") body.Add(lines[k++]);
-                    meta = ParseMeta(body);
-                    i = k;
-                }
-
+                (meta, i) = ReadMetaAfter(lines, i);
                 continue;
             }
 
             if (heading.Success && heading.Groups[1].Length == 2)
             {
+                var journeyTitle = heading.Groups[2].Value.Trim();
+                var journeyLine = i + 1;
+                (var journeyMeta, i) = ReadMetaAfter(lines, i);
+                journey = new MutableJourney(journeyTitle, Slugify(journeyTitle), journeyLine, journeyMeta);
+                journeys.Add(journey);
+                part = null;
+                inList = false;
+                blankSince = false;
+                lastStep = null;
+                continue;
+            }
+
+            if (heading.Success && heading.Groups[1].Length == 3 && journey is not null)
+            {
                 part = new MutablePart(heading.Groups[2].Value.Trim(), Slugify(heading.Groups[2].Value), i + 1);
-                parts.Add(part);
+                journey.Parts.Add(part);
                 inList = false;
                 blankSince = false;
                 lastStep = null;
@@ -202,6 +248,7 @@ public static partial class ScenarioPageParser
             {
                 var shot = new ScenarioShotPoint(match.Groups[2].Value, match.Groups[1].Value, i + 1, part?.Anchor, inStepList);
                 shots.Add(shot);
+                journey?.Shots.Add(shot);
                 part?.Shots.Add(shot);
 
                 // A label inside a step would be text of the step it sits in; take it back out.
@@ -212,25 +259,32 @@ public static partial class ScenarioPageParser
             }
         }
 
-        var isScenario = meta.TryGetValue("type", out var type) && string.Equals(type.Scalar, "scenario", StringComparison.Ordinal);
-        var setup = new ScenarioSetup(
+        return new ScenariosFile(path, title, meta, [.. journeys.Select(entry => entry.Build(path))], shots);
+    }
+
+    /// <summary>The <c>meta</c> block after a heading, past any blank lines, and the
+    /// index of its closing line — or no fields and the heading's own index when the
+    /// heading has none.</summary>
+    private static (IReadOnlyDictionary<string, ScenarioMetaValue> Meta, int End) ReadMetaAfter(string[] lines, int i)
+    {
+        var j = i + 1;
+        while (j < lines.Length && lines[j].Trim().Length == 0) j++;
+        if (j >= lines.Length || !MetaOpen().IsMatch(lines[j].Trim())) return (new Dictionary<string, ScenarioMetaValue>(StringComparer.Ordinal), i);
+
+        var body = new List<string>();
+        var k = j + 1;
+        while (k < lines.Length && lines[k].Trim() != "```") body.Add(lines[k++]);
+        return (ParseMeta(body), k);
+    }
+
+    private static ScenarioSetup SetupOf(IReadOnlyDictionary<string, ScenarioMetaValue> meta) =>
+        new(
             Scalar(meta, "start"),
             List(meta, "actor"),
             List(meta, "data"),
             Profile(meta),
             List(meta, "flags"),
             List(meta, "settings"));
-
-        return new ScenarioPage(
-            relativePath.Replace('\\', '/'),
-            StemOf(relativePath),
-            title,
-            isScenario,
-            meta,
-            setup,
-            [.. parts.Select(p => new ScenarioPart(p.Title, p.Anchor, p.Line, [.. p.Steps.Select(s => new ScenarioStep(s.Keyword, s.Text, s.Line))], [.. p.Shots]))],
-            shots);
-    }
 
     /// <summary>A <c>meta</c> block body as fields, with the checker's scalar and
     /// <c>[a, b]</c> list syntax.</summary>
@@ -318,6 +372,24 @@ public static partial class ScenarioPageParser
         return at < 0 ? text : string.Concat(text.AsSpan(0, at), replacement, text.AsSpan(at + search.Length));
     }
 
+    private sealed class MutableJourney(string title, string slug, int line, IReadOnlyDictionary<string, ScenarioMetaValue> meta)
+    {
+        public List<MutablePart> Parts { get; } = [];
+        public List<ScenarioShotPoint> Shots { get; } = [];
+
+        public ScenarioJourney Build(string path) =>
+            new(
+                path,
+                slug,
+                title,
+                line,
+                meta.TryGetValue("type", out var type) && string.Equals(type.Scalar, "scenario", StringComparison.Ordinal),
+                meta,
+                SetupOf(meta),
+                [.. Parts.Select(p => new ScenarioPart(p.Title, p.Anchor, p.Line, [.. p.Steps.Select(s => new ScenarioStep(s.Keyword, s.Text, s.Line))], [.. p.Shots]))],
+                [.. Shots]);
+    }
+
     private sealed class MutablePart(string title, string anchor, int line)
     {
         public string Title { get; } = title;
@@ -336,6 +408,9 @@ public static partial class ScenarioPageParser
 
     [GeneratedRegex(@"\r?\n")]
     private static partial Regex LineBreak();
+
+    [GeneratedRegex(@"^scenarios(?:\.[^./]+)?\.md$", RegexOptions.IgnoreCase)]
+    private static partial Regex ScenariosFileName();
 
     [GeneratedRegex(@"^\s*(`{3,}|~{3,})")]
     private static partial Regex FenceMarker();

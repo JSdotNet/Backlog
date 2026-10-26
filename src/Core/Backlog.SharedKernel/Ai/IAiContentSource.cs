@@ -31,12 +31,12 @@ namespace Backlog.SharedKernel.Ai;
 public interface IAiContentSource
 {
     /// <summary>The stable slug the shell keys the area by: <c>tasks</c>,
-    /// <c>inbox</c>, <c>devbook</c>, <c>roadmap</c>, <c>dashboard</c>,
+    /// <c>inbox</c>, <c>devbook</c>, <c>roadmap</c>, <c>goals</c>, <c>dashboard</c>,
     /// <c>sessions</c> or <c>tools</c>. Lower case, and never shown.</summary>
     string AreaKey { get; }
 
     /// <summary>What the area is called on the chip: <c>Tasks</c>,
-    /// <c>Inbox</c>, <c>Devbook</c>, <c>Roadmap</c>, <c>Dashboard</c>,
+    /// <c>Inbox</c>, <c>Devbook</c>, <c>Roadmap</c>, <c>Goals</c>, <c>Dashboard</c>,
     /// <c>Sessions</c> or <c>Tools</c>.</summary>
     string AreaTitle { get; }
 

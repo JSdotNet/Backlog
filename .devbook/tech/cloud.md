@@ -115,7 +115,7 @@ Microsoft Entra token credentials.
 status: trial
 type: platform
 depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis"]
-related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
+related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/07-deployment-view.md#release", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 alternatives: ["Azure App Service"]
 ```
 
@@ -132,8 +132,12 @@ The compute host for the cloud service.
   container registry with the same user-assigned managed identity it reaches
   Cosmos with.
 - **Status** — `trial` rather than adopted. The environment and the app run in
-  `JS-AI`, put there by hand. The `Deploy Sync` workflow has never completed,
-  though, and no second device has synced against the service in real use.
+  `JS-AI`, put there by hand. The `Deploy Sync` workflow has completed only a
+  `preview` run (2026-10-20), and no second device has synced against the
+  service in real use. Infrastructure runs stay manual. The service also
+  deploys nightly through Release All, which calls Deploy Sync in `service`
+  mode and provisions nothing
+  (`.devbook/arc42/07-deployment-view.md#release`).
 
 ## Azure AI Foundry
 
@@ -204,7 +208,8 @@ account, one database, and the containers below.
   AppHost starts, so building or testing the sync path needs no Azure account.
 - **Status** — `trial` and no higher. The account is provisioned in `JS-AI` and
   the hand-deployed sync service reaches it. The `Deploy Sync` workflow has
-  never completed, though, and no real multi-device use has validated it.
+  completed only a `preview` run, though, and no real multi-device use has
+  validated it.
 
 ## Azure Blob Storage
 

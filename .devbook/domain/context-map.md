@@ -10,7 +10,7 @@ status: draft
 > standards, and signals across the system.
 
 > See also: `.devbook/arc42/03-context-and-scope.md` for the system-level context this
-> map's bounded contexts sit inside, and `.devbook/arc42/05-building-block-view.md` for
+> map's bounded contexts sit inside, and `.devbook/arc42/05-building-block-view.md#container-view` for
 > how these contexts are realized across the desktop, mobile, IDE, and cloud
 > containers.
 
@@ -29,7 +29,7 @@ status: draft
 | Technology Stack | Supporting | It supplies portfolio-wide standards, baselines, and deprecation policy to the core work contexts. |
 | Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
-| Progress | Supporting | It lays sprints over a set of repositories and reports what each set out to do and how it ended, naming tasks by id and plans by tag without owning either. |
+| Progress | Supporting | It keeps the goals a person's work is attached to and the impediments that hold it back, and reads both over an iteration as a stand-up, naming tasks by id, plans by tag and pull requests by number without owning any of them. |
 | Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
 | Sync | Supporting | It keeps one person's data the same across their devices. It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model, but it carries other contexts' documents rather than being what makes the product different. |
 
@@ -99,12 +99,11 @@ flowchart LR
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Tasks
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Roadmap
 
-    %% Progress. All four edges are in-process reads; Progress publishes no
-    %% event. See .devbook/domain/progress/context.md and local ADR 0028.
-    Tasks -->|Customer/Supplier<br/>Task by id: status, tags, plan tag, linked pull requests| Progress
-    Roadmap -->|Customer/Supplier<br/>Plan tag vocabulary| Progress
+    %% Progress. All three edges are in-process reads; Progress publishes no
+    %% event. See .devbook/domain/progress/context.md and local ADR 0035.
+    Tasks -->|Customer/Supplier<br/>Task by id: status, due date, effort, blocked mark, linked pull requests| Progress
+    Roadmap -->|Customer/Supplier<br/>Plan tag vocabulary, plan order, pace| Progress
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Progress
-    Progress -->|Customer/Supplier<br/>Open sprint and goal for the briefs| Monitor
 
     %% Sync. It carries the documents of the contexts below and reads none of
     %% their payloads. Each downstream context reaches it through an adapter in
@@ -203,11 +202,16 @@ flowchart LR
   identity is still not Dev PC Management's Machine, so the rule stands unchanged.
 - `Progress` names a task by its id and a plan by its
   [plan tag](roadmap/domain.md#roadmap-tag), and reads both from their owners
-  on every reading. `Tasks` holds no knowledge of sprints: no task field, tag,
-  status or entry-text token names one, and no close outcome changes a task
-  (`.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).
+  on every reading. `Tasks` holds no knowledge of goals or impediments: no task
+  field, tag, status or entry-text token names one, and attaching a task to a goal
+  changes nothing on it. Marking a task blocked raises an impediment because
+  Progress reacts to the mark; Tasks does not call Progress and stores no
+  impediment id
+  (`.devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md`, which keeps
+  the boundary of
+  `.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).
   Progress publishes no event, so it has no row in the published-language table;
-  its four edges are Customer/Supplier reads.
+  its three edges are Customer/Supplier reads.
 - `Sync` carries other contexts' documents without interpreting them.
   It stores each one whole under its [Owner](sync/domain.md#owner), orders
   pushed copies by stamp and tombstone

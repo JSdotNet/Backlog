@@ -18,11 +18,10 @@ Answer "what have my agents been doing here" as one list: every session the
 environment has a record of, most recently active first, whichever agent ran it.
 
 The list opens from **Sessions** in the header's work in progress group. It sits
-between [In progress](#in-progress-by-task) and **Pull requests**, the open pull
-requests the sessions shipped. Each of the two lists takes the whole screen while it
-is open. Escape, its close button or a second press of its option returns to the view
-that was showing before. In progress, first in the group, is a
-view instead: it sits with the two lists because it summarises them.
+between [Goals](../progress/features.md#the-goals-view) and **Pull requests**, the
+open pull requests the sessions shipped. Each of the two lists takes the whole screen
+while it is open. Escape, its close button or a second press of its option returns to
+the view that was showing before. Goals, first in the group, is a view instead.
 
 One list rather than one per agent, because the question is about the work and not
 about the vendor. A person who has both agents installed does not think in two
@@ -33,6 +32,7 @@ inventories.
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions]
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.An_empty_open_view_names_all_as_the_way_out
 ```
 
 A session that is running now and a session that finished last week are rows in the
@@ -45,8 +45,8 @@ it. One list narrowed by a control is still one list:
 
 - the rows left out are one press away under the same heading;
 - the count beside the title names both numbers whenever any rows are left out;
-- the empty state the narrowing can produce says which states it kept, and how many
-  sessions are on the other side.
+- the empty state the narrowing can produce says what it kept, and how many sessions
+  are on the other side.
 
 A reader looking for a session has one place to look and one control to move.
 
@@ -54,10 +54,11 @@ A reader looking for a session has one place to look and one control to move.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#session-view, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/domain/sessions/domain.md#session-view]
+related: [.devbook/domain/sessions/domain.md#session-view, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/domain/sessions/domain.md#session-grouping]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_show_strip_offers_open_between_live_and_all_with_its_own_tally, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.An_open_finished_row_reads_idle_in_open_and_finished_everywhere_else, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Scheduled_runs_sit_in_one_folded_section_at_the_end_of_open, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_panel_never_shows_a_folded_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.With_only_scheduled_rows_folded_away_there_is_no_panel]
 ```
 
-The list opens on the sessions that are still going. A `Live` / `All` choice sits
+The list opens on the sessions that are still going. A `Live` / `Open` / `All` choice sits
 first in the row of controls above it, before the grouping, because it decides which
 rows exist before the grouping decides where they sit. "What is going on right now" is
 the question somebody opens this for. Several hundred finished records answer a
@@ -67,6 +68,20 @@ Live means running **or** stalled. Stalled is computed from silence rather than
 declared by the agent, because nothing writes "I have stopped". So a stalled session is
 one nobody can show has ended. A default that dropped it would hide the row most worth
 looking at: the one that may be sitting there waiting on the reader.
+
+**Open lists what the Claude desktop app still holds in its sidebar.** It keeps the
+sessions the desktop app has not archived, whether or not a process runs for them. The
+desktop app ends idle processes, so most of these read Finished, which is why Live
+misses them. Open draws a quiet **Idle** badge where the Finished chip would stand. Its
+title says what it means: "Open in the Claude desktop app with no process running;
+reads Finished". The desktop app's scheduled routine runs sit in one folded
+**Scheduled** section at the end of the list.
+
+Open reads only this PC's desktop app. A session from another machine, a CLI-only
+session, and a running session the desktop app keeps no record of, such as a side
+session, are never in it. The desktop app's store is a private format this product
+conforms to ([dependencies](dependencies.md)). Each row keeps the title the transcript
+gives it, not the title the desktop app shows.
 
 The choice is not remembered. Every open starts on `Live`, the way Group by starts at
 When. A reader should not have to remember having already answered "what is going on
@@ -94,11 +109,12 @@ type: sub-feature
 related: [.devbook/domain/sessions/domain.md#environment, .devbook/domain/sessions/features.md#group-by-environment]
 ```
 
-A machine filter sits beside `Live` / `All` and opens on "All machines". Choosing a
+A machine filter sits beside `Live` / `Open` / `All` and opens on "All machines". Choosing a
 machine keeps only the rows that machine gathered. The count beside the title names
 both numbers, such as "1 of 4 sessions", so the rows on the other machines are counted
 rather than forgotten. It composes with the view: `Live` on one machine is the running
-and stalled sessions there and nothing else.
+and stalled sessions there and nothing else. `Open` on another machine is empty, because
+Open reads only this PC's desktop app, and its empty state says so.
 
 A list rather than a row of buttons, because the options are however many machines
 have reported, which is not this list's decision. An option is offered exactly when
@@ -351,13 +367,19 @@ one of them is worth investigating.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#session-limit]
+related: [.devbook/domain/sessions/domain.md#session-limit, .devbook/domain/sessions/domain.md#session-catalog]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_capped_subtitle_names_the_older_open_sessions_apart, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_capped_subtitle_with_no_older_open_session_reads_as_before]
 ```
 
 An environment can hold hundreds of session records. Reading all of them costs real
 time, and showing all of them buries the handful that are running. A reading for a
 list therefore describes the most recent sessions per agent, up to the
 [Session Limit](domain.md#session-limit), and when it does, it states how many exist.
+
+The sessions still open in the Claude desktop app are listed whatever their age, and the
+subtitle names the older ones apart. It reads "The N most recent of D sessions this PC
+has a record of, plus K older ones still open in Claude". Counted among "the most
+recent", a months-old open session would make that number untrue.
 
 A reading for a count takes the other shape: everything since a horizon, with no
 limit. A count over the most recent hundred per agent is the limit wearing a total's
@@ -707,22 +729,24 @@ shown that the agent or the dashboard did not record.
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#narrow-to-one-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run]
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_show_strip_offers_open_between_live_and_all_with_its_own_tally
 ```
 
 The controls that narrow the list sit together in one filter bar above it. From left to
-right the bar shows Show (Live or All), With delivery runs, and Machine. Group by sits
+right the bar shows Show (Live, Open or All), With delivery runs, and Machine. Group by sits
 beside them, and Update records and Refresh at the end. One bar, because a reader who
 wonders why a session is missing should find every reason in one place. Each filter
 only removes rows, so the order on screen does not change what the list shows. The
 order the surface applies them in is the [Session View](domain.md#session-view)'s.
 
-Live carries how many rows it would show under the other filters, so pressing it is
-never a guess. Every filter comes back to its first option on every opening, and Group
+Live and Open each carry how many rows they would show under the other filters, so
+pressing one is never a guess. Every filter comes back to its first option on every opening, and Group
 by comes back to When.
 
 The count beside the title keeps its promise from
 [Grouping never hides a session](#grouping-never-hides-a-session): it names both numbers
-whenever the bar leaves rows out. The heading reads "Running now" while Show is on Live.
+whenever the bar leaves rows out. The heading reads "Running now" while Show is on Live,
+and "Open in Claude" while it is on Open.
 
 ### Grouped rows that show how each session ran
 
@@ -1282,7 +1306,7 @@ session where they can see it happen.
 
 ```meta
 type: feature
-related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/sessions/features.md#the-detail-of-one-session, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository, .devbook/domain/progress/features.md#pull-request-status]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestVerdictTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubClientHeadChecksTests, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubIntegrationPullRequestListTests]
 ```
 
@@ -1309,7 +1333,8 @@ A row shows:
 - the repository's [identity edge](../../design/color-scheme.md#the-identity-edge);
 - the number, the verdict chip and the title;
 - the head branch, and how long ago it was updated;
-- a meter of its checks, with how many passed.
+- its [pull request status](../progress/features.md#pull-request-status) marks: checks
+  as passed over total once any ran, and the approvals it has.
 
 A pull request stacked on another is indented and says which one it waits on, so the
 reader merges that one first. A pinned one keeps both in the Pinned group, so a pin never
@@ -1522,76 +1547,39 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
-related: [.devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.In_progress_is_a_main_view_that_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.With_sessions_and_pull_requests_off_there_is_no_in_progress_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_card_draws_what_its_entry_links_and_the_rest_is_not_linked_to_a_task, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_no_repository_scope_narrows_the_view_like_the_task_list, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_feature_that_is_off_draws_no_column_in_the_view_or_the_side_panel, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_feature_that_is_off_draws_no_column_and_no_count]
+status: deprecated
+related: [.devbook/domain/progress/features.md#the-goals-view, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_goals]
 ```
 
-Answer "what is moving, and what needs me" as one view: every task in progress in the
-repository scope, each with the sessions and pull requests linked to it beside it.
+The In progress view is gone. It became
+[the Goals view](../progress/features.md#the-goals-view), which Progress owns, and
+local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)
+decides it. Its board by task went with the `goals` flag that kept it for a person who
+had goals off: no view lists every task in progress with its sessions and pull
+requests, puts the quiet sessions and the failing pull requests first under **Needs
+you**, or lists the work no task links under **Not linked to a task**. Its two
+toggles, "Needs you first" and "Include finished today", went with it, and the shell
+no longer keeps them. A shell remembered on In progress reopens on Goals.
 
-- A session shows its title, state and last activity.
-- A pull request shows its number, title, draft or open, review verdict, checks and
-  size.
-- A task with nothing of a kind says "None yet".
-
-It is the first option of the work in progress group in the header. It is a main view
-rather than a takeover, so the Devbook still opens beside it. It is offered while the
-session list or the pull requests list is. While the scope holds a repository of a
-sprint series, a **Now | Sprint n** switch beside the title opens
-[the sprint view](../progress/features.md#the-sprint-view); this view is its Now side,
-unchanged.
-
-The scope is the task list's whole repository scope: the repositories chosen in the
-header, and its "No repository" scope too. Under "No repository", only the tasks filed
-against no repository show, and, of the loose work, only a session placed in no
-registered repository. With only one of the session list and the pull requests list on,
-the other kind is not drawn at all. There is no column and no count in the summary,
-rather than a column saying "None yet" for a list that is switched off.
-
-### Needs you first
-
-```meta
-type: sub-feature
-tests: [unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Needs_you_comes_first_then_moving_each_in_the_hosts_order, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_failing_check_or_requested_changes_on_an_open_pull_request_needs_you, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.A_quiet_session_needs_you, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.A_linked_session_that_has_gone_quiet_needs_you_and_says_quiet_30_min, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_in_progress_toggles_are_remembered_and_a_fresh_shell_reopens_on_them]
-```
-
-A task is under **Needs you** when its linked session has gone quiet, which is
-`Stalled`, shown as "Quiet 30 min". It is also there when its open pull request has a
-failing check or requested changes. The rest are under **Moving**. Switched off, the
-tasks are one list in the task list's order. "Include finished today" adds the tasks
-done today in a section of their own. Both choices are remembered on this device, so In
-progress reopens as the reader left it. Until the reader changes them, "Needs you first"
-is on and "Include finished today" is off.
-
-### Link what no task claims
-
-```meta
-type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Link_to_a_task_records_a_loose_session_on_the_chosen_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Link_to_a_task_records_a_loose_pull_request_on_the_chosen_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Linking_what_the_entry_already_holds_writes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Linking_moves_the_focus_to_the_card_the_item_now_sits_under, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Each_task_card_is_a_focus_target_a_host_can_name]
-```
-
-Live sessions and the reader's own open pull requests that no task links are listed
-last, under **Not linked to a task**, each with "Link to a task…". Linking records the
-session or the pull request on the chosen entry. It uses the same write the
-`link_session` and `link_change` tools make, so a link made by hand and one an agent
-made are one kind of record. A link the entry already holds is not written twice.
-Once the link lands, the card that opened the picker is gone. So the focus moves to the
-card of the task the item now sits under, or to the view's title when that task is not
-in the view, rather than dropping to the page.
+What the view answered lives elsewhere. Goal progress, the stand-up and the work no
+goal holds are the Goals view's. A session that has gone quiet is the session list's,
+and a pull request that needs attention is the pull requests list's. What stays is a
+task's side panel: linking, unlinking and the reads of a linked pull request.
 
 ### Unlink what was linked
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Unlink_on_a_card_takes_the_session_off_and_it_is_not_linked_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.Unlink_in_the_side_panel_takes_a_pull_request_off_its_entry, unit:dotnet:Backlog.UI.Components.UnitTests.InProgressBoardTests.Unlink_beside_a_card_hands_the_host_the_task_and_the_item, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.Unlink_in_the_side_panel_takes_a_pull_request_off_its_entry, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories]
 ```
 
-Every linked session and pull request on a task's card, and in its side panel, has an
-"Unlink" beside it. Unlinking takes the link off the entry through the entries module's
-own unlink, the counterpart of the write linking makes, under the repository it was
-recorded with. The entry's repositories stay. A session still live, or a pull request of
-the reader's still open, goes back under **Not linked to a task**, one link away from the
-right task. The focus stays on the task's card.
+Every linked session and pull request in a task's side panel has an "Unlink" beside
+it. Unlinking takes the link off the entry through the entries module's own unlink,
+the counterpart of the write linking makes, under the repository it was recorded with.
+The entry's repositories stay. A session still live, or a pull request of the reader's
+still open, is offered again by "Link a session or pull request…". The focus moves to
+the section's heading, since the card that held it is gone.
 
 ### What a linked pull request is read for
 
@@ -1609,7 +1597,7 @@ records, in batches of fifty, and never for checks or branches.
 A merged pull request is read once and kept while the app runs. A closed or open one is
 read again with the next read of the open list, at most once a minute, because GitHub
 can reopen a closed one. A number GitHub cannot find is not asked about again. The side
-panel reads none of them.
+panel reads none of them on its own.
 
 The cards draw what they drew before. A link carries the state, the author and the merge
 date for a reader that counts what merged and whose it was; no card shows them yet.
@@ -1618,28 +1606,36 @@ date for a reader that counts what merged and whose it was; no card shows them y
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InProgressViewTests.The_side_panel_section_links_a_session_or_pull_request_to_its_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_pull_request_typed_by_number_is_linked_whatever_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_merged_pull_request_linked_by_its_link_is_kept_by_the_reader, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_pull_request_in_a_repository_not_registered_is_refused_under_the_field, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_number_GitHub_does_not_know_is_refused_and_nothing_is_recorded, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_bare_number_on_a_task_with_no_registered_repository_asks_for_the_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_bare_number_on_a_task_with_two_repositories_asks_for_the_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_listed_pull_request_that_merged_before_it_was_chosen_is_still_linked, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.An_in_progress_title_opens_the_entry_in_the_tasks_view, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.A_merged_or_closed_pull_request_opened_from_a_task_is_listed_and_scrolled_to]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.The_side_panel_section_links_a_session_or_pull_request_to_its_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.Linking_what_the_entry_already_holds_writes_nothing, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.A_feature_that_is_off_draws_no_column_in_the_side_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_tasks_side_panel_carries_its_sessions_and_pull_requests, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_pull_request_typed_by_number_is_linked_whatever_its_state, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_merged_pull_request_linked_by_its_link_is_kept_by_the_reader, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_pull_request_in_a_repository_not_registered_is_refused_under_the_field, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_number_GitHub_does_not_know_is_refused_and_nothing_is_recorded, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_bare_number_on_a_task_with_no_registered_repository_asks_for_the_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_bare_number_on_a_task_with_two_repositories_asks_for_the_link, unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkPullRequestByReferenceTests.A_listed_pull_request_that_merged_before_it_was_chosen_is_still_linked, unit:dotnet:Backlog.Desktop.UI.UnitTests.PullRequestsPaneTests.A_merged_or_closed_pull_request_opened_from_a_task_is_listed_and_scrolled_to]
 ```
 
-A task's side panel carries the same cards under "Sessions and pull requests", with
-"Link a session or pull request…" and "Open in In progress". With one of the two
-features off, the heading and the link action name only the kind left.
+A task's side panel carries the sessions and pull requests linked to it as cards,
+under "Sessions and pull requests", with "Link a session or pull request…". The
+section shows while the session list or the pull requests list is on. With one of the
+two off, the heading and the link action name only the kind left. It is the only place
+on the desktop that draws a task's linked work by task.
 
-Under the list of what no task claims, the link action takes a pull request by its
-number or its link, whatever its state: open, draft, merged or closed. Work that merged
-before its task was linked is linked this way, and a sprint member is then
-[done](../progress/domain.md#done) by it. A bare number is the task's own repository's, and a task with two has to be given the link;
-a link or `owner/name#123` names one, and it must be registered in Settings. The pull
-request is read by number before anything is recorded, so one GitHub does not know is
-refused under the field and nothing is written. A merged one is kept from that read for
-as long as the app runs. A pull request the list offered as open that merged before it
-was chosen is linked too, not refused as no longer open.
+The link action offers the live sessions and the reader's own open pull requests that
+no task links yet. Linking records the session or the pull request on the entry with
+the same write the `link_session` and `link_change` tools make, so a link made by hand
+and one an agent made are one kind of record. A link the entry already holds is not
+written twice.
 
-A task's title on
-the view opens it in the Tasks view. A session or a pull request opens the session list
-or the pull requests list on that item. A pull request that has merged or closed is not
-on the pull requests list's open read. So it is read by number and drawn in the open list
-beside the pins, saying Merged or Closed, and the list scrolls its row into view.
+The link action also takes a pull request by its number or its link, whatever its
+state: open, draft, merged or closed. Work that merged before its task was linked is
+linked this way, and the task is then [done](../progress/domain.md#done) by it in the
+goal that counts it. A bare number is the task's own repository's, and a task with two
+has to be given the link; a link or `owner/name#123` names one, and it must be
+registered in Settings. The pull request is read by number before anything is
+recorded, so one GitHub does not know is refused under the field and nothing is
+written. A merged one is kept from that read for as long as the app runs. A pull
+request the list offered as open that merged before it was chosen is linked too, not
+refused as no longer open.
+
+A session or a pull request opens the session list or the pull requests list on that
+item. A pull request that has merged or closed is not on the pull requests list's open
+read. So it is read by number and drawn in the open list beside the pins, saying
+Merged or Closed, and the list scrolls its row into view.
 
 ## Turn the area off
 

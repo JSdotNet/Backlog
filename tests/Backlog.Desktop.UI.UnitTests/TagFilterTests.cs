@@ -1,3 +1,4 @@
+using AngleSharp.Dom;
 using Bunit;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -1089,16 +1090,22 @@ public sealed class TagFilterTests
             host.State.ShowPlan("+zeta");
             pane.Render();
 
-            var first = pane.FindAll($"#tag-filter-strip > {Chip}")[0];
+            // The pressed plan leads inside the pair it shares with its copy, so the
+            // strip's first item is that pair and the chip is its first part.
+            var lead = pane.Find("#tag-filter-strip").FirstElementChild!;
+            Assert.Equal("tag-filter-plan-pair", lead.GetAttribute("data-testid"));
+            var first = lead.FirstElementChild!;
+            Assert.True(first.Matches(Chip));
             Assert.StartsWith("+zeta", first.TextContent, StringComparison.Ordinal);
             Assert.Equal("true", first.GetAttribute("aria-pressed"));
         }
     }
 
-    /// <summary>Only the plan asked for leads: once the reader takes the plan back
-    /// with a press, the bar is in its own order again.</summary>
+    /// <summary>A plan the reader pressed leads the bar as the plan asked for does, so
+    /// it and its copy are never the chip the one-row strip clips; once no plan is
+    /// pressed, the bar is in its own order again.</summary>
     [Fact]
-    public async Task A_plan_the_reader_pressed_keeps_its_place_on_the_bar()
+    public async Task A_plan_the_reader_pressed_leads_the_bar_until_it_is_let_go()
     {
         using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync("# Start it +alpha\n`task` `!ready` `@platform`\n");
@@ -1109,7 +1116,129 @@ public sealed class TagFilterTests
         host.State.ToggleTagFilter("+alpha");
         host.State.ToggleTagFilter("+zeta");
 
+        Assert.Equal(["+zeta", "+alpha"], host.State.TagFilters.Select(option => option.Value));
+
+        host.State.ToggleTagFilter("+zeta");
+
         Assert.Equal(["+alpha", "+zeta"], host.State.TagFilters.Select(option => option.Value));
+    }
+
+    /// <summary>On the rendered strip: pressing a plan that is not first makes its pair
+    /// — the chip and its copy — the strip's first child, the one components.js reserves
+    /// width for, whatever casing it was pressed in.</summary>
+    [Fact]
+    public async Task Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+        var pane = host.Render();
+
+        var before = pane.FindAll($"#tag-filter-strip > {Chip}").Select(chip => chip.TextContent).ToList();
+        Assert.True(before.FindIndex(text => text.StartsWith("+roadmap-import", StringComparison.Ordinal)) > 0);
+
+        host.State.ToggleTagFilter("+Roadmap-Import");
+        pane.Render();
+
+        var lead = pane.Find("#tag-filter-strip").FirstElementChild!;
+        Assert.Equal("tag-filter-plan-pair", lead.GetAttribute("data-testid"));
+        Assert.StartsWith("+roadmap-import", lead.FirstElementChild!.TextContent, StringComparison.Ordinal);
+        Assert.Equal("true", lead.FirstElementChild!.GetAttribute("aria-pressed"));
+        Assert.NotNull(lead.QuerySelector("[data-testid='tag-filter-copy-plan']"));
+    }
+
+    /// <summary>The pressed plan takes the lead from "No plan" too, which follows it
+    /// rather than going anywhere further down.</summary>
+    [Fact]
+    public async Task A_pressed_plan_leads_with_no_plan_straight_after_it()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ToggleTagFilter("+roadmap-import");
+
+        Assert.Equal(
+            ["+roadmap-import", TasksDesktopState.NoPlanTag],
+            host.State.TagFilters.Take(2).Select(option => option.Value));
+    }
+
+    /// <summary>
+    /// A press that moves the chip hands the focus back to it. Pressed, the plan moves
+    /// to the front and into its pair; let go, it moves back out — a new element both
+    /// times, so the focus the press left behind would be on whatever took its old
+    /// place, or on nothing. The id the focus is handed to is the chip's own, and stays
+    /// the same wherever the chip is drawn. The browser's focus itself is harness-only:
+    /// bUnit records the call, not where the focus lands.
+    /// </summary>
+    [Fact]
+    public async Task A_plan_press_hands_the_focus_back_to_the_moved_chip()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+        host.Context.JSInterop.SetupVoid("backlogFocusTagChip", _ => true);
+        var pane = host.Render();
+
+        IElement PlanChip() => pane.FindAll($"#tag-filter-strip {Chip}")
+            .Single(chip => chip.TextContent.StartsWith("+roadmap-import", StringComparison.Ordinal));
+
+        var id = PlanChip().Id;
+        Assert.False(string.IsNullOrEmpty(id));
+
+        PlanChip().Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(id, pane.Find("[data-testid='tag-filter-plan-pair']").FirstElementChild!.Id);
+            Assert.Equal(id, host.Context.JSInterop.Invocations["backlogFocusTagChip"][^1].Arguments[0]);
+        });
+
+        PlanChip().Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='tag-filter-plan-pair']"));
+            Assert.Equal(id, PlanChip().Id);
+            Assert.Equal(2, host.Context.JSInterop.Invocations["backlogFocusTagChip"].Count);
+            Assert.Equal(id, host.Context.JSInterop.Invocations["backlogFocusTagChip"][^1].Arguments[0]);
+        });
+
+        // A general tag moves nothing, so it asks for no focus — read once the press
+        // has rendered, so the count is not read before a call could have been made.
+        IElement SyncChip() => pane.FindAll($"#tag-filter-strip {Chip}")
+            .Single(chip => chip.TextContent.StartsWith("#sync", StringComparison.Ordinal));
+
+        SyncChip().Click();
+
+        pane.WaitForAssertion(() => Assert.Equal("true", SyncChip().GetAttribute("aria-pressed")));
+        Assert.Equal(2, host.Context.JSInterop.Invocations["backlogFocusTagChip"].Count);
+    }
+
+    /// <summary>No plan is in the plan group: pressed while a plan is, it lets go of
+    /// that plan, which moves back out of its pair — and the focus is handed back to
+    /// No plan, the chip the press was on.</summary>
+    [Fact]
+    public async Task A_no_plan_press_hands_the_focus_back_to_no_plan()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+        host.Context.JSInterop.SetupVoid("backlogFocusTagChip", _ => true);
+        host.State.ToggleTagFilter("+roadmap-import");
+        var pane = host.Render();
+        Assert.Single(pane.FindAll("[data-testid='tag-filter-plan-pair']"));
+
+        IElement NoPlanChip() => pane.FindAll($"#tag-filter-strip {Chip}")
+            .Single(chip => chip.TextContent.StartsWith("No plan", StringComparison.Ordinal));
+
+        var id = NoPlanChip().Id;
+        Assert.False(string.IsNullOrEmpty(id));
+
+        NoPlanChip().Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='tag-filter-plan-pair']"));
+            Assert.Equal("true", NoPlanChip().GetAttribute("aria-pressed"));
+            Assert.Equal(id, Assert.Single(host.Context.JSInterop.Invocations["backlogFocusTagChip"]).Arguments[0]);
+        });
     }
 
     /// <summary>The same in a backlog where nothing carries any tag at all, which is
@@ -1406,6 +1535,24 @@ public sealed class TagFilterTests
 
         Assert.Equal("+release-q4", host.State.SelectedPlan);
 
+        // Fused to the pressed chip: one pair in the strip, the chip first and the
+        // copy straight after it, two sibling buttons rather than one inside the other,
+        // and nothing left over beside the More toggle.
+        var pair = Assert.Single(pane.FindAll("#tag-filter-strip > [data-testid='tag-filter-plan-pair']"));
+        var parts = pair.Children;
+        Assert.Equal(2, parts.Length);
+        Assert.Equal("tag-filter-option", parts[0].GetAttribute("data-testid"));
+        Assert.Equal("true", parts[0].GetAttribute("aria-pressed"));
+        Assert.StartsWith("+release-q4", parts[0].TextContent.Trim(), StringComparison.Ordinal);
+        Assert.Equal("tag-filter-copy-plan", parts[1].GetAttribute("data-testid"));
+        Assert.Empty(parts[0].QuerySelectorAll("button"));
+        var copy = pair.QuerySelector("button[data-testid='tag-filter-copy-plan-button']");
+        Assert.NotNull(copy);
+        Assert.Equal("Copy +release-q4", copy.GetAttribute("aria-label"));
+        Assert.DoesNotContain("chip", copy.ClassList);
+        Assert.Contains("sr-only", pane.Find("[data-testid='tag-filter-copy-plan-status']").ClassList);
+        Assert.Empty(pane.FindAll("[data-testid='tag-filter-more'] ~ [data-testid='tag-filter-copy-plan']"));
+
         pane.Find("[data-testid='tag-filter-copy-plan-button']").Click();
 
         pane.WaitForAssertion(() => Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]));
@@ -1415,6 +1562,24 @@ public sealed class TagFilterTests
         pane.Render();
 
         Assert.Empty(pane.FindAll("[data-testid='tag-filter-copy-plan']"));
+        Assert.Empty(pane.FindAll("[data-testid='tag-filter-plan-pair']"));
+    }
+
+    /// <summary>The selection matches tags without regard to case, so a plan pressed
+    /// in another casing is still the pressed chip, and the copy still joins it.</summary>
+    [Fact]
+    public async Task A_plan_selected_in_another_casing_still_pairs_its_copy_with_the_chip()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ToggleTagFilter("+Release-Q4");
+        var pane = host.Render();
+
+        var pair = Assert.Single(pane.FindAll("#tag-filter-strip > [data-testid='tag-filter-plan-pair']"));
+        Assert.Equal("true", pair.FirstElementChild!.GetAttribute("aria-pressed"));
+        Assert.NotNull(pair.QuerySelector("[data-testid='tag-filter-copy-plan']"));
+        Assert.Single(pane.FindAll("[data-testid='tag-filter-copy-plan']"));
     }
 
     /// <summary>"No plan" names no plan, and a general tag is not one: neither
@@ -1429,7 +1594,13 @@ public sealed class TagFilterTests
         host.State.ToggleTagFilter("sync");
 
         Assert.Null(host.State.SelectedPlan);
-        Assert.Empty(host.Render().FindAll("[data-testid='tag-filter-copy-plan']"));
+        var pane = host.Render();
+        Assert.Empty(pane.FindAll("[data-testid='tag-filter-copy-plan']"));
+        // Neither pressed chip is wrapped: only a plan gets the pair.
+        Assert.Empty(pane.FindAll("[data-testid='tag-filter-plan-pair']"));
+        Assert.All(
+            pane.FindAll("[data-testid='tag-filter-option'][aria-pressed='true']"),
+            chip => Assert.Equal("tag-filter-strip", chip.ParentElement?.Id));
     }
 
     private static TagFilterOption Option(TasksPaneHost host, string value) =>

@@ -13,6 +13,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Logging;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
@@ -107,6 +108,9 @@ public static class MauiProgram
             PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(sp.GetRequiredService<WorkingHoursSettingsStore>()),
             // %LOCALAPPDATA%\Backlog\my-day-preferences.json, beside the pace (local ADR 0032).
             MyDayPreferences = _ => new MyDayPreferencesStore(),
+            // %LOCALAPPDATA%\Backlog\iteration-settings.json, seeded once from the shell
+            // navigation file an earlier build kept the choice in (local ADR 0036).
+            IterationSettings = sp => new IterationSettingsStore(sp.GetRequiredService<ShellNavigationStore>()),
             ShellNavigation = _ => new ShellNavigationStore(),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(),
             CaptureRunLog = _ => new CaptureRunLogStore(),
@@ -224,6 +228,10 @@ public static class MauiProgram
         // And the linked task sync's timer, on the same terms: each connected
         // repository or product syncs on its own interval only while this exists.
         _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
+
+        // And the blocked-task watcher, on the same terms: it raises an impediment for a
+        // task marked blocked (local ADR 0035), and a watcher nobody resolves hears nothing.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
 
         // And the MCP listener, on the same terms again - its constructor is
         // what queues the bind, so a singleton nobody resolves is a server no

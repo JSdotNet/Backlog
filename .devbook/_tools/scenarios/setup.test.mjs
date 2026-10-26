@@ -1,5 +1,5 @@
 // The setup runner's logic: the effective configuration (profile, then the
-// page's flags and settings), portals for start and actor, env: values, and
+// journey's flags and settings), portals for start and actor, env: values, and
 // the order the repository's setup hook is called in, and the parameter type
 // a consumer's tsc reads through setup.ts.
 //
@@ -7,19 +7,35 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { parseScenarioPage } from "./parse.mjs";
-import { effectiveConfig, recordedConfig, resolveEnv, runSetup } from "./setup.mjs";
+import path from "node:path";
+import { parseScenariosFile } from "./parse.mjs";
+import { effectiveConfig, recordedConfig, resolveEnv, runSetup, specFile } from "./setup.mjs";
 
 const F = "```";
-const page = (meta) => parseScenarioPage(`# Journey\n\n${F}meta\ntype: scenario\n${meta}\n${F}\n\n## Done\n- **Then** done\n`, ".devbook/domain/shop/journey.md");
+const journey = (meta) => parseScenariosFile(`# Scenarios
+
+${F}meta
+type: scenarios
+${F}
+
+## Journey
+
+${F}meta
+type: scenario
+${meta}
+${F}
+
+### Done
+- **Then** done
+`, ".devbook/domain/shop/scenarios.md").journeys[0];
 const PROFILES = {
     default: { portals: { app: "env:APP_URL" }, tenant: "demo", flags: {}, settings: {} },
     "tenant-acme": { portals: { customer: "env:SHOP_URL", admin: "env:ADMIN_URL" }, tenant: "acme", flags: { "new-board": true, "legacy-filters": true }, settings: { "backlog-max-columns": 8 } },
 };
 
-test("the profile comes first, the page's flags and settings on top", () => {
+test("the profile comes first, the journey's flags and settings on top", () => {
     const config = effectiveConfig(
-        page("profile: tenant-acme\nflags: [context.md#beta, -context.md#legacy-filters]\nsettings: [context.md#backlog-max-columns=5, context.md#currency=EUR, context.md#strict=true]\ndata: [a, b]"),
+        journey("profile: tenant-acme\nflags: [context.md#beta, -context.md#legacy-filters]\nsettings: [context.md#backlog-max-columns=5, context.md#currency=EUR, context.md#strict=true]\ndata: [a, b]"),
         PROFILES
     );
     assert.equal(config.profile, "tenant-acme");
@@ -30,18 +46,18 @@ test("the profile comes first, the page's flags and settings on top", () => {
 });
 
 test("no profile is default; an override wins; an unknown one is an error", () => {
-    assert.equal(effectiveConfig(page(""), PROFILES).profile, "default");
-    assert.equal(effectiveConfig(page("profile: default"), PROFILES, { override: "tenant-acme" }).profile, "tenant-acme");
-    assert.throws(() => effectiveConfig(page("profile: nope"), PROFILES), /profile "nope" is not defined/);
+    assert.equal(effectiveConfig(journey(""), PROFILES).profile, "default");
+    assert.equal(effectiveConfig(journey("profile: default"), PROFILES, { override: "tenant-acme" }).profile, "tenant-acme");
+    assert.throws(() => effectiveConfig(journey("profile: nope"), PROFILES), /profile "nope" is not defined/);
 });
 
 test("start and actor name a portal, or the profile's first", () => {
-    const config = effectiveConfig(page("profile: tenant-acme\nstart: admin:/products\nactor: [admin:actors.md#product-owner, actors.md#shopper]"), PROFILES);
+    const config = effectiveConfig(journey("profile: tenant-acme\nstart: admin:/products\nactor: [admin:actors.md#product-owner, actors.md#shopper]"), PROFILES);
     assert.equal(config.defaultPortal, "customer");
     assert.deepEqual(config.start, { portal: "admin", route: "/products" });
     assert.deepEqual(config.actors, { admin: "product-owner", customer: "shopper" });
-    assert.deepEqual(effectiveConfig(page("start: /home"), PROFILES).start, { portal: "app", route: "/home" });
-    assert.throws(() => effectiveConfig(page("profile: tenant-acme\nstart: back:/x"), PROFILES), /portal "back"/);
+    assert.deepEqual(effectiveConfig(journey("start: /home"), PROFILES).start, { portal: "app", route: "/home" });
+    assert.throws(() => effectiveConfig(journey("profile: tenant-acme\nstart: back:/x"), PROFILES), /portal "back"/);
 });
 
 test("env: values resolve from the environment, and an unset one is an error", () => {
@@ -59,7 +75,7 @@ test("the hook runs tenant, data, flags, settings, then sign-in per portal", asy
         setSetting: async (tenant, setting, value) => calls.push(["setSetting", setting, value]),
         signIn: async (pg, portal, actor) => calls.push(["signIn", pg, portal, actor]),
     };
-    const config = effectiveConfig(page("profile: tenant-acme\ndata: [catalogue]\nsettings: [context.md#currency=EUR]\nactor: [admin:actors.md#product-owner, customer:actors.md#shopper]"), PROFILES);
+    const config = effectiveConfig(journey("profile: tenant-acme\ndata: [catalogue]\nsettings: [context.md#currency=EUR]\nactor: [admin:actors.md#product-owner, customer:actors.md#shopper]"), PROFILES);
     const opened = [];
     await runSetup({ hook, config, open: async (portal) => (opened.push(portal), `page:${portal}`), dataFolder: (name) => `data/${name}` });
     assert.deepEqual(calls, [
@@ -75,21 +91,21 @@ test("the hook runs tenant, data, flags, settings, then sign-in per portal", asy
     assert.deepEqual(opened, ["admin", "customer"]);
 });
 
-test("a hook method the page needs and the hook lacks is an error; one it does not need may be absent", async () => {
+test("a hook method the journey needs and the hook lacks is an error; one it does not need may be absent", async () => {
     const bare = { ...PROFILES, bare: { portals: { app: "env:APP_URL" } } };
-    await assert.rejects(runSetup({ hook: {}, config: effectiveConfig(page("profile: bare\ndata: [catalogue]"), bare), open: async () => null }), /no importData\(\)/);
-    await assert.rejects(runSetup({ hook: {}, config: effectiveConfig(page(""), PROFILES), open: async () => null }), /no applyTenant\(\)/);
-    await runSetup({ hook: {}, config: effectiveConfig(page("profile: bare"), bare), open: async () => null });
+    await assert.rejects(runSetup({ hook: {}, config: effectiveConfig(journey("profile: bare\ndata: [catalogue]"), bare), open: async () => null }), /no importData\(\)/);
+    await assert.rejects(runSetup({ hook: {}, config: effectiveConfig(journey(""), PROFILES), open: async () => null }), /no applyTenant\(\)/);
+    await runSetup({ hook: {}, config: effectiveConfig(journey("profile: bare"), bare), open: async () => null });
 });
 
 test("a setting value stays a string unless it reads back the same as a number", () => {
-    const config = effectiveConfig(page("settings: [c.md#a=5, c.md#b=-0.5, c.md#c=1.10, c.md#d=007, c.md#e=0x10, c.md#f=1e3]"), PROFILES);
+    const config = effectiveConfig(journey("settings: [c.md#a=5, c.md#b=-0.5, c.md#c=1.10, c.md#d=007, c.md#e=0x10, c.md#f=1e3]"), PROFILES);
     assert.deepEqual(config.settings, { a: 5, b: -0.5, c: "1.10", d: "007", e: "0x10", f: "1e3" });
 });
 
 test("two actors on one portal, or an actor with no portal to sign in on, is an error", () => {
-    assert.throws(() => effectiveConfig(page("actor: [actors.md#a, app:actors.md#b]"), PROFILES), /two actors on portal "app"/);
-    assert.throws(() => effectiveConfig(page("profile: none\nactor: actors.md#a"), { none: {} }), /without a portal/);
+    assert.throws(() => effectiveConfig(journey("actor: [actors.md#a, app:actors.md#b]"), PROFILES), /two actors on portal "app"/);
+    assert.throws(() => effectiveConfig(journey("profile: none\nactor: actors.md#a"), { none: {} }), /without a portal/);
 });
 
 // tsc infers a JS default parameter's type from its value, so without a declared
@@ -102,4 +118,13 @@ test("runSetup declares dataFolder as taking the data set's name", async () => {
     const folders = [];
     await runSetup({ hook: { importData: async (_name, _tenant, folder) => folders.push(folder) }, config: { tenant: null, data: ["a"], flags: {}, settings: {}, actors: {} }, open: async () => null });
     assert.deepEqual(folders, [null], "the default still answers null");
+});
+
+// A spec built by scenario() declares its tests and hooks inside setup.ts, so
+// Playwright's info.file names setup.ts and the spec header is never found.
+test("the spec file comes from the title path, never from info.file", () => {
+    const testDir = path.resolve("repo", "e2e");
+    const info = { file: path.resolve("repo", ".devbook", "_tools", "scenarios", "setup.ts"), titlePath: [path.join("work", "journey.spec.ts"), "journey", "part"], project: { testDir } };
+    assert.equal(specFile(info), path.join(testDir, "work", "journey.spec.ts"));
+    assert.throws(() => specFile({ titlePath: [], project: { testDir } }), /no title path/);
 });

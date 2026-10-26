@@ -66,6 +66,13 @@
     <Compile Include="..\..\src\App\Backlog.Desktop\Mcp\McpServerWorker.cs" Link="Head\McpServerWorker.cs" />
   </ItemGroup>
 
+  <!-- And the port the Settings page reads that listener through, for the same
+       reason: DesktopMcpEndpointSourceTests holds it to forwarding the listener's
+       state, the port and a Retry to the real worker rather than a stand-in. -->
+  <ItemGroup>
+    <Compile Include="..\..\src\App\Backlog.Desktop\Mcp\DesktopMcpEndpointSource.cs" Link="Head\DesktopMcpEndpointSource.cs" />
+  </ItemGroup>
+
   <!-- The head's .mjs response decision, compiled here for the same reason:
        ModuleScriptResponsesTests holds the head to serving its module scripts
        as JavaScript, which MAUI's Windows extension table does not. The file

@@ -13,6 +13,8 @@ related: [".devbook/arc42/05-building-block-view.md#desktop-app"]
 Creating a task writes its SQLite row locally first (local ADR 0003), then asynchronously creates
 one GitHub issue per targeted repo.
 
+![Capturing an item and pushing it to GitHub](c4:capture-to-issue)
+
 ```mermaid
 sequenceDiagram
     actor ME
@@ -79,7 +81,7 @@ sequenceDiagram
 ## Mobile Capture and Sync
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#mobile-app"]
+related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md"]
 ```
 
 A capture is written to the phone's own SQLite outbox before anything touches
@@ -97,7 +99,13 @@ when the service answers.
   5xx, or a 401 from a service that restarted with a new signing key) stops the
   flush, so nothing overtakes it. It is retried after 2s, 4s, 8s, 16s. The fifth
   failure parks the entry as *waiting — tap to retry*, and it stays first in
-  line. A refusal (any other 4xx) is set aside at once and holds nothing up.
+  line. A refusal (any other 4xx but 426) is set aside at once and holds nothing
+  up.
+- **Held while the service is newer.** A 426 is the phone's own answer when the
+  service reports a version above the app's (local ADR 0005 §Version
+  compatibility); nothing was sent. The head entry keeps its place and its
+  attempts, the flush stops, and it is tried again when the verdict is next due,
+  ten minutes on, so a rolled-back service takes the queue without a tap.
 - **Same id on every attempt.** The id is minted (`Guid.CreateVersion7()`) when
   the capture is queued. The service answers a repeat of it with 200 and the
   capture it already holds, so a retry after a lost 201 delivers it once.
@@ -131,15 +139,19 @@ sequenceDiagram
     App-->>ME: Row shown at once, marked waiting
 
     loop Oldest entry first
-        Outbox->>+Sync: POST /api/sync/inbox (same id every attempt)
-        alt 201 Created, or 200 for an id it already holds
-            Sync-->>-Outbox: Capture
-            Outbox->>Outbox: DELETE entry
-            App->>Sync: GET /api/sync/inbox (refresh, cache the list)
-        else No network, timeout, 5xx or 401
-            Outbox->>Outbox: attempts+1, last_error; wait 2s·2^(n-1); stop the flush
-        else Any other 4xx
-            Outbox->>Outbox: set aside as refused; continue with the next entry
+        alt Service reports a newer version than the app
+            Outbox->>Outbox: 426 from the app itself, nothing sent: held in place, attempts kept; stop the flush; retry in 10 min
+        else
+            Outbox->>+Sync: POST /api/sync/inbox (same id every attempt)
+            alt 201 Created, or 200 for an id it already holds
+                Sync-->>-Outbox: Capture
+                Outbox->>Outbox: DELETE entry
+                App->>Sync: GET /api/sync/inbox (refresh, cache the list)
+            else No network, timeout, 5xx or 401
+                Outbox->>Outbox: attempts+1, last_error; wait 2s·2^(n-1); stop the flush
+            else Any other 4xx
+                Outbox->>Outbox: set aside as refused; continue with the next entry
+            end
         end
     end
 
@@ -241,6 +253,10 @@ since an outbox row holds JSON.
   each file has the whole backoff budget of its own.
 - **One refusal refuses the note.** A 409, 413 or 415 on a file sets the entry
   aside naming the file; the capture is never posted without it.
+- **Held, not refused, while the service is newer.** A 426 on any of its requests
+  is the phone's own answer for a service newer than the app (**Mobile Capture and
+  Sync**). Nothing was sent: the entry keeps its place, its attempts and the files
+  already uploaded, and the flush stops until the verdict is next due.
 - **Released on delivery.** The files are deleted from the phone once the
   capture is taken (201, or 200 for an id the service already holds).
 - **Status from the outbox.** *synced* once the entry is gone, *uploading i of
@@ -270,6 +286,8 @@ sequenceDiagram
             Sync-->>-Outbox: Refused — set aside, naming the file
         end
     end
+
+    Note over App,Outbox: A service newer than the app is sent no upload and no post: the app's own 426 holds the entry as it is
 
     Outbox->>+Sync: POST /api/sync/inbox (same id, attachments: metadata)
     Sync-->>-Outbox: 201 InboxItem

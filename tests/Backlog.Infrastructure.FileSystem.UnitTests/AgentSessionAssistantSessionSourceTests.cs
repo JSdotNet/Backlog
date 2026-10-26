@@ -34,6 +34,18 @@ public class AgentSessionAssistantSessionSourceTests
         Assert.Equal("claude-1", session.Title);
     }
 
+    /// <summary>A session the Claude desktop app names in its sidebar is called that in
+    /// the Sessions pane, so the longest-sessions list calls it that too.</summary>
+    [Fact]
+    public async Task A_session_the_desktop_app_names_arrives_under_its_sidebar_name()
+    {
+        var source = Source(Session("claude-1", AgentSessionKind.Claude, AgentSessionState.Finished) with { DesktopTitle = "DESIGN: Finance app design" });
+
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84), TestContext.Current.CancellationToken)).Sessions);
+
+        Assert.Equal("DESIGN: Finance app design", session.Title);
+    }
+
     /// <summary>
     /// The count crosses unchanged, and so does its absence. The Sessions context
     /// already refuses to write 0 for a transcript with nothing to count, and the seam

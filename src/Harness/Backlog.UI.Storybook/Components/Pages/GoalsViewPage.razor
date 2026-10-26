@@ -1,0 +1,458 @@
+@page "/goals-view"
+
+<PageTitle>Goals view — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Goals view"
+           Summary="GoalsBoard and its parts — GoalCard, GoalProgressBar, StandUpPanel, ImpedimentRow, GoalCreateDialog and TwoWeekStartDialog: the desktop Goals view, with the iteration switch, the goals and what no goal holds, and the stand-up beside them. Every value is handed in and every act is a callback, so the goals below are stubs with no module behind them."
+           Guidelines="@Rules">
+
+    <Story Name="At risk"
+           Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The Goals heading carries its count, as Finished, Planned and Impediments do. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them; type pay to see its matches under their kind labels. The other goals are folded rows.
+
+No goal lists the work in progress no goal holds, each with Attach…, which attaches to the open goal; fold every goal and it opens the shared goal picker to ask which. Beside the goals the stand-up lists Finished, Planned with each item's effort in points and the points tag, and Impediments with a state picker that offers only the moves an impediment may make, and each one's note with Add note or Edit note. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
+           Code="@BoardCode">
+        <div class="sb-board">
+            <GoalsBoard Model="@Board"
+                        TestId="goals-view-board"
+                        IterationChanged="@(length => _said = $"Read by {GoalsText.Iteration(length)}")"
+                        OnNewGoal="@(() => _dialogOpen = true)"
+                        OnRefresh="@(() => _said = "Refresh")"
+                        OnAttach="@(request => _said = $"Attach {request.Subject.Key} to {request.GoalId}")"
+                        OnPickGoal="@(subject => _picking = subject)"
+                        OnMoveImpediment="@(request => _said = $"Move {request.ImpedimentId} to {GoalsText.State(request.State)}")"
+                        OnEditImpedimentNote="@(request => _said = request.Note is null ? $"Clear the note on {request.ImpedimentId}" : $"Note on {request.ImpedimentId}: {request.Note}")" />
+            <p class="sb-state" data-testid="goals-view-said">@(_said ?? "Switch the iteration, attach an item or move an impediment.")</p>
+            <GoalPicker Open="@(_picking is not null)"
+                        OpenChanged="@(open => { if (!open) _picking = null; })"
+                        Subject="@_picking"
+                        Goals="PickerGoals"
+                        TestId="goals-view-picker"
+                        OnAttach="@(id => { _said = $"Attach {_picking?.Key} to {PickerGoals.First(goal => goal.Id == id).Title}"; _picking = null; })"
+                        OnCreate="@(draft => { _said = $"Set {draft.Title} and attach {_picking?.Key} to it"; _picking = null; })" />
+        </div>
+    </Story>
+
+    <Story Name="On track"
+           Description="An On track goal, folded and open. It has nothing done in the last window and no landing date, so its line carries neither +n nor lands ~."
+           Code="@OnTrackCode">
+        <div class="sb-stack">
+            <GoalCard Goal="@Search" TestId="goals-view-on-track" />
+            <GoalCard Goal="@Search" Expanded="true" TestId="goals-view-on-track-open" />
+        </div>
+    </Story>
+
+    <Story Name="Editing a goal"
+           Description="With a host listening, the open goal leads with its title, outcome and due date as fields, edited in place: there is no Save button, and a field is handed back once it changes — leave it, press Enter, or pick a date. Escape abandons what was typed in a field. Clear the title and leave the field to see the module's refusal on it, and the field show what the goal still says; a date the field cannot read is put back when you leave it. Delete goal… sits beside the fields."
+           Code="@EditCode">
+        <div class="sb-stack">
+            <GoalCard Goal="@_edited"
+                      Expanded="true"
+                      OnEdit="EditSample"
+                      OnDelete="@(() => _editSaid = "Delete goal… pressed: the board asks first")"
+                      EditError="@_editError"
+                      TestId="goals-view-edit" />
+            <p class="sb-state" data-testid="goals-view-edit-said">@(_editSaid ?? "Change a field, then leave it.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Deleting a goal"
+           Description="Delete goal… on the open goal asks first, in a destructive confirm that says what the goal held stays as it is. Delete goal deletes it and folds it; Cancel changes nothing. Here the goals are stubs, so a deleted one leaves the board until the page is read again."
+           Code="@DeleteCode">
+        <div class="sb-board">
+            <GoalsBoard Model="@_deleteBoard"
+                        TestId="goals-view-delete-board"
+                        OnEditGoal="@(request => _deleteSaid = $"Edit {request.GoalId}")"
+                        OnDeleteGoal="DeleteSample"
+                        OnDetach="@(request => _deleteSaid = $"Detach {request.Subject.Key} from {request.GoalId}")" />
+            <p class="sb-state" data-testid="goals-view-delete-said">@(_deleteSaid ?? "Press Delete goal… on the open goal.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Detaching work"
+           Description="With a host listening, every Plan, Tasks and Pull requests row the goal holds itself ends in an icon-only Detach, named for the item and the goal; a merged pull request's pill carries one too. #1358 has none: the goal holds it only through Recurring invoices, so detaching that task is what lets it go. Detaching changes nothing on the item, so it does not ask."
+           Code="@DetachCode">
+        <div class="sb-stack">
+            <GoalCard Goal="@_detached"
+                      Expanded="true"
+                      OnDetach="DetachSample"
+                      TestId="goals-view-detach" />
+            <p class="sb-state" data-testid="goals-view-detach-said">@(_detachSaid ?? "Press a row's Detach.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Empty"
+           Description="No goals, and nothing in progress outside one: the goals column is an empty state with New goal as its action, and the stand-up beside it still says what was finished and planned."
+           Code="@EmptyCode">
+        <div class="sb-board">
+            <GoalsBoard Model="@Empty" TestId="goals-view-empty-board" EmptyTestId="goals-view-empty-state" OnNewGoal="@(() => _dialogOpen = true)" />
+        </div>
+    </Story>
+
+    <Story Name="Progress bar"
+           Description="A goal's items as one stacked bar — done, in progress, blocked, and not started as the track — at the folded and the open size."
+           Code="@BarCode">
+        <div class="sb-stack">
+            <GoalProgressBar Counts="@Paid.Counts" TestId="goals-view-bar" />
+            <GoalProgressBar Counts="@Paid.Counts" Large="true" TestId="goals-view-bar-large" />
+        </div>
+    </Story>
+
+    <Story Name="Stand-up"
+           Description="The aside on its own: Finished with only what the goals count, Planned with each item's effort in points at the row's end — Payment terms on quotes carries none, so it shows none — a pull request's status line, and the points tag titled in words, and Impediments followed by how many the last window resolved."
+           Code="@StandUpCode">
+        <div class="sb-menu">
+            <StandUpPanel StandUp="@Board.StandUp" Iteration="GoalsIteration.Week" TestId="goals-view-stand-up" />
+        </div>
+    </Story>
+
+    @foreach (var impediment in StateSamples)
+    {
+        <Story Name="@($"Impediment {GoalsText.State(impediment.State)}")"
+               Description="@StateDescription(impediment.State)"
+               Code="@ImpedimentCode(impediment)">
+            <div class="sb-menu">
+                <ImpedimentRow Impediment="@impediment"
+                               OnMove="@(state => _said = $"Move to {GoalsText.State(state)}")"
+                               TestId="@($"goals-view-impediment-{ImpedimentRow.Slug(impediment.State)}")" />
+            </div>
+        </Story>
+    }
+
+    <Story Name="Impediment with a note"
+           Description="The note the phone's impediment page writes, under the meta line and wrapped as written. Edit note opens it in place as a text box: leave the box or press Ctrl+Enter to keep it, Escape to abandon it; there is no Save button, and a blank note clears it. The focus goes back to the button once the box closes. A row with no host listening shows the note as text, with no button."
+           Code="@NoteCode">
+        <div class="sb-menu">
+            <ImpedimentRow Impediment="@_noted"
+                           OnEditNote="EditSampleNote"
+                           TestId="goals-view-impediment-note" />
+            <p class="sb-state" data-testid="goals-view-note-said">@(_noteSaid ?? "Edit the note, then leave the box.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Two-week start"
+           Description="The first time a person chooses 2 weeks there is no day two-week iterations count from yet, so the host asks for it before it reads by 2 weeks, offering the Monday of the current week — Monday 19 October here. Read by 2 weeks keeps the day and switches; Cancel leaves the iteration as it was. Clear the field and press Read by 2 weeks to see the refusal. Once a start is kept, 2 weeks switches at once."
+           Code="@StartCode">
+        <AppButton OnClick="@(() => _startOpen = true)" TestId="goals-view-two-weeks">2 weeks</AppButton>
+        <TwoWeekStartDialog Open="_startOpen"
+                            OpenChanged="open => _startOpen = open"
+                            Offered="@Oct(19)"
+                            TestId="goals-view-start-dialog"
+                            OnSave="@(start => { _startOpen = false; _startSaid = $"Two-week iterations count from {start:ddd d MMM}"; })" />
+        <p class="sb-state" data-testid="goals-view-start-said">@(_startSaid ?? "Press 2 weeks.")</p>
+    </Story>
+
+    <Story Name="New goal"
+           Description="New goal opens a dialog over a title, a one-line outcome and a due date. Save hands the draft back trimmed; the host creates the goal through the module and closes the dialog, or keeps it open with the module's refusal under the fields."
+           Code="@DialogCode">
+        <AppButton OnClick="@(() => _dialogOpen = true)" TestId="goals-view-new-goal">New goal</AppButton>
+        <GoalCreateDialog Open="_dialogOpen"
+                          OpenChanged="open => _dialogOpen = open"
+                          Error="@_dialogError"
+                          TestId="goals-view-dialog"
+                          OnSave="SaveDraft" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#goal-forecast-badges", "Why At risk and On track differ by edge as well as hue."),
+        new("color-scheme.md#impediment-state-tones", "Which tone each impediment state takes, and why New carries a dot."),
+        new("color-scheme.md#pull-request-status-marks", "The glyph and ink of each checks and approvals mark on a goal's pull requests."),
+        new("accessibility.md#iconography-accessibility", "Why the bar, the dots and the glyphs say their figures in words."),
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why the open goal's fields have no Save button, and how a refused edit is put back."),
+        new("typography-and-layout.md#iconography", "The glyphs the view draws, and the size they are drawn at.")
+    ];
+
+    private string? _said;
+    private GoalSubject? _picking;
+
+    /// <summary>The board's goals as the picker offers them.</summary>
+    private static readonly IReadOnlyList<GoalOption> PickerGoals =
+    [
+        new(new Guid("6f1c0a52-0000-4000-8000-000000000001"), "Customers get paid faster", 9, 15, Oct(30)),
+        new(new Guid("6f1c0a52-0000-4000-8000-000000000002"), "Devbook search ships", 5, 6, Oct(23)),
+        new(new Guid("6f1c0a52-0000-4000-8000-000000000003"), "Phone capture in daily use", 3, 10, new DateOnly(2026, 11, 30))
+    ];
+
+    private static readonly Guid T1 = new("7a2d0b63-0000-4000-8000-000000000001");
+    private static readonly Guid T2 = new("7a2d0b63-0000-4000-8000-000000000002");
+    private static readonly Guid T3 = new("7a2d0b63-0000-4000-8000-000000000003");
+    private static readonly Guid T4 = new("7a2d0b63-0000-4000-8000-000000000004");
+    private static readonly Guid Terms = new("7a2d0b63-0000-4000-8000-000000000005");
+    private static readonly Guid Vat = new("7a2d0b63-0000-4000-8000-000000000006");
+    private static readonly Guid Widget = new("7a2d0b63-0000-4000-8000-000000000007");
+
+    private static GoalSubject Pr(int number) => GoalSubject.ForPullRequest("JSdotNet/Backlog", number);
+    private string? _noteSaid;
+    private bool _dialogOpen;
+    private bool _startOpen;
+    private string? _startSaid;
+
+    private StandUpImpediment _noted = new(
+        "s-noted", "Bank sample files missing", StandUpImpedimentState.Escalated,
+        [StandUpImpedimentState.BeingHandled, StandUpImpedimentState.Resolved], "Account manager", 3, Oct(20), "Customers get paid faster",
+        "Account manager promised the CAMT.053 samples by Tuesday.\nAsk for a failed-payment file too.");
+
+    /// <summary>The host's part, stubbed: keep the note handed back and say what was saved.</summary>
+    private void EditSampleNote(string? note)
+    {
+        _noted = _noted with { Note = note };
+        _noteSaid = note is null ? "Note cleared" : $"Saved: {note}";
+    }
+    private string? _dialogError;
+
+    private GoalCardModel _edited = Paid;
+    private string? _editError;
+    private string? _editSaid;
+
+    /// <summary>The host's part, stubbed on the module's own rules: refuse what the module
+    /// refuses, keep the rest.</summary>
+    private void EditSample(GoalEditRequest request)
+    {
+        _editError = request.Title.Length == 0 ? "A goal needs a title."
+            : request.DueDate is null ? "A goal needs a due date."
+            : request.Outcome?.Contains('\n') == true ? "A goal's outcome is one line."
+            : null;
+        if (_editError is not null) return;
+
+        _edited = _edited with { Title = request.Title, Outcome = request.Outcome, DueDate = request.DueDate!.Value };
+        _editSaid = $"Saved: {request.Title} · {request.Outcome ?? "no outcome"} · due {request.DueDate:d MMM}";
+    }
+
+    private GoalsBoardModel _deleteBoard = Board;
+    private string? _deleteSaid;
+
+    private void DeleteSample(string goalId)
+    {
+        var goal = _deleteBoard.Goals.First(g => g.Id == goalId);
+        _deleteBoard = _deleteBoard with { Goals = [.. _deleteBoard.Goals.Where(g => g.Id != goalId)] };
+        _deleteSaid = $"Deleted {goal.Title}";
+    }
+
+    private GoalCardModel _detached = Paid;
+    private string? _detachSaid;
+
+    private void DetachSample(GoalSubject subject)
+    {
+        var index = Enumerable.Range(0, _detached.PullRequests.Count).FirstOrDefault(i => _detached.PullRequestSubject(i) == subject, -1);
+        _detached = _detached with
+        {
+            Plans = [.. _detached.Plans.Where(plan => plan.Subject != subject)],
+            Tasks = [.. _detached.Tasks.Where(task => task.Subject != subject)],
+            PullRequests = [.. _detached.PullRequests.Where((_, i) => i != index)],
+            PullRequestSubjects = [.. (_detached.PullRequestSubjects ?? []).Where((_, i) => i != index)]
+        };
+        _detachSaid = $"Detached {subject.Key}";
+    }
+
+    private static DateOnly Oct(int day) => new(2026, 10, day);
+
+    private static readonly GoalCardModel Paid = new(
+        "paid", "Customers get paid faster", Oct(30), new DateOnly(2026, 11, 6), true,
+        new GoalCounts(9, 15, 3, 1, 2, 3),
+        [new GoalPlanModel("Bank integration", 5, 9, GoalSubject.ForPlan("bank-integration"))],
+        [
+            new GoalTaskModel("t1", "Invoice PDF export", GoalTaskStatus.Done, GoalSubject.ForTask(T1)),
+            new GoalTaskModel("t2", "Reminder emails", GoalTaskStatus.Done, GoalSubject.ForTask(T2)),
+            new GoalTaskModel("t3", "Recurring invoices", GoalTaskStatus.Doing, GoalSubject.ForTask(T3)),
+            new GoalTaskModel("t4", "Credit notes", GoalTaskStatus.Blocked, GoalSubject.ForTask(T4))
+        ],
+        [
+            new PullRequestStatusModel(1341, "open", new PullRequestChecks(14, 0, 0), new PullRequestApprovals(1, 2)),
+            new PullRequestStatusModel(1358, "draft", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(0, null)),
+            new PullRequestStatusModel(1352, "merged"),
+            new PullRequestStatusModel(1355, "merged")
+        ],
+        "Invoices are paid within 14 days of sending",
+        [Pr(1341), null, Pr(1352), Pr(1355)]);
+
+    private static readonly GoalCardModel Search = new(
+        "search", "Devbook search ships", Oct(23), null, false,
+        new GoalCounts(5, 6, 0, 0, 1, 0),
+        [new GoalPlanModel("Devbook search", 5, 6)],
+        [new GoalTaskModel("t5", "Highlight matches", GoalTaskStatus.ToDo)],
+        []);
+
+    private static readonly GoalCardModel Phone = new(
+        "phone", "Phone capture in daily use", new DateOnly(2026, 11, 30), new DateOnly(2026, 11, 27), false,
+        new GoalCounts(3, 10, 1, 0, 6, 1), [], [], []);
+
+    private static readonly StandUpModel StandUp = new(
+        Finished:
+        [
+            new StandUpGroup("Customers get paid faster", [new StandUpEntry("Invoice PDF export"), new StandUpEntry("Reminder emails")]),
+            new StandUpGroup("Devbook search ships", [new StandUpEntry("Rank results by heading")])
+        ],
+        Planned:
+        [
+            new StandUpGroup("Customers get paid faster",
+            [
+                new StandUpEntry("Customer search by IBAN", Effort: 8),
+                new StandUpEntry("Recurring invoices", Effort: 8),
+                new StandUpEntry("Payment status webhook", new PullRequestStatusModel(1357, "open", new PullRequestChecks(9, 0, 5), new PullRequestApprovals(1, 2)), 5)
+            ]),
+            new StandUpGroup(null, [new StandUpEntry("Payment terms on quotes")])
+        ],
+        PlannedEffort: 21,
+        Capacity: 18,
+        Impediments:
+        [
+            new StandUpImpediment("bank", "Bank sample files missing", StandUpImpedimentState.Escalated,
+                [StandUpImpedimentState.BeingHandled, StandUpImpedimentState.Resolved], "Account manager", 3, null, "Customers get paid faster"),
+            new StandUpImpediment("runner", "Android build runner flaky", StandUpImpedimentState.BeingHandled,
+                [StandUpImpedimentState.Resolved], "Platform team", 4, Oct(20), null, "Platform team is swapping the runner image."),
+            new StandUpImpediment("credit", "Credit note numbering unclear", StandUpImpedimentState.New,
+                [StandUpImpedimentState.Reported, StandUpImpedimentState.Resolved], null, 1, null, "Customers get paid faster")
+        ],
+        ResolvedInLast: 1);
+
+    private static readonly GoalsBoardModel Board = new(
+        GoalsIteration.Week,
+        new GoalsWindow(Oct(12), Oct(16)),
+        new GoalsWindow(Oct(19), Oct(23)),
+        [Paid, Search, Phone],
+        [
+            new GoalsItem(GoalSubject.ForTask(Terms), "Payment terms on quotes"),
+            new GoalsItem(GoalSubject.ForTask(Vat), "VAT rate per line item"),
+            new GoalsItem(Pr(1357), "Payment status webhook")
+        ],
+        StandUp,
+        [
+            new GoalsItem(GoalSubject.ForPlan("payment-provider"), "Payment provider switch"),
+            new GoalsItem(GoalSubject.ForTask(Terms), "Payment terms on quotes"),
+            new GoalsItem(Pr(1357), "Payment status webhook"),
+            new GoalsItem(GoalSubject.ForTask(Widget), "Quick-capture widget")
+        ]);
+
+    private static readonly GoalsBoardModel Empty = Board with
+    {
+        Goals = [],
+        NoGoal = [],
+        StandUp = StandUp with { Impediments = [], ResolvedInLast = 0 }
+    };
+
+    private static readonly IReadOnlyList<StandUpImpediment> StateSamples =
+    [
+        new("s-new", "Credit note numbering unclear", StandUpImpedimentState.New,
+            [StandUpImpedimentState.Reported, StandUpImpedimentState.Resolved], null, 1, null, "Customers get paid faster"),
+        new("s-reported", "Bank sample files missing", StandUpImpedimentState.Reported,
+            [StandUpImpedimentState.Escalated, StandUpImpedimentState.BeingHandled, StandUpImpedimentState.Resolved], "Account manager", 2, null, "Customers get paid faster"),
+        new("s-escalated", "Bank sample files missing", StandUpImpedimentState.Escalated,
+            [StandUpImpedimentState.BeingHandled, StandUpImpedimentState.Resolved], "Account manager", 3, null, "Customers get paid faster"),
+        new("s-being-handled", "Android build runner flaky", StandUpImpedimentState.BeingHandled,
+            [StandUpImpedimentState.Resolved], "Platform team", 4, Oct(20), null),
+        new("s-resolved", "Signing certificate expired", StandUpImpedimentState.Resolved, [], "Platform team", 5, null, null)
+    ];
+
+    private static string StateDescription(StandUpImpedimentState state) => state switch
+    {
+        StandUpImpedimentState.New => "A New impediment with nobody named: the quiet outline with a leading dot, and the line reads Not reported yet. The picker offers Reported and Resolved.",
+        StandUpImpedimentState.Reported => "A Reported impediment: the quiet outline. The picker offers Escalated, Being handled and Resolved.",
+        StandUpImpedimentState.Escalated => "An Escalated impediment: the fault fill, and the goal it holds back named last on the line.",
+        StandUpImpedimentState.BeingHandled => "A Being handled impediment with a check-again day: the alert fill, and check Tue in place of the age.",
+        _ => "A Resolved impediment: the settled fill, and a picker with no move to offer."
+    };
+
+    private void SaveDraft(NewGoalDraft draft)
+    {
+        if (draft.Title.Length == 0) { _dialogError = "A goal needs a title."; return; }
+        if (draft.DueDate is null) { _dialogError = "A goal needs a due date."; return; }
+
+        _dialogError = null;
+        _dialogOpen = false;
+        _said = $"New goal {draft.Title}, due {draft.DueDate:d MMM}";
+    }
+
+    private const string BoardCode = """
+        <GoalsBoard Model="@board"
+                    IterationChanged="length => ReadAsync(length)"
+                    OnNewGoal="() => _newGoal = true"
+                    OnRefresh="ReadAsync"
+                    OnAttach="request => AttachAsync(request.GoalId, request.Subject)"
+                    OnPickGoal="subject => _picking = subject"
+                    OnMoveImpediment="request => MoveAsync(request.ImpedimentId, request.State)"
+                    OnEditImpedimentNote="request => EditNoteAsync(request.ImpedimentId, request.Note)"
+                    Error="@_error" />
+        """;
+
+    private const string OnTrackCode = """
+        <GoalCard Goal="@goal" />
+        <GoalCard Goal="@goal" Expanded="true" Candidates="@candidates" OnAttach="AttachAsync" />
+        """;
+
+    private const string EditCode = """
+        <GoalCard Goal="@goal"
+                  Expanded="true"
+                  OnEdit="request => EditAsync(request.GoalId, request.Title, request.Outcome, request.DueDate)"
+                  OnDelete="() => _confirmDelete = true"
+                  EditError="@_refusal" />
+        """;
+
+    private const string DeleteCode = """
+        <GoalsBoard Model="@board"
+                    OnEditGoal="EditAsync"
+                    OnDeleteGoal="goalId => DeleteAsync(goalId)"
+                    OnDetach="request => DetachAsync(request.GoalId, request.Subject)"
+                    EditError="@_refusal" />
+        """;
+
+    private const string DetachCode = """
+        <GoalCard Goal="@(goal with { PullRequestSubjects = [pr1341, null, pr1352, pr1355] })"
+                  Expanded="true"
+                  OnDetach="subject => DetachAsync(goal.Id, subject)" />
+        """;
+
+    private const string EmptyCode = """
+        <GoalsBoard Model="@(board with { Goals = [], NoGoal = [] })" OnNewGoal="() => _newGoal = true" />
+        """;
+
+    private const string BarCode = """
+        <GoalProgressBar Counts="@(new GoalCounts(Done: 9, Total: 15, Doing: 3, Blocked: 1, ToDo: 2, DoneInWindow: 3))" />
+        <GoalProgressBar Counts="@counts" Large="true" />
+        """;
+
+    private const string StandUpCode = """
+        <StandUpPanel StandUp="@board.StandUp" Iteration="GoalsIteration.Week" OnMoveImpediment="MoveAsync" />
+        """;
+
+    /// <summary>The usage that produced the sample: its own state, moves, person, age,
+    /// check-again day and goal.</summary>
+    private static string ImpedimentCode(StandUpImpediment sample)
+    {
+        static string State(StandUpImpedimentState state) => $"StandUpImpedimentState.{state}";
+        static string Text(string? text) => text is null ? "null" : $"\"{text}\"";
+
+        var moves = string.Join(", ", sample.Moves.Select(State));
+        var checkAgain = sample.CheckAgain is { } day ? $"new DateOnly({day.Year}, {day.Month}, {day.Day})" : "null";
+
+        return $$"""
+            <ImpedimentRow Impediment="@(new StandUpImpediment(id, {{Text(sample.Title)}},
+                               {{State(sample.State)}},
+                               Moves: [{{moves}}],
+                               With: {{Text(sample.With)}}, DaysOpen: {{sample.DaysOpen}}, CheckAgain: {{checkAgain}},
+                               GoalTitle: {{Text(sample.GoalTitle)}}))"
+                           OnMove="state => MoveAsync(id, state)" />
+            """;
+    }
+
+    private const string NoteCode = """
+        <ImpedimentRow Impediment="@(impediment with { Note = "Account manager promised the CAMT.053 samples by Tuesday." })"
+                       OnEditNote="note => EditNoteAsync(impediment.Id, note)" />
+        """;
+
+    private const string StartCode = """
+        <TwoWeekStartDialog Open="_askingStart"
+                            OpenChanged="open => _askingStart = open"
+                            Offered="@Iterations.MondayOf(today)"
+                            OnSave="start => { settings.SetTwoWeekStart(start); settings.SetLength(IterationLength.TwoWeeks, today); }" />
+        """;
+
+    private const string DialogCode = """
+        <GoalCreateDialog Open="_newGoal"
+                          OpenChanged="open => _newGoal = open"
+                          Busy="_saving"
+                          Error="@_refusal"
+                          OnSave="draft => CreateAsync(draft.Title, draft.Outcome, draft.DueDate)" />
+        """;
+}

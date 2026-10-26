@@ -8,6 +8,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
@@ -158,12 +159,12 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>
-    /// The sync merge the head composes hands a <c>sprint-series</c> document to
-    /// Progress's replication port, which writes it into this device's own series rows:
-    /// the series another desktop synced lands here rather than as a draft task.
+    /// The sync merge the head composes reads a <c>sprint-series</c> document an older
+    /// desktop left on the replica and drops it (local ADR 0035): nothing is applied,
+    /// nothing is counted as unreadable, and it never lands as a draft task.
     /// </summary>
     [Fact]
-    public async Task The_maui_head_takes_a_synced_sprint_series_into_its_own_series()
+    public async Task The_maui_head_drops_a_retired_sprint_series_document()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -188,12 +189,11 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             [new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1)],
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(1, merged.Applied);
-        var held = Assert.Single(await provider
-            .GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.ISprintSeriesReplication>()
-            .ReadAllAsync(TestContext.Current.CancellationToken));
-        Assert.Equal(id, held.Id);
-        Assert.Equal(document, held.Content);
+        Assert.Equal(0, merged.Applied);
+        Assert.Equal(0, merged.Skipped);
+        Assert.Null(await provider
+            .GetRequiredService<Backlog.Modules.Tasks.ITaskRepository>()
+            .GetIncludingDeletedAsync(id, TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -226,6 +226,65 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
         Assert.Equal(1, merged.Applied);
         Assert.False(preferences.ClearsOvernight);
+    }
+
+    /// <summary>
+    /// The head keeps one iteration settings store behind the screens' port and the
+    /// replication port (local ADR 0036, §3), so the length the Goals view sets is the
+    /// document the sync sends — and it is seeded from the shell navigation file an
+    /// earlier build kept the choice in (§5).
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_keeps_the_iteration_in_its_one_synced_store()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        var store = provider.GetRequiredService<IterationSettingsStore>();
+        Assert.Same(store, provider.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication>());
+        Assert.Null(await ((Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication)store).ReadAsync(TestContext.Current.CancellationToken));
+
+        provider.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>()
+            .SetLength(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, new DateOnly(2026, 10, 21));
+
+        Assert.Equal(new IterationChoice("two-weeks", new DateOnly(2026, 10, 19)), store.Choice);
+        Assert.Equal(Path.Combine(_appData, IterationSettingsStore.FileName), store.SettingsPath);
+    }
+
+    /// <summary>
+    /// The sync merge the head composes hands an <c>iteration-settings</c> document to
+    /// its one store (local ADR 0036, §4): two weeks chosen on another desktop reads as
+    /// two weeks here, on the screens' port.
+    /// </summary>
+    [Fact]
+    public async Task The_maui_head_takes_synced_iteration_settings_into_its_one_store()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var provider = BuildMauiShaped(validateScopes: false);
+        var settings = provider.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>();
+        Assert.Equal(Backlog.Modules.Progress.Abstractions.IterationLength.Week, settings.Length);
+
+        var stamp = new DateTimeOffset(2026, 10, 20, 8, 0, 0, TimeSpan.Zero);
+        var change = IterationReplicaDocuments.ToChange(
+            new Backlog.Modules.Progress.Abstractions.DataTransferObjects.IterationSettingsCopyDto(
+                """{"updatedAt":"2026-10-20T08:00:00Z","length":"two-weeks","twoWeekStart":"2026-10-19"}""", stamp));
+
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(
+            [new Backlog.Modules.Sync.Abstractions.DataTransferObjects.TaskChangeRecord(change, Guid.NewGuid(), 1)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, merged.Applied);
+        Assert.Equal(Backlog.Modules.Progress.Abstractions.IterationLength.TwoWeeks, settings.Length);
+        Assert.Equal(new DateOnly(2026, 10, 19), settings.TwoWeekStart);
     }
 
     /// <summary>
@@ -362,6 +421,8 @@ public sealed class MauiDesktopCompositionTests : IDisposable
                 time: null,
                 sp.GetRequiredService<WorkingHoursSettingsStore>()),
             MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(_appData, MyDayPreferencesStore.FileName)),
+            IterationSettings = sp => new IterationSettingsStore(
+                Path.Combine(_appData, IterationSettingsStore.FileName), sp.GetRequiredService<ShellNavigationStore>()),
             ShellNavigation = _ => new ShellNavigationStore(Path.Combine(_appData, "shell-navigation.json")),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(_appData, "capture-sources.json")),
             CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(_appData, "capture-runs.json")),
@@ -420,6 +481,16 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         public int Port => 0;
 
         public string? Unavailable => null;
+
+        public bool IsListening => false;
+
+        public Uri? Endpoint => null;
+
+        public string? SetPort(int port) => null;
+
+        public void Retry()
+        {
+        }
 
         public event Action? Changed
         {

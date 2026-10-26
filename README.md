@@ -1,6 +1,6 @@
 # Backlog
 
-[![Release desktop](https://github.com/JSdotNet/Backlog/actions/workflows/release-desktop.yml/badge.svg)](https://github.com/JSdotNet/Backlog/actions/workflows/release-desktop.yml)
+[![Release All](https://github.com/JSdotNet/Backlog/actions/workflows/release-all.yml/badge.svg)](https://github.com/JSdotNet/Backlog/actions/workflows/release-all.yml)
 [Latest release](https://github.com/JSdotNet/Backlog/releases/latest)
 
 A personal work management system built for AI-driven development. Capture work items, prompts, and knowledge across projects, organize them through an inbox-first workflow, and access them where the work happens: desktop, IDE, and phone.
@@ -125,7 +125,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.Abstractions` | The Roadmap module's published surface — the plan DTOs, `IRoadmapPlanning`, and `RoadmapFeatures` |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning's desktop face — the band above the panes and its editor |
 | `src/Modules/Progress/Backlog.Modules.Progress` | Progress module — the sprint series and their sprints, the series assignment and sprint progress services, and the `ISprintSeriesRepository` port |
-| `src/Modules/Progress/Backlog.Modules.Progress.Abstractions` | The Progress module's published surface — the sprint DTOs, `ISprintSeriesPlanning`, `ISprintProgress`, the `ISprintTaskSource` and `ISprintPullRequestReader` ports, and `ProgressFeatures` |
+| `src/Modules/Progress/Backlog.Modules.Progress.Abstractions` | The Progress module's published surface — the sprint DTOs, `ISprintSeriesPlanning`, `ISprintProgress`, the `ISprintTaskSource` and `IGoalPullRequestReader` ports, and `ProgressFeatures` |
 | `src/Modules/Progress/Backlog.Modules.Progress.UI` | Progress's desktop face — today the `ProgressOnly` switch every sprint screen is drawn under |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.Abstractions` | Sessions' published surface — the session record, its states and groupings, and the `IAgentSessionSource` port |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions' desktop face — the full-screen session list over the readers `Backlog.Infrastructure.Sessions` provides |
@@ -385,11 +385,11 @@ dotnet test --project tests\Backlog.EndToEndTests
 
 ## Deploying everything at once
 
-**Deploy All** runs the Foundry models, the sync service and the desktop release in a
-single GitHub Actions run, choosing which components take part and how far to take them.
+**Deploy All** runs the Foundry models, the sync infrastructure and the release — both
+apps and the sync service, under one number — in a single GitHub Actions run, choosing
+which components take part and how far to take them.
 It owns no deployment logic — each component is the workflow below, called as a reusable
 workflow — so a component behaves the same whether it runs on its own or from there.
-Mobile is deliberately left out for now.
 
 See [`docs/deployment/all.md`](docs/deployment/all.md).
 
@@ -464,9 +464,14 @@ Because the package is **self-signed**, later releases only install over an
 existing copy while they keep the same signing key. If Android reports "App not
 installed" after a key rotation, uninstall the old copy first.
 
-Nightly builds off `main` are published under separate `mobile-v*` tags and are
-not marked as the latest release; tagged `v*` releases carry both the desktop
-MSIX and the Android APK.
+Every release — the nightly off `main`, a pushed `v*` tag, or a manual run of
+**Release All** — carries both the desktop MSIX and the Android APK under one
+`v*` tag, numbered one past the highest release so far, and deploys the sync
+service under the same number (its `GET /` reports it as `release`; the
+service's `version` is the compatibility number apps check, which releases
+leave alone). Nightlies published before
+the two channels were aligned are under `mobile-v*` tags; the in-app update reads
+both and offers the highest version.
 
 ### Sideloading a local build
 

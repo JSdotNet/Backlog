@@ -42,10 +42,11 @@ public static class SyncClientRegistration
     /// </para>
     /// <para>
     /// A host with data clients of its own — mobile's <c>CloudSyncClient</c> —
-    /// chains <c>.AddHttpMessageHandler&lt;SyncAuthenticationHandler&gt;()</c>
-    /// onto them so they leave carrying the same token. The handler is transient
-    /// because <c>IHttpClientFactory</c> owns handler lifetimes; the provider
-    /// behind it is the singleton that actually holds the cache.
+    /// chains <see cref="AddSyncPipeline"/> onto them so they leave carrying the
+    /// same token and stop with the rest when the service is newer than the app.
+    /// The handlers are transient because <c>IHttpClientFactory</c> owns handler
+    /// lifetimes; the provider and the compatibility verdict behind them are the
+    /// singletons that hold the state.
     /// </para>
     /// </summary>
     public static IServiceCollection AddSyncClient(this IServiceCollection services, Uri baseAddress)
@@ -68,11 +69,20 @@ public static class SyncClientRegistration
         ArgumentNullException.ThrowIfNull(baseAddress);
 
         // The token endpoint's own client, with no authentication handler on it.
-        // See SyncTokenProvider for why it cannot be the same one.
-        services.AddHttpClient(SyncTokenProvider.HttpClientName, (sp, client) => client.BaseAddress = baseAddress(sp));
+        // See SyncTokenProvider for why it cannot be the same one. It does carry
+        // the compatibility check: a token minted by a service this app is too old
+        // for is a request that should not have gone out.
+        services.AddHttpClient(SyncTokenProvider.HttpClientName, (sp, client) => client.BaseAddress = baseAddress(sp))
+            .AddHttpMessageHandler<SyncCompatibilityHandler>();
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<SyncTokenProvider>();
+
+        // One verdict for the process, so every client stops together, against
+        // the version the head names (AddSyncAppVersion) or the entry assembly's.
+        services.TryAddSingleton(_ => SyncAppVersion.OfEntryAssembly());
+        services.TryAddSingleton<SyncCompatibility>();
+        services.TryAddTransient<SyncCompatibilityHandler>();
 
         // One log for everything that replicates, registered with the client
         // both task and session sync sit on rather than with either of them:
@@ -87,7 +97,40 @@ public static class SyncClientRegistration
         // because sending no Authorization header when this device has no token
         // is exactly what an unpaired device should do.
         services.AddHttpClient<DevicePairingClient>((sp, client) => client.BaseAddress = baseAddress(sp))
-            .AddHttpMessageHandler<SyncAuthenticationHandler>();
+            .AddSyncPipeline();
+
+        return services;
+    }
+
+    /// <summary>
+    /// The handlers every sync client carries, in order: the token, then the
+    /// compatibility check, which holds the request while the service is newer
+    /// than this app (<see cref="SyncCompatibilityHandler"/>). After the token so
+    /// the check's own <c>GET /</c> goes out without one. Call it after
+    /// <see cref="AddSyncClient"/>, which registers both handlers.
+    /// </summary>
+    public static IHttpClientBuilder AddSyncPipeline(this IHttpClientBuilder client)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+
+        return client
+            .AddHttpMessageHandler<SyncAuthenticationHandler>()
+            .AddHttpMessageHandler<SyncCompatibilityHandler>();
+    }
+
+    /// <summary>
+    /// Names the version of the running app that the sync service's is compared
+    /// with — the one the head's update window shows, its MSIX package or APK
+    /// version. Replaces the entry-assembly default whether it is called before
+    /// or after <see cref="AddSyncClient"/>.
+    /// </summary>
+    public static IServiceCollection AddSyncAppVersion(this IServiceCollection services, Func<IServiceProvider, string> version)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(version);
+
+        services.RemoveAll<SyncAppVersion>();
+        services.AddSingleton(sp => new SyncAppVersion(version(sp)));
 
         return services;
     }
@@ -160,7 +203,7 @@ public static class SyncClientRegistration
         // replication pipeline, the pairing client's is still the host default —
         // and sharing one would mean choosing between them.
         services.AddHttpClient<TaskSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
-            .AddHttpMessageHandler<SyncAuthenticationHandler>()
+            .AddSyncPipeline()
             .WithReplicationPipeline();
 
         // Where a pulled capture's files come from (local ADR 0014). Here and
@@ -169,13 +212,17 @@ public static class SyncClientRegistration
         // without that feed has no capture to fetch files for. Bearer, like the
         // feed, and transient over its typed client for the reason below.
         services.AddHttpClient<InboxAttachmentSyncSource>((sp, client) => client.BaseAddress = baseAddress(sp))
-            .AddHttpMessageHandler<SyncAuthenticationHandler>();
+            .AddSyncPipeline();
         services.TryAddTransient<IInboxAttachmentSource>(sp => sp.GetRequiredService<InboxAttachmentSyncSource>());
 
         // Transient rather than singleton, because both take the typed client
         // above and IHttpClientFactory owns its lifetime — a singleton here would
         // pin one handler chain for the life of the process. The state they share
         // is the host's ITaskSyncStateStore, which is where the singleton belongs.
+        // The impediment edits a pull dealt with, waiting for the push that retires them
+        // (local ADR 0035 §8). A singleton: the merge that adds and the session that sends
+        // are transient, and must meet in one queue.
+        services.TryAddSingleton<ImpedimentEditRetirements>();
         services.TryAddTransient<TaskReplicaMerge>();
         services.TryAddTransient<TaskSyncSession>();
 
@@ -337,7 +384,7 @@ public static class SyncClientRegistration
         // move to its own pipeline without the other. Today both carry the same
         // replication pipeline.
         services.AddHttpClient<SessionSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
-            .AddHttpMessageHandler<SyncAuthenticationHandler>()
+            .AddSyncPipeline()
             .WithReplicationPipeline();
 
         // Optional by construction. GetService rather than GetRequiredService is
@@ -441,7 +488,7 @@ public static class SyncClientRegistration
         ArgumentNullException.ThrowIfNull(baseAddress);
 
         services.AddHttpClient<AnnotationSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
-            .AddHttpMessageHandler<SyncAuthenticationHandler>()
+            .AddSyncPipeline()
             .WithReplicationPipeline();
 
         // Transient over the typed client above, for the reason the task merge

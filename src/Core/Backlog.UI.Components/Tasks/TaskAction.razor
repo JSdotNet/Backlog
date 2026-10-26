@@ -33,11 +33,15 @@
         }
         @if (!Compact)
         {
+            @* Label and value on one line, the value after it in quieter type: a
+               second line for the value made every row two lines tall whether or
+               not it had one. A value too long for the row is ellipsised, so the
+               title carries it whole. *@
             <span class="task-action__label">
-                @Label
+                <span class="task-action__text">@Label</span>
                 @if (Set && !string.IsNullOrWhiteSpace(Value))
                 {
-                    <span class="task-action__value">@Value</span>
+                    <span class="task-action__value" title="@Value">@Value</span>
                 }
             </span>
         }
@@ -169,10 +173,10 @@
     /// </para>
     /// <para>
     /// <see cref="Value"/> is dropped rather than shrunk to fit: there is no room
-    /// beside an icon for a second line, and the row this shape exists for is
+    /// beside an icon for it, and the row this shape exists for is
     /// one-shot — it has nothing to read back once it has run. A compact action
     /// that also sets <see cref="Value"/> is asking for both a tight control and
-    /// a line under it, which is the row this parameter exists to avoid, so
+    /// text beside it, which is the row this parameter exists to avoid, so
     /// <see cref="Value"/> is ignored while <see cref="Compact"/> is true rather
     /// than honoured alongside it.
     /// </para>

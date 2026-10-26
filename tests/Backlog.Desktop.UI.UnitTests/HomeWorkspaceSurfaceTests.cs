@@ -11,6 +11,7 @@ using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Progress.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.PullRequests;
@@ -446,7 +447,7 @@ public sealed class HomeWorkspaceSurfaceTests
     /// <summary>
     /// The header's nav, left to right, as the design draws it: the Inbox toggle, the
     /// fused view switch, the Devbook toggle; then the fused work in progress —
-    /// Sessions and Pull requests — and the loose Dashboard and Tools. No Tasks pane
+    /// Goals, Sessions and Pull requests — and the loose Dashboard and Tools. No Tasks pane
     /// toggle, and no "Workspace" option anywhere.
     /// </summary>
     [Fact]
@@ -469,7 +470,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 ["tasks-view-option", "board-view-option", "calendar-view-option", "roadmap-view-option"],
                 OptionIds(component, "view-switch"));
             Assert.Equal(
-                ["in-progress-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
+                ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
                 OptionIds(component, "work-in-progress-switcher"));
             Assert.Equal(
                 ["dashboard-toggle-button", "tools-toggle-button"],
@@ -1411,74 +1412,6 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The In progress view's two choices are the shell's to keep, beside the
-    /// Board's columns and the calendar's range: a fresh shell instance — a
-    /// relaunch, or Settings and back — reopens the board as the reader left it,
-    /// and putting both back to their defaults takes their keys out of the file.
-    /// </summary>
-    [Fact]
-    public void The_in_progress_toggles_are_remembered_and_a_fresh_shell_reopens_on_them()
-    {
-        var path = NewShellNavigationPath();
-
-        try
-        {
-            var shellNavigation = new ShellNavigationStore(path);
-            using (var harness = CreateHarness(shellNavigation: shellNavigation, seed: InProgressEntryText))
-            {
-                var component = Render(harness);
-
-                component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view-option']")));
-                component.Find("[data-testid='in-progress-view-option']").Click();
-                component.WaitForAssertion(() =>
-                {
-                    Assert.Equal("true", component.Find("[data-testid='in-progress-needs-you-first']").GetAttribute("aria-pressed"));
-                    Assert.Equal("false", component.Find("[data-testid='in-progress-include-finished']").GetAttribute("aria-pressed"));
-                });
-
-                component.Find("[data-testid='in-progress-needs-you-first']").Click();
-                component.WaitForAssertion(() => Assert.False(shellNavigation.InProgressNeedsYouFirst));
-                component.Find("[data-testid='in-progress-include-finished']").Click();
-                component.WaitForAssertion(() =>
-                {
-                    Assert.True(shellNavigation.InProgressIncludeFinishedToday);
-                    Assert.Equal("false", component.Find("[data-testid='in-progress-needs-you-first']").GetAttribute("aria-pressed"));
-                    Assert.Equal("true", component.Find("[data-testid='in-progress-include-finished']").GetAttribute("aria-pressed"));
-                });
-            }
-
-            var reopenedNavigation = new ShellNavigationStore(path);
-            using (var reopened = CreateHarness(shellNavigation: reopenedNavigation, seed: InProgressEntryText))
-            {
-                var again = Render(reopened);
-
-                again.WaitForAssertion(() =>
-                {
-                    Assert.Equal("true", again.Find("[data-testid='in-progress-view-option']").GetAttribute("aria-pressed"));
-                    Assert.Equal("false", again.Find("[data-testid='in-progress-needs-you-first']").GetAttribute("aria-pressed"));
-                    Assert.Equal("true", again.Find("[data-testid='in-progress-include-finished']").GetAttribute("aria-pressed"));
-                });
-
-                again.Find("[data-testid='in-progress-needs-you-first']").Click();
-                again.Find("[data-testid='in-progress-include-finished']").Click();
-                again.WaitForAssertion(() =>
-                {
-                    Assert.True(reopenedNavigation.InProgressNeedsYouFirst);
-                    Assert.False(reopenedNavigation.InProgressIncludeFinishedToday);
-                });
-            }
-
-            var written = ShellNavigationStoreTests.Written(path);
-            Assert.DoesNotContain("inProgressNeedsYouFirst", written, StringComparison.Ordinal);
-            Assert.DoesNotContain("inProgressIncludeFinishedToday", written, StringComparison.Ordinal);
-        }
-        finally
-        {
-            DeleteShellNavigationDirectory(path);
-        }
-    }
-
-    /// <summary>
     /// Every view option and every work-in-progress option leads with a glyph. The
     /// glyph is decoration, hidden from assistive technology and out of the tab
     /// order, so the option's name is still its word alone
@@ -1489,7 +1422,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [InlineData("board-view-option", "columns-3-icon", "Board")]
     [InlineData("calendar-view-option", "calendar-icon", "Calendar")]
     [InlineData("roadmap-view-option", "chart-gantt-icon", "Roadmap")]
-    [InlineData("in-progress-view-option", "activity-icon", "In progress")]
+    [InlineData("goals-view-option", "target-icon", "Goals")]
     [InlineData("sessions-toggle-button", "square-terminal-icon", "Sessions")]
     [InlineData("pull-requests-toggle-button", "git-pull-request-icon", "Pull requests")]
     [InlineData("inbox-pane-option", "inbox-icon", "Inbox")]
@@ -1526,7 +1459,7 @@ public sealed class HomeWorkspaceSurfaceTests
     /// </summary>
     [Theory]
     [InlineData("dashboard-toggle-button", "Dashboard", 1)]
-    [InlineData("in-progress-view-option", "In progress", 2)]
+    [InlineData("goals-view-option", "Goals", 2)]
     [InlineData("sessions-toggle-button", "Sessions", 2)]
     [InlineData("pull-requests-toggle-button", "Pull requests", 2)]
     [InlineData("inbox-pane-option", "Inbox", 3)]
@@ -2736,70 +2669,119 @@ public sealed class HomeWorkspaceSurfaceTests
 
     private const string InProgressEntryText = "# Wire the In progress view\n`prompt` `!in-progress`\n";
 
+    /// <summary>A task's side panel carries its sessions and pull requests while either
+    /// feature is on.</summary>
+    [Fact]
+    public async Task A_tasks_side_panel_carries_its_sessions_and_pull_requests()
+    {
+        using var harness = CreateHarness(seed: InProgressEntryText);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
+
+        await component.InvokeAsync(() => state.SelectAsync(state.Rows[0]));
+
+        component.WaitForAssertion(() =>
+            Assert.NotEmpty(component.FindAll("[data-testid='entry-detail'] [data-testid='entry-linked-work']")));
+    }
+
     /// <summary>
-    /// In progress leads the work in progress group, and it is a main view rather
-    /// than a takeover: pressing it puts the view in the workspace, where the panes
-    /// still open beside it, and its option reads pressed in place of the Tasks one.
+    /// Goals leads the work in progress group, always offered: its word and title are
+    /// Goals, a target leads it, it carries no feature badge, and a press shows the Goals
+    /// view, with no Now board, and remembers it as <c>Goals</c>.
     /// </summary>
     [Fact]
-    public void In_progress_is_a_main_view_that_leads_the_work_in_progress_group()
+    public void Goals_leads_the_work_in_progress_group()
     {
         using var harness = CreateHarness(seed: InProgressEntryText);
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view-option']")));
-        component.Find("[data-testid='in-progress-view-option']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal(
+                ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
+                GroupOptionIds(component, "work-in-progress-switcher")));
+
+        var option = component.Find("[data-testid='goals-view-option']");
+        Assert.Equal("Goals", option.GetAttribute("title"));
+        Assert.Equal("goals-view", option.GetAttribute("aria-controls"));
+        Assert.StartsWith("Goals", option.TextContent.Trim(), StringComparison.Ordinal);
+        Assert.Contains("target-icon", Assert.IsAssignableFrom<IElement>(option.FirstElementChild).ClassList);
+        Assert.Empty(component.FindAll("[data-testid='goals-feature-status']"));
+        Assert.Empty(component.FindAll("[data-testid='in-progress-view-option']"));
+
+        option.Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='in-progress-view'] [data-testid='in-progress-board']"));
-            Assert.Single(component.FindAll("main"));
-            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
-            Assert.Equal("true", component.Find("[data-testid='in-progress-view-option']").GetAttribute("aria-pressed"));
-            Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-
-            var title = Assert.Single(component.FindAll("[data-testid='in-progress-task-title']"));
-            Assert.Equal("Wire the In progress view", title.TextContent.Trim());
-        });
-
-        // Remembered as a view, by its name.
-        Assert.Equal("InProgress", harness.Context.Services.GetRequiredService<ShellNavigationStore>().LastView);
-    }
-
-    /// <summary>The entry's title on a card is the way back to the entry itself: the
-    /// Tasks view, with that entry selected.</summary>
-    [Fact]
-    public void An_in_progress_title_opens_the_entry_in_the_tasks_view()
-    {
-        using var harness = CreateHarness(seed: InProgressEntryText);
-        var component = Render(harness);
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view-option']")));
-        component.Find("[data-testid='in-progress-view-option']").Click();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-task-title']")));
-
-        component.Find("[data-testid='in-progress-task-title']").Click();
-
-        component.WaitForAssertion(() =>
-        {
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='goals-view']"));
             Assert.Empty(component.FindAll("[data-testid='in-progress-view']"));
-            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-            Assert.NotEmpty(component.FindAll("[data-testid='entry-detail']"));
-
-            // The detail panel carries the same work, with the way back.
-            Assert.NotEmpty(component.FindAll("[data-testid='entry-detail'] [data-testid='entry-linked-work']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='work-links-open-in-progress']"));
+            Assert.Empty(component.FindAll("[data-testid='in-progress-board']"));
+            Assert.Equal("true", component.Find("[data-testid='goals-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
         });
 
-        component.Find("[data-testid='work-links-open-in-progress']").Click();
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='in-progress-view']")));
+        Assert.Equal("Goals", harness.Context.Services.GetRequiredService<ShellNavigationStore>().LastView);
     }
 
-    /// <summary>The view follows the two lists it summarises: with both switched off
-    /// there is no option, and a remembered In progress opens on Tasks.</summary>
+    /// <summary>The Goals view needs neither list: with Sessions and Pull requests both
+    /// off the group still renders, holding Goals only.</summary>
     [Fact]
-    public void With_sessions_and_pull_requests_off_there_is_no_in_progress_view()
+    public void Goals_is_offered_without_sessions_or_pull_requests()
+    {
+        using var harness = CreateHarness(
+            features =>
+            {
+                features.SetEnabled(SessionFeatures.Sessions, false);
+                features.SetEnabled(SessionFeatures.PullRequests, false);
+            });
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+            Assert.Equal(["goals-view-option"], GroupOptionIds(component, "work-in-progress-switcher")));
+
+        component.Find("[data-testid='goals-view-option']").Click();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='goals-view']")));
+    }
+
+    /// <summary>
+    /// The Goals view in the shell draws the board from the Progress ports over the
+    /// shell's own task list: the goals and the stand-up aside, and the task in progress
+    /// that no goal holds under No goal. Without the ports — every other test here —
+    /// the view says the module is not set up rather than drawing nothing.
+    /// </summary>
+    [Fact]
+    public void The_goals_view_draws_the_board_over_the_shells_tasks()
+    {
+        using var harness = CreateHarness(
+            seed: InProgressEntryText,
+            configureServices: services =>
+            {
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IGoals>(new GoalsHostTests.FakeGoals());
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IImpediments>(new GoalsHostTests.FakeImpediments());
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>(new GoalsHostTests.FakeIterationSettings());
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IGoalPullRequestReader>(new GoalsHostTests.FakePullRequests());
+            });
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='goals-view-option']")));
+        component.Find("[data-testid='goals-view-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var view = component.Find("[data-testid='goals-view']");
+            Assert.Equal("Goals", view.QuerySelector("h1")!.TextContent);
+            Assert.NotNull(view.QuerySelector("aside[aria-label='Stand-up']"));
+            Assert.Contains("Wire the In progress view", view.QuerySelector("[data-testid='goals-board-no-goal']")!.TextContent);
+            Assert.Null(view.QuerySelector("[data-testid='goals-view-empty']"));
+        });
+    }
+
+    /// <summary>A file from before the rename reopens on the Goals view: the retired
+    /// name is the same view.</summary>
+    [Fact]
+    public void A_stored_in_progress_view_reopens_on_goals()
     {
         var path = NewShellNavigationPath();
 
@@ -2808,21 +2790,13 @@ public sealed class HomeWorkspaceSurfaceTests
             var shellNavigation = new ShellNavigationStore(path);
             shellNavigation.SetLastView("InProgress");
 
-            using var harness = CreateHarness(
-                features =>
-                {
-                    features.SetEnabled(SessionFeatures.Sessions, false);
-                    features.SetEnabled(SessionFeatures.PullRequests, false);
-                },
-                shellNavigation,
-                seed: InProgressEntryText);
+            using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
 
             component.WaitForAssertion(() =>
             {
-                Assert.Empty(component.FindAll("[data-testid='in-progress-view-option']"));
-                Assert.Empty(component.FindAll("[data-testid='in-progress-view']"));
-                Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+                Assert.NotEmpty(component.FindAll("[data-testid='goals-view']"));
+                Assert.Equal("true", component.Find("[data-testid='goals-view-option']").GetAttribute("aria-pressed"));
             });
         }
         finally
@@ -2830,6 +2804,62 @@ public sealed class HomeWorkspaceSurfaceTests
             DeleteShellNavigationDirectory(path);
         }
     }
+
+    /// <summary>Ask AI follows the Goals view as it follows every area: on screen, a
+    /// question goes to the source composed for <c>goals</c>.</summary>
+    [Fact]
+    public void Ask_ai_asks_the_goals_area_while_the_goals_view_is_on_screen()
+    {
+        using var harness = CreateHarness(
+            features => features.SetEnabled(AppFeatures.AiAssistant, true),
+            configureServices: services => services.AddScoped<IAiContentSource>(_ => new FixedSource("goals", "Goals")));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='goals-view-option']")));
+        component.Find("[data-testid='goals-view-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+            Assert.Equal("Answers from the Goals content.", component.Find(".ai-panel__body").TextContent.Trim()));
+    }
+
+    /// <summary>With the desktop's own Goals source composed over the stand-up port, Ask AI
+    /// is offered on the Goals view and a question carries the stand-up as its content.</summary>
+    [Fact]
+    public void Ask_ai_is_offered_on_the_goals_view_and_sends_the_stand_up()
+    {
+        using var harness = CreateHarness(
+            features => features.SetEnabled(AppFeatures.AiAssistant, true),
+            configureServices: services =>
+            {
+                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
+                services.AddGoalsAiContentSource();
+            });
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='goals-view-option']")));
+        component.Find("[data-testid='goals-view-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("Answers from the Goals content.", component.Find(".ai-panel__body").TextContent.Trim()));
+
+        component.Find("[data-testid='ai-question-input']").Input("What is at risk?");
+        component.Find("[data-testid='ai-ask-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var request = Assert.Single(harness.FoundryChat.Requests);
+            Assert.StartsWith("Goals (stand-up: ", request.Content, StringComparison.Ordinal);
+            Assert.Contains("Goal: Customers get paid faster", request.Content, StringComparison.Ordinal);
+            Assert.Contains("Impediment: Bank sample files missing, escalated", request.Content, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>The test ids of a header group's options, in order.</summary>
+    private static List<string?> GroupOptionIds(IRenderedComponent<Home> rendered, string group) =>
+        [.. rendered.Find($"[data-testid='{group}']").Children.Select(option => option.GetAttribute("data-testid"))];
 
     /// <summary>Presses the Pull requests segment and waits for the list to take the
     /// screen.</summary>

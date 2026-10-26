@@ -9,7 +9,13 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 public sealed class ScenarioRunReaderTests
 {
     private const string Page = """
-        # Set up and fill the backlog
+        # Scenarios
+
+        ```meta
+        type: scenarios
+        ```
+
+        ## Set up and fill the backlog
 
         ```meta
         type: scenario
@@ -17,17 +23,43 @@ public sealed class ScenarioRunReaderTests
         actor: actors.md#product-owner
         ```
 
-        ## Statuses are set up
+        ### Statuses are set up
         - **Given** a product "Webshop"
         - **Then** the board has three columns
 
         ![The board](shot:statuses-set-up)
 
-        ## An item is moved
+        ### An item is moved
         - **When** I drag it to "Doing"
 
         ![After the drag](shot:item-moved)
         """;
+
+    private static ScenarioJourney Journey(string markdown = Page, string path = ".devbook/domain/work/scenarios.md") =>
+        Assert.Single(ScenarioPageParser.ParseFile(markdown, path).Scenarios);
+
+    [Fact]
+    public void A_version_3_run_names_the_journey_it_executed()
+    {
+        var run = ScenarioRunReader.Read("""
+            {
+              "version": 3,
+              "journey": ".devbook/domain/work/scenarios.md#set-up-and-fill-the-backlog",
+              "signature": "9C41E2A0",
+              "ranAt": "2026-10-07T08:30:00Z",
+              "profile": "default",
+              "parts": [ { "title": "Statuses are set up", "anchor": "statuses-are-set-up", "outcome": "passed" } ],
+              "shots": {}
+            }
+            """);
+
+        Assert.NotNull(run);
+        Assert.Equal(3, run.Version);
+        Assert.Equal("9c41e2a0", run.Signature);
+        Assert.Equal(".devbook/domain/work/scenarios.md#set-up-and-fill-the-backlog", run.Journey);
+        Assert.Null(run.Page);
+        Assert.Equal(ScenarioOutcome.Passed, run.Part("statuses-are-set-up")!.Outcome);
+    }
 
     [Fact]
     public void A_version_2_run_carries_its_signature_parts_and_shots()
@@ -89,22 +121,24 @@ public sealed class ScenarioRunReaderTests
 
     /// <summary>
     /// The end-to-end tests register <c>tests/Fixtures/scenario-repository</c> and
-    /// expect its page to read failed — not stale — with the second part stopped on
-    /// step 1. A page edit that forgot to re-sign the committed run would turn that
-    /// into a stale page the browser test only finds once an AppHost is up; this
-    /// finds it in the unit run.
+    /// expect its journey to read failed — not stale — with the second part stopped on
+    /// step 1. An edit that forgot to re-sign the committed run would turn that into a
+    /// stale journey the browser test only finds once an AppHost is up; this finds it
+    /// in the unit run.
     /// </summary>
     [Fact]
-    public void The_scenario_repository_fixture_run_proves_its_page_as_it_stands()
+    public void The_scenario_repository_fixture_run_proves_its_journey_as_it_stands()
     {
         var root = RepositoryRoot.Directory("tests", "Fixtures", "scenario-repository");
-        const string relative = ".devbook/domain/place-an-order.md";
-        var page = ScenarioFiles.ReadPage(Path.Combine(root, ".devbook", "domain", "place-an-order.md"), relative);
-        var run = ScenarioFiles.ReadRun(Path.Combine(root, ScenarioPageParser.ScenarioFolder, page.Stem));
+        const string relative = ".devbook/domain/shop/scenarios.md";
+        var journey = Assert.Single(ScenarioFiles.ReadFile(Path.Combine(root, ".devbook", "domain", "shop", "scenarios.md"), relative).Scenarios);
+        var run = ScenarioFiles.ReadRun(Path.Combine(root, journey.RunFolder));
 
+        Assert.Equal(".devbook/domain/shop/scenarios/place-an-order", journey.RunFolder);
         Assert.NotNull(run);
-        Assert.Equal(run.Signature, ScenarioSignature.OfPage(page, root, ScenarioPageParser.ScenarioFolder));
-        Assert.Equal(ScenarioState.Failed, ScenarioEvidence.StateOf(page, run.Signature!, run));
+        Assert.Equal(journey.Address, run.Journey);
+        Assert.Equal(run.Signature, ScenarioSignature.OfJourney(journey, root, ScenarioPageParser.ScenarioFolder));
+        Assert.Equal(ScenarioState.Failed, ScenarioEvidence.StateOf(journey, run.Signature!, run));
         Assert.Equal(ScenarioOutcome.Passed, run.Part("the-cart-is-filled")!.Outcome);
         Assert.Equal(1, run.Part("the-order-is-placed")!.FailureStep);
     }
@@ -151,7 +185,7 @@ public sealed class ScenarioRunReaderTests
     [InlineData("")]
     [InlineData("not json")]
     [InlineData("[]")]
-    [InlineData("""{ "version": 3, "parts": [] }""")]
+    [InlineData("""{ "version": 4, "parts": [] }""")]
     [InlineData("""{ "versie": 2 }""")]
     public void A_missing_unreadable_or_unknown_run_is_no_run(string? json)
     {
@@ -161,7 +195,7 @@ public sealed class ScenarioRunReaderTests
     [Fact]
     public void The_state_follows_never_run_then_stale_then_failed_then_passed()
     {
-        var page = ScenarioPageParser.Parse(Page, ".devbook/domain/work/set-up-and-fill-the-backlog.md");
+        var page = Journey();
         var signature = ScenarioSignature.Of(page);
 
         Assert.Equal(ScenarioState.NeverRun, ScenarioEvidence.StateOf(page, signature, null));
@@ -174,7 +208,7 @@ public sealed class ScenarioRunReaderTests
     [Fact]
     public void A_part_the_run_never_reached_is_not_a_passed_page()
     {
-        var page = ScenarioPageParser.Parse(Page, "x.md");
+        var page = Journey();
         var signature = ScenarioSignature.Of(page);
         var run = new ScenarioRun(2, signature, null, null, [new ScenarioRunPart("Statuses are set up", "statuses-are-set-up", ScenarioOutcome.Passed, null, null)], new Dictionary<string, ScenarioRunShot>());
 
@@ -184,20 +218,23 @@ public sealed class ScenarioRunReaderTests
     [Fact]
     public void Editing_a_step_changes_the_signature_and_editing_a_caption_does_not()
     {
-        var page = ScenarioPageParser.Parse(Page, "x.md");
-        var recaptioned = ScenarioPageParser.Parse(Page.Replace("![The board]", "![The empty board]", StringComparison.Ordinal), "x.md");
-        var restepped = ScenarioPageParser.Parse(Page.Replace("three columns", "four columns", StringComparison.Ordinal), "x.md");
+        var page = Journey();
+        var recaptioned = Journey(Page.Replace("![The board]", "![The empty board]", StringComparison.Ordinal));
+        var restepped = Journey(Page.Replace("three columns", "four columns", StringComparison.Ordinal));
+        var retitled = Journey(Page.Replace("## Set up and fill the backlog", "## Set up the backlog", StringComparison.Ordinal));
 
         Assert.Equal(ScenarioSignature.Of(page), ScenarioSignature.Of(recaptioned));
+        Assert.Equal(ScenarioSignature.Of(page), ScenarioSignature.Of(retitled));
         Assert.NotEqual(ScenarioSignature.Of(page), ScenarioSignature.Of(restepped));
     }
 
     [Fact]
     public void The_parser_reads_setup_parts_steps_and_screenshot_points()
     {
-        var page = ScenarioPageParser.Parse(Page, ".devbook/domain/work/set-up-and-fill-the-backlog.md");
+        var page = Journey();
 
-        Assert.Equal("set-up-and-fill-the-backlog", page.Stem);
+        Assert.Equal("set-up-and-fill-the-backlog", page.Slug);
+        Assert.Equal(".devbook/domain/work/scenarios.md#set-up-and-fill-the-backlog", page.Address);
         Assert.Equal("Set up and fill the backlog", page.Title);
         Assert.Equal("/products/webshop/backlog", page.Setup.Start);
         Assert.Equal(["actors.md#product-owner"], page.Setup.Actor);
@@ -208,27 +245,46 @@ public sealed class ScenarioRunReaderTests
         Assert.Equal(["statuses-set-up", "item-moved"], page.Labels);
     }
 
+    /// <summary>A page of the contract before devbook's 32 — the whole file typed
+    /// <c>scenario</c>, its parts at <c>##</c> — holds no journey: its <c>##</c>
+    /// chapters carry no <c>type: scenario</c> block of their own.</summary>
     [Fact]
-    public void A_page_without_type_scenario_is_not_one()
+    public void A_legacy_journey_page_holds_no_journey()
     {
-        Assert.False(ScenarioPageParser.IsScenarioPage("# Features\n\n```meta\ntype: features\n```\n"));
-        Assert.True(ScenarioPageParser.IsScenarioPage(Page));
+        var file = ScenarioPageParser.ParseFile(
+            "# Place an order\n\n```meta\ntype: scenario\n```\n\n## The cart is filled\n- **Given** an empty cart\n",
+            ".devbook/domain/shop/place-an-order.md");
+
+        Assert.True(file.LegacyPage);
+        Assert.Empty(file.Scenarios);
     }
 
+    [Theory]
+    [InlineData(".devbook/domain/work/scenarios.md", true)]
+    [InlineData(".devbook/domain/work/scenarios.returns.md", true)]
+    [InlineData(".domain/work/Scenarios.md", true)]
+    [InlineData(".devbook/domain/work/scenarios.a.b.md", false)]
+    [InlineData(".devbook/domain/work/features.md", false)]
+    [InlineData(".devbook/domain/work/my-scenarios.md", false)]
+    public void A_scenarios_file_is_named_scenarios_or_a_split_of_it(string path, bool expected) =>
+        Assert.Equal(expected, ScenarioPageParser.IsScenariosFileName(path));
+
     [Fact]
-    public void The_register_is_read_at_schema_version_1_only()
+    public void The_register_is_read_at_schema_version_2_only()
     {
         var register = ScenarioRegister.Parse("""
-            { "schemaVersion": 1, "scope": ".", "scenarios": [
-              { "stem": "set-up-and-fill-the-backlog", "path": ".devbook/domain/work/set-up-and-fill-the-backlog.md", "title": "Set up and fill the backlog", "status": null }
+            { "schemaVersion": 2, "scope": ".", "scenarios": [
+              { "id": ".devbook/domain/work/scenarios.md#set-up-and-fill-the-backlog", "path": ".devbook/domain/work/scenarios.md",
+                "anchor": "set-up-and-fill-the-backlog", "line": 7, "title": "Set up and fill the backlog", "status": null }
             ] }
             """);
 
         Assert.NotNull(register);
         var entry = Assert.Single(register.Scenarios);
-        Assert.Equal("set-up-and-fill-the-backlog", entry.Stem);
-        Assert.Equal(".devbook/domain/work/set-up-and-fill-the-backlog.md", entry.Path);
-        Assert.Null(ScenarioRegister.Parse("""{ "schemaVersion": 2, "scenarios": [] }"""));
+        Assert.Equal("set-up-and-fill-the-backlog", entry.Anchor);
+        Assert.Equal(".devbook/domain/work/scenarios.md", entry.Path);
+        Assert.Equal(".devbook/domain/work/scenarios.md#set-up-and-fill-the-backlog", entry.Address);
+        Assert.Null(ScenarioRegister.Parse("""{ "schemaVersion": 1, "scenarios": [] }"""));
         Assert.Null(ScenarioRegister.Parse("{"));
     }
 

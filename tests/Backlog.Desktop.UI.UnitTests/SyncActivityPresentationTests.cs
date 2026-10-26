@@ -32,6 +32,25 @@ public sealed class SyncActivityPresentationTests
         Assert.StartsWith("Syncing with the cloud.", SyncActivityPresentation.ControlLabel(state), StringComparison.Ordinal);
     }
 
+    /// <summary>A sync service newer than the app outranks everything: cycles
+    /// still start and end at once, and the band must not read as syncing.</summary>
+    [Fact]
+    public void A_service_newer_than_the_app_asks_for_an_update_before_anything_else()
+    {
+        var state = new SyncFooterState(Syncing: true, Sent: 3, Received: 2, At: Noon, Error: "stale", UpdateRequired: true);
+
+        Assert.Equal("Update to sync", SyncActivityPresentation.Label(state));
+        Assert.Contains(SyncCompatibility.UpdateRequiredMessage, SyncActivityPresentation.ControlLabel(state), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_update_required_before_the_first_cycle_is_still_shown()
+    {
+        var state = new SyncFooterState(Syncing: false, Sent: 0, Received: 0, At: null, Error: null, UpdateRequired: true);
+
+        Assert.True(state.HasSomethingToShow);
+    }
+
     [Fact]
     public void A_failed_cycle_outranks_the_last_good_one()
     {
@@ -137,5 +156,17 @@ public sealed class SyncActivityPresentationTests
     public void The_my_day_preferences_read_by_name()
     {
         Assert.Equal("My Day preferences", SyncActivityPresentation.Kind(SyncItemKind.MyDayPreferences));
+    }
+
+    [Fact]
+    public void The_iteration_settings_read_by_name()
+    {
+        Assert.Equal("Iteration settings", SyncActivityPresentation.Kind(SyncItemKind.IterationSettings));
+    }
+
+    [Fact]
+    public void A_goal_reads_by_name()
+    {
+        Assert.Equal("Goal", SyncActivityPresentation.Kind(SyncItemKind.Goal));
     }
 }

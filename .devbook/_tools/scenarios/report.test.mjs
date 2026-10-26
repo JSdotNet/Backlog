@@ -1,4 +1,4 @@
-// The run reporter: run.json version 2 with its English fields, one PNG per
+// The run reporter: run.json version 3 beside the scenarios file, with its English fields, one PNG per
 // label, a filtered run writing nothing, an unreached label keeping its file,
 // a dropped label pruned, the failure screenshot and the failing step of a
 // failed part, each shot's signature, and a listing writing nothing.
@@ -10,12 +10,19 @@ import { mkdtemp, mkdir, readdir, readFile, writeFile, rm } from "node:fs/promis
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { parseScenarioPage } from "./parse.mjs";
+import { parseScenariosFile } from "./parse.mjs";
 import ScenarioReporter, { failureOf, outcomeOf, plainMessage, specFileOf, writeRun } from "./report.mjs";
 
 const F = "```";
-const PAGE_PATH = ".devbook/domain/work/set-up-and-fill-the-backlog.md";
-const PAGE = `# Set up and fill the backlog
+const PAGE_PATH = ".devbook/domain/work/scenarios.md";
+const ADDRESS = `${PAGE_PATH}#set-up-and-fill-the-backlog`;
+const PAGE = `# Scenarios
+
+${F}meta
+type: scenarios
+${F}
+
+## Set up and fill the backlog
 
 ${F}meta
 type: scenario
@@ -26,19 +33,19 @@ settings: [context.md#backlog-max-columns=5]
 data: [webshop-without-statuses]
 ${F}
 
-## Statuses are set up
+### Statuses are set up
 - **Given** a product "Webshop"
 - **Then** the board has no columns
 
 ![Empty board](shot:statuses-set-up)
 
-## An item is moved
+### An item is moved
 - **When** I drag it
 - **Then** it moves
 
 ![Moved](shot:item-moved)
 `;
-const SPEC = `// scenario: ${PAGE_PATH}
+const SPEC = `// scenario: ${ADDRESS}
 // signature: 1234abcd
 scenario('set-up-and-fill-the-backlog', ({ part }) => {
   part('Statuses are set up', async ({ page }) => { await shot(page, 'statuses-set-up'); });
@@ -60,7 +67,8 @@ async function repo() {
     return root;
 }
 
-const runFolder = (root) => path.join(root, ".devbook/scenarios/set-up-and-fill-the-backlog");
+const runFolder = (root) => path.join(root, ".devbook/domain/work/scenarios/set-up-and-fill-the-backlog");
+const journeyOf = () => parseScenariosFile(PAGE, PAGE_PATH).journeys[0];
 const readRun = async (root) => JSON.parse(await readFile(path.join(runFolder(root), "run.json"), "utf8"));
 
 test("outcomeOf: a clean pass, a retry, a skip, and nothing at all", () => {
@@ -71,14 +79,14 @@ test("outcomeOf: a clean pass, a retry, a skip, and nothing at all", () => {
     assert.equal(outcomeOf([]), "not-run");
 });
 
-test("writeRun writes run.json version 2 and one PNG per label", async () => {
+test("writeRun writes run.json version 3 and one PNG per label into the journey's run folder", async () => {
     const root = await repo();
     try {
-        const page = parseScenarioPage(PAGE, PAGE_PATH);
+        const page = journeyOf();
         const config = { tenant: "acme", flags: { "new-board": true }, settings: { "backlog-max-columns": 5 }, data: ["webshop-without-statuses"] };
         await writeRun({
             repoRoot: root,
-            page,
+            journey: page,
             signature: "1234abcd",
             ranAt: "2026-10-08T08:30:00.000Z",
             profile: "tenant-acme",
@@ -87,9 +95,9 @@ test("writeRun writes run.json version 2 and one PNG per label", async () => {
             captured: { "statuses-set-up": { path: path.join(root, "out/a.png") }, "item-moved": { path: path.join(root, "out/b.png") } },
         });
         const run = await readRun(root);
-        assert.deepEqual(Object.keys(run), ["version", "page", "signature", "ranAt", "profile", "effectiveConfig", "parts", "shots"]);
-        assert.equal(run.version, 2);
-        assert.equal(run.page, PAGE_PATH);
+        assert.deepEqual(Object.keys(run), ["version", "journey", "signature", "ranAt", "profile", "effectiveConfig", "parts", "shots"]);
+        assert.equal(run.version, 3);
+        assert.equal(run.journey, ADDRESS);
         assert.equal(run.signature, "1234abcd");
         assert.equal(run.profile, "tenant-acme");
         assert.deepEqual(run.effectiveConfig, config);
@@ -111,10 +119,10 @@ test("writeRun writes run.json version 2 and one PNG per label", async () => {
 test("an unreached label keeps its file and earlier entry; a dropped label and a stale failure shot are pruned", async () => {
     const root = await repo();
     try {
-        const page = parseScenarioPage(PAGE, PAGE_PATH);
+        const page = journeyOf();
         const first = "2026-10-01T00:00:00.000Z";
         await writeRun({
-            repoRoot: root, page, signature: "1234abcd", ranAt: first, profile: "tenant-acme", effectiveConfig: null,
+            repoRoot: root, journey: page, signature: "1234abcd", ranAt: first, profile: "tenant-acme", effectiveConfig: null,
             parts: { "statuses-are-set-up": { outcome: "passed" }, "an-item-is-moved": { outcome: "failed" } },
             captured: { "statuses-set-up": { path: path.join(root, "out/a.png") }, "item-moved": { path: path.join(root, "out/b.png") } },
             failures: { "an-item-is-moved": { path: path.join(root, "out/fail.png") } },
@@ -125,7 +133,7 @@ test("an unreached label keeps its file and earlier entry; a dropped label and a
 
         const second = "2026-10-08T00:00:00.000Z";
         const { pruned } = await writeRun({
-            repoRoot: root, page, signature: "5678ef00", ranAt: second, profile: "tenant-acme", effectiveConfig: null,
+            repoRoot: root, journey: page, signature: "5678ef00", ranAt: second, profile: "tenant-acme", effectiveConfig: null,
             parts: { "statuses-are-set-up": { outcome: "failed" } },
             captured: { "statuses-set-up": { path: path.join(root, "out/b.png") } },
         });
@@ -230,7 +238,7 @@ test("screenshots attached as bytes are written, and with two projects only the 
     }
 });
 
-test("a page that cannot be written is reported and does not stop the others", async () => {
+test("a journey that cannot be written is reported and does not stop the others", async () => {
     const root = await repo();
     const errors = [];
     const original = console.error;
@@ -267,8 +275,8 @@ test("a listing — every part scheduled, none run — writes nothing", async ()
     }
 });
 
-test("failureOf: the page step whose step() threw, numbered across the part, and the message without colours", () => {
-    const part = parseScenarioPage(PAGE, PAGE_PATH).parts[1];
+test("failureOf: the journey step whose step() threw, numbered across the part, and the message without colours", () => {
+    const part = journeyOf().parts[1];
     const error = { message: "\u001b[31mExpected: 3 columns\u001b[39m\nReceived: 2" };
     const steps = [
         { title: "Before Hooks", category: "hook", steps: [] },
@@ -310,20 +318,20 @@ test("the reporter records a failed part's step and message in run.json, and a p
     }
 });
 
-test("a run folder or a page outside the repository is never written or read", async () => {
+test("a run folder or a scenarios file outside the repository is never written or read", async () => {
     const root = await repo();
     const errors = [];
     const original = console.error;
     console.error = (message) => errors.push(message);
     try {
-        const page = parseScenarioPage(PAGE, PAGE_PATH);
+        const page = journeyOf();
         await assert.rejects(
-            writeRun({ repoRoot: root, scenarioFolder: `../${path.basename(root)}-escape`, page, signature: "1234abcd", ranAt: "2026-10-08T08:30:00.000Z", profile: "tenant-acme", effectiveConfig: null }),
+            writeRun({ repoRoot: root, journey: { ...page, path: `../${path.basename(root)}-escape/scenarios.md` }, signature: "1234abcd", ranAt: "2026-10-08T08:30:00.000Z", profile: "tenant-acme", effectiveConfig: null }),
             /resolves outside the repository/
         );
         assert.equal(existsSync(`${root}-escape`), false);
 
-        const outside = `${path.basename(root)}-page.md`;
+        const outside = `${path.basename(root)}-scenarios.md`;
         await writeFile(path.join(root, "..", outside), PAGE);
         await writeFile(path.join(root, "e2e/tests/set-up-and-fill-the-backlog.spec.ts"), SPEC.replace(PAGE_PATH, `../${outside}`));
         await report(root, fakeRun(root, {
@@ -334,6 +342,7 @@ test("a run folder or a page outside the repository is never written or read", a
         }));
         await rm(path.join(root, "..", outside));
         assert.deepEqual(await readdir(path.join(root, ".devbook/scenarios")), ["profiles.json"]);
+        assert.equal(existsSync(runFolder(root)), false);
         assert.deepEqual(errors, []);
     } finally {
         console.error = original;

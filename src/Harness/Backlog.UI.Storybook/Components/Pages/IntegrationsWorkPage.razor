@@ -28,6 +28,21 @@
         </div>
     </Story>
 
+    <Story Name="A pull request card with its status line"
+           Description="Where the host read the counts it sets `WorkPullRequest.Status`, a `PullRequestStatusModel`, and the card draws the pull request's status line among its facts: checks as `passed/total` and approvals as `received/required`, without the `#n` pill because the card leads with the number. The checks mark says what the checks words would, so those words are left out beside it; the reviewers' verdict stays. A required total is a verdict only where the base branch's rules were read — the last card's were not, so its approvals stand alone. A merged pull request draws no line: it already says `Merged`."
+           Code="@PullRequestStatusCode">
+        <div class="sb-stack" data-testid="work-pull-request-status-states">
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.DraftPullRequestWithStatus" OnOpen="OpenPullRequest" TestId="work-pull-request-status-draft" />
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.ChangesRequestedPullRequestWithStatus" OnOpen="OpenPullRequest" TestId="work-pull-request-status-changes" />
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.ApprovedPullRequestWithStatus" OnOpen="OpenPullRequest" TestId="work-pull-request-status-approved" />
+            <WorkPullRequestCard PullRequest="@IntegrationFixtures.UnreadRulesPullRequestWithStatus" OnOpen="OpenPullRequest" TestId="work-pull-request-status-unread" />
+        </div>
+        <WorkLinksPanel PullRequests="@([IntegrationFixtures.DraftPullRequestWithStatus, IntegrationFixtures.ApprovedPullRequestWithStatus])"
+                        ShowSessions="false"
+                        OnOpenPullRequest="OpenPullRequest"
+                        TestId="work-links-panel-status" />
+    </Story>
+
     <Story Name="Two columns, None yet when empty"
            Description="`WorkLinks` sets a task's sessions and pull requests side by side, each under a small heading, and wraps them under each other where the host is narrow. A column with nothing in it says `None yet`, so an empty column reads as looked at rather than forgotten. With `OnUnlinkSession` or `OnUnlinkPullRequest` set, each card gets a quiet `Unlink` beside it, a button of its own because the card is already the button that opens the item; its name says which item it takes off. `ShowSessions` or `ShowPullRequests` off leaves that column out altogether, as the host does while that feature is off."
            Code="@LinksCode">
@@ -44,8 +59,28 @@
         </div>
     </Story>
 
+    <Story Name="Each pull request with its goal"
+           Description="A host that sets goals cascades a `GoalControlSlot`, and `WorkLinks` draws it beside each pull request whose key reads as `owner/name#number`, for that pull request, before its `Unlink`: the goal a pull request counts toward is set where the pull request is read. A key of another shape draws no control rather than a wrong one, and without a slot the cards are the ones above. Press a card's goal and the picker opens on that pull request."
+           Code="@GoalLinksCode">
+        <CascadingValue Value="WorkGoals.Slot">
+            <WorkLinks Sessions="@([IntegrationFixtures.QuietSession])"
+                       PullRequests="@([IntegrationFixtures.DraftPullRequest, IntegrationFixtures.ApprovedPullRequest])"
+                       OnOpenPullRequest="OpenPullRequest"
+                       OnUnlinkPullRequest="UnlinkPullRequest"
+                       TestId="work-links-goals" />
+        </CascadingValue>
+        <GoalPicker Open="WorkGoals.Picking"
+                    OpenChanged="value => WorkGoals.Picking = value"
+                    Subject="WorkGoals.Subject"
+                    Goals="@GoalFixtures.Open"
+                    CurrentGoal="WorkGoals.Current"
+                    OnAttach="WorkGoals.Attach"
+                    OnCreate="WorkGoals.Create"
+                    TestId="work-goal-picker" />
+    </Story>
+
     <Story Name="A section of a task's side panel"
-           Description="`WorkLinksPanel` is the same columns stacked, under a `Sessions and pull requests` heading with `Open in In progress` beside it, `Unlink` beside each card, and `Link a session or pull request…` under them. With one feature off the heading and the link action name only the kind left — `Pull requests`, `Link a pull request…` — and the other column is not drawn. Each control is drawn only while the host listens for it. The button opens the host's `WorkLinkPicker`, shown here with the tasks a loose session could be linked to."
+           Description="`WorkLinksPanel` is the same columns stacked, under a `Sessions and pull requests` heading with `Link a session or pull request…` at the end of its line where there is room, and `Unlink` beside each card; an empty column says `None yet` on its heading's line. With one feature off the heading and the link action name only the kind left — `Pull requests`, `Link a pull request…` — and the other column is not drawn. Each control is drawn only while the host listens for it. The button opens the host's `WorkLinkPicker`, shown here with the tasks a loose session could be linked to."
            Code="@PanelCode">
         <div class="sb-board-column" data-testid="work-links-panel-sample">
             <WorkLinksPanel Sessions="@([IntegrationFixtures.QuietSession])"
@@ -54,7 +89,6 @@
                             OnOpenPullRequest="OpenPullRequest"
                             OnUnlinkSession="UnlinkSession"
                             OnUnlinkPullRequest="UnlinkPullRequest"
-                            OnOpenInProgress="ShowInProgress"
                             OnLink="() => _picking = true" />
         </div>
         <div class="sb-board-column" data-testid="work-links-panel-one-feature">
@@ -97,6 +131,7 @@
     private static readonly DesignGuideline[] Rules =
     [
         new("color-scheme.md#integration-roles", "The tone each session and pull request state is drawn in."),
+        new("color-scheme.md#pull-request-status-marks", "The ink and glyph of each checks and approvals mark on a pull request card."),
         new("typography-and-layout.md#metadata-lines", "How a card's state, checks and size sit on one line under its title."),
         new("accessibility.md#iconography-accessibility", "Why a state is always said in words beside its colour.")
     ];
@@ -107,8 +142,6 @@
     private void OpenSession(WorkSession session) => _opened = $"session {session.Id}";
 
     private void OpenPullRequest(WorkPullRequest pull) => _opened = pull.Key;
-
-    private void ShowInProgress() => _opened = "In progress";
 
     private void UnlinkSession(WorkSession session) => _opened = $"unlinked session {session.Id}";
 
@@ -159,12 +192,42 @@
                          OnOpen="OpenSession" />
         """;
 
+    private const string PullRequestStatusCode = """
+        <WorkPullRequestCard PullRequest="@(new WorkPullRequest("JSdotNet/Backlog#1019", 1019,
+                                 "Extract TaskCard component", IntegrationArtifactState.Draft,
+                                 Checks: IntegrationCheckState.Pending)
+                             {
+                                 Status = new PullRequestStatusModel(1019, "draft",
+                                     new PullRequestChecks(Passed: 4, Failed: 0, Pending: 3),
+                                     new PullRequestApprovals(Received: 1, Required: 2))
+                             })"
+                             OnOpen="OpenPullRequest" />
+        """;
+
     private const string PullRequestCode = """
         <WorkPullRequestCard PullRequest="@(new WorkPullRequest("JSdotNet/Backlog#1018", 1018,
                                  "Filter Tasks by plan", IntegrationArtifactState.Open,
                                  IntegrationReviewState.ChangesRequested, IntegrationCheckState.Failing,
                                  "1 check failing", Additions: 156, Deletions: 22))"
                              OnOpen="OpenPullRequest" />
+        """;
+
+    // --- Pull requests with their goals --------------------------------------
+
+    private GoalStoryHost? _workGoals;
+
+    /// <summary>The goal slot the page cascades, as a host would, over the sample goals.</summary>
+    private GoalStoryHost WorkGoals => _workGoals ??= new(this, new Dictionary<GoalSubject, GoalOption>
+    {
+        [GoalSubject.ForPullRequest("JSdotNet/Backlog", 1019)] = GoalFixtures.Launch
+    });
+
+    private const string GoalLinksCode = """
+        @* The host cascades its goal control once; each pull request card draws it. *@
+        <CascadingValue Value="@goalSlot">
+            <WorkLinks Sessions="@task.Sessions" PullRequests="@task.PullRequests"
+                       OnUnlinkPullRequest="UnlinkAsync" />
+        </CascadingValue>
         """;
 
     private const string LinksCode = """
@@ -184,7 +247,6 @@
                         OnOpenPullRequest="OpenPullRequest"
                         OnUnlinkSession="UnlinkSessionAsync"
                         OnUnlinkPullRequest="UnlinkPullRequestAsync"
-                        OnOpenInProgress="ShowInProgress"
                         OnLink="() => _picking = true" />
 
         <WorkLinkPicker Open="_picking"

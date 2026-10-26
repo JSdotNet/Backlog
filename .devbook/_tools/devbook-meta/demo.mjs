@@ -212,7 +212,7 @@ function networkFetches(html) {
 /** The keys the template reads from `demo-model`, per its authoring reference. */
 const MODEL_KEYS = ["app", "screens", "roles", "flags", "settings", "viewports", "variants", "walkthroughs"];
 
-/** A linked walkthrough's `part`, `<page>.md#<part>`, and the signature it was copied at. */
+/** A linked walkthrough's `part`, `<scenarios file>.md#<part>`, and the signature it was copied at. */
 export const LINKED_PART = /^[^#\s]+\.md#[^#\s]+$/;
 const SIGNATURE = /^[0-9a-f]{8}$/;
 
@@ -277,7 +277,7 @@ export function normalizeModel(raw) {
     };
 
     // A walkthrough is free, with its own `text` per step, or linked: `part`
-    // names the scenario page part it shows, `signature` the page signature
+    // names the journey part it shows, `signature` the journey signature
     // its text was copied at, and each step's `step` the part step it shows.
     const walkthroughs = new Map();
     const linked = new Map();
@@ -290,13 +290,13 @@ export function normalizeModel(raw) {
         const name = `walkthrough "${entry.id}"`;
         const isLinked = entry.part !== undefined;
         if (isLinked && !(isText(entry.part) && LINKED_PART.test(entry.part))) {
-            shape.push(`${name} has \`part\` ${JSON.stringify(entry.part)} — a linked walkthrough's \`part\` is \`<page>.md#<part>\``);
+            shape.push(`${name} has \`part\` ${JSON.stringify(entry.part)} — a linked walkthrough's \`part\` is \`<scenarios file>.md#<part>\``);
         }
         if (entry.signature !== undefined && !(typeof entry.signature === "string" && SIGNATURE.test(entry.signature))) {
-            shape.push(`${name} has \`signature\` ${JSON.stringify(entry.signature)} — a page signature is 8 lowercase hex`);
+            shape.push(`${name} has \`signature\` ${JSON.stringify(entry.signature)} — a journey signature is 8 lowercase hex`);
         }
         if (isLinked && entry.signature === undefined) {
-            shape.push(`${name} is linked by its \`part\` but has no \`signature\` — the page signature its text was copied at`);
+            shape.push(`${name} is linked by its \`part\` but has no \`signature\` — the journey signature its text was copied at`);
         }
         if (!isLinked && entry.signature !== undefined) {
             shape.push(`${name} has a \`signature\` but no \`part\` — only a linked walkthrough carries one`);
@@ -567,7 +567,7 @@ export async function collectDemos(repoRoot, folders) {
  * The `#### Scenario:` slugs one level under each requirement chapter, keyed
  * by `<path>#<slug>`, as `{ inline, proved }`: `inline` the cases spelling out
  * their own Given/When/Then, `proved` the ones a `Proved by:` line points at a
- * scenario page part.
+ * journey part.
  */
 export function requirementScenarios(relPath, markdown) {
     const folder = folderKindForPath(relPath);
@@ -739,21 +739,26 @@ async function loadScenarioTools() {
 }
 
 /**
- * The scenario page a linked walkthrough's `part` names, as a path in
- * `pages`: a repository path, a path from the demo's folder — its landing
- * place when the demo sits in a change — or a bare `<stem>.md`.
+ * The journey a linked walkthrough's `part` names. `filePart` is the scenarios
+ * file — a repository path, or a path from the demo's folder, its landing
+ * place when the demo sits in a change — and `anchor` the part's own. `files`
+ * maps a scenarios file's path to its journeys, each `{ id, parts: [{ anchor
+ * }] }`. Returns `{ path, journey }`, or `{ error }`.
  */
-export function resolveLinkedPage(demoPath, pagePart, pages) {
-    if (pagePart.startsWith(DEVBOOK_PREFIX)) return pages.has(pagePart) ? { path: pagePart } : { error: `${pagePart} is not a scenario page` };
-    if (pagePart.includes("/")) {
+export function resolveLinkedPart(demoPath, filePart, anchor, files) {
+    let target = filePart;
+    if (!filePart.startsWith(DEVBOOK_PREFIX)) {
         const from = changePathParts(demoPath)?.target ?? demoPath;
-        const target = path.posix.join(path.posix.dirname(from), pagePart);
-        return pages.has(target) ? { path: target } : { error: `${target} is not a scenario page` };
+        target = path.posix.join(path.posix.dirname(from), filePart);
     }
-    const stem = pagePart.replace(/\.md$/, "");
-    const found = [...pages.values()].filter((page) => page.stem === stem);
-    if (found.length > 1) return { error: `the stem "${stem}" is ambiguous — ${found.map((page) => page.path).join(", ")}` };
-    return found.length ? { path: found[0].path } : { error: `no scenario page has the stem "${stem}"` };
+    const journeys = files.get(target);
+    if (!journeys) return { error: `${target} is not a scenarios file` };
+    const journey = journeys.find((candidate) => candidate.parts.some((part) => part.anchor === anchor));
+    if (!journey) {
+        const anchors = journeys.flatMap((candidate) => candidate.parts.map((part) => part.anchor)).join(", ") || "none";
+        return { error: `${target} has no part "#${anchor}" — parts: ${anchors}` };
+    }
+    return { path: target, journey };
 }
 
 /** Whether a linked step's embedded text is its part step's, with or without the keyword. */
@@ -763,24 +768,24 @@ export function stepTextMatches(text, target, collapse) {
 }
 
 /**
- * Every linked walkthrough across the corpus, checked against the scenario
- * page part its `part` names, per devbook-chapter-metadata.md: the part
- * resolves, each step's `step` lies within the part's steps, the `signature`
- * is the page's current one — else the walkthrough is stale — and each step's
+ * Every linked walkthrough across the corpus, checked against the journey
+ * part its `part` names, per devbook-chapter-metadata.md: the part resolves,
+ * each step's `step` lies within the part's steps, the `signature` is the
+ * journey's current one — else the walkthrough is stale — and each step's
  * embedded `text` is the text of the part step it names — else it drifted.
  *
- * `register` is the scenario page register the graph build writes
- * `scenarios.json` from, `[{ stem, path, parts: [{ anchor }] }]`. Returns
- * `{ problems, links }`, `links` every linked walkthrough of a demo under
- * `domain/` outside a change as `{ demo, id, part }`, `part` the resolved
- * `<page path>#<anchor>` — what a `Proved by:` requirement's `demo` entries
- * are derived from.
+ * `register` is the journey register the graph build writes `scenarios.json`
+ * from, `[{ id, path, anchor, parts: [{ anchor }] }]`. Returns `{ problems,
+ * links }`, `links` every linked walkthrough of a demo under `domain/` outside
+ * a change as `{ demo, id, part }`, `part` the resolved `<file path>#<anchor>`
+ * — what a `Proved by:` requirement's `demo` entries are derived from.
  */
 export async function linkedWalkthroughs(repoRoot, folders, register = []) {
     const problems = [];
     const links = [];
     const read = demoReader(repoRoot);
-    const pages = new Map(register.map((page) => [page.path, page]));
+    const files = new Map();
+    for (const journey of register) files.set(journey.path, [...(files.get(journey.path) ?? []), journey]);
     const parsed = new Map();
 
     for (const relPath of await collectDemos(repoRoot, folders)) {
@@ -793,15 +798,9 @@ export async function linkedWalkthroughs(repoRoot, folders, register = []) {
             const at = `${relPath} has walkthrough "${id}" with \`part\` "${part}"`;
             const hash = part.indexOf("#");
             const anchor = part.slice(hash + 1);
-            const resolved = resolveLinkedPage(relPath, part.slice(0, hash), pages);
+            const resolved = resolveLinkedPart(relPath, part.slice(0, hash), anchor, files);
             if (resolved.error) {
-                problems.push({ severity: "error", path: relPath, message: `${at}, which names no scenario page part: ${resolved.error}.` });
-                continue;
-            }
-            const entry = pages.get(resolved.path);
-            if (!entry.parts.some((p) => p.anchor === anchor)) {
-                const anchors = entry.parts.map((p) => p.anchor).join(", ") || "none";
-                problems.push({ severity: "error", path: relPath, message: `${at}, but ${resolved.path} has no part "#${anchor}" — parts: ${anchors}.` });
+                problems.push({ severity: "error", path: relPath, message: `${at}, which names no journey part: ${resolved.error}.` });
                 continue;
             }
             if (derivable) links.push({ demo: relPath, id, part: `${resolved.path}#${anchor}` });
@@ -811,18 +810,19 @@ export async function linkedWalkthroughs(repoRoot, folders, register = []) {
                 unchecked = true;
                 continue;
             }
-            if (!parsed.has(resolved.path)) {
+            if (!parsed.has(resolved.journey.id)) {
                 let found = null;
                 try {
-                    const page = tools.parse.parseScenarioPage(await readFile(path.join(repoRoot, resolved.path), "utf8"), resolved.path);
-                    found = { page, signature: await tools.signature.pageSignature(page, repoRoot, tools.parse.SCENARIO_FOLDER) };
+                    const file = tools.parse.parseScenariosFile(await readFile(path.join(repoRoot, resolved.path), "utf8"), resolved.path);
+                    const journey = file.journeys.find((candidate) => candidate.id === resolved.journey.id);
+                    found = journey ? { journey, signature: await tools.signature.journeySignature(journey, repoRoot, tools.parse.SCENARIO_FOLDER) } : null;
                 } catch {
                     found = null;
                 }
-                parsed.set(resolved.path, found);
+                parsed.set(resolved.journey.id, found);
             }
-            const found = parsed.get(resolved.path);
-            const partSteps = found?.page.parts.find((p) => p.anchor === anchor)?.steps;
+            const found = parsed.get(resolved.journey.id);
+            const partSteps = found?.journey.parts.find((p) => p.anchor === anchor)?.steps;
             if (!partSteps) continue;
 
             const stale = signature !== null && signature !== found.signature;
@@ -830,7 +830,7 @@ export async function linkedWalkthroughs(repoRoot, folders, register = []) {
                 problems.push({
                     severity: "warning",
                     path: relPath,
-                    message: `${relPath} has linked walkthrough "${id}" at signature ${signature}, but ${resolved.path} is at ${found.signature} — it is stale until \`/prototype\` re-copies its text from the part.`,
+                    message: `${relPath} has linked walkthrough "${id}" at signature ${signature}, but ${resolved.journey.id} is at ${found.signature} — it is stale until \`/prototype\` re-copies its text from the part.`,
                 });
             }
             demo.model.walkthroughs.get(id).forEach((step, index) => {
@@ -842,8 +842,8 @@ export async function linkedWalkthroughs(repoRoot, folders, register = []) {
                     return;
                 }
                 if (step.text === null || stepTextMatches(step.text, target, tools.parse.collapse)) return;
-                // Under the page's current signature the copy cannot have
-                // moved with the page, so the text was edited in the demo.
+                // Under the journey's current signature the copy cannot have
+                // moved with the journey, so the text was edited in the demo.
                 const says = target.keyword ? `${target.keyword} ${target.text}` : target.text;
                 problems.push({
                     severity: stale ? "warning" : "error",
@@ -858,7 +858,7 @@ export async function linkedWalkthroughs(repoRoot, folders, register = []) {
             problems.push({
                 severity: "warning",
                 path: relPath,
-                message: `${relPath} links walkthroughs to scenario page parts, but the scenario tools are not installed beside devbook-meta, so their steps, signatures, and text go unchecked — run devbook:update.`,
+                message: `${relPath} links walkthroughs to journey parts, but the scenario tools are not installed beside devbook-meta, so their steps, signatures, and text go unchecked — run devbook:update.`,
             });
         }
     }

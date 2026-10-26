@@ -103,7 +103,7 @@ const dump = (problems) => problems.map((p) => `[${p.severity}] ${p.message}`).j
     const problems = await demoProblemsOf({
         [`${other}/proposal.md`]:
             `# Rename orders\n\n${fence("type: change\nstatus: proposed\ncategory: behaviour-change\n")}\n` +
-            `## Why\n\nNames.\n\n## Scope\n\nNames.\n\n## Chapters touched\n\n- ${CONTEXT}/context.md\n`,
+            `## Why\n\nNames.\n\n## Scope\n\nNames.\n`,
         [`${other}/devbook-delta/domain/ordering/context.md`]: fence("change: rename-orders\ndelta: modified\n"),
     });
     check(problems.length === 0, "a demo landed directly, with no change carrying it, reports nothing", dump(problems));
@@ -346,7 +346,7 @@ for (const [head, needle, name] of [
 
 // -- A linked walkthrough's shape -----------------------------------------
 // What the model says on its own; the part it names is resolved against the
-// scenario page in scenario-page.test.mjs.
+// journey in scenario-page.test.mjs.
 
 {
     const linkedModel = (walkthrough) => ({ ...MODEL, walkthroughs: [{ id: "card-declined", title: "Card declined", ...walkthrough }] });
@@ -357,20 +357,20 @@ for (const [head, needle, name] of [
     };
     const linkedSteps = [{ ...step("checkout", "pay"), step: 1 }, { ...step("declined"), step: 3 }];
     {
-        const problems = await demoProblemsOf({ [DEMO]: demoHtml({ model: linkedModel({ part: "pay.md#a-declined-card", signature: "9c41e2a0", steps: linkedSteps }) }) });
+        const problems = await demoProblemsOf({ [DEMO]: demoHtml({ model: linkedModel({ part: "scenarios.md#a-declined-card", signature: "9c41e2a0", steps: linkedSteps }) }) });
         check(!has(problems, "error", "the template cannot read"), "a linked walkthrough with part, signature, and ascending steps reads", dump(problems));
     }
-    await cannot({ part: "pay.md#a-declined-card", steps: linkedSteps }, 'walkthrough "card-declined" is linked by its `part` but has no `signature`', "a linked walkthrough without a signature errors");
-    await cannot({ part: "pay#a-declined-card", signature: "9c41e2a0", steps: linkedSteps }, 'walkthrough "card-declined" has `part` "pay#a-declined-card"', "a part that is not <page>.md#<part> errors");
-    await cannot({ part: "pay.md#a-declined-card", signature: "9C41", steps: linkedSteps }, "a page signature is 8 lowercase hex", "a signature that is not 8 hex errors");
+    await cannot({ part: "scenarios.md#a-declined-card", steps: linkedSteps }, 'walkthrough "card-declined" is linked by its `part` but has no `signature`', "a linked walkthrough without a signature errors");
+    await cannot({ part: "pay#a-declined-card", signature: "9c41e2a0", steps: linkedSteps }, 'walkthrough "card-declined" has `part` "pay#a-declined-card"', "a part that is not <scenarios file>.md#<part> errors");
+    await cannot({ part: "scenarios.md#a-declined-card", signature: "9C41", steps: linkedSteps }, "a journey signature is 8 lowercase hex", "a signature that is not 8 hex errors");
     await cannot({ signature: "9c41e2a0", steps: [step("checkout", "pay")] }, "has a `signature` but no `part`", "a signature on a free walkthrough errors");
     await cannot(
-        { part: "pay.md#a-declined-card", signature: "9c41e2a0", steps: [{ ...step("checkout", "pay"), step: 1 }, step("declined")] },
+        { part: "scenarios.md#a-declined-card", signature: "9c41e2a0", steps: [{ ...step("checkout", "pay"), step: 1 }, step("declined")] },
         'walkthrough "card-declined" step 2 has no `step`',
         "a linked walkthrough step without a step index errors"
     );
     await cannot(
-        { part: "pay.md#a-declined-card", signature: "9c41e2a0", steps: [{ ...step("checkout", "pay"), step: 2 }, { ...step("declined"), step: 2 }] },
+        { part: "scenarios.md#a-declined-card", signature: "9c41e2a0", steps: [{ ...step("checkout", "pay"), step: 2 }, { ...step("declined"), step: 2 }] },
         "has `step` 2 after `step` 2",
         "linked step indexes that do not ascend error"
     );
@@ -382,7 +382,7 @@ for (const [head, needle, name] of [
     // entry is redundant; the slug pairing holds free walkthroughs only.
     const model = {
         ...MODEL,
-        walkthroughs: [...MODEL.walkthroughs, { id: "pay-journey", part: "pay.md#paying", signature: "9c41e2a0", steps: [{ ...step("checkout", "pay"), step: 1 }] }],
+        walkthroughs: [...MODEL.walkthroughs, { id: "pay-journey", part: "scenarios.md#paying", signature: "9c41e2a0", steps: [{ ...step("checkout", "pay"), step: 1 }] }],
     };
     const problems = await demoProblemsOf({
         [DEMO]: demoHtml({ model }),
@@ -397,7 +397,7 @@ for (const [head, needle, name] of [
 const CHANGE = "openspec/changes/add-express";
 const proposalMd = (demo) =>
     `# Add express checkout\n\n${fence(`type: change\nstatus: proposed\ncategory: feature\ndemo: [${demo}]\n`)}\n` +
-    `## Why\n\nFaster.\n\n## Scope\n\nCheckout.\n\n## Chapters touched\n\n- ${CONTEXT}/features.md#checkout\n`;
+    `## Why\n\nFaster.\n\n## Scope\n\nCheckout.\n`;
 const solutionMd = (demo) => `# Solution\n\n${fence(`demo: [${demo}]\n`)}\nShow express on the checkout screen.\n`;
 
 {

@@ -10,7 +10,7 @@ related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devb
 Accepted on 2026-09-22, **written ahead of the code and now partly built**: this
 record went in first so that the `backlog-mcp-server` plan's implementation items
 had a decision to build against rather than one to reconstruct afterwards.
-Decisions 1, 2, 3, 4 and 7 have since landed — the in-process host and its flag,
+Decisions 1, 2, 3, 4 and 7 have since landed — the in-process host, its tool-group flags,
 the `backlog` registration the Dev PC catalog now carries, and the caller-supplied
 scope on every tool. With them, the server publishes the delivery engine's
 `delivery.surface.lifecycle@1`, so a flow can report a run into the pane instead
@@ -256,14 +256,15 @@ the task tools behind `TasksFeatures.Tasks`, the annotation tools behind
 `DevbookFeatures.RepositoryDevbook` — and a group whose feature is off is
 **absent from `tools/list`**, not present and refusing, which is what
 `08-crosscutting-concepts.md#feature-enablement` asks of every switchable
-capability ("its entry points are absent rather than present-but-inert"). The
-listener itself answers to **the server's own flag, whose key is named once**:
-`AppFeatures.McpServer = "mcp-server"` in `Backlog.Desktop.UI/Settings/AppFeatures.cs`,
-beside `InboxPane` and `FeedbackReporting`, which sit there for the same
-reason — a capability with no abstractions project of its own. It is
-`EnabledByDefault: false`. The host follows `TaskSyncWorker.ShouldRun`'s
-shape: read the flag, subscribe to `Changed`, start or stop the listener when
-it flips, and never keep a port open for a feature the person switched off.
+capability ("its entry points are absent rather than present-but-inert").
+
+**The listener itself has no flag: it is always on while the desktop app
+runs.** It starts when `McpServerWorker` is constructed and rebinds only when
+the configured port moves. The groups are the switchable part, so a person who
+turns an area off still removes that area's tools from every session. The
+server's own `mcp-server` flag was dropped on 2026-09-30. It had kept the
+listener off until someone switched it on in Settings, and the server is part
+of the product rather than an opt-in.
 
 ## Consequences
 
@@ -290,8 +291,8 @@ Positive:
 
 Negative, and accepted:
 
-- **No Backlog, no tools.** A session opened before the app, or with the
-  feature off, runs without them and has to be told to open Backlog. Accepted
+- **No Backlog, no tools.** A session opened before the app runs without
+  them and has to be told to open Backlog. Accepted
   over a stdio host that would have had to become a second writer.
 - **Claude Desktop is not a registration target.** Its configuration file
   accepts stdio servers only (`DevToolClaudeDesktopServer`: "there is no
@@ -326,7 +327,7 @@ day this record was accepted. A row marked **Built** is one the plan has closed.
 | 4 — `repository` argument | **Built.** `IRepositoryDirectory.Resolve` does the mapping and `RepositoryScope.Resolve` is what every repository-scoped tool calls before it reads or writes, so an unregistered `owner/name` is a refusal rather than an empty answer. `run-plan-item` step 2 now reads `repository` off the git remote and carries it on every connector call — the half this row recorded as missing. The delivery surface's eight tools are the documented exception and take a **`worktree`** instead: a run belongs to a checkout rather than to a repository, two worktrees of one clone hold two independent runs, and `start_run` reattaches per skill *within* a worktree. That is the same rule, not a departure from it — the caller still names the scope and the server still infers nothing. The devbook tools carry a second exception: they also take `#brain`, the Brain (local ADR 0027), matched before `RepositoryScope.Resolve` asks the directory. The caller still names the scope; `#brain` cannot be an `owner/name`, so it shadows no repository, and an empty argument is still refused rather than read as the Brain. |
 | 5 — status is a token | `EntryTextParser.WithStatus`, `SaveFromTextAsync` and `TaskItem.IsTransitionAllowed` / `NextStatusesFrom` all exist. `TaskItem.ChangeStatus`, the throwing form, has no caller in `src/`; the tool uses the predicate, not this method. Nothing today refuses a jump on the save path, so the refusal is the tool's to make. |
 | 6 — two annotation kinds | `IDevbookAnnotationStore` has `List`, `Find` and `SetResolved`. `annotations.mjs` is not installed in this repository: the checked-in generator under `.github/tools/knowledge-meta/` predates it, and the installed copy arrives with the devbook contract v6 adoption (`devbook-sync`), a standing follow-up. Until then a session writes the fence with the plugin's own copy of the tool. |
-| 7 — feature flags | **Built.** Six groups now, the sixth being `Surface` — the delivery engine's `delivery.surface.lifecycle@1`, eight tools over `IDeliverySurfaceLifecycle`, which had been implemented and tested since the run store landed while nothing published it: a flow resolves a surface by matching those names against its live tool list, so the capability the engine's contract binds ahead of the dashboards resolved to "no surface bound" every time. It shares `SessionFeatures.Sessions` with the `Sessions` group, which is §7 as written rather than an exception to it — the rule is one check per group, each behind its own *context's* flag, and a run recorded into the Sessions pane is that context. `AppFeatures.McpServer` (`"mcp-server"`) exists and `McpServerWorker.ShouldRun` reads it, so the listener holds nothing while the flag is off. `08-crosscutting-concepts.md#feature-enablement` is itself still `proposed` — the current build defaults optional features to enabled and records the disabled ones — so `EnabledByDefault: false` on this key is what keeps the listener off until chosen, the way `SyncFeatures.Sync` does it. The Tools pane still draws the `backlog` row while the flag is off, saying that nothing answers at the registered address: a registration made earlier is still on the machine, and hiding the row would hide the one place that says so. The devbook group holds two writes, `resolve_annotation` and `capture_note`. The latter creates a new Brain note through `IBrainNoteWriter` and never opens an existing file, so decision 6's "never writes a fence" holds. The Brain has no flag of its own and rides `DevbookFeatures.RepositoryDevbook`. |
+| 7 — feature flags | **Built.** Six groups now, the sixth being `Surface` — the delivery engine's `delivery.surface.lifecycle@1`, eight tools over `IDeliverySurfaceLifecycle`, which had been implemented and tested since the run store landed while nothing published it: a flow resolves a surface by matching those names against its live tool list, so the capability the engine's contract binds ahead of the dashboards resolved to "no surface bound" every time. It shares `SessionFeatures.Sessions` with the `Sessions` group, which is §7 as written rather than an exception to it — the rule is one check per group, each behind its own *context's* flag, and a run recorded into the Sessions pane is that context. The listener has no flag of its own: `AppFeatures.McpServer` and its catalog entry are gone, and the settings store drops a stored `mcp-server` choice when it normalises. `McpServerWorker` no longer reads `IAppFeatureSettings`. It starts the listener when it is constructed and rebinds only when `McpServerPort` moves. `IMcpEndpointSource` lost `Enabled`, so the Tools pane's "switched off" note and the refusal to register went with it. The web harness no longer answers 404 on `/mcp` and `/telemetry`; the loopback `Origin` check stays. The `backlog` row now names a reason for silence only when `IMcpEndpointSource.Unavailable` gives one, most often a port somebody else holds. The devbook group holds two writes, `resolve_annotation` and `capture_note`. The latter creates a new Brain note through `IBrainNoteWriter` and never opens an existing file, so decision 6's "never writes a fence" holds. The Brain has no flag of its own and rides `DevbookFeatures.RepositoryDevbook`. |
 
 ## Alternatives considered
 

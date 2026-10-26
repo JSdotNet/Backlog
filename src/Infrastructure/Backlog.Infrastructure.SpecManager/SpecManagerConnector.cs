@@ -40,7 +40,7 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
 
     /// <summary>
     /// How far before the last sync a later fetch reaches back. That moment is read
-    /// off this machine's clock and compared with the server's <c>bijgewerktOp</c>,
+    /// off this machine's clock and compared with the server's <c>updatedAt</c>,
     /// so a local clock running ahead would leave out an item that finished or was
     /// archived just after the last sync — and the sync would archive its task as
     /// vanished. Fifteen minutes covers a badly kept clock; reaching back too far
@@ -177,19 +177,19 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
     {
         if (_signIn.Account is null) throw new SpecManagerSignInRequiredException();
 
-        // The last sync's moment is this machine's clock and bijgewerktOp is the
+        // The last sync's moment is this machine's clock and updatedAt is the
         // server's; the allowance keeps a fast local clock from skipping an item
         // that closed just after that sync.
         var cutoff = since - ClockSkewAllowance;
 
         var current = await _client.GetBacklogAsync(target, archived: false, changedSince: null, cancellationToken).ConfigureAwait(false);
-        IReadOnlyList<BacklogitemDto> archived = cutoff is { } changedSince
+        IReadOnlyList<BacklogItemDto> archived = cutoff is { } changedSince
             ? await _client.GetBacklogAsync(target, archived: true, changedSince, cancellationToken).ConfigureAwait(false)
             : [];
 
         var catalog = await CatalogAsync(target, current.Concat(archived), cancellationToken).ConfigureAwait(false);
 
-        var known = new Dictionary<string, BacklogitemDto>(StringComparer.OrdinalIgnoreCase);
+        var known = new Dictionary<string, BacklogItemDto>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in current.Concat(archived)) known.TryAdd(item.Id, item);
 
         var items = new List<SourceItem>(current.Count + archived.Count);
@@ -199,12 +199,12 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
 
             // Open work always; finished work only once it is news. On a first sync
             // nothing finished is: there is no task for it to close.
-            if (mapped.State == NormalisedSourceState.Done && !(cutoff is { } changed && item.BijgewerktOp >= changed)) continue;
+            if (mapped.State == NormalisedSourceState.Done && !(cutoff is { } changed && item.UpdatedAt >= changed)) continue;
 
             items.Add(mapped);
         }
 
-        items.AddRange(archived.Select(item => SpecManagerItemMapper.Map(item with { IsGearchiveerd = true }, catalog, known, _options.Root, target)));
+        items.AddRange(archived.Select(item => SpecManagerItemMapper.Map(item with { IsArchived = true }, catalog, known, _options.Root, target)));
 
         return items;
     }
@@ -266,10 +266,11 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
     /// The products the signed-in account can see, to pick from: each stored as its
     /// slug and shown by its name, the slug standing in for a name that is blank.
     /// <para>
-    /// A list that cannot be had is an answer, never a throw into the page: nobody
-    /// signed in, or spec-manager refusing or failing the list — which it does today
-    /// for the app's agent token, until the product list is opened to it. Either
-    /// way the sentence says to type the product's slug instead.
+    /// The app's agent token sees only the products in which MCP is on, so a
+    /// product left out here is one whose backlog would refuse it too. A list that
+    /// cannot be had is an answer, never a throw into the page: nobody signed in, or
+    /// spec-manager refusing or failing the list. Either way the sentence says to
+    /// type the product's slug instead.
     /// </para>
     /// </summary>
     public async Task<ConnectorTargetChoices> ListTargetChoicesAsync(CancellationToken cancellationToken)
@@ -284,7 +285,7 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
                 .Where(product => !string.IsNullOrWhiteSpace(product.Slug))
                 .Select(product => new ConnectorTargetChoice(
                     product.Slug!.Trim(),
-                    string.IsNullOrWhiteSpace(product.Naam) ? product.Slug.Trim() : product.Naam.Trim()))]);
+                    string.IsNullOrWhiteSpace(product.Name) ? product.Slug.Trim() : product.Name.Trim()))]);
         }
         catch (SpecManagerSignInRequiredException)
         {
@@ -294,7 +295,7 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         {
             _log.LogInformation(ex, "spec-manager would not list the products; the settings page falls back to typing a slug.");
             return ConnectorTargetChoices.Unavailable(
-                "spec-manager would not list your products yet. Type the product's slug instead, as it appears in its spec-manager URL.");
+                "spec-manager would not list your products. Type the product's slug instead, as it appears in its spec-manager URL.");
         }
     }
 
@@ -321,9 +322,9 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
             // case — so two statuses spelled alike do not write one key from two
             // rows. The first by the product's order is the one listed.
             return [.. catalog.Ordered
-                .Where(status => !string.IsNullOrWhiteSpace(status.Naam))
-                .DistinctBy(status => status.Naam.Trim(), StringComparer.OrdinalIgnoreCase)
-                .Select(status => new SourceStatus(status.Naam.Trim(), catalog.StateOf(status)))];
+                .Where(status => !string.IsNullOrWhiteSpace(status.Name))
+                .DistinctBy(status => status.Name.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(status => new SourceStatus(status.Name.Trim(), catalog.StateOf(status)))];
         }
         catch (SpecManagerSignInRequiredException)
         {
@@ -389,7 +390,7 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
         try
         {
             var members = await _client.GetMembersAsync(product, cancellationToken).ConfigureAwait(false);
-            if (members?.FirstOrDefault(member => member.IsJij)?.Naam is { Length: > 0 } name)
+            if (members?.FirstOrDefault(member => member.IsYou)?.Name is { Length: > 0 } name)
             {
                 _signIn.SetAccountName(name);
             }
@@ -407,7 +408,7 @@ internal sealed class SpecManagerConnector : ITaskConnector, ITaskConnectorSignI
     /// <summary>The product's catalog, read again when it is older than
     /// <see cref="CatalogLifetime"/> or does not know a status or label one of
     /// <paramref name="items"/> names.</summary>
-    private async Task<ProductCatalog> CatalogAsync(string product, IEnumerable<BacklogitemDto> items, CancellationToken cancellationToken)
+    private async Task<ProductCatalog> CatalogAsync(string product, IEnumerable<BacklogItemDto> items, CancellationToken cancellationToken)
     {
         var now = _time.GetUtcNow();
         if (_catalogs.TryGetValue(product, out var cached)

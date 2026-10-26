@@ -61,9 +61,9 @@ list with the search above it (52 px rows, chevrons), a row opens its page alone
 the Brain tests' collection so their harness restart cannot cut it off.
 
 `ScenarioEvidenceTests` — a repository's scenario evidence on the desktop harness at
-1440 × 900. Each test registers `tests/Fixtures/scenario-repository` — one scenario page,
-`place-an-order.md`, with a committed run whose first part passed and whose second failed
-on step 1 — and removes it again:
+1440 × 900. Each test registers `tests/Fixtures/scenario-repository` — one journey,
+`shop/scenarios.md#place-an-order`, with a committed run whose first part passed and whose
+second failed on step 1 — and removes it again:
 
 | Test | Proves |
 | --- | --- |

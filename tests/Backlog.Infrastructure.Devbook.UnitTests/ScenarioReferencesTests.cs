@@ -9,18 +9,29 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 public sealed class ScenarioReferencesTests
 {
     private const string Page = """
-        # Set up and fill the backlog
+        # Scenarios
+
+        ```meta
+        type: scenarios
+        ```
+
+        ## Set up and fill the backlog
 
         ```meta
         type: scenario
         ```
 
-        ## Statuses are set up
+        ### Statuses are set up
         - **Given** a product "Webshop"
 
-        ## An item is moved
+        ### An item is moved
         - **When** I drag it to "Doing"
         """;
+
+    private const string PagePath = ".devbook/domain/work/scenarios.md";
+
+    private static ScenarioJourney Journey() =>
+        Assert.Single(ScenarioPageParser.ParseFile(Page, PagePath).Journeys);
 
     private static ScenarioRun Run(string signature, params (string Anchor, ScenarioOutcome Outcome)[] parts) =>
         new(2, signature, new DateTimeOffset(2026, 10, 7, 8, 30, 0, TimeSpan.Zero), null,
@@ -69,17 +80,22 @@ public sealed class ScenarioReferencesTests
     [InlineData("An item is moved")]
     public void A_part_is_found_by_its_anchor_however_it_was_typed(string anchor)
     {
-        var page = ScenarioPageParser.Parse(Page, ".devbook/domain/work/set-up-and-fill-the-backlog.md");
-
-        Assert.Equal("An item is moved", ScenarioReferences.FindPart(page, anchor)?.Title);
+        Assert.Equal("An item is moved", ScenarioReferences.FindPart(Journey(), anchor)?.Title);
     }
 
     [Fact]
     public void An_anchor_no_part_has_finds_none()
     {
-        var page = ScenarioPageParser.Parse(Page, ".devbook/domain/work/set-up-and-fill-the-backlog.md");
+        Assert.Null(ScenarioReferences.FindPart(Journey(), "renamed-away"));
+    }
 
-        Assert.Null(ScenarioReferences.FindPart(page, "renamed-away"));
+    [Fact]
+    public void A_journey_is_found_by_its_anchor_in_its_scenarios_file()
+    {
+        var file = ScenarioPageParser.ParseFile(Page, PagePath);
+
+        Assert.Equal("Set up and fill the backlog", ScenarioReferences.FindJourney(file, "Set-Up-And-Fill-The-Backlog")?.Title);
+        Assert.Null(ScenarioReferences.FindJourney(file, "an-item-is-moved"));
     }
 
     private const string Requirements = """
@@ -128,25 +144,23 @@ public sealed class ScenarioReferencesTests
     public void An_anchor_no_heading_has_names_no_pointer() =>
         Assert.Empty(ScenarioReferences.ProvedByTargets(Requirements, "gone"));
 
+    /// <summary>devbook 1.28.0's checker (<c>scenario.mjs</c> <c>resolveFile</c>): a
+    /// repository path as written, or a path from the requirement's folder — a bare
+    /// <c>scenarios.md</c> is the one in the requirement's own context, never a file
+    /// looked up by name.</summary>
     [Fact]
-    public void A_pointer_is_a_repository_path_a_path_from_the_page_or_a_stem()
+    public void A_pointer_is_a_repository_path_or_a_path_from_the_page()
     {
         const string from = ".devbook/domain/board/requirements.md";
 
-        Assert.Equal((".devbook/domain/work/reorder.md", "reordered", false), ScenarioReferences.ResolveTarget(from, ".devbook/domain/work/reorder.md#reordered"));
-        Assert.Equal((".devbook/domain/work/set-up.md", "a-part", false), ScenarioReferences.ResolveTarget(from, "../work/set-up.md#a-part"));
-        Assert.Equal(("set-up.md", "a-part", true), ScenarioReferences.ResolveTarget(from, "set-up.md#a-part"));
+        Assert.Equal((".devbook/domain/work/scenarios.md", "reordered"), ScenarioReferences.ResolveTarget(from, ".devbook/domain/work/scenarios.md#reordered"));
+        Assert.Equal((".devbook/domain/work/scenarios.md", "a-part"), ScenarioReferences.ResolveTarget(from, "../work/scenarios.md#a-part"));
+        Assert.Equal((".devbook/domain/board/scenarios.md", "a-part"), ScenarioReferences.ResolveTarget(from, "scenarios.md#a-part"));
     }
 
     [Fact]
     public void A_root_layout_repository_path_is_the_repository_s_and_is_folded() =>
-        Assert.Equal((".domain/work/set-up.md", "a-part", false), ScenarioReferences.ResolveTarget(".devbook/domain/board/requirements.md", ".domain/work/../work/set-up.md#a-part"));
-
-    [Theory]
-    [InlineData("*.md#a-part")]
-    [InlineData("set-up?.md#a-part")]
-    public void A_wildcard_stem_names_no_page(string target) =>
-        Assert.Null(ScenarioReferences.ResolveTarget(".devbook/domain/board/requirements.md", target));
+        Assert.Equal((".domain/work/scenarios.md", "a-part"), ScenarioReferences.ResolveTarget(".devbook/domain/board/requirements.md", ".domain/work/../work/scenarios.md#a-part"));
 
     [Theory]
     [InlineData("set-up.md")]

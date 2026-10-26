@@ -9,6 +9,14 @@
     meaning alone. Approved and passing checks are in the success ink; everything
     else is quiet.
 
+    Where the host read the counts, the facts carry the pull request's status line
+    too (.devbook/domain/progress/features.md#pull-request-status): checks as
+    passed/total and approvals as received/required, the number left off because the
+    card leads with it. Its checks mark says what the checks words would, so those
+    words are left out beside it; the reviewers' verdict stays, because "Changes
+    requested" is something a count of approvals does not say. Drawn while the pull
+    request is open or a draft — a merged one already says Merged.
+
     A button when the host can open it, inert otherwise, on the rule
     WorkSessionCard follows.
 *@
@@ -42,7 +50,26 @@ else
 
     private string? Review => WorkStates.ReviewWords(PullRequest.Review);
 
-    private string? Checks => PullRequest.ChecksText ?? WorkStates.ChecksWords(PullRequest.Checks);
+    /// <summary>The status line to draw, or null: none read, nothing on it to count, or
+    /// a pull request no longer open.</summary>
+    private PullRequestStatusModel? StatusLine =>
+        PullRequest.Status is { IsMerged: false } status
+        && PullRequest.State is IntegrationArtifactState.Open or IntegrationArtifactState.Draft
+        && (status.ChecksVariant is not PullRequestChecksVariant.None || status.ApprovalsVariant is not PullRequestApprovalsVariant.None)
+            ? status
+            : null;
+
+    /// <summary>The checks in words, left out where the status line's checks mark says them.</summary>
+    private string? Checks =>
+        StatusLine is { ChecksVariant: not PullRequestChecksVariant.None }
+            ? null
+            : PullRequest.ChecksText ?? WorkStates.ChecksWords(PullRequest.Checks);
+
+    /// <summary>The checks for the tooltip, whether or not the card words them.</summary>
+    private string? ChecksTitle =>
+        StatusLine is { ChecksVariant: not PullRequestChecksVariant.None } line
+            ? line.ChecksSpoken
+            : Checks;
 
     private string? Diff => WorkStates.DiffWords(PullRequest.Additions, PullRequest.Deletions);
 
@@ -52,7 +79,8 @@ else
             $"Pull request #{PullRequest.Number} {PullRequest.Title}",
             WorkStates.PullRequestWords(PullRequest.State),
             Review,
-            Checks
+            ChecksTitle,
+            StatusLine is { ApprovalsVariant: not PullRequestApprovalsVariant.None } line ? line.ApprovalsSpoken : null
         }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     private string ClassValue
@@ -95,6 +123,10 @@ else
                 @if (Checks is not null)
                 {
                     <span class="@Tone(PullRequest.Checks)" data-testid="work-pull-request-checks">@Checks</span>
+                }
+                @if (StatusLine is { } line)
+                {
+                    <PullRequestStatus Model="line" ShowNumber="false" CssClass="work-card__status" TestId="work-pull-request-status" />
                 }
                 @if (Diff is not null)
                 {

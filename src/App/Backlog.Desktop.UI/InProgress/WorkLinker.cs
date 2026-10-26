@@ -4,14 +4,12 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Integrations;
-using Backlog.UI.Components.Tasks;
 
 namespace Backlog.Desktop.UI.InProgress;
 
 /// <summary>
-/// Links one loose session or pull request to one entry, the act behind both "Link
-/// to a task…" on the In progress view and "Link a session or pull request…" on a
-/// task's side panel — one act, written once.
+/// Links one loose session or pull request to one entry, the act behind "Link a
+/// session or pull request…" on a task's side panel.
 /// <para>
 /// A session is recorded under the repository it is placed in, else under the
 /// entry's own; a pull request under the repository it was opened in. Both go
@@ -32,9 +30,9 @@ public static class WorkLinker
     public static async Task<string?> LinkAsync(
         TasksDesktopState state,
         IToastChannel? toasts,
-        InProgressProjection projection,
+        WorkLinksProjection projection,
         EntryRow row,
-        InProgressLoose loose)
+        LooseWork loose)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(projection);
@@ -100,7 +98,7 @@ public static class WorkLinker
     /// Links the pull request a person named by number or link — "Link a session or pull
     /// request…" on a task's side panel — whatever its state: open, draft, merged or
     /// closed. Work that merged before its task was linked is still the task's work, and
-    /// a sprint member counts as done by its pull requests only once they are linked.
+    /// a task a goal holds counts as done by its pull requests only once they are linked.
     /// <para>
     /// The pull request must be in a repository registered here: a link or
     /// <c>owner/name#123</c> names it, a bare number is the task's own repository's. It
@@ -245,8 +243,8 @@ public static class WorkLinker
     public const string UnlinkedTestId = "in-progress-unlinked";
 
     /// <summary>
-    /// Takes one session or pull request off an entry — "Unlink" beside a card on the
-    /// In progress view and in a task's side panel. Under the repository the link was
+    /// Takes one session or pull request off an entry — "Unlink" beside a card in a
+    /// task's side panel. Under the repository the link was
     /// recorded with, through <see cref="TasksDesktopState.UnlinkWorkAsync"/>, which
     /// says its own refusals.
     /// </summary>
@@ -272,7 +270,7 @@ public static class WorkLinker
         }
         else if (pull is not null
             && row.PullRequestLinks.FirstOrDefault(link => string.Equals(
-                InProgressProjection.Key(link.Repository, link.Number), pull.Key, StringComparison.OrdinalIgnoreCase)) is { } pullLink)
+                WorkLinksProjection.Key(link.Repository, link.Number), pull.Key, StringComparison.OrdinalIgnoreCase)) is { } pullLink)
         {
             what = $"Pull request #{pullLink.Number}";
             failure = await state.UnlinkWorkAsync(

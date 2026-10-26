@@ -113,6 +113,13 @@ public sealed class TaskViewProjection : IDisposable
         }
     }
 
+    /// <summary>Every task the phone holds that is not deleted, in no particular order —
+    /// what the stand-up reads its work from (local ADR 0035 §8).</summary>
+    public IReadOnlyList<TaskViewRow> Live()
+    {
+        lock (_rowsLock) return [.. _rows.Values.Where(row => row.DeletedAt is null)];
+    }
+
     public TaskViewRow? Find(Guid id)
     {
         lock (_rowsLock) return _rows.GetValueOrDefault(id);

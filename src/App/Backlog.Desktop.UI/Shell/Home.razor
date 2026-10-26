@@ -214,21 +214,34 @@
 
                 @* Show archived (local ADR 0029, §3): whether the archived repositories
                    are offered in the scope, the Board's columns and the pickers, and
-                   their tasks in the list. A switch beside Colors for the reason Colors
-                   is one: it answers "is this layer on" and narrows nothing itself.
+                   their tasks in the list. It asks the question Colors asks — "is this
+                   layer on" — and narrows nothing itself, so it is outside the scope
+                   group for the same reason.
+
+                   A glyph that stays pressed rather than a second switch, and the
+                   reason is room. Colors is the setting everyone meets; this one only
+                   exists once a repository is archived, and a track plus its words
+                   beside Colors cost the header more width than an occasional choice
+                   earns. One on-or-off of its own is the loose standalone option the
+                   Inbox and Devbook toggles already wear, so it takes that shape and
+                   that size. With no word on screen the name goes on aria-label, and
+                   the tooltip says what the next press does; aria-pressed carries the
+                   state a switch's aria-checked carried.
+
                    Kept per device, and read from that choice on every render, so a
                    shell the Router built afresh draws what was left. Only while a
                    repository is archived: with none there is nothing for it to show. *@
                 if (State.HasArchivedRepositories)
                 {
-                    <Toggle CssClass="header-switch"
-                            LabelCssClass="header-switch__label"
-                            ControlCssClass="toggle__track header-switch__track"
-                            Label="Show archived"
-                            Id="show-archived-repositories-switch"
-                            TestId="show-archived-toggle"
-                            Checked="State.ShowArchivedRepositories"
-                            CheckedChanged="State.SetShowArchivedRepositories" />
+                    <ToggleButton BaseClass="header-group__option header-group__option--loose header-group__option--icon-only"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="State.ShowArchivedRepositories"
+                                  PressedChanged="State.SetShowArchivedRepositories"
+                                  TestId="show-archived-toggle"
+                                  AriaLabel="Show archived repositories"
+                                  Title="@(State.ShowArchivedRepositories ? "Hide archived repositories" : "Show archived repositories")">
+                        <ArchiveIcon />
+                    </ToggleButton>
                 }
             }
         </div>
@@ -374,72 +387,68 @@
                 }
             </div>
 
-            @* The work in progress: what the assistants are running and what they
-               shipped. Two takeovers of the Sessions context, each under its own
-               flag, fused because they are one context's two lists, led by the In
-               progress view that summarises both. Each list is a takeover, so
-               pressing the pressed one, Escape, or the surface's own close button
-               returns to the workspace. Renders only while one of them is offered. *@
-            @if (SessionsOffered || PullRequestsOffered)
-            {
-                <ButtonGroup CssClass="header-group header-group--work"
-                             AriaLabel="Work in progress"
-                             TestId="work-in-progress-switcher">
-                    @* A main view, not a takeover, though it sits with two: pressing
-                       it shows the view as a view-switch option does, and nothing
-                       closes it. First,
-                       because it is the summary the other two are the lists behind. *@
+            @* The work in progress: the goals, and what the assistants are running
+               and what they shipped. Goals leads, always offered (local ADR 0035
+               §10); then two takeovers of the Sessions context, each under its own
+               flag, fused because they are one context's two lists. Each list is a
+               takeover, so pressing the pressed one, Escape, or the surface's own
+               close button returns to the workspace. *@
+            <ButtonGroup CssClass="header-group header-group--work"
+                         AriaLabel="Work in progress"
+                         TestId="work-in-progress-switcher">
+                @* A main view, not a takeover, though it sits with two: pressing
+                   it shows the view as a view-switch option does, and nothing
+                   closes it. First, because it is what the work is for. *@
+                <ToggleButton BaseClass="header-group__option"
+                              PressedCssClass="header-group__option--selected"
+                              Pressed="ViewOptionPressed(ShellView.Goals)"
+                              id="goals-view-option"
+                              Title="Goals"
+                              TestId="goals-view-option"
+                              aria-controls="goals-view"
+                              OnClick="() => ShowView(ShellView.Goals)">
+                    <TargetIcon />
+                    <span class="header-nav-label header-nav-label--tier-2">Goals</span>
+                </ToggleButton>
+
+                @if (SessionsOffered)
+                {
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
-                                  Pressed="ViewOptionPressed(ShellView.InProgress)"
-                                  id="in-progress-view-option"
-                                  Title="In progress"
-                                  TestId="in-progress-view-option"
-                                  aria-controls="in-progress-view"
-                                  OnClick="() => ShowView(ShellView.InProgress)">
-                        <ActivityIcon />
-                        <span class="header-nav-label header-nav-label--tier-2">In progress</span>
+                                  Pressed="SessionsVisible"
+                                  id="sessions-toggle-button"
+                                  Title="Sessions"
+                                  TestId="sessions-toggle-button"
+                                  aria-controls="sessions-surface"
+                                  PressedChanged="ToggleSessions">
+                        <SquareTerminalIcon />
+                        <span class="header-nav-label header-nav-label--tier-2">Sessions</span>
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
+                                            Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
+                                            TestId="sessions-feature-status" />
                     </ToggleButton>
+                }
 
-                    @if (SessionsOffered)
-                    {
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="SessionsVisible"
-                                      id="sessions-toggle-button"
-                                      Title="Sessions"
-                                      TestId="sessions-toggle-button"
-                                      aria-controls="sessions-surface"
-                                      PressedChanged="ToggleSessions">
-                            <SquareTerminalIcon />
-                            <span class="header-nav-label header-nav-label--tier-2">Sessions</span>
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
-                                                Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
-                                                TestId="sessions-feature-status" />
-                        </ToggleButton>
-                    }
-
-                    @* Its own option and its own flag, since it asks GitHub on every
-                       opening and the session list asks nothing. *@
-                    @if (PullRequestsOffered)
-                    {
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="PullRequestsVisible"
-                                      id="pull-requests-toggle-button"
-                                      Title="Pull requests"
-                                      TestId="pull-requests-toggle-button"
-                                      aria-controls="pull-requests-surface"
-                                      PressedChanged="TogglePullRequests">
-                            <GitPullRequestIcon />
-                            <span class="header-nav-label header-nav-label--tier-2">Pull requests</span>
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
-                                                Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
-                                                TestId="pull-requests-feature-status" />
-                        </ToggleButton>
-                    }
-                </ButtonGroup>
-            }
+                @* Its own option and its own flag, since it asks GitHub on every
+                   opening and the session list asks nothing. *@
+                @if (PullRequestsOffered)
+                {
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="PullRequestsVisible"
+                                  id="pull-requests-toggle-button"
+                                  Title="Pull requests"
+                                  TestId="pull-requests-toggle-button"
+                                  aria-controls="pull-requests-surface"
+                                  PressedChanged="TogglePullRequests">
+                        <GitPullRequestIcon />
+                        <span class="header-nav-label header-nav-label--tier-2">Pull requests</span>
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
+                                            Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
+                                            TestId="pull-requests-feature-status" />
+                    </ToggleButton>
+                }
+            </ButtonGroup>
 
             @* The remaining takeovers, loose: the Dashboard and Dev PC Management's
                Tools, related only by each taking the screen. WorkspaceSurface is a
@@ -501,12 +510,13 @@
            band AppFooter mounts under all of them. The sync control stayed, because
            checking GitHub is a thing you do to the list in front of you. *@
         <div class="app-header__status">
-            @* Monitoring is a deliberate act, not a background poll: the backlog has
-               to open instantly and offline, so nothing here waits on GitHub until
-               somebody asks it to. This re-reads everything; the only read made
-               unasked is CheckPullRequestsAfterLoad's, which asks about pull
-               requests not yet landed once the list is already showing, and blocks
-               nothing when GitHub cannot be reached.
+            @* Nothing on screen waits on GitHub: the backlog has to open instantly
+               and offline. This button re-reads everything, on demand. Beside it
+               runs one background poll, CheckPullRequestsAfterLoad's: once the list
+               is showing, after every reload, and on the state's recheck tick every
+               PullRequestRecheckInterval while the window is open and the GitHub
+               integration is on, it asks about pull requests not yet landed. It
+               blocks nothing when GitHub cannot be reached.
 
                Only while the task list is on screen — the list is what a check
                refreshes, and the dashboard fetches from GitHub on its own.
@@ -664,7 +674,6 @@
                            RepositoryAliases="@State.SelectedRepositoryAliases"
                            RepositoryColour="@RepositoryColourFor"
                            OnOpenSessions="@(SessionsOffered ? EventCallback.Factory.Create(this, ToggleSessions) : default)"
-                           OnOpenSprint="@(InProgressViewOffered ? EventCallback.Factory.Create<Backlog.Modules.Dashboard.Abstractions.Services.SprintBriefSprint>(this, OpenSprintFromBrief) : default)"
                            OnAskAi="@(DashboardAskAiOffered ? EventCallback.Factory.Create<string>(this, AskAboutDashboardPartAsync) : default)" />
         </main>
     }
@@ -770,24 +779,15 @@
                     <RoadmapBand OnOpenTasks="OpenPlanTasks" />
                 </div>
             }
-            else if (InProgressViewVisible)
+            else if (GoalsViewVisible)
             {
-                @* A view like the roadmap: no Escape, no filter bar. The tab is the
-                   view by task and, while the scope holds a repository in a sprint
-                   series, the sprint view beside it (InProgressTab). *@
-                <div class="in-progress-view" id="in-progress-view" data-testid="in-progress-view">
-                    <InProgressTab Reader="_work"
-                                   OnOpenTask="OpenEntryAsync"
-                                   OnOpenSession="OpenSessionAsync"
-                                   OnOpenPullRequest="OpenPullRequestAsync"
-                                   ShowSessions="SessionsOffered"
-                                   ShowPullRequests="PullRequestsOffered"
-                                   NeedsYouFirst="@ShellNavigation.InProgressNeedsYouFirst"
-                                   NeedsYouFirstChanged="OnNeedsYouFirstChanged"
-                                   IncludeFinishedToday="@ShellNavigation.InProgressIncludeFinishedToday"
-                                   IncludeFinishedTodayChanged="OnIncludeFinishedTodayChanged"
-                                   OpenSprint="_sprintRequest"
-                                   OnSprintOpened="() => _sprintRequest = null" />
+                @* The Goals view: the goals, No goal and the stand-up, read through
+                   the Progress ports over the shell's task list and open pull
+                   requests (GoalsTab, local ADR 0035 §10). *@
+                <div class="goals-view" id="goals-view" data-testid="goals-view">
+                    <div class="goals-view__body" data-testid="goals-view-body">
+                        <GoalsTab Reader="_work" ReadsPullRequests="PullRequestsOffered" />
+                    </div>
                 </div>
             }
             else
@@ -842,7 +842,7 @@
         // when the roadmap was a takeover as the Roadmap view over the workspace;
         // the surface is checked again here so that no path can put the old
         // takeover back on screen.
-        _view = Remembered(ShellNavigation.LastView, _view);
+        _view = ShellViews.Read(ShellNavigation.LastView, _view);
 
         if (_surface == WorkspaceSurface.Roadmap)
         {
@@ -896,6 +896,7 @@
             _ = ReadBrainNotesByTaskAsync();
         }
         State.WrittenElsewhere += HandleTasksWrittenElsewhere;
+        State.PullRequestRecheckDue += HandlePullRequestRecheckDue;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
         InboxState.BatchRouted += HandleInboxBatchRouted;
@@ -931,8 +932,10 @@
     /// Has the Tasks state read, in the background, the entries' pull requests it
     /// does not know to have landed — never read, or last read open and not re-read
     /// for a while — so work that merged shows merged without the sync button,
-    /// whatever the entry's status. Called after the list loads and after every
-    /// reload of it.
+    /// whatever the entry's status, and a prompt entry whose pull request merged into
+    /// the default branch or a <c>plan/</c> branch goes Done. Called after the list
+    /// loads, after every reload of it, and on the state's recheck tick
+    /// (<see cref="HandlePullRequestRecheckDue"/>), so an idle window still notices.
     /// <para>
     /// Not awaited: the list is already on screen and must stay usable offline, and
     /// the state keeps its own one-at-a-time guard and stays quiet on failure. The
@@ -946,6 +949,10 @@
 
         _ = State.CheckPullRequestsAsync();
     }
+
+    /// <summary>The state's recheck tick, raised on a timer thread: the check runs on
+    /// this dispatcher, behind the same feature switch as every other.</summary>
+    private void HandlePullRequestRecheckDue() => _ = InvokeAsync(CheckPullRequestsAfterLoad);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -1063,16 +1070,11 @@
     private ShellView EffectiveView => _view switch
     {
         ShellView.Roadmap when !RoadmapViewOffered => ShellView.Tasks,
-        ShellView.InProgress when !InProgressViewOffered => ShellView.Tasks,
         _ => _view
     };
 
-    /// <summary>Whether the work in progress group offers In progress: while either
-    /// of the lists it summarises is on.</summary>
-    private bool InProgressViewOffered => SessionsOffered || PullRequestsOffered;
-
-    /// <summary>Whether the In progress view is on screen.</summary>
-    private bool InProgressViewVisible => WorkspaceVisible && EffectiveView == ShellView.InProgress;
+    /// <summary>Whether the Goals view is on screen. Always offered (local ADR 0035 §10).</summary>
+    private bool GoalsViewVisible => WorkspaceVisible && EffectiveView == ShellView.Goals;
 
     /// <summary>Whether the task list is in front of the reader — the Tasks view, or
     /// the Board or the Calendar laying out the same filtered rows, on screen in
@@ -1129,12 +1131,6 @@
             ? value
             : fallback;
 
-    // The In progress view's two choices, kept by the shell as the Board's columns
-    // are, so a relaunch reopens the board as the reader left it.
-    private void OnNeedsYouFirstChanged(bool value) => ShellNavigation.SetInProgressNeedsYouFirst(value);
-
-    private void OnIncludeFinishedTodayChanged(bool value) => ShellNavigation.SetInProgressIncludeFinishedToday(value);
-
     /// <summary>Whether what is on screen can show several repositories at once:
     /// the task list, the Dashboard, the session list, or the pull requests list —
     /// and the Inbox, which shows none but routes into the list: it sat beside the
@@ -1147,7 +1143,7 @@
     /// narrowed to the anchor would take away. Tools reads none, so there a chip is a
     /// single select and the scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral =>
-        TasksListOnScreen || InProgressViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible;
+        TasksListOnScreen || GoalsViewVisible || DashboardVisible || SessionsVisible || PullRequestsVisible || InboxVisible || DevbookVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button
@@ -1172,6 +1168,7 @@
                 InboxVisible ? "inbox"
                 : TasksListOnScreen ? "tasks"
                 : RoadmapViewVisible ? "roadmap"
+                : GoalsViewVisible ? "goals"
                 : DevbookVisible ? "devbook"
                 : DashboardVisible ? "dashboard"
                 : SessionsVisible ? "sessions"
@@ -1206,17 +1203,6 @@
     /// <summary>Whether a view's option reads pressed: it is the view on screen.
     /// During a takeover no view is on screen, so none reads pressed.</summary>
     private bool ViewOptionPressed(ShellView view) => WorkspaceVisible && EffectiveView == view;
-
-    /// <summary>The weekly brief's "Open Sprint n": In progress, on that series' sprint
-    /// view, on that sprint (.devbook/domain/progress/features.md#sprints-in-the-briefs).
-    /// The request stays until the sprint view takes it.</summary>
-    private Backlog.Modules.Progress.UI.InProgress.SprintViewRequest? _sprintRequest;
-
-    private void OpenSprintFromBrief(Backlog.Modules.Dashboard.Abstractions.Services.SprintBriefSprint sprint)
-    {
-        _sprintRequest = new Backlog.Modules.Progress.UI.InProgress.SprintViewRequest(sprint.SeriesId, sprint.Number);
-        ShowView(ShellView.InProgress);
-    }
 
     /// <summary>
     /// A press on a view's option: that view becomes the workspace's main view, and
@@ -1406,7 +1392,7 @@
     private string? _focusPullRequest;
 
     /// <summary>
-    /// A pull request a card on the In progress view or a task's side panel names,
+    /// A pull request a card in a task's side panel names,
     /// opened from the card: the pull requests list on screen with its row marked.
     /// The mirror of <see cref="OpenSessionAsync"/>, on the same terms.
     /// </summary>
@@ -1430,25 +1416,11 @@
 
     private const string PullRequestsOffTestId = "in-progress-pull-requests-off";
 
-    /// <summary>The sessions and open pull requests the In progress view and a
-    /// task's side panel draw from, read by either and kept for both. Rebuilt with
+    /// <summary>The sessions and open pull requests the Goals view and a task's
+    /// side panel draw from, read by either and kept for both. Rebuilt with
     /// the page, which the Router remounts on every route change — so a trip to
     /// Settings and back reads again, which is what that trip is usually for.</summary>
     private WorkInProgressReader _work = new(null, null);
-
-    /// <summary>An entry the In progress view names, opened from its title: the
-    /// Tasks view on screen with that entry selected.</summary>
-    private async Task OpenEntryAsync(Guid id)
-    {
-        if (State.Rows.FirstOrDefault(candidate => candidate.Id == id) is not { } row) return;
-
-        ShowView(ShellView.Tasks);
-
-        // In progress shows entries the list's own filters may hide; the list is
-        // widened to it, as a press on the row would be.
-        State.Reveal(row);
-        await State.SelectAsync(row);
-    }
 
     /// <summary>
     /// A roadmap item's "Open in Tasks": the Tasks view on screen, listing every entry
@@ -1476,35 +1448,22 @@
     }
 
     /// <summary>The Tasks detail panel's "Sessions and pull requests", for the
-    /// selected entry. Offered while the In progress view is: the section is that
-    /// view's cards for one entry, and its "Open in In progress" leads there. Built
-    /// once, and again on every feature change, rather than as a new fragment on
-    /// every render — see <see cref="BuildLinkedWork"/>.</summary>
+    /// selected entry. Offered while the Sessions or the Pull requests feature is on:
+    /// the section draws only the kinds that are. Built once, and again on every
+    /// feature change, rather than as a new fragment on every render — see
+    /// <see cref="BuildLinkedWork"/>.</summary>
     private RenderFragment<EntryRow>? LinkedWorkFor => _linkedWork;
 
     private RenderFragment<EntryRow>? _linkedWork;
 
     /// <summary>The fragment behind <see cref="LinkedWorkFor"/>. It reads the flags
     /// and the reader as it draws, so only whether it is offered at all is decided
-    /// here, and that is a feature's to change.
-    /// <para>
-    /// The slot carries the entry's Sprint section too, composed from Progress UI the
-    /// same way (<c>.devbook/domain/progress/features.md#planning-from-a-task</c>): the
-    /// Tasks pane draws whatever the shell hands it and gains no sprint field (local
-    /// ADR 0028). The section draws nothing while the entry's repositories are in no
-    /// series switched on.
-    /// </para></summary>
+    /// here, and that is a feature's to change.</summary>
     private RenderFragment<EntryRow>? BuildLinkedWork()
     {
-        var linked = InProgressViewOffered;
-        var sprint = SprintSectionOffered;
-        if (!linked && !sprint) return null;
+        if (!SessionsOffered && !PullRequestsOffered) return null;
 
-        return row => builder =>
-        {
-            if (linked) builder.AddContent(0, LinkedWorkSectionFor(row));
-            if (sprint) builder.AddContent(1, SprintSectionFor(row));
-        };
+        return row => builder => builder.AddContent(0, LinkedWorkSectionFor(row));
     }
 
     private RenderFragment LinkedWorkSectionFor(EntryRow row) =>
@@ -1513,17 +1472,8 @@
                             Reader="_work"
                             OnOpenSession="OpenSessionAsync"
                             OnOpenPullRequest="OpenPullRequestAsync"
-                            OnOpenInProgress="() => ShowView(ShellView.InProgress)"
                             ShowSessions="SessionsOffered"
                             ShowPullRequests="PullRequestsOffered" />;
-
-    private RenderFragment SprintSectionFor(EntryRow row) =>
-        @<Backlog.Modules.Progress.UI.Planning.TaskSprintSection @key="row.Key"
-                                                                Candidate="SprintCandidates.Of(State, row)" />;
-
-    /// <summary>Whether an entry's side panel carries its Sprint section: while the
-    /// Progress area is on.</summary>
-    private bool SprintSectionOffered => IsFeatureEnabled(Backlog.Modules.Progress.Abstractions.ProgressFeatures.Progress);
 
     /// <summary>
     /// The repository an entry's reference asked the Devbook pane to read, and the
@@ -2952,6 +2902,7 @@
         if (_brainSettings is not null) _brainSettings.Changed -= HandleBrainSettingsChanged;
         if (_brainFolders is not null && _brainTaskLinks is not null) _brainFolders.Changed -= HandleBrainFoldersChanged;
         State.WrittenElsewhere -= HandleTasksWrittenElsewhere;
+        State.PullRequestRecheckDue -= HandlePullRequestRecheckDue;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;
         InboxState.BatchRouted -= HandleInboxBatchRouted;

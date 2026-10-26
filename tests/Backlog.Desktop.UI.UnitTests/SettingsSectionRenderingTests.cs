@@ -20,7 +20,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class SettingsSectionRenderingTests
 {
-    internal static readonly string[] AppWidePages = ["Features", "Storage & backup", "Repositories"];
+    internal static readonly string[] AppWidePages = ["Features", "Storage & backup", "Repositories", "MCP server"];
 
     [Fact]
     public void With_no_section_registered_only_the_app_wide_pages_are_offered()
@@ -420,7 +420,7 @@ public sealed class SettingsSectionRenderingTests
             .ToList();
 
         Assert.Equal(
-            [("features", "settings/features"), ("storage", "settings/storage"), ("repositories", "settings/repositories"), ("sooner", "settings/sooner")],
+            [("features", "settings/features"), ("storage", "settings/storage"), ("repositories", "settings/repositories"), ("mcp-server", "settings/mcp-server"), ("sooner", "settings/sooner")],
             hrefs);
     }
 
@@ -463,7 +463,7 @@ public sealed class SettingsSectionRenderingTests
             ["Workspace", "AI", "Product areas"],
             settings.Component.FindAll(".settings-menu-group__label").Select(label => label.TextContent.Trim()));
         Assert.Equal(
-            ["Features", "Storage & backup", "Repositories", "Workspace extra", "Pricing", "Early area", "Late area"],
+            ["Features", "Storage & backup", "Repositories", "MCP server", "Workspace extra", "Pricing", "Early area", "Late area"],
             SettingsMenu.Pages(settings.Component));
     }
 
@@ -502,6 +502,7 @@ public sealed class SettingsSectionRenderingTests
                 (SettingsGroup.Workspace, "Storage & backup"),
                 (SettingsGroup.Workspace, "Repositories"),
                 (SettingsGroup.Workspace, "GitHub accounts"),
+                (SettingsGroup.Workspace, "MCP server"),
                 (SettingsGroup.Ai, "AI providers"),
                 (SettingsGroup.Ai, "Claude Code"),
                 (SettingsGroup.Ai, "Model prices"),
@@ -621,6 +622,11 @@ public sealed class SettingsSectionRenderingTests
 
     private static SettingsRenderContext RenderSettings(SettingsSection section, bool inboxPane) =>
         RenderSettings([section], inboxPane);
+
+    /// <summary>The screen with no registered section, with what
+    /// <paramref name="services"/> adds composed beside the rest.</summary>
+    internal static SettingsRenderContext RenderSettings(Action<IServiceCollection> services, string? navigateTo = null) =>
+        RenderSettings([], inboxPane: false, navigateTo: navigateTo, services: services);
 
     private static SettingsRenderContext RenderSettings(
         SettingsSection[] sections,

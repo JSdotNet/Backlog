@@ -172,6 +172,18 @@ public sealed class TaskFoldTests
         Assert.Empty(rows);
     }
 
+    /// <summary>A goal a desktop synced (local ADR 0035 §9) is never listed as a task.</summary>
+    [Fact]
+    public void A_goal_document_is_never_a_row()
+    {
+        var rows = new Dictionary<Guid, TaskViewRow>();
+
+        var changed = TaskFold.Apply(rows, [Record(TestTasks.Task("Customers get paid faster", T0, inMyDayOn: Today, type: "goal"), 1)]);
+
+        Assert.Empty(changed);
+        Assert.Empty(rows);
+    }
+
     /// <summary>ADR 0032 Verification 5: the phone keeps the My Day preferences as a
     /// document of its own, never as a task row the Tasks tab would list.</summary>
     [Fact]
@@ -180,6 +192,19 @@ public sealed class TaskFoldTests
         var rows = new Dictionary<Guid, TaskViewRow>();
 
         var changed = TaskFold.Apply(rows, [Record(TestTasks.Task("My Day preferences", T0, type: "my-day-preferences", contentMd: """{"clearsOvernight":false}"""), 1)]);
+
+        Assert.Empty(changed);
+        Assert.Empty(rows);
+    }
+
+    /// <summary>ADR 0036 Verification 8: the iteration settings a desktop writes are never
+    /// a task row on the phone, which reads the iteration from the stand-up context.</summary>
+    [Fact]
+    public void The_iteration_settings_document_is_never_a_row()
+    {
+        var rows = new Dictionary<Guid, TaskViewRow>();
+
+        var changed = TaskFold.Apply(rows, [Record(TestTasks.Task("Iteration settings", T0, type: "iteration-settings", contentMd: """{"length":"two-weeks","twoWeekStart":"2026-10-19"}"""), 1)]);
 
         Assert.Empty(changed);
         Assert.Empty(rows);

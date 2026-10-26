@@ -44,6 +44,13 @@
     state is a timeout over a folder with no liveness marker, and the detail panel
     says so on every Copilot row.
 
+    Open, between Live and All, answers a different question: what the Claude desktop
+    app still holds in its sidebar, unarchived, whether or not a process runs for it.
+    The desktop app ends idle processes, so most of those read Finished; Open filters
+    on the desktop record's archived flag and never on the state, draws a quiet Idle
+    badge where the Finished chip would stand, and folds the desktop app's scheduled
+    routine runs into one Scheduled section at the end.
+
     The filter bar holds every control that removes a row — Show, With delivery runs,
     Machine — so a reader who wonders why a session is missing finds every reason in
     one place, and Group by beside them moves rows and removes none, which is why the
@@ -124,9 +131,9 @@ else
 
            Show is a one-of-many strip rather than a switch: a role="switch" states a
            boolean setting, and this resets to Live on every open; a strip that comes
-           back to its first option reads as where you are looking. Live carries how
-           many rows it would show under the other filters, so the press is never a
-           guess. *@
+           back to its first option reads as where you are looking. Live and Open each
+           carry how many rows they would show under the other filters, so the press
+           is never a guess. *@
         <div class="sessions-filter">
             <span class="sessions-filter__label">Show</span>
             <ButtonGroup AriaLabel="Which sessions to show" TestId="sessions-view-filter">
@@ -139,6 +146,10 @@ else
                         @if (view is AgentSessionView.Live)
                         {
                             <span class="sessions-filter__tally" data-testid="sessions-live-tally">@LiveTally</span>
+                        }
+                        else if (view is AgentSessionView.Open)
+                        {
+                            <span class="sessions-filter__tally" data-testid="sessions-open-tally">@OpenTally</span>
                         }
                     </ToggleButton>
                 }
@@ -264,6 +275,7 @@ else
             // an input changes: the grouping sorts every row, and asking for it per row
             // would sort the list once for each of them.
             var sections = Sections;
+            var scheduled = View.Scheduled;
             var selected = Selected;
             _shownKey = selected?.Key;
 
@@ -271,6 +283,41 @@ else
                 <section class="sessions-list" aria-label="Claude and Copilot sessions this PC has a record of" data-testid="sessions-list">
                     @foreach (var section in sections)
                     {
+                        if (ReferenceEquals(section, scheduled))
+                        {
+                            @* The desktop app's routine runs, folded: on the machine this
+                               was built against they were 99 of 132 open sessions, a crowd
+                               the reader steps over to reach the sessions they opened
+                               themselves. The library's fold, its trigger inside the
+                               section's heading; folded on every open of the pane, because
+                               nothing here remembers a filter. The rows stay in the DOM
+                               behind it, hidden, and every count above still counts them. *@
+                            <div class="sessions-group" @key="@AgentSessionGroups.ScheduledKey" data-testid="sessions-group" data-group-key="@AgentSessionGroups.ScheduledKey">
+                                <FoldControl Expanded="_scheduledOpen"
+                                             ExpandedChanged="value => _scheduledOpen = value"
+                                             HeadingLevel="3"
+                                             HeadingCssClass="sessions-group__heading"
+                                             BaseClass="sessions-group__fold"
+                                             TestId="sessions-scheduled-fold">
+                                    <LabelContent>
+                                        <span class="sessions-group__name" data-testid="sessions-group-name">@section.Name</span>
+                                        <span class="sessions-group__size" title="@SessionCount(section.Rows.Count)" data-testid="sessions-group-size">@section.Rows.Count</span>
+                                    </LabelContent>
+                                    <ChildContent>
+                                        <ul class="sessions-group__rows">
+                                            @foreach (var row in section.Rows)
+                                            {
+                                                <li @key="row.Key">
+                                                    @RowButton(row)
+                                                </li>
+                                            }
+                                        </ul>
+                                    </ChildContent>
+                                </FoldControl>
+                            </div>
+                            continue;
+                        }
+
                         <div class="sessions-group" @key="@(section.Key ?? section.Name ?? "all")" data-testid="sessions-group">
                             @if (section.Name is not null)
                             {
@@ -328,7 +375,22 @@ else
                     <span class="sr-only">@AgentSessionGroups.Label(row.Kind)</span>
                 </span>
                 <span class="@TitleClass(row)" title="@row.Title">@row.Title</span>
-                <IntegrationStateChip Session="@State(row.State)" />
+                @if (IsIdle(row))
+                {
+                    @* Not a state: a note on the desktop record, in the quiet tone, where
+                       the Finished chip would stand. The session still reads Finished, and
+                       the badge says so in its title and to a screen reader, so the Open
+                       view never shows a fourth state the rest of the pane has never
+                       heard of. *@
+                    <Badge Kind="tone"
+                           Slug="quiet"
+                           Title="@IdleTitle"
+                           TestId="sessions-idle">Idle<span class="sr-only">: @IdleTitle</span></Badge>
+                }
+                else
+                {
+                    <IntegrationStateChip Session="@State(row.State)" />
+                }
             </span>
             <span class="sessions-row__line sessions-row__facts">
                 @* The repository wears its identity edge here, on the one fact that
@@ -577,8 +639,29 @@ else
     private static readonly AgentSessionView[] Views =
     [
         AgentSessionView.Live,
+        AgentSessionView.Open,
         AgentSessionView.All
     ];
+
+    /// <summary>What the Idle badge stands for, worded as the desktop record and not as
+    /// a state, with the state it still reads.</summary>
+    internal const string IdleTitle = "Open in the Claude desktop app with no process running; reads Finished";
+
+    /// <summary>
+    /// A row the Open view draws with the Idle badge: open in the desktop app and
+    /// Finished, because nothing is running for it. Only in Open — Live and All draw
+    /// every row the way they always have, the Finished chip included.
+    /// </summary>
+    private bool IsIdle(SessionRow row) =>
+        _view is AgentSessionView.Open
+        && row.State is AgentSessionState.Finished
+        && row.Session is { } session
+        && AgentSessionViews.IsOpen(session);
+
+    /// <summary>Whether the Open view's Scheduled section is unfolded. Folded on every
+    /// open of the pane, like every filter here, and kept outside the derived view:
+    /// folding moves no row in or out of the list, so it must not rebuild one.</summary>
+    private bool _scheduledOpen;
 
     /// <summary>The groupings on offer, in the order the select lists them. When
     /// first, because it is the shape the list has when the pane opens.</summary>
@@ -685,7 +768,12 @@ else
     [Parameter]
     public string? FocusSessionId { get; set; }
 
-    private string Heading => _view is AgentSessionView.Live ? "Running now" : "Claude and Copilot";
+    private string Heading => _view switch
+    {
+        AgentSessionView.Live => "Running now",
+        AgentSessionView.Open => "Open in Claude",
+        _ => "Claude and Copilot"
+    };
 
     /// <summary>What a run's line draws: the row's references for the run, plus the
     /// entry its session was linked to where the run names no entry of its own.</summary>
@@ -1611,6 +1699,10 @@ else
             _withRuns = false;
             _environmentId = null;
         }
+
+        // A focused row behind the Scheduled fold is unfolded to: the panel never
+        // shows a folded row, and the session asked for is the one it must show.
+        if (View.Scheduled is { } scheduled && scheduled.Rows.Any(IsFocused)) _scheduledOpen = true;
     }
 
     private string? FocusMessage => _focusMissing && FocusSessionId is { } id
@@ -1693,7 +1785,8 @@ else
     /// <summary>
     /// The row the panel shows: the one the reader picked while the filters still
     /// admit it, else the first row the list draws. Never a row the list does not
-    /// show — a panel about a session the filters hid would contradict the list.
+    /// show — a panel about a session the filters hid would contradict the list —
+    /// and never one the Scheduled fold has folded away, for the same reason.
     /// </summary>
     private SessionRow? Selected
     {
@@ -1701,26 +1794,33 @@ else
         {
             var view = View;
 
-            if (!ReferenceEquals(_selectedFor, view) || !string.Equals(_selectedForKey, _selectedKey, StringComparison.Ordinal))
+            if (!ReferenceEquals(_selectedFor, view)
+                || !string.Equals(_selectedForKey, _selectedKey, StringComparison.Ordinal)
+                || _selectedForFold != _scheduledOpen)
             {
-                _selected = SelectedOf(view.Sections);
+                _selected = SelectedOf(view);
                 _selectedFor = view;
                 _selectedForKey = _selectedKey;
+                _selectedForFold = _scheduledOpen;
             }
 
             return _selected;
         }
     }
 
-    /// <summary>The row <see cref="Selected"/> last worked out, and the derived view
-    /// and the picked key it was worked out against.</summary>
+    /// <summary>The row <see cref="Selected"/> last worked out, and the derived view,
+    /// the picked key and the fold it was worked out against.</summary>
     private SessionRow? _selected;
     private SessionsView? _selectedFor;
     private string? _selectedForKey;
+    private bool _selectedForFold;
 
-    private SessionRow? SelectedOf(IReadOnlyList<AgentSessionGroup> sections)
+    private SessionRow? SelectedOf(SessionsView view)
     {
-        var drawn = sections.SelectMany(section => section.Rows).ToList();
+        var drawn = view.Sections
+            .Where(section => _scheduledOpen || !ReferenceEquals(section, view.Scheduled))
+            .SelectMany(section => section.Rows)
+            .ToList();
 
         return drawn.FirstOrDefault(row => row.Key == _selectedKey) ?? drawn.FirstOrDefault();
     }
@@ -1779,7 +1879,9 @@ else
         IReadOnlyList<SessionRow> Narrowed,
         IReadOnlyList<SessionRow> Visible,
         int LiveTally,
-        IReadOnlyList<AgentSessionGroup> Sections)
+        int OpenTally,
+        IReadOnlyList<AgentSessionGroup> Sections,
+        AgentSessionGroup? Scheduled)
     {
         public bool IsFor(IReadOnlyList<SessionRow> rows, string? environmentId, bool withRuns, AgentSessionView choice, AgentSessionGrouping grouping, DateTimeOffset readAt) =>
             ReferenceEquals(Rows, rows)
@@ -1811,6 +1913,14 @@ else
             var onEnvironment = AgentSessionEnvironments.On(scoped, _environmentId);
             IReadOnlyList<SessionRow> narrowed = _withRuns ? [.. onEnvironment.Where(row => row.Runs.Count > 0)] : onEnvironment;
             var visible = AgentSessionViews.Of(narrowed, _view);
+            var grouped = AgentSessionGroups.Of(visible, _grouping, _readAt, TimeZoneInfo.Local);
+
+            // The scheduled runs go apart in Open only: Live and All are the lists they
+            // always were. The step hands back the same sections when nothing moved, so
+            // a different list means its last section is the Scheduled one — told by
+            // reference rather than by key, which a repository could share.
+            var sections = _view is AgentSessionView.Open ? AgentSessionGroups.ScheduledApart(grouped) : grouped;
+            var scheduled = ReferenceEquals(sections, grouped) ? null : sections[^1];
 
             return _derived = new SessionsView(
                 _rows,
@@ -1824,7 +1934,9 @@ else
                 narrowed,
                 visible,
                 AgentSessionViews.Of(narrowed, AgentSessionView.Live).Count,
-                AgentSessionGroups.Of(visible, _grouping, _readAt, TimeZoneInfo.Local));
+                AgentSessionViews.Of(narrowed, AgentSessionView.Open).Count,
+                sections,
+                scheduled);
         }
     }
 
@@ -1840,6 +1952,9 @@ else
 
     /// <summary>How many rows Live would show under the other filters.</summary>
     private int LiveTally => View.LiveTally;
+
+    /// <summary>How many rows Open would show under the other filters.</summary>
+    private int OpenTally => View.OpenTally;
 
     /// <summary>How many sessions the chosen environment has a record of, whatever the
     /// view. The number the empty state offers as the way back out.</summary>
@@ -1881,8 +1996,13 @@ else
     {
         get
         {
+            // The open sessions listed past the cap are named apart: counted among "the
+            // most recent", months-old rows would make the number a lie.
+            var older = _catalog.OpenBeyondCap;
             var reading = _catalog.Capped
-                ? $"The {_catalog.Sessions.Count} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
+                ? older > 0
+                    ? $"The {_catalog.Sessions.Count - older} most recent of {_catalog.Discovered} sessions this PC has a record of, plus {(older == 1 ? "1 older one" : $"{older} older ones")} still open in Claude, most recently active first."
+                    : $"The {_catalog.Sessions.Count} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
                 : "The sessions this PC has a record of, most recently active first.";
 
             var runs = _rows.Count(row => row.RunOnly && row.Schedule is null);
@@ -1917,6 +2037,10 @@ else
             ? "No delivery runs here."
         : Scoped && ScopedSessions.Count == 0
             ? $"No sessions in {ScopeLabel}."
+        : _view is AgentSessionView.Open
+            ? EnvironmentName is null
+                ? "No sessions open in the Claude desktop app."
+                : $"No sessions on {EnvironmentName} open in the Claude desktop app."
             : EnvironmentName is null
                 ? "No live sessions right now."
                 : $"No live sessions on {EnvironmentName} right now.";
@@ -1929,11 +2053,25 @@ else
             ? "None of the rows this view admits carries a run an orchestration dashboard recorded. Turn off With delivery runs to see them all."
         : Scoped && ScopedSessions.Count == 0
             ? "A session is matched to the scope by the repository its agent recorded, or by its working folder lying inside a clone registered for it — Claude records none, so its sessions need the clone. Clear the repository scope in the header to see every session."
+        : _view is AgentSessionView.Open
+            ? OpenEmptyDescription
         : EnvironmentName is null
             ? Scoped
                 ? $"Nothing in {ScopeLabel} is running or stalled. Choose {AllLabel} to see the {SessionCount(ScopedSessions.Count)} recorded there."
                 : $"Nothing is running or stalled on this PC. Choose {AllLabel} to see the {SessionCount(Total)} it has a record of."
             : $"Nothing on {EnvironmentName} is running or stalled. Choose {AllLabel} to see the {SessionCount(OnEnvironment)} recorded there.";
+
+    /// <summary>
+    /// Open's way back out. Open is the desktop app's sidebar and not a state, so the
+    /// sentence says what Open reads — this PC's desktop app, whose unarchived
+    /// sessions it lists whether or not anything runs — and names All as the way to
+    /// the rest.
+    /// </summary>
+    private string OpenEmptyDescription => EnvironmentName is null
+        ? Scoped
+            ? $"Nothing in {ScopeLabel} is open in this PC's Claude desktop app: every session there is archived or was never opened in the app. Choose {AllLabel} to see the {SessionCount(ScopedSessions.Count)} recorded there."
+            : $"Nothing is open in this PC's Claude desktop app: every session there is archived or was never opened in the app. Choose {AllLabel} to see the {SessionCount(Total)} this PC has a record of."
+        : $"Only this PC's Claude desktop app is read, and nothing on {EnvironmentName} is open in it. Choose {AllLabel} to see the {SessionCount(OnEnvironment)} recorded there.";
 
     private static string SessionCount(int count) => count == 1 ? "1 session" : $"{count} sessions";
 
@@ -1957,6 +2095,7 @@ else
     private static string Slug(AgentSessionView view) => view switch
     {
         AgentSessionView.All => "all",
+        AgentSessionView.Open => "open",
         _ => "live"
     };
 

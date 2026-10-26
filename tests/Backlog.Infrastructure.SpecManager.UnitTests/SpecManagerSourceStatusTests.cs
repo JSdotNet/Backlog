@@ -12,7 +12,7 @@ namespace Backlog.Infrastructure.SpecManager.UnitTests;
 /// </summary>
 public sealed class SpecManagerSourceStatusTests
 {
-    private const string StatusesPath = $"/api/producten/{StubSpecManager.Product}/backlogstatussen";
+    private const string StatusesPath = $"/api/products/{StubSpecManager.Product}/backlog-statuses";
 
     [Fact]
     public async Task The_product_s_statuses_are_listed_in_its_order_with_their_states()
@@ -42,10 +42,10 @@ public sealed class SpecManagerSourceStatusTests
         using var scenario = new ConnectorScenario();
         scenario.SignedIn();
         scenario.Server.Route(HttpMethod.Get, StatusesPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.OK, """
-            { "statussen": [
-                { "id": "s-klaar", "naam": "Klaar", "volgorde": 3, "isEindstatus": true },
-                { "id": "s-verfijnd", "naam": "Verfijnd", "volgorde": 2, "isEindstatus": false },
-                { "id": "s-todo", "naam": "Te doen", "volgorde": 1, "isEindstatus": false }
+            { "statuses": [
+                { "id": "s-klaar", "name": "Klaar", "order": 3, "isEndStatus": true },
+                { "id": "s-verfijnd", "name": "Verfijnd", "order": 2, "isEndStatus": false },
+                { "id": "s-todo", "name": "Te doen", "order": 1, "isEndStatus": false }
             ] }
             """));
 
@@ -68,10 +68,10 @@ public sealed class SpecManagerSourceStatusTests
         using var scenario = new ConnectorScenario();
         scenario.SignedIn();
         scenario.Server.Route(HttpMethod.Get, StatusesPath, (_, _) => StubSpecManager.Respond(HttpStatusCode.OK, """
-            { "statussen": [
-                { "id": "s-review-2", "naam": "review ", "volgorde": 3, "isEindstatus": false },
-                { "id": "s-todo", "naam": "Te doen", "volgorde": 1, "isEindstatus": false },
-                { "id": "s-review", "naam": "Review", "volgorde": 2, "isEindstatus": false }
+            { "statuses": [
+                { "id": "s-review-2", "name": "review ", "order": 3, "isEndStatus": false },
+                { "id": "s-todo", "name": "Te doen", "order": 1, "isEndStatus": false },
+                { "id": "s-review", "name": "Review", "order": 2, "isEndStatus": false }
             ] }
             """));
 

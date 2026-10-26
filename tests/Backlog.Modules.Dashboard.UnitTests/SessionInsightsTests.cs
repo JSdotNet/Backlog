@@ -2460,6 +2460,65 @@ public class SessionInsightsTests
     }
 
     /// <summary>
+    /// Two accounts, two resets: the chosen one cuts the weeks and the insight names it.
+    /// Choosing the other re-cuts the same reading — the sources are read once — and a
+    /// run on Thursday morning moves from the Monday-14:00 week into the week before
+    /// the Thursday-12:00 reset.
+    /// </summary>
+    [Fact]
+    public async Task The_chosen_reset_cuts_the_weeks_and_choosing_another_re_cuts_without_a_second_read()
+    {
+        // Monday 17 August 15:00-16:00 UTC: after Monday's 14:00 reset, before Thursday's.
+        var ran = (new DateTimeOffset(2026, 8, 17, 15, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 8, 17, 16, 0, 0, TimeSpan.Zero));
+
+        var source = new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) };
+        var activity = Activity(Ran("one", Tower, "Claude", ran));
+        var resets = new FixedUsageReset(
+            new NamedUsageReset("work", "Work", new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0))),
+            new NamedUsageReset("personal", "Personal", new UsageWeekReset(DayOfWeek.Thursday, new TimeOnly(12, 0))));
+
+        var insights = Insights(source, activity, reset: resets);
+
+        var work = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(new UsageWeekInfo(WeekSource.Configured, "Monday 14:00", "Work"), work.Week);
+        Assert.Equal("17 Aug", work.ActiveTimePerWeek[^1].Label);
+        Assert.Equal(1m, work.ActiveTimePerWeek[^1].Value);
+
+        _ = resets.Select("personal");
+
+        var personal = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(new UsageWeekInfo(WeekSource.Configured, "Thursday 12:00", "Personal"), personal.Week);
+
+        // Now is Wednesday 19 August: the week began Thursday 13 August 12:00, and
+        // Monday's run is in it.
+        Assert.Equal("13 Aug", personal.ActiveTimePerWeek[^1].Label);
+        Assert.Equal(1m, personal.ActiveTimePerWeek[^1].Value);
+        Assert.Equal("13 Aug", personal.Grids[^2].UsageWeek);
+
+        Assert.Equal(1, source.Calls);
+        Assert.Equal(1, activity.Calls);
+    }
+
+    /// <summary>A reset the assistant reported, or the calendar, has no name of the
+    /// person's to say.</summary>
+    [Fact]
+    public async Task With_no_reset_configured_the_week_carries_no_name()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity(Ran("one", Tower, "Claude", ran)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(new UsageWeekInfo(WeekSource.Calendar, null), value.Week);
+        Assert.Null(value.Week.ResetName);
+    }
+
+    /// <summary>
     /// The weekly brief's series: the same hours and sessions on the calendar's ISO weeks
     /// whatever the reset, so the two runs either side of Monday's 14:00 reset both fall
     /// in W34, and the hours still add up to the tile.
@@ -2516,6 +2575,7 @@ public class SessionInsightsTests
 
         Assert.Equal(WeekSource.Detected, value.Week.Source);
         Assert.Equal("Monday 21:00", value.Week.ResetAt);
+        Assert.Null(value.Week.ResetName);
 
         // Now is Wednesday 19 August 09:00: the week began Monday 17 August 21:00. The
         // grid is the calendar week that usage week begins in, and names it.
@@ -3296,26 +3356,46 @@ public class SessionInsightsTests
             activity ?? new StubAssistantActivitySource(),
             new FixedWorkingHours(week ?? WorkingHours.Default),
             new StubRepositoryDirectory(),
-            reset ?? new FixedUsageReset(null),
+            reset ?? new FixedUsageReset(),
             Clock(zone));
 
-    /// <summary>A reset that does not come off disk: null for the calendar fallback the
-    /// weekly facts are asserted under, or the one a fact about the usage week hands in.</summary>
-    private sealed class FixedUsageReset(UsageWeekReset? reset) : IUsageResetSettings
+    /// <summary>Resets that do not come off disk: none for the calendar fallback the
+    /// weekly facts are asserted under, one a fact about the usage week hands in, or
+    /// several and a choice between them that a fact can move.</summary>
+    private sealed class FixedUsageReset(params NamedUsageReset[] resets) : IUsageResetSettings
     {
+        private string? _selected;
+
+        public FixedUsageReset(UsageWeekReset? reset)
+            : this(reset is null ? [] : [new NamedUsageReset("work", "Work", reset)])
+        {
+        }
+
         public event Action? Changed
         {
             add { }
             remove { }
         }
 
-        public UsageWeekReset? Current => reset;
+        public IReadOnlyList<NamedUsageReset> Resets => resets;
+
+        public NamedUsageReset? Selected =>
+            resets.FirstOrDefault(reset => reset.Id == _selected) ?? resets.FirstOrDefault();
 
         public string SettingsPath => "usage-reset.json";
 
-        public string? Set(DayOfWeek day, TimeOnly time) => null;
+        public (string? Id, string? Error) Add(string name, DayOfWeek day, TimeOnly time) => (null, null);
 
-        public string? Clear() => null;
+        public string? Update(string id, string name, DayOfWeek day, TimeOnly time) => null;
+
+        public string? Remove(string id) => null;
+
+        public string? Select(string id)
+        {
+            _selected = id;
+
+            return null;
+        }
     }
 
     /// <summary>Two configured repositories, so a recorded one can be known by its

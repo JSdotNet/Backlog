@@ -102,6 +102,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private readonly TasksCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
 
+    /// <summary>Counts the plan's announced changes, so a read that an earlier change
+    /// started and finished last cannot put older tags back. See
+    /// <see cref="OnRoadmapPlanChanged"/>.</summary>
+    private int _roadmapTagReads;
+
     /// <summary>Where the state of a linked agent session is read from, or null in a
     /// host that composes no Sessions record. See <see cref="ReadSessionStatesAsync"/>.</summary>
     private readonly ILinkedSessionStates? _sessionStates;
@@ -214,6 +219,36 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private bool _pullRequestCheckRunning;
     private bool _pullRequestCheckOwed;
 
+    /// <summary>The tick that raises <see cref="PullRequestRecheckDue"/>, or null until
+    /// the first check arms it. Created and disposed under its own lock, because the
+    /// shell's dispatcher arms it and a host may dispose this state from anywhere.
+    /// See <see cref="ArmPullRequestRecheck"/>.</summary>
+    private ITimer? _pullRequestRecheck;
+    private readonly Lock _pullRequestRecheckLock = new();
+
+    /// <summary>The entries a merged pull request has already moved to Done in this
+    /// run, by entry and pull request, so one merge moves an entry once: a person
+    /// who takes it back to In progress keeps it there. In memory only — see
+    /// <see cref="FinishOwedOnMergeAsync"/>.</summary>
+    private readonly HashSet<(Guid Entry, EntryPullRequestLink PullRequest)> _finishedByMerge = [];
+
+    /// <summary>The moves a merge read has asked for and that have not landed yet —
+    /// waiting on the raw editor to close, or after a save that failed — with the
+    /// branches the read named. See <see cref="FinishOwedOnMergeAsync"/>.</summary>
+    private readonly Dictionary<(Guid Entry, EntryPullRequestLink PullRequest), (string? BaseRefName, string? DefaultBranch)> _owedFinishes = [];
+
+    /// <summary>Guards <see cref="_finishedByMerge"/> and <see cref="_owedFinishes"/>.
+    /// Both are only written from the renderer's dispatcher today — a merge read, and
+    /// the editor closing — but the drain awaits saves between its reads of them, and
+    /// the lock keeps each key's take-and-move atomic whatever interleaves there.</summary>
+    private readonly Lock _finishLock = new();
+
+    /// <summary>Whether the save on this async flow is one the app made on its own —
+    /// a merge finishing an entry — and so stays off the undo history. Async-local
+    /// rather than a field like <see cref="_replaying"/>, so a person's own save
+    /// running alongside it is still recorded.</summary>
+    private readonly AsyncLocal<bool> _outsideHistory = new();
+
     public TasksDesktopState(
         ITaskStore store,
         ITaskItems entryUseCases,
@@ -240,6 +275,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _issues = new TasksIssues(gitHub);
         _copilot = copilot ?? TasksCopilotCli.Unavailable;
         _roadmapTags = roadmapTags ?? EmptyRoadmapTagSource.Instance;
+        _roadmapTags.Changed += OnRoadmapPlanChanged;
         _devbookReferences = devbookReferences ?? UnavailableDevbookReferenceResolver.Instance;
         _untilDisposed = _lifetime.Token;
         _toasts = toasts;
@@ -405,6 +441,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// its own dispatcher. See <see cref="OnTaskWritten"/>.</summary>
     public event Action? WrittenElsewhere;
 
+    /// <summary>Raised on a timer thread each <see cref="PullRequestRecheckInterval"/>
+    /// once the background pull request check has run, so a list nobody reloads still
+    /// notices a merge. The shell answers with <see cref="CheckPullRequestsAsync"/> on
+    /// its own dispatcher, behind the feature switch only it can see. Ends at
+    /// <see cref="Dispose"/>. See <see cref="ArmPullRequestRecheck"/>.</summary>
+    public event Action? PullRequestRecheckDue;
+
     /// <summary>
     /// The statuses the strip offers, which is not every status the backlog has.
     /// <para>
@@ -442,6 +485,39 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </para>
     /// </summary>
     public IReadOnlyList<string> RoadmapTags { get; private set; } = [];
+
+    /// <summary>
+    /// The plan changed — an item planned, retagged or removed in Roadmap Planning,
+    /// which writes no task and so sets off no reload of the list. The tags are read
+    /// again and the change announced, so the Goals view's attach search and the tag
+    /// picker offer planned work without a reload.
+    /// <para>
+    /// Raised on whichever thread stored the change, as
+    /// <see cref="OnMyDayPreferencesChanged"/> is; the pane's <see cref="Changed"/>
+    /// handler marshals the render onto its dispatcher. A plan that cannot be read
+    /// leaves the tags as they were.
+    /// </para>
+    /// </summary>
+    private async void OnRoadmapPlanChanged()
+    {
+        if (_untilDisposed.IsCancellationRequested) return;
+
+        var read = Interlocked.Increment(ref _roadmapTagReads);
+        IReadOnlyList<string> tags;
+        try
+        {
+            tags = await _roadmapTags.TagsInUseAsync(_untilDisposed);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        if (_untilDisposed.IsCancellationRequested || read != Volatile.Read(ref _roadmapTagReads)) return;
+
+        RoadmapTags = tags;
+        Changed?.Invoke();
+    }
 
     /// <summary>The rows the repository scope leaves in view, before status, area
     /// and My Day narrow them. What the filter chips count: a count that shrank
@@ -1451,7 +1527,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// a count of 0, so the empty list under it says why it is empty
     /// (<see cref="RebuildTagFilters"/>). Held or counted, the chip leads the whole
     /// one-row strip, so it is never the chip the strip clips. A plan chip the
-    /// reader pressed is not held, and keeps its place.
+    /// reader pressed is not held — it leaves the bar like any other once nothing
+    /// carries it — but it leads the strip too while it is pressed.
     /// </para>
     /// </summary>
     /// <param name="planTag">The plan tag with its <c>+</c>, as a chip's value.</param>
@@ -1840,6 +1917,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // than instead of it, so the row shows what was typed before it shows
         // what somebody else wrote.
         await DrainDeferredReloadAsync();
+
+        // A merge that finished this entry while its editor was open waited for the
+        // editor to close — after the reload, so it acts on the rows as they now
+        // stand. Here and not in the drain above: that one also runs after a
+        // debounced save, on the timer's thread, and a move made there would race
+        // the dispatcher's next keystroke on the same row.
+        await FinishOwedOnMergeAsync();
     }
 
     // The sub-item raw editor is gone, and its capability is not: a step's notes
@@ -2015,7 +2099,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </summary>
     private void RecordSave(TaskItemDto entry, bool created, string? before, bool open)
     {
-        if (_replaying) return;
+        if (_replaying || _outsideHistory.Value) return;
 
         var after = EntryTextParser.ToRawText(entry);
         var label = $"editing “{entry.Title}”";
@@ -2047,7 +2131,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         var before = _persistedOrder;
         _persistedOrder = ids;
 
-        if (_replaying || before.SequenceEqual(ids) || !before.ToHashSet().SetEquals(ids)) return;
+        if (_replaying || _outsideHistory.Value || before.SequenceEqual(ids) || !before.ToHashSet().SetEquals(ids)) return;
 
         _history.Record(new TaskOrderUndoStep("reordering", before, ids));
     }
@@ -3294,8 +3378,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (_taskWrites is not null) _taskWrites.Changed -= OnTaskWritten;
         if (_showArchived is not null) _showArchived.Changed -= OnShowArchivedChanged;
         _myDayPreferences.Changed -= OnMyDayPreferencesChanged;
+        _roadmapTags.Changed -= OnRoadmapPlanChanged;
 
         _lifetime.Cancel();
+
+        lock (_pullRequestRecheckLock)
+        {
+            _pullRequestRecheck?.Dispose();
+            _pullRequestRecheck = null;
+        }
 
         lock (_debounceTimers)
         {
@@ -4070,7 +4161,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Takes an AI session or a pull request off an entry, by hand — the unlink on
-    /// each linked card of the In progress view and the detail panel — through
+    /// each linked card of the detail panel — through
     /// <see cref="ITaskItems.UnlinkFromIssueAsync"/>, the counterpart of the use
     /// case <see cref="LinkWorkAsync"/> writes through. A session still live, or a
     /// pull request of the reader's still open, goes back to "Not linked to a task".
@@ -4277,9 +4368,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <summary>
     /// Reads whether each pull request the entry's work recorded is open, merged
     /// or closed — and, in the same query, how its checks stand and whether GitHub
-    /// is holding it for auto-merge. The entry went Done when the pull request was
-    /// recorded; this is what says the work actually landed, or what it is waiting
-    /// on.
+    /// is holding it for auto-merge. Recording a pull request does not finish the
+    /// entry; this is what says the work actually landed, or what it is waiting on,
+    /// and a merge into the default branch or a plan branch is what moves a prompt
+    /// entry to Done (<see cref="FinishOwedOnMergeAsync"/>).
     /// <para>
     /// Quietly per pull request: one that cannot be read keeps whatever was last
     /// known, and says nothing out loud. The issue is what an entry was filed as
@@ -4300,7 +4392,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         {
             if (await TryReadPullRequestAsync(pr) is { } read)
             {
-                RecordPullRequestRead(row, pr, read.State, read.Status);
+                await RecordPullRequestReadAsync(row, pr, read);
             }
         }
 
@@ -4317,15 +4409,21 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// What is due (<see cref="PullRequestDue"/>): a pull request never asked about,
     /// and one last read open or draft — or not read at all — once
     /// <see cref="PullRequestRecheckInterval"/> has passed since it was last asked
-    /// about. An entry goes Done when its pull request is recorded, usually while it
-    /// is still open, so the first read is rarely the one that says it merged; a
-    /// check that only filled in unread pull requests left that first Open read on
-    /// screen for the life of the app. Merged and closed are not asked about again,
-    /// and nothing is asked about twice within the interval: an agent's every write
-    /// reloads the list, and asking on each would put the network behind all of them.
-    /// Every entry with a pull request, whatever its status: a plan item's pull
-    /// request merges into its plan branch while the item stays In progress until
-    /// the plan lands, and that merge is owed its colour as much as a Done entry's.
+    /// about. A pull request is recorded while it is still open, so the first read
+    /// is rarely the one that says it merged; a check that only filled in unread pull
+    /// requests left that first Open read on screen for the life of the app. Merged
+    /// and closed are not asked about again, and nothing is asked about twice within
+    /// the interval: an agent's every write reloads the list, and asking on each
+    /// would put the network behind all of them. Every entry with a pull request,
+    /// whatever its status, because the merge is what finishes the work: a prompt
+    /// entry goes Done when its pull request merges into the repository's default
+    /// branch or a <c>plan/</c> branch (<see cref="FinishOwedOnMergeAsync"/>), and any
+    /// other entry's merge is owed its colour all the same.
+    /// </para>
+    /// <para>
+    /// Not only when the list reloads. The first check arms a tick
+    /// (<see cref="ArmPullRequestRecheck"/>), so an app left idle overnight still asks
+    /// again once the interval has passed.
     /// </para>
     /// <para>
     /// Quiet throughout — no toast, no line on the row. Nobody asked for this read,
@@ -4343,6 +4441,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public Task CheckPullRequestsAsync()
     {
         if (_disposed || !GitHubConfigured) return Task.CompletedTask;
+
+        ArmPullRequestRecheck();
 
         _pullRequestCheckOwed = true;
         if (_pullRequestCheckRunning) return _pullRequestCheck;
@@ -4436,9 +4536,42 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 if (RowById(id) is not { } current) break;
                 if (!current.PullRequestLinks.Contains(pr) || _pullRequestReadStamps.GetValueOrDefault(pr) != landedBefore) continue;
 
-                RecordPullRequestRead(current, pr, read.Value.State, read.Value.Status);
+                await RecordPullRequestReadAsync(current, pr, read.Value);
+                if (_untilDisposed.IsCancellationRequested) return;
                 Changed?.Invoke();
             }
+        }
+    }
+
+    /// <summary>
+    /// Arms the tick that keeps the background check going while nothing reloads the
+    /// list, once. Periodic on <see cref="PullRequestRecheckInterval"/> — the floor
+    /// between two asks about one pull request, so a tick sooner would find nothing
+    /// due.
+    /// <para>
+    /// The tick only raises <see cref="PullRequestRecheckDue"/>; the check itself
+    /// runs where the shell's other checks do. The rows are only touched on the
+    /// renderer's dispatcher, and the timer fires on a thread of its own — which is
+    /// why <see cref="WrittenElsewhere"/> is passed on rather than answered here too.
+    /// Armed by the first check rather than at construction, so a host with GitHub
+    /// switched off never ticks; one switched off later ticks into the shell's own
+    /// feature check, which asks nothing.
+    /// </para>
+    /// </summary>
+    private void ArmPullRequestRecheck()
+    {
+        lock (_pullRequestRecheckLock)
+        {
+            if (_pullRequestRecheck is not null || _untilDisposed.IsCancellationRequested) return;
+
+            _pullRequestRecheck = _timeProvider.CreateTimer(
+                _ =>
+                {
+                    if (!_untilDisposed.IsCancellationRequested) PullRequestRecheckDue?.Invoke();
+                },
+                null,
+                PullRequestRecheckInterval,
+                PullRequestRecheckInterval);
         }
     }
 
@@ -4447,7 +4580,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <summary>How long the background check leaves a pull request it asked about
     /// before asking again, when it is still open or could not be read. Long enough
     /// that a burst of agent writes, each reloading the list, asks GitHub once; short
-    /// enough that a merge shows within a couple of minutes of the next reload.</summary>
+    /// enough that a merge shows within a couple of minutes, and the period of the tick
+    /// that asks again while nothing reloads the list.</summary>
     public static readonly TimeSpan PullRequestRecheckInterval = TimeSpan.FromMinutes(2);
 
     /// <summary>When each pull request was last asked about, by any read. Only
@@ -4470,22 +4604,201 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             || _timeProvider.GetUtcNow() - askedAt >= PullRequestRecheckInterval;
     }
 
-    /// <summary>What one read of a pull request found: its state, and its status
-    /// when the status query answered.</summary>
-    private readonly record struct PullRequestRead(GitHubItemState State, GitHubPullRequestStatus? Status);
+    /// <summary>What one read of a pull request found: its state, its status when the
+    /// status query answered, and the branch it merges into beside the repository's
+    /// default branch — which either query answers, so a merge can finish its entry
+    /// on the fallback too.</summary>
+    private readonly record struct PullRequestRead(
+        GitHubItemState State,
+        GitHubPullRequestStatus? Status,
+        string? BaseRefName,
+        string? DefaultBranch)
+    {
+        public static PullRequestRead From(GitHubPullRequestStatus status) =>
+            new(status.State, status, status.BaseRefName, status.DefaultBranch);
+
+        public static PullRequestRead From(GitHubPullRequest pull) =>
+            new(pull.State, Status: null, pull.BaseRefName, pull.DefaultBranch);
+    }
 
     /// <summary>One pull request read, or null when neither query could read it.</summary>
     private async Task<PullRequestRead?> TryReadPullRequestAsync(EntryPullRequestLink pr)
     {
-        if (await TryReadPullRequestStatusAsync(pr) is { } status) return new PullRequestRead(status.State, status);
+        if (await TryReadPullRequestStatusAsync(pr) is { } status) return PullRequestRead.From(status);
 
         // The state alone, so the merged colour survives a server that cannot
         // answer the status query. The status is dropped rather than kept from an
         // earlier read: a stale one would draw checks and offer a merge the state
         // beside it may no longer allow.
-        if (await TryReadPullRequestStateAsync(pr) is { } state) return new PullRequestRead(state, Status: null);
+        if (await TryReadPullRequestOverRestAsync(pr) is { } pull) return PullRequestRead.From(pull);
 
         return null;
+    }
+
+    /// <summary>
+    /// Writes one pull request's read onto the row, then lets a merge that just landed
+    /// finish the entry. Every read that colours a link comes through here — the
+    /// background check, the sync button, the re-read after a merge act — so the move
+    /// rides on the same read and there is no second reader of the same pull request.
+    /// </summary>
+    private async Task RecordPullRequestReadAsync(EntryRow row, EntryPullRequestLink pr, PullRequestRead read)
+    {
+        var before = row.PullRequestStates.TryGetValue(pr, out var known) ? known : (GitHubItemState?)null;
+
+        RecordPullRequestRead(row, pr, read.State, read.Status);
+
+        // Only a merge this read is the first to see. A Merged state carried across a
+        // reload was already acted on, or deliberately undone by the person since.
+        if (read.State == GitHubItemState.Merged && before != GitHubItemState.Merged && row.Id is { } id)
+        {
+            lock (_finishLock)
+            {
+                if (!_finishedByMerge.Contains((id, pr))) _owedFinishes[(id, pr)] = (read.BaseRefName, read.DefaultBranch);
+            }
+
+            await FinishOwedOnMergeAsync();
+        }
+    }
+
+    /// <summary>
+    /// Moves a prompt entry to Done because its pull request merged where the work
+    /// lands — the repository's default branch, or a <c>plan/</c> branch
+    /// (<see cref="PullRequestLanding"/>). The policy the plan skills already follow,
+    /// carried out by the app that reads the merge, so an entry whose pull request
+    /// auto-merged overnight is Done without a session to say so.
+    /// <para>
+    /// The status alone: no sub-item cascade, no completion date, so no recurrence
+    /// spawns. Only a move the
+    /// lifecycle graph allows — a Ready entry has no edge to Done and stays. Quiet,
+    /// like the check that set it off; the row redraws at Done. Kept off the undo
+    /// history (<see cref="_outsideHistory"/>): it is not the person's edit, and a
+    /// Ctrl+Z meant for their own last change must not take it back instead.
+    /// </para>
+    /// <para>
+    /// On the row as the list holds it <em>now</em>, looked up by id — never the row
+    /// the read was written onto. A reload can replace every row while a read is
+    /// out, and saving the replaced row's text would put back what it held before
+    /// the write that set the reload off.
+    /// </para>
+    /// <para>
+    /// Never from under the person, and never dropped for it. The entry open in the
+    /// raw editor stays owed and moves when <see cref="EndEditAsync"/> closes it. A
+    /// keystroke's save still pending is landed first, as the person's own save on
+    /// the history — again if they typed on during it, up to
+    /// <see cref="MaxTypingFlushesBeforeMove"/> times — and the history is then
+    /// sealed, so their next keystroke opens a step whose before already says Done
+    /// and Ctrl+Z on it cannot take the move back. A save that fails stays owed. An
+    /// owed move is let go only when it no longer applies: the entry gone, its pull
+    /// request no longer recorded, or the entry no longer one the merge finishes.
+    /// </para>
+    /// <para>
+    /// The status token is written into the row's text as it stands and saved
+    /// without the flush's rewrite, because the person may still be typing in it.
+    /// Run on the renderer's dispatcher — after a merge read, and when the editor
+    /// closes — so no timer thread touches the row, but a keystroke can still land
+    /// at any await here. One that lands during the move's save builds on text that
+    /// already says Done and is never replaced by the store's copy; its own debounce
+    /// saves it. Keystrokes typed through every one of the flushes are the one case
+    /// that rides along in the move's save, off the history.
+    /// </para>
+    /// <para>
+    /// Once per entry and pull request in a run, so a person who takes the entry back
+    /// to In progress keeps it there. Nothing is persisted about the move, so after a
+    /// restart a merged pull request read again for the first time moves its entry
+    /// again.
+    /// </para>
+    /// </summary>
+    private async Task FinishOwedOnMergeAsync()
+    {
+        List<KeyValuePair<(Guid Entry, EntryPullRequestLink PullRequest), (string? BaseRefName, string? DefaultBranch)>> owed;
+        lock (_finishLock)
+        {
+            if (_owedFinishes.Count == 0) return;
+            owed = [.. _owedFinishes];
+        }
+
+        foreach (var ((id, pr), (baseRef, defaultBranch)) in owed)
+        {
+            if (_untilDisposed.IsCancellationRequested) return;
+
+            var row = RowById(id);
+            if (row is not null && ReferenceEquals(row, EditingRow)) continue;
+
+            // The person's typing lands first, as their own step on the history — and
+            // again if they typed on while it was saving.
+            for (var flushes = 0; row is not null && HasPendingSave(row) && flushes < MaxTypingFlushesBeforeMove; flushes++)
+            {
+                CancelDebounce(row);
+                await SaveRowAsync(row, isFlush: false);
+                row = RowById(id);
+            }
+
+            // Opened in the raw editor while that save was out: owed until it closes.
+            if (row is not null && ReferenceEquals(row, EditingRow)) continue;
+
+            lock (_finishLock)
+            {
+                // Taken off before the save, so a drain that runs alongside this one
+                // cannot move the same entry a second time.
+                if (!_owedFinishes.Remove((id, pr))) continue;
+
+                if (row is null
+                    || row.IsReadOnly
+                    || !row.PullRequestLinks.Contains(pr)
+                    || !PullRequestLanding.FinishesEntry(row.Type, row.Status, baseRef, defaultBranch)
+                    || !_finishedByMerge.Add((id, pr)))
+                {
+                    continue;
+                }
+            }
+
+            // Closes the person's open typing step, so the next keystroke on this entry
+            // starts a step of its own rather than joining one whose before is the
+            // status the move just replaced.
+            _history.Seal();
+
+            // Not RewriteMetadataAsync: its flush writes the store's copy back over the
+            // row's text after the await, and a keystroke typed meanwhile would vanish.
+            // A non-flush save leaves the text to the person, as a debounced save does.
+            row.RawText = EntryTextParser.WithStatus(row.RawText, EntryStatus.Done, cascadeSubItems: false);
+
+            Result saved;
+            _outsideHistory.Value = true;
+            try
+            {
+                saved = await SaveRowAsync(row, isFlush: false);
+            }
+            finally
+            {
+                _outsideHistory.Value = false;
+            }
+
+            ApplyFilter();
+            Changed?.Invoke();
+
+            if (saved.IsFailure)
+            {
+                lock (_finishLock)
+                {
+                    _finishedByMerge.Remove((id, pr));
+                    _owedFinishes.TryAdd((id, pr), (baseRef, defaultBranch));
+                }
+            }
+        }
+    }
+
+    /// <summary>How many times the move lands the person's pending typing before it
+    /// moves anyway — so somebody typing faster than the store saves cannot hold a
+    /// merge off for good. See <see cref="FinishOwedOnMergeAsync"/>.</summary>
+    private const int MaxTypingFlushesBeforeMove = 3;
+
+    /// <summary>Whether a keystroke's save is still waiting on this row's debounce.</summary>
+    private bool HasPendingSave(EntryRow row)
+    {
+        lock (_debounceTimers)
+        {
+            return _debounceTimers.ContainsKey(row.Key);
+        }
     }
 
     /// <summary>
@@ -4535,21 +4848,23 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
-    /// One pull request's state over REST, or null when that cannot be read either.
+    /// One pull request over REST — its state and where it merges — or null when that
+    /// cannot be read either.
     /// <para>
     /// The fallback for a status query that failed. The status query asks for
     /// fields — the auto-merge request, the merge state — that an older GitHub
     /// Enterprise Server's schema may not have, and GraphQL fails the whole query
     /// over one missing field. Without this, such a server would lose the merged
-    /// colour it showed before the status query existed. Only the state comes back,
-    /// so a pull request read this way draws no checks mark and offers no merge.
+    /// colour it showed before the status query existed. Only the state and the
+    /// branches come back, so a pull request read this way draws no checks mark and
+    /// offers no merge — but can still finish its entry.
     /// </para>
     /// </summary>
-    private async Task<GitHubItemState?> TryReadPullRequestStateAsync(EntryPullRequestLink pr)
+    private async Task<GitHubPullRequest?> TryReadPullRequestOverRestAsync(EntryPullRequestLink pr)
     {
         try
         {
-            return (await _gitHub.ReadPullRequestAsync(pr.Repository, pr.Number)).State;
+            return await _gitHub.ReadPullRequestAsync(pr.Repository, pr.Number);
         }
         catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
         {
@@ -4655,7 +4970,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
             if (await TryReadPullRequestStatusAsync(pr) is { } reread)
             {
-                RecordPullRequestRead(row, pr, reread.State, reread);
+                await RecordPullRequestReadAsync(row, pr, PullRequestRead.From(reread));
             }
         }
         finally
@@ -5737,10 +6052,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         // "No plan" leads the group, so however many plans follow it the one-row
-        // strip never clips it — unless a plan opened from the roadmap is shown, which
-        // takes the lead below. It earns its place off both halves: a live entry in
-        // some plan, or there is nothing to exclude, and a live entry in none, or
-        // pressing it would empty the list.
+        // strip never clips it — unless a plan is pressed, which takes the lead below.
+        // It earns its place off both halves: a live entry in some plan, or there is
+        // nothing to exclude, and a live entry in none, or pressing it would empty the
+        // list.
         var unplanned = scopedRows.Where(row => !HasPlan(row)).ToList();
 
         if (live.Any(HasPlan) && unplanned.Any(row => !IsFinished(row)))
@@ -5772,9 +6087,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // is a filter not in use and waits behind More. Wherever its name sorts, it is
         // moved up — and while nothing open carries it, it is held there, pressed at 0,
         // rather than being let go below with no chip to say why the list it asked for
-        // is not the list on screen. A plan the reader pressed keeps its place: a chip does not
-        // jump out from under the pointer that pressed it. Counted by what the plan gathers
-        // rather than by who wears its spelling, so the number on it is the list under it.
+        // is not the list on screen. Counted by what the plan gathers rather than by who
+        // wears its spelling, so the number on it is the list under it.
+        //
+        // A plan the reader pressed on the bar leads as well, for the same reason and
+        // one more: TasksPane fuses the pressed plan with its copy, so a pressed plan
+        // left mid-strip would take the copy behind More with it. At the front it is
+        // the one chip whose width components.js reserves. The chip moves away from
+        // the pointer that pressed it, and TasksPane hands the focus back to it. Moved,
+        // not held: it is still counted as any chip is, and it leaves the bar like one
+        // once nothing carries it.
         if (_shownPlan is { } shown)
         {
             var at = options.FindIndex(option => string.Equals(option.Value, shown, StringComparison.OrdinalIgnoreCase));
@@ -5782,6 +6104,17 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             if (at >= 0) options.RemoveAt(at);
 
             options.Insert(0, ShownPlanChip(shown, scopedRows));
+        }
+        else if (SelectedPlan is { } pressed)
+        {
+            var at = options.FindIndex(option => string.Equals(option.Value, pressed, StringComparison.OrdinalIgnoreCase));
+
+            if (at > 0)
+            {
+                var chip = options[at];
+                options.RemoveAt(at);
+                options.Insert(0, chip);
+            }
         }
 
         TagFilters = options;

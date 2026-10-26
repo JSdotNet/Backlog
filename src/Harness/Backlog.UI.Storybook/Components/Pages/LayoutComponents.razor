@@ -279,6 +279,20 @@ The system tools pane draws its kind tabs this way: a count of rows needing acti
         </div>
     </Story>
 
+    <Story Name="FoldControl with the chevron at the end"
+           Description="ChevronAtEnd moves the chevron after the label, to the far end of the trigger — the shape a list fold takes when its label is a count, as the phone stand-up's resolved impediments do."
+           Code="@FoldEndCode">
+        <div class="sb-stack">
+            <FoldControl Expanded="_endFoldOpen"
+                         ExpandedChanged="v => _endFoldOpen = v"
+                         Label="1 resolved"
+                         ChevronAtEnd="true"
+                         TestId="fold-end">
+                <p>Staging VPN drops at night</p>
+            </FoldControl>
+        </div>
+    </Story>
+
     <Story Name="SplitPane"
            Description="Drag the separator, or focus it and use Left/Right, PageUp/PageDown, Home/End. Every drag in this product owes the keyboard an equivalent, and this is that equivalent."
            Code="@SplitCode">
@@ -384,6 +398,7 @@ Left and Right still describe the separator rather than the number, so here Left
     private bool _foldOpen = true;
     private bool _hostFoldOpen;
     private bool _headingFoldOpen = true;
+    private bool _endFoldOpen;
     private double _startWidth = 20;
 
     /// <summary>Held apart from the start-anchored story's width so the two
@@ -502,6 +517,12 @@ Left and Right still describe the separator rather than the number, so here Left
                 <IconButton AriaLabel="Close update window">x</IconButton>
             </Actions>
         </SectionHeader>
+        """;
+
+    private const string FoldEndCode = """
+        <FoldControl Expanded="_open" ExpandedChanged="v => _open = v" Label="1 resolved" ChevronAtEnd="true">
+            <p>Staging VPN drops at night</p>
+        </FoldControl>
         """;
 
     private const string FoldCode = """

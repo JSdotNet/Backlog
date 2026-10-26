@@ -96,9 +96,10 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("aria-expanded=\"@_aiExpanded\"", home, StringComparison.Ordinal);
 
         // Each takeover group renders only when one of its takeovers is offered; the
-        // view switch always renders, because it is the way back from a takeover.
+        // view switch always renders, because it is the way back from a takeover, and so
+        // does the work in progress group, because Goals leads it and is always offered.
         Assert.Contains("@if (SurfaceSwitcherVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("@if (SessionsOffered || PullRequestsOffered)", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("GoalsOffered", home, StringComparison.Ordinal);
         var nav = home.IndexOf("<nav class=\"app-header__nav\"", StringComparison.Ordinal);
         var viewSwitch = home.IndexOf("TestId=\"view-switch\"", StringComparison.Ordinal);
         var inboxGuard = home.IndexOf("@if (InboxPaneOptionVisible)", nav, StringComparison.Ordinal);

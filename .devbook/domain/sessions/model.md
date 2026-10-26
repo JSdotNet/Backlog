@@ -23,6 +23,8 @@ classDiagram
         +Environment environment
         +string title
         +SessionState state
+        +bool? archived
+        +string scheduled_task
     }
     class SessionIdentity {
         +Agent agent
@@ -56,6 +58,7 @@ classDiagram
     class SessionCatalog {
         +int discovered
         +string[] unreadable
+        +int open_beyond_cap
     }
     class DeliveryRun {
         +string run_id
@@ -120,6 +123,7 @@ classDiagram
         <<service>>
         +AgentSession[] show(AgentSession[], which)
         +bool isLive(AgentSession)
+        +bool isOpen(AgentSession)
     }
     class SessionGrouping {
         <<service>>
@@ -201,16 +205,19 @@ classDiagram
   received it. The diagram gives the view no `SessionGroup` edge for that reason. The
   order the two compose in is [Session View](domain.md#session-view)'s.
 
-- **`Session View` depends on `SessionState` and not on `ActivityWindow`.** By the time
-  a view is applied, `Liveness Assessment` has already turned a window and a clock into
-  a state. So the view's dashed edge stops at the state. That is the structural reason
+- **`Session View` depends on `SessionState` for Live and on the desktop record's
+  archived flag for Open, never on `ActivityWindow`.** By the time a view is applied,
+  `Liveness Assessment` has already turned a window and a clock into a state. So the
+  view's dashed edge stops at the state. Open reads `archived` on the session it
+  already reads, and null there is never open. That is the structural reason
   "live" has one definition and not two. It is also why changing view costs no
   reading: there is no clock on that edge to have moved.
 
 - **`Session Catalog` points at the same `AgentSession` instances the log holds**, and
   also carries what could not be read and how many were discovered. It is the shape of
   an *answer*, not a second collection. `discovered` may exceed the number of sessions
-  it describes, and that difference is the whole reason it exists.
+  it describes, and that difference is the whole reason it exists. `open_beyond_cap`
+  counts the open sessions listed only because they are open.
 
 - **`Session Activity Stream` is optional and subordinate to the local record.** A
   session without the stream is still a complete session, because local evidence is

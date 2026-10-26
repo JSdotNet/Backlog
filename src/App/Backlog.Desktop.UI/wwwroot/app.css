@@ -611,8 +611,9 @@ h1, h2, h3 {
     align-content: flex-start;
     font-size: var(--font-size-sm);
     max-height: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));
-    /* Never narrower than a pressed first chip. A plan opened from the roadmap is
-       put first (TasksDesktopState.RebuildTagFilters), and with every repository in
+    /* Never narrower than a pressed first chip. A pressed plan — opened from the
+       roadmap or pressed on the bar — is put first with its copy
+       (TasksDesktopState.RebuildTagFilters), and with every repository in
        scope the zero basis leaves the strip next to nothing — the chip that says why
        the list is short would be clipped whole. components.js measures that chip;
        unpressed, the variable is unset and the strip keeps taking only the slack. */
@@ -645,10 +646,65 @@ h1, h2, h3 {
     display: none;
 }
 
-/* The pressed plan's copy button. Pinned beside the toggle so a long strip never
-   squeezes it out, and only there while a plan is pressed. */
-.filter-bar__copy-plan {
+/*
+   The pressed plan and its copy, drawn as one chip: the toggle on the left, the
+   copy segment on the right, a hairline between them. One flex item in the strip,
+   so the strip's one-row clip takes or keeps the pair whole and components.js
+   reserves its full width when it leads.
+
+   The copy segment wears no `.chip` class on purpose. The 48rem step keeps only
+   `.chip--active` chips of a picked strip, and a `.chip` that is not active would
+   be hidden there — taking the copy away exactly where the pair is all that is
+   left of the strip. It takes the pressed chip's fill, border and height here
+   instead.
+*/
+.filter-bar__plan-pair {
+    display: inline-flex;
+    align-items: stretch;
     flex: 0 0 auto;
+}
+
+.filter-bar__plan-pair > .chip--active {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+}
+
+.filter-bar__plan-copy {
+    align-items: stretch;
+}
+
+.filter-bar__plan-copy-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-primary);
+    /* The join. The pressed chip's border is the colour of its fill, so it draws
+       no line; the hairline is this inset shadow, and the segment's own left
+       border goes so the two edges do not double up. */
+    border-left-width: 0;
+    box-shadow: inset var(--border-width) 0 0 0 color-mix(in srgb, var(--color-text-inverse) 35%, transparent);
+    border-start-end-radius: var(--border-radius-sm);
+    border-end-end-radius: var(--border-radius-sm);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font: inherit;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.filter-bar__plan-copy-button > span {
+    display: inline-flex;
+}
+
+.filter-bar__plan-copy-button:hover {
+    background: var(--color-primary-light);
+}
+
+.filter-bar__plan-copy-button:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 /* The one group in the bar that is not a filter. It keeps its room for the same
@@ -1746,23 +1802,24 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
-/* "Waiting for" and "Create follow-up" on one line: the two ends of one
-   relationship belong together, and each has a different claim on the row's
-   width. "Waiting for" reads a list of other entries' names, so it gets whatever
-   is left; "Create follow-up" is a single icon that never grows, so it takes
-   only what it needs and never yields the room the names are asking for. */
+/* "Waiting for", "Create follow-up" and "Mark as blocked" on one wrapping line.
+   The two full rows share the width, each with a 12rem basis, so a panel too
+   narrow for both wraps "Mark as blocked" to a second line rather than squeezing
+   either label; the follow-up icon never grows and sits directly after
+   "Waiting for", the row it writes the other end of. */
 .entry-doc__schedule-chain {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-xs);
 }
 
-.entry-doc__schedule-chain > :first-child {
-    flex: 1;
+.entry-doc__schedule-chain > .task-action:not(.task-action--compact) {
+    flex: 1 1 12rem;
     min-width: 0;
 }
 
-.entry-doc__schedule-chain > :last-child {
+.entry-doc__schedule-chain > .task-action--compact {
     flex: 0 0 auto;
 }
 
@@ -2648,26 +2705,6 @@ h1, h2, h3 {
 .setting__body {
     margin: 0 0 var(--spacing-md);
     color: var(--color-text-secondary);
-}
-
-/* Settings › Sprints: a card per series, the repositories in no series, and Add
-   another sprint, stacked. */
-.sprint-settings {
-    display: grid;
-    gap: var(--spacing-md);
-    min-width: 0;
-}
-
-.sprint-settings__chips,
-.sprint-settings__add {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs) var(--spacing-sm);
-}
-
-.sprint-settings__add .setting__body {
-    margin: 0;
 }
 
 /* A second topic inside one setting block - the Foundry resource's spend under
@@ -3794,6 +3831,15 @@ h1, h2, h3 {
     padding-inline: var(--spacing-sm);
 }
 
+/* An option that never had a word — Show archived beside Colors — is a glyph in
+   a box from the start, so it takes the folded sides permanently. The height is
+   the option's own, so it lines up with the loose options it borrows the shape
+   from and the header grows no taller for it. */
+.header-group__option--icon-only {
+    flex: 0 0 auto;
+    padding-inline: var(--spacing-sm);
+}
+
 /* --- Header accent and utilities ------------------------------------------ */
 /*
   Exactly one accented control in the header. Ask AI is a designed first-class
@@ -4041,9 +4087,9 @@ h1, h2, h3 {
     flex: 1 1 auto;
 }
 
-/* The In progress view, in the same column. Unlike the roadmap it scrolls as a
-   whole: its cards are a list, read top to bottom, with nothing to keep pinned. */
-.in-progress-view {
+/* The Goals view, in the same column. Unlike the roadmap it scrolls as a whole:
+   its goals are a list, read top to bottom, with nothing to keep pinned. */
+.goals-view {
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -4051,7 +4097,7 @@ h1, h2, h3 {
     overflow-y: auto;
 }
 
-.in-progress-view__body {
+.goals-view__body {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
@@ -4999,30 +5045,12 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
-/* GitHub's "8/9", drawn: three parts of one bar, each growing by its own count,
-   beside the words. The bar is aria-hidden; the words and the title carry it. */
-.pull-request-checks-meter {
-    display: inline-flex;
+/* The shared status line's marks sit at the row's end, where the checks meter was. */
+.pull-requests-row__marks {
     flex: none;
-    gap: var(--spacing-xs);
-    align-items: center;
+    flex-wrap: nowrap;
     margin-left: auto;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
-
-.pull-request-checks-meter__bar {
-    display: flex;
-    overflow: hidden;
-    width: 3.5rem;
-    height: 0.375rem;
-    border-radius: var(--border-radius-full);
-    background: var(--color-border);
-}
-
-.pull-request-checks-meter__passed { flex: var(--checks-passed, 0) 1 0; background: var(--color-success-text); }
-.pull-request-checks-meter__failed { flex: var(--checks-failed, 0) 1 0; background: var(--color-error-text); }
-.pull-request-checks-meter__running { flex: var(--checks-running, 0) 1 0; background: var(--color-primary-light); }
 
 /* The detail of the picked pull request, beside the list or under it. */
 .pull-request-detail {
@@ -6883,6 +6911,33 @@ a.pull-request-detail-checks__name:hover {
 
 .devbook-c4-references {
     margin-top: var(--spacing-sm);
+}
+
+/* A C4 view a chapter embeds as ![…](c4:<key>), drawn where the image was. A block
+   inside the paragraph, the full width of the chapter, framed like the explorer's
+   stage; the diagram's inline host keeps the picture's own aspect ratio. */
+.devbook-c4-embed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-sm) 0;
+}
+
+.devbook-c4-embed .c4-diagram-host--inline {
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+}
+
+.devbook-c4-embed__caption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: 0.85em;
 }
 
 /* The way across from a domain chapter to the architecture model. A row of links

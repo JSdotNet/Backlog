@@ -13,4 +13,8 @@ namespace Backlog.Infrastructure.Sessions;
 internal sealed record SessionReading(IReadOnlyList<AgentSession> Sessions, int Discovered)
 {
     internal static SessionReading None { get; } = new([], 0);
+
+    /// <summary>How many of the sessions are open ones listed past the cap; see
+    /// <see cref="AgentSessionCatalog.OpenBeyondCap"/>.</summary>
+    internal int OpenBeyondCap { get; init; }
 }

@@ -263,20 +263,80 @@
                              aria-label="Filter by tag">
                             @foreach (var tag in State.TagFilters)
                             {
-                                @* The face carries the open count and the tooltip
+                                @* Keyed by the tag, on whatever is the iteration's root,
+                                   because a pressed plan moves: it leads the strip and
+                                   changes parent into its pair. Matched by position, the
+                                   chip under the focus would turn into another tag and
+                                   the next Space would press that one. Two copies of the
+                                   chip rather than one fragment for that reason too — a
+                                   fragment is a region, and a key inside a region is
+                                   matched only within it.
+
+                                   The face carries the open count and the tooltip
                                    carries both halves — see TagFilterOption. The
-                                   per-kind class is the same distinction the row
-                                   chips draw, so a person, a plan and a general tag
-                                   read apart on the bar the way they do on the row. *@
-                                <ToggleButton BaseClass="chip chip--filter"
-                                              CssClass="@TagFilterKindClass(tag)"
-                                              PressedCssClass="chip--active"
-                                              Pressed="@State.IsTagSelected(tag.Value)"
-                                              TestId="tag-filter-option"
-                                              Title="@TagFilterTitle(tag)"
-                                              PressedChanged="_ => State.ToggleTagFilter(tag.Value)">
-                                    @tag.Label<span class="chip__count">@tag.OpenCount</span>
-                                </ToggleButton>
+                                   per-kind class is the same distinction the row chips
+                                   draw, so a person, a plan and a general tag read
+                                   apart on the bar the way they do on the row. *@
+                                @if (State.SelectedPlan is { } plan && string.Equals(tag.Value, plan, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    @* The plan in view, one press from the clipboard — a
+                                       reader filters to a plan and then pastes its name
+                                       somewhere else. The tag verbatim, + and all,
+                                       because that is how a plan is written everywhere
+                                       it is typed.
+
+                                       Fused to the pressed chip rather than left at the
+                                       end of the bar, so the copy reads as the plan's
+                                       own and not as one more filter: one border round
+                                       both, a hairline between them, on the TagChip
+                                       precedent of a label and its remove. Two sibling
+                                       buttons in a layout wrapper, never one nested in
+                                       the other. The wrapper is one flex item, so the
+                                       strip's clipping takes or keeps the pair whole,
+                                       and components.js reserves the pair's width when
+                                       it leads the strip.
+
+                                       Only the pressed plan is wrapped, so the chip a
+                                       click toggles stays a toggle and the strip carries
+                                       no button per chip. The status line is announced
+                                       and not drawn: the glyph's check is the sighted
+                                       confirmation, and a sentence appearing would shove
+                                       the chips along the strip. *@
+                                    <span @key="tag.Value" class="filter-bar__plan-pair" data-testid="tag-filter-plan-pair">
+                                        <ToggleButton BaseClass="chip chip--filter"
+                                                      CssClass="@TagFilterKindClass(tag)"
+                                                      PressedCssClass="chip--active"
+                                                      Pressed="@State.IsTagSelected(tag.Value)"
+                                                      id="@TagFilterChipId(tag.Value)"
+                                                      TestId="tag-filter-option"
+                                                      Title="@TagFilterTitle(tag)"
+                                                      PressedChanged="_ => OnTagFilterPressed(tag.Value)">
+                                            @tag.Label<span class="chip__count">@tag.OpenCount</span>
+                                        </ToggleButton>
+                                        <CopyButton Text="@plan"
+                                                    Label="@($"Copy {plan}")"
+                                                    CssClass="filter-bar__plan-copy"
+                                                    ButtonBaseClass="filter-bar__plan-copy-button"
+                                                    StatusCssClass="sr-only"
+                                                    TestId="tag-filter-copy-plan"
+                                                    ButtonTestId="tag-filter-copy-plan-button"
+                                                    StatusTestId="tag-filter-copy-plan-status" />
+                                    </span>
+                                }
+                                else
+                                {
+                                    <ToggleButton @key="tag.Value"
+                                                  BaseClass="chip chip--filter"
+                                                  CssClass="@TagFilterKindClass(tag)"
+                                                  PressedCssClass="chip--active"
+                                                  Pressed="@State.IsTagSelected(tag.Value)"
+                                                  id="@TagFilterChipId(tag.Value)"
+                                                  TestId="tag-filter-option"
+                                                  Title="@TagFilterTitle(tag)"
+                                                  PressedChanged="_ => OnTagFilterPressed(tag.Value)">
+                                        @tag.Label<span class="chip__count">@tag.OpenCount</span>
+                                    </ToggleButton>
+                                }
                             }
                         </div>
 
@@ -297,26 +357,6 @@
                                    OnClick="() => _tagStripExpanded = !_tagStripExpanded">
                             @(_tagStripExpanded ? "Fewer" : "More")
                         </AppButton>
-
-                        @* The plan in view, one press from the clipboard — a reader
-                           filters to a plan and then pastes its name somewhere else.
-                           The tag verbatim, + and all, because that is how a plan is
-                           written everywhere it is typed. Only while a plan is pressed,
-                           so the chip a click toggles stays a toggle and the strip
-                           carries no button per chip. The status line is announced
-                           and not drawn: the glyph's check is the sighted
-                           confirmation, and a sentence appearing would shove the
-                           statuses along the bar. *@
-                        @if (State.SelectedPlan is { } plan)
-                        {
-                            <CopyButton Text="@plan"
-                                        Label="@($"Copy {plan}")"
-                                        CssClass="filter-bar__copy-plan"
-                                        StatusCssClass="sr-only"
-                                        TestId="tag-filter-copy-plan"
-                                        ButtonTestId="tag-filter-copy-plan-button"
-                                        StatusTestId="tag-filter-copy-plan-status" />
-                        }
                     }
 
                     @* Off the bar on the Board while its columns are the statuses:
@@ -946,6 +986,12 @@
             await FocusQuietlyAsync(_devbookAction.FocusAsync);
         }
 
+        if (_focusTagChip is { } chip)
+        {
+            _focusTagChip = null;
+            await FocusQuietlyAsync(() => JS.InvokeVoidAsync("backlogFocusTagChip", TagFilterChipId(chip)));
+        }
+
         if (_focusRevealedRow)
         {
             _focusRevealedRow = false;
@@ -1334,6 +1380,25 @@
     /// </summary>
     [Parameter]
     public RenderFragment<EntryRow>? LinkedWork { get; set; }
+
+    /// <summary>
+    /// The goal control the host cascades (<see cref="GoalControlSlot"/>), drawn in the
+    /// panel for a stored entry. The host's for the reason <see cref="LinkedWork"/> is:
+    /// a goal is Progress's, and this pane may not reach it. With none cascaded the
+    /// panel draws no goal line.
+    /// </summary>
+    [CascadingParameter]
+    public GoalControlSlot? GoalSlot { get; set; }
+
+    /// <summary>The panel's goal line for a row: only for one that is stored, since a
+    /// goal holds a task by its id and a row not yet saved has none to hold, and only
+    /// while the host offers goals, so the panel draws no empty line. The pane re-renders
+    /// on every feature change (<c>HandleFeaturesChanged</c>), which is what brings the
+    /// line back when goals are turned on.</summary>
+    private RenderFragment? GoalFor(EntryRow row) =>
+        GoalSlot is { IsOffered: true } slot && row.IsPersisted && row.Id is { } id
+            ? slot.Render(GoalSubject.ForTask(id))
+            : null;
 
     /// <summary>
     /// The owner's Brain notes that name an entry in their <c>tasks</c> field (local
@@ -3148,6 +3213,7 @@
                        CopyDisabledReason="@(row.IsPreviewBlocked ? BlockedCopyReason : null)"
                        Source="@State.LinkedSources.ToTaskSource(row.SourceRef)"
                        CssClass="entry-detail__panel"
+                       Goal="@GoalFor(row)"
                        TestId="entry-panel">
                 <StatusContent>
                     @* On the heading line, where the list row also shows it. The
@@ -4076,13 +4142,13 @@
                    balance — and it leaves the columns exactly as "Ranking" describes
                    them: three rows in each, level.
 
-                   "Waiting for" and "Create follow-up" share this group and this row
-                   because they are the two ends of one relationship: one reads the
-                   chain backwards, the other writes it forwards. "Waiting for" gets
-                   the row's width because its value is a list of entry names; the
-                   follow-up action is compact — icon only — because it never has
-                   more than one thing to say and does not need a share of the room
-                   the names are asking for. *@
+                   "Waiting for" and "Create follow-up" sit side by side because they
+                   are the two ends of one relationship: one reads the chain
+                   backwards, the other writes it forwards. The follow-up action is
+                   compact — icon only — because it never has more than one thing to
+                   say. "Mark as blocked" shares the line rather than taking one of
+                   its own: the group costs one line of the panel where it cost
+                   two, and a narrow panel wraps it back to two. *@
                 <TaskActionGroup Label="Dependencies" TestId="entry-schedule-dependencies">
                     <span class="entry-doc__schedule-chain">
                         <TaskAction Icon="⏳"
@@ -4100,6 +4166,22 @@
                                     DisabledReason="@FollowUpReason(row)"
                                     OnSet="() => State.NewFollowUpRow(row)"
                                     TestId="entry-action-followup" />
+
+                        @* The hand-set block, in the group that already answers "why
+                           is this not moving", beside the chain. Waiting for is what
+                           the other entries decide — the derived Blocked — while this
+                           is a person saying something outside the list is in the
+                           way, so it is a toggle they press rather than a list they
+                           edit. Togglable like My Day and for the same reason it has
+                           no ✕: pressing it again is how it comes off. Set, it reads
+                           "Blocked since" and the day, so the row says since when. *@
+                        <TaskAction Icon="⛔"
+                                    Label="@(row.IsPreviewBlocked ? "Blocked since" : "Mark as blocked")"
+                                    Value="@FormatDate(row.PreviewBlockedSince)"
+                                    Set="@row.IsPreviewBlocked"
+                                    Togglable="true"
+                                    OnSet="() => State.ChangeBlockedAsync(row, !row.IsPreviewBlocked, Today)"
+                                    TestId="entry-action-blocked" />
                     </span>
 
                     @if (IsPickerOpen(SchedulePicker.DependsOn))
@@ -4107,7 +4189,8 @@
                         @* The library ships no dependency editor and is not going to:
                            a chain is data the host owns, so the picker is built here
                            out of TagMultiSelect, its options the other entries in view
-                           and its chips this entry's own ids. *@
+                           and its chips this entry's own ids. Under the line rather
+                           than in it, because its chips want the full width. *@
                         <TagMultiSelect Options="@DependencyOptions(row)"
                                         SelectedValues="@State.ResolvedDependsOn(row)"
                                         SelectedValuesChanged="ids => State.ChangeDependsOnAsync(row, ids)"
@@ -4115,22 +4198,6 @@
                                         CssClass="entry-doc__schedule-depends"
                                         TestId="entry-depends-select" />
                     }
-
-                    @* The hand-set block, in the group that already answers "why is
-                       this not moving" and under the chain rather than in it.
-                       Waiting for is what the other entries decide — the derived
-                       Blocked — while this is a person saying something outside the
-                       list is in the way, so it is a toggle they press rather than a
-                       list they edit. Togglable like My Day and for the same reason it
-                       has no ✕: pressing it again is how it comes off. Set, it reads
-                       "Blocked since" and the day, so the row says since when. *@
-                    <TaskAction Icon="⛔"
-                                Label="@(row.IsPreviewBlocked ? "Blocked since" : "Mark as blocked")"
-                                Value="@FormatDate(row.PreviewBlockedSince)"
-                                Set="@row.IsPreviewBlocked"
-                                Togglable="true"
-                                OnSet="() => State.ChangeBlockedAsync(row, !row.IsPreviewBlocked, Today)"
-                                TestId="entry-action-blocked" />
                 </TaskActionGroup>
 
                 @* Under Dependencies and across the full width for the same reason:
@@ -5172,6 +5239,26 @@
         var text = System.Text.RegularExpressions.Regex.Replace(enumName, "(?<!^)([A-Z])", " $1");
         return text.ToLowerInvariant();
     }
+
+    /// <summary>Which chip the focus is owed to after the next render, by tag value.
+    /// A plan press moves its chip — to the front and into its pair, or back out of
+    /// it — and a moved chip is a new element, so the focus the press left on the old
+    /// one has nowhere to stay. Set only for a press in the plan group — a plan, or
+    /// No plan, which lets go of one — because nothing else moves a chip.</summary>
+    private string? _focusTagChip;
+
+    private void OnTagFilterPressed(string tag)
+    {
+        if (tag == TasksDesktopState.NoPlanTag || TagText.Kind(tag) is TagKind.Plan) _focusTagChip = tag;
+
+        State.ToggleTagFilter(tag);
+    }
+
+    /// <summary>The chip's element id, for handing the focus back to it. Hex of the
+    /// lower-cased value, because a tag may carry characters an id should not, and
+    /// the two sentinels start with a space.</summary>
+    internal static string TagFilterChipId(string tag) =>
+        "tag-filter-option-" + Convert.ToHexString(System.Text.Encoding.UTF8.GetBytes(tag.ToLowerInvariant()));
 
     /// <summary>The bar's per-kind modifier, read off the stored value the way
     /// <c>TagChip</c> reads its own. "Untagged" is a general chip: it names no tag,

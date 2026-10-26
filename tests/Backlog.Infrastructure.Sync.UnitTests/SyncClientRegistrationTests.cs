@@ -151,6 +151,41 @@ public class SyncClientRegistrationTests
     }
 
     /// <summary>
+    /// The iteration settings port needs no registration of its own in the sync client
+    /// either (local ADR 0036, §4): a host that registers it has the merge the container
+    /// builds hand it the document, and the session and the loop compose with it.
+    /// </summary>
+    [Fact]
+    public async Task A_host_that_keeps_iteration_settings_has_the_merge_hand_them_over()
+    {
+        var iteration = new RecordingIterationSettingsReplication();
+        var services = new ServiceCollection();
+        services.AddSingleton<IDeviceCredentialStore>(new InMemoryDeviceCredentialStore());
+        services.AddSingleton<IAppFeatureSettings>(new StubFeatureSettings(enabled: true));
+        services.AddSingleton<ITaskRepository>(new InMemoryTaskStore());
+        services.AddSingleton<ITaskSyncStateStore>(new InMemoryTaskSyncStateStore());
+        services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication>(iteration);
+        services.AddSyncClient(SyncAddress);
+        services.AddTaskSyncClient(SyncAddress);
+
+        using var provider = Build(services);
+
+        var sent = new Backlog.Modules.Progress.Abstractions.DataTransferObjects.IterationSettingsCopyDto(
+            """{"length":"two-weeks","twoWeekStart":"2026-10-19"}""", new DateTimeOffset(2026, 10, 20, 8, 0, 0, TimeSpan.Zero));
+
+        var merged = await provider.GetRequiredService<TaskReplicaMerge>().ApplyAsync(
+            [TaskChanges.Record(IterationReplicaDocuments.ToChange(sent), Guid.NewGuid(), 1)],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, merged.Applied);
+        Assert.Equal(sent, Assert.Single(iteration.Offered));
+        Assert.NotNull(provider.GetRequiredService<TaskSyncSession>());
+
+        using var worker = provider.GetRequiredService<TaskSyncWorker>();
+        Assert.True(iteration.HasListeners);
+    }
+
+    /// <summary>
     /// Opting in without choosing a sync-state store leaves both the session and
     /// the loop registered and unconstructable — the case Settings'
     /// <c>ResolveTaskSync</c> guard exists for. It is pinned here so that guard
@@ -341,7 +376,8 @@ public class SyncClientRegistrationTests
         var pushed = await PushAsync(provider, client);
 
         Assert.True(pushed.IsFailure);
-        Assert.Single(wire.Requests);
+        // The compatibility check's own GET / is not the push.
+        Assert.Single(wire.Requests, request => request.Path != "/");
     }
 
     /// <summary>A pull is a read and safe to send again, so a transient refusal is
@@ -358,7 +394,8 @@ public class SyncClientRegistrationTests
         var pulled = await PullAsync(provider, client);
 
         Assert.True(pulled.IsFailure);
-        Assert.True(wire.Requests.Count > 1, $"Expected a retry, saw {wire.Requests.Count} request(s).");
+        var pulls = wire.Requests.Count(request => request.Path != "/");
+        Assert.True(pulls > 1, $"Expected a retry, saw {pulls} request(s).");
     }
 
     /// <summary>A push of a full batch against a cold replica can run past the

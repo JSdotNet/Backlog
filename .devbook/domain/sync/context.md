@@ -27,7 +27,10 @@ Inside the boundary:
 - which pushed copy of a document wins, by
   [Change Precedence](domain.md#change-precedence);
 - attachment blobs, stored under the owner and served only through the sync
-  service (local [ADR 0014](../../arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md)).
+  service (local [ADR 0014](../../arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md));
+- the service's version, and whether an app may sync with it at all
+  ([Syncing between devices](requirements.md#syncing-between-devices); local
+  [ADR 0005 §Version compatibility](../../arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md)).
 
 Outside it: what each document means. A task document is
 [Tasks](../tasks/domain.md#task)'s, a session record is
@@ -44,8 +47,9 @@ service, and is not the same identifier.
 
 Sync runs in two places. The sync service (`Backlog.Modules.Sync.Api`, hosting
 `Backlog.Modules.Sync`) holds the owners, devices, pairing codes and replicas in
-the cloud. The desktop's sync client (`Backlog.Infrastructure.Sync`) is the
-adapter each downstream context reaches the replica through. The Devices settings
+the cloud. The sync client (`Backlog.Infrastructure.Sync`), on the desktop and the
+phone, is the adapter each downstream context reaches the replica through, and the
+place the version check sits. The Devices settings
 page is `Backlog.Modules.Sync.UI`.
 
 ## Taking part in sync
@@ -95,7 +99,7 @@ open host service. Each downstream context reaches it through an adapter in
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Tasks](../tasks/domain.md#task) | OHS + Published Language (Sync = supplier) | The desktop's `TaskSyncWorker` pushes and pulls the task feed through `POST` and `GET /api/sync/tasks`; `TaskReplicaMerge` applies each pulled document to the local store | `TaskChange`, `TaskPayload` and `PushTasksRequest` in `Backlog.Modules.Sync.Abstractions`; local ADR 0005 | A task document is stored whole and handed back unchanged, and a push never moves a document backwards ([Change Precedence](domain.md#change-precedence)). Other kinds ride the task feed under their owners' kind tokens: roadmap plans (local ADR 0018), GitHub settings (local ADR 0021), notes (local ADR 0025) and sprint series. |
+| [Tasks](../tasks/domain.md#task) | OHS + Published Language (Sync = supplier) | The desktop's `TaskSyncWorker` pushes and pulls the task feed through `POST` and `GET /api/sync/tasks`; `TaskReplicaMerge` applies each pulled document to the local store | `TaskChange`, `TaskPayload` and `PushTasksRequest` in `Backlog.Modules.Sync.Abstractions`; local ADR 0005 | A task document is stored whole and handed back unchanged, and a push never moves a document backwards ([Change Precedence](domain.md#change-precedence)). Other kinds ride the task feed under their owners' kind tokens: roadmap plans (local ADR 0018), GitHub settings (local ADR 0021), notes (local ADR 0025), and Progress's `goal` and `impediment` documents with the phone's `stand-up-context` and `impediment-edit` (local ADR 0035 §8, §9). A `sprint-series` document an older build pushed is read and dropped, never taken as a task. |
 | [Sessions](../sessions/domain.md#session-log) | OHS + Published Language (Sync = supplier) | `SessionSyncSession` pushes this machine's session records through `POST /api/sync/sessions` and pulls the other machines' through `GET` | `SessionRecord` and `SessionRecordEntry` in `Backlog.Modules.Sync.Abstractions`; local ADR 0005 §Session records | A record is keyed by the machine that wrote it ([Session Record Key](domain.md#session-record-key)), so no machine can overwrite another's, and only the whitelisted metadata travels. |
 | [Devbook](../devbook/context.md) | OHS + Published Language (Sync = supplier) | `AnnotationSyncWorker` pushes and pulls remarks through `POST` and `GET /api/sync/annotations` | `AnnotationChange` and `AnnotationPayload` in `Backlog.Modules.Sync.Abstractions`; local ADR 0011 | A remark is replicated on a task's terms, in a container of its own, and Change Precedence holds for it too. |
 | [Inbox](../inbox/domain.md#inbox-item) | Customer/Supplier (Inbox = customer of the intake channel) | The desktop sync client hands every `capture`-kind document to `IInboxIntake` before the task merge, and drains `IInboxCaptureOutbox` into the tasks push as tombstones | local ADR 0009; attachments, local ADR 0014 | A capture made on the phone or in the IDE reaches the desktop once, keyed by its own id, and its attachments are on the blob store before the capture names them. |

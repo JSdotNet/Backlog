@@ -14,13 +14,15 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class DevbookPaneScenarioLegendTests : IDisposable
 {
     private const string ScenarioPage = """
-        # Place an order
+        # Scenarios
+
+        ## Place an order
 
         ```meta
         type: scenario
         ```
 
-        ## The cart is filled
+        ### The cart is filled
         - **Given** an empty cart
         """;
 
@@ -67,7 +69,7 @@ public sealed class DevbookPaneScenarioLegendTests : IDisposable
         Directory.CreateDirectory(Path.Combine(root, ".domain", "orders"));
         _roots.Add(root);
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), "# Context Map\n\n```meta\nstatus: draft\n```\n\nThe contexts.\n");
-        if (withScenarioPage) File.WriteAllText(Path.Combine(root, ".domain", "orders", "place-an-order.md"), ScenarioPage);
+        if (withScenarioPage) File.WriteAllText(Path.Combine(root, ".domain", "orders", "scenarios.md"), ScenarioPage);
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));

@@ -1,6 +1,7 @@
-// signature.mjs — the scenario page signature: what a derived spec records in
-// its header and a run in `run.json`, so a reader can tell a run that proves
-// today's page from one that proves an older text.
+// signature.mjs — the journey signature: what a derived spec records in its
+// header and a run in `run.json`, so a reader can tell a run that proves
+// today's journey from one that proves an older text. A journey is one `##`
+// in a scenarios file; the text below is built from that journey alone.
 //
 // The canonical text, one line each, joined by "\n" with no trailing newline:
 //
@@ -10,39 +11,40 @@
 //   profile: <name>                    always; absent reads as `default`
 //   flags: <entry>, …                  only when set
 //   settings: <entry>, …               only when set
-//   shot: <label>                      a screenshot point above the first part
-//   part: <heading text>               then, in document order inside the part:
+//   shot: <label>                      a screenshot point above the journey's first part
+//   part: <heading text>               each `###`, then, in document order inside it:
 //   step: <Keyword> <text>               each step, keyword and text
 //   shot: <label>                        each screenshot point
 //
 // Every value has its whitespace collapsed to single spaces. Captions, the
-// lead, and prose between steps do not count: changing them changes no
-// behaviour. The signature is sha256 over the UTF-8 text, first 8 hex.
+// journey's heading and lead, and prose between steps do not count: changing
+// them changes no behaviour. The signature is sha256 over the UTF-8 text, first 8 hex.
 // `scenario-page.vector.json` beside this file is the shared vector every
 // implementation — this one, spec-manager's, Backlog's — is tested against.
 //
 // As a CLI it prints the signature a derived spec's `// signature:` line takes:
 //
-//   node .devbook/_tools/scenarios/signature.mjs <page.md>… [--root <dir>] [--scenario-folder <dir>]
+//   node .devbook/_tools/scenarios/signature.mjs <scenarios.md>[#<journey>]… [--root <dir>] [--scenario-folder <dir>]
 //
-// One `<signature>  <path>` line per scenario page. Exits 1 when a path is not
-// a scenario page, 2 on a usage error.
+// One `<signature>  <address>` line per journey: every journey in a file, or
+// the one an address names. Exits 1 when a path is not a scenarios file or an
+// address names no journey, 2 on a usage error.
 
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { collapse, dataFolder, normalizePath, OUTSIDE_ROOT, parseScenarioPage, resolveInside, SCENARIO_FOLDER } from "./parse.mjs";
+import { collapse, dataFolder, normalizePath, OUTSIDE_ROOT, parseScenariosFile, resolveInside, SCENARIO_FOLDER, splitAddress } from "./parse.mjs";
 
 /** What a data set hashes to when its folder does not exist. */
 export const MISSING_DATA = "missing";
 
 /**
- * The canonical text of a parsed page. `dataHash(name)` gives each data set's
- * content hash; without it every data set reads as `missing`.
+ * The canonical text of a parsed journey. `dataHash(name)` gives each data
+ * set's content hash; without it every data set reads as `missing`.
  */
-export function canonicalText(page, dataHash = () => MISSING_DATA) {
-    const setup = page.setup ?? {};
+export function canonicalText(journey, dataHash = () => MISSING_DATA) {
+    const setup = journey.setup ?? {};
     const lines = [];
     const list = (key, values) => {
         if (values?.length) lines.push(`${key}: ${values.map(collapse).join(", ")}`);
@@ -54,8 +56,8 @@ export function canonicalText(page, dataHash = () => MISSING_DATA) {
     list("flags", setup.flags);
     list("settings", setup.settings);
 
-    for (const shot of page.shots.filter((s) => s.part === null)) lines.push(`shot: ${shot.label}`);
-    for (const part of page.parts) {
+    for (const shot of journey.shots.filter((s) => s.part === null)) lines.push(`shot: ${shot.label}`);
+    for (const part of journey.parts) {
         lines.push(`part: ${collapse(part.title)}`);
         const entries = [
             ...part.steps.map((step) => ({ line: step.line, text: `step: ${collapse(step.keyword ? `${step.keyword} ${step.text}` : step.text)}` })),
@@ -71,9 +73,9 @@ export function shortHash(text) {
     return createHash("sha256").update(text, "utf8").digest("hex").slice(0, 8);
 }
 
-/** A parsed page's signature. */
-export function signatureOf(page, dataHash) {
-    return shortHash(canonicalText(page, dataHash));
+/** A parsed journey's signature. */
+export function signatureOf(journey, dataHash) {
+    return shortHash(canonicalText(journey, dataHash));
 }
 
 /**
@@ -115,54 +117,60 @@ export async function hashDataSet(folder) {
 }
 
 /**
- * A page's signature with its data sets hashed from
+ * A journey's signature with its data sets hashed from
  * `<repoRoot>/<scenarioFolder>/data/<name>/`. A name that resolves outside
  * that folder reads as `missing`.
  */
-export async function pageSignature(page, repoRoot, scenarioFolder) {
+export async function journeySignature(journey, repoRoot, scenarioFolder) {
     const hashes = new Map();
-    for (const name of page.setup?.data ?? []) {
+    for (const name of journey.setup?.data ?? []) {
         const folder = dataFolder(repoRoot, scenarioFolder, collapse(name));
         hashes.set(collapse(name), folder ? await hashDataSet(folder) : MISSING_DATA);
     }
-    return signatureOf(page, (name) => hashes.get(name) ?? MISSING_DATA);
+    return signatureOf(journey, (name) => hashes.get(name) ?? MISSING_DATA);
 }
 
 async function main(argv) {
-    const options = { root: process.cwd(), scenarioFolder: SCENARIO_FOLDER, pages: [] };
+    const options = { root: process.cwd(), scenarioFolder: SCENARIO_FOLDER, targets: [] };
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         if (arg === "--root" && argv[i + 1]) options.root = argv[++i];
         else if (arg === "--scenario-folder" && argv[i + 1]) options.scenarioFolder = argv[++i];
         else if (arg.startsWith("--")) options.error = `unknown or incomplete argument: ${arg}`;
-        else options.pages.push(arg);
+        else options.targets.push(arg);
     }
-    if (options.error || !options.pages.length) {
-        console.error(options.error ?? "usage: signature.mjs <page.md>… [--root <dir>] [--scenario-folder <dir>]");
+    if (options.error || !options.targets.length) {
+        console.error(options.error ?? "usage: signature.mjs <scenarios.md>[#<journey>]… [--root <dir>] [--scenario-folder <dir>]");
         process.exitCode = 2;
         return;
     }
     const repoRoot = path.resolve(options.root);
     let failed = false;
-    for (const given of options.pages) {
-        let relPath = normalizePath(given);
-        let page;
+    for (const given of options.targets) {
+        const { path: givenPath, anchor } = splitAddress(given);
+        let relPath = normalizePath(givenPath);
+        let file;
         try {
-            const file = resolveInside(repoRoot, given);
-            relPath = normalizePath(path.relative(repoRoot, file));
-            page = parseScenarioPage(await readFile(file, "utf8"), relPath);
+            relPath = normalizePath(path.relative(repoRoot, resolveInside(repoRoot, givenPath)));
+            file = parseScenariosFile(await readFile(resolveInside(repoRoot, givenPath), "utf8"), relPath);
         } catch (error) {
             const why = error.code === "ENOENT" ? "does not exist" : error.code === OUTSIDE_ROOT ? "resolves outside the repository" : error.message;
             console.error(`${relPath}: ${why}`);
             failed = true;
             continue;
         }
-        if (!page.isScenario) {
-            console.error(`${relPath}: not a scenario page — its file-level meta block has no type: scenario`);
+        if (!file.isScenarios) {
+            console.error(`${relPath}: not a scenarios file — journeys live in scenarios.md or scenarios.<name>.md in a bounded context`);
             failed = true;
             continue;
         }
-        console.log(`${await pageSignature(page, repoRoot, options.scenarioFolder)}  ${relPath}`);
+        const journeys = file.journeys.filter((journey) => journey.isScenario && (anchor === null || journey.slug === anchor));
+        if (!journeys.length) {
+            console.error(`${relPath}${anchor === null ? "" : `#${anchor}`}: names no journey — a journey is a \`##\` typed \`scenario\``);
+            failed = true;
+            continue;
+        }
+        for (const journey of journeys) console.log(`${await journeySignature(journey, repoRoot, options.scenarioFolder)}  ${journey.id}`);
     }
     process.exitCode = failed ? 1 : 0;
 }

@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-sprints-between-devices"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md"]
 ```
 
 - **Local-first, one canonical local store.** The desktop's own store is the single
@@ -37,7 +37,8 @@ Optional cloud sync carries this state between a person's devices:
 | Repository registry | kind `repository-registry` in `tasks` | last-write-wins | local ADR 0021 |
 | GitHub accounts | kind `github-accounts` in `tasks`, never a token | last-write-wins | local ADR 0021 |
 | My Day preferences | kind `my-day-preferences` in `tasks`, written by a desktop and folded read-only by the phone | last-write-wins | local ADR 0032 |
-| Sprint series | kind `sprint-series` in `tasks`, one document per series under its own id | last-write-wins per series on `progress_series.updated_at` | local ADR 0018's arrangement, local ADR 0028 |
+| Goal | kind `goal` in `tasks`, one document per goal under its own id | last-write-wins per goal on its `updated_at` | local ADR 0018's arrangement, local ADR 0035 |
+| Impediment | kind `impediment` in `tasks`, one document per impediment under its own id; the phone's edits go through the device outbox | last-write-wins per impediment on its `updated_at` | local ADR 0018's arrangement, local ADR 0035 |
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
 
@@ -206,6 +207,11 @@ sequenceDiagram
   every tombstone it writes, but **nothing local can show it working**. The Cosmos
   emulator does not honour TTL, so this is deployed-only behaviour that no test or
   QA run here has exercised.
+- **A cycle against a newer service sends nothing.** While the service reports a
+  version above the app's (local ADR 0005 §Version compatibility), each cycle stops
+  before its first request, and the person reads why. The push watermark and the
+  pull cursor do not move, so everything waiting goes once the app is updated or
+  the service rolled back.
 
 ## Session Record Sync
 
@@ -255,6 +261,10 @@ records it covers. A pull the process did not survive is read again from the las
 cursor it saved. That costs repeated work and loses nothing, because a record
 merges idempotently on its identity and server timestamp.
 
+A cycle against a sync service newer than the app sends nothing, as under
+[Task Sync](#task-sync). The watermark and the cursor stay where they were, and the
+records still to push go once the app is updated.
+
 - **Single-writer, so last-write-wins does not apply.** A session ran on one
   machine and only that machine holds the evidence for it, so there is never a
   second version to discard. The conflict policy under
@@ -302,7 +312,7 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
 
 - **Markdown is canonical and the layer over it is generated.** The graph between
   chapters, the resolved reading outline, the retrieval indexes, the diagram
-  artifact index and the click demo index are all derived. Nothing derived is
+  artifact index, the click demo index and the C4 nodes and edges are all derived. Nothing derived is
   authoritative, and nothing authored lives only in the derived layer.
 - **One generated SQLite database per repository path, in the app's storage.** It
   sits at `_databases/<name>-<hash>/devbook.db` under the devbook cache folder the
@@ -311,16 +321,17 @@ related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database
   and a repository the app reads is left as it was found. It is per path, so two
   worktrees of one repository, and a branch snapshot, each get their own.
 - **The authored half stays text.** The hand-written Archify specifications and
-  the Structurizr C4 workspace under `.devbook/arc42/_c4/` are committed and
-  reviewed in diffs. Only what a generator produces goes into the database. The
+  the Structurizr C4 workspace, `workspace.dsl` in the arc42 folder with any files
+  it includes from its `c4/` folder, are committed and reviewed in diffs. Only what a generator produces goes into the database. The
   rendered Archify pages are not committed at all: the app draws them on demand
   from the specifications into `_archify-renders/` beside `_databases/` (local
   ADR 0034). The
   reading order is not authored at all. Both writers derive it the way the devbook
   generator does, from `index: root`, the folder's convention root and the numbers
-  in filenames (local ADR 0016). The C4 workspace has no derived half. It is not
-  attached to a fence and nothing is rendered from it ahead of time, so an index
-  has nothing to hold or to go stale.
+  in filenames (local ADR 0016). The C4 workspace's derived half is its graph:
+  both writers add an `element` node per element and a `view` node per view, with
+  `contains`, `relationship`, `embeds`, `c4` and `c4-touches` edges. The app draws
+  each view from the DSL on demand, so no rendering of it is stored.
 - **Structural first, semantic optional.** The structural tier is deterministic and
   builds offline. Embeddings are keyed by chapter content hash, need a model, and
   are versioned by it. A reader must work correctly with the semantic tier absent,

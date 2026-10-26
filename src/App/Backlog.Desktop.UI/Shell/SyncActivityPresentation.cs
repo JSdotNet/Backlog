@@ -15,19 +15,23 @@ namespace Backlog.Desktop.UI.Shell;
 /// pulled: a device's own echo comes back every cycle and changes nothing, and
 /// a footer that counted it would say the backlog moved when it did not.
 /// <paramref name="At"/> is the later of the two last successes, or null when
-/// neither loop has completed a cycle yet.
+/// neither loop has completed a cycle yet. <paramref name="UpdateRequired"/>
+/// is the sync service being newer than this app (<see cref="SyncCompatibility"/>):
+/// nothing syncs until the app is updated, and the band says so ahead of
+/// anything else.
 /// </para>
 /// </summary>
-public sealed record SyncFooterState(bool Syncing, int Sent, int Received, DateTimeOffset? At, string? Error)
+public sealed record SyncFooterState(bool Syncing, int Sent, int Received, DateTimeOffset? At, string? Error, bool UpdateRequired = false)
 {
-    /// <summary>The two workers' current readings, folded. Either may be null on
-    /// a head that composed only one of the loops.</summary>
-    public static SyncFooterState From(TaskSyncWorker? tasks, SessionSyncWorker? sessions) => From(
+    /// <summary>The two workers' current readings, folded, with the
+    /// compatibility verdict. Any of them may be null on a head that composed
+    /// less.</summary>
+    public static SyncFooterState From(TaskSyncWorker? tasks, SessionSyncWorker? sessions, SyncCompatibility? compatibility = null) => From(
         syncing: tasks?.IsSyncing == true || sessions?.IsSyncing == true,
         tasks?.LastSummary,
         tasks?.LastError,
         sessions?.LastSummary,
-        sessions?.LastError);
+        sessions?.LastError) with { UpdateRequired = compatibility?.UpdateRequired == true };
 
     /// <summary>The fold itself, over the readings rather than the workers that
     /// hold them — the workers set their summaries privately, so this is the
@@ -58,7 +62,7 @@ public sealed record SyncFooterState(bool Syncing, int Sent, int Received, DateT
     /// <summary>True when there is anything at all to draw. Before the first
     /// cycle there is not, and a band that said "Sync" with nothing behind it
     /// would be a control that opens an empty window.</summary>
-    public bool HasSomethingToShow => Syncing || At is not null || Error is not null;
+    public bool HasSomethingToShow => UpdateRequired || Syncing || At is not null || Error is not null;
 }
 
 /// <summary>The words the footer and its window use for replication. Kept out
@@ -74,6 +78,9 @@ public static class SyncActivityPresentation
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // First: a cycle still starts and ends at once while the app is too old,
+        // and "Syncing…" flickering over it would say sync was happening.
+        if (state.UpdateRequired) return "Update to sync";
         if (state.Syncing) return "Syncing…";
         if (state.Error is not null) return "Sync failed";
         if (state.At is { } at) return $"Synced ↑{state.Sent} ↓{state.Received} · {Clock(at)}";
@@ -90,6 +97,7 @@ public static class SyncActivityPresentation
 
         const string opens = "Open sync activity";
 
+        if (state.UpdateRequired) return $"Sync is paused. {SyncCompatibility.UpdateRequiredMessage} {opens}";
         if (state.Syncing) return $"Syncing with the cloud. {opens}";
         if (state.Error is not null) return $"Sync failed: {state.Error} {opens}";
         if (state.At is { } at) return $"Synced at {Clock(at)}: {state.Sent} sent, {state.Received} received. {opens}";
@@ -128,8 +136,10 @@ public static class SyncActivityPresentation
         SyncItemKind.Roadmap => "Roadmap",
         SyncItemKind.GitHubSettings => "GitHub settings",
         SyncItemKind.Note => "Note",
-        SyncItemKind.SprintSeries => "Sprint series",
         SyncItemKind.MyDayPreferences => "My Day preferences",
+        SyncItemKind.Goal => "Goal",
+        SyncItemKind.Impediment => "Impediment",
+        SyncItemKind.IterationSettings => "Iteration settings",
         _ => kind.ToString(),
     };
 

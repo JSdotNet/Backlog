@@ -134,10 +134,12 @@ public class McpToolCreationTests
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
                 SurfaceTools.OpenDashboard,
+                ImpedimentTools.RaiseImpediment,
                 SurfaceTools.RecordPrompt,
                 DevbookTools.ResolveAnnotation,
                 TrackerTools.SetBlocked,
                 TrackerTools.SetDevbookReferences,
+                ImpedimentTools.SetImpedimentState,
                 SurfaceTools.SetRunContext,
                 SurfaceTools.StartRun,
                 TrackerTools.Transition,
@@ -171,6 +173,8 @@ public class McpToolCreationTests
         Assert.Equal(["id"], schemas["read_item"]);
         Assert.Equal(["id", "status"], schemas["transition"]);
         Assert.Equal(["id", "blocked"], schemas["set_blocked"]);
+        Assert.Equal(["title", "holdsBack", "note"], schemas["raise_impediment"]);
+        Assert.Equal(["id", "state", "with"], schemas["set_impediment_state"]);
         Assert.Equal(["id", "text"], schemas["comment"]);
         Assert.Equal(["id", "repository", "externalId"], schemas["link_change"]);
         Assert.Equal(["id", "repository", "sessionId"], schemas["link_session"]);
@@ -254,7 +258,8 @@ public class McpToolCreationTests
             [typeof(SessionTools)] = new SessionTools(
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
                 new FakeRepositoryDirectory()),
-            [typeof(SurfaceTools)] = new SurfaceTools(new FakeDeliverySurfaceLifecycle())
+            [typeof(SurfaceTools)] = new SurfaceTools(new FakeDeliverySurfaceLifecycle()),
+            [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments())
         };
 
         foreach (var group in BacklogMcpTools.Groups)

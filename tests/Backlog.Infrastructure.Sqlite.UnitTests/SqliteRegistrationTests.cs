@@ -71,21 +71,40 @@ public sealed class SqliteRegistrationTests
     }
 
     [Fact]
-    public void One_sprint_series_store_answers_both_of_its_ports()
+    public void One_goal_store_answers_both_of_its_ports()
     {
         var services = new ServiceCollection();
         services.AddSqlite(_ => Path.GetTempPath());
 
         Assert.All(
-            services.Where(d => d.ServiceType == typeof(ISprintSeriesRepository)
-                || d.ServiceType == typeof(ISprintSeriesReplicaStore)
-                || d.ServiceType == typeof(RootedSqliteSprintSeriesRepository)),
+            services.Where(d => d.ServiceType == typeof(IGoalRepository)
+                || d.ServiceType == typeof(IGoalReplicaStore)
+                || d.ServiceType == typeof(RootedSqliteGoalRepository)),
             d => Assert.Equal(ServiceLifetime.Singleton, d.Lifetime));
 
         using var provider = services.BuildServiceProvider();
 
-        var store = provider.GetRequiredService<RootedSqliteSprintSeriesRepository>();
-        Assert.Same(store, provider.GetRequiredService<ISprintSeriesRepository>());
-        Assert.Same(store, provider.GetRequiredService<ISprintSeriesReplicaStore>());
+        var store = provider.GetRequiredService<RootedSqliteGoalRepository>();
+        Assert.Same(store, provider.GetRequiredService<IGoalRepository>());
+        Assert.Same(store, provider.GetRequiredService<IGoalReplicaStore>());
+    }
+
+    [Fact]
+    public void One_impediment_store_answers_both_of_its_ports()
+    {
+        var services = new ServiceCollection();
+        services.AddSqlite(_ => Path.GetTempPath());
+
+        Assert.All(
+            services.Where(d => d.ServiceType == typeof(IImpedimentRepository)
+                || d.ServiceType == typeof(IImpedimentReplicaStore)
+                || d.ServiceType == typeof(RootedSqliteImpedimentRepository)),
+            d => Assert.Equal(ServiceLifetime.Singleton, d.Lifetime));
+
+        using var provider = services.BuildServiceProvider();
+
+        var store = provider.GetRequiredService<RootedSqliteImpedimentRepository>();
+        Assert.Same(store, provider.GetRequiredService<IImpedimentRepository>());
+        Assert.Same(store, provider.GetRequiredService<IImpedimentReplicaStore>());
     }
 }

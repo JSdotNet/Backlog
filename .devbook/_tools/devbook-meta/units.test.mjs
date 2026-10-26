@@ -272,6 +272,31 @@ try {
     await rm(root, { recursive: true, force: true });
 }
 
+// --- The workspace ------------------------------------------------------------------
+
+{
+    const BLOCK = ".devbook/arc42/building-blocks/billing.md";
+    const bare = await fixture();
+    const withWorkspace = await fixture({
+        ".devbook/arc42/workspace.dsl": `workspace {\nmodel {\nshop = softwareSystem "Shop" "Sells." {\n!include c4/billing.dsl\n}\n}\nviews {\ncontainer shop "containers" {\ninclude *\n}\n}\n}\n`,
+        ".devbook/arc42/c4/billing.dsl": `billing = container "Billing" "Bills."\n`,
+    });
+    try {
+        const filesOf = async (at) => collectUnits(await buildGraph(at)).units.find((u) => u.id === BLOCK)?.files ?? [];
+        const without = await filesOf(bare);
+        check(!without.some((f) => f.includes("workspace.dsl")), "without a workspace, a building block lists no workspace.dsl", dump(without));
+        const withIt = await filesOf(withWorkspace);
+        check(
+            withIt.includes(".devbook/arc42/workspace.dsl") && withIt.includes(".devbook/arc42/c4/billing.dsl"),
+            "where arc42 has a workspace, a building block lists workspace.dsl and the files it includes",
+            dump(withIt)
+        );
+    } finally {
+        await rm(bare, { recursive: true, force: true });
+        await rm(withWorkspace, { recursive: true, force: true });
+    }
+}
+
 // --- Mixed directions ---------------------------------------------------------------
 
 {

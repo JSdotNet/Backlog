@@ -76,10 +76,10 @@ internal sealed class ConnectorScenario : IDisposable
     /// <summary>Answers the product's backlog from fixtures: the archive from
     /// <paramref name="archived"/>, the rest from <paramref name="current"/>.</summary>
     public void Backlog(string current = "backlog.json", string archived = "backlog-archived-since.json") =>
-        Server.Route(HttpMethod.Get, $"/api/producten/{StubSpecManager.Product}/backlog", (request, _) =>
+        Server.Route(HttpMethod.Get, $"/api/products/{StubSpecManager.Product}/backlog", (request, _) =>
             StubSpecManager.Respond(
                 System.Net.HttpStatusCode.OK,
-                Fixtures.Read(request.RequestUri!.Query.Contains("gearchiveerd=true", StringComparison.Ordinal) ? archived : current)));
+                Fixtures.Read(request.RequestUri!.Query.Contains("archived=true", StringComparison.Ordinal) ? archived : current)));
 
     public async Task<IReadOnlyList<SourceItem>> FetchAsync(DateTimeOffset? since = null)
     {

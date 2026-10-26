@@ -132,6 +132,45 @@ public sealed class SessionSyncSessionTests
     }
 
     /// <summary>
+    /// The Claude desktop app's facts — whether it archived the session, the scheduled
+    /// task it is a run of, the name its sidebar shows — are this machine's reading of
+    /// another application's store and are on no whitelist. A session carrying them
+    /// pushes the same record, byte for byte, as the session without them.
+    /// </summary>
+    [Fact]
+    public async Task The_desktop_record_facts_never_change_the_pushed_record()
+    {
+        using var plain = Fixture.Create(sessions: [AgentSessions.Local()]);
+        using var stamped = Fixture.Create(sessions:
+        [
+            AgentSessions.Local() with { Archived = false, ScheduledTask = "nightly-sweep", DesktopTitle = "DESIGN: Finance app design" }
+        ]);
+
+        await plain.Session.PushAsync(TestContext.Current.CancellationToken);
+        await stamped.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(plain.PushedRecord().GetRawText(), stamped.PushedRecord().GetRawText());
+        Assert.DoesNotContain("nightly-sweep", stamped.LastBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("archived", stamped.LastBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Finance app design", stamped.LastBody, StringComparison.Ordinal);
+    }
+
+    /// <summary>The mapping itself, below the push: the desktop app's sidebar name never
+    /// becomes the record's title, which stays the session's own.</summary>
+    [Fact]
+    public void The_sidebar_title_never_reaches_the_mapped_record()
+    {
+        var session = AgentSessions.Local();
+        var aliases = new StubSessionRepositoryAliases();
+
+        var plain = SessionRecordMapping.ToRecord(session, aliases, activity: null);
+        var stamped = SessionRecordMapping.ToRecord(session with { DesktopTitle = "DESIGN: Finance app design" }, aliases, activity: null);
+
+        Assert.Equal(session.Title, stamped.Title);
+        Assert.Equal(JsonSerializer.Serialize(plain), JsonSerializer.Serialize(stamped));
+    }
+
+    /// <summary>
     /// The thirteenth whitelisted field is the machine id, and the pushing device does
     /// not send it: the service stamps it from the token. There is no field to set,
     /// which is what makes "a caller may only write records stamped with its own

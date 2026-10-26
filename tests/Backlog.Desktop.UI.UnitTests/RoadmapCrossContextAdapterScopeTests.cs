@@ -121,6 +121,32 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
     }
 
     [Fact]
+    public async Task A_roadmap_item_planned_in_one_scope_is_announced_by_the_tag_source_of_another()
+    {
+        // Roadmap Planning saves from its band's scope; the task list holds the tag
+        // source from its own. The change has to cross, or the Goals view's attach
+        // search offers the new item only after a reload.
+        using var provider = BuildHostLikeProvider();
+        using var listScope = provider.CreateScope();
+        using var bandScope = provider.CreateScope();
+
+        var tagSource = listScope.ServiceProvider.GetRequiredService<IRoadmapTagSource>();
+        var announced = 0;
+        tagSource.Changed += () => Interlocked.Increment(ref announced);
+
+        var added = await bandScope.ServiceProvider.GetRequiredService<IRoadmapPlanning>().AddItemAsync(
+            "QA472 stale",
+            new DateOnly(2026, 10, 19),
+            new DateOnly(2026, 10, 23),
+            tag: "qa472-stale",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(added.IsSuccess);
+        Assert.True(announced > 0);
+        Assert.Contains("+qa472-stale", await tagSource.TagsInUseAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task A_host_without_agent_activity_still_resolves_the_actual_hours_and_states_none()
     {
         // This graph composes no Sessions activity, as a host without Sessions would

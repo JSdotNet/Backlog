@@ -71,7 +71,7 @@ Enforced at: `AgentSessionStates.Of()`, `SessionRecordMapping` (no state on the 
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.A_transcript_becomes_a_finished_session_with_the_folder_it_states, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.A_copilot_session_updated_moments_ago_is_running]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.A_transcript_becomes_a_finished_session_with_the_folder_it_states, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.A_copilot_session_updated_moments_ago_is_running, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.An_open_session_keeps_the_state_its_liveness_evidence_gives_it]
 ```
 
 A session reads Running or Stalled only on evidence that it is live, recent activity counting as that evidence, and reads Finished without it.
@@ -107,19 +107,20 @@ Enforced at: each reader, with no single point: `CopilotSessionReader` and `Clau
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionToolsTests.A_capped_list_carries_what_it_dropped_and_what_it_could_not_read, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.Only_the_most_recent_claude_sessions_are_read_and_the_rest_are_counted, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.A_list_that_fits_is_not_reported_as_capped]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionToolsTests.A_capped_list_carries_what_it_dropped_and_what_it_could_not_read, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.Only_the_most_recent_claude_sessions_are_read_and_the_rest_are_counted, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.A_list_that_fits_is_not_reported_as_capped, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_capped_subtitle_names_the_older_open_sessions_apart]
 ```
 
 A reading that describes fewer sessions than exist says how many exist.
+It also says how many of the sessions it lists are open ones older than the newest session the limit dropped, so "the most recent" stays true of the rest.
 
-Enforced at: `AgentSessionCatalog` (`Discovered`, `Capped`)
+Enforced at: `AgentSessionCatalog` (`Discovered`, `Capped`, `OpenBeyondCap`)
 
 ### Invariant: Completeness ignores the view
 
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionToolsTests.A_filtered_list_still_reports_the_catalog_s_own_truncation, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.A_capped_list_names_both_numbers]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SessionToolsTests.A_filtered_list_still_reports_the_catalog_s_own_truncation, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_capped_list_names_both_numbers]
 ```
 
 The log's completeness counts only what the reading dropped, never the rows the reader's `Session View` removes.
@@ -165,6 +166,33 @@ A replicated session record carries exactly the fields in [the published list](d
 That is the whole reason a record may leave the machine at all (local ADR 0005).
 
 Enforced at: the `SessionRecord` wire contract, which only `SessionRecordMapping.ToRecord()` builds
+
+### Invariant: The desktop record's facts never travel
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.The_desktop_record_facts_never_change_the_pushed_record, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.SessionSyncSessionTests.The_sidebar_title_never_reaches_the_mapped_record, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.A_record_keeps_no_desktop_record_facts, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.CompositeAgentSessionSourceTests.Only_a_local_answer_carries_the_desktop_record]
+```
+
+A session's archived flag, scheduled task and sidebar title never leave the machine, are never kept on its session record, and are never carried by a Recorded or Replicated answer.
+They describe this machine's Claude desktop app, which no other machine and no later reading can ask.
+
+Enforced at: `SessionRecordMapping.ToRecord()` (no field for any of them; the record's title is the session's own), `AgentSessionRecordStore`, `CompositeAgentSessionSource.LocalFactsOnly()`
+
+### Invariant: A session row is called what the desktop app calls it
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_session_the_desktop_app_names_is_called_by_its_sidebar_name, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionAssistantSessionSourceTests.A_session_the_desktop_app_names_arrives_under_its_sidebar_name, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ClaudeDesktopSessionReaderTests.The_sidebar_title_is_read_from_the_records_top_level, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.A_session_with_no_desktop_record_is_neither_archived_nor_open]
+```
+
+A session row's title is the session's sidebar title where its desktop record names one, and the session's own display title otherwise.
+The session's display title is not changed by it.
+The Dashboard's longest sessions name a session the same way; every other surface, the MCP server's included, names it by its display title.
+
+Enforced at: `SessionRow.Title`, `AgentSessionAssistantSessionSource` (the longest sessions), `ClaudeDesktopSessionReader` (a blank or absent `title` reads null), `ClaudeSessionReader.Stamped()`
 
 ### Invariant: A session record is added to and never taken from
 
@@ -216,6 +244,32 @@ A reading since a horizon describes every session active at or after it, however
 A count taken over the newest sessions per agent would read the limit back as a total.
 
 Enforced at: `AgentSessionQuery.Since()`, which the readers answer uncapped
+
+### Invariant: An open session is never dropped by the session limit
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.An_open_session_beyond_the_cap_is_still_listed_and_an_archived_one_is_not, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.A_timestamps_reading_lists_the_same_sessions_open_ones_included, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.The_catalog_counts_the_open_sessions_listed_only_because_they_are_open, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.CompositeAgentSessionSourceTests.The_open_sessions_past_the_cap_are_still_counted_after_the_merge]
+```
+
+A list reading describes every Claude session the desktop app holds open, however far down the newest sessions it sits.
+Open sessions are read beside the limit rather than inside it, so the newest sessions the limit keeps are the same with or without them.
+
+Enforced at: `ClaudeSessionReader.ReadAsync()`, which sets the open transcripts apart before it works out the room the limit leaves
+
+### Invariant: Unknown is never open
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ClaudeDesktopSessionReaderTests.A_record_without_the_flag_reads_null_not_false, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentSessionSourceTests.A_session_with_no_desktop_record_is_neither_archived_nor_open, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.CompositeAgentSessionSourceTests.Only_a_local_answer_carries_the_desktop_record, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.The_open_view_never_keeps_an_archived_unknown_or_run_only_row]
+```
+
+A session's archived flag is read from its desktop record and never derived from its state, and a session with no desktop record, or a record that states no flag, has none.
+A session with no flag is never open.
+
+Enforced at: `ClaudeDesktopSessionReader` (an absent `isArchived` reads null), `ClaudeSessionReader.Stamped()`, `CompositeAgentSessionSource.LocalFactsOnly()`
 
 ### Invariant: A human turn is kept as its instant alone
 
@@ -664,12 +718,37 @@ related: [.devbook/domain/sessions/domain.md#session-view]
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.AgentSessionViewTests.Filtering_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Desktop.UI.UnitTests.AgentSessionEnvironmentTests.Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.Grouping_moves_a_narrowed_lists_rows_and_removes_none]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.Filtering_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_a_narrowed_lists_rows_and_removes_none]
 ```
 
 Every narrowing of the session list is applied before the list is grouped, never after, so an environment with nothing left in it loses its section rather than keeping an empty one.
 
 Enforced at: the Sessions pane's derived view (`SessionsPane.View`), which hands `AgentSessionGroups.Of()` only what the narrowings kept
+
+### Invariant: Open admits on the desktop record, never on state
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.The_open_view_keeps_exactly_the_unarchived_rows_whatever_their_state, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.An_open_finished_session_is_not_live, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.The_views_are_live_open_and_all_in_that_order]
+```
+
+The Open view keeps exactly the rows whose session's archived flag is false, whatever their `Session State`, and an open Finished row is never live.
+
+Enforced at: `AgentSessionViews.Of()` and `AgentSessionViews.IsOpen()`; `AgentSessionViews.IsLive()` reads state alone
+
+### Invariant: An Idle row still reads Finished
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.An_open_finished_row_reads_idle_in_open_and_finished_everywhere_else
+```
+
+The Idle badge is drawn only in the Open view, only on an open Finished row, and its title and screen-reader text still say Finished.
+It is a note on the desktop record, not a fourth state.
+
+Enforced at: `SessionsPane.IsIdle()` and `SessionsPane.IdleTitle`
 
 ## Session Grouping
 
@@ -686,19 +765,19 @@ related: [.devbook/domain/sessions/domain.md#session-grouping]
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.AgentSessionGroupTests.Every_grouping_carries_every_session, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionListTests.The_new_groupings_carry_every_row, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneTests.Grouping_moves_rows_and_removes_none]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Every_grouping_carries_every_session, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionListTests.The_new_groupings_carry_every_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Scheduled_rows_close_the_list_in_one_section_of_their_own]
 ```
 
 Every row handed to a grouping comes out in exactly one of its sections, so a count taken before grouping is still correct after it.
 
-Enforced at: `AgentSessionGroups.Of()`, which closes the Repository grouping with a "No repository" section rather than leave those rows out
+Enforced at: `AgentSessionGroups.Of()`, which closes the Repository grouping with a "No repository" section rather than leave those rows out; `AgentSessionGroups.ScheduledApart()`, which moves the scheduled rows into one section and drops none
 
 ### Invariant: An environment is told apart by its id
 
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.AgentSessionGroupTests.Two_environments_sharing_a_name_are_two_sections, unit:dotnet:Backlog.Desktop.UI.UnitTests.AgentSessionEnvironmentTests.A_renamed_machine_is_one_environment_under_its_newest_name, unit:dotnet:Backlog.Desktop.UI.UnitTests.AgentSessionEnvironmentTests.Narrowing_is_on_the_id_and_not_the_name]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Two_environments_sharing_a_name_are_two_sections, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.A_renamed_machine_is_one_environment_under_its_newest_name, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.Narrowing_is_on_the_id_and_not_the_name]
 ```
 
 Grouping and narrowing by environment key on the `EnvironmentId`, never on the display name.
@@ -711,7 +790,7 @@ Enforced at: `AgentSessionGroups.Of()` (the Environment grouping), `AgentSession
 ```meta
 status: draft
 type: invariant
-tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionListTests.By_when_days_are_counted_on_the_readers_clock
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionListTests.By_when_days_are_counted_on_the_readers_clock
 ```
 
 Only the When grouping reads a clock and a time zone, and both are handed in: the reader's zone, and the moment the list was read rather than the moment it is drawn.

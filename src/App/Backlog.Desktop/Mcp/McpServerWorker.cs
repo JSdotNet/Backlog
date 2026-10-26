@@ -260,6 +260,40 @@ public sealed class McpServerWorker : IDisposable
         _lifetime.Dispose();
     }
 
+    /// <summary>
+    /// Tries the configured port again after a bind that failed — the Settings
+    /// page's Retry, for the person who has just closed whatever held the port.
+    /// <para>
+    /// Not a second way to start: it does nothing while a listener is current,
+    /// running or still being built, and nothing once the worker is disposed. A
+    /// listener that is running is left alone for the reason <see cref="ApplyGates"/>
+    /// gives — a click is no reason to drop a session mid-call. Only the state a
+    /// failure leaves behind, no slot at all, is one this can act on, and then it
+    /// queues the start on <see cref="_pending"/> exactly as a port change does, so
+    /// it never builds or binds on the thread that clicked.
+    /// </para>
+    /// <para>
+    /// The same port, never another: §1's "not retried on another port" is about
+    /// which port, not about how many times. <see cref="LastError"/> is cleared
+    /// as the attempt is queued, so a screen can say it is trying instead of
+    /// going on showing the last failure as if nothing had happened; a second
+    /// failure sets the same sentence again.
+    /// </para>
+    /// </summary>
+    public void Retry()
+    {
+        lock (_gate)
+        {
+            if (_disposed || _listener is not null) return;
+
+            LastError = null;
+            var starting = _listener = new Listener(_settings.McpServerPort);
+            _pending = Continue(_pending, releasing: null, starting);
+        }
+
+        Changed?.Invoke();
+    }
+
     private void OnGateChanged() => ApplyGates();
 
     /// <summary>

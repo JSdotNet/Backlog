@@ -58,7 +58,11 @@ public class BacklogMcpToolsTests
                 "update_stage",
                 "finish_run",
                 "list_runs",
-                "get_run"
+                "get_run",
+
+                // Progress's impediments, beside set_blocked (local ADR 0035).
+                "raise_impediment",
+                "set_impediment_state"
             ],
             BacklogMcpTools.ToolNames);
     }
@@ -78,6 +82,8 @@ public class BacklogMcpToolsTests
         Assert.Equal(DevbookFeatures.RepositoryDevbook, BacklogMcpTools.Devbook.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
+        // Progress has no switch: its impediment tools ride the always-on Tasks key.
+        Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Impediments.FeatureKey);
     }
 
     /// <summary>
@@ -101,8 +107,10 @@ public class BacklogMcpToolsTests
     /// does not stop at the reads.
     /// </para>
     /// <para>
-    /// What does still hold is that no key crosses a bounded context: the keys
-    /// the six groups name are four, one per context that answers here.
+    /// No key crosses a bounded context but one: the Tasks key also gates Progress's
+    /// impediment tools, because Progress has no switch of its own — goals are always
+    /// on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
+    /// keys the seven groups name are four.
     /// </para>
     /// </summary>
     [Fact]
@@ -114,8 +122,10 @@ public class BacklogMcpToolsTests
 
         Assert.Equal(4, byKey.Count);
 
+        // The impediment tools are Progress's, which has no switch of its own: goals are
+        // always on, so they ride the Tasks key, which cannot be turned off either.
         Assert.Equal(
-            [BacklogMcpTools.Work, BacklogMcpTools.Tracker],
+            [BacklogMcpTools.Work, BacklogMcpTools.Tracker, BacklogMcpTools.Impediments],
             byKey[TasksFeatures.Tasks]);
 
         Assert.Equal(
@@ -210,7 +220,9 @@ public class BacklogMcpToolsTests
             SurfaceTools.RecordPrompt,
             SurfaceTools.SetRunContext,
             SurfaceTools.UpdateStage,
-            SurfaceTools.FinishRun
+            SurfaceTools.FinishRun,
+            ImpedimentTools.RaiseImpediment,
+            ImpedimentTools.SetImpedimentState
         ];
 
         // The writes a client may safely repeat, and which ones is not guessable

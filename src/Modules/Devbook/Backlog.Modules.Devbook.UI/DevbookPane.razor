@@ -926,13 +926,13 @@
         });
     }
 
-    /// <summary>A domain row's leading mark: the scenario glyph and its run's dot,
-    /// on a scenario page, and nothing on any other row.</summary>
+    /// <summary>A domain row's leading mark: the scenario glyph and its journeys' dot,
+    /// on a scenarios file, and nothing on any other row.</summary>
     private RenderFragment? MenuNodeMark(DevbookMenuNode node) =>
         node.Kind != DevbookMenuNodeKind.Folder
         && string.Equals(node.AreaKey, "domain", StringComparison.Ordinal)
-        && _scenarios.ForPath(node.Path) is { } scenario
-            ? @<DevbookScenarioMark Scenario="@scenario" />
+        && _scenarios.ForPath(node.Path) is { Count: > 0 } journeys
+            ? @<DevbookScenarioMark Journeys="@journeys" />
             : null;
 
     /// <summary>

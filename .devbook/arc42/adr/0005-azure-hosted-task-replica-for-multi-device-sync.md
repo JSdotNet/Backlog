@@ -1,7 +1,7 @@
 # ADR 0005: An Azure-hosted task replica carries multi-device sync; the local store stays canonical
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/11-risks-and-technical-debt.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/dependencies.md", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.md#device"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/07-deployment-view.md#provisioning-and-delivery", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/11-risks-and-technical-debt.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/dependencies.md", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.md#device"]
 ```
 
 ## Status
@@ -924,6 +924,44 @@ so no cloud account is required to build or test the sync path.
 Indicative cost at single-user volume: Cosmos serverless a few cents per month,
 Container Apps zero while scaled to zero, Key Vault and Log Analytics within
 free grants. Well under €5/month.
+
+### Version compatibility
+
+The service ships by hand and the desktop and the phone from their own tags, so
+the service can move its contract past an app still installed somewhere. An app
+that went on syncing against it would lose the fields it does not know. **The
+service's version alone decides whether an app may sync.**
+
+*Amended 2026-10-21: the infrastructure still ships by hand, but the service now
+ships with every Release All run, under the number the desktop and the phone
+carry (`.devbook/arc42/07-deployment-view.md#release`). That number is not the
+version below, and a release never moves the version. The reasoning stands,
+because an app installed from an older release can still meet a newer service.*
+
+- **The service says its version.** The anonymous root, `GET /`, reports it as
+  `version`. The number is the `<Version>` in `Backlog.Modules.Sync.Api.csproj`,
+  not the SDK default. *Amended 2026-10-21:* beside it, `GET /` reports the
+  release the service was deployed under as `release`, stamped by Release All
+  through the MSBuild property `BacklogRelease`, and null on a service deployed
+  any other way. No client reads `release` to decide whether to sync.
+- **The app compares before it sends.** Each sync client compares that number with
+  its own app version, part by part, a missing part counting as zero. While the
+  service's is higher, the client sends nothing, the token request included. It
+  answers each request itself with a 426 `sync.client_outdated`, so every caller
+  reads it as it reads any other failure, and the person reads "Update Backlog to
+  keep syncing."
+- **Nothing waiting is lost.** The desktop's watermarks and cursors stay where they
+  were, and the phone's outbox holds its entries rather than refusing them.
+- **The verdict is asked again.** It is kept per service address for ten minutes, so
+  a service rolled back to a version the app matches is synced with again without a
+  restart.
+- **An unreadable answer stops nothing.** A root that does not answer, or reports a
+  version the app cannot read, leaves sync as it was before the check, and is asked
+  again after a minute.
+- **Raising `<Version>` is the breaking change.** It is raised on purpose, in the
+  change that breaks older clients, and the deploy then stops every client below it.
+  The service is deployed before the first client release that carries the check
+  (`.devbook/arc42/07-deployment-view.md#provisioning-and-delivery`).
 
 ## Consequences
 

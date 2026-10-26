@@ -117,36 +117,37 @@ related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbo
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ScenarioPartChecklistTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.Scenario_parts_are_an_acceptance_checklist_with_how_many_pass, unit:dotnet:Backlog.Desktop.UI.UnitTests.EntryDevbookReferencesTests.A_failed_part_names_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.DevbookReferenceResolverTests.A_failed_part_carries_the_step_its_run_stopped_on, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DevbookReferenceToolsTests.Listing_answers_every_part_state_and_the_failed_step, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_task_referencing_the_parts_shows_the_acceptance_checklist]
 ```
 
-A task can point at the parts of a scenario page that prove it. A scenario page is
-one end-to-end journey in the repository's devbook, and each of its parts is an
-outcome the journey reaches. The task points at a part as `<page>.md#<part>`, the
-way it points at any chapter. It can also point at the whole page, which stands for
-every part, or at a requirement, which stands for the parts its `Proved by:` lines
-name. A part reached two ways counts once.
+A task can point at the parts of a journey that prove it. A journey is one
+end-to-end walk, a `##` chapter of a context's scenarios file in the repository's
+devbook, and each of its `###` parts is an outcome the journey reaches. The task
+points at a part as `<scenarios file>#<part>`, the way it points at any chapter. It
+can also point at a journey, or at the whole scenarios file, which stand for every
+part they hold. A requirement stands for the parts its `Proved by:` lines name. A
+part reached two ways counts once.
 
 The open task lists these parts under its Devbook references as an acceptance
 checklist headed "Acceptance · scenario parts". Each row shows the part's dot and the
-part. A quieter line under it names the page by its stem, the file name that also
-names the run folder, and says when the page last ran, as
+part. A quieter line under it names the journey by its anchor, which also names the
+run folder, and says when the journey last ran, as
 "place-an-order · 14 Oct 2026 09:30". A part that never ran says "Never run" there
 instead. A failed part whose run recorded the step it stopped on adds that step, as
 "· step 2". The list says how many parts pass and whether that proves the task, as
 "2 of 3 passing · not proved" or "3 of 3 passing · proved". A part reads as passed
-only when its last run passed on the page as it stands now. A part that passed before
-the page was edited is stale, because the run proved a different page. A stale part
-shows no step, because the step numbers an older text of the page.
+only when its last run passed on the journey as it stands now. A part that passed
+before the journey was edited is stale, because the run proved a different journey.
+A stale part shows no step, because the step numbers an older text of the journey.
 
-Pressing a part opens its scenario page in the Devbook pane at that part. The part is
+Pressing a part opens its scenarios file in the Devbook pane at that part. The part is
 marked as the one asked for and scrolled into view, and it stays marked until the
 reader picks another chapter or opens another reference. Pressing the same part again
-scrolls to it again. A part the page no longer has opens the page and marks nothing.
+scrolls to it again. A part the file no longer has opens the file and marks nothing.
 
 When every part passes, the task says it is proved. Being proved is a signal and
 nothing more: the task keeps its status until a person moves it. A green run is
 evidence for deciding that the work is done, and the decision stays with the person.
 
 A task's own text can show a scenario screenshot. An image written
-`scenario:<stem>#<label>` in the text a task opens with, or in a step's note, shows
+`scenario:<scenarios file>#<label>` in the text a task opens with, or in a step's note, shows
 the capture from the journey's last run with its source line, exactly as a chapter
 shows it ([Rendered devbook documents](../devbook/features.md#rendered-devbook-documents)).
 It is resolved against the repository the task's Devbook references open in. Any
@@ -484,6 +485,24 @@ their waiting lines disappearing.
 and [dependency loops are named rather than broken](domain.invariants.md#invariant-every-task-in-a-dependency-loop-reads-blocked);
 [Dependency](domain.md#dependency) says why.
 
+### Marking a task blocked
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md]
+```
+
+Mark a task blocked by hand when something outside the backlog holds it up. This is
+a different fact from Readiness, which reads blocked from `depends_on`. The mark is the
+`blocked:` token on the task's metadata line, with the day it was set, and an agent
+sets or clears it with the `set_blocked` tool. Removing the token unblocks the task.
+
+Marking a task blocked
+[raises a New impediment that holds it back](../progress/features.md#raising-an-impediment-from-a-blocked-task),
+unless an open impediment already holds it back. Progress reacts to the mark. The task
+stores no impediment id, and Tasks never calls Progress.
+
 ## Multi-repo targeting
 
 ```meta
@@ -661,7 +680,7 @@ and [a sync never creates a Roadmap Item](requirements.md#requirement-a-sync-nev
 type: feature
 status: draft
 related: [.devbook/domain/devbook/features.md#bi-directional-linking, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/design/interaction-guidelines.md#shell-header, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/devbook/features.md#brain-scope, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_board_view_lays_the_tasks_out_in_columns_under_the_filter_bar_and_is_remembered_with_its_columns, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_calendar_view_lays_the_tasks_out_on_a_month_under_the_filter_bar_and_is_remembered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_view_is_remembered_and_a_fresh_shell_instance_reopens_on_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_scope_comes_back_anchor_first_with_the_devbook_option_offered, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_repository_no_longer_configured_is_dropped, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_remembered_plural_scope_restored_onto_the_roadmap_collapses_to_the_anchor, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeRepositoryScopeTests.A_scope_change_is_remembered_and_every_repository_writes_no_key, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_pressed_plan_can_be_copied_as_its_tag, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.No_plan_and_general_tags_offer_no_plan_to_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.Pressing_a_plan_further_along_the_strip_leads_it_with_its_copy, unit:dotnet:Backlog.Desktop.UI.UnitTests.TagFilterTests.A_plan_press_hands_the_focus_back_to_the_moved_chip]
 ```
 
 Find and narrow the backlog:
@@ -711,6 +730,16 @@ no due date, narrow by type the way the list does. The filter bar belongs to
 these three and to nothing else in the shell. The app reopens on the view last
 chosen, and on Tasks when nothing was remembered. The Inbox and the Devbook open
 beside any of them.
+
+The tags on the filter bar sit in one strip, one row high, and the strip shows a
+**More** toggle only while its tags overflow that row. A pressed
+[plan](../roadmap/domain.md#roadmap-tag) leads the strip, whether the reader
+pressed it on the bar or arrived with it pressed from the roadmap. The plan
+carries a copy button fused to its chip, which copies the plan tag verbatim,
+`+` and all, so the reader can paste the plan's name elsewhere. **No plan** and
+the general tags offer no copy, and a plan offers none once it is let go. When
+the reader presses a plan further along the strip, the plan moves to the front
+with its copy, and the focus stays on the moved chip.
 
 ### Manual ordering
 

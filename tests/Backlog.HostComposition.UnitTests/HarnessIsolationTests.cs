@@ -3,6 +3,7 @@ extern alias DesktopHarness;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
 using Backlog.SharedKernel;
@@ -53,6 +54,7 @@ public class HarnessIsolationTests
             // HarnessIsolation sets beside these.
             services.GetRequiredService<WorkingHoursSettingsStore>().SettingsPath,
             services.GetRequiredService<MyDayPreferencesStore>().SettingsPath,
+            services.GetRequiredService<IterationSettingsStore>().SettingsPath,
             services.GetRequiredService<ShellNavigationStore>().SettingsPath,
             services.GetRequiredService<PullRequestPinsStore>().SettingsPath,
             services.GetRequiredService<ClaudeSettingsStore>().SettingsPath,

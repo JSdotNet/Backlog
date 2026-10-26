@@ -14,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The weekly usage reset, on the Dashboard's own settings section.
+/// The named weekly usage resets, on the Dashboard's own settings section.
 /// <para>
 /// Asserted against the store rather than against what the row is showing,
 /// because the store is what the dashboard reads. The section is the Dashboard's
@@ -25,58 +25,190 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class DashboardSettingsTests
 {
-    /// <summary>Nothing set opens as "Not set" with the time disabled, and says what
-    /// stands in: detection, then the calendar.</summary>
+    /// <summary>An empty list says so in a sentence, and what stands in meanwhile:
+    /// detection, then the calendar.</summary>
     [Fact]
-    public void The_usage_reset_opens_unset_and_says_detection_stands_in()
+    public void The_usage_resets_open_empty_and_say_detection_stands_in()
     {
         using var section = RenderSection();
 
-        Assert.True(section.Component.Find("[data-testid='usage-reset-time']").HasAttribute("disabled"));
-        Assert.Contains("uses the reset it detects", section.Component.Find("[data-testid='usage-reset-status']").TextContent, StringComparison.Ordinal);
+        Assert.Empty(section.Component.FindAll("[data-testid='usage-reset-row']"));
+        Assert.Contains(
+            "No reset yet. The dashboard uses the reset it detects from your assistant's records, or calendar weeks.",
+            Squashed(section.Component.Find("[data-testid='usage-reset-empty']").TextContent),
+            StringComparison.Ordinal);
+        Assert.Empty(section.Component.FindAll("[data-testid='usage-reset-clear-button']"));
     }
 
-    /// <summary>Picking a day sets the reset at once, at the assistant's usual two in
-    /// the afternoon, and the time can then be changed and is stored straight away.</summary>
+    /// <summary>Adding a reset stores a whole one at once - the next free name, at the
+    /// assistant's usual Monday afternoon - and takes the focus to its name.</summary>
     [Fact]
-    public void Picking_a_day_sets_the_reset_and_the_time_is_stored_on_change()
+    public void Adding_a_reset_stores_the_next_free_account_and_focuses_its_name()
     {
         using var section = RenderSection();
 
-        section.Component.Find("[data-testid='usage-reset-day'] select").Change("Monday");
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
 
-        Assert.Equal(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0)), section.UsageReset.Current);
+        var added = Assert.Single(section.UsageReset.Resets);
+        Assert.Equal("Account 1", added.Name);
+        Assert.Equal(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0)), added.Reset);
+        Assert.Equal("Account 1", section.Component.Find("[data-testid='usage-reset-name']").GetAttribute("value"));
         Assert.Equal("14:00", section.Component.Find("[data-testid='usage-reset-time']").GetAttribute("value"));
+        Assert.Empty(section.Component.FindAll("[data-testid='usage-reset-empty']"));
 
+        var focus = section.TestContext.JSInterop.VerifyInvoke("backlogFocus");
+        Assert.Equal($"usage-reset-name-{added.Id}", focus.Arguments[0]);
+
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
+
+        Assert.Equal(["Account 1", "Account 2"], section.UsageReset.Resets.Select(reset => reset.Name));
+    }
+
+    /// <summary>A row's name, day and time each commit on their own - the typed fields
+    /// on change, which is blur or Enter - and keep the rest of the row.</summary>
+    [Fact]
+    public void A_rows_name_day_and_time_are_stored_on_change()
+    {
+        using var section = RenderSection();
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
+
+        section.Component.Find("[data-testid='usage-reset-name']").Change("Work");
+        section.Component.Find("[data-testid='usage-reset-day'] select").Change("Tuesday");
         section.Component.Find("[data-testid='usage-reset-time']").Change("21:00");
 
-        Assert.Equal(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(21, 0)), section.UsageReset.Current);
-        Assert.Contains("Weeks run from Monday 21:00", section.Component.Find("[data-testid='usage-reset-status']").TextContent, StringComparison.Ordinal);
+        var reset = Assert.Single(section.UsageReset.Resets);
+        Assert.Equal("Work", reset.Name);
+        Assert.Equal(new UsageWeekReset(DayOfWeek.Tuesday, new TimeOnly(21, 0)), reset.Reset);
+        Assert.Contains("Weeks run from Tuesday 21:00", section.Component.Find("[data-testid='usage-reset-status']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
     public void A_time_that_does_not_read_is_refused_and_the_reset_in_force_stays()
     {
         using var section = RenderSection();
-        section.Component.Find("[data-testid='usage-reset-day'] select").Change("Tuesday");
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
 
         section.Component.Find("[data-testid='usage-reset-time']").Change("half past");
 
-        Assert.Equal(new UsageWeekReset(DayOfWeek.Tuesday, new TimeOnly(14, 0)), section.UsageReset.Current);
+        Assert.Equal(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0)), Assert.Single(section.UsageReset.Resets).Reset);
         Assert.Equal("Give the reset a time, as HH:mm.", section.Component.Find("[data-testid='usage-reset-status']").TextContent.Trim());
     }
 
+    /// <summary>A name another reset already has, in any case, is refused on the
+    /// status line; the typed text stays in the field to be corrected, and the name in
+    /// force stays in the store.</summary>
+    [Theory]
+    [InlineData("account 1", "There is already a reset called account 1.")]
+    [InlineData("   ", "Give the reset a name.")]
+    public void A_duplicate_or_blank_name_is_refused_and_the_name_in_force_stays(string typed, string reason)
+    {
+        using var section = RenderSection();
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
+
+        section.Component.FindAll("[data-testid='usage-reset-name']")[1].Change(typed);
+
+        Assert.Equal(["Account 1", "Account 2"], section.UsageReset.Resets.Select(reset => reset.Name));
+        Assert.Equal(reason, section.Component.Find("[data-testid='usage-reset-status']").TextContent.Trim());
+
+        var field = section.Component.FindAll("[data-testid='usage-reset-name']")[1];
+        Assert.Equal(typed, field.GetAttribute("value"));
+        Assert.Contains("setting__input--error", field.ClassList);
+    }
+
+    /// <summary>With two resets, the one the dashboard cuts by says so; with one there
+    /// is nothing to tell apart. A pick made elsewhere - the Sessions tab, while this
+    /// page sits hidden - moves the mark without the page being opened again.</summary>
     [Fact]
-    public void Clearing_the_reset_hands_the_week_back_to_detection()
+    public void The_reset_in_use_is_marked_once_there_are_two()
+    {
+        using var section = RenderSection();
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
+
+        Assert.Empty(section.Component.FindAll("[data-testid='usage-reset-in-use']"));
+
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
+
+        Assert.Single(section.Component.FindAll("[data-testid='usage-reset-row']")[0].QuerySelectorAll("[data-testid='usage-reset-in-use']"));
+
+        // The pick the Sessions tab makes, straight on the store.
+        _ = section.UsageReset.Select(section.UsageReset.Resets[1].Id);
+
+        section.Component.WaitForAssertion(() =>
+            Assert.Single(section.Component.FindAll("[data-testid='usage-reset-row']")[1].QuerySelectorAll("[data-testid='usage-reset-in-use']")));
+
+        var rows = section.Component.FindAll("[data-testid='usage-reset-row']");
+        Assert.Empty(rows[0].QuerySelectorAll("[data-testid='usage-reset-in-use']"));
+        Assert.Equal("Cuts the dashboard's weeks", rows[1].QuerySelector("[data-testid='usage-reset-in-use']")!.TextContent.Trim());
+        Assert.Contains("Account 2 cuts the dashboard's weeks", section.Component.Find("[data-testid='usage-reset-status']").TextContent, StringComparison.Ordinal);
+
+        // Remove is the last thing in the row, and the badge is not a column of it but a
+        // line of its own ahead of the controls, so the row with it lays out like the
+        // row without.
+        Assert.Equal("usage-reset-remove-button", rows[1].QuerySelectorAll("[data-testid]")[^1].GetAttribute("data-testid"));
+        Assert.Equal("usage-reset-in-use", rows[1].QuerySelectorAll("[data-testid]")[0].GetAttribute("data-testid"));
+        Assert.Contains("dashboard-usage-reset-row__badge", rows[1].QuerySelector("[data-testid='usage-reset-in-use']")!.ClassList);
+    }
+
+    /// <summary>Removing every reset hands the week back to detection: the file goes,
+    /// and the list says it is empty again.</summary>
+    [Fact]
+    public void Removing_the_last_reset_hands_the_week_back_to_detection()
+    {
+        using var section = RenderSection();
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
+
+        section.Component.Find("[data-testid='usage-reset-remove-button']").Click();
+
+        Assert.Empty(section.UsageReset.Resets);
+        Assert.Null(section.UsageReset.Current);
+        Assert.False(File.Exists(section.UsageReset.SettingsPath));
+        Assert.NotNull(section.Component.Find("[data-testid='usage-reset-empty']"));
+    }
+
+    /// <summary>Add a reset belongs to the whole card, so it sits in the card's action
+    /// corner rather than under the last row.</summary>
+    [Fact]
+    public void Add_a_reset_is_the_cards_action()
     {
         using var section = RenderSection();
 
-        section.Component.Find("[data-testid='usage-reset-day'] select").Change("Friday");
-        section.Component.Find("[data-testid='usage-reset-clear-button']").Click();
+        Assert.NotNull(section.Component.Find("[data-testid='usage-reset-settings'] .settings-card__action [data-testid='usage-reset-add-button']"));
+    }
 
-        Assert.Null(section.UsageReset.Current);
-        Assert.True(section.Component.Find("[data-testid='usage-reset-clear-button']").HasAttribute("disabled"));
-        Assert.True(section.Component.Find("[data-testid='usage-reset-time']").HasAttribute("disabled"));
+    /// <summary>Each row's fields say whose they are, so tabbing through two rows does
+    /// not hear the same names twice.</summary>
+    [Fact]
+    public void Each_rows_fields_are_named_for_their_row()
+    {
+        using var section = RenderSection();
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
+        section.Component.Find("[data-testid='usage-reset-add-button']").Click();
+
+        Assert.Equal(
+            ["Reset name, row 1", "Reset name, row 2"],
+            section.Component.FindAll("[data-testid='usage-reset-name']").Select(field => field.GetAttribute("aria-label")));
+        Assert.Equal(
+            ["Account 1 resets at", "Account 2 resets at"],
+            section.Component.FindAll("[data-testid='usage-reset-time']").Select(field => field.GetAttribute("aria-label")));
+        Assert.Equal(
+            ["Account 1 resets on", "Account 2 resets on"],
+            section.Component.FindAll("[data-testid='usage-reset-day'] select").Select(select => select.GetAttribute("aria-label")));
+        Assert.Equal(
+            ["Remove Account 1", "Remove Account 2"],
+            section.Component.FindAll("[data-testid='usage-reset-remove-button']").Select(button => button.GetAttribute("aria-label")));
+    }
+
+    /// <summary>A file a single-reset version wrote opens as one row the person can
+    /// rename.</summary>
+    [Fact]
+    public void A_reset_saved_before_names_opens_as_one_named_row()
+    {
+        using var section = RenderSection("""{ "day": "Monday", "time": "14:00" }""");
+
+        Assert.Equal("Weekly reset", section.Component.Find("[data-testid='usage-reset-name']").GetAttribute("value"));
+        Assert.Equal("14:00", section.Component.Find("[data-testid='usage-reset-time']").GetAttribute("value"));
+        Assert.Contains("Weeks run from Monday 14:00", section.Component.Find("[data-testid='usage-reset-status']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -101,7 +233,7 @@ public sealed class DashboardSettingsTests
         Assert.Equal(["Dashboard", "Working week", "Inbox"], tabs[^3..]);
 
         OpenTab(settings.Component, "Dashboard");
-        settings.Component.Find("[data-testid='usage-reset-day'] select").Change("Monday");
+        settings.Component.Find("[data-testid='usage-reset-add-button']").Click();
 
         Assert.Equal(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0)), settings.UsageReset.Current);
     }
@@ -255,14 +387,26 @@ public sealed class DashboardSettingsTests
             .OfType<SettingsSection>()
             .Single(section => section.Id == id);
 
-    private static SectionRenderContext RenderSection()
+    /// <summary>Whitespace collapsed, because Razor keeps a sentence's line breaks.</summary>
+    private static string Squashed(string text) =>
+        string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static SectionRenderContext RenderSection(string? usageResetFile = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-dashboard-settings-tests", Guid.NewGuid().ToString("n"));
+        var usageResetPath = Path.Combine(root, "usage-reset", "usage-reset.json");
 
-        var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));
+        if (usageResetFile is not null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(usageResetPath)!);
+            File.WriteAllText(usageResetPath, usageResetFile);
+        }
+
+        var usageReset = new UsageResetSettingsStore(usageResetPath);
         var spendBudgets = new SpendBudgetSettingsStore(Path.Combine(root, "spend-budgets", "spend-budgets.json"));
 
         var context = new BunitContext();
+        context.JSInterop.SetupVoid("backlogFocus", _ => true);
         context.Services.AddSingleton<IUsageResetSettings>(usageReset);
         context.Services.AddSingleton<ISpendBudgetSettings>(spendBudgets);
 
@@ -285,6 +429,7 @@ public sealed class DashboardSettingsTests
         var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));
 
         var context = new BunitContext();
+        context.JSInterop.SetupVoid("backlogFocus", _ => true);
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<IWorkingHoursSettings>(

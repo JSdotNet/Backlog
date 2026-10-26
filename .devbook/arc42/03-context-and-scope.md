@@ -9,29 +9,7 @@
 related: [".devbook/arc42/01-introduction-and-goals.md#requirements-overview"]
 ```
 
-```mermaid
-C4Context
-    title System Context — Backlog
-
-    Person(user, "ME", "Personal owner of the system across projects and devices")
-
-    System(promptBacklog, "Backlog", "Local-first personal productivity system: capture, triage, backlog, knowledge, and monitoring")
-
-    System_Ext(github, "GitHub", "Issue tracking, repository management, and webhook events")
-    System_Ext(youtube, "YouTube", "Subscription feed for content capture")
-    System_Ext(email, "Email / IMAP", "Email capture inbox")
-    System_Ext(websites, "Websites / RSS", "Web content monitoring")
-    System_Ext(appInsights, "Application Insights", "Telemetry for monitoring dashboards")
-    System_Ext(pushProvider, "Push Notification Provider", "FCM for Android mobile alerts")
-
-    Rel(user, promptBacklog, "Captures, triages, manages backlog and knowledge")
-    Rel(promptBacklog, github, "Syncs issues; receives webhook events")
-    Rel(promptBacklog, youtube, "Polls subscription feed")
-    Rel(promptBacklog, email, "Ingests via IMAP")
-    Rel(promptBacklog, websites, "Monitors via RSS and DOM diff")
-    Rel(promptBacklog, appInsights, "Reads telemetry signals")
-    Rel(promptBacklog, pushProvider, "Sends push notifications")
-```
+![System Context — Backlog](c4:business-context)
 
 ### Domain boundary: Capture vs. Inbox
 

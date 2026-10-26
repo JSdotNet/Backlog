@@ -475,7 +475,7 @@ Two parts of the contract do less than this record implies. Neither is a
 decision; each is how the code stands on 2026-10-15.
 
 - **spec-manager re-reads the whole open backlog on every sync.** The connector
-  passes the `gewijzigdSinds` (changed since) filter only when it asks for
+  passes the `changedSince` filter only when it asks for
   archived items. The quiet-sync rule (§5) keeps the unchanged tasks from being
   stamped, but every sync still fetches every open item.
 - **Most capability flags drive nothing yet.** The sync and the settings page

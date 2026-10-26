@@ -110,6 +110,11 @@ survives, because the thing that replicates is a record, not an authority:
 `working_folder` is not in the table: it describes one machine's disk and means
 nothing on the other.
 
+The desktop record's archived flag and scheduled task are not in it either. They
+describe this machine's Claude desktop app, and a session record keeps no copy of
+them. `CompositeAgentSessionSource` clears them from every Recorded or Replicated
+answer, so [they never travel](domain.invariants.md#invariant-the-desktop-records-facts-never-travel).
+
 Runs, waits and human turns are instants, the same kind of fact as the activity
 window. A record keeps three cases apart, and a reader never reads an absence as a
 measurement of zero:
@@ -131,7 +136,8 @@ session's time and are not a stream of what it did.
 
 ```meta
 type: entity
-aliases: [AgentSession, session, session_id]
+aliases: [AgentSession, session, session_id, AgentSession.Archived, ScheduledTask, AgentSession.DesktopTitle]
+related: [.devbook/domain/sessions/domain.md#session-view, .devbook/domain/sessions/dependencies.md]
 ```
 
 One working session of one agent. Identified by `Session Identity`, the agent plus
@@ -146,6 +152,23 @@ session stays on the same machine, which is why
 When external activity evidence exists, the
 entity also carries a `Session Activity Stream`, a `Session Enrichment Summary`, and
 a `Reporting Capability` reading for that stream.
+
+A Claude session may also carry three facts from the Claude desktop app's own record of it:
+
+- **archived** says whether the desktop app still holds the session in its sidebar.
+  It is open, archived, or unknown. Unknown means there is no record, or the record
+  states no flag, and [unknown is never open](domain.invariants.md#invariant-unknown-is-never-open).
+- **scheduled task** names the desktop app's routine that the session is a run of. It
+  is not the schedule on a [Session Row](#session-row), which is a delivery run's.
+- **sidebar title** is the name the desktop app's sidebar shows for the session,
+  whether the app, a tool or the person gave it. It is not the display title, which
+  comes from the transcript and is often only the worktree folder's name, and it never
+  replaces it: the display title is what a session record keeps.
+
+The environment reads all three off its own disk and never derives them from `Session
+State`. [None ever travels](domain.invariants.md#invariant-the-desktop-records-facts-never-travel).
+Some running sessions, such as side sessions, have no desktop record, so they are
+never open however live they are.
 
 Its lifecycle is not this context's to run. It appears when an agent first leaves a
 record, and it stops changing when the agent stops writing.
@@ -773,7 +796,8 @@ Every fact read off a row comes from whichever source has it, and the row says n
 either source did not.
 [A run-only row speaks with its run's facts](domain.invariants.md#invariant-a-run-only-row-speaks-with-its-runs-facts):
 a schedule's row is titled by the schedule, since each of its runs cut a worktree
-nobody reopens. [A run-only row is Finished](domain.invariants.md#invariant-a-run-only-row-is-finished),
+nobody reopens. [A session row is called what the desktop app calls it](domain.invariants.md#invariant-a-session-row-is-called-what-the-desktop-app-calls-it)
+where the app's sidebar names it. [A run-only row is Finished](domain.invariants.md#invariant-a-run-only-row-is-finished),
 because there is no liveness evidence for it. A session row's repository is
 the session's. Where the agent recorded none, it is the tracker item a run of it named:
 a recorded fact from a second source, not the guess from a path the Session Log forbids.
@@ -814,15 +838,21 @@ attach to rows the list already has. Equality by both parts.
 ```meta
 type: value-object
 aliases: [AgentSessionCatalog]
+related: [.devbook/domain/sessions/domain.md#session-limit, .devbook/domain/sessions/features.md#say-how-much-was-left-out]
 ```
 
-What a reading of one environment answers with: the `Agent Session` list it will
-describe, the sources it could **not** read, by name, and how many sessions it
-discovered before any limit was applied.
+What a reading of one environment answers with:
 
-Three parts rather than one list, because "no sessions" and "could not look" are
+- the `Agent Session` list it will describe;
+- the sources it could **not** read, by name;
+- how many sessions it discovered before any limit was applied;
+- how many of its sessions are open ones older than the newest session the
+  [Session Limit](#session-limit) dropped (`OpenBeyondCap`).
+
+Several parts rather than one list, because "no sessions" and "could not look" are
 different answers. A reader who cannot tell them apart will go looking for a fault
-that is not there. Equality is by all three.
+that is not there. The fourth part keeps "the most recent" true: the list is the most
+recent sessions plus the older ones still open. Equality is by all four.
 
 ### Agent
 
@@ -949,12 +979,12 @@ as running again the moment the agent writes.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run, .devbook/domain/sessions/domain.invariants.md#session-view]
-aliases: [AgentSessionView, view, live, all, AgentSessionEnvironments]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/domain.md#agent-session, .devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run, .devbook/domain/sessions/domain.invariants.md#session-view]
+aliases: [AgentSessionView, view, live, open, all, AgentSessionEnvironments]
 ```
 
 Narrows a set of `Session Row`s to the ones a reader currently wants in front of
-them: the live ones, or all of them. A row is a session with its runs, or a run the
+them: the live ones, the ones open in the Claude desktop app, or all of them. A row is a session with its runs, or a run the
 list holds no session for, and the view narrows both alike.
 [A run-only row is Finished](domain.invariants.md#invariant-a-run-only-row-is-finished),
 so the live view never keeps one.
@@ -964,7 +994,7 @@ flowchart LR
     A[Session rows] --> B[The shell's<br/>repository scope]
     B --> C[Environment]
     C --> D[With delivery runs]
-    D --> E[View: Live or All]
+    D --> E[View: Live, Open or All]
     E --> F[Session Grouping]
 ```
 
@@ -973,7 +1003,8 @@ A surface applies the narrowings in the order drawn above, and only then carves 
 left into groups, so an environment with nothing live on it loses its section. The shell's
 repository scope is the shell's, not this context's; the surface applies it first. Each
 narrowing only removes rows, so their order does not change which rows remain. It does
-decide what Live's tally counts: the live rows among what the other narrowings kept.
+decide what Live's and Open's tallies count: the live or open rows among what the other
+narrowings kept.
 No narrowing reorders. Ordering is the grouping's answer to give, and a narrowing that
 sorted would be a second answer to what "most recently active first" means.
 
@@ -985,6 +1016,14 @@ for itself whether a session was still going would be a second definition of liv
 free to drift from the first. The two would disagree first on exactly the sessions a
 reader most needs to trust.
 
+**Open answers a question about the desktop app's record, not about liveness.**
+[It admits a row](domain.invariants.md#invariant-open-admits-on-the-desktop-record-never-on-state)
+when its session's archived flag is false, and never on `Session State`. The desktop
+app ends an idle session's process, so an open session with no process reads Finished
+and never enters Live. A row whose session has no desktop record is never open, and
+neither is a run-only row. Open reads only this machine's desktop app, so a session
+from another machine is never in it.
+
 A service of its own rather than one more member of `Session Grouping`. Grouping
 guarantees that every row in is a row out. A "live" grouping would break that guarantee
 while sitting in the same strip as environment and agent. The reader would then have
@@ -995,8 +1034,8 @@ same rows to the ones on one environment, or hands every row back when none is n
 It keys on the environment's id rather than its name, because a machine can be renamed
 and two can share a name. It offers only the environments the rows name, in the order
 a grouping by environment draws its sections. It is a separate narrowing rather than a
-third view, because a view answers a question about liveness and the environment
-answers one about place. Folded together, "Live" would mean "live here" on some presses
+fourth view, because a view answers a question about a session's standing, its
+liveness or the desktop sidebar, and the environment answers one about place. Folded together, "Live" would mean "live here" on some presses
 and "live anywhere" on others.
 
 **Grouping is the one operation that
@@ -1025,7 +1064,7 @@ session that then shows an empty list would answer a question nobody asked.
 ```meta
 type: domain-service
 related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/domain.md#environment, .devbook/domain/sessions/features.md#session-grouping, .devbook/domain/sessions/domain.invariants.md#session-grouping]
-aliases: [AgentSessionGrouping]
+aliases: [AgentSessionGrouping, ScheduledApart]
 ```
 
 Carves a set of `Session Row`s, run-only rows included, into sections. Each section is
@@ -1047,6 +1086,17 @@ two sections.
 
 Each section carries the key that made it one, so a surface can tell apart two
 sections whose headings match.
+
+**In the Open view, the scheduled runs close the list.** After any grouping,
+`ScheduledApart` takes every row whose session is a run of a desktop scheduled task
+out of its section. It puts them in one trailing "Scheduled" section, key `scheduled`,
+most recently active first. It moves rows and drops none, a section it empties is not
+drawn, and with nothing scheduled the sections are unchanged. Live and All never apply
+it.
+
+The surface folds that section every time it opens, and the detail panel never shows a
+folded row. A session the surface is asked to focus that sits behind the fold unfolds
+it.
 
 A service because grouping spans sessions rather than belonging to any one of them,
 and a pure one: no I/O and no state.
@@ -1197,11 +1247,18 @@ session model stays in this context even when the activity passes through that s
 
 ```meta
 type: term
-aliases: [AgentSessionLimits, PerAgent]
-related: [.devbook/domain/sessions/features.md#say-how-much-was-left-out]
+aliases: [AgentSessionLimits, PerAgent, OpenBeyondCap]
+related: [.devbook/domain/sessions/features.md#say-how-much-was-left-out, .devbook/domain/sessions/domain.md#session-catalog]
 ```
 
-How many sessions per agent a reading for a list will describe.
+How many of an agent's most recent sessions a reading for a list will describe.
+
+**[An open session is never dropped by the limit](domain.invariants.md#invariant-an-open-session-is-never-dropped-by-the-session-limit).**
+The sessions the Claude desktop app holds open are read beside the limit, not inside
+it, so the most recent sessions stay the same ones. A list reading therefore
+describes up to the limit plus every open session. The
+[Session Catalog](#session-catalog) says how many of its sessions are open ones older
+than the newest session the limit dropped, so "the most recent" stays true of the rest.
 
 Per agent, not overall. An environment can hold hundreds of records, and the agents do
 not hold them in equal numbers. A single overall limit would be filled by whichever

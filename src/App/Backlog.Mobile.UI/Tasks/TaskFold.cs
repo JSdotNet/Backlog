@@ -39,11 +39,32 @@ public static class TaskFold
     /// <inheritdoc cref="RepositoryRegistryType"/>
     public const string GitHubAccountsType = "github-accounts";
 
-    /// <summary>The kind token of a sprint series — Progress's whole series, synced
-    /// between desktops the way the roadmap's plan is. The phone keeps no sprints, so it
-    /// keeps no row for one. A literal duplicated for the reason
+    /// <summary>The kind token of a retired sprint series — what desktops pushed before
+    /// local ADR 0035 retired sprints. A replica may still hold one, so the phone reads it
+    /// and drops it, keeping no row. A literal duplicated for the reason
     /// <see cref="CaptureType"/> is.</summary>
     public const string SprintSeriesType = "sprint-series";
+
+    /// <summary>The kind token of a goal — Progress's whole goal, synced between desktops
+    /// (.devbook/arc42/adr/0035). Never a task row; the phone's goal pages read it from
+    /// their own read model once they exist. A literal duplicated for the reason
+    /// <see cref="CaptureType"/> is; persisted on every replica, so never to be renamed.</summary>
+    public const string GoalType = "goal";
+
+    /// <summary>The kind token of an impediment — Progress's whole impediment, synced
+    /// between desktops (.devbook/arc42/adr/0035). Never a task row, for the reason
+    /// <see cref="GoalType"/> gives; persisted on every replica, so never to be renamed.</summary>
+    public const string ImpedimentType = "impediment";
+
+    /// <summary>The kind token of the stand-up context — what a desktop writes for the phone
+    /// to read the stand-up by: pull request statuses, the pace and the working week (local
+    /// ADR 0035 §8). Never a task row; <see cref="Progress.ProgressFold"/> keeps it. A literal
+    /// duplicated for the reason <see cref="CaptureType"/> is; persisted, so never renamed.</summary>
+    public const string StandUpContextType = "stand-up-context";
+
+    /// <summary>The kind token of an impediment edit the phone queues for a desktop to apply
+    /// (local ADR 0035 §8). Never a task row; persisted, so never renamed.</summary>
+    public const string ImpedimentEditType = "impediment-edit";
 
     /// <summary>The kind token of the My Day preferences — Clear My Day overnight, set
     /// on a desktop (.devbook/arc42/adr/0032). Never a row: the projection keeps the
@@ -51,6 +72,13 @@ public static class TaskFold
     /// literal duplicated for the reason <see cref="CaptureType"/> is; persisted on
     /// every replica, so never to be renamed.</summary>
     public const string MyDayPreferencesType = "my-day-preferences";
+
+    /// <summary>The kind token of the iteration settings — the iteration length and the
+    /// two-week start, set on a desktop and carried between desktops
+    /// (.devbook/arc42/adr/0036). Never a row: the phone reads the iteration from the
+    /// stand-up context a desktop writes instead. A literal duplicated for the reason
+    /// <see cref="CaptureType"/> is; persisted on every replica, so never to be renamed.</summary>
+    public const string IterationSettingsType = "iteration-settings";
 
     /// <summary>Every kind the Tasks tab never lists. A note is the Inbox's, and
     /// <see cref="Notes.NoteFold"/> folds it into its own view.</summary>
@@ -64,6 +92,11 @@ public static class TaskFold
         GitHubAccountsType,
         SprintSeriesType,
         MyDayPreferencesType,
+        IterationSettingsType,
+        GoalType,
+        ImpedimentType,
+        StandUpContextType,
+        ImpedimentEditType,
     };
 
     /// <summary>Folds <paramref name="records"/> into <paramref name="rows"/>, and

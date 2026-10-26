@@ -172,6 +172,103 @@ const RESTING_STATUS_BY_FOLDER = {
     design: "active",
 };
 
+// A debt record under `arc42/tdr/` is not a standing structure: it is debt on
+// its way to being paid, so its top-level block takes a ladder of its own in
+// place of the folder's, and rests at `identified` — logged, nothing planned.
+// The `tdr/` index, a record's own sections, and every other arc42 block keep
+// the folder's ladder. Contract 33.
+const DEBT_STATUSES = ["identified", "planned", "in-progress", "resolved"];
+const DEBT_RESTING_STATUS = "identified";
+const DEBT_FOLDER = `${DEVBOOK_PREFIX}arc42/tdr/`;
+
+// What a debt costs while it stands, on a debt record's top-level block only.
+export const DEBT_SEVERITIES = ["low", "medium", "high", "critical"];
+
+// A decision record's `## History` table header, fixed so a reader can list
+// one concern's decisions across every record.
+const DECISION_FOLDER = `${DEVBOOK_PREFIX}arc42/adr/`;
+export const HISTORY_HEADER = ["Date", "Change", "Why"];
+
+/**
+ * Lint a decision record's `## History` section, per `devbook-arc42.md`: an
+ * `arc42/adr/` file other than the folder's index holds the section, and its
+ * table is headed `Date | Change | Why`. Every finding is a warning: a record
+ * written before the header was fixed needs a person to split each row's
+ * reason into its own column, and keeps validating until one does.
+ */
+export function historyHeaderIssues(relPath, markdown, fileMeta) {
+    const normalized = String(relPath).replace(/\\/g, "/");
+    if (!normalized.startsWith(DECISION_FOLDER) || !normalized.endsWith(".md") || fileMeta?.index === "root") return [];
+    const expected = HISTORY_HEADER.join(" | ");
+    const warn = (message) => [{ severity: "warning", message }];
+
+    // A table is a header row with a pipe, then a delimiter row; a leading
+    // pipe is optional in GFM, and `\|` is a pipe inside a cell.
+    const DELIMITER_ROW = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+    const lines = String(markdown).split(/\r?\n/);
+    let fence = null;
+    let inHistory = false;
+    for (let index = 0; index < lines.length; index++) {
+        const text = lines[index];
+        const marker = /^\s{0,3}(`{3,}|~{3,})/.exec(text);
+        if (marker) {
+            const run = marker[1];
+            if (!fence) fence = run;
+            else if (run[0] === fence[0] && run.length >= fence.length && !text.slice(text.indexOf(run) + run.length).trim()) fence = null;
+            continue;
+        }
+        if (fence) continue;
+        if (/^\s{0,3}#{1,2}\s/.test(text)) {
+            if (inHistory) break;
+            inHistory = /^\s{0,3}##\s+History\s*#*\s*$/.test(text);
+            continue;
+        }
+        if (!inHistory || !text.includes("|") || !DELIMITER_ROW.test(lines[index + 1] ?? "") || !lines[index + 1].includes("-")) continue;
+        const header = text.trim().replace(/^\|/, "").replace(/(?<!\\)\|\s*$/, "").split(/(?<!\\)\|/).map((cell) => cell.trim());
+        if (header.join(" | ") === expected) return [];
+        return warn(`has a \`## History\` table headed \`${header.join(" | ")}\` on line ${index + 1} — a decision record's History is headed \`${expected}\`, so a reader can list a concern's decisions in order. Move each row's reason into the Why column. See devbook-arc42.md.`);
+    }
+    return inHistory
+        ? warn(`has a \`## History\` section with no table — head one \`${expected}\`, newest row first. See devbook-arc42.md.`)
+        : warn(`has no \`## History\` section — a decision record ends on a table headed \`${expected}\`, newest row first. See devbook-arc42.md.`);
+}
+
+/**
+ * Whether this block is a debt record's top-level block: a file under
+ * `arc42/tdr/` other than the folder's index, at file level.
+ */
+export function isDebtRecord(relPath, blockLevel, fileMeta) {
+    const normalized = String(relPath).replace(/\\/g, "/");
+    return blockLevel === "file" && normalized.startsWith(DEBT_FOLDER) && normalized.endsWith(".md") && fileMeta?.index !== "root";
+}
+
+/**
+ * The built-in ladder and resting value of one block: the debt ladder on a
+ * debt record's top-level block, the folder's everywhere else.
+ */
+export function blockLadder(folder, relPath = null, blockLevel = null, fileMeta = null) {
+    if (folder === "arc42" && relPath && isDebtRecord(relPath, blockLevel, fileMeta)) {
+        return { statuses: [...DEBT_STATUSES], resting: DEBT_RESTING_STATUS, debt: true };
+    }
+    return { statuses: builtInStatuses(folder), resting: restingStatusFor(folder), debt: false };
+}
+
+/**
+ * What a `statuses.json` rule's globs aim at: `debt` when every one names
+ * `tdr/`, so the rule replaces the debt ladder, with that ladder's resting value.
+ */
+export function ruleLadder(folder, files) {
+    const debt = folder === "arc42" && files.length > 0 && files.every((glob) => /^(?:\.\/)?tdr\//.test(String(glob).replace(/\\/g, "/")));
+    return { debt, resting: debt ? DEBT_RESTING_STATUS : restingStatusFor(folder) };
+}
+
+/** Whether a `code` entry is a folder written from the repository root: no leading `/`, drive, `.`, `..`, or anchor. */
+export function isRepoFolder(entry) {
+    const clean = String(entry ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
+    if (!clean || clean.startsWith("/") || /^[A-Za-z]:/.test(clean) || clean.includes("#")) return false;
+    return !clean.split("/").some((part) => part === ".." || part === ".");
+}
+
 // Allowed `type` values per folder, split by block level. `type` records *what
 // kind of thing* a chapter or file is — the classification that used to be
 // written as a heading prefix (`## Aggregate: Order`). Heading text now carries
@@ -214,6 +311,11 @@ const TYPE_BY_FOLDER = {
             "requirement",
             "invariants",
             "invariant",
+            // `scenarios.md`: one end-to-end journey per `##`, its `###`
+            // parts owing no block. A requirement's case points at a part, so
+            // a journey proves the requirements of as many features as it
+            // walks through.
+            "scenario",
             // `actors.md`: who works with this context. An actor is the
             // EventStorming and Domain Storytelling actor — the one that issues
             // a command — and never a persona, which is a UX archetype and
@@ -247,6 +349,7 @@ const TYPE_BY_FOLDER = {
             // feature's or one aggregate's.
             "requirements",
             "invariants",
+            "scenarios",
             "model",
             "flow",
             "dependencies",
@@ -472,23 +575,25 @@ const BEHAVIOUR_TEST_LEVELS = {
 // the rule's own, so they are found by their text rather than by a block.
 const SCENARIO_HEADING = /^Scenario:/i;
 
-// A scenario page: one end-to-end journey, written as a page of its own in a
-// bounded context beside the chapter it demonstrates. Only its file-level
-// `type` makes it one, so the word is a file type of `.domain` and of no other
-// folder, and never a chapter's: the page is the journey, and its `##` parts
-// are the steps of it, not chapters. Two words stay apart in every rule — a
-// scenario *page* is the journey; a scenario *case* is the `#### Scenario:`
-// under a requirement, which may point at one of the page's parts.
+// A journey: one end-to-end walk through the product, written as a `##`
+// chapter of a scenarios file — `scenarios.md` or a split `scenarios.<name>.md`
+// — in the bounded context holding most of the requirements it proves. Its
+// `###` headings are its parts, sections that owe no block and stay
+// addressable. Two words stay apart in every rule — a *journey* is the
+// `scenario` chapter; a scenario *case* is the `#### Scenario:` under a
+// requirement, which may point at one of a journey's parts. Before contract 32
+// a journey was a whole file typed `scenario`; `032-scenarios-md` folds each
+// such page into its context's `scenarios.md`.
 export const SCENARIO_TYPE = "scenario";
 
-// Absent means the journey is in force. A page that is still being written or
+// Absent means the journey is in force. A journey that is still being written or
 // agreed says so; it has no rung of its own beyond that, because what proves it
 // is its run, not a person's signature on the text.
 const SCENARIO_STATUSES = ["draft", "proposed"];
 
 /**
  * The fields that say where a journey starts and in which configuration it
- * runs, legal on a scenario page's file-level block and nowhere else. `start`
+ * runs, legal on a journey's block and nowhere else. `start`
  * is the route, `[portal:]/route`; `actor` the actor chapter signed in,
  * `[portal:]<path>#<slug>`; `data` the named data sets imported first;
  * `profile` the one configuration in `.devbook/scenarios/profiles.json`;
@@ -497,28 +602,25 @@ const SCENARIO_STATUSES = ["draft", "proposed"];
  */
 export const SCENARIO_SETUP_FIELDS = ["start", "actor", "data", "profile", "flags", "settings"];
 
-// The words a step opens with. A scenario page is English only, and the
-// keyword set is the one place that is checked.
+// The words a step opens with. A journey is English only, and the keyword
+// set is the one place that is checked.
 const STEP_KEYWORDS = ["Given", "When", "Then", "And"];
 
-// A `#### Scenario:` that a scenario page proves instead of spelling out its
-// own Given/When/Then: one line, `Proved by: <page>.md#<part>`.
+// A `#### Scenario:` that a journey proves instead of spelling out its own
+// Given/When/Then: one line, `Proved by: <scenarios file>.md#<part>`.
 const PROVED_BY_LINE = /^\s*Proved by:\s*(.*?)\s*$/;
 const GWT_LINE = /^\s*(?:[-*+]|\d+[.)])\s+\*\*(?:given|when|then|and)\*\*/i;
 const SETUP_PORTAL = /^([a-z0-9][a-z0-9-]*):(.+)$/;
 const SETUP_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /**
- * Whether a document is a scenario page: a `.domain` file whose file-level
- * block says `type: scenario`. `fileMeta` is the parsed level-1 block.
+ * Whether a document is a scenarios file: `scenarios.md` or a split
+ * `scenarios.<name>.md`, directly in a bounded context folder.
  */
-export function isScenarioPage(relPath, fileMeta) {
-    return folderKindForPath(relPath) === "domain" && resolveType("domain", fileMeta) === SCENARIO_TYPE;
-}
-
-/** A scenario page's stem: its file name without `.md`, its identity for every tool. */
-export function scenarioStem(relPath) {
-    return (String(relPath).replace(/\\/g, "/").split("/").pop() ?? "").replace(/\.md$/i, "");
+export function isScenariosFile(relPath) {
+    if (folderKindForPath(relPath) !== "domain") return false;
+    const subject = String(relPath).replace(/\\/g, "/").slice(DEVBOOK_PREFIX.length + "domain".length + 1);
+    return subject.split("/").length === 2 && domainFileName(relPath).base === "scenarios" && !domainFileName(relPath).page;
 }
 
 /** Split a portal prefix off a setup entry: `admin:/route` → `{ portal: "admin", rest: "/route" }`. */
@@ -528,9 +630,10 @@ export function splitPortal(entry) {
 }
 
 /**
- * Every top-level list item below the first `##` of a scenario page whose
- * opening is not a bold Given, When, Then or And. Fences are content and are
- * skipped; a nested item belongs to the step above it.
+ * Every top-level list item in a journey's part — below a `###` of a
+ * scenarios file, until the next `##` — whose opening is not a bold Given,
+ * When, Then or And. Fences are content and are skipped; a nested item belongs
+ * to the step above it.
  */
 export function scenarioStepIssues(markdown) {
     const issues = [];
@@ -546,7 +649,8 @@ export function scenarioStepIssues(markdown) {
             fence = marker[1];
             return;
         }
-        if (/^##\s/.test(line)) inPart = true;
+        if (/^##\s/.test(line)) inPart = false;
+        if (/^###\s/.test(line)) inPart = true;
         if (!inPart) return;
         const item = /^ ?(?:[-*+]|\d+[.)])\s+(.*)$/.exec(line);
         if (!item) return;
@@ -555,8 +659,8 @@ export function scenarioStepIssues(markdown) {
         issues.push({
             severity: "error",
             message: bold
-                ? `line ${index + 1} opens a step with "**${bold[1]}**" — a step opens with a bold ${STEP_KEYWORDS.join(", ")}, and a scenario page is English only.`
-                : `line ${index + 1} is a list item in a part that opens with no bold ${STEP_KEYWORDS.join(", ")} — every list item in a scenario page's part is a step.`,
+                ? `line ${index + 1} opens a step with "**${bold[1]}**" — a step opens with a bold ${STEP_KEYWORDS.join(", ")}, and a journey is English only.`
+                : `line ${index + 1} is a list item in a part that opens with no bold ${STEP_KEYWORDS.join(", ")} — every list item in a journey's part is a step.`,
         });
     });
     return issues;
@@ -681,14 +785,22 @@ const REMOVED_FIELDS = {
     ),
 };
 
+// The C4 model's two fields: the workspace elements a chapter is about, and
+// the ones its consequences name. Each entry is a bare identifier of
+// `.devbook/arc42/workspace.dsl`, resolved by the graph build. Contract 33.
+export const C4_FIELDS = ["c4", "c4-touches"];
+const C4_IDENTIFIER = /^[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*$/;
+const BUILDING_BLOCK_FILE = /^\.devbook\/arc42\/building-blocks\/[^/]+\.md$/;
+
 const FOLDER_EXTRA_FIELDS = {
     domain: [
         "depends-on", "aliases", "feature-flag", "setting", "role", "key", "default", "scope",
         "deployment",
         "sync",
+        ...C4_FIELDS,
         ...DECISION_FIELDS,
     ],
-    arc42: ["sync"],
+    arc42: ["sync", ...C4_FIELDS, "code", "severity"],
     tech: ["kind", "version", "depends-on", "alternatives"],
     design: ["sync"],
     ai: ["depends-on", "stage"],
@@ -780,12 +892,9 @@ const FIELD_TYPE_SCOPE = {
 // `context.md` is the one document that *is* its subject — the bounded context
 // as a whole — so how the context ships describes that document, not a chapter
 // missing from it.
-// A scenario page carries `aliases` the way a chapter does: the page is the
-// journey, so the other names it goes by are the page's own.
 const FILE_FIELD_TYPE_SCOPE = {
     domain: {
         deployment: ["context"],
-        aliases: [SCENARIO_TYPE],
     },
 };
 
@@ -975,10 +1084,10 @@ export function restingStatusFor(folder) {
  * `declared: false`, while an omitted status anywhere else stays null — which
  * validateDocument reports as an error, and no viewer should paper over.
  */
-export function resolveStatus(folder, meta) {
+export function resolveStatus(folder, meta, relPath = null, blockLevel = null) {
     const declared = meta?.status ?? null;
     if (declared !== null) return { status: declared, declared: true };
-    return { status: restingStatusFor(folder), declared: false };
+    return { status: blockLadder(folder, relPath, blockLevel, meta).resting, declared: false };
 }
 
 /**
@@ -1215,6 +1324,7 @@ export function documentDigest(markdown) {
 
         // A `shot:` or `scenario:` target is a screenshot point or a reference
         // to one, resolved by the tool that runs the journey — not a diagram.
+        // A `c4:` target is a view of the C4 model, and counts like any image.
         for (const image of line.matchAll(/!\[[^\]]*\]\(([^)]*)\)/g)) {
             if (!/^\s*<?(?:shot|scenario):/i.test(image[1])) diagrams++;
         }
@@ -1270,19 +1380,19 @@ export function typeIssues(folder, blockLevel, meta, fileBase = null) {
 
     const allowed = typeValuesFor(folder, blockLevel);
     const declared = resolveType(folder, meta);
-    // A scenario page is a whole file in a bounded context: never a chapter,
-    // and in no folder but `.domain`. Where it may sit inside `.domain` is
-    // validateDocument's to say, since only it has the path.
+    // A journey is a `##` chapter of a scenarios file, and in no folder but
+    // `.domain`. Which file and which level is validateDocument's to say,
+    // since only it has the path and the heading.
     if (declared === SCENARIO_TYPE) {
-        if (blockLevel !== "file") {
+        if (folder !== "domain") {
             issues.push({
                 severity: "error",
-                message: `has type "${SCENARIO_TYPE}" on a chapter — a scenario page is a file of its own, typed on its file-level block, and its \`##\` parts carry no block.`,
+                message: `has type "${SCENARIO_TYPE}" in .${folder} — a journey is a \`##\` of a scenarios file in .devbook/domain/, in the bounded context of the requirements it proves.`,
             });
-        } else if (folder !== "domain") {
+        } else if (blockLevel === "file") {
             issues.push({
                 severity: "error",
-                message: `has type "${SCENARIO_TYPE}" in .${folder} — a scenario page lives only in .devbook/domain/, inside the bounded context whose chapter it demonstrates.`,
+                message: `has type "${SCENARIO_TYPE}" on its file-level block — a journey page is the shape before contract 32; a journey is now a \`##\` of the context's scenarios.md. Run the \`032-scenarios-md\` migration.`,
             });
         }
         return issues;
@@ -1780,6 +1890,68 @@ export function fieldScopeIssues(folder, blockLevel, meta) {
 }
 
 /**
+ * Lint the C4 model's fields on one block, per `devbook-chapter-metadata.md`:
+ * `c4` and `c4-touches` hold bare workspace identifiers and never share one;
+ * `code` sits on a building block's top-level block and lists repository
+ * folders; `severity` sits on a debt record's top-level block, from a closed
+ * set, and is reported there when missing. Whether an identifier names an
+ * element, and whether a folder exists, is the graph build's to say.
+ */
+export function c4FieldIssues(relPath, blockLevel, meta, fileMeta) {
+    const issues = [];
+    if (!meta) return issues;
+    const folder = folderKindForPath(relPath);
+    const normalized = String(relPath).replace(/\\/g, "/");
+    const say = (severity, message) => issues.push({ severity, message });
+
+    if (folder === "arc42" || folder === "domain") {
+        for (const field of C4_FIELDS) {
+            for (const entry of toList(meta[field])) {
+                if (!C4_IDENTIFIER.test(entry)) {
+                    say("error", `has \`${field}\` entry "${entry}", which is not a workspace identifier — name an element of .devbook/arc42/workspace.dsl as the DSL spells it, \`system.container.component\`, never a path or an anchor.`);
+                }
+            }
+        }
+        const touched = new Set(toList(meta["c4-touches"]).map((entry) => entry.toLowerCase()));
+        for (const entry of toList(meta.c4)) {
+            if (touched.has(entry.toLowerCase())) {
+                say("error", `names \`${entry}\` in both \`c4\` and \`c4-touches\` — an element is what the chapter is about or one its consequences touch, never both.`);
+            }
+        }
+    }
+
+    // `code` and `severity` are arc42/ fields; anywhere else the sweep for
+    // unrecognized fields reports them, as it did before they existed.
+    if (folder !== "arc42") return issues;
+
+    if (meta.code != null) {
+        const onBlock = blockLevel === "file" && BUILDING_BLOCK_FILE.test(normalized) && fileMeta?.index !== "root";
+        if (!onBlock) {
+            say("error", "has `code`, which sits on an `arc42/building-blocks/<slug>.md` file's top-level block only — the block names the folders that hold its code. See devbook-chapter-metadata.md.");
+        }
+        for (const entry of toList(meta.code)) {
+            if (!isRepoFolder(entry)) {
+                say("error", `has \`code\` entry "${entry}", which is not a repository-relative folder — write it from the repository root, with no leading \`/\`, no \`.\` or \`..\`, and no anchor.`);
+            }
+        }
+    }
+
+    const debt = isDebtRecord(relPath, blockLevel, fileMeta);
+    if (meta.severity != null) {
+        if (!debt) {
+            say("error", "has `severity`, which sits on an `arc42/tdr/` debt record's top-level block only — the `tdr/` index carries none. See devbook-arc42.md.");
+        } else if (Array.isArray(meta.severity) || !DEBT_SEVERITIES.includes(meta.severity)) {
+            say("error", `has \`severity\` "${toList(meta.severity).join(", ")}", expected one of: ${DEBT_SEVERITIES.join(", ")}.`);
+        }
+    } else if (debt) {
+        // Always stated, per the rule; a warning, so a debt set written before
+        // the field existed keeps validating until each record is ranked.
+        say("warning", `is a debt record without \`severity\` — state what the debt costs while it stands: ${DEBT_SEVERITIES.join(", ")}. See devbook-arc42.md.`);
+    }
+    return issues;
+}
+
+/**
  * Lint the approval record: `status: approved` plus `approved-by` and
  * `approved-at`.
  *
@@ -2098,7 +2270,7 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
         // graph.mjs prefixes every issue with the path; doing it here too printed it twice.
         issues.push({ severity: issue.severity, message: issue.message });
     }
-    const resting = restingStatusFor(kind);
+    for (const issue of historyHeaderIssues(relPath, markdown, fileMeta)) issues.push(issue);
     const optionalFields = new Set([
         ...COMMON_OPTIONAL_FIELDS,
         ...FILE_ONLY_FIELDS,
@@ -2155,55 +2327,79 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
         openQuestions.set(note.chapter.line, note.line);
     }
 
-    // A scenario page sits inside a bounded context, at any depth below its
-    // folder, and its `##` parts are the journey's steps: sections, never
-    // chapters, so they owe no block and stay addressable by anchor.
-    const scenarioPage = kind === "domain" && isScenarioPage(relPath, fileMeta);
-    if (scenarioPage) {
-        const subject = String(relPath).replace(/\\/g, "/").slice(DEVBOOK_PREFIX.length + kind.length + 1);
-        if (subject.split("/").length < 2) {
+    // A scenarios file holds one journey per `##`, typed `scenario`; the
+    // `###` headings under a journey are its parts — sections, never
+    // chapters, so they owe no block and stay addressable by anchor. Every
+    // journey and part anchor is unique in the file, because `Proved by:` and
+    // a demo's `part` name a part by the file and its anchor alone.
+    const scenariosFile = kind === "domain" && isScenariosFile(relPath);
+    if (scenariosFile) {
+        for (const issue of scenarioStepIssues(markdown)) issues.push(issue);
+        const anchors = new Map();
+        for (const chapter of chapters) {
+            if (chapter.level === 1) continue;
+            const label = `${"#".repeat(chapter.level)} ${chapter.text} (line ${chapter.line})`;
+            if (chapter.level === 2 && (!chapter.meta || resolveType(kind, chapter.meta) !== SCENARIO_TYPE)) {
+                issues.push({ severity: "error", message: `${label} is a \`##\` of a scenarios file without \`type: scenario\` — every \`##\` here is one journey.` });
+            }
+            if (chapter.level > 2 && chapter.meta) {
+                issues.push({ severity: "error", message: `${label} carries a \`meta\` block — a journey's \`###\` parts and the headings under them are sections, and only the journey has a block.` });
+            }
+            if (chapter.level <= 3) {
+                if (anchors.has(chapter.slug)) {
+                    issues.push({ severity: "error", message: `${label} has the anchor "#${chapter.slug}" of line ${anchors.get(chapter.slug)} — every journey and part heading is unique in its file, so an address names one.` });
+                } else {
+                    anchors.set(chapter.slug, chapter.line);
+                }
+            }
+        }
+    } else {
+        for (const chapter of chapters) {
+            if (chapter.level === 1 || !chapter.meta || resolveType(kind, chapter.meta) !== SCENARIO_TYPE || kind !== "domain") continue;
             issues.push({
                 severity: "error",
-                message: `${relPath} is a scenario page outside a bounded context — a page sits in the context folder whose chapter it demonstrates, at any depth inside it.`,
+                message: `${"#".repeat(chapter.level)} ${chapter.text} (line ${chapter.line}) has type "${SCENARIO_TYPE}" outside a scenarios file — a journey is a \`##\` of \`scenarios.md\` or \`scenarios.<name>.md\` in the bounded context of the requirements it proves.`,
             });
         }
-        for (const issue of scenarioStepIssues(markdown)) issues.push(issue);
     }
 
-    // A `#### Scenario:` case proved by a scenario page holds the one pointer
-    // and nothing else; the page is where its Given/When/Then are written.
+    // A `#### Scenario:` case proved by a journey holds the one pointer
+    // and nothing else; the journey is where its Given/When/Then are written.
     for (const scenarioCase of provedByCases(relPath, markdown)) {
         const label = `#### ${scenarioCase.heading} (line ${scenarioCase.line})`;
         if (scenarioCase.pointers.length > 1) {
             issues.push({
                 severity: "error",
-                message: `${label} holds ${scenarioCase.pointers.length} \`Proved by:\` lines — a case points at one part of one scenario page; write another \`#### Scenario:\` for another part.`,
+                message: `${label} holds ${scenarioCase.pointers.length} \`Proved by:\` lines — a case points at one part of one journey; write another \`#### Scenario:\` for another part.`,
             });
         }
         if (scenarioCase.pointers.length && scenarioCase.gwt) {
             issues.push({
                 severity: "error",
-                message: `${label} holds a \`Proved by:\` line and its own Given/When/Then — the pointer replaces them, so the steps are written once, on the scenario page.`,
+                message: `${label} holds a \`Proved by:\` line and its own Given/When/Then — the pointer replaces them, so the steps are written once, in the journey.`,
             });
         }
         for (const pointer of scenarioCase.pointers) {
             if (!/^[^#\s]+\.md#[^#\s]+$/.test(pointer.target)) {
                 issues.push({
                     severity: "error",
-                    message: `${label} has \`Proved by: ${pointer.target}\` — the line names one part of a scenario page, as \`<page>.md#<part>\`.`,
+                    message: `${label} has \`Proved by: ${pointer.target}\` — the line names one part of a journey, as \`<scenarios file>.md#<part>\`.`,
                 });
             }
         }
     }
 
-    const structural = isStructuralDocument(relPath) || scenarioPage;
+    const structural = isStructuralDocument(relPath);
     for (const [index, chapter] of chapters.entries()) {
         const label = `${"#".repeat(chapter.level)} ${chapter.text} (line ${chapter.line})`;
         if (!chapter.meta) {
             // Level-1 heading already reported above as the file-level block;
             // a structural document's headings are sections by rule, and so
-            // is a `#### Scenario:` directly under a `requirement`.
-            if (chapter.level > 1 && !structural && !isScenarioOf(chapters, index, kind)) {
+            // is a `#### Scenario:` directly under a `requirement` and every
+            // heading under a journey. A `##` of a scenarios file without one
+            // is reported above.
+            const section = structural || isScenarioOf(chapters, index, kind) || (scenariosFile && chapter.level > 1);
+            if (chapter.level > 1 && !section) {
                 issues.push({
                     severity: "warning",
                     message: `${label} has no \`meta\` block. Add one if this heading is an addressable chapter for this folder.`,
@@ -2223,17 +2419,26 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
         // resting value is checked first because a configured ladder never
         // lists it: omission is devbook's mechanism, not a rung to choose.
         const blockLevel = chapter.level === 1 ? "file" : "chapter";
-        const configured = ladder?.statusesFor(relPath, blockLevel) ?? null;
-        const allowedStatus = configured?.statuses ?? STATUS_BY_FOLDER[kind];
+        // A debt record's top-level block is on the debt ladder, resting at
+        // `identified`; only a `statuses.json` rule aimed at `tdr/` replaces it.
+        const builtIn = blockLadder(kind, relPath, blockLevel, fileMeta);
+        const resting = builtIn.resting;
+        const configured = ladder?.statusesFor(relPath, blockLevel, { debt: builtIn.debt }) ?? null;
+        const allowedStatus = configured?.statuses ?? builtIn.statuses;
+        // The rungs a debt record could hold before it had a ladder of its
+        // own: the folder's, as the repository's rules narrowed them.
+        const folderRungs = builtIn.debt
+            ? [...(ladder?.statusesFor(relPath, blockLevel)?.statuses ?? STATUS_BY_FOLDER.arc42), restingStatusFor(kind)]
+            : [];
         const declaresStatus = "status" in chapter.meta;
-        const pageBlock = scenarioPage && blockLevel === "file";
-        if (pageBlock && declaresStatus && chapter.meta.status !== null) {
-            // A scenario page's ladder is fixed: absent means the journey is
-            // in force, and the page says only that it is still in transition.
+        const journeyBlock = kind === "domain" && blockLevel === "chapter" && resolveType(kind, chapter.meta) === SCENARIO_TYPE;
+        if (journeyBlock && declaresStatus && chapter.meta.status !== null) {
+            // A journey's ladder is fixed: absent means it is in force, and the
+            // journey says only that it is still in transition.
             if (!SCENARIO_STATUSES.includes(chapter.meta.status)) {
                 issues.push({
                     severity: "error",
-                    message: `${label} has status "${chapter.meta.status}" on a scenario page, expected one of: ${SCENARIO_STATUSES.join(", ")} — or omit it for a journey in force.`,
+                    message: `${label} has status "${chapter.meta.status}" on a journey, expected one of: ${SCENARIO_STATUSES.join(", ")} — or omit it for a journey in force.`,
                 });
             }
         } else if (!declaresStatus || chapter.meta.status === null) {
@@ -2253,7 +2458,14 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
         } else if (chapter.meta.status === resting) {
             issues.push({
                 severity: "warning",
-                message: `${label} states \`status: ${resting}\`, which is the resting value in .${kind} — omit the field instead, per the omit-when-empty rule.`,
+                message: `${label} states \`status: ${resting}\`, which is the resting value ${builtIn.debt ? "of a debt record" : `in .${kind}`} — omit the field instead, per the omit-when-empty rule.`,
+            });
+        } else if (builtIn.debt && !allowedStatus.includes(chapter.meta.status) && folderRungs.includes(chapter.meta.status)) {
+            // A record written before the debt ladder existed holds a folder
+            // rung; it still reads, and is reported until it is moved over.
+            issues.push({
+                severity: "warning",
+                message: `${label} has status "${chapter.meta.status}", a rung of the arc42/ ladder — a debt record takes its own: ${DEBT_STATUSES.join(", ")}, \`${DEBT_RESTING_STATUS}\` by omission. See devbook-arc42.md.`,
             });
         } else if (!allowedStatus.includes(chapter.meta.status)) {
             const from = configured ? ` (${configured.source})` : "";
@@ -2281,6 +2493,11 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
         // Which way the chapter and its code sync, and whether this block is
         // one a direction may be set on.
         for (const issue of syncIssues(relPath, blockLevel, chapter.meta, chapter.level)) {
+            issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
+        }
+
+        // The C4 model's fields: their shape and where each may sit.
+        for (const issue of c4FieldIssues(relPath, blockLevel, chapter.meta, fileMeta)) {
             issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
         }
 
@@ -2439,10 +2656,10 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
 
         // `tests` names the test cases that assert what this chapter claims,
         // as `<level>:<runner>:<selector>` identifiers a runner can resolve.
-        if (pageBlock && chapter.meta.tests != null) {
+        if (journeyBlock && chapter.meta.tests != null) {
             issues.push({
                 severity: "error",
-                message: `${label} has \`tests\` on a scenario page — the page is the test: its spec is derived from it, and a requirement's \`e2e\` entry is derived from the \`Proved by:\` line that points at a part.`,
+                message: `${label} has \`tests\` on a journey — the journey is the test: its spec is derived from it, and a requirement's \`e2e\` entry is derived from the \`Proved by:\` line that points at a part.`,
             });
         } else {
             for (const issue of testIssues(chapter.meta)) {
@@ -2526,12 +2743,12 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
             if (key === "status") continue; // recognized, and fully reported above
             if (key === "sync") continue; // reported by syncIssues in every folder
             if (key in REMOVED_FIELDS) continue; // already reported above
-            if (pageBlock && key === "tests") continue; // reported above
+            if (journeyBlock && key === "tests") continue; // reported above
             if (SCENARIO_SETUP_FIELDS.includes(key)) {
-                if (!pageBlock) {
+                if (!journeyBlock) {
                     issues.push({
                         severity: "error",
-                        message: `${label} has \`${key}\`, a setup field — where a journey starts and in which configuration it runs is said on a scenario page's file-level block only.`,
+                        message: `${label} has \`${key}\`, a setup field — where a journey starts and in which configuration it runs is said on the journey's own block only.`,
                     });
                     continue;
                 }

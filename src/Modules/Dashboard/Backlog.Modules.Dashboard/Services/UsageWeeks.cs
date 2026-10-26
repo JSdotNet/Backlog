@@ -33,16 +33,21 @@ internal sealed class UsageWeeks
     private readonly DateTimeOffset _anchor;
     private readonly TimeZoneInfo _zone;
 
-    private UsageWeeks(DateTimeOffset anchor, TimeZoneInfo zone, WeekSource source)
+    private UsageWeeks(DateTimeOffset anchor, TimeZoneInfo zone, WeekSource source, string? resetName = null)
     {
         _anchor = anchor;
         _zone = zone;
         Source = source;
+        ResetName = resetName;
     }
 
     /// <summary>Where the anchor came from — the sentence the part says beside the
     /// columns.</summary>
     public WeekSource Source { get; }
+
+    /// <summary>The name the person gave the configured reset — "Work" — or null for
+    /// a detected reset and the calendar fallback.</summary>
+    public string? ResetName { get; }
 
     /// <summary>The reset as a person would say it, on the local clock — "Monday
     /// 14:00" — or null for the calendar fallback.</summary>
@@ -58,9 +63,10 @@ internal sealed class UsageWeeks
         }
     }
 
-    /// <summary>Weeks anchored on a known reset instant.</summary>
-    public static UsageWeeks AnchoredOn(DateTimeOffset reset, TimeZoneInfo zone, WeekSource source) =>
-        new(reset, zone, source);
+    /// <summary>Weeks anchored on a known reset instant, named when the person named
+    /// it.</summary>
+    public static UsageWeeks AnchoredOn(DateTimeOffset reset, TimeZoneInfo zone, WeekSource source, string? resetName = null) =>
+        new(reset, zone, source, resetName);
 
     /// <summary>
     /// The fallback: weeks from Monday midnight on the local clock. Anchored on the

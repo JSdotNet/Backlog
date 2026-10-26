@@ -72,10 +72,10 @@
     @if (_syncState.HasSomethingToShow)
     {
         <AppButton BaseClass="header-util app-sync"
-                   CssClass="@(_syncState.Error is null ? null : "app-sync--failed")"
+                   CssClass="@(_syncState.Error is null && !_syncState.UpdateRequired ? null : "app-sync--failed")"
                    Variant="ButtonVariant.None"
                    TestId="app-sync"
-                   title="@(_syncState.Error ?? "Open sync activity")"
+                   title="@(_syncState.UpdateRequired ? SyncCompatibility.UpdateRequiredMessage : _syncState.Error ?? "Open sync activity")"
                    aria-label="@SyncActivityPresentation.ControlLabel(_syncState)"
                    data-sync-state="@SyncStateToken"
                    OnClick="OpenSyncWindow">
@@ -236,7 +236,22 @@
             }
         </div>
 
-        <Alert Message="@_syncState.Error" BaseClass="app-error-message" TestId="sync-activity-error" Role="status" />
+        @* The service is newer than this app: nothing is sent until it is
+           updated, and the way to that is the update window. Shown instead of
+           the error line, which says the same sentence and offers no way out. *@
+        @if (_syncState.UpdateRequired)
+        {
+            <Callout Tone="warning" Heading="Sync is paused"
+                     ActionLabel="Open update window" OnAction="OpenUpdateWindowFromSync"
+                     ActionTestId="sync-activity-update"
+                     TestId="sync-activity-update-required">
+                @SyncCompatibility.UpdateRequiredMessage
+            </Callout>
+        }
+        else
+        {
+            <Alert Message="@_syncState.Error" BaseClass="app-error-message" TestId="sync-activity-error" Role="status" />
+        }
 
         <div class="app-update-dialog__actions">
             <AppButton Variant="ButtonVariant.Secondary"
@@ -299,6 +314,14 @@
     // client at all; empty where it did and nothing has travelled yet.
     private SyncActivityLog? _syncActivity;
 
+    // Whether the sync service is newer than this app, or null where the host
+    // composed no sync client. Read with the loops, on every raise.
+    private SyncCompatibility? _compatibility;
+
+    // How another screen asks for the update window, or null in a host that
+    // registers none.
+    private AppUpdateWindowRequests? _updateWindowRequests;
+
     // Both re-read on every raise rather than on render, so a render that
     // happens for another reason — a save settling — draws the same reading a
     // sync raise would have. The snapshot is the log's copy, taken once per
@@ -315,6 +338,7 @@
     // phrase back out of the band.
     private string SyncStateToken => _syncState switch
     {
+        { UpdateRequired: true } => "update-required",
         { Syncing: true } => "syncing",
         { Error: not null } => "failed",
         _ => "synced",
@@ -348,10 +372,14 @@
         _taskSync = ResolveOptional<TaskSyncWorker>();
         _sessionSync = ResolveOptional<SessionSyncWorker>();
         _syncActivity = Services.GetService<SyncActivityLog>();
+        _compatibility = Services.GetService<SyncCompatibility>();
+        _updateWindowRequests = Services.GetService<AppUpdateWindowRequests>();
+        if (_updateWindowRequests is not null) _updateWindowRequests.OpenRequested += OnUpdateWindowRequested;
 
         if (_taskSync is not null) _taskSync.Changed += OnSyncChanged;
         if (_sessionSync is not null) _sessionSync.Changed += OnSyncChanged;
         if (_syncActivity is not null) _syncActivity.Changed += OnSyncChanged;
+        if (_compatibility is not null) _compatibility.Changed += OnSyncChanged;
 
         ReadSync();
     }
@@ -386,7 +414,7 @@
 
     private void ReadSync()
     {
-        _syncState = SyncFooterState.From(_taskSync, _sessionSync);
+        _syncState = SyncFooterState.From(_taskSync, _sessionSync, _compatibility);
         _syncEntries = _syncActivity?.Snapshot() ?? [];
     }
 
@@ -408,9 +436,25 @@
         if (_taskSync is not null) _taskSync.Changed -= OnSyncChanged;
         if (_sessionSync is not null) _sessionSync.Changed -= OnSyncChanged;
         if (_syncActivity is not null) _syncActivity.Changed -= OnSyncChanged;
+        if (_compatibility is not null) _compatibility.Changed -= OnSyncChanged;
+        if (_updateWindowRequests is not null) _updateWindowRequests.OpenRequested -= OnUpdateWindowRequested;
     }
 
+    private void OnUpdateWindowRequested() => _ = InvokeAsync(() =>
+    {
+        _appUpdateWindowOpen = true;
+        StateHasChanged();
+    });
+
     private void OpenUpdateWindow() => _appUpdateWindowOpen = true;
+
+    // One window at a time: the sync window gives way to the update window it
+    // points at.
+    private void OpenUpdateWindowFromSync()
+    {
+        _syncWindowOpen = false;
+        _appUpdateWindowOpen = true;
+    }
 
     private void CloseUpdateWindow()
     {

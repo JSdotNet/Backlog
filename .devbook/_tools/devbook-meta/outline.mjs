@@ -314,7 +314,7 @@ async function readDirectory(repoRoot, relDir, problems) {
             // convention already answers. `statusDeclared` records that the
             // file itself did not say it — written only when false, so no
             // existing entry churns.
-            const { status, declared } = resolveStatus(folder, doc.meta);
+            const { status, declared } = resolveStatus(folder, doc.meta, doc.relPath, "file");
             const tests = testList(doc.meta);
             outline.push({
                 type: "file",

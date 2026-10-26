@@ -1,14 +1,16 @@
 @*
-    A scenario page's row in the Devbook menu: the scenario glyph, so the journey
-    reads as one among the context's chapters, and the dot that says how its last run
-    went. Drawn into the tree's leading mark column.
+    A scenarios file's row in the Devbook menu: the scenario glyph, so the file reads
+    as the context's journeys among its chapters, and the dot that says how their last
+    runs went — every journey in the file read together, in the dot's precedence.
+    Drawn into the tree's leading mark column.
 *@
-<span class="devbook-scenario-mark" data-testid="devbook-scenario-mark" data-stem="@Scenario.Stem">
+<span class="devbook-scenario-mark" data-testid="devbook-scenario-mark" data-journeys="@string.Join(" ", Journeys.Select(journey => journey.Slug))">
     <DevbookTypeMarker Value="@DevbookTypeMarkers.Scenario" Labelled="true" Size="14px" TestId="devbook-scenario-glyph" />
-    <DevbookScenarioDot State="@Scenario.State" />
+    <DevbookScenarioDot State="@ScenarioEvidence.Combined(Journeys.Select(journey => journey.State))" />
 </span>
 
 @code {
+    /// <summary>The journeys of the file the row stands for.</summary>
     [Parameter, EditorRequired]
-    public DevbookScenario Scenario { get; set; } = null!;
+    public IReadOnlyList<DevbookScenario> Journeys { get; set; } = [];
 }
