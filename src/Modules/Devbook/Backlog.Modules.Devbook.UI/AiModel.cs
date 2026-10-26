@@ -303,6 +303,11 @@ public sealed record AiModelUsage(
     DevbookChapterLink Link)
 {
     private const string MovesUpWhenLead = "Moves up when";
+    private const string EvidenceLead = "Evidence";
+
+    /// <summary>The text of its <b>Evidence</b> bullet — what the record is, which
+    /// <see cref="Evidence"/> only summarizes — or null when it has none.</summary>
+    public string? EvidenceText { get; init; }
 
     /// <summary>What its <c>depends-on</c> points at, as short labels — never
     /// <c>related</c>, which is a reading hint and not a dependency.</summary>
@@ -330,18 +335,25 @@ public sealed record AiModelUsage(
             new DevbookChapterLink(
                 DocumentDevbookFolder.Ai.AreaKey,
                 DocumentDevbookFolder.Ai.DocumentPath(file.FileName),
-                Slug(section.Heading)));
+                Slug(section.Heading)))
+        {
+            EvidenceText = BulletOf(section, EvidenceLead)
+        };
 
     /// <summary>The words after the bold <b>Moves up when</b> lead of a bullet
     /// in the chapter's body, without the dash or colon that joins them.</summary>
-    private static string? MovesUpWhenOf(DocumentDevbookSection section)
+    private static string? MovesUpWhenOf(DocumentDevbookSection section) => BulletOf(section, MovesUpWhenLead);
+
+    /// <summary>The words after a bullet's bold <paramref name="leadText"/> lead,
+    /// without the dash or colon that joins them.</summary>
+    private static string? BulletOf(DocumentDevbookSection section, string leadText)
     {
         foreach (var list in section.Blocks.OfType<DocumentDevbookList>())
         {
             foreach (var item in list.Items)
             {
                 if (item.Count == 0 || item[0] is not MdStrong lead) continue;
-                if (!string.Equals(lead.Text.Trim().TrimEnd(':', '.').Trim(), MovesUpWhenLead, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!string.Equals(lead.Text.Trim().TrimEnd(':', '.').Trim(), leadText, StringComparison.OrdinalIgnoreCase)) continue;
 
                 var text = string.Concat(item.Skip(1).Select(Plain)).Trim().TrimStart('—', '–', '-', ':').Trim();
                 return text.Length == 0 ? null : text;

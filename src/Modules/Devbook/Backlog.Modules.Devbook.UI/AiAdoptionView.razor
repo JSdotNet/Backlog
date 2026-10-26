@@ -1,15 +1,17 @@
 @*
     The AI section's Adoption tab: how far each usage has got on the ladder, read
-    from AiModel. Empty for now — the tab strip it sits in is in place so the
-    picture can land on its own; until then the tab says it has nothing drawn
-    rather than showing a blank panel.
+    from AiModel. The model is read into the library's AdoptionBoard by
+    AiAdoptionBoard — the mapping devbook-ai.md ("The loop picture") lays out —
+    and the board draws it; picking a card opens that usage's chapter.
 *@
 <div data-testid="ai-adoption-view">
-    <EmptyState Title="Adoption is not drawn yet"
-                Description="How far each AI usage has got on the adoption ladder will be drawn here." />
+    <AdoptionBoard Model="@_board" OnOpen="OpenAsync" />
 </div>
 
 @code {
+    private AiModel? _read;
+    private AdoptionBoardModel _board = AdoptionBoardModel.Empty;
+
     /// <summary>The model the tab draws, read from the folder by <see cref="AiModel.From"/>.</summary>
     [Parameter, EditorRequired]
     public AiModel Model { get; set; } = default!;
@@ -17,4 +19,18 @@
     /// <summary>Raised when a reader opens a usage's chapter; the host owns the selection.</summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        // The host hands a new model only when the folder was re-parsed.
+        if (ReferenceEquals(Model, _read)) return;
+
+        _read = Model;
+        _board = AiAdoptionBoard.From(Model);
+    }
+
+    private Task OpenAsync(AdoptionCard card) =>
+        AiAdoptionBoard.UsageOf(Model, card) is { } usage
+            ? OnNavigateToChapter.InvokeAsync(usage.Link)
+            : Task.CompletedTask;
 }

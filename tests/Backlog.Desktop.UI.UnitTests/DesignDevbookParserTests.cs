@@ -100,6 +100,41 @@ Markdown remains canonical behind the rich text editor.
         Assert.IsType<DocumentDevbookList>(Assert.Single(file.Sections[1].Blocks));
     }
 
+    /// <summary>A bullet wrapped over several lines is one item: the indented lines
+    /// under it are its own, not a paragraph after the list.</summary>
+    [Fact]
+    public void A_wrapped_bullet_keeps_its_continuation_lines()
+    {
+        using var folder = new TemporaryFolder();
+        var path = Path.Combine(folder.Path, "01-plan.md");
+        File.WriteAllText(path, """
+# Plan
+
+## Import plans
+
+- **Evidence** — the roadmap import decision and the plans run through it,
+  `devbook-adoption` among them.
+- **Limits** — user-invoked only.
+
+Closing words.
+""");
+
+        var file = DocumentDevbookParser.ParseFile(folder.Path, path);
+
+        var blocks = file.Sections[0].Blocks;
+        var list = Assert.IsType<DocumentDevbookList>(blocks[0]);
+        Assert.Equal(2, list.Items.Count);
+        Assert.Equal(
+            " — the roadmap import decision and the plans run through it, devbook-adoption among them.",
+            string.Concat(list.Items[0].Skip(1).Select(inline => inline switch
+            {
+                Backlog.SharedKernel.Markdown.MdText text => text.Text,
+                Backlog.SharedKernel.Markdown.MdCodeSpan code => code.Text,
+                _ => string.Empty
+            })));
+        Assert.IsType<DocumentDevbookParagraph>(Assert.Single(blocks.Skip(1)));
+    }
+
     // Two facts were here, both about reading order read off a `meta` fence:
     // that a root document declares its folder's order, and that a chapter's own
     // block does not get to. They were added when the shared record dropped

@@ -1,0 +1,160 @@
+@page "/devbook/ai-adoption"
+
+<PageTitle>AI adoption — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="AI adoption"
+           Summary="AdoptionBoard: how far each AI usage has got, the board the AI section's Adoption tab draws. A strip of every stage and layer with its adopted, trial and candidate mix; three findings counted from the cards; the evidence legend and the Only what still needs evidence toggle; and the ladder grid — one row per stage, the pull-request divider, one row per layer, with candidate, trial, adopted and retired as the columns. The Devbook module reads its AI model into the board; every sample here is hand-made."
+           Guidelines="@Rules">
+
+    <Story Name="The whole board"
+           Description="Every part on one sample: stages before the pull request with adopted usages, stages after it with trial and candidate ones, Release & deploy with none at all, and the three layers underneath. Each card shows its evidence mark, the date it took its rung, what its evidence is, and — below adopted — the event that would move it up. Picking a card opens its chapter; here it names the card it was handed.
+
+The findings are counted from the cards, never written: change a card's rung or its evidence and the counts and their headings follow."
+           Code="@BoardCode">
+        <AdoptionBoard Model="@Full" OnOpen="Pick" TestId="sb-adoption-board" />
+        <p data-testid="sb-adoption-picked">@(_picked is null ? "Pick a card." : $"Opens the chapter of {_picked}.")</p>
+    </Story>
+
+    <Story Name="Only what still needs evidence"
+           Description="The toggle pressed: a card whose evidence is recorded, and a card off the ladder, step back, so what still needs evidence stands out. The settled cards stay where they are and stay buttons — the grid keeps its shape, and a reader can still open one."
+           Code="@GapsCode">
+        <AdoptionBoard Model="@Full" NeedsEvidenceOnly="true" TestId="sb-adoption-gaps" />
+    </Story>
+
+    <Story Name="An empty stage"
+           Description="A stage with no usage stays on the board, empty: its tile says no AI and its row says so under its name. The emptiness is the finding — the board never fills a stage to look complete. Here every stage after the pull request is empty, so the adopted finding reads that adoption ends at the pull request and names the homes that have none."
+           Code="@EmptyStageCode">
+        <AdoptionBoard Model="@BeforeOnly" TestId="sb-adoption-empty-stage" />
+    </Story>
+
+    <Story Name="Held and retired"
+           Description="Hold and retired sit off the ladder, in the last column. A retired card's name is struck through; a held one says so in words. Neither counts in the strip's bar, and both step back under the toggle."
+           Code="@OffLadderCode">
+        <AdoptionBoard Model="@OffLadder" TestId="sb-adoption-off-ladder" />
+    </Story>
+
+    <Story Name="Nothing adopted yet"
+           Description="Every home present and no card at all — a repository that has just started its record. The findings say there is nothing adopted, nothing on trial and nothing waiting, rather than printing zeros under headings written for a fuller board."
+           Code="@NothingCode">
+        <AdoptionBoard Model="@Nothing" TestId="sb-adoption-nothing" />
+    </Story>
+
+    <Story Name="Evidence marks"
+           Description="AdoptionEvidenceDots on its own: three dots filled by how much a rating rests on, the success ink for recorded and the trial gold for the rest. The count of dots says it as well as the colour, and the mark is named to a screen reader."
+           Code="@DotsCode">
+        <ul class="adoption-legend">
+            <li class="adoption-legend__entry"><AdoptionEvidenceDots Evidence="AdoptionEvidence.Recorded" /> recorded</li>
+            <li class="adoption-legend__entry"><AdoptionEvidenceDots Evidence="AdoptionEvidence.Partial" /> partial</li>
+            <li class="adoption-legend__entry"><AdoptionEvidenceDots Evidence="AdoptionEvidence.Fired" /> fired, nothing published</li>
+            <li class="adoption-legend__entry"><AdoptionEvidenceDots Evidence="AdoptionEvidence.None" /> none yet</li>
+        </ul>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#badge-and-chip-tones", "Why adopted is the success surface, trial the warning one and retired spends no colour."),
+        new("color-scheme.md#band-identity-tokens", "Why the before, after and underneath groups are told apart by palette edges and not by band hues."),
+        new("interaction-guidelines.md#empty-states", "Why an empty stage says so in its own row rather than disappearing.")
+    ];
+
+    private string? _picked;
+
+    private void Pick(AdoptionCard card) => _picked = card.Title;
+
+    private static readonly AdoptionHome[] Homes =
+    [
+        new("decide", "Decide", AdoptionHomeGroup.BeforePullRequest, "01"),
+        new("specify", "Specify & plan", AdoptionHomeGroup.BeforePullRequest, "02"),
+        new("code", "Code", AdoptionHomeGroup.BeforePullRequest, "03"),
+        new("verify", "Verify", AdoptionHomeGroup.BeforePullRequest, "04"),
+        new("integrate", "Integrate", AdoptionHomeGroup.AfterPullRequest, "05"),
+        new("release", "Release & deploy", AdoptionHomeGroup.AfterPullRequest, "06"),
+        new("operate", "Operate & feedback", AdoptionHomeGroup.AfterPullRequest, "07"),
+        new("thread", "Spec ↔ code thread", AdoptionHomeGroup.Underneath),
+        new("upkeep", "Upkeep loop", AdoptionHomeGroup.Underneath),
+        new("harness", "Agent harness", AdoptionHomeGroup.Underneath)
+    ];
+
+    private static readonly AdoptionCard[] BeforeCards =
+    [
+        new("a", "decide", "Backlog as tracker", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "Plan entries with their session and pull request linked."),
+        new("b", "decide", "Scheduled issue sweep", AdoptionRung.Trial, AdoptionEvidence.None, "2026-09-26", "Nothing from the schedule yet.", "its first brief or draft pull request lands.", ["Code"]),
+        new("c", "specify", "Import plans", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "The plans run through it, one entry per session."),
+        new("d", "specify", "Answer remarks", AdoptionRung.Trial, AdoptionEvidence.Partial, "2026-09-26", "The answer loop shipped; no full inbox swept yet.", "a full remark inbox is swept and on record."),
+        new("e", "code", "Code gate via flow-code", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-26", "Every merged pull request carries a flow run.", null, ["Verify"]),
+        new("f", "verify", "QA agent on the running app", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "Screenshots and logs on each run's validation stage."),
+        new("g", "verify", "Devbook checks around a flow", AdoptionRung.Trial, AdoptionEvidence.None, "2026-09-25", "Nothing recorded against a pull request.", "a drift catch is recorded against a pull request.", ["Spec ↔ code thread"]),
+        new("h", "harness", "Worktree per change", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "Parallel worktrees, one branch per merged pull request."),
+        new("i", "harness", "Unattended-run limits", AdoptionRung.Trial, AdoptionEvidence.Fired, "2026-09-26", "The first fires published nothing.", "a schedule publishes inside its limits.")
+    ];
+
+    private static readonly AdoptionCard[] AfterCards =
+    [
+        new("j", "integrate", "Scheduled merge review", AdoptionRung.Trial, AdoptionEvidence.None, "2026-09-26", "No verdict comment posted yet.", "its first verdict comment is posted."),
+        new("k", "operate", "Scheduled reports", AdoptionRung.Trial, AdoptionEvidence.Fired, "2026-09-26", "Two reports fired; no issue published.", "the first report issue is published.", ["Decide"]),
+        new("l", "operate", "Alerts to work items", AdoptionRung.Candidate, AdoptionEvidence.None, "2026-09-25", "The preflight fails: the environment has no variables.", "the environment gets its variables and the preflight passes."),
+        new("m", "upkeep", "Scheduled package update", AdoptionRung.Trial, AdoptionEvidence.Fired, "2026-09-26", "Fired once; no pull request yet.", "its first package pull request lands."),
+        new("n", "thread", "Devbook sync sweeps", AdoptionRung.Candidate, AdoptionEvidence.None, "2026-10-06", "Neither sweep is selected.", "a sweep is selected.")
+    ];
+
+    private static readonly AdoptionBoardModel Full = new(Homes, [.. BeforeCards, .. AfterCards]);
+
+    private static readonly AdoptionBoardModel BeforeOnly = new(Homes, BeforeCards);
+
+    private static readonly AdoptionBoardModel OffLadder = new(Homes,
+    [
+        new("o", "decide", "Backlog as tracker", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "Plan entries with their session and pull request linked."),
+        new("p", "decide", "Findings-to-issues hook", AdoptionRung.Retired, AdoptionEvidence.Recorded, "2026-10-03", "Filed 95 issues, some meant for other repositories."),
+        new("q", "operate", "Scheduled security review", AdoptionRung.Hold, AdoptionEvidence.None, "2026-09-26", "Left unselected: CodeQL and Dependabot run in CI."),
+        new("r", "harness", "Guidance from MCP servers", AdoptionRung.Retired, AdoptionEvidence.Recorded, "2026-08-27", "Guidance is now checked in.")
+    ]);
+
+    private static readonly AdoptionBoardModel Nothing = new(Homes, []);
+
+    private const string BoardCode = """
+        <AdoptionBoard Model="@board" OnOpen="Open" />
+
+        @code {
+            // A home per stage and layer, in row order; a card per usage, at one home.
+            private readonly AdoptionBoardModel board = new(
+                [
+                    new("decide", "Decide", AdoptionHomeGroup.BeforePullRequest, "01"),
+                    // … the other stages, then the layers
+                    new("harness", "Agent harness", AdoptionHomeGroup.Underneath)
+                ],
+                [
+                    new("usage-0", "decide", "Backlog as tracker", AdoptionRung.Adopted, AdoptionEvidence.Recorded,
+                        Since: "2026-09-25", EvidenceText: "Plan entries with their session and pull request linked."),
+                    new("usage-1", "decide", "Scheduled issue sweep", AdoptionRung.Trial, AdoptionEvidence.None,
+                        Since: "2026-09-26", EvidenceText: "Nothing from the schedule yet.",
+                        MovesUpWhen: "its first brief or draft pull request lands.", Reach: ["Code"])
+                ]);
+
+            private Task Open(AdoptionCard card) => /* open the chapter card.Key names */ Task.CompletedTask;
+        }
+        """;
+
+    private const string GapsCode = """
+        <AdoptionBoard Model="@board" NeedsEvidenceOnly="true" />
+        """;
+
+    private const string EmptyStageCode = """
+        @* Every home is handed in; the ones no card names are drawn empty. *@
+        <AdoptionBoard Model="@(new AdoptionBoardModel(homes, cardsBeforeThePullRequest))" />
+        """;
+
+    private const string OffLadderCode = """
+        new AdoptionCard("usage-7", "decide", "Findings-to-issues hook", AdoptionRung.Retired, AdoptionEvidence.Recorded)
+        new AdoptionCard("usage-8", "operate", "Scheduled security review", AdoptionRung.Hold, AdoptionEvidence.None)
+        """;
+
+    private const string NothingCode = """
+        <AdoptionBoard Model="@(new AdoptionBoardModel(homes, []))" />
+        """;
+
+    private const string DotsCode = """
+        <AdoptionEvidenceDots Evidence="AdoptionEvidence.Partial" />
+        """;
+}

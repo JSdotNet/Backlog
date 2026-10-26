@@ -1,0 +1,54 @@
+@*
+    A card's evidence mark: three dots, filled by how much the rating rests on —
+    three for recorded, two for partial, one for fired, none for none yet. A
+    recorded mark is drawn in the success ink, the others in the trial gold, so
+    the count of dots and the colour say it twice. The word is the mark's name to
+    a screen reader; in the legend the word is printed beside it and the dots are
+    decorative.
+*@
+<span class="adoption-dots adoption-dots--@Slug"
+      role="@(Decorative ? null : "img")"
+      aria-label="@(Decorative ? null : Label)"
+      aria-hidden="@(Decorative ? "true" : null)"
+      data-testid="adoption-dots"
+      data-evidence="@Slug">
+    @for (var dot = 1; dot <= 3; dot++)
+    {
+        <span class="adoption-dots__dot@(dot <= Filled ? " adoption-dots__dot--on" : string.Empty)"></span>
+    }
+</span>
+
+@code {
+    [Parameter]
+    public AdoptionEvidence Evidence { get; set; }
+
+    /// <summary>Set where the word is printed beside the mark, so a screen reader hears it once.</summary>
+    [Parameter]
+    public bool Decorative { get; set; }
+
+    private int Filled => Evidence switch
+    {
+        AdoptionEvidence.Recorded => 3,
+        AdoptionEvidence.Partial => 2,
+        AdoptionEvidence.Fired => 1,
+        _ => 0
+    };
+
+    private string Slug => Evidence switch
+    {
+        AdoptionEvidence.Recorded => "recorded",
+        AdoptionEvidence.Partial => "partial",
+        AdoptionEvidence.Fired => "fired",
+        AdoptionEvidence.None => "none",
+        _ => "unstated"
+    };
+
+    private string Label => Evidence switch
+    {
+        AdoptionEvidence.Recorded => "evidence recorded",
+        AdoptionEvidence.Partial => "partial evidence",
+        AdoptionEvidence.Fired => "fired, nothing published",
+        AdoptionEvidence.None => "no evidence yet",
+        _ => "evidence not stated"
+    };
+}
