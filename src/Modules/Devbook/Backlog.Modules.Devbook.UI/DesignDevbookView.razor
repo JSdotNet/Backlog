@@ -10,7 +10,8 @@
 <DocumentDevbookView Provider="@DesignDevbook"
                      RepositoryAlias="@RepositoryAlias"
                      SelectedPath="@SelectedPath"
-                     OnNavigateToChapter="@OnNavigateToChapter" />
+                     OnNavigateToChapter="@OnNavigateToChapter"
+                     Focus="@Focus" />
 
 @code {
     [Parameter]
@@ -23,4 +24,9 @@
     /// document; see <see cref="DocumentDevbookView.OnNavigateToChapter"/>.</summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    /// <summary>The heading a followed reference opened the document at; see
+    /// <see cref="DocumentDevbookView.Focus"/>.</summary>
+    [Parameter]
+    public DevbookFocus? Focus { get; set; }
 }

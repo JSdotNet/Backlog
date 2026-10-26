@@ -16,6 +16,7 @@
                      RepositoryAlias="@RepositoryAlias"
                      SelectedPath="@SelectedPath"
                      OnNavigateToChapter="@OnNavigateToChapter"
+                     Focus="@Focus"
                      RootPicture="@TabsPicture" />
 
 @code {
@@ -35,6 +36,11 @@
     /// `depends-on` points; see <see cref="DocumentDevbookView.OnNavigateToChapter"/>.</summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    /// <summary>The heading a followed reference opened the document at; see
+    /// <see cref="DocumentDevbookView.Focus"/>.</summary>
+    [Parameter]
+    public DevbookFocus? Focus { get; set; }
 
     private IReadOnlyList<DocumentDevbookFile>? _modelFiles;
     private AiModel? _model;
