@@ -166,6 +166,79 @@ public sealed class NotificationCardTests
     }
 
     [Fact]
+    public void Seven_or_eight_choices_lay_out_as_a_wrapping_grid_and_fewer_stay_one_row()
+    {
+        using var context = Context();
+        var eight = new NotificationCardAnswerSpec([.. Enumerable.Range(1, 8).Select(n => new NotificationCardChoice($"c{n}", $"Choice {n}"))]);
+        var seven = eight with { Choices = eight.Choices.Take(7).ToList() };
+        var six = eight with { Choices = eight.Choices.Take(6).ToList() };
+
+        var eightCard = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(eight)));
+        var sevenCard = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(seven)));
+        var sixCard = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(six)));
+
+        Assert.Equal(8, eightCard.FindAll("[data-testid^='notification-card-choice-']").Count);
+        Assert.Contains("notification-card__actions--many", eightCard.Find("[data-testid='notification-card-choices']").ClassList);
+        Assert.Contains("notification-card__actions--many", sevenCard.Find("[data-testid='notification-card-choices']").ClassList);
+        Assert.DoesNotContain("notification-card__actions--many", sixCard.Find("[data-testid='notification-card-choices']").ClassList);
+    }
+
+    [Fact]
+    public void A_question_that_takes_a_note_sends_it_with_the_choice_pressed()
+    {
+        using var context = Context();
+        NotificationCardReply? reply = null;
+        var spec = YesNo with { Note = new NotificationCardOpenAnswer("Why, or anything the asker should know", 4000) };
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(spec))
+            .Add(c => c.OnAnswer, r => reply = r));
+
+        var note = card.Find("[data-testid='notification-card-note']");
+        Assert.Contains("Add a note (optional)", note.TextContent);
+        var box = note.QuerySelector("textarea")!;
+        Assert.Equal("4000", box.GetAttribute("maxlength"));
+        Assert.Equal("Why, or anything the asker should know", box.GetAttribute("placeholder"));
+
+        box.Input("  After the nightly backup  ");
+        card.Find("[data-testid='notification-card-choice-yes']").Click();
+
+        Assert.Equal(["yes"], reply!.ChoiceIds);
+        Assert.Equal("After the nightly backup", reply.Note);
+    }
+
+    [Fact]
+    public void A_note_goes_with_an_open_answer_and_an_empty_note_sends_none()
+    {
+        using var context = Context();
+        var replies = new List<NotificationCardReply>();
+        var spec = new NotificationCardAnswerSpec([], Open: new NotificationCardOpenAnswer(), Note: new NotificationCardOpenAnswer());
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(spec))
+            .Add(c => c.OnAnswer, r => replies.Add(r)));
+
+        card.Find("[data-testid='notification-card-open'] textarea").Input("Signals");
+        card.Find("[data-testid='notification-card-send']").Click();
+        card.Find("[data-testid='notification-card-note'] textarea").Input("Short and plain");
+        card.Find("[data-testid='notification-card-send']").Click();
+
+        Assert.Null(replies[0].Note);
+        Assert.Equal("Signals", replies[1].Text);
+        Assert.Equal("Short and plain", replies[1].Note);
+    }
+
+    [Fact]
+    public void A_question_without_a_note_draws_no_note_box()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question()));
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-note']"));
+    }
+
+    [Fact]
     public void An_alert_offers_acknowledge()
     {
         using var context = Context();

@@ -19,6 +19,9 @@
       multiple choice    one Checkbox per set answer, and Answer to send the picks
       open               a plain-text TextArea and Send
       choices with open  the buttons, and the box with Send below them
+    Seven or eight choices wrap into two even columns. A question that takes a
+    note adds a plain-text box, "Add a note (optional)", under the answers, and
+    whatever is in it goes with the answer.
     A question that says answerOn: owner draws none: only its owner takes an
     answer. An alert draws none either; acknowledging one stays on the desktop.
 
@@ -98,14 +101,14 @@
                     <AppButton Variant="ButtonVariant.Primary"
                                Busy="@Busy"
                                BusyLabel="Answering"
-                               Disabled="@(!NotificationStandings.Fits(spec, _picked, null))"
+                               Disabled="@(!NotificationStandings.Fits(spec, _picked, null, _note))"
                                TestId="notification-submit"
                                OnClick="SubmitPicksAsync">Answer</AppButton>
                 </div>
             }
             else if (spec.Choices.Count > 0)
             {
-                <div class="phone-notification__choices" data-testid="notification-choices">
+                <div class="@ChoicesClass(spec)" data-testid="notification-choices">
                     @foreach (var choice in spec.Choices)
                     {
                         <AppButton Variant="@VariantFor(choice.Style)"
@@ -134,6 +137,19 @@
                                    TestId="notification-send"
                                    OnClick="@(() => ReplyAsync([], _text))">Send</AppButton>
                     </div>
+                </div>
+            }
+
+            @if (spec.Note is { } note)
+            {
+                <div class="phone-notification__note" data-testid="notification-note">
+                    <TextArea Label="Add a note (optional)"
+                              @bind-Value="_note"
+                              Placeholder="@note.Placeholder"
+                              Disabled="@Busy"
+                              Rows="2"
+                              TestId="notification-note-text"
+                              maxlength="@note.MaxLength" />
                 </div>
             }
         </div>
@@ -165,6 +181,7 @@
     private readonly string _titleId = "notification-" + Guid.NewGuid().ToString("N");
     private readonly HashSet<string> _picked = new(StringComparer.Ordinal);
     private string? _text;
+    private string? _note;
     private Guid _shownId;
 
     /// <summary>The notification and where it stands for this phone.</summary>
@@ -263,7 +280,13 @@
         _shownId = Notification.Id;
         _picked.Clear();
         _text = null;
+        _note = null;
     }
+
+    /// <summary>Seven or eight choices wrap into an even grid rather than one long row.</summary>
+    private static string ChoicesClass(AnswerSpec spec) => spec.Choices.Count >= 7
+        ? "phone-notification__choices phone-notification__choices--many"
+        : "phone-notification__choices";
 
     private string Local(DateTimeOffset at)
     {
@@ -301,9 +324,11 @@
     {
         if (Busy) return;
 
-        await OnReply.InvokeAsync(new NotificationAnswerPick(choiceIds, text));
+        var note = Spec?.Note is not null && !string.IsNullOrWhiteSpace(_note) ? _note.Trim() : null;
+        await OnReply.InvokeAsync(new NotificationAnswerPick(choiceIds, text, note));
 
         _picked.Clear();
         _text = null;
+        _note = null;
     }
 }

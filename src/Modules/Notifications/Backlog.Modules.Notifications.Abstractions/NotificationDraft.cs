@@ -137,10 +137,10 @@ public sealed record OpenAnswer(string? Placeholder = null, int MaxLength = Open
 /// <summary>
 /// What makes a question a question: the answers the owner will accept
 /// (<c>.devbook/domain/notifications/domain.md#answer-spec</c>). One of four shapes —
-/// single choice (two to six <see cref="Choices"/>), multiple choice
+/// single choice (two to eight <see cref="Choices"/>), multiple choice
 /// (<see cref="AllowMultiple"/>, within <see cref="MinChoices"/> and <see cref="MaxChoices"/>),
 /// open (no choices, an <see cref="Open"/> answer), or choices with open (one choice, or
-/// the open answer instead).
+/// the open answer instead). Any shape may also take a <see cref="Note"/> beside its answer.
 /// </summary>
 /// <param name="Choices">The set answers; empty for an open question.</param>
 /// <param name="AllowMultiple">Whether a reply may pick several choices.</param>
@@ -148,13 +148,17 @@ public sealed record OpenAnswer(string? Placeholder = null, int MaxLength = Open
 /// <param name="MinChoices">A multiple-choice question's least number of picks; one when null.</param>
 /// <param name="MaxChoices">A multiple-choice question's most picks; every choice when null.</param>
 /// <param name="AnswerOn">Whether any paired viewer may answer, or only the owner instance.</param>
+/// <param name="Note">The optional plain-text note a reply may add beside its choice or open
+/// answer, with its placeholder and length limit; null when the question takes no note. A note
+/// never answers on its own: the reply's choices or open text still have to fit.</param>
 public sealed record AnswerSpec(
     IReadOnlyList<AnswerChoice> Choices,
     bool AllowMultiple = false,
     OpenAnswer? Open = null,
     int? MinChoices = null,
     int? MaxChoices = null,
-    AnswerOn AnswerOn = AnswerOn.AnyInstance);
+    AnswerOn AnswerOn = AnswerOn.AnyInstance,
+    OpenAnswer? Note = null);
 
 /// <summary>
 /// What a source hands <see cref="INotifications.PublishAsync"/>
@@ -197,6 +201,8 @@ public sealed record NotificationDraft(
 /// <param name="ChoiceIds">The chosen choice ids; empty for an open answer.</param>
 /// <param name="Text">The open answer's text, or null.</param>
 /// <param name="RepliedAt">When the person replied.</param>
+/// <param name="Note">The note written beside the answer, or null; only where the answer spec
+/// takes a <see cref="AnswerSpec.Note"/>.</param>
 public sealed record NotificationReply(
     Guid Id,
     Guid NotificationId,
@@ -204,7 +210,8 @@ public sealed record NotificationReply(
     Guid FromDeviceId,
     IReadOnlyList<string> ChoiceIds,
     string? Text,
-    DateTimeOffset RepliedAt);
+    DateTimeOffset RepliedAt,
+    string? Note = null);
 
 /// <summary>
 /// The reply the owner accepted (<c>.devbook/domain/notifications/domain.md#answer</c>). A
@@ -218,6 +225,7 @@ public sealed record NotificationReply(
 /// <param name="ChoiceIds">The chosen choice ids; empty for an open answer.</param>
 /// <param name="Text">The open answer's text, or null.</param>
 /// <param name="AnsweredAt">When the owner accepted it.</param>
+/// <param name="Note">The note written beside the answer, or null.</param>
 public sealed record NotificationAnswer(
     Guid NotificationId,
     NotificationSource Source,
@@ -225,4 +233,5 @@ public sealed record NotificationAnswer(
     Guid FromDeviceId,
     IReadOnlyList<string> ChoiceIds,
     string? Text,
-    DateTimeOffset AnsweredAt);
+    DateTimeOffset AnsweredAt,
+    string? Note = null);

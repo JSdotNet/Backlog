@@ -88,14 +88,16 @@ public sealed record NotificationCardChoice(string Id, string Label, Notificatio
 /// The answers a question takes, in the four shapes a question has: single choice (buttons),
 /// multiple choice (<see cref="AllowMultiple"/>, checkboxes within <see cref="MinChoices"/> and
 /// <see cref="MaxChoices"/>), open (no choices, <see cref="Open"/>: a plain-text box), or choices
-/// with an open answer.
+/// with an open answer. Any shape may take a <see cref="Note"/>: an optional plain-text box under
+/// the answers, sent with whichever answer the person gives.
 /// </summary>
 public sealed record NotificationCardAnswerSpec(
     IReadOnlyList<NotificationCardChoice> Choices,
     bool AllowMultiple = false,
     NotificationCardOpenAnswer? Open = null,
     int? MinChoices = null,
-    int? MaxChoices = null);
+    int? MaxChoices = null,
+    NotificationCardOpenAnswer? Note = null);
 
 /// <summary>A plain-text answer: the placeholder its box shows and the most characters it takes.</summary>
 public sealed record NotificationCardOpenAnswer(string? Placeholder = null, int MaxLength = 2000);
@@ -111,5 +113,5 @@ public sealed record NotificationCardOpenAnswer(string? Placeholder = null, int 
 public sealed record NotificationCardOutcome(string? Answer = null, string? Device = null, string? Reason = null, string? When = null);
 
 /// <summary>What a person answered in the card: the picked choice ids, the typed text, or both
-/// where the question takes both.</summary>
-public sealed record NotificationCardReply(IReadOnlyList<string> ChoiceIds, string? Text);
+/// where the question takes both, and the note written beside the answer, or null.</summary>
+public sealed record NotificationCardReply(IReadOnlyList<string> ChoiceIds, string? Text, string? Note = null);

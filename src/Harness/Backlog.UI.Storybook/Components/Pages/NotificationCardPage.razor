@@ -38,6 +38,12 @@
         <NotificationCard Model="@ChoicesWithOpen" TestId="notification-card-choices-open" OnAnswer="@Answered" />
     </Story>
 
+    <Story Name="Eight choices and a note"
+           Description="The most a question offers: eight set answers, an open answer in place of them, and an optional note beside whichever answer the person gives — the shape a spec-manager question takes. From seven choices up the buttons lay out as an even grid that wraps, and a long label breaks inside its button. The note box, Add a note (optional), sits under the answers; what is in it goes with the button pressed or the text sent."
+           Code="@EightWithNoteCode">
+        <NotificationCard Model="@EightWithNote" TestId="notification-card-eight-note" OnAnswer="@Answered" />
+    </Story>
+
     <Story Name="Alert"
            Description="An alert informs, and nothing waits on it: Acknowledge is the only control. An info alert carries no severity badge; warning and critical do."
            Code="@AlertCode">
@@ -152,6 +158,30 @@
             Open: new NotificationCardOpenAnswer("Another name")),
         NotificationCardState.Open);
 
+    private static readonly NotificationCardModel EightWithNote = new(
+        "rounding",
+        NotificationCardKind.Question,
+        NotificationCardSeverity.Info,
+        "Which rounding rule applies to invoice totals?",
+        "Billing · #7 Rounding in invoices",
+        string.Empty,
+        "spec-manager",
+        "4 min ago",
+        new NotificationCardAnswerSpec(
+        [
+            new NotificationCardChoice("half-even", "Round half even", NotificationCardChoiceStyle.Primary),
+            new NotificationCardChoice("half-up", "Round half up"),
+            new NotificationCardChoice("half-down", "Round half down"),
+            new NotificationCardChoice("truncate", "Truncate to cents"),
+            new NotificationCardChoice("ceiling", "Always round up"),
+            new NotificationCardChoice("floor", "Always round down"),
+            new NotificationCardChoice("per-line", "Round each invoice line, then add up the rounded lines"),
+            new NotificationCardChoice("customer", "Follow the customer's contract")
+        ],
+        Open: new NotificationCardOpenAnswer("Another rule", 4000),
+        Note: new NotificationCardOpenAnswer("Why, or anything the asker should know", 4000)),
+        NotificationCardState.Open);
+
     private static readonly NotificationCardModel Alert = new(
         "remark",
         NotificationCardKind.Alert,
@@ -208,7 +238,7 @@
     };
 
     private void Answered(NotificationCardReply reply) =>
-        _last = reply.Text ?? string.Join(", ", reply.ChoiceIds);
+        _last = (reply.Text ?? string.Join(", ", reply.ChoiceIds)) + (reply.Note is { } note ? $" · note: {note}" : string.Empty);
 
     private void Acknowledged() => _last = "acknowledged";
 
@@ -247,6 +277,16 @@
         <NotificationCard Model="@question" OnAnswer="AnswerAsync" />
 
         // question.Answer = new NotificationCardAnswerSpec(choices, Open: new NotificationCardOpenAnswer("Another name"));
+        """;
+
+    private const string EightWithNoteCode = """
+        <NotificationCard Model="@question" OnAnswer="AnswerAsync" />
+
+        // question.Answer = new NotificationCardAnswerSpec(
+        //     eightChoices,
+        //     Open: new NotificationCardOpenAnswer("Another rule", 4000),
+        //     Note: new NotificationCardOpenAnswer("Why, or anything the asker should know", 4000));
+        // reply.Note carries the note beside reply.ChoiceIds or reply.Text.
         """;
 
     private const string AlertCode = """

@@ -177,7 +177,8 @@ public sealed class NotificationViewProjection : IDisposable
     }
 
     /// <summary>
-    /// Answers the question with <paramref name="choiceIds"/> or <paramref name="text"/>: keeps
+    /// Answers the question with <paramref name="choiceIds"/> or <paramref name="text"/>, and
+    /// <paramref name="note"/> beside it where the question takes a note: keeps
     /// the reply as this phone's, then queues it, so a reply made with no signal is kept and
     /// sent once there is one. Answers null when the notification is not one the phone may
     /// answer now, or the reply does not fit it.
@@ -186,6 +187,7 @@ public sealed class NotificationViewProjection : IDisposable
         Guid notificationId,
         IReadOnlyList<string> choiceIds,
         string? text,
+        string? note = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(choiceIds);
@@ -193,7 +195,8 @@ public sealed class NotificationViewProjection : IDisposable
         if (Find(notificationId) is not { CanAnswer: true } notification) return null;
 
         var trimmed = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
-        if (!NotificationStandings.Fits(notification.Notification.AnswerSpec, choiceIds, trimmed)) return null;
+        var trimmedNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        if (!NotificationStandings.Fits(notification.Notification.AnswerSpec, choiceIds, trimmed, trimmedNote)) return null;
 
         var reply = new NotificationReplyPost(
             Guid.CreateVersion7(),
@@ -201,7 +204,8 @@ public sealed class NotificationViewProjection : IDisposable
             notification.Notification.OwnerInstanceId,
             [.. choiceIds],
             trimmed,
-            _clock.GetUtcNow());
+            _clock.GetUtcNow(),
+            trimmedNote);
 
         await _store.AddSentReplyAsync(reply, cancellationToken);
         lock (_rowsLock) _sent.Add(reply);

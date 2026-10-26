@@ -388,7 +388,8 @@ public sealed class NotificationSyncSession
             record.FromDeviceId == me.DeviceId ? _identity.Current.Id : record.FromDeviceId,
             record.Reply.ChoiceIds ?? [],
             record.Reply.Text,
-            record.Reply.RepliedAt);
+            record.Reply.RepliedAt,
+            record.Reply.Note);
 
     private void Reject(NotificationReplyRecord record, Error error)
     {

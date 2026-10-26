@@ -142,10 +142,14 @@ one of four shapes:
 
 | Shape | What a reply may hold |
 |---|---|
-| Single choice | Exactly one of two to six set choices. Each choice has an id, a label, and an optional style: primary or destructive. |
+| Single choice | Exactly one of two to eight set choices. Each choice has an id, a label, and an optional style: primary or destructive. |
 | Multiple choice | Any subset of the set choices, within an optional minimum and maximum. |
 | Open | Plain text, with an optional placeholder and length limit. Markdown is not allowed in an answer. |
 | Choices with open | One of the set choices, or an open answer instead. |
+
+Any shape may also take a **note**: plain text with an optional placeholder and
+length limit, which a reply may fill beside its choice or open answer. A note
+never answers on its own, and a question without one takes no note.
 
 An answer spec may also say `answerOn: owner`. Only a reply made on the owner
 instance is then accepted. Without it, any paired viewer may answer, critical
@@ -225,7 +229,7 @@ answer spec. The viewer can then reply again. The owner deletes a reply once it
 has processed it.
 
 A reply names the notification, its owner instance, the device it came from, the
-chosen choice ids and the open text.
+chosen choice ids, the open text and the note.
 
 ## Answer
 

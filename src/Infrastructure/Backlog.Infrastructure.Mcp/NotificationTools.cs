@@ -116,7 +116,7 @@ public sealed class NotificationTools(INotifications notifications, INotificatio
 
     [McpServerTool(Name = Ask, Title = "Ask the person a question", ReadOnly = false, Idempotent = false, Destructive = false, OpenWorld = false)]
     [Description(
-        "Asks the person a question they can answer on this desktop or on any paired device. Offer 2 to 6 choices, "
+        "Asks the person a question they can answer on this desktop or on any paired device. Offer 2 to 8 choices, "
         + "an open plain-text answer, or both (one choice, or the open answer instead). allowMultiple lets them pick "
         + "several choices, and takes no open answer. Answers the notification's id at once and never waits for the "
         + "answer: poll get_answer with the id. There is no deadline and no default answer. Pass sessionId - your "
@@ -294,13 +294,15 @@ public sealed record NotificationPublishedPayload(Guid Id);
 /// <param name="Text">The open answer's text, or null.</param>
 /// <param name="AnsweredAt">When the answer was accepted, or null.</param>
 /// <param name="Reason">The reason a closed notification was closed with, or null.</param>
+/// <param name="Note">The note the person wrote beside the answer, or null.</param>
 public sealed record NotificationAnswerPayload(
     Guid Id,
     string Status,
     IReadOnlyList<string> Choices,
     string? Text,
     DateTimeOffset? AnsweredAt,
-    string? Reason)
+    string? Reason,
+    string? Note = null)
 {
     internal static NotificationAnswerPayload From(NotificationStatus status) =>
         new(
@@ -309,5 +311,6 @@ public sealed record NotificationAnswerPayload(
             status.Answer?.ChoiceIds ?? [],
             status.Answer?.Text,
             status.Answer?.AnsweredAt,
-            status.State == NotificationState.Closed ? status.CloseReason : null);
+            status.State == NotificationState.Closed ? status.CloseReason : null,
+            status.Answer?.Note);
 }

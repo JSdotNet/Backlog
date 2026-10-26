@@ -110,7 +110,7 @@ public static class NotificationPresentation
         deviceId == thisDeviceId ? "this desktop" : "another device";
 
     /// <summary>The winning answer as a person reads it: the chosen choices' labels, then the
-    /// text written in the box.</summary>
+    /// text written in the box, then the note written beside it.</summary>
     public static string? AnswerText(NotificationView notification)
     {
         ArgumentNullException.ThrowIfNull(notification);
@@ -123,6 +123,8 @@ public static class NotificationPresentation
             .ToList();
 
         if (!string.IsNullOrWhiteSpace(answer.Text)) labels.Add($"“{answer.Text}”");
+        if (!string.IsNullOrWhiteSpace(answer.Note)) labels.Add($"note: “{answer.Note}”");
+
         return labels.Count == 0 ? null : string.Join(", ", labels);
     }
 
@@ -203,7 +205,8 @@ public static class NotificationPresentation
         spec.AllowMultiple,
         spec.Open is { } open ? new NotificationCardOpenAnswer(open.Placeholder, open.MaxLength) : null,
         spec.MinChoices,
-        spec.MaxChoices);
+        spec.MaxChoices,
+        spec.Note is { } note ? new NotificationCardOpenAnswer(note.Placeholder, note.MaxLength) : null);
 
     private static string GroupKey(NotificationSubject? subject) =>
         subject is null ? "none" : $"{subject.Context}/{subject.Type}/{subject.Id}";

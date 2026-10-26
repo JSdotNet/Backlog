@@ -92,7 +92,7 @@ public sealed class NotificationCentreScreenTests : IDisposable
     public async Task An_answered_row_says_the_winning_answer_and_the_device_it_came_from()
     {
         var id = await PublishAsync(Question());
-        await _centre.AnswerAsync(id, ["yes"], null, Ct);
+        await _centre.AnswerAsync(id, ["yes"], null, cancellationToken: Ct);
 
         var list = _context.Render<NotificationList>(p => p
             .Add(c => c.Notifications, _centre.ListAsync(Ct).Result)
@@ -102,6 +102,26 @@ public sealed class NotificationCentreScreenTests : IDisposable
         var row = list.Find($"[data-testid='notification-row-{id:N}']");
         Assert.Equal("Answered", row.QuerySelector("[data-testid='notification-row-badge']")!.TextContent);
         Assert.Equal("Answered from this desktop · Yes, run it", row.QuerySelector("[data-testid='notification-row-line']")!.TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task An_answered_row_shows_the_note_beside_the_winning_answer()
+    {
+        var spec = new AnswerSpec(
+            [new AnswerChoice("yes", "Yes, run it"), new AnswerChoice("no", "Not now")],
+            Note: new OpenAnswer());
+        var id = await PublishAsync(Question(spec));
+        await _centre.AnswerAsync(id, ["yes"], null, "After the backup", Ct);
+
+        var list = _context.Render<NotificationList>(p => p
+            .Add(c => c.Notifications, _centre.ListAsync(Ct).Result)
+            .Add(c => c.Now, _time.GetUtcNow())
+            .Add(c => c.ThisDeviceId, Owner));
+
+        var row = list.Find($"[data-testid='notification-row-{id:N}']");
+        Assert.Equal(
+            "Answered from this desktop · Yes, run it, note: “After the backup”",
+            row.QuerySelector("[data-testid='notification-row-line']")!.TextContent.Trim());
     }
 
     [Fact]
@@ -283,7 +303,7 @@ public sealed class NotificationCentreScreenTests : IDisposable
         var badge = _context.Render<NotificationsWaitingBadge>();
         badge.WaitForAssertion(() => Assert.Equal("2", badge.Find("[data-testid='notifications-waiting']").TextContent));
 
-        await _centre.AnswerAsync(question, ["no"], null, Ct);
+        await _centre.AnswerAsync(question, ["no"], null, cancellationToken: Ct);
 
         badge.WaitForAssertion(() => Assert.Equal("1", badge.Find("[data-testid='notifications-waiting']").TextContent));
     }
