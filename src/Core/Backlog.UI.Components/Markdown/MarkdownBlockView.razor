@@ -71,6 +71,7 @@
                                Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
                                ShowFields="@RenderDevbookMetadataFields"
                                CanEditStatus="@CanEditDevbookStatus"
+                               ShowStatus="@ShowDevbookStatus"
                                OnNavigate="@OnDevbookNavigate"
                                HrefFor="@DevbookHrefFor" />
         }
@@ -198,6 +199,11 @@
     /// static badge instead of the select when it is false.</summary>
     [Parameter]
     public bool CanEditDevbookStatus { get; set; } = true;
+
+    /// <summary>Whether a metadata record's status is drawn at all. Forwarded
+    /// verbatim to <c>MetadataView.ShowStatus</c>.</summary>
+    [Parameter]
+    public bool ShowDevbookStatus { get; set; } = true;
 
     /// <summary>Which knowledge folder the document was read from, so a status
     /// can be checked against that folder's vocabulary.</summary>
