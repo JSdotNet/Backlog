@@ -179,7 +179,7 @@
                 </button>
             }
 
-            @foreach (var edge in Graph.Edges.Where(edge => edge.Label is not null && Shown(edge) && Focused && Lit(edge)))
+            @foreach (var edge in Graph.Edges.Where(edge => edge.Label is not null && Shown(edge) && Focused && Lit(edge) && Longest(edge.Points) >= MinLabelledRun))
             {
                 <span class="@($"cohesion__label cohesion__label--{KindWord(edge.Kind)}")"
                       style="@($"left: {Px(edge.LabelAt.X)}; top: {Px(edge.LabelAt.Y)};")"
@@ -231,6 +231,11 @@
     private const double ArrowLength = 9;
     private const double ArrowHalfWidth = 4.5;
     private const double CornerRadius = 9;
+
+    /// <summary>The shortest run a label is drawn on. A hand-off between two
+    /// neighbouring boxes crosses one 30px gutter, and a label there would cover
+    /// both boxes' names; the panel names what it hands on instead.</summary>
+    private const double MinLabelledRun = 60;
 
     /// <summary>The graph, laid out.</summary>
     [Parameter, EditorRequired]
@@ -501,6 +506,9 @@
 
         return d.ToString();
     }
+
+    private static double Longest(IReadOnlyList<CohesionPoint> points) =>
+        points.Count < 2 ? 0 : Enumerable.Range(1, points.Count - 1).Max(i => Math.Abs(points[i].X - points[i - 1].X) + Math.Abs(points[i].Y - points[i - 1].Y));
 
     /// <summary>A filled triangle at the last point, pointing along the last segment.</summary>
     internal static string HeadPath(IReadOnlyList<CohesionPoint> points)

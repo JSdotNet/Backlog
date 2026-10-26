@@ -14,7 +14,7 @@ public sealed class CohesionBoardTests
         new(id, id.ToUpperInvariant(), status, scheduled, stage, onPath ? $"Stage {stage}" : "Upkeep loop", onPath, 40 + 226 * (stage - 1), onPath ? 100 : 400, 196, 66, platforms);
 
     private static CohesionEdge E(string from, string to, CohesionEdgeKind kind = CohesionEdgeKind.Feed, bool dashed = false, string? label = "hands on") =>
-        new(from, to, kind, dashed, label, [new(0, 0), new(30, 0), new(30, 40)], new(30, 20));
+        new(from, to, kind, dashed, label, [new(0, 0), new(30, 0), new(30, 80)], new(30, 40));
 
     // spec (1) → gate (2) forward; spec → plan (1) within a stage; gate → qa (3)
     // forward; alerts (7, candidate) → spec the open loop; upkeep (a layer) → qa
@@ -228,6 +228,18 @@ public sealed class CohesionBoardTests
 
         Assert.Equal("M30 40 L25.5 31 L34.5 31 Z", CohesionBoard.HeadPath(points));
         Assert.EndsWith("L30 33", CohesionBoard.LinePath(points));
+    }
+
+    [Fact]
+    public void A_label_is_left_off_a_hand_off_too_short_to_carry_it()
+    {
+        using var context = new BunitContext();
+        var shortHop = Graph with { Edges = [Graph.Edges[0] with { Points = [new(236, 133), new(266, 133)] }, .. Graph.Edges.Skip(1)] };
+        var board = context.Render<CohesionBoard>(parameters => parameters
+            .Add(p => p.Graph, shortHop)
+            .Add(p => p.View, CohesionView.Forward));
+
+        Assert.Equal(["verify"], Labels(board));
     }
 
     [Fact]
