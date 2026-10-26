@@ -39,6 +39,7 @@
     private IReadOnlyList<DocumentDevbookFile>? _modelFiles;
     private AiModel? _model;
     private DevbookStackStamps? _stamps;
+    private IReadOnlyDictionary<string, string>? _platformNames;
 
     /// <summary>The open tab, held here rather than by the strip: the picture is
     /// drawn in the overview and above the open root file, two places in the
@@ -60,12 +61,16 @@
             // The Devbook tab's stamps, read again with the folder: the
             // configuration sits beside it in the same repository.
             _stamps = DevbookStackStamps.Load(Services.GetService<IDevbookFolderSource>(), AiDevbook.Folder.Key, RepositoryAlias);
+
+            // The Cohesion tab's platform names: each `.tech` chapter's own heading.
+            _platformNames = DevbookChapterHeadings.Load(Services.GetService<IDevbookFolderSource>(), AiDevbook.Folder.Key, RepositoryAlias, _model.Usages.SelectMany(usage => usage.DependsOn));
         }
 
         var model = _model!;
 
         return @<Tabs AriaLabel="AI adoption views"
                       TestId="ai-tabs"
+                      CssClass="ai-tabs"
                       ListTestId="ai-tabs-list"
                       ActiveId="@_tab"
                       ActiveIdChanged="SelectTab">
@@ -73,7 +78,7 @@
                 <AiAdoptionView Model="@model" OnNavigateToChapter="@OnNavigateToChapter" />
             </TabPanel>
             <TabPanel Id="@CohesionTab" Title="Cohesion" Element="section" TestId="ai-cohesion-panel" TabTestId="ai-cohesion-tab">
-                <AiCohesionView Model="@model" OnNavigateToChapter="@OnNavigateToChapter" />
+                <AiCohesionView Model="@model" PlatformNames="@_platformNames" OnNavigateToChapter="@OnNavigateToChapter" />
             </TabPanel>
             <TabPanel Id="@ModelTab" Title="Model" Element="section" TestId="ai-model-panel" TabTestId="ai-model-tab">
                 <AiModelView Model="@model" OnNavigateToChapter="@OnNavigateToChapter" />

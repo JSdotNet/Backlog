@@ -61,9 +61,26 @@ public sealed class AiAdoptionBoardTests
         Assert.Equal(AdoptionEvidence.Fired, worktree.Evidence);
         Assert.Equal("a schedule publishes.", worktree.MovesUpWhen);
         Assert.Equal(["Upkeep loop"], worktree.Reach);
+        Assert.False(gate.Scheduled);
 
         Assert.Same(model.Usages[0], AiAdoptionBoard.UsageOf(model, gate));
         Assert.Same(model.Usages[1], AiAdoptionBoard.UsageOf(model, worktree));
+    }
+
+    [Fact]
+    public void A_usage_that_depends_on_the_delivery_schedule_is_a_scheduled_card()
+    {
+        var scheduled = new DocumentDevbookSection("Issue sweep", "ai-issue-sweep", new MetadataRecord
+        {
+            Status = "trial",
+            Extra = new Dictionary<string, IReadOnlyList<string>> { ["stage"] = ["decide"] },
+            DependsOn = [DevbookReference.Parse(".devbook/tech/ai-development.md#delivery-schedule")!]
+        }, []);
+        var model = AiModel.From([File("01-decide.md", scheduled, Section("Tracker", status: "adopted", stage: ["decide"]))]);
+
+        var board = AiAdoptionBoard.From(model);
+
+        Assert.Equal([true, false], board.Cards.Select(card => card.Scheduled));
     }
 
     [Fact]

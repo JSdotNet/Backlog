@@ -33,6 +33,14 @@ The findings are counted from the cards, never written: change a card's rung or 
         <AdoptionBoard Model="@OffLadder" TestId="sb-adoption-off-ladder" />
     </Story>
 
+    <Story Name="Scheduled usages"
+           Description="A usage a schedule runs carries a clock beside its name, the same glyph the Cohesion board draws, and the legend keys it as scheduled. The clock says only that a schedule runs the usage — never how far it has got — so it takes no rung's colour and sits on any card. The card's accessible name says scheduled too.
+
+The Devbook module marks a card scheduled when its usage's depends-on names the delivery schedule's .tech chapter."
+           Code="@ScheduledCode">
+        <AdoptionBoard Model="@Scheduled" TestId="sb-adoption-scheduled" />
+    </Story>
+
     <Story Name="Nothing adopted yet"
            Description="Every home present and no card at all — a repository that has just started its record. The findings say there is nothing adopted, nothing on trial and nothing waiting, rather than printing zeros under headings written for a fuller board."
            Code="@NothingCode">
@@ -80,23 +88,23 @@ The findings are counted from the cards, never written: change a card's rung or 
     private static readonly AdoptionCard[] BeforeCards =
     [
         new("a", "decide", "Backlog as tracker", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "Plan entries with their session and pull request linked."),
-        new("b", "decide", "Scheduled issue sweep", AdoptionRung.Trial, AdoptionEvidence.None, "2026-09-26", "Nothing from the schedule yet.", "its first brief or draft pull request lands.", ["Code"]),
+        new("b", "decide", "Scheduled issue sweep", AdoptionRung.Trial, AdoptionEvidence.None, "2026-09-26", "Nothing from the schedule yet.", "its first brief or draft pull request lands.", ["Code"], Scheduled: true),
         new("c", "specify", "Import plans", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "The plans run through it, one entry per session."),
         new("d", "specify", "Answer remarks", AdoptionRung.Trial, AdoptionEvidence.Partial, "2026-09-26", "The answer loop shipped; no full inbox swept yet.", "a full remark inbox is swept and on record."),
         new("e", "code", "Code gate via flow-code", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-26", "Every merged pull request carries a flow run.", null, ["Verify"]),
         new("f", "verify", "QA agent on the running app", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "Screenshots and logs on each run's validation stage."),
         new("g", "verify", "Devbook checks around a flow", AdoptionRung.Trial, AdoptionEvidence.None, "2026-09-25", "Nothing recorded against a pull request.", "a drift catch is recorded against a pull request.", ["Spec ↔ code thread"]),
         new("h", "harness", "Worktree per change", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "Parallel worktrees, one branch per merged pull request."),
-        new("i", "harness", "Unattended-run limits", AdoptionRung.Trial, AdoptionEvidence.Fired, "2026-09-26", "The first fires published nothing.", "a schedule publishes inside its limits.")
+        new("i", "harness", "Unattended-run limits", AdoptionRung.Trial, AdoptionEvidence.Fired, "2026-09-26", "The first fires published nothing.", "a schedule publishes inside its limits.", Scheduled: true)
     ];
 
     private static readonly AdoptionCard[] AfterCards =
     [
-        new("j", "integrate", "Scheduled merge review", AdoptionRung.Trial, AdoptionEvidence.None, "2026-09-26", "No verdict comment posted yet.", "its first verdict comment is posted."),
-        new("k", "operate", "Scheduled reports", AdoptionRung.Trial, AdoptionEvidence.Fired, "2026-09-26", "Two reports fired; no issue published.", "the first report issue is published.", ["Decide"]),
+        new("j", "integrate", "Scheduled merge review", AdoptionRung.Trial, AdoptionEvidence.None, "2026-09-26", "No verdict comment posted yet.", "its first verdict comment is posted.", Scheduled: true),
+        new("k", "operate", "Scheduled reports", AdoptionRung.Trial, AdoptionEvidence.Fired, "2026-09-26", "Two reports fired; no issue published.", "the first report issue is published.", ["Decide"], Scheduled: true),
         new("l", "operate", "Alerts to work items", AdoptionRung.Candidate, AdoptionEvidence.None, "2026-09-25", "The preflight fails: the environment has no variables.", "the environment gets its variables and the preflight passes."),
-        new("m", "upkeep", "Scheduled package update", AdoptionRung.Trial, AdoptionEvidence.Fired, "2026-09-26", "Fired once; no pull request yet.", "its first package pull request lands."),
-        new("n", "thread", "Devbook sync sweeps", AdoptionRung.Candidate, AdoptionEvidence.None, "2026-10-06", "Neither sweep is selected.", "a sweep is selected.")
+        new("m", "upkeep", "Scheduled package update", AdoptionRung.Trial, AdoptionEvidence.Fired, "2026-09-26", "Fired once; no pull request yet.", "its first package pull request lands.", Scheduled: true),
+        new("n", "thread", "Devbook sync sweeps", AdoptionRung.Candidate, AdoptionEvidence.None, "2026-10-06", "Neither sweep is selected.", "a sweep is selected.", Scheduled: true)
     ];
 
     private static readonly AdoptionBoardModel Full = new(Homes, [.. BeforeCards, .. AfterCards]);
@@ -107,8 +115,17 @@ The findings are counted from the cards, never written: change a card's rung or 
     [
         new("o", "decide", "Backlog as tracker", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "Plan entries with their session and pull request linked."),
         new("p", "decide", "Findings-to-issues hook", AdoptionRung.Retired, AdoptionEvidence.Recorded, "2026-10-03", "Filed 95 issues, some meant for other repositories."),
-        new("q", "operate", "Scheduled security review", AdoptionRung.Hold, AdoptionEvidence.None, "2026-09-26", "Left unselected: CodeQL and Dependabot run in CI."),
+        new("q", "operate", "Scheduled security review", AdoptionRung.Hold, AdoptionEvidence.None, "2026-09-26", "Left unselected: CodeQL and Dependabot run in CI.", Scheduled: true),
         new("r", "harness", "Guidance from MCP servers", AdoptionRung.Retired, AdoptionEvidence.Recorded, "2026-08-27", "Guidance is now checked in.")
+    ]);
+
+    private static readonly AdoptionBoardModel Scheduled = new(Homes,
+    [
+        new("s", "decide", "Backlog as tracker", AdoptionRung.Adopted, AdoptionEvidence.Recorded, "2026-09-25", "Plan entries with their session and pull request linked."),
+        new("t", "decide", "Scheduled issue sweep", AdoptionRung.Trial, AdoptionEvidence.None, "2026-09-26", "Nothing from the schedule yet.", "its first brief or draft pull request lands.", Scheduled: true),
+        new("u", "operate", "Scheduled reports", AdoptionRung.Trial, AdoptionEvidence.Fired, "2026-09-26", "Two reports fired; no issue published.", "the first report issue is published.", Scheduled: true),
+        new("v", "upkeep", "Scheduled devbook upkeep", AdoptionRung.Trial, AdoptionEvidence.Partial, "2026-09-26", "devbook-validate has fired; nothing published.", "validate lands its first pull request.", Scheduled: true),
+        new("w", "thread", "Devbook sync sweeps", AdoptionRung.Candidate, AdoptionEvidence.None, "2026-10-06", "Neither sweep is selected.", "a sweep is selected.", Scheduled: true)
     ]);
 
     private static readonly AdoptionBoardModel Nothing = new(Homes, []);
@@ -148,6 +165,11 @@ The findings are counted from the cards, never written: change a card's rung or 
     private const string OffLadderCode = """
         new AdoptionCard("usage-7", "decide", "Findings-to-issues hook", AdoptionRung.Retired, AdoptionEvidence.Recorded)
         new AdoptionCard("usage-8", "operate", "Scheduled security review", AdoptionRung.Hold, AdoptionEvidence.None)
+        """;
+
+    private const string ScheduledCode = """
+        new AdoptionCard("usage-1", "decide", "Scheduled issue sweep", AdoptionRung.Trial, AdoptionEvidence.None,
+            Since: "2026-09-26", Scheduled: true)
         """;
 
     private const string NothingCode = """

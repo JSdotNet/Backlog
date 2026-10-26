@@ -53,7 +53,8 @@ public static class AiAdoptionBoard
                 usage.Date,
                 usage.EvidenceText,
                 usage.MovesUpWhen,
-                [.. places.Skip(1).Select(place => names.GetValueOrDefault(place, place))]));
+                [.. places.Skip(1).Select(place => names.GetValueOrDefault(place, place))],
+                usage.IsScheduled));
         }
 
         return new AdoptionBoardModel(homes, cards);

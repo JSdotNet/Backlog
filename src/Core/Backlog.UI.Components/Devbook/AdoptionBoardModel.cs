@@ -62,6 +62,7 @@ public sealed record AdoptionHome(string Key, string Name, AdoptionHomeGroup Gro
 /// <param name="EvidenceText">What the record is, in the chapter's words.</param>
 /// <param name="MovesUpWhen">The one event that would move it up a rung.</param>
 /// <param name="Reach">The other homes it reaches, by name.</param>
+/// <param name="Scheduled">Whether a schedule runs it, drawn as a clock.</param>
 public sealed record AdoptionCard(
     string Key,
     string HomeKey,
@@ -71,7 +72,8 @@ public sealed record AdoptionCard(
     string? Since = null,
     string? EvidenceText = null,
     string? MovesUpWhen = null,
-    IReadOnlyList<string>? Reach = null)
+    IReadOnlyList<string>? Reach = null,
+    bool Scheduled = false)
 {
     /// <summary>Whether the card still needs evidence: on the ladder, and without
     /// a record behind it. Retired and held cards wait on nothing.</summary>
