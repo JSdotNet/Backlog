@@ -544,9 +544,26 @@ Push a task to its target repository as an issue carrying the task's title,
 body, and tags. The resulting issue reference is kept on the task, so the link
 is part of the item rather than a note about it. The task can then be asked to
 re-read that issue's current state, and the pull request that references it.
-Downstream progress is then visible from the backlog. Reading GitHub state is a
-deliberate act rather than a background poll, because the backlog has to open
-instantly and offline.
+Downstream progress is then visible from the backlog.
+
+The pull requests a task records are also checked in the background, so a
+merge turns its link green without the person asking. The check reads each
+repository once rather than each pull request in list order, and puts every
+merged and closed answer on screen before the open pull requests are read one
+by one for their checks and merge offer. A pull request still open, or one
+that could not be read, is asked about again after two minutes.
+
+A merged or closed state is remembered on this device, beside the other
+activity caches (`IPullRequestStateMemory`), so the backlog still opens
+instantly and offline and draws a finished link from the first frame. It is
+never written to the task: the task keeps only the link, and losing the
+memory costs one read per pull request. An open pull request's status is never
+remembered, because a stale one would offer a merge GitHub no longer allows.
+
+A prompt entry moves to Done when its pull request merges into the
+repository's default branch or a `plan/` branch — once per entry and merge,
+and only where its lifecycle allows the move. A task or test entry stays the
+person's to tick.
 
 ## Linked tasks
 
