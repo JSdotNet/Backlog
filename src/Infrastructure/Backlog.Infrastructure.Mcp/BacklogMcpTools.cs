@@ -206,6 +206,22 @@ public static class BacklogMcpTools
         [ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState]);
 
     /// <summary>
+    /// The dispatcher tools of local ADR 0038 §4 — claim a session request, report what
+    /// came of it, list the queue — behind <c>session-requests</c>, the key that also
+    /// gates the Start session action and the wait route (§5). Its own key rather than
+    /// <c>sessions</c>: the queue is off by default while its dispatchers are built, and
+    /// somebody who watches sessions has not thereby asked for sessions to be started.
+    /// </summary>
+    public static McpToolGroup SessionRequests { get; } = new(
+        SessionFeatures.SessionRequests,
+        typeof(SessionRequestTools),
+        [
+            SessionRequestTools.ClaimSessionRequest,
+            SessionRequestTools.MarkSessionRequest,
+            SessionRequestTools.ListSessionRequests
+        ]);
+
+    /// <summary>
     /// The goal tools: read the goals, set, edit and delete one, attach and detach its work.
     /// Progress's own, so their own group, beside <see cref="Impediments"/> rather than in it:
     /// a goal and an impediment are two things a model is told about. Behind <c>backlog</c>,
@@ -225,7 +241,7 @@ public static class BacklogMcpTools
         ]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments, Goals];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments, Goals, SessionRequests];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

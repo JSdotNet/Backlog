@@ -1078,4 +1078,70 @@ public sealed class TaskPanelTests
         button.Click();
         Assert.Empty(copy.Invocations);
     }
+
+    /// <summary>The host's heading controls sit just before the copy button and
+    /// after the state — the order a row puts its Actions slot and its copy in, so
+    /// a control offered on both is beside the same button on each.</summary>
+    [Fact]
+    public void A_host_control_sits_on_the_heading_line_just_before_the_copy()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        var pressed = 0;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Write the sync spike prompt")
+            .Add(t => t.Status, "ready")
+            .Add(t => t.CopyValue, "Write the sync spike prompt")
+            .Add(t => t.HeaderActions, builder =>
+            {
+                builder.OpenComponent<IconButton>(0);
+                builder.AddAttribute(1, nameof(IconButton.AriaLabel), "Queue a session for this entry");
+                builder.AddAttribute(2, nameof(IconButton.TestId), "queue");
+                builder.AddAttribute(3, nameof(IconButton.OnClick),
+                    EventCallback.Factory.Create<MouseEventArgs>(this, () => pressed++));
+                builder.CloseComponent();
+            })
+            .Add(t => t.TestId, "panel"));
+
+        var order = view.Find(".task-panel__header").Children
+            .Select(c => c.ClassName ?? string.Empty)
+            .ToList();
+
+        int IndexOf(string cssClass) => order.FindIndex(c => c.Split(' ').Contains(cssClass));
+
+        var state = IndexOf("task-panel__status");
+        var actions = IndexOf("task-panel__actions");
+        var copy = IndexOf("task-panel__copy");
+
+        var drawn = string.Join(", ", order);
+        Assert.True(state >= 0 && actions >= 0 && copy >= 0, $"Missing a control: {drawn}");
+        Assert.True(state < actions, $"The host's controls must follow the state, but the order was: {drawn}");
+        Assert.Equal(copy - 1, actions);
+
+        var group = view.Find("[data-testid='panel-actions']");
+        Assert.Equal("group", group.GetAttribute("role"));
+        Assert.Equal("Actions for Write the sync spike prompt", group.GetAttribute("aria-label"));
+
+        view.Find("[data-testid='queue']").Click();
+        Assert.Equal(1, pressed);
+    }
+
+    /// <summary>No slot, no group: a panel whose host has nothing to add draws no
+    /// empty span on its heading line.</summary>
+    [Fact]
+    public void A_panel_with_no_host_controls_draws_no_group_for_them()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskPanel>(p => p
+            .Add(t => t.Title, "Write the sync spike prompt")
+            .Add(t => t.CopyValue, "Write the sync spike prompt")
+            .Add(t => t.TestId, "panel"));
+
+        Assert.Empty(view.FindAll(".task-panel__actions"));
+        Assert.Empty(view.FindAll("[data-testid='panel-actions']"));
+        Assert.Single(view.FindAll("[data-testid='panel-copy']"));
+    }
 }

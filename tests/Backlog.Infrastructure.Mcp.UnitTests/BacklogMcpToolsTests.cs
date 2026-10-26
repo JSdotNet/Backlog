@@ -70,7 +70,12 @@ public class BacklogMcpToolsTests
                 "update_goal",
                 "attach_to_goal",
                 "detach_from_goal",
-                "delete_goal"
+                "delete_goal",
+
+                // The dispatcher tools of the session request queue (local ADR 0038).
+                "claim_session_request",
+                "mark_session_request",
+                "list_session_requests"
             ],
             BacklogMcpTools.ToolNames);
     }
@@ -93,6 +98,8 @@ public class BacklogMcpToolsTests
         // Progress has no switch: its impediment and goal tools ride the always-on Tasks key.
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Impediments.FeatureKey);
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Goals.FeatureKey);
+        // The dispatcher tools have the queue's own key, off by default (local ADR 0038 §5).
+        Assert.Equal(SessionFeatures.SessionRequests, BacklogMcpTools.SessionRequests.FeatureKey);
     }
 
     /// <summary>
@@ -119,7 +126,8 @@ public class BacklogMcpToolsTests
     /// No key crosses a bounded context but one: the Tasks key also gates Progress's
     /// impediment and goal tools, because Progress has no switch of its own — goals are
     /// always on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
-    /// keys the eight groups name are four.
+    /// keys the nine groups name are five: the session request queue's dispatcher tools
+    /// have <c>session-requests</c> to themselves.
     /// </para>
     /// </summary>
     [Fact]
@@ -129,7 +137,7 @@ public class BacklogMcpToolsTests
             .GroupBy(group => group.FeatureKey, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
-        Assert.Equal(4, byKey.Count);
+        Assert.Equal(5, byKey.Count);
 
         // The impediment and goal tools are Progress's, which has no switch of its own:
         // goals are always on, so they ride the Tasks key, which cannot be turned off either.
@@ -243,7 +251,9 @@ public class BacklogMcpToolsTests
             GoalTools.UpdateGoal,
             GoalTools.AttachToGoal,
             GoalTools.DetachFromGoal,
-            GoalTools.DeleteGoal
+            GoalTools.DeleteGoal,
+            SessionRequestTools.ClaimSessionRequest,
+            SessionRequestTools.MarkSessionRequest
         ];
 
         string[] destructive = [GoalTools.DeleteGoal];

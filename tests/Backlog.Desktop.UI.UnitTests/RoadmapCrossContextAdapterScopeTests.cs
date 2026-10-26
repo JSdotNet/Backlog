@@ -146,6 +146,36 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         Assert.Contains("+qa472-stale", await tagSource.TagsInUseAsync(TestContext.Current.CancellationToken));
     }
 
+    /// <summary>The plan filter chip's queue icon port reads where each plan is filed
+    /// from the roadmap, in the item's own order and under its bare tag; this graph
+    /// composes no plan queue, so it answers that the icon is not offered.</summary>
+    [Fact]
+    public async Task The_plan_filter_s_queue_port_reads_a_plan_s_repositories_from_the_roadmap()
+    {
+        using var provider = BuildHostLikeProvider();
+        using var scope = provider.CreateScope();
+
+        var added = await scope.ServiceProvider.GetRequiredService<IRoadmapPlanning>().AddItemAsync(
+            "Plan session",
+            new DateOnly(2026, 10, 19),
+            new DateOnly(2026, 10, 23),
+            repositoryAliases: ["tools", "backlog"],
+            tag: "plan-session",
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(added.IsSuccess);
+
+        var port = scope.ServiceProvider.GetRequiredService<IPlanTagSessionRequests>();
+        var repositories = await port.RepositoriesAsync(TestContext.Current.CancellationToken);
+
+        Assert.IsType<RoadmapPlanTagSessionRequests>(port);
+        Assert.False(port.IsOffered);
+        // In the order the stored item names them, which is the order the roadmap's own
+        // plan icon starts its session from.
+        Assert.Equal(added.Value.RepositoryAliases, repositories["plan-session"]);
+        Assert.Equal(["backlog", "tools"], repositories["PLAN-SESSION"].Order(StringComparer.Ordinal));
+        Assert.Empty(await port.OpenAsync(TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task A_host_without_agent_activity_still_resolves_the_actual_hours_and_states_none()
     {

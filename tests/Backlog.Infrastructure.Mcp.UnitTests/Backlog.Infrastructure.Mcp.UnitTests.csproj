@@ -26,4 +26,9 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
   </ItemGroup>
 
+  <!-- The shared test doubles this project uses. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\InMemorySessionRequestStore.cs" Link="Shared\TestDoubles\InMemorySessionRequestStore.cs" />
+  </ItemGroup>
+
 </Project>

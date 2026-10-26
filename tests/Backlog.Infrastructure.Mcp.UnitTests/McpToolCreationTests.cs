@@ -5,6 +5,7 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Tests;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -53,7 +54,8 @@ public class McpToolCreationTests
         SessionTools.ListSessions,
         SurfaceTools.ListRuns,
         SurfaceTools.GetRun,
-        GoalTools.ListGoals
+        GoalTools.ListGoals,
+        SessionRequestTools.ListSessionRequests
     ];
 
     /// <summary>The one writer that destroys: <c>delete_goal</c> removes a goal and what
@@ -134,6 +136,7 @@ public class McpToolCreationTests
             [
                 GoalTools.AttachToGoal,
                 DevbookTools.CaptureNote,
+                SessionRequestTools.ClaimSessionRequest,
                 TrackerTools.Comment,
                 GoalTools.CreateGoal,
                 TrackerTools.CreateItem,
@@ -142,6 +145,7 @@ public class McpToolCreationTests
                 SurfaceTools.FinishRun,
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
+                SessionRequestTools.MarkSessionRequest,
                 SurfaceTools.OpenDashboard,
                 ImpedimentTools.RaiseImpediment,
                 SurfaceTools.RecordPrompt,
@@ -239,6 +243,14 @@ public class McpToolCreationTests
         Assert.Equal(["worktree", "runId", "status", "summary", "verdicts", "quality"], schemas["finish_run"]);
         Assert.Equal(["worktree"], schemas["list_runs"]);
         Assert.Equal(["worktree", "runId"], schemas["get_run"]);
+
+        // The dispatcher tools take a request id and a dispatcher, never a brief
+        // (local ADR 0038 §4).
+        Assert.Equal(["id", "dispatcher"], schemas["claim_session_request"]);
+        Assert.Equal(["id", "outcome", "dispatcher", "sessionId"], schemas["mark_session_request"]);
+        Assert.Equal(["id", "outcome", "dispatcher"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "mark_session_request")));
+        Assert.Equal(["state"], schemas["list_session_requests"]);
+        Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_session_requests")));
     }
 
     /// <summary>
@@ -282,7 +294,8 @@ public class McpToolCreationTests
                 new FakeRepositoryDirectory()),
             [typeof(SurfaceTools)] = new SurfaceTools(new FakeDeliverySurfaceLifecycle()),
             [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments()),
-            [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory())
+            [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
+            [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore())
         };
 
         foreach (var group in BacklogMcpTools.Groups)

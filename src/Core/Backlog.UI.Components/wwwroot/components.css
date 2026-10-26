@@ -5767,13 +5767,21 @@ button.task-panel__check:focus-visible {
     flex: 0 0 auto;
 }
 
+/* A host control in the row's Actions slot that should sit as quietly as the
+   copy beside it wears .task-item__action-button on its button and shares these
+   rules, refused under the slot as the copy is under its wrapper. Its resting ink
+   is the copy's too, declared with its target further down so the selector has
+   one rule. */
 .task-item__copy-button {
     color: var(--color-text-disabled);
 }
 
 .task-item:hover .task-item__copy-button,
 .task-item__copy-button:hover,
-.task-item__copy-button:focus-visible {
+.task-item__copy-button:focus-visible,
+.task-item:hover .task-item__action-button,
+.task-item__action-button:hover,
+.task-item__action-button:focus-visible {
     color: var(--color-text-primary);
 }
 
@@ -5784,7 +5792,9 @@ button.task-panel__check:focus-visible {
    same specificity as a bare `.task-item__copy-button:disabled` and comes later
    in this file, so the bare rule lost and the row disagreed with the heading. */
 .task-item:hover .task-item__copy-button:disabled,
-.task-item__copy .task-item__copy-button:disabled {
+.task-item__copy .task-item__copy-button:disabled,
+.task-item:hover .task-item__action-button:disabled,
+.task-item__actions .task-item__action-button:disabled {
     color: var(--color-text-disabled);
     cursor: not-allowed;
 }
@@ -6793,6 +6803,15 @@ button.task-panel__check:focus-visible {
     flex: 0 0 auto;
 }
 
+/* The host's controls on the heading line, just before the copy: a fixed track,
+   so a long title gives up room before they do. */
+.task-panel__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
+}
+
 /* Behind the state on the heading line, the same order the row reads in: what
    the task is, where it has got to, then the one control that takes it away with
    you. Quiet until the panel is reached, like the row's — but the panel is
@@ -6804,22 +6823,58 @@ button.task-panel__check:focus-visible {
     flex: 0 0 auto;
 }
 
+/* A host control in the HeaderActions slot wears .task-panel__action-button,
+   the heading's counterpart of .task-item__action-button, and shares these. Its
+   resting ink is declared with its target below, as the row's is. */
 .task-panel__copy-button {
     color: var(--color-text-disabled);
 }
 
 .task-panel:hover .task-panel__copy-button,
 .task-panel__copy-button:hover,
-.task-panel__copy-button:focus-visible {
+.task-panel__copy-button:focus-visible,
+.task-panel:hover .task-panel__action-button,
+.task-panel__action-button:hover,
+.task-panel__action-button:focus-visible {
     color: var(--color-text-primary);
 }
 
 /* Refused the same way the row's is, scoped under the wrapper for the same
    reason, so the heading wears the same not-allowed cursor as the row. */
 .task-panel:hover .task-panel__copy-button:disabled,
-.task-panel__copy .task-panel__copy-button:disabled {
+.task-panel__copy .task-panel__copy-button:disabled,
+.task-panel:hover .task-panel__action-button:disabled,
+.task-panel__actions .task-panel__action-button:disabled {
     color: var(--color-text-disabled);
     cursor: not-allowed;
+}
+
+/* The 44 px target floor (design accessibility, target sizes) for a host action on
+   the row and the heading, without growing either: the button keeps the 2rem the
+   copy beside it draws, so the line holds its height, and a transparent 2.75rem
+   square centred on it takes the press. It reaches 0.375rem past each edge. Up and
+   down that stays inside the row's spacing-sm padding and the panel's spacing-lg.
+   Sideways a spacing-xs margin on both sides pays for the reach wherever the button
+   sits in its slot: a plain neighbour is then at least 0.5rem away (the slot's
+   spacing-xs gap plus the margin), the copy 0.75rem, and two action buttons side
+   by side 0.75rem apart, so their reaches meet without overlapping (target sizes,
+   spacing). The resting ink is the copy's, as the rules above say. */
+.task-item__action-button,
+.task-panel__action-button {
+    position: relative;
+    margin-inline: var(--spacing-xs);
+    color: var(--color-text-disabled);
+}
+
+.task-item__action-button::before,
+.task-panel__action-button::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2.75rem;
+    height: 2.75rem;
+    transform: translate(-50%, -50%);
 }
 
 /* Announced, not drawn — the heading line must not reflow because someone

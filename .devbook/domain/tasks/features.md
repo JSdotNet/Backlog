@@ -753,7 +753,10 @@ The tags on the filter bar sit in one strip, one row high, and the strip shows a
 [plan](../roadmap/domain.md#roadmap-tag) leads the strip, whether the reader
 pressed it on the bar or arrived with it pressed from the roadmap. The plan
 carries a copy button fused to its chip, which copies the plan tag verbatim,
-`+` and all, so the reader can paste the plan's name elsewhere. **No plan** and
+`+` and all, so the reader can paste the plan's name elsewhere. With the
+[`session-requests`](../sessions/context.md#session-requests) flag on, the plan's
+[queue icon](../sessions/features.md#start-a-session-from-an-entry) follows the
+copy, and the waiting chip takes its place while a request is open. **No plan** and
 the general tags offer no copy, and a plan offers none once it is let go. When
 the reader presses a plan further along the strip, the plan moves to the front
 with its copy, and the focus stays on the moved chip.
@@ -951,6 +954,22 @@ more line on top.
 
 Every [type](domain.md#task-type) is copied this way, a `task` too. The copy says
 which entry it is, and the session, not the copy, decides whether to run it.
+
+### Start a session on a prompt
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/sessions/context.md#session-requests
+related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#multi-repo-targeting]
+```
+
+Queue a coding session that runs a prompt, in its repository's clone folder, without
+copying it anywhere. The queue icon sits beside the prompt's copy button, on its row and
+in the open entry. Pressing it creates a session request in the Sessions context. The
+entry shows that it is waiting for a session until the session links itself. The
+[Sessions feature](../sessions/features.md#start-a-session-from-an-entry) says who is
+offered it and what the waiting chip shows.
 
 ### Hand-off to Copilot CLI
 
