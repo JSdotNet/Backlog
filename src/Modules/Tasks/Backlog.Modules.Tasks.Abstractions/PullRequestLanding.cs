@@ -33,6 +33,19 @@ public static class PullRequestLanding
     {
         if (type != EntryType.Prompt) return false;
         if (status == EntryStatus.Done || !EntryStatusFlow.IsAllowed(status, EntryStatus.Done)) return false;
+
+        return LandsWhereWorkFinishes(baseRef, defaultBranch);
+    }
+
+    /// <summary>
+    /// True when a merge into <paramref name="baseRef"/> lands work — the repository's
+    /// default branch, <paramref name="defaultBranch"/>, or a plan branch — whatever the
+    /// entry recording it. The half of <see cref="FinishesEntry"/> no later change to
+    /// the entry can alter, so a caller can tell a merge that will never finish an
+    /// entry from one that only its current status holds back.
+    /// </summary>
+    public static bool LandsWhereWorkFinishes(string? baseRef, string? defaultBranch)
+    {
         if (string.IsNullOrWhiteSpace(baseRef) || string.IsNullOrWhiteSpace(defaultBranch)) return false;
 
         return string.Equals(baseRef, defaultBranch, StringComparison.Ordinal)

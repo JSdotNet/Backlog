@@ -491,6 +491,15 @@ public sealed record GitHubLinkedPullRequest(
     /// <summary>What the reviewers decided, with the approvals the base branch requires
     /// (<see cref="GitHubReviewSummary.Required"/>).</summary>
     public GitHubReviewSummary Reviews { get; init; } = GitHubReviewSummary.None;
+
+    /// <summary>The branch the pull request merges into, or null where the answer did
+    /// not say. With <see cref="DefaultBranch"/>, what tells a merge that lands work
+    /// from one into a stacked parent's branch.</summary>
+    public string? BaseRefName { get; init; }
+
+    /// <summary>The repository's default branch at the read, or null where the answer
+    /// did not say.</summary>
+    public string? DefaultBranch { get; init; }
 }
 
 /// <summary>The linked pull requests of several repositories, read together, and the

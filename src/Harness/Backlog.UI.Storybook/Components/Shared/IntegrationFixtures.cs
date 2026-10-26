@@ -366,6 +366,18 @@ internal static class IntegrationFixtures
             Checks: checks,
             Review: review);
 
+    /// <summary>
+    /// Three finished sessions, as the Tasks pane draws them: one with no desktop
+    /// record to say (a CLI-only session), one the Claude desktop app still holds open
+    /// and one it archived.
+    /// </summary>
+    public static IReadOnlyList<IntegrationLinkRef> PresenceSessions { get; } =
+    [
+        WorkBadgeSession("7e12c4a8", IntegrationSessionState.Finished, "finished"),
+        WorkBadgeSession("2b9d6f31", IntegrationSessionState.Finished, "finished, still open") with { SessionPresence = IntegrationSessionPresence.Open },
+        WorkBadgeSession("c04e8a57", IntegrationSessionState.Finished, "finished, archived") with { SessionPresence = IntegrationSessionPresence.Archived }
+    ];
+
     private static IntegrationLinkRef WorkBadgeSession(string id, IntegrationSessionState state, string words) =>
         new(
             id,
@@ -391,6 +403,16 @@ internal static class IntegrationFixtures
 
     public static readonly WorkSession FinishedSession = new(
         "7e12c4a8", "Sync retries", IntegrationSessionState.Finished, "Ended yesterday · 21 prompts");
+
+    /// <summary>A finished session the Claude desktop app still holds open.</summary>
+    public static readonly WorkSession FinishedOpenSession = new(
+        "2b9d6f31", "Roadmap pace", IntegrationSessionState.Finished, "Ended 2 h ago · 6 prompts",
+        Presence: IntegrationSessionPresence.Open);
+
+    /// <summary>A finished session the Claude desktop app has archived.</summary>
+    public static readonly WorkSession FinishedArchivedSession = new(
+        "c04e8a57", "Inbox routing", IntegrationSessionState.Finished, "Ended last week · 12 prompts",
+        Presence: IntegrationSessionPresence.Archived);
 
     /// <summary>A live session no task links, for the "Not linked to a task" section.</summary>
     public static readonly WorkSession LooseSession = new(
