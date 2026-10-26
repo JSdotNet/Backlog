@@ -806,7 +806,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#session-request-queue]
 ```
 
-> The rules the queue holds every session request to (local ADR 0037). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The Start session and Start plan session actions are built too, in the Tasks pane and the roadmap item's dialog, through `SessionRequestActions`. The wait route and the dispatcher tools are later items of the `session-dispatch` plan.
+> The rules the queue holds every session request to (local ADR 0037). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The queue icons are built too, in the Tasks pane (on a prompt entry and beside a selected plan filter chip) and the roadmap item's dialog, through `SessionRequestActions`. So is the dispatcher side: the wait route, `SessionRequestWaitEndpoint`, and the MCP tools that claim, mark and list requests, `SessionRequestTools`.
 
 ### Invariant: A request carries no entry text
 
@@ -828,7 +828,7 @@ status: draft
 type: invariant
 ```
 
-A request is created only by the desktop app's own Start session action; no MCP tool, import, sync or capture creates one.
+A request is created only when a person presses a queue icon in the desktop app; no MCP tool, import, sync or capture creates one.
 
 Enforced at: `ISessionRequestStore.RequestAsync()`, which no MCP tool calls (ADR 0037 §1)
 

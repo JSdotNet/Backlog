@@ -1661,9 +1661,9 @@ feature-flag: .devbook/domain/sessions/context.md#session-requests
 related: [.devbook/arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
 ```
 
-A person presses Start session on a prompt entry, or Start plan session on a plan's
-roadmap item, and a coding session starts in that repository's clone folder, running
-that entry or that plan. Until now they copied the entry, opened a session in the right
+A person presses the queue icon on a prompt entry, or on a plan's roadmap item, to queue
+a session. A coding session then starts in that repository's clone folder, running that
+entry or that plan. Until now they copied the entry, opened a session in the right
 folder and pasted it.
 
 The press creates a [Session Request](domain.md#session-request). A dispatcher, first
@@ -1682,23 +1682,35 @@ decides it, and it sits behind the `session-requests` flag, off by default. The
 actions and the waiting chip are built; the dispatcher that answers a request is a
 later item of the `session-dispatch` plan.
 
-- **Start session** is on a saved prompt entry, in the hand-over buttons of the open
-  entry and in its row's right-click menu. A task, a test or an idea does not have it.
+- **Queue a session for this entry** is a queue icon on a saved prompt entry. It sits
+  beside the copy button, both on the entry's row and in the open entry's header. A task,
+  a test or an idea does not have it, and the row's right-click menu does not offer it.
+- The icon's name and tooltip add the repository when there is only one to choose, as
+  in "Queue a session for this entry in owner/repo". When the prompt names several, they
+  say "choose the repository" instead.
 - A prompt that names several repositories asks which one first. A repository with no
   clone folder on this machine is offered there disabled, with the reason.
-- When no repository the prompt names has a clone folder, or it names none, the action
-  is disabled. The button's tooltip names the missing clone folder or says no repository
-  is named; the row menu says it in the item's label. An archived repository is not
-  offered.
-- **Start plan session** is in the dialog of a saved roadmap item that has a tag; a new
-  item, or one without a tag, does not have it. It asks for the item's tag in
-  the first of the item's repositories that has a clone folder, so there is nothing to
-  choose.
+- When no repository the prompt names has a clone folder, or it names none, the icon is
+  disabled. Its tooltip names the missing clone folder or says no repository is named,
+  and a screen reader hears the same reason. An archived repository is not offered.
+- **Queue a session for the plan** is a queue icon in the dialog of a saved roadmap item
+  that has a tag. It sits beside the item's
+  [tag copy button](../roadmap/features.md#tagging-planned-work), which copies the tag
+  with its [plan sigil](../roadmap/domain.md#plan-sigil), such as `+plan`. A new item,
+  or one without a tag, has neither.
+- The plan's icon is named for the tag with its sigil, as in "Queue a session for the
+  +plan plan". It asks for the item's tag in the first of the item's repositories that
+  has a clone folder, so there is nothing to choose. When none of them has one, the icon
+  is disabled with the same reason, in its tooltip and for a screen reader.
+- The same plan icon sits beside the copy of the pressed
+  [plan chip on the Tasks filter bar](../tasks/features.md#search-filter-and-organize),
+  on the same terms and with the same name. A plan that no roadmap item carries has no
+  icon there, because the session starts in the item's repositories.
 - While the request is Requested, Claimed or Started, a **Waiting for a session** chip
-  stands on the entry's row, in the open entry and in the item's dialog, and the action
-  is gone. Its tooltip says which of the three it is. Cancel is offered only while it is
-  Requested: the queue would also cancel a Claimed request, but by then a dispatcher is
-  already starting the session, so the screen does not offer it.
+  stands on the entry's row, in the open entry, in the item's dialog and beside the
+  pressed plan chip, and the queue icon is gone. The chip's tooltip says which of the three it is. Cancel is offered only
+  while it is Requested: the queue would also cancel a Claimed request, but by then a
+  dispatcher is already starting the session, so the screen does not offer it.
 - Once the session links itself the chip goes, and the entry shows the linked session as
   a pasted run's does. The app reads the queue again every five seconds while the flag
   is on, because a dispatcher moves a request without the app hearing it.

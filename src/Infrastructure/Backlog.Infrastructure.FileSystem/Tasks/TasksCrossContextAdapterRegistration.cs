@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// <summary>
 /// What the backlog asks of the contexts beside it, answered by adapters that may see
 /// both sides: the state of the agent sessions a task links to
-/// (<see cref="ILinkedSessionStates"/>), read from the Sessions context's record, and the Start session actions (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>), over its request queue.
+/// (<see cref="ILinkedSessionStates"/>), read from the Sessions context's record, and the queue icons that queue an entry session or a plan session (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>), over its request queue.
 /// </summary>
 public static class TasksCrossContextAdapterRegistration
 {
@@ -28,9 +28,9 @@ public static class TasksCrossContextAdapterRegistration
                 ? new LinkedSessionStates(sessions)
                 : NoLinkedSessionStates.Instance);
 
-        // The Start session and Start plan session actions, over the Sessions
-        // context's request queue (local ADR 0037). Only when the host composed the
-        // queue: without one nothing is registered and neither action is offered. One
+        // The queue icons that queue an entry session and queue a plan session, over
+        // the Sessions context's request queue (local ADR 0037). Only when the host composed
+        // the queue: without one nothing is registered and neither icon is offered. One
         // instance answers both ports, a singleton over the singleton store.
         // Without a queue both ports answer with one that is never offered, the way
         // the session states above answer with none.

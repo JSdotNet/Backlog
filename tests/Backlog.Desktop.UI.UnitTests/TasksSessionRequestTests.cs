@@ -9,10 +9,11 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// Start session on a prompt entry and the waiting chip (local ADR 0037;
+/// Queueing a session on a prompt entry and the waiting chip (local ADR 0037;
 /// <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>): who is
-/// offered the action, the repository choice, the disabled reason, Cancel, and the chip
-/// through Requested, Claimed and Started until the linked session takes its place.
+/// offered the queue icon on the row and in the open entry, the repository choice,
+/// the disabled reason, Cancel, and the chip through Requested, Claimed and Started
+/// until the linked session takes its place.
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class TasksSessionRequestTests
@@ -43,7 +44,7 @@ public sealed class TasksSessionRequestTests
     // --- Who is offered it ----------------------------------------------------
 
     [Fact]
-    public async Task A_prompt_whose_repository_has_a_clone_folder_starts_a_session_there()
+    public async Task A_prompt_whose_repository_has_a_clone_folder_queues_a_session_there_from_the_open_entry()
     {
         var (host, queue, _) = await HostAsync();
         using var _host = host;
@@ -51,9 +52,11 @@ public sealed class TasksSessionRequestTests
         await host.OpenAsync(row);
 
         var pane = host.Render();
-        var button = pane.Find("[data-testid='start-session-button']");
+        var button = EntryIcon(pane);
         Assert.False(button.HasAttribute("disabled"));
-        Assert.Equal($"Start a session for this prompt in {Backlog}", button.GetAttribute("aria-label"));
+        Assert.Equal($"Queue a session for this entry in {Backlog}", button.GetAttribute("aria-label"));
+        Assert.Equal($"Queue a session for this entry in {Backlog}", button.GetAttribute("title"));
+        Assert.NotNull(button.QuerySelector("svg.list-end-icon"));
 
         button.Click();
 
@@ -62,9 +65,117 @@ public sealed class TasksSessionRequestTests
             var asked = Assert.Single(queue.Asked);
             Assert.Equal((row.Id!.Value, Backlog, BacklogClone), asked);
             Assert.Contains("Waiting for a session", pane.Find("[data-testid='session-request-chip']").TextContent, StringComparison.Ordinal);
-            Assert.Empty(pane.FindAll("[data-testid='start-session-button']"));
+            Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
+            Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
         });
         Assert.Contains(host.Toasts.Visible, toast => toast.TestId == "session-request-queued");
+    }
+
+    [Fact]
+    public async Task The_open_entry_s_icon_sits_on_the_heading_just_before_the_copy_and_the_hand_over_play_button_is_gone()
+    {
+        var (host, _, _) = await HostAsync();
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog));
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+        var actions = pane.Find("[data-testid='entry-panel-actions']");
+        Assert.Equal("entry-panel-actions", EntryIcon(pane).ParentElement?.GetAttribute("data-testid"));
+        Assert.Contains("task-panel__action-button", EntryIcon(pane).ClassList);
+        Assert.NotNull(actions.NextElementSibling?.QuerySelector("[data-testid='entry-panel-copy']"));
+
+        Assert.Empty(pane.FindAll("[data-testid='start-session-button']"));
+        Assert.Empty(pane.FindAll(".entry-doc__actions [data-testid='entry-queue-session']"));
+    }
+
+    [Fact]
+    public async Task A_saved_prompt_s_list_row_carries_the_icon_in_its_actions_and_queues_from_there()
+    {
+        var (host, queue, _) = await HostAsync();
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog));
+
+        var pane = host.Render();
+        var button = RowIcon(pane, row);
+        Assert.NotNull(button.Closest(".task-item__actions"));
+        Assert.Contains("task-item__action-button", button.ClassList);
+        Assert.Equal($"Queue a session for this entry in {Backlog}", button.GetAttribute("aria-label"));
+
+        button.Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal((row.Id!.Value, Backlog, BacklogClone), Assert.Single(queue.Asked));
+            Assert.Empty(RowOf(pane, row).QuerySelectorAll("[data-testid='row-queue-session']"));
+            Assert.NotNull(RowOf(pane, row).QuerySelector("[data-testid='row-session-request']"));
+        });
+    }
+
+    [Fact]
+    public async Task While_the_press_is_on_its_way_both_icons_stay_focusable_and_say_they_are_busy()
+    {
+        var (host, queue, _) = await HostAsync();
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog));
+        await host.OpenAsync(row);
+        queue.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var pane = host.Render();
+        EntryIcon(pane).Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            foreach (var icon in new[] { EntryIcon(pane), RowIcon(pane, row) })
+            {
+                Assert.Equal("true", icon.GetAttribute("aria-busy"));
+                Assert.Equal("true", icon.GetAttribute("aria-disabled"));
+                Assert.False(icon.HasAttribute("disabled"));
+            }
+        });
+
+        RowIcon(pane, row).Click();
+        queue.Gate.SetResult();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Single(queue.Asked);
+            Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
+            Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
+        });
+    }
+
+    [Fact]
+    public async Task A_press_while_a_request_is_on_its_way_does_not_open_the_repository_chooser()
+    {
+        var (host, queue, _) = await HostAsync(cloneBacklog: true, cloneTools: true);
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog, Tools));
+        await host.OpenAsync(row);
+        queue.Gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var pane = host.Render();
+        EntryIcon(pane).Click();
+        pane.Find($"[data-testid='session-chooser-{Backlog}']").Click();
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Single(queue.Asked);
+            Assert.Empty(pane.FindAll("[data-testid='session-chooser']"));
+            Assert.Equal("true", RowIcon(pane, row).GetAttribute("aria-disabled"));
+        });
+
+        RowIcon(pane, row).Click();
+        EntryIcon(pane).Click();
+
+        Assert.Empty(pane.FindAll("[data-testid='session-chooser']"));
+
+        queue.Gate.SetResult();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Single(queue.Asked);
+            Assert.Empty(pane.FindAll("[data-testid='session-chooser']"));
+        });
     }
 
     [Theory]
@@ -80,10 +191,9 @@ public sealed class TasksSessionRequestTests
 
         var pane = host.Render();
 
-        Assert.Empty(pane.FindAll("[data-testid='start-session-button']"));
-
-        await OpenMenuAsync(pane, row);
-        Assert.Empty(pane.FindAll("[data-testid='entry-menu-item-start-session']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
+        Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-panel-actions']"));
     }
 
     [Fact]
@@ -93,14 +203,27 @@ public sealed class TasksSessionRequestTests
         using var _host = host;
         queue.IsOffered = false;
         var row = await host.WriteEntryAsync(Prompt(Backlog));
+        var other = await host.WriteEntryAsync(AnotherPrompt(Backlog));
         queue.Open[row.Id!.Value] = new(Guid.NewGuid(), EntrySessionRequestState.Requested, Backlog);
-        await host.OpenAsync(row);
+        await host.OpenAsync(other);
 
         var pane = host.Render();
 
-        Assert.Empty(pane.FindAll("[data-testid='start-session-button']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
+        Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
         Assert.Empty(pane.FindAll("[data-testid='session-request']"));
         Assert.Empty(pane.FindAll("[data-testid='row-session-request']"));
+
+        // The entry holding the open request, opened: neither its waiting chip nor
+        // its queue icon shows with the switch off.
+        await pane.InvokeAsync(() => host.OpenAsync(row));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Contains("Add the Start session action", pane.Find("[data-testid='entry-detail']").TextContent, StringComparison.Ordinal);
+            Assert.Empty(pane.FindAll("[data-testid='session-request']"));
+            Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
+        });
     }
 
     [Fact]
@@ -113,7 +236,8 @@ public sealed class TasksSessionRequestTests
 
         var pane = host.Render();
 
-        Assert.Empty(pane.FindAll("[data-testid='start-session-button']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
+        Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
     }
 
     [Fact]
@@ -125,16 +249,41 @@ public sealed class TasksSessionRequestTests
         await host.OpenAsync(row);
 
         var pane = host.Render();
-        var button = pane.Find("[data-testid='start-session-button']");
-
-        Assert.True(button.HasAttribute("disabled"));
         var expected = $"No clone folder is set for {Backlog}. Set one in Settings › Repositories to start a session there.";
-        Assert.Equal(expected, button.GetAttribute("title"));
-        Assert.Equal("start-session-reason", button.GetAttribute("aria-describedby"));
-        Assert.Equal(expected, pane.Find("[data-testid='start-session-reason']").TextContent);
 
-        button.Click();
+        foreach (var (button, reasonTestId) in new[] { (EntryIcon(pane), "entry-queue-session-reason"), (RowIcon(pane, row), "row-queue-session-reason") })
+        {
+            Assert.True(button.HasAttribute("disabled"));
+            Assert.Equal("Queue a session for this entry", button.GetAttribute("aria-label"));
+            Assert.Equal(expected, button.GetAttribute("title"));
+            var reason = pane.Find($"[id='{button.GetAttribute("aria-describedby")}']");
+            Assert.Equal(reasonTestId, reason.GetAttribute("data-testid"));
+            Assert.Contains("sr-only", reason.ClassList);
+            Assert.Equal(expected, reason.TextContent);
+        }
+
+        EntryIcon(pane).Click();
+        RowIcon(pane, row).Click();
         Assert.Empty(queue.Asked);
+    }
+
+    [Fact]
+    public async Task Each_disabled_icon_names_its_own_reason_so_no_id_repeats()
+    {
+        var (host, _, _) = await HostAsync(cloneBacklog: false);
+        using var _host = host;
+        var first = await host.WriteEntryAsync(Prompt(Backlog));
+        var second = await host.WriteEntryAsync(AnotherPrompt(Backlog));
+        await host.OpenAsync(first);
+
+        var pane = host.Render();
+        var describedBy = new[] { EntryIcon(pane), RowIcon(pane, first), RowIcon(pane, second) }
+            .Select(button => button.GetAttribute("aria-describedby"))
+            .ToList();
+
+        Assert.All(describedBy, id => Assert.False(string.IsNullOrEmpty(id)));
+        Assert.Equal(describedBy.Count, describedBy.Distinct(StringComparer.Ordinal).Count());
+        Assert.All(describedBy, id => Assert.Single(pane.FindAll($"[id='{id}']")));
     }
 
     [Fact]
@@ -146,16 +295,17 @@ public sealed class TasksSessionRequestTests
         await host.OpenAsync(row);
 
         var pane = host.Render();
-        var button = pane.Find("[data-testid='start-session-button']");
+        var button = EntryIcon(pane);
 
         Assert.True(button.HasAttribute("disabled"));
         Assert.Equal(SessionStartOffer.NoRepository, button.GetAttribute("title"));
+        Assert.Equal(SessionStartOffer.NoRepository, RowIcon(pane, row).GetAttribute("title"));
     }
 
     // --- The repository choice ------------------------------------------------
 
     [Fact]
-    public async Task A_prompt_naming_several_repositories_asks_which_and_starts_in_the_one_picked()
+    public async Task A_prompt_naming_several_repositories_asks_which_and_queues_in_the_one_picked()
     {
         var (host, queue, _) = await HostAsync(cloneBacklog: true, cloneTools: true);
         using var _host = host;
@@ -163,13 +313,13 @@ public sealed class TasksSessionRequestTests
         await host.OpenAsync(row);
 
         var pane = host.Render();
-        var button = pane.Find("[data-testid='start-session-button']");
-        Assert.Equal("Start a session for this prompt — choose the repository", button.GetAttribute("aria-label"));
+        var button = EntryIcon(pane);
+        Assert.Equal("Queue a session for this entry — choose the repository", button.GetAttribute("aria-label"));
 
         button.Click();
 
         var chooser = pane.Find("[data-testid='session-chooser']");
-        Assert.Contains("Start a session in which repository?", chooser.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Queue a session in which repository?", chooser.TextContent, StringComparison.Ordinal);
         Assert.Empty(queue.Asked);
 
         pane.Find($"[data-testid='session-chooser-{Tools}']").Click();
@@ -182,6 +332,20 @@ public sealed class TasksSessionRequestTests
     }
 
     [Fact]
+    public async Task The_row_icon_opens_the_same_choice()
+    {
+        var (host, queue, _) = await HostAsync(cloneBacklog: true, cloneTools: true);
+        using var _host = host;
+        var row = await host.WriteEntryAsync(Prompt(Backlog, Tools));
+
+        var pane = host.Render();
+        RowIcon(pane, row).Click();
+
+        Assert.NotNull(pane.Find($"[data-testid='session-chooser-{Backlog}']"));
+        Assert.Empty(queue.Asked);
+    }
+
+    [Fact]
     public async Task The_choice_offers_a_repository_with_no_clone_folder_disabled_with_its_reason()
     {
         var (host, _, _) = await HostAsync(cloneBacklog: true, cloneTools: false);
@@ -190,7 +354,7 @@ public sealed class TasksSessionRequestTests
         await host.OpenAsync(row);
 
         var pane = host.Render();
-        pane.Find("[data-testid='start-session-button']").Click();
+        EntryIcon(pane).Click();
 
         Assert.False(pane.Find($"[data-testid='session-chooser-{Backlog}']").HasAttribute("disabled"));
         var tools = pane.Find($"[data-testid='session-chooser-{Tools}']");
@@ -224,12 +388,13 @@ public sealed class TasksSessionRequestTests
             Assert.Contains(Backlog, chip.GetAttribute("title"), StringComparison.Ordinal);
             Assert.Contains("Waiting for a session", pane.Find("[data-testid='row-session-request']").TextContent, StringComparison.Ordinal);
             Assert.Equal(cancellable, pane.FindAll("[data-testid='session-request-cancel']").Count == 1);
-            Assert.Empty(pane.FindAll("[data-testid='start-session-button']"));
+            Assert.Empty(pane.FindAll("[data-testid='entry-queue-session']"));
+            Assert.Empty(pane.FindAll("[data-testid='row-queue-session']"));
         });
     }
 
     [Fact]
-    public async Task Cancel_withdraws_the_request_and_Start_session_comes_back()
+    public async Task Cancel_withdraws_the_request_and_the_queue_icon_comes_back()
     {
         var (host, queue, _) = await HostAsync();
         using var _host = host;
@@ -248,7 +413,8 @@ public sealed class TasksSessionRequestTests
             Assert.Equal([requestId], queue.Cancelled);
             Assert.Empty(pane.FindAll("[data-testid='session-request']"));
             Assert.Empty(pane.FindAll("[data-testid='row-session-request']"));
-            Assert.False(pane.Find("[data-testid='start-session-button']").HasAttribute("disabled"));
+            Assert.False(EntryIcon(pane).HasAttribute("disabled"));
+            Assert.False(RowIcon(pane, row).HasAttribute("disabled"));
         });
     }
 
@@ -290,7 +456,7 @@ public sealed class TasksSessionRequestTests
     // --- The row menu ---------------------------------------------------------
 
     [Fact]
-    public async Task The_row_menu_offers_Start_session_and_while_Requested_Cancel()
+    public async Task The_row_menu_has_no_way_to_queue_one_and_offers_Cancel_while_Requested()
     {
         var (host, queue, _) = await HostAsync();
         using var _host = host;
@@ -298,10 +464,12 @@ public sealed class TasksSessionRequestTests
 
         var pane = host.Render();
         await OpenMenuAsync(pane, row);
-        Assert.Equal("Start session", MenuLabel(pane, "start-session"));
-        await pane.Find("[data-testid='entry-menu-item-start-session']").ClickAsync(new());
+        Assert.Empty(pane.FindAll("[data-testid='entry-menu-item-start-session']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-menu-item-cancel-session-request']"));
 
-        pane.WaitForAssertion(() => Assert.Equal((row.Id!.Value, Backlog, BacklogClone), Assert.Single(queue.Asked)));
+        // Queue one from the row, then the menu offers to withdraw it.
+        await pane.InvokeAsync(() => RowIcon(pane, row).Click());
+        pane.WaitForAssertion(() => Assert.Single(queue.Asked));
 
         await OpenMenuAsync(pane, row);
         Assert.Equal("Cancel session request", MenuLabel(pane, "cancel-session-request"));
@@ -309,7 +477,7 @@ public sealed class TasksSessionRequestTests
     }
 
     [Fact]
-    public async Task The_row_menu_offers_it_disabled_when_there_is_no_clone_folder()
+    public async Task The_row_menu_offers_nothing_for_a_session_when_there_is_no_clone_folder()
     {
         var (host, _, _) = await HostAsync(cloneBacklog: false);
         using var _host = host;
@@ -318,9 +486,21 @@ public sealed class TasksSessionRequestTests
         var pane = host.Render();
         await OpenMenuAsync(pane, row);
 
-        Assert.Equal("Start session (no clone folder)", MenuLabel(pane, "start-session"));
-        Assert.True(pane.Find("[data-testid='entry-menu-item-start-session']").HasAttribute("disabled"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-menu-item-start-session']"));
     }
+
+    private static string AnotherPrompt(params string[] repositories) =>
+        Prompt(repositories).Replace("Add the Start session action", "Queue a second prompt", StringComparison.Ordinal);
+
+    private static AngleSharp.Dom.IElement EntryIcon(IRenderedComponent<TasksPane> pane) =>
+        pane.Find("[data-testid='entry-queue-session']");
+
+    private static AngleSharp.Dom.IElement RowOf(IRenderedComponent<TasksPane> pane, EntryRow row) =>
+        pane.Find($"[data-testid='entry-list-{row.Id ?? row.Key}']");
+
+    private static AngleSharp.Dom.IElement RowIcon(IRenderedComponent<TasksPane> pane, EntryRow row) =>
+        RowOf(pane, row).QuerySelector("[data-testid='row-queue-session']")
+            ?? throw new Xunit.Sdk.XunitException($"No queue icon on the row of {row.Id}.");
 
     private static Task OpenMenuAsync(IRenderedComponent<TasksPane> pane, EntryRow row) =>
         pane.Find($"[data-testid='entry-list-{row.Id ?? row.Key}']")
@@ -391,12 +571,18 @@ public sealed class TasksSessionRequestTests
         public Task<IReadOnlyDictionary<Guid, EntrySessionRequest>> OpenAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyDictionary<Guid, EntrySessionRequest>>(new Dictionary<Guid, EntrySessionRequest>(Open));
 
-        public Task<EntrySessionRequest> RequestAsync(Guid entryId, string repository, string cloneFolder, CancellationToken cancellationToken = default)
+        /// <summary>Set, a request waits on it after it is recorded in
+        /// <see cref="Asked"/>, so a test can look at the pane mid-press.</summary>
+        public TaskCompletionSource? Gate { get; set; }
+
+        public async Task<EntrySessionRequest> RequestAsync(Guid entryId, string repository, string cloneFolder, CancellationToken cancellationToken = default)
         {
             Asked.Add((entryId, repository, cloneFolder));
+            if (Gate is { } gate) await gate.Task;
+
             var request = Open.TryGetValue(entryId, out var open) ? open : new EntrySessionRequest(Guid.NewGuid(), EntrySessionRequestState.Requested, repository);
             Open[entryId] = request;
-            return Task.FromResult(request);
+            return request;
         }
 
         public Task<bool> CancelAsync(Guid requestId, CancellationToken cancellationToken = default)

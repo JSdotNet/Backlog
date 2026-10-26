@@ -77,7 +77,7 @@ default: off
 related: [".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md"]
 ```
 
-Turning it on offers Start session on an entry and on a plan's roadmap item, maps
+Turning it on offers a queue icon on an entry and on a plan's roadmap item, maps
 `GET /session-requests/wait` on the MCP listener, and adds the tools a dispatcher
 claims and reports with. Off, the action is not shown, the route answers `404` and the
 tools leave the endpoint.

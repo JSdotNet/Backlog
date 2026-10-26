@@ -6,7 +6,7 @@ using Backlog.SharedKernel;
 namespace Backlog.Infrastructure.FileSystem.Tasks;
 
 /// <summary>
-/// The Start session and Start plan session actions' ports
+/// The ports of the queue icons that queue an entry session and queue a plan session
 /// (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>), answered
 /// out of the Sessions context's request queue (local ADR 0037).
 /// <para>

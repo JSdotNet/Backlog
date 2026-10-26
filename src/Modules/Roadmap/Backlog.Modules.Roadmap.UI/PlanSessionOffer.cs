@@ -4,7 +4,7 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 namespace Backlog.Modules.Roadmap.UI;
 
 /// <summary>
-/// Whether a roadmap item offers Start plan session, and where the session would start
+/// Whether a roadmap item offers its plan's queue icon, and where the session would start
 /// (local ADR 0037 §2; <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>).
 /// <para>
 /// Only a stored item with a tag offers it: the request names the plan by its tag, and
@@ -16,8 +16,8 @@ namespace Backlog.Modules.Roadmap.UI;
 /// </para>
 /// <para>
 /// An item whose repositories have no clone folder, or that names none, offers the
-/// action disabled with the reason rather than hiding it, as the Tasks pane's Start
-/// session does.
+/// action disabled with the reason rather than hiding it, as a prompt entry's queue
+/// icon does.
 /// </para>
 /// </summary>
 /// <param name="Tag">The plan's tag, without its sigil.</param>

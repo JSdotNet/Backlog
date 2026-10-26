@@ -205,8 +205,10 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 
 > The requirements of one feature. The feature chapter itself says what the
 > capability is and why it exists; this says what it promises. Local ADR 0037 decides
-> them. The Start session and Start plan session actions, which create a request, are
-> built; the dispatcher side is not yet.
+> them. Both sides are built: the queue icons that create a request (on an entry,
+> on a plan's roadmap item, and beside a selected plan filter chip), and the
+> dispatcher side, the wait route and the claim, mark and list tools a Manager
+> session uses.
 
 ### Requirement: Only a click in the app requests a session
 
@@ -215,12 +217,12 @@ status: draft
 type: requirement
 ```
 
-The system SHALL create a session request only from the person's Start session or Start plan session action in the desktop app.
+The system SHALL create a session request only when the person queues a session for an entry or a plan in the desktop app.
 
 #### Scenario: A person starts a session on an entry
 
 - **Given** the `session-requests` flag is on and a prompt entry targets one repository with a known clone folder
-- **When** the person presses Start session on the entry
+- **When** the person presses the entry's queue icon
 - **Then** an entry request for that entry, repository and clone folder is Requested
 
 #### Scenario: An imported entry asks for a session in its text
@@ -256,7 +258,7 @@ The system SHALL answer a dispatcher waiting on `GET /session-requests/wait` wit
 #### Scenario: A request arrives while a dispatcher waits
 
 - **Given** a dispatcher waiting on the route and no request Requested
-- **When** the person presses Start session on an entry
+- **When** the person presses the queue icon on an entry
 - **Then** the waiting call answers with that request
 
 #### Scenario: Nothing arrives
@@ -353,10 +355,10 @@ status: draft
 type: requirement
 ```
 
-The system SHALL offer no Start session action, no wait route and no dispatcher tool while the `session-requests` flag is off.
+The system SHALL offer no queue icon, no wait route and no dispatcher tool while the `session-requests` flag is off.
 
 #### Scenario: The flag is off
 
 - **Given** the `session-requests` flag is off
 - **When** the person opens a prompt entry and a dispatcher calls the wait route
-- **Then** the entry offers no Start session, the route answers `404` and the MCP endpoint lists no dispatcher tool
+- **Then** the entry offers no queue icon, the route answers `404` and the MCP endpoint lists no dispatcher tool

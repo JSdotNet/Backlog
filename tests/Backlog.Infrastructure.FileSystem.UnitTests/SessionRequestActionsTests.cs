@@ -10,7 +10,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// The Start session actions' adapter over the Sessions context's request queue
+/// The queue icons' adapter over the Sessions context's request queue
 /// (local ADR 0037): each port sees its own kind of request, only open ones, a lapsed
 /// claim as Requested, and Linked or Cancelled as nothing at all.
 /// </summary>

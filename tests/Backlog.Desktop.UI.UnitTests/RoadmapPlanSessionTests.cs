@@ -10,13 +10,16 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// Start plan session on a roadmap item and the waiting chip in its dialog (local ADR
-/// 0037 §2): a plan request for the item's tag in its first repository with a clone
-/// folder, disabled with the reason when none has one, the chip through the open
-/// states with Cancel while Requested, and nothing at all with the switch off.
+/// The plan's queue icon on a roadmap item and the waiting chip in its dialog (local ADR
+/// 0037 §2): beside a copy of the stored tag, a plan request for the item's tag in its
+/// first repository with a clone folder, disabled with the reason when none has one,
+/// the chip through the open states with Cancel while Requested, and no icon or chip
+/// with the switch off — the copy stays.
 /// </summary>
 public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
 {
+    private const string Queue = "[data-testid='roadmap-editor-queue-session']";
+
     private readonly FakePlanSessionRequests _queue = new();
     private readonly FakeTimeProvider _clock = new(DateTimeOffset.UtcNow);
 
@@ -45,6 +48,9 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
         return (added.Value.Id, added.Value.Tag);
     }
 
+    /// <summary>The tag with its plan sigil, <c>+&lt;slug&gt;</c>: what the plan row copies and names.</summary>
+    private static string Sigiled(string tag) => $"+{tag.Trim().TrimStart('+', '#')}";
+
     private static async Task OpenAsync(IRenderedComponent<RoadmapBand> band, Guid id)
     {
         var timeline = band.FindComponent<RoadmapTimeline>();
@@ -53,7 +59,7 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
     }
 
     [Fact]
-    public async Task Start_plan_session_asks_for_the_plan_in_the_first_repository_with_a_clone_folder()
+    public async Task The_queue_icon_sits_beside_the_plan_copy_and_names_the_plan_and_repository()
     {
         var (id, tag) = await PlannedAsync("fincent", "backlog");
         RepositorySettings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
@@ -62,36 +68,116 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
         var band = Band(context);
         await OpenAsync(band, id);
 
-        var start = band.Find("[data-testid='roadmap-editor-start-session']");
-        Assert.False(start.HasAttribute("disabled"));
-        start.Click();
+        var plan = band.Find("[data-testid='roadmap-editor-plan']");
+        var copy = plan.QuerySelector("[data-testid='roadmap-editor-copy-plan']");
+        var queue = plan.QuerySelector(Queue);
+        Assert.NotNull(copy);
+        Assert.NotNull(queue);
+        Assert.Same(copy, queue.ParentElement!.PreviousElementSibling);
+        Assert.NotNull(queue.QuerySelector("svg.list-end-icon"));
+
+        var label = $"Queue a session for the {Sigiled(tag)} plan in JSdotNet/Backlog";
+        Assert.Equal(label, queue.GetAttribute("aria-label"));
+        Assert.Equal(label, queue.GetAttribute("title"));
+        Assert.False(queue.HasAttribute("disabled"));
+        Assert.False(queue.HasAttribute("aria-describedby"));
+        Assert.Empty(band.FindAll("[data-testid='roadmap-editor-start-session']"));
+    }
+
+    [Fact]
+    public async Task Queuing_asks_for_the_plan_in_the_first_repository_with_a_clone_folder()
+    {
+        var (id, tag) = await PlannedAsync("fincent", "backlog");
+        RepositorySettings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
+
+        using var context = Context();
+        var band = Band(context);
+        await OpenAsync(band, id);
+
+        band.Find(Queue).Click();
 
         band.WaitForAssertion(() =>
         {
             Assert.Equal((tag.TrimStart('+'), "JSdotNet/Backlog", @"D:\Repos\Backlog"), Assert.Single(_queue.Asked));
             Assert.Contains("Waiting for a session", band.Find("[data-testid='roadmap-editor-session-chip']").TextContent, StringComparison.Ordinal);
-            Assert.Empty(band.FindAll("[data-testid='roadmap-editor-start-session']"));
+            Assert.Empty(band.FindAll(Queue));
+            Assert.NotEmpty(band.FindAll("[data-testid='roadmap-editor-copy-plan']"));
+        });
+    }
+
+    [Fact]
+    public async Task The_copy_copies_the_tag_with_its_plan_sigil()
+    {
+        var (id, tag) = await PlannedAsync("backlog");
+
+        using var context = Context();
+        var band = Band(context);
+        await OpenAsync(band, id);
+
+        var button = band.Find("[data-testid='roadmap-editor-copy-plan-button']");
+        Assert.Equal($"Copy {Sigiled(tag)}", button.GetAttribute("aria-label"));
+        button.Click();
+
+        band.WaitForAssertion(() =>
+            Assert.Equal(Sigiled(tag), Assert.Single(context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]));
+    }
+
+    [Fact]
+    public async Task While_the_press_is_on_its_way_the_icon_stays_focusable_and_says_it_is_busy()
+    {
+        var (id, _) = await PlannedAsync("backlog");
+        RepositorySettings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
+        _queue.Gate = new TaskCompletionSource();
+
+        using var context = Context();
+        var band = Band(context);
+        await OpenAsync(band, id);
+
+        band.Find(Queue).Click();
+
+        band.WaitForAssertion(() =>
+        {
+            var queue = band.Find(Queue);
+            Assert.Equal("true", queue.GetAttribute("aria-busy"));
+            Assert.Equal("true", queue.GetAttribute("aria-disabled"));
+            Assert.False(queue.HasAttribute("disabled"));
+        });
+
+        band.Find(Queue).Click();
+        _queue.Gate.SetResult();
+
+        band.WaitForAssertion(() =>
+        {
+            Assert.Single(_queue.Asked);
+            Assert.Empty(band.FindAll(Queue));
         });
     }
 
     [Fact]
     public async Task With_no_clone_folder_it_is_disabled_and_names_the_folders_missing()
     {
-        var (id, _) = await PlannedAsync("backlog", "fincent");
+        var (id, tag) = await PlannedAsync("backlog", "fincent");
 
         using var context = Context();
         var band = Band(context);
         await OpenAsync(band, id);
 
-        var start = band.Find("[data-testid='roadmap-editor-start-session']");
-        Assert.True(start.HasAttribute("disabled"));
+        var queue = band.Find(Queue);
+        Assert.True(queue.HasAttribute("disabled"));
+        Assert.Equal($"Queue a session for the {Sigiled(tag)} plan", queue.GetAttribute("aria-label"));
+
         var reason = "No clone folder is set for JSdotNet/Backlog or JSdotNet/Fincent. Set one in Settings › Repositories to start a session there.";
-        Assert.Equal(reason, start.GetAttribute("title"));
-        Assert.Equal(reason, band.Find("[data-testid='roadmap-editor-start-session-reason']").TextContent);
+        Assert.Equal(reason, queue.GetAttribute("title"));
+        Assert.Equal(reason, band.Find("[data-testid='roadmap-editor-queue-session-wrapper']").GetAttribute("title"));
+
+        var described = band.Find("[data-testid='roadmap-editor-queue-session-reason']");
+        Assert.Equal(reason, described.TextContent);
+        Assert.Contains("sr-only", described.ClassList);
+        Assert.Equal(described.Id, queue.GetAttribute("aria-describedby"));
     }
 
     [Fact]
-    public async Task Nothing_is_offered_while_the_switch_is_off()
+    public async Task With_the_switch_off_only_the_copy_is_offered()
     {
         var (id, tag) = await PlannedAsync("backlog");
         RepositorySettings.SetCloneDirectory("backlog", @"D:\Repos\Backlog");
@@ -102,7 +188,8 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
         var band = Band(context);
         await OpenAsync(band, id);
 
-        Assert.Empty(band.FindAll("[data-testid='roadmap-editor-start-session']"));
+        Assert.NotEmpty(band.FindAll("[data-testid='roadmap-editor-copy-plan']"));
+        Assert.Empty(band.FindAll(Queue));
         Assert.Empty(band.FindAll("[data-testid='roadmap-editor-session-request']"));
     }
 
@@ -124,7 +211,8 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
         {
             Assert.Contains("Waiting for a session", band.Find("[data-testid='roadmap-editor-session-chip']").TextContent, StringComparison.Ordinal);
             Assert.Equal(cancellable, band.FindAll("[data-testid='roadmap-editor-session-cancel']").Count == 1);
-            Assert.Empty(band.FindAll("[data-testid='roadmap-editor-start-session']"));
+            Assert.Empty(band.FindAll(Queue));
+            Assert.Empty(band.FindAll("[data-testid='roadmap-editor-queue-session-reason']"));
         });
     }
 
@@ -146,11 +234,11 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
         {
             Assert.Equal([requestId], _queue.Cancelled);
             Assert.Empty(band.FindAll("[data-testid='roadmap-editor-session-request']"));
-            Assert.NotEmpty(band.FindAll("[data-testid='roadmap-editor-start-session']"));
+            Assert.NotEmpty(band.FindAll(Queue));
         });
 
-        // Asked again, picked up, linked: the poll follows it to the end.
-        band.Find("[data-testid='roadmap-editor-start-session']").Click();
+        // Queued again, picked up, linked: the poll follows it to the end.
+        band.Find(Queue).Click();
         band.WaitForElement("[data-testid='roadmap-editor-session-chip']");
         _queue.Open.Clear();
         _clock.Advance(RoadmapSessionRequests.PollInterval);
@@ -186,15 +274,20 @@ public sealed class RoadmapPlanSessionTests : RoadmapBandHarness
 
         public List<Guid> Cancelled { get; } = [];
 
+        /// <summary>When set, a request waits on it, holding the press on its way.</summary>
+        public TaskCompletionSource? Gate { get; set; }
+
         public Task<IReadOnlyDictionary<string, PlanSessionRequest>> OpenAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyDictionary<string, PlanSessionRequest>>(new Dictionary<string, PlanSessionRequest>(Open, StringComparer.OrdinalIgnoreCase));
 
-        public Task<PlanSessionRequest> RequestAsync(string planTag, string repository, string cloneFolder, CancellationToken cancellationToken = default)
+        public async Task<PlanSessionRequest> RequestAsync(string planTag, string repository, string cloneFolder, CancellationToken cancellationToken = default)
         {
             Asked.Add((planTag, repository, cloneFolder));
+            if (Gate is { } gate) await gate.Task;
+
             var request = new PlanSessionRequest(Guid.NewGuid(), PlanSessionRequestState.Requested, repository);
             Open[planTag] = request;
-            return Task.FromResult(request);
+            return request;
         }
 
         public Task<bool> CancelAsync(Guid requestId, CancellationToken cancellationToken = default)

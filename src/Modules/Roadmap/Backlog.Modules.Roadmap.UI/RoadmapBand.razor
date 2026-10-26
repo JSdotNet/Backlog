@@ -176,7 +176,7 @@
                        PlanSession="@PlanSessionFor(_edited)"
                        WaitingSession="@_planSessions.OpenFor(_edited?.Tag)"
                        SessionBusy="@_planSessions.Busy"
-                       OnStartPlanSession="StartPlanSessionAsync"
+                       OnQueuePlanSession="QueuePlanSessionAsync"
                        OnCancelPlanSession="CancelPlanSessionAsync" />
 
     <RoadmapMilestoneEditor @ref="_dateEditor"
@@ -413,7 +413,7 @@
             as global::Backlog.SharedKernel.IShowArchivedRepositories;
         if (_showArchived is not null) _showArchived.Changed += OnShowArchivedChanged;
 
-        // Start plan session (local ADR 0037), over Roadmap's own port. A host that
+        // The plan's queue icon (local ADR 0037), over Roadmap's own port. A host that
         // composed no session request queue offers nothing.
         _planSessions = new RoadmapSessionRequests(
             Services.GetService(typeof(IPlanSessionRequests)) as IPlanSessionRequests,
@@ -566,21 +566,21 @@
         _planSessions.Dispose();
     }
 
-    // --- Start plan session (local ADR 0037) -------------------------------
+    // --- Queue a plan session (local ADR 0037) -----------------------------
 
     /// <summary>The plan session requests the plans have open, the press and Cancel.</summary>
     private RoadmapSessionRequests _planSessions = null!;
 
     private void OnPlanSessionsChanged() => _ = InvokeAsync(StateHasChanged);
 
-    /// <summary>What Start plan session offers on <paramref name="item"/>: nothing
+    /// <summary>What the plan's queue icon offers on <paramref name="item"/>: nothing
     /// while the action is not offered; otherwise the item's tag in its first
     /// repository with a clone folder, read from the settings per render so a clone
     /// folder set in Settings is used at once.</summary>
     private PlanSessionOffer? PlanSessionFor(RoadmapItemDto? item) =>
         _planSessions.IsOffered ? PlanSessionOffer.For(item, Repositories.Current.Find) : null;
 
-    private async Task StartPlanSessionAsync()
+    private async Task QueuePlanSessionAsync()
     {
         if (PlanSessionFor(_edited) is not { IsEnabled: true } offer) return;
 

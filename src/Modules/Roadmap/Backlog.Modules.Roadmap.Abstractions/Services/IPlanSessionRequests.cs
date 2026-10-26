@@ -25,10 +25,10 @@ public enum PlanSessionRequestState
 public sealed record PlanSessionRequest(Guid Id, PlanSessionRequestState State, string Repository);
 
 /// <summary>
-/// The Start plan session action's port (local ADR 0037 §2): queue a request for a
-/// session that runs a whole plan, by its tag, read which plans have one waiting, and
-/// cancel one. Answered by an adapter over the Sessions context's queue; a host with
-/// none registers nothing and the roadmap offers no action.
+/// The plan queue icon's port (local ADR 0037 §2): queue a plan session — a request
+/// for a session that runs a whole plan, by its tag — read which plans have one waiting,
+/// and cancel one. Answered by an adapter over the Sessions context's queue; a host with
+/// none registers nothing and the roadmap offers no queue icon.
 /// </summary>
 public interface IPlanSessionRequests
 {
