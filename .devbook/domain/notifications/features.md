@@ -30,7 +30,7 @@ same way, with nothing to wait for.
 ```meta
 status: proposed
 type: feature
-related: [.devbook/domain/notifications/requirements.md#answering-from-another-device]
+related: [.devbook/domain/notifications/requirements.md#answering-from-another-device, .devbook/arc42/06-runtime-view.md#notification-reply]
 ```
 
 The person sees a notification on the Android phone or on another desktop and
@@ -54,6 +54,28 @@ the controls back. A question that says `answerOn: owner` is read-only there.
 The phone reads presence off the owner's own pushes: an owner desktop pushes each
 open question again every 10 minutes, and a phone that has seen no push from it
 for 15 minutes reads it as offline.
+
+The phone also hears of a notification without being opened, through an Android
+push. When a notification is published or changes state, the phone gets an
+Android notification with its title and summary. The presence re-push sends
+none. What the tray offers depends on the question:
+
+| The question | The tray offers |
+| --- | --- |
+| Single choice, up to three choices | one action per choice |
+| Open answer only | an inline reply |
+| Choices with an open answer, up to two choices | the choices, then the inline reply |
+| Anything else: multiple choice, more choices than fit, `answerOn: owner`, an alert, a reply already on its way | no actions |
+
+An action or an inline reply leaves through the same `notification-reply` outbox
+entry as a reply made in the app. A tap opens the notification in the app. A
+notification that is answered, acknowledged or closed leaves the tray. The phone
+registers for the push once it is paired, and again when Firebase hands it a new
+token.
+
+On the owner desktop, the push row of **Settings › Notifications** stays *not
+reported*. The push carries no delivery receipt, so the desktop cannot tell
+whether a phone showed it.
 
 ## Asking from the contexts
 

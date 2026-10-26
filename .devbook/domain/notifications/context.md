@@ -32,6 +32,9 @@ Outside it:
 - what the answer does. The source's own handler acts on it.
 - carrying the documents between devices. [Sync](../sync/context.md) stores and
   hands back the notification and reply documents and reads none of their fields.
+  To send the Android push, it reads the push preview the owner writes on the
+  envelope beside the document: kind, severity, title, summary, and whether the
+  notification is private.
 - the device identity. The owner instance is the shared kernel's
   [Device](../tasks/domain.md#device).
 
@@ -41,13 +44,16 @@ the realtime nudge is
 
 The module is `Backlog.Modules.Notifications`, published to other contexts through
 `Backlog.Modules.Notifications.Abstractions`, with its screens in
-`Backlog.Modules.Notifications.UI`. The delivery technology sits behind ports in
-`Backlog.Infrastructure.Notifications`. The module, its abstractions and its
+`Backlog.Modules.Notifications.UI`. The sync service's delivery adapters are
+`Backlog.Infrastructure.WebPubSub`, for the desktop nudge, and
+`Backlog.Infrastructure.NotificationHubs`, for the Android push. They sit behind
+`INotificationNudgeChannel` and `INotificationPushChannel` in
+`Backlog.Modules.Sync`. The module, its abstractions and its
 screens exist, with the owner's store as the `notifications` table in
 `backlog.db`, and the MCP server publishes through it with its `notify`, `ask`,
 `get_answer` and `close` tools. So does the sync exchange: the owner desktop
 reads its notifications through `INotificationReplication` and hands each reply
-to `INotificationReplies`. The infrastructure project does not yet. Every
+to `INotificationReplies`. Every
 context that owns a [Subject](domain.md#subject) closes its notifications when
 the subject ends and answers the startup probe.
 
@@ -119,8 +125,8 @@ answer handler only takes the answer. Under the buttons the page follows the las
 test through `INotificationCentre.Changed`: published, pushed to the phone,
 answered with the answer and the device it came from (or acknowledged, for the
 alert), and closed. **Clear test** closes the test, and sending a new one closes
-the one still open. The push row reads *not reported* until the phone push is
-built.
+the one still open. The push row reads *not reported*, because the phone push
+carries no delivery receipt back to the desktop.
 
 Both hand an answer to `INotificationCentre.AnswerAsync`, which passes it to
 `INotificationReplies.AcceptReplyAsync` as a [Reply](domain.md#reply) from this
@@ -137,7 +143,7 @@ contract to the contexts that publish, as an open host service.
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Sync](../sync/context.md) | Conformist (Notifications = conformist) | A notification exchange in `Backlog.Infrastructure.Sync` pushes to the `notifications` container and takes replies from `notificationReplies`; the phone posts replies through its device outbox | The replica protocol in `Backlog.Modules.Sync.Abstractions`; local ADR 0038 | Notifications and replies reach every paired device, and the sync service checks the owner before it stores a reply. |
+| [Sync](../sync/context.md) | Conformist (Notifications = conformist) | A notification exchange in `Backlog.Infrastructure.Sync` pushes to the `notifications` container and takes replies from `notificationReplies`, with the push preview on each `NotificationChange`; the phone posts replies through its device outbox, and registers for the Android push through `PUT /api/sync/notifications/push` | The replica protocol in `Backlog.Modules.Sync.Abstractions`; local ADR 0038 | Notifications and replies reach every paired device, and the sync service checks the owner before it stores a reply. |
 | Shared kernel device identity | Conformist | `DeviceIdentity` in `Backlog.SharedKernel` | `.devbook/domain/tasks/domain.md#device` | The owner instance is named by the device that published the notification. |
 
 ### Inbound dependents (known)

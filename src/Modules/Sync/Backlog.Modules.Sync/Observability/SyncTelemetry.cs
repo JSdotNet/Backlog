@@ -39,6 +39,17 @@ public static class SyncTelemetry
     /// the problem body a client saw use one vocabulary.</summary>
     public const string ReasonTag = "backlog.sync.reason";
 
+    /// <summary>Which Android push call a push metric counts — one of
+    /// <see cref="PushOperations"/>. Low cardinality by construction.</summary>
+    public const string PushOperationTag = "backlog.sync.push_operation";
+
+    /// <summary>The values <see cref="PushOperationTag"/> takes.</summary>
+    public static class PushOperations
+    {
+        public const string Send = "send";
+        public const string Remove = "remove";
+    }
+
     public static readonly ActivitySource Source = new(Name);
 
     private static readonly Meter Meter = new(Name);
@@ -54,4 +65,18 @@ public static class SyncTelemetry
         "backlog.sync.cursor_rejected",
         unit: "{cursor}",
         description: "Pull cursors refused, tagged by the reason they were refused.");
+
+    /// <summary>Android pushes the hub took (local ADR 0038 §4) — one per notification that was
+    /// published or moved state.</summary>
+    public static readonly Counter<long> PushSent = Meter.CreateCounter<long>(
+        "backlog.sync.push_sent",
+        unit: "{push}",
+        description: "Android pushes handed to the push hub.");
+
+    /// <summary>Android push calls that failed and were contained, by operation. A push failure
+    /// never fails the request that caused it, so without this it would go unseen.</summary>
+    public static readonly Counter<long> PushFailed = Meter.CreateCounter<long>(
+        "backlog.sync.push_failed",
+        unit: "{push}",
+        description: "Android push calls that failed and were contained, tagged by operation.");
 }

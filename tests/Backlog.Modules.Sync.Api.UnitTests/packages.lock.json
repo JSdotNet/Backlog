@@ -243,6 +243,14 @@
           "Microsoft.Extensions.Logging": "10.0.10"
         }
       },
+      "Microsoft.Extensions.Caching.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.12",
+        "contentHash": "sI3A6MUAyZwccLnwq0cXuRmC3WBtXieimBWafXSfhRJ4jnM2uGVXrqImDDVyW27u4vVaTOGlJxNJd8d1FGvCNQ==",
+        "dependencies": {
+          "Microsoft.Extensions.Primitives": "10.0.12"
+        }
+      },
       "Microsoft.Extensions.Compliance.Abstractions": {
         "type": "Transitive",
         "resolved": "10.10.0",
@@ -979,6 +987,16 @@
           "Microsoft.Extensions.Options.DataAnnotations": "[10.0.12, )"
         }
       },
+      "backlog.infrastructure.notificationhubs": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Sync": "[1.0.0, )",
+          "Microsoft.Azure.NotificationHubs": "[4.2.0, )",
+          "Microsoft.Extensions.Caching.Memory": "[10.0.12, )",
+          "Microsoft.Extensions.Hosting": "[10.0.12, )",
+          "Microsoft.Extensions.Logging": "[10.0.12, )"
+        }
+      },
       "backlog.infrastructure.sqlite": {
         "type": "Project",
         "dependencies": {
@@ -1115,6 +1133,7 @@
           "Backlog.Aspire.ServiceDefaults": "[1.0.0, )",
           "Backlog.Infrastructure.BlobStorage": "[1.0.0, )",
           "Backlog.Infrastructure.Cosmos": "[1.0.0, )",
+          "Backlog.Infrastructure.NotificationHubs": "[1.0.0, )",
           "Backlog.Infrastructure.WebPubSub": "[1.0.0, )",
           "Backlog.Modules.Sync": "[1.0.0, )",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.12, )",
@@ -1281,6 +1300,16 @@
           "System.Configuration.ConfigurationManager": "6.0.0"
         }
       },
+      "Microsoft.Azure.NotificationHubs": {
+        "type": "CentralTransitive",
+        "requested": "[4.2.0, )",
+        "resolved": "4.2.0",
+        "contentHash": "LOCxFB/sB1frfuXjecdDRDKEHkH+I1qKRatS5NyWIgYhpKhIcAlPNIJajcwLgQBShckdc3hMG9E+75CnL3qDhQ==",
+        "dependencies": {
+          "Microsoft.Extensions.Caching.Memory": "6.0.1",
+          "Newtonsoft.Json": "13.0.1"
+        }
+      },
       "Microsoft.Data.Sqlite": {
         "type": "CentralTransitive",
         "requested": "[10.0.12, )",
@@ -1290,6 +1319,19 @@
           "Microsoft.Data.Sqlite.Core": "10.0.12",
           "SQLitePCLRaw.bundle_e_sqlite3": "2.1.12",
           "SQLitePCLRaw.core": "2.1.12"
+        }
+      },
+      "Microsoft.Extensions.Caching.Memory": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.12, )",
+        "resolved": "10.0.12",
+        "contentHash": "fhC3DHcBcFF4bXvHIxFtXJYNut7q7ZItqNFcgWfrIgmpVImlcEKNHhE7ztpNSPJYMHYYStS5QGND2I5mC26yeA==",
+        "dependencies": {
+          "Microsoft.Extensions.Caching.Abstractions": "10.0.12",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Options": "10.0.12",
+          "Microsoft.Extensions.Primitives": "10.0.12"
         }
       },
       "Microsoft.Extensions.DependencyInjection": {

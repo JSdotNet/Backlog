@@ -1,8 +1,10 @@
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.DomainModels;
+using Backlog.Modules.Sync.Observability;
 using Backlog.Modules.Sync.Ports;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Modules.Sync.Features.Devices;
 
@@ -26,8 +28,16 @@ public sealed record RevokeDeviceCommand(OwnerScope Scope, Guid DeviceId);
 /// A token the device already holds stays valid until it expires — minutes, per inherited
 /// ADR 0012 — because tokens are checked by signature, not against the registry.
 /// </para>
+/// <para>
+/// A revoked phone's push installation is deleted too (local ADR 0038 §4), so it is pushed
+/// nothing more. Best effort: the device is already revoked when the hub is asked, and a hub
+/// that fails is logged and counted rather than turning the revoke into a failure.
+/// </para>
 /// </summary>
-public sealed class RevokeDeviceCommandHandler(IDeviceRegistry devices)
+public sealed partial class RevokeDeviceCommandHandler(
+    IDeviceRegistry devices,
+    INotificationPushChannel pushes,
+    ILogger<RevokeDeviceCommandHandler> log)
     : ICommandHandler<RevokeDeviceCommand, Result>
 {
     public async Task<Result> Handle(RevokeDeviceCommand command, CancellationToken cancellationToken = default)
@@ -55,10 +65,27 @@ public sealed class RevokeDeviceCommandHandler(IDeviceRegistry devices)
                 "Only the device whose pairing code paired this device can revoke it."));
         }
 
-        return await devices.Remove(command.Scope.OwnerId, target.Id, cancellationToken)
-            ? Result.Success()
-            : NotFound();
+        if (!await devices.Remove(command.Scope.OwnerId, target.Id, cancellationToken))
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            await pushes.RemoveAsync(target.Id, cancellationToken);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            SyncTelemetry.PushFailed.Add(1, new KeyValuePair<string, object?>(
+                SyncTelemetry.PushOperationTag, SyncTelemetry.PushOperations.Remove));
+            LogRemoveFailed(log, target.Id.Value, ex);
+        }
+
+        return Result.Success();
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The push hub did not delete the installation of revoked device {DeviceId}; it may still be pushed until its installation is replaced.")]
+    private static partial void LogRemoveFailed(ILogger logger, Guid deviceId, Exception exception);
 
     private static Result NotFound() =>
         Result.Failure(Error.NotFound(SyncErrorCodes.DeviceNotFound, "There is no such device for this owner."));

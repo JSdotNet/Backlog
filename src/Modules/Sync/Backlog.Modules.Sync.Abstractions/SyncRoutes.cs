@@ -84,6 +84,12 @@ public static class SyncRoutes
     /// runs without one. Bearer.</summary>
     public const string NotificationNudge = "/notifications/negotiate";
 
+    /// <summary>The Android push (local ADR 0038 §4): PUT hands the service the calling phone's
+    /// FCM token, and the service keeps one Notification Hubs installation for the device,
+    /// tagged with its owner and itself from the token. Answers whether it registered — never,
+    /// where the service runs without a hub. Bearer.</summary>
+    public const string NotificationPush = "/notifications/push";
+
     /// <summary>The full path for one reply.</summary>
     public static string NotificationReplyFor(Guid id) => $"{Base}/notifications/replies/{id:D}";
 

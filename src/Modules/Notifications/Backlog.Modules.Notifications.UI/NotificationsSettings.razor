@@ -80,9 +80,10 @@
     /// <summary>The cards the page draws, in order: what the settings search reads.</summary>
     public static IReadOnlyList<string> CardTitles { get; } = [TestCardTitle];
 
-    /// <summary>What the push row says until this build reports a send to the phone: the
-    /// Notification Hubs send is not part of it yet.</summary>
-    public const string PushNotReported = "Not reported — this build does not send phone pushes yet";
+    /// <summary>What the push row says. The sync service sends the Android push through
+    /// Notification Hubs (local ADR 0038 §4), but nothing reports back to this desktop whether it
+    /// reached the phone, so the row stays unreported.</summary>
+    public const string PushNotReported = "Not reported — the phone push carries no delivery receipt";
 
     /// <summary>One row of the last test's status: a key the tests find it by, the stage it names,
     /// what happened, and whether it happened.</summary>

@@ -365,6 +365,13 @@
           "Microsoft.Azure.Cosmos": "[3.63.2, )"
         }
       },
+      "backlog.infrastructure.notificationhubs": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Sync": "[1.0.0, )",
+          "Microsoft.Azure.NotificationHubs": "[4.2.0, )"
+        }
+      },
       "backlog.infrastructure.webpubsub": {
         "type": "Project",
         "dependencies": {
@@ -457,6 +464,15 @@
           "Microsoft.Bcl.AsyncInterfaces": "6.0.0",
           "Microsoft.Bcl.HashCode": "1.1.0",
           "System.Configuration.ConfigurationManager": "6.0.0"
+        }
+      },
+      "Microsoft.Azure.NotificationHubs": {
+        "type": "CentralTransitive",
+        "requested": "[4.2.0, )",
+        "resolved": "4.2.0",
+        "contentHash": "LOCxFB/sB1frfuXjecdDRDKEHkH+I1qKRatS5NyWIgYhpKhIcAlPNIJajcwLgQBShckdc3hMG9E+75CnL3qDhQ==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.1"
         }
       },
       "Microsoft.Extensions.Http.Resilience": {

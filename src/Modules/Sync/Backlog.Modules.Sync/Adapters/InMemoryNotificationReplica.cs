@@ -23,21 +23,28 @@ public sealed class InMemoryNotificationReplica : INotificationReplica
         var partition = Partition(scope.OwnerId);
         var accepted = 0;
         var notOwned = new List<Guid>();
+        var transitions = new List<NotificationChange>();
 
         foreach (var change in changes)
         {
             switch (partition.Write(change, scope.DeviceId.Value))
             {
+                case WriteOutcome.Transition:
+                    accepted++;
+                    transitions.Add(change);
+                    break;
                 case WriteOutcome.Written:
                     accepted++;
                     break;
                 case WriteOutcome.NotOwned:
                     notOwned.Add(change.Id);
                     break;
+                case WriteOutcome.Stale:
+                    break;
             }
         }
 
-        return Task.FromResult(new NotificationUpsertResult(accepted, notOwned));
+        return Task.FromResult(new NotificationUpsertResult(accepted, notOwned, transitions));
     }
 
     public Task<NotificationReplicaPage> ReadChanges(OwnerId owner, NotificationReplicaCursor? cursor, int maxItems, CancellationToken cancellationToken = default)
@@ -78,6 +85,10 @@ public sealed class InMemoryNotificationReplica : INotificationReplica
 
     private enum WriteOutcome
     {
+        /// <summary>Written, and new here or in another state than the one held.</summary>
+        Transition,
+
+        /// <summary>Written, in the state already held.</summary>
         Written,
         Stale,
         NotOwned
@@ -96,14 +107,20 @@ public sealed class InMemoryNotificationReplica : INotificationReplica
         {
             lock (_gate)
             {
+                var moved = true;
+
                 if (_notifications.TryGetValue(change.Id, out var held))
                 {
                     if (held.Change.OwnerInstanceId != change.OwnerInstanceId) return WriteOutcome.NotOwned;
                     if (change.UpdatedAt < held.Change.UpdatedAt) return WriteOutcome.Stale;
+
+                    moved = !string.Equals(held.Change.State, change.State, StringComparison.Ordinal);
                 }
 
-                _notifications[change.Id] = new StoredNotification(change, deviceId, ++_sequence);
-                return WriteOutcome.Written;
+                // The preview is for the send and is not stored, as the Cosmos replica does not
+                // store it: a pull never hands one back.
+                _notifications[change.Id] = new StoredNotification(change with { Preview = null }, deviceId, ++_sequence);
+                return moved ? WriteOutcome.Transition : WriteOutcome.Written;
             }
         }
 

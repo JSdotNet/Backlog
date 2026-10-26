@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Backlog.Infrastructure.BlobStorage.Extensions;
 using Backlog.Infrastructure.Cosmos.Extensions;
+using Backlog.Infrastructure.NotificationHubs.Extensions;
 using Backlog.Infrastructure.WebPubSub.Extensions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Api;
@@ -51,6 +52,12 @@ builder.AddAttachmentBlobStore();
 // holds no data: the module's no-op channel stands, negotiate hands out no URL, and every
 // desktop keeps its two-minute poll. That is the Aspire run, which has no Web PubSub.
 builder.AddWebPubSubNudge();
+
+// The Android push to the phones (local ADR 0038 §4), on the nudge's terms: with no hub
+// configured it is a no-op in every environment, because a push holds no data either — the
+// module's no-op channel stands, registration answers "not registered", and a phone finds a
+// notification on its next pull. That is the Aspire run, which has no Notification Hubs.
+builder.AddNotificationHubsPush();
 
 // The upload cap and the type allowlist. Settings, so widening "any file" is a
 // configuration change; validated at startup like every other section.

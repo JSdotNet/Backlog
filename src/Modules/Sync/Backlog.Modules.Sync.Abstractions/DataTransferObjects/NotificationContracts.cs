@@ -7,9 +7,12 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// sync service reads, and the notification itself as an opaque document it stores and
 /// hands back unread.
 /// <para>
-/// The service reads only <see cref="Id"/>, <see cref="OwnerInstanceId"/> and
-/// <see cref="State"/>. The state is there because retention is a store setting: a
-/// notification that has left Open is stamped to expire 30 days later. Everything a viewer
+/// The service reads only <see cref="Id"/>, <see cref="OwnerInstanceId"/>,
+/// <see cref="State"/> and <see cref="Preview"/>. The state is there because retention is a
+/// store setting: a notification that has left Open is stamped to expire 30 days later. The
+/// preview is there because the Android push says what a notification is about before the
+/// phone has pulled it, and the owner writes it beside the document rather than the service
+/// reading it out of one. Everything a viewer
 /// shows — title, summary, body, the answer spec, the answer, which replies were rejected —
 /// travels inside <see cref="Notification"/>, whose shape belongs to the Notifications
 /// context and not to Sync (<c>.devbook/domain/notifications/context.md</c>: Sync stores the
@@ -29,12 +32,17 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// <param name="State">Where it stands — one of <see cref="NotificationStates"/>.</param>
 /// <param name="UpdatedAt">When the owner last changed it, on the owner's clock.</param>
 /// <param name="Notification">The notification itself, stored whole and never read here.</param>
+/// <param name="Preview">What the Android push may say about it (ADR 0038 §4) — the
+/// envelope's own copy of kind, severity, title and summary, so the service never reads the
+/// document to send one. Null from an owner that predates it; the push then carries the id and
+/// the state only. Used for the send and not stored.</param>
 public sealed record NotificationChange(
     Guid Id,
     Guid OwnerInstanceId,
     string State,
     DateTimeOffset UpdatedAt,
-    JsonElement Notification);
+    JsonElement Notification,
+    NotificationPushPreview? Preview = null);
 
 /// <summary>The states a <see cref="NotificationChange"/> may name. Only
 /// <see cref="Open"/> means something to the service: every other state starts the
@@ -136,6 +144,14 @@ public static class NotificationRecordLimits
     /// checked by the owner; this bounds what reaches the store.</summary>
     public const int ReplyTextLength = 8_000;
 
+    /// <summary>How long a push preview's title may be — the notification's own title bound
+    /// (<c>domain.md</c>).</summary>
+    public const int PreviewTitleLength = 80;
+
+    /// <summary>How long a push preview's summary may be — the notification's own summary
+    /// bound.</summary>
+    public const int PreviewSummaryLength = 180;
+
     /// <summary>Why <paramref name="change"/> would be refused, or null when it would be
     /// stored.</summary>
     public static string? WhyRefused(NotificationChange change)
@@ -148,6 +164,22 @@ public static class NotificationRecordLimits
         if (change.Notification.ValueKind is not JsonValueKind.Object) return "A notification document is a JSON object.";
         if (change.Notification.GetRawText().Length > DocumentBytes)
             return $"A notification document holds at most {DocumentBytes} characters.";
+
+        return change.Preview is { } preview ? WhyRefused(preview) : null;
+    }
+
+    /// <summary>Why <paramref name="preview"/> would be refused, or null when it would be
+    /// sent.</summary>
+    public static string? WhyRefused(NotificationPushPreview preview)
+    {
+        ArgumentNullException.ThrowIfNull(preview);
+
+        if (!NotificationKinds.IsKnown(preview.Kind)) return $"'{preview.Kind}' is not a notification kind.";
+        if (!NotificationSeverities.IsKnown(preview.Severity)) return $"'{preview.Severity}' is not a notification severity.";
+        if (string.IsNullOrWhiteSpace(preview.Title) || preview.Title.Length > PreviewTitleLength)
+            return $"A push preview's title is between 1 and {PreviewTitleLength} characters.";
+        if (preview.Summary is { Length: > PreviewSummaryLength })
+            return $"A push preview's summary holds at most {PreviewSummaryLength} characters.";
 
         return null;
     }

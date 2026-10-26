@@ -324,24 +324,30 @@ alternatives: ["Firebase Cloud Messaging called directly, with workload identity
 The push service the sync service sends Android notifications through (local
 ADR 0038).
 
-- **Used for** — waking the Android phone with an OS push that carries a
-  notification's id, title and summary, and never its body.
+- **Used for** — waking the Android phone with a data-only push that carries a
+  notification's id, kind, severity, state, title and summary, and never its
+  body.
 - **Why** — the sync service talks only to Azure, and the hub relays to
   [Firebase Cloud Messaging](#firebase-cloud-messaging). Calling FCM directly
   would need workload identity federation set up with `gcloud`, which is outside
   the stack.
 - **How** — the Free tier, which allows one million pushes a month and 500
   devices. Notification Hubs supports no managed identity. So
-  `infra/sync/main.bicep` passes the hub's Send-only SAS key straight into a
-  container app secret, and no person handles it.
-- **Status** — `candidate`: decided, and nothing is provisioned yet.
+  `infra/sync/main.bicep` declares a `sync-send` rule and a `sync-manage` rule on
+  the `backlog` hub, and passes both connection strings straight into container
+  app secrets; no person handles them. The service-side client is
+  `Microsoft.Azure.NotificationHubs` 4.2.0, in
+  `Backlog.Infrastructure.NotificationHubs` alone. It keeps one FCM v1
+  installation per phone and sends to the owner's tag. There is no emulator, so
+  the Aspire run has no hub and pushes nothing.
+- **Status** — `candidate`: built and declared in Bicep, not deployed.
 
 ## Firebase Cloud Messaging
 
 ```meta
 status: candidate
 type: service
-related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/tech/mobile.md#android", ".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
+related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/tech/mobile.md#android", ".devbook/tech/mobile.md#xamarinfirebasemessaging", ".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 ```
 
 The Android push transport behind
@@ -351,6 +357,8 @@ The Android push transport behind
   service never calls it directly.
 - **Why** — the native push channel for Android, and Android is the only phone
   platform.
-- **How** — a one-time Firebase console setup. Its FCM credential lives only
-  inside the hub.
+- **How** — a one-time Firebase console setup. Its FCM v1 credential lives only
+  inside the hub, entered there by hand. The phone takes its token and the data
+  messages through
+  [Xamarin.Firebase.Messaging](mobile.md#xamarinfirebasemessaging).
 - **Status** — `candidate` until the first push reaches a phone.

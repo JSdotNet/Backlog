@@ -38,6 +38,15 @@ public interface INotificationReplica
     /// under another owner instance is not written and is named in
     /// <see cref="NotificationUpsertResult.NotOwned"/>. A change older than the one held is
     /// dropped and not counted.
+    /// <para>
+    /// A written change that the replica did not hold yet, or that moves the state it held, is
+    /// also named in <see cref="NotificationUpsertResult.Transitions"/>: those are the changes a
+    /// phone is pushed (ADR 0038 §4). A re-push in the state already held — the owner's
+    /// ten-minute presence refresh — is written and is no transition. A batch that faults part
+    /// way reports no transitions at all, and its retry finds the written ones in the state
+    /// already held: those phones are not pushed. Accepted, because a lost push costs a buzz and
+    /// never data — the phone finds the change on its next pull.
+    /// </para>
     /// </summary>
     Task<NotificationUpsertResult> Upsert(OwnerScope scope, IReadOnlyList<NotificationChange> changes, CancellationToken cancellationToken = default);
 
@@ -63,9 +72,14 @@ public interface INotificationReplica
     Task<bool> DeleteReply(OwnerScope scope, Guid replyId, CancellationToken cancellationToken = default);
 }
 
-/// <summary>What a notification push did: how many were written, and which were not because
-/// they belong to another owner instance.</summary>
-public sealed record NotificationUpsertResult(int Accepted, IReadOnlyList<Guid> NotOwned);
+/// <summary>What a notification push did: how many were written, which were not because they
+/// belong to another owner instance, and which of the written ones were published now or moved
+/// state.</summary>
+/// <param name="Accepted">How many changes were written.</param>
+/// <param name="NotOwned">The ids held under another owner instance, not written.</param>
+/// <param name="Transitions">The written changes that were new to the replica or moved the
+/// state it held, in the order the push carried them.</param>
+public sealed record NotificationUpsertResult(int Accepted, IReadOnlyList<Guid> NotOwned, IReadOnlyList<NotificationChange> Transitions);
 
 /// <summary>What storing a reply did.</summary>
 public enum NotificationReplyStoreOutcome

@@ -8,6 +8,8 @@
 @inject NotificationViewProjection Notifications
 @inject AppLifecycle Lifecycle
 @inject SyncCompatibility Compatibility
+@inject NotificationOpenRequests OpenRequests
+@inject NavigationManager Navigation
 @implements IDisposable
 
 @*
@@ -45,6 +47,11 @@
     the tab. The layout pulls the notification feed with Progress — once drawn,
     on every return to the front and on a new pairing — so a question reaches
     the phone on whichever tab it is (local ADR 0038).
+
+    A tap on a notification in the Android tray lands here too (NotificationOpenRequests):
+    the layout is the one component every tab sits inside, so it follows the tap to the
+    notification's detail — after the first render, like a share, and including the tap
+    that launched the app before anything was drawn.
 *@
 
 <div class="page">
@@ -113,6 +120,7 @@
     private bool _pullingProgress;
     private bool _pullingNotifications;
     private AppUpdateControl? _updates;
+    private IDisposable? _openRequests;
 
     private IReadOnlyList<NavItem> Tabs
     {
@@ -156,6 +164,9 @@
 
     private void OnResumed() => _ = InvokeAsync(PullAllAsync);
 
+    // Raised on the platform's main thread by the Android head.
+    private void OnOpenRequested(Guid id) => _ = InvokeAsync(() => Navigation.NavigateTo($"notifications/{id:D}"));
+
     /// <summary>
     /// Started after the first render rather than on initialisation: the browser
     /// harness prerenders on the server, and a share captured there would be
@@ -166,6 +177,7 @@
         if (!firstRender) return;
 
         SharedCapture.Start(work => InvokeAsync(work));
+        _openRequests = OpenRequests.Subscribe(OnOpenRequested);
         await PullAllAsync();
     }
 
@@ -228,6 +240,7 @@
         Notifications.Changed -= OnNotificationsChanged;
         Lifecycle.Resumed -= OnResumed;
         Compatibility.Changed -= OnCompatibilityChanged;
+        _openRequests?.Dispose();
 
         // The capture is the scope's and may outlive this layout; it must not
         // dispatch through a component the renderer has let go.

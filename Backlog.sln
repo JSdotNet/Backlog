@@ -229,6 +229,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Modules.Notificatio
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.WebPubSub", "src\Infrastructure\Backlog.Infrastructure.WebPubSub\Backlog.Infrastructure.WebPubSub.csproj", "{C0BF6187-95AD-47EE-9945-84EB02BAC8C0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Backlog.Infrastructure.NotificationHubs", "src\Infrastructure\Backlog.Infrastructure.NotificationHubs\Backlog.Infrastructure.NotificationHubs.csproj", "{754DC652-78A8-4A75-92A5-AF7D35F7197D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1367,6 +1369,18 @@ Global
 		{C0BF6187-95AD-47EE-9945-84EB02BAC8C0}.Release|x64.Build.0 = Release|Any CPU
 		{C0BF6187-95AD-47EE-9945-84EB02BAC8C0}.Release|x86.ActiveCfg = Release|Any CPU
 		{C0BF6187-95AD-47EE-9945-84EB02BAC8C0}.Release|x86.Build.0 = Release|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Debug|x64.Build.0 = Debug|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Debug|x86.Build.0 = Debug|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Release|x64.ActiveCfg = Release|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Release|x64.Build.0 = Release|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Release|x86.ActiveCfg = Release|Any CPU
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1483,5 +1497,6 @@ Global
 		{056BB201-18E0-4FD4-8673-80E0055AA7B3} = {DE9DAF8A-E684-0FD3-FFDC-40D3E3158533}
 		{FB25A886-15B7-4960-9115-A67E57C54AA7} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{C0BF6187-95AD-47EE-9945-84EB02BAC8C0} = {9048EB7F-3875-A59E-E36B-5BD4C6F2A282}
+		{754DC652-78A8-4A75-92A5-AF7D35F7197D} = {9048EB7F-3875-A59E-E36B-5BD4C6F2A282}
 	EndGlobalSection
 EndGlobal

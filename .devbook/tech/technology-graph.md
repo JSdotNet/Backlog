@@ -19,8 +19,8 @@ These are still `candidate`:
   VS Code webview UI;
 - the desktop's background workers, which are designed but not yet implemented;
 - `Azure Web PubSub` and `Azure Notification Hubs`, the realtime nudge to the
-  desktops and the phone, and `Firebase Cloud Messaging`, the push transport
-  behind the hub;
+  desktops and the phone, `Firebase Cloud Messaging`, the push transport behind
+  the hub, and `Xamarin.Firebase.Messaging`, its binding on the phone;
 - the `Anthropic Claude Platform` and the `GitHub Copilot Usage APIs`, the two
   sources of measured AI usage.
 
@@ -137,6 +137,7 @@ flowchart LR
         subgraph Mobile["Mobile - Android capture and review"]
             OfflineStore["Local Offline Store"]:::adopted
             SkiaSharp["SkiaSharp"]:::adopted
+            FirebaseMessaging["Xamarin.Firebase.Messaging"]:::candidate
             AndroidTools["Android SDK Build Tools"]:::adopted
             APK["APK Packaging"]:::adopted
         end
@@ -262,6 +263,8 @@ flowchart LR
     OfflineStore --> DataSqlite
     OfflineStore --> JSON
     SkiaSharp --> DotNet
+    FirebaseMessaging --> Android
+    FirebaseMessaging --> FCM
     AndroidTools --> Android
     AndroidTools --> JavaJdk
     APK --> Android

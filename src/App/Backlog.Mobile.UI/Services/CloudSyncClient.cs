@@ -145,6 +145,29 @@ public sealed class CloudSyncClient(HttpClient http)
         return (response.StatusCode, problem.Detail);
     }
 
+    /// <summary>Hands the service this install's FCM token, so it keeps this device's Notification
+    /// Hubs installation (local ADR 0038 §4). <see cref="RegisterPushInstallationResponse.Registered"/>
+    /// is false from a service with no hub, which is not worth asking again; any other refusal is
+    /// <see cref="SyncUnavailableException"/> with the problem's code.</summary>
+    public async Task<RegisterPushInstallationResponse> RegisterPushAsync(string fcmToken, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fcmToken);
+
+        using var response = await http.PutAsJsonAsync(
+            SyncRoutes.Absolute(SyncRoutes.NotificationPush),
+            new RegisterPushInstallationRequest(fcmToken),
+            ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var problem = await SyncProblem.ReadAsync(response, ct);
+            throw new SyncUnavailableException(response.StatusCode, problem.Code, problem.Detail);
+        }
+
+        return await response.Content.ReadFromJsonAsync<RegisterPushInstallationResponse>(ct)
+            ?? new RegisterPushInstallationResponse(Registered: false);
+    }
+
     /// <summary>One attempt at one task: the status, and the problem's detail
     /// when it failed. Throws only when there was no answer at all.</summary>
     public async Task<(HttpStatusCode Status, string? Detail)> PushTaskAsync(TaskChange change, CancellationToken ct = default)
