@@ -1,0 +1,20 @@
+@*
+    The AI section's Model tab: the seven stages of the delivery path, their
+    sub-stages where needed, and the three layers beneath, with each usage split
+    into the parts that do the work — read from AiModel. Empty for now; until it
+    is drawn the tab says so rather than showing a blank panel.
+*@
+<div data-testid="ai-model-view">
+    <EmptyState Title="The model is not drawn yet"
+                Description="The seven stages, their sub-stages and the three layers beneath, with the AI usages at each, will be drawn here." />
+</div>
+
+@code {
+    /// <summary>The model the tab draws, read from the folder by <see cref="AiModel.From"/>.</summary>
+    [Parameter, EditorRequired]
+    public AiModel Model { get; set; } = default!;
+
+    /// <summary>Raised when a reader opens a usage's chapter; the host owns the selection.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+}

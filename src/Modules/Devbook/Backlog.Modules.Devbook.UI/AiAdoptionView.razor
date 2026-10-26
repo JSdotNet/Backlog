@@ -1,0 +1,20 @@
+@*
+    The AI section's Adoption tab: how far each usage has got on the ladder, read
+    from AiModel. Empty for now — the tab strip it sits in is in place so the
+    picture can land on its own; until then the tab says it has nothing drawn
+    rather than showing a blank panel.
+*@
+<div data-testid="ai-adoption-view">
+    <EmptyState Title="Adoption is not drawn yet"
+                Description="How far each AI usage has got on the adoption ladder will be drawn here." />
+</div>
+
+@code {
+    /// <summary>The model the tab draws, read from the folder by <see cref="AiModel.From"/>.</summary>
+    [Parameter, EditorRequired]
+    public AiModel Model { get; set; } = default!;
+
+    /// <summary>Raised when a reader opens a usage's chapter; the host owns the selection.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+}
