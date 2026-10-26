@@ -13,6 +13,10 @@ type: stage
 status: adopted
 type: workflow
 stage: [specify]
+layer: [thread]
+substage: [specify/specify]
+feeds: [".devbook/ai/01-plan.md#import-plans: agreed spec", ".devbook/ai/02-code.md#code-gate-through-flow-code: apply-change"]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/ai/concepts.md#task-scoped-context", ".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-26
@@ -38,8 +42,11 @@ folder, runs the devbook check, and stops at Personal Validation before a pull r
 status: adopted
 type: skill
 stage: [specify]
+substage: [specify/break-down]
+feeds: [".devbook/ai/02-code.md#plan-items-pasted-into-a-session: prompt entries"]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#backlog-tools-plugin"]
-related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/ai/02-code.md#plan-items-pasted-into-a-session"]
+related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 date: 2026-09-25
 ```
 
@@ -62,6 +69,9 @@ session runs a `prompt` step, and only a person does a `task` or `test` step. Ea
 status: trial
 type: skill
 stage: [specify]
+substage: [specify/break-down]
+feeds: [".devbook/ai/01-plan.md#import-plans: effort:"]
+evidence: none
 depends-on: [".devbook/tech/ai-development.md#agent-skills"]
 date: 2026-09-26
 ```
@@ -74,6 +84,7 @@ reference each estimate was compared with.
 - **Adopted by** — the procedure was adopted on 2026-09-26; plan entries written before it
   carry efforts sized without the reference table.
 - **Evidence** — none yet: no estimate has been checked against how long the work took.
+- **Moves up when** — an estimate is checked against the time the work took.
 - **Limits** — points size work, never time; turning them into a date is a measured pace's
   job, not the estimate's.
 
@@ -83,6 +94,9 @@ reference each estimate was compared with.
 status: trial
 type: skill
 stage: [specify]
+substage: [specify/specify]
+feeds: [".devbook/ai/01-plan.md#devbook-chapters-through-flow-spec: answers in the chapter"]
+evidence: partial
 depends-on: [".devbook/tech/ai-development.md#backlog-tools-plugin", ".devbook/tech/ai-development.md#model-context-protocol-servers"]
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
 date: 2026-09-26
@@ -99,5 +113,6 @@ it resolve the remark in the app.
   form of it after an item rewrites a chapter.
 - **Evidence** — the answer loop shipped in PRs #580 and #581; no sweep of a full inbox is
   on record yet.
+- **Moves up when** — a full remark inbox is swept and the sweep is on record.
 - **Limits** — the app never writes the fence, and a remark is resolved only after its answer
   is written.

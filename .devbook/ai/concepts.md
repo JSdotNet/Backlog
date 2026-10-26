@@ -108,6 +108,9 @@ A run with nobody watching takes the safe answer at every question and stops at 
 gate, leaving what it did, what it did not, and how to resume. Its output is a draft or a
 report a person reads later, never a decision already taken.
 
+- **Moves up when** — a schedule parks at a gate and the draft or report it leaves is
+  published for a person to pick up.
+
 ## External text is data
 
 ```meta
