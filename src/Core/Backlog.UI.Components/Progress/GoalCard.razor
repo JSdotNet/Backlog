@@ -1,13 +1,20 @@
 @*
     One goal in the Goals view (.devbook/domain/progress/features.md#the-goals-view).
     Folded, it is one row: the title, the stacked bar, "5/6 · due 23 Oct" — or "due 23 Oct
-    (end of iteration)" for a goal without a due date of its own — and its forecast badge. Opened, the bar runs under the title and the goal lists what is
+    (end of iteration)" for a goal without a due date of its own — and its forecast badge,
+    and a chevron at its end that points down folded and up open. A press
+    anywhere on that row opens the goal, or folds the open one; the title is its button,
+    which the keyboard reaches and which carries aria-expanded. Nothing in the body
+    toggles. Opened, the bar runs under the title and the goal lists what is
     attached to it in three columns — Plan with each plan's done/total, Tasks with a
     status dot each, Pull requests with a status line each, the merged ones gathered
     on one line as pills and "merged" — and below them the attach search.
 
     The search matches the host's candidates — plans, tasks and pull requests — by
     title, or a pull request by its number, and lists each match under its kind label.
+    A query that names a pull request — #N or N, read in each of the host's Repositories,
+    owner/name#N, or its GitHub address — leads the list with it, titled with its
+    repository, even when no candidate holds it: attaching names it by identity alone.
     Picking one hands its GoalSubject back through OnAttach and puts the focus back in the
     search box; the host attaches it — through the GoalPicker, which
     names the other goal and asks first, when another goal holds it — and reads the view
@@ -44,11 +51,16 @@
     track the settled fill inside the strong edge.
 *@
 <section class="@ClassValue" aria-labelledby="@TitleId" data-testid="@TestId" data-expanded="@(Expanded ? "true" : "false")">
-    <div class="goal-card__head">
+    @* The whole head row opens and folds the goal: most of a folded row is its bar, its
+       line and the space between them, not its title. The title stays the one control
+       the keyboard reaches and the one that says expanded; its press stops at itself so
+       the row does not toggle a second time. *@
+    <div class="goal-card__head" @onclick="() => OnToggle.InvokeAsync()" data-testid="@Part("head")">
         <h3 class="goal-card__title" id="@TitleId">
             <AppButton Variant="ButtonVariant.None"
                        BaseClass="goal-card__toggle"
                        OnClick="() => OnToggle.InvokeAsync()"
+                       StopPropagation="true"
                        aria-expanded="@(Expanded ? "true" : "false")"
                        aria-controls="@(Expanded ? BodyId : null)"
                        TestId="@Part("toggle")">@Goal.Title</AppButton>
@@ -59,6 +71,9 @@
         }
         <span class="goal-card__meta" data-testid="@Part("meta")">@GoalsText.GoalLine(Goal)</span>
         <Badge Kind="forecast" Slug="@(Goal.AtRisk ? "at-risk" : "on-track")" TestId="@Part("forecast")">@GoalsText.Forecast(Goal.AtRisk)</Badge>
+        <span class="@(Expanded ? "goal-card__chevron goal-card__chevron--open" : "goal-card__chevron")" aria-hidden="true" data-testid="@Part("chevron")">
+            <ChevronUpIcon />
+        </span>
     </div>
 
     @if (Expanded)
@@ -210,7 +225,8 @@
     [Parameter]
     public bool Expanded { get; set; }
 
-    /// <summary>The title was pressed: open the goal, or fold it.</summary>
+    /// <summary>The title, or anywhere on the head row, was pressed: open the goal, or fold
+    /// it.</summary>
     [Parameter]
     public EventCallback OnToggle { get; set; }
 
@@ -241,6 +257,12 @@
     /// <summary>What the attach search matches over.</summary>
     [Parameter]
     public IReadOnlyList<GoalsItem> Candidates { get; set; } = [];
+
+    /// <summary>The repositories a bare pull request number in the attach search is read
+    /// in, <c>owner/name</c> each, so a pull request no candidate holds can be attached by
+    /// its number. Empty reads a bare number against <see cref="Candidates"/> alone.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Repositories { get; set; } = [];
 
     /// <summary>A match was picked: the work it names.</summary>
     [Parameter]
@@ -491,24 +513,59 @@
         || Goal.Tasks.Any(task => task.Subject == subject)
         || Enumerable.Range(0, Goal.PullRequests.Count).Any(index => Goal.PullRequestSubject(index) == subject);
 
-    private IReadOnlyList<GoalsItem> Matches => Match(Candidates, _query);
+    private IReadOnlyList<GoalsItem> Matches => Match(Candidates, _query, Repositories);
 
     private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
 
     /// <summary>The candidates whose title holds <paramref name="query"/>, or whose number
     /// starts with it, a leading <c>#</c> ignored; none for a blank query.</summary>
-    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query)
+    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query) =>
+        [.. Matching(candidates, query).Take(MatchLimit)];
+
+    private static IEnumerable<GoalsItem> Matching(IReadOnlyList<GoalsItem> candidates, string? query)
     {
         var text = query?.Trim() ?? string.Empty;
         if (text.Length == 0) return [];
 
         var number = text.TrimStart('#');
-        return [.. candidates
+        return candidates
             .Where(item => item.Title.Contains(text, StringComparison.OrdinalIgnoreCase)
                            || (number.Length > 0 && item.Number is { } n
-                               && n.ToString(System.Globalization.CultureInfo.InvariantCulture).StartsWith(number, StringComparison.Ordinal)))
-            .Take(MatchLimit)];
+                               && n.ToString(System.Globalization.CultureInfo.InvariantCulture).StartsWith(number, StringComparison.Ordinal)));
     }
+
+    /// <summary>
+    /// <see cref="Match(IReadOnlyList{GoalsItem}, string?)"/>, led by the pull requests
+    /// <paramref name="query"/> names (<see cref="PullRequestReference.Resolve"/>) — a bare
+    /// number in each of <paramref name="repositories"/> — so one no candidate holds can be
+    /// attached by identity, titled with its repository. A pull request a candidate holds is
+    /// listed once, as that candidate. Every named pull request is listed; <see cref="MatchLimit"/>
+    /// caps only the candidate matches after them, so no registered repository goes unoffered.
+    /// </summary>
+    public static IReadOnlyList<GoalsItem> Match(IReadOnlyList<GoalsItem> candidates, string? query, IReadOnlyList<string> repositories)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+
+        List<GoalsItem> named = [.. PullRequestReference.Resolve(query, repositories)
+            .Select(subject => candidates.FirstOrDefault(item => SamePullRequest(item.Subject, subject))
+                               ?? new GoalsItem(subject, subject.Repository!))
+            .DistinctBy(Key)];
+
+        var listed = named.Select(Key).ToHashSet(StringComparer.Ordinal);
+
+        return [.. named.Concat(Matching(candidates, query)
+            .Where(item => !listed.Contains(Key(item)))
+            .DistinctBy(Key)
+            .Take(MatchLimit))];
+    }
+
+    private static string Key(GoalsItem item) => item.Subject.Key.ToUpperInvariant();
+
+    private static bool SamePullRequest(GoalSubject left, GoalSubject right) =>
+        left.Kind == GoalSubjectKind.PullRequest
+        && right.Kind == GoalSubjectKind.PullRequest
+        && left.Number == right.Number
+        && string.Equals(left.Repository, right.Repository, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The kind label a match or a No goal row reads under.</summary>
     public static string KindLabel(GoalSubjectKind kind) => kind switch

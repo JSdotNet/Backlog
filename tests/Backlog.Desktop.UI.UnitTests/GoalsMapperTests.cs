@@ -251,6 +251,16 @@ public sealed class GoalsMapperTests
     }
 
     [Fact]
+    public void The_repositories_a_bare_pull_request_number_is_read_in_are_the_shells()
+    {
+        Assert.Empty(Map().Repositories);
+
+        var board = GoalsMapper.Map(StandUp, Summaries, Pulls, Candidates with { Repositories = ["JSdotNet/Backlog", "JSdotNet/Marketplace"] });
+
+        Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Marketplace"], board.Repositories);
+    }
+
+    [Fact]
     public void No_goal_is_what_no_goal_holds()
     {
         var noGoal = Map().NoGoal;

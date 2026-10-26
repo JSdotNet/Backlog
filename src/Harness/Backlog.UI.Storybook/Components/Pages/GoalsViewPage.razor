@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="At risk"
-           Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The Goals heading carries its count, as Finished, Planned and Impediments do. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them; type pay to see its matches under their kind labels. The other goals are folded rows.
+           Description="The design's own state: a Week stand-up on Monday 19 October, reading 12–16 Oct and 19–23 Oct. The Goals heading carries its count, as Finished, Planned and Impediments do. The first goal is open and At risk, with its plan, tasks and pull requests in three columns and the attach search under them; type pay to see its matches under their kind labels. The other goals are folded rows, each ending in a chevron that points down; press anywhere on a row — its title, its bar, its line or the space between — to open that goal, and the open one folds. A press on the open goal's head folds it; nothing in its body does.
 
 No goal lists the work in progress no goal holds, each with Attach…, which attaches to the open goal; fold every goal and it opens the shared goal picker to ask which. Beside the goals the stand-up lists Finished, Planned with each item's effort in points and the points tag, and Impediments with a state picker that offers only the moves an impediment may make, and each one's note with Add note or Edit note. Copy puts the four blocks on the clipboard as plain text. Narrower than 900 px, the stand-up falls under the goals."
            Code="@BoardCode">
@@ -33,7 +33,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     </Story>
 
     <Story Name="On track"
-           Description="An On track goal, folded and open. It has nothing done in the last window and no landing date, so its line carries neither +n nor lands ~."
+           Description="An On track goal, folded and open: the chevron at the row's end points down folded and up open. It has nothing done in the last window and no landing date, so its line carries neither +n nor lands ~."
            Code="@OnTrackCode">
         <div class="sb-stack">
             <GoalCard Goal="@Search" TestId="goals-view-on-track" />
@@ -87,6 +87,20 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
                       OnDetach="DetachSample"
                       TestId="goals-view-detach" />
             <p class="sb-state" data-testid="goals-view-detach-said">@(_detachSaid ?? "Press a row's Detach.")</p>
+        </div>
+    </Story>
+
+    <Story Name="Attaching a pull request by its number"
+           Description="The attach search reads a pull request as well as a title: #1477 or 1477, owner/name#1477, or the pull request's GitHub address. A bare number is read in each repository the host hands in — the one in scope when the scope holds one — so here #1477 offers it in both JSdotNet/Backlog and JSdotNet/Marketplace, titled with its repository, ahead of any title match. No candidate needs to hold it: a merged pull request, or one the reader did not list, attaches by identity, and its status line then says what GitHub knows. Type #1357 and the candidate that holds it is listed once, with its own title."
+           Code="@QuickAddCode">
+        <div class="sb-stack">
+            <GoalCard Goal="@Search"
+                      Expanded="true"
+                      Candidates="@Board.Candidates"
+                      Repositories="QuickAddRepositories"
+                      OnAttach="@(subject => _quickAddSaid = $"Attach {subject.Key} to {Search.Title}")"
+                      TestId="goals-view-quick-add" />
+            <p class="sb-state" data-testid="goals-view-quick-add-said">@(_quickAddSaid ?? "Type #1477, JSdotNet/Backlog#1477 or a pull request's address.")</p>
         </div>
     </Story>
 
@@ -435,6 +449,17 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         <GoalCard Goal="@(goal with { PullRequestSubjects = [pr1341, null, pr1352, pr1355] })"
                   Expanded="true"
                   OnDetach="subject => DetachAsync(goal.Id, subject)" />
+        """;
+
+    private static readonly IReadOnlyList<string> QuickAddRepositories = ["JSdotNet/Backlog", "JSdotNet/Marketplace"];
+    private string? _quickAddSaid;
+
+    private const string QuickAddCode = """
+        <GoalCard Goal="@goal"
+                  Expanded="true"
+                  Candidates="@board.Candidates"
+                  Repositories="@board.Repositories"
+                  OnAttach="subject => AttachAsync(goal.Id, subject)" />
         """;
 
     private const string EmptyCode = """

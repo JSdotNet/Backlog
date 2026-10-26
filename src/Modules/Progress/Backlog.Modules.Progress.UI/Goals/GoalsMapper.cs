@@ -134,7 +134,10 @@ public static class GoalsMapper
             [.. standUp.Goals.Select(Card)],
             GoalsHolding.NoGoal(goals.Select(summary => summary.Goal), candidates),
             standUpModel,
-            Candidates(candidates));
+            Candidates(candidates))
+        {
+            Repositories = candidates.Repositories
+        };
     }
 
     /// <summary>Every pull request the board shows, each once, in the order it shows them:

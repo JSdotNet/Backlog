@@ -246,6 +246,46 @@ public sealed class GoalsHostTests : IDisposable
         });
     }
 
+    /// <summary>The goal New goal opened is not the only one that opens: an earlier goal
+    /// opens on a press on its row, not its title alone, and the new one folds.</summary>
+    [Fact]
+    public void After_new_goal_opens_the_new_goal_an_earlier_goal_opens_on_its_row_and_the_new_one_folds()
+    {
+        var phoneId = Guid.Parse("10000000-0000-0000-0000-000000000003");
+        _goals.NextId = phoneId;
+        _goals.OnCreated = goal =>
+        {
+            var progress = new GoalProgressDto(0, 0, 0, 0, 0, 0);
+            _standUp.Reading = _standUp.Reading with
+            {
+                Goals = [.. _standUp.Reading.Goals, new StandUpGoalDto(goal.Id, goal.Title, goal.DueDate ?? Oct(30), progress, GoalStanding.OnTrack, null)]
+            };
+            _goals.Summaries = [.. _goals.Summaries, new GoalSummaryDto(goal, progress)];
+        };
+        var host = Render();
+        host.WaitForAssertion(() => host.Find("[data-testid='goals-board-new-goal']"));
+
+        host.Find("[data-testid='goals-board-new-goal']").Click();
+        host.WaitForAssertion(() => host.Find("[data-testid='goal-create-dialog-title'] input"));
+        host.Find("[data-testid='goal-create-dialog-title'] input").Input("Phone capture in daily use");
+        host.Find("[data-testid='goal-create-dialog-due'] input").Input("2026-11-30");
+        host.Find("[data-testid='goal-create-dialog-save']").Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", host.Find($"[data-testid='goals-board-goal-{phoneId}']").GetAttribute("data-expanded"));
+            Assert.Equal("false", host.Find($"[data-testid='goals-board-goal-{PaidId}']").GetAttribute("data-expanded"));
+        });
+
+        host.Find($"[data-testid='goals-board-goal-{PaidId}-bar']").Click();
+
+        host.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", host.Find($"[data-testid='goals-board-goal-{PaidId}']").GetAttribute("data-expanded"));
+            Assert.Equal("false", host.Find($"[data-testid='goals-board-goal-{phoneId}']").GetAttribute("data-expanded"));
+        });
+    }
+
     [Fact]
     public void Attaching_from_no_goal_attaches_to_the_open_goal()
     {
@@ -256,6 +296,23 @@ public sealed class GoalsHostTests : IDisposable
 
         host.WaitForAssertion(() =>
             Assert.Equal((PaidId, GoalItemDto.ForTask(Vat), false), Assert.Single(_goals.Attached)));
+    }
+
+    [Fact]
+    public void A_pull_request_no_candidate_holds_attaches_by_its_number_in_the_repository_in_scope()
+    {
+        _candidates = _candidates with { Repositories = ["JSdotNet/Backlog"] };
+        var host = Render();
+        var search = $"[data-testid='goals-board-goal-{PaidId}-attach'] input";
+        var match = $"[data-testid='goals-board-goal-{PaidId}-match-pr:JSdotNet/Backlog#1477']";
+        host.WaitForAssertion(() => host.Find(search));
+
+        host.Find(search).Input("#1477");
+        host.WaitForAssertion(() => host.Find(match));
+        host.Find(match).Click();
+
+        host.WaitForAssertion(() =>
+            Assert.Equal((PaidId, GoalItemDto.ForPullRequest("JSdotNet/Backlog", 1477), false), Assert.Single(_goals.Attached)));
     }
 
     [Fact]
@@ -671,12 +728,20 @@ public sealed class GoalsHostTests : IDisposable
             return Task.FromResult(Result.Success(Summaries));
         }
 
+        /// <summary>The id the next created goal takes; a new one when unset.</summary>
+        public Guid? NextId { get; set; }
+
+        /// <summary>Told of each goal created, so a test can have the next reading hold it.</summary>
+        public Action<GoalDto>? OnCreated { get; set; }
+
         public Task<Result<GoalDto>> CreateAsync(SetGoalRequest request, CancellationToken cancellationToken = default)
         {
             Created.Add(request);
-            return Task.FromResult(CreateFailure is { } error
-                ? Result.Failure<GoalDto>(error)
-                : Result.Success(new GoalDto(Guid.NewGuid(), request.Title, request.Outcome, request.DueDate, [])));
+            if (CreateFailure is { } error) return Task.FromResult(Result.Failure<GoalDto>(error));
+
+            var goal = new GoalDto(NextId ?? Guid.NewGuid(), request.Title, request.Outcome, request.DueDate, []);
+            OnCreated?.Invoke(goal);
+            return Task.FromResult(Result.Success(goal));
         }
 
         public Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)

@@ -210,7 +210,13 @@ public sealed record GoalsBoardModel(
     IReadOnlyList<GoalCardModel> Goals,
     IReadOnlyList<GoalsItem> NoGoal,
     StandUpModel StandUp,
-    IReadOnlyList<GoalsItem> Candidates);
+    IReadOnlyList<GoalsItem> Candidates)
+{
+    /// <summary>The repositories a bare pull request number in the attach search is read in,
+    /// <c>owner/name</c> each: the one in scope when the scope holds one, else each in scope
+    /// or registered. Empty reads a bare number against <see cref="Candidates"/> alone.</summary>
+    public IReadOnlyList<string> Repositories { get; init; } = [];
+}
 
 /// <summary>Attach <paramref name="Subject"/> to the goal <paramref name="GoalId"/>.</summary>
 public sealed record GoalAttachRequest(string GoalId, GoalSubject Subject);
