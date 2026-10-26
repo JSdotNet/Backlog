@@ -12,7 +12,7 @@
 /// </summary>
 public sealed class FileViewDevbookTests
 {
-    /// <summary>A knowledge chapter as the convention writes one: the heading,
+    /// <summary>A devbook chapter as the convention writes one: the heading,
     /// the <c>meta</c> fence directly under it, and a sub-chapter after.</summary>
     private const string Chaptered = """
         # Shared Technologies

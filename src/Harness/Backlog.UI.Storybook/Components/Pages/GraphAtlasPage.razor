@@ -99,7 +99,7 @@
 
     @*
         The other shape the atlas is asked to draw. The kitchen above is fourteen
-        nodes in three clusters; a knowledge folder is hundreds across a dozen, and
+        nodes in three clusters; a devbook folder is hundreds across a dozen, and
         the two stress different things — label collision, cluster overlap, how
         much of the edge set is legible at once. Drawing both here is the point.
 
@@ -175,7 +175,7 @@
     private sealed record Ingredient(string Id, string Label, string Kind, string Status, string Tone, string Group, int Order);
 
     // Reading order is the group order, and it is deliberate rather than
-    // alphabetical — the same way a knowledge folder's index.json is.
+    // alphabetical — the same way a devbook folder's index.json is.
     private static readonly IReadOnlyList<Ingredient> Kitchen =
     [
         new("flour", "Flour", "staple", "adopted", "active", "Pantry", 0),
@@ -285,7 +285,7 @@
         .. Tones.Select(tone => new GraphAtlasNode(tone.Id, tone.Label, "tone", tone.Status, tone.Slug, "Ladder", 3, 0))
     ];
 
-    // A library rather than a knowledge folder, for the same reason the kitchen is
+    // A library rather than a devbook folder, for the same reason the kitchen is
     // not a technology stack: a story that drew `.domain` would be a screenshot of
     // the app, and would stop being able to catch the component assuming what it
     // is drawing. Generated rather than typed out, because what is being reviewed

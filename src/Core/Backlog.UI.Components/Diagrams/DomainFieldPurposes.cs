@@ -25,7 +25,7 @@ public sealed record DomainFieldChapter(string? Root, IReadOnlyList<DomainFieldP
 
 /// <summary>
 /// Reads the purpose groups a model file writes for its aggregate root's fields —
-/// the convention the Model page's Fields tab reads (local ADR 0037 §5: the
+/// the convention the Model page's Fields tab reads (local ADR 0040 §5: the
 /// wording is the chapters'). The chapter is optional: a model file without one
 /// is listed by what the types say instead.
 /// <code>

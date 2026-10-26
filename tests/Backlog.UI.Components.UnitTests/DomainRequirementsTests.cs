@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Requirements page of the Domain view (local ADR 0037), read from the
+/// The Requirements page of the Domain view (local ADR 0040), read from the
 /// chapters as written: per feature, each requirement's SHALL sentence and proof,
 /// each scenario as Given / When / Then rows with a ", and" clause split apart,
 /// and an Always true link where the text explained invariants.

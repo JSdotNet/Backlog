@@ -65,7 +65,7 @@ public sealed partial class DevbookDatabase : IDisposable
     public string DatabasePath { get; }
 
     /// <summary>
-    /// Opens the database for the repository a knowledge folder belongs to, or
+    /// Opens the database for the repository a devbook folder belongs to, or
     /// <see langword="null"/> when there is none to open — see the class remarks
     /// for the four ways that happens and why they are one answer.
     /// </summary>

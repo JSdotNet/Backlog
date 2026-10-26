@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// A unit's rules shown where the reader meets what they constrain (local ADR
-/// 0037): the catalog that finds the rules about a chapter, the one list that
+/// 0040): the catalog that finds the rules about a chapter, the one list that
 /// draws them — mark, claim, where it is enforced, a link to its row on Always
 /// true — and each page that shows them in place.
 /// </summary>

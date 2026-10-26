@@ -49,6 +49,7 @@
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.UI\Backlog.Modules.Sessions.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.UI\Backlog.Modules.Notifications.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.UI\Backlog.Modules.Capture.UI.csproj" />
     <!-- Progress's Goals view and attach-to-goal control, drawn behind the goals
          key the catalog lists. -->
@@ -72,6 +73,8 @@
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
     <!-- Sync's published surface, for the same reason as the four above. -->
     <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.Abstractions\Backlog.Modules.Sync.Abstractions.csproj" />
+    <!-- Notifications' published surface, for its feature key in the settings catalog. -->
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
     <!-- Inbox's published surface, for one record: the shell hears that an item
          was routed and reloads the Tasks pane on it. It reads nothing else. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
@@ -84,7 +87,7 @@
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <!-- The settings screen edits the workspace settings file itself: which
          folder the backlog lives in, which repository backs it, and which
-         knowledge folders are configured for it. The last two are named in
+         devbook folders are configured for it. The last two are named in
          adapter and Devbook types, so they are not on the module's store
          port and this screen takes the adapter, as it already does for GitHub,
          Claude and Azure Foundry. -->

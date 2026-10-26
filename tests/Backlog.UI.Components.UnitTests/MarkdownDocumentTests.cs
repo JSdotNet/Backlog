@@ -33,7 +33,7 @@ public sealed class MarkdownDocumentTests
         A paragraph.
         """;
 
-    /// <summary>A knowledge chapter, which is a heading with the record that
+    /// <summary>A devbook chapter, which is a heading with the record that
     /// describes it written directly underneath — the convention every knowledge
     /// folder writes its chapters in.</summary>
     private const string Chapter = """
@@ -372,7 +372,7 @@ public sealed class MarkdownDocumentTests
     {
         // The read view has always known how to draw a `meta` fence as the record
         // it is. What a host composing this component had no way to say was that
-        // the body is a knowledge chapter, so the record arrived as a code block.
+        // the body is a devbook chapter, so the record arrived as a code block.
         using var context = new BunitContext();
 
         var view = RenderChapter(context, parameters => parameters
@@ -515,7 +515,7 @@ public sealed class MarkdownDocumentTests
         Assert.Empty(view.FindAll(".devbook-record"));
     }
 
-    /// <summary>The same document, holding a knowledge chapter. Its own renderer
+    /// <summary>The same document, holding a devbook chapter. Its own renderer
     /// for the reason the frontmattered one has: the shared one below has already
     /// named the text it hands over.</summary>
     private static IRenderedComponent<MarkdownDocument> RenderChapter(

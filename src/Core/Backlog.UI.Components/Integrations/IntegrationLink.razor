@@ -75,7 +75,10 @@ else
     /// A session's state is carried the same way, on its mark: a stalled session is
     /// highlighted in the primary ink, a running one keeps the neutral ink and a
     /// finished one is muted — the small badge a row has room for, where a chip
-    /// would be wider than the id beside it.
+    /// would be wider than the id beside it. A finished session whose app still
+    /// holds it open takes the muted ink and one it archived the quiet ink
+    /// (<see cref="IntegrationLinkRef.SessionPresence"/>), each with its word beside
+    /// the state's.
     /// </para></summary>
     [Parameter]
     public bool StateAsInk { get; set; }
@@ -141,6 +144,13 @@ else
     /// request, and a mark on every one of them would be noise.</summary>
     private bool ShowsReview => Link.Review is IntegrationReviewState.Approved or IntegrationReviewState.ChangesRequested;
 
+    /// <summary>The session's state in words, with its presence where it wears one —
+    /// "Finished, archived" — so the ink is never the only carrier of either.</summary>
+    private string SessionWords(IntegrationSessionState session) =>
+        WorkStates.PresenceWords(session, Link.SessionPresence) is { } presence
+            ? $"{IntegrationStates.LabelOf(session)}, {presence}"
+            : IntegrationStates.LabelOf(session);
+
     /// <summary>The session state the link wears on its mark, or null when it draws
     /// a chip instead.</summary>
     private IntegrationSessionState? InkedSession => StateAsInk && Link.ArtifactState is null ? Link.SessionState : null;
@@ -205,6 +215,11 @@ else
         if (InkedSession is { } session)
         {
             stem += $" integration-link--session integration-link--session-{IntegrationStates.SlugOf(session)}";
+
+            if (IntegrationStates.ShownPresence(session, Link.SessionPresence) is { } presence)
+            {
+                stem += $" integration-link--session-{IntegrationStates.SlugOf(presence)}";
+            }
         }
 
         return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
@@ -233,7 +248,7 @@ else
 
             @if (InkedSession is { } inkedSession)
             {
-                <span class="sr-only" data-testid="@StateTestId">@IntegrationStates.LabelOf(inkedSession)</span>
+                <span class="sr-only" data-testid="@StateTestId">@SessionWords(inkedSession)</span>
             }
 
             @* Two small marks about the pull request, after the number they speak

@@ -1,10 +1,10 @@
 # ADR 0035: Goals and impediments replace sprints
 
 ```meta
-date: 2026-10-17
+date: 2026-10-26
 status: proposed
 roadmap: [goals-standup]
-related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
+related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
 Progress stops modelling sprints. It owns two aggregates instead: a **Goal**,
@@ -19,7 +19,7 @@ becomes the **Goals** view, always on: the `goals` flag that replaced the
 ```meta
 ```
 
-Proposed, 2026-10-17. Not yet built: the plan `+goals-standup` builds it and
+Proposed, 2026-10-17, and amended on 2026-10-26 ([History](#history)). Not yet built: the plan `+goals-standup` builds it and
 removes the sprint code it retires. It awaits acceptance at the Personal
 Validation gate of the flow-spec run that drafted it.
 
@@ -96,7 +96,12 @@ anything in Progress.
 ```
 
 A [Goal](../../domain/progress/domain.md#goal) has a title, an optional outcome
-line and a due date. It holds attachments of three kinds:
+line and an optional due date. A goal without a due date is due on the last day
+of the current iteration, the window the domain calls
+[next](../../domain/progress/domain.md#iteration). Progress works that day out
+on every reading and never stores it, so At risk below applies to every goal.
+
+It holds attachments of three kinds:
 
 | Attachment | Named by | Counts |
 | --- | --- | --- |
@@ -380,7 +385,8 @@ Look for tests that show these behaviours:
 2. **One goal per item.** Attaching an item that another goal already holds is
    refused.
 3. **At risk.** A goal is At risk when its forecast lands after its due date, or
-   when an open impediment holds one of its tasks back.
+   when an open impediment holds one of its tasks back. A goal without a due date
+   is held to the last day of next, and that day is never stored.
 4. **Windows.** Each length gives the window above, and the 2-week window follows
    its anchor date.
 5. **Blocked raises once.** Marking a task blocked raises a New impediment, and
@@ -391,3 +397,13 @@ Look for tests that show these behaviours:
    check-again date and note, and only through the outbox.
 8. **Goals is always on.** The header offers the Goals view with no flag turned
    on, and with Sessions and Pull requests both off.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-10-26 | Amended §2 and verification item 3: the due date is optional, and a goal without one is due on the last day of next, derived on every reading and never stored. | A goal already sits in the iteration, so the person should not have to give it a date. |
+| 2026-10-17 | Proposed: goals and impediments in Progress replace sprints. | Sprints asked for more ceremony than the work has. |

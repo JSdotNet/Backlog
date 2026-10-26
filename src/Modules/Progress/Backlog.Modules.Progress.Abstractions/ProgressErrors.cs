@@ -20,9 +20,6 @@ public static class ProgressErrors
     public static Error GoalWithoutTitle() =>
         Error.Validation("progress.goal_without_title", "A goal needs a title.");
 
-    public static Error GoalWithoutDueDate() =>
-        Error.Validation("progress.goal_without_due_date", "A goal needs a due date.");
-
     public static Error OutcomeNotOneLine() =>
         Error.Validation("progress.outcome_not_one_line", "A goal's outcome is one line.");
 

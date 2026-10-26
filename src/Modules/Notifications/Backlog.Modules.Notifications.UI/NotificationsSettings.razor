@@ -1,0 +1,254 @@
+@*
+    The Notifications page on the settings screen (settings/notifications), which the shell draws
+    because the host registered it (AddNotificationsSettings). One card today: send a test alert or
+    a test question from this desktop, and follow the last test as it travels — published, pushed
+    to the phone, answered or acknowledged, closed.
+
+    The status reads the centre (INotificationCentre), not a copy of its own: the page finds the
+    last test among the centre's notifications when it opens, and follows INotificationCentre.Changed
+    from then on, so an answer given on the phone moves the list while the page is open. Clear test
+    closes the test through INotifications, the way any publisher closes what it raised.
+*@
+@using global::Backlog.UI.Components.Settings
+@implements IDisposable
+@inject INotifications Notifications
+@inject INotificationCentre Centre
+
+<SettingsHeadline>@Headline(_test, Centre.ThisDevice.Id)</SettingsHeadline>
+
+<div class="setting-columns">
+<SettingsCard Title="@TestCardTitle"
+              Id="notifications-test-title"
+              Description="Send a notification from this desktop to try the system out. It shows in the notification centre here and on every paired device."
+              TestId="notifications-test-card">
+    <div class="setting__actions">
+        <AppButton TestId="notifications-test-send-alert"
+                   Busy="@(_sending == NotificationKind.Alert)"
+                   Disabled="@(_sending is not null)"
+                   OnClick="() => SendAsync(NotificationKind.Alert)">
+            Send test alert
+        </AppButton>
+        <AppButton TestId="notifications-test-send-question"
+                   Busy="@(_sending == NotificationKind.Question)"
+                   Disabled="@(_sending is not null)"
+                   OnClick="() => SendAsync(NotificationKind.Question)">
+            Send test question
+        </AppButton>
+    </div>
+
+    <Alert Message="@_error"
+           TestId="notifications-test-error" />
+
+    @if (_test is null)
+    {
+        <p class="setting__note" data-testid="notifications-test-none">No test in the last seven days. The last test's progress shows here.</p>
+    }
+    else
+    {
+        <p class="setting__note" data-testid="notifications-test-which">
+            Last test: the @(_test.Kind == NotificationKind.Question ? "question" : "alert") about
+            <code>@SubjectText(_test.Subject)</code>.
+        </p>
+
+        <ul class="setting__check" data-testid="notifications-test-status" role="status" aria-label="Last test">
+            @foreach (var step in Steps(_test, Centre.ThisDevice.Id))
+            {
+                <li class="setting__check-step @(step.Done ? "setting__check-step--passed" : "setting__check-step--skipped")"
+                    data-testid="notifications-test-step-@step.Key">
+                    <span class="setting__check-subject">@step.Subject</span>
+                    <span class="setting__check-detail">@step.Detail</span>
+                </li>
+            }
+        </ul>
+
+        <div class="setting__actions">
+            <AppButton TestId="notifications-test-clear"
+                       Disabled="@(!_test.IsOpen || _clearing)"
+                       Busy="@_clearing"
+                       OnClick="ClearAsync">
+                Clear test
+            </AppButton>
+        </div>
+    }
+</SettingsCard>
+</div>
+
+@code {
+    /// <summary>The page's one card - what its <c>SettingsSection.CardTitles</c> declares.</summary>
+    public const string TestCardTitle = "Test notification";
+
+    /// <summary>The cards the page draws, in order: what the settings search reads.</summary>
+    public static IReadOnlyList<string> CardTitles { get; } = [TestCardTitle];
+
+    /// <summary>What the push row says. The sync service sends the Android push through
+    /// Notification Hubs (local ADR 0039 §4), but nothing reports back to this desktop whether it
+    /// reached the phone, so the row stays unreported.</summary>
+    public const string PushNotReported = "Not reported — the phone push carries no delivery receipt";
+
+    /// <summary>One row of the last test's status: a key the tests find it by, the stage it names,
+    /// what happened, and whether it happened.</summary>
+    public sealed record TestStep(string Key, string Subject, string Detail, bool Done);
+
+    /// <summary>The sentence the frame shows over this page: where the last test stands.</summary>
+    public static string Headline(NotificationView? test, Guid thisDeviceId) => test switch
+    {
+        null => "No test notification sent from this desktop in the last seven days.",
+        { State: NotificationState.Open, Kind: NotificationKind.Question } => "The test question is waiting for an answer.",
+        { State: NotificationState.Open } => "The test alert is open.",
+        { State: NotificationState.Answered, Answer: { } answer } =>
+            $"The test question was answered from {NotificationPresentation.DeviceLabel(answer.FromDeviceId, thisDeviceId)}.",
+        { State: NotificationState.Acknowledged } => "The test alert was acknowledged.",
+        _ => "The last test was closed."
+    };
+
+    /// <summary>The last test's progress, in the order it travels: published, pushed to the phone,
+    /// answered (or acknowledged, for an alert), closed.</summary>
+    public static IReadOnlyList<TestStep> Steps(NotificationView test, Guid thisDeviceId)
+    {
+        ArgumentNullException.ThrowIfNull(test);
+
+        var published = new TestStep(
+            "published",
+            "Published",
+            $"{Clock(test.CreatedAt)} on this desktop",
+            Done: true);
+
+        var pushed = new TestStep("pushed", "Pushed to the phone", PushNotReported, Done: false);
+
+        var settled = test.SettledAt is { } at ? Clock(at) : null;
+
+        var answered = test.Kind == NotificationKind.Question
+            ? test switch
+            {
+                { State: NotificationState.Answered, Answer: { } answer } => new TestStep(
+                    "answered",
+                    "Answered",
+                    $"{NotificationPresentation.AnswerText(test)} — from {NotificationPresentation.DeviceLabel(answer.FromDeviceId, thisDeviceId)}{(settled is null ? "" : $" at {settled}")}",
+                    Done: true),
+                { IsOpen: true } => new TestStep("answered", "Answered", "Waiting for an answer", Done: false),
+                _ => new TestStep("answered", "Answered", "Not answered", Done: false)
+            }
+            : test switch
+            {
+                { State: NotificationState.Acknowledged } => new TestStep(
+                    "answered", "Acknowledged", settled is null ? "Yes" : $"At {settled}", Done: true),
+                { IsOpen: true } => new TestStep("answered", "Acknowledged", "Not yet", Done: false),
+                _ => new TestStep("answered", "Acknowledged", "Not acknowledged", Done: false)
+            };
+
+        var closed = test.State == NotificationState.Closed
+            ? new TestStep(
+                "closed",
+                "Closed",
+                string.IsNullOrWhiteSpace(test.CloseReason) ? settled ?? "Yes" : $"{test.CloseReason}{(settled is null ? "" : $" at {settled}")}",
+                Done: true)
+            : new TestStep(
+                "closed",
+                "Closed",
+                test.IsOpen ? "Open" : test.Kind == NotificationKind.Question ? "No — settled by the answer" : "No — settled by the acknowledgement",
+                Done: false);
+
+        return [published, pushed, answered, closed];
+    }
+
+    /// <summary>A time of day as the status rows say it, on this desktop's clock.</summary>
+    private static string Clock(DateTimeOffset at) =>
+        at.ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>A subject the way the entry names it — <c>notifications / test / 1a2b3c4d</c>.</summary>
+    public static string SubjectText(NotificationSubject? subject) =>
+        subject is null ? "nothing in particular" : $"{subject.Context} / {subject.Type} / {subject.Id}";
+
+    private NotificationView? _test;
+    private NotificationKind? _sending;
+    private bool _clearing;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Centre.Changed += OnCentreChanged;
+
+        // The centre lists newest first: the first test in it is the last one sent.
+        var listed = await Centre.ListAsync();
+        var last = listed.FirstOrDefault(view => TestNotifications.IsTest(view.Source));
+
+        // A change that landed while the list was read is newer than the list's copy of the same test.
+        if (last is not null && (_test is null || (last.Id != _test.Id && last.CreatedAt > _test.CreatedAt))) _test = last;
+    }
+
+    private async Task SendAsync(NotificationKind kind)
+    {
+        _sending = kind;
+        _error = null;
+
+        try
+        {
+            // One test at a time: the one still open is withdrawn, so no old test question
+            // waits for an answer that Clear test can no longer reach.
+            if (_test is { IsOpen: true } previous)
+            {
+                var withdrawn = await Notifications.CloseAsync(previous.Id, TestNotifications.ReplacedReason);
+                if (withdrawn.IsFailure && withdrawn.Error.Code != "notification.already_settled")
+                {
+                    _error = withdrawn.Error.Message;
+                    return;
+                }
+            }
+
+            var subject = TestNotifications.NewSubject();
+            var draft = kind == NotificationKind.Question ? TestNotifications.Question(subject) : TestNotifications.Alert(subject);
+            var published = await Notifications.PublishAsync(draft);
+            if (published.IsFailure)
+            {
+                _error = published.Error.Message;
+                return;
+            }
+
+            // The Changed event usually lands first, and may already carry a later state; reading
+            // the centre covers a store that raised none.
+            if (_test?.Id != published.Value)
+            {
+                var listed = await Centre.ListAsync();
+                if (listed.FirstOrDefault(view => view.Id == published.Value) is { } view) _test = view;
+            }
+        }
+        finally
+        {
+            _sending = null;
+        }
+    }
+
+    private async Task ClearAsync()
+    {
+        if (_test is not { IsOpen: true } test) return;
+
+        _clearing = true;
+        _error = null;
+
+        try
+        {
+            var closed = await Notifications.CloseAsync(test.Id, TestNotifications.ClearedReason);
+            if (closed.IsFailure) _error = closed.Error.Message;
+        }
+        finally
+        {
+            _clearing = false;
+        }
+    }
+
+    /// <summary>A test was published, answered, acknowledged or closed — here, on the phone, or by
+    /// the centre — on whichever thread stored it.</summary>
+    private void OnCentreChanged(object? sender, NotificationChanged change)
+    {
+        if (!TestNotifications.IsTest(change.Notification.Source)) return;
+
+        _ = InvokeAsync(() =>
+        {
+            var view = change.Notification;
+            if (_test is null || view.Id == _test.Id || view.CreatedAt >= _test.CreatedAt) _test = view;
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose() => Centre.Changed -= OnCentreChanged;
+}

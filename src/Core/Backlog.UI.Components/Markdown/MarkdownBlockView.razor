@@ -71,6 +71,7 @@
                                Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
                                ShowFields="@RenderDevbookMetadataFields"
                                CanEditStatus="@CanEditDevbookStatus"
+                               ShowStatus="@ShowDevbookStatus"
                                OnNavigate="@OnDevbookNavigate"
                                HrefFor="@DevbookHrefFor" />
         }
@@ -137,7 +138,7 @@
     /// neighbours.</para>
     ///
     /// <para>A fragment and not a value, so nothing here has to know what a mark
-    /// means. The library's markdown is read in five knowledge folders and in an
+    /// means. The library's markdown is read in five devbook folders and in an
     /// entry's body, and only one of those has a vocabulary of marks at all.</para>
     /// </summary>
     [Parameter]
@@ -199,7 +200,12 @@
     [Parameter]
     public bool CanEditDevbookStatus { get; set; } = true;
 
-    /// <summary>Which knowledge folder the document was read from, so a status
+    /// <summary>Whether a metadata record's status is drawn at all. Forwarded
+    /// verbatim to <c>MetadataView.ShowStatus</c>.</summary>
+    [Parameter]
+    public bool ShowDevbookStatus { get; set; } = true;
+
+    /// <summary>Which devbook folder the document was read from, so a status
     /// can be checked against that folder's vocabulary.</summary>
     [Parameter]
     public DevbookFolder DevbookFolder { get; set; } = DevbookFolder.Unknown;

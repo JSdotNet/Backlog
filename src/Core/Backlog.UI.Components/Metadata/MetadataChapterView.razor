@@ -43,6 +43,7 @@
               Vocabulary="@Vocabulary"
               ShowFields="@ShowFields"
               CanEditStatus="@CanEditStatus"
+              ShowStatus="@ShowStatus"
               OnStatusChanged="@OnStatusChanged"
               OnNavigate="@OnNavigate"
               HrefFor="@HrefFor"
@@ -99,6 +100,12 @@
     /// instead of the select when it is false.</summary>
     [Parameter]
     public bool CanEditStatus { get; set; } = true;
+
+    /// <summary>Whether the chapter's status is drawn at all. Forwarded verbatim
+    /// to <see cref="MetadataView.ShowStatus"/>; the heading stays either
+    /// way.</summary>
+    [Parameter]
+    public bool ShowStatus { get; set; } = true;
 
     /// <summary>The devbook folder this chapter's block was read from, which turns
     /// on the findings — see <see cref="MetadataView.Folder"/>. Unknown, the

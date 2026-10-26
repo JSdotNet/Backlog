@@ -108,7 +108,7 @@ public sealed class DomainDevbookStore : IDisposable
 
         var root = location.FullPath;
         var contextMapPath = Path.Combine(root, "context-map.md");
-        if (!File.Exists(contextMapPath)) return DomainDevbookView.Unavailable($"Domain knowledge folder at {root} has no context-map.md.");
+        if (!File.Exists(contextMapPath)) return DomainDevbookView.Unavailable($"Domain devbook folder at {root} has no context-map.md.");
 
         // On the pool: the caller is a component whose continuation is the
         // dispatcher, and in the desktop host that is the UI thread.
@@ -424,7 +424,7 @@ public sealed class DomainDevbookStore : IDisposable
     /// <summary>
     /// The Markdown of a document <paramref name="view"/> listed, as it is on disk
     /// — for a page that reads its chapters whole rather than as this store's
-    /// excerpts: the Domain view's Domain page (local ADR 0037). Read from the
+    /// excerpts: the Domain view's Domain page (local ADR 0040). Read from the
     /// folder the view was prepared from, so a branch snapshot reads the branch.
     /// </summary>
     public static string ReadText(DomainDevbookView view, DomainDevbookDocument document)

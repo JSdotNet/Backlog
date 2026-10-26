@@ -36,8 +36,8 @@ public static partial class DevbookActionMetadata
     }
 
     public static string BuildPrompt(DevbookActionItem item) =>
-        $"Work on this {item.Kind} knowledge item with GitHub Copilot CLI.\n\n"
-        + "Use the knowledge metadata and summary as the task brief and preserve its intent.\n\n"
+        $"Work on this {item.Kind} devbook item with GitHub Copilot CLI.\n\n"
+        + "Use the devbook metadata and summary as the task brief and preserve its intent.\n\n"
         + $"Devbook item: {item.Title}\n"
         + $"Type: {item.Kind}\n"
         + $"Path: {item.Path}\n"

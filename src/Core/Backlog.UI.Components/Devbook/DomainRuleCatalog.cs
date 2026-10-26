@@ -10,7 +10,7 @@ public sealed record DomainUnitRules(DomainChapterFile Page, DomainUnit Unit, IR
 
 /// <summary>
 /// Every rule a bounded context's invariants files write, by the unit whose
-/// Always true tab lists it (local ADR 0037) — what a page asks when it shows
+/// Always true tab lists it (local ADR 0040) — what a page asks when it shows
 /// the rules about the thing it is drawing, in place, rather than sending the
 /// reader to Always true. Pure, like <see cref="DomainUnits"/>.
 /// </summary>

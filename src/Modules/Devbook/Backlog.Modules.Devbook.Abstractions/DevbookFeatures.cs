@@ -26,7 +26,7 @@ public static class DevbookFeatures
     /// one exists, instead of rendering the mermaid.
     /// <para>
     /// A devbook key rather than a shell one, by the same rule as its
-    /// neighbours: what it switches is how a knowledge chapter's diagrams are
+    /// neighbours: what it switches is how a devbook chapter's diagrams are
     /// drawn, so it belongs with the context the chapters are of. The Shell only
     /// contributes the catalog row that names and describes it, and the adapter
     /// that answers it lives with the panels that render the chapters.
@@ -66,9 +66,36 @@ public static class DevbookFeatures
     /// </para></summary>
     public const string SemanticSearch = "devbook-semantic-search";
 
+    /// <summary>Offer Edit on a repository devbook chapter, which swaps the
+    /// rendered chapter for its editor.
+    /// <para>
+    /// Its own key rather than a second meaning for <see cref="Status"/>, because
+    /// the two are weighed for removal separately: someone may keep the status a
+    /// chapter states and lose the means of rewriting the chapter, or the other way
+    /// round. The Brain is outside it — a note there is always editable — so the
+    /// switch reads as the repository viewer's, not as Devbook-wide.
+    /// </para></summary>
+    public const string Editing = "devbook-editing";
+
+    /// <summary>Show the status every devbook file and each of its chapters state,
+    /// Brain notes included — the selector or badge beside the name and beside
+    /// each heading, with the decision state that qualifies it.
+    /// <para>
+    /// It switches the file and chapter surfaces only. The AI loop's usage pills
+    /// and the atlas badges read a chapter's status as a summary of somewhere
+    /// else, not beside the chapter, and are not behind it.
+    /// </para>
+    /// <para>
+    /// Its own key rather than folded into <see cref="Editing"/>, by the same
+    /// reasoning in reverse: the status is read, not written, wherever the viewer
+    /// cannot change it, so it has a life of its own apart from Edit. The other
+    /// fields a block states — related, sync — are not status and stay drawn.
+    /// </para></summary>
+    public const string Status = "devbook-status";
+
     /// <summary>Read the Domain area one unit at a time — the context map, each
     /// bounded context, each file inside it — on a page drawn for the kind of file
-    /// the unit is (local ADR 0037), instead of the Domain area as it reads today.
+    /// the unit is (local ADR 0040), instead of the Domain area as it reads today.
     /// <para>
     /// A devbook key by the same rule as its neighbours. Only the Domain area reads
     /// it: the other areas, and <see cref="RepositoryDevbook"/> that offers the pane

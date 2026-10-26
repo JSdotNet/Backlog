@@ -49,7 +49,7 @@ internal sealed class DevbookMenuOutline
 
     /// <summary>A folder with neither answer: every directory sorts itself and
     /// every row keeps its filename label. What the instruction area gets, since
-    /// it is assembled out of agent folders rather than being a knowledge folder
+    /// it is assembled out of agent folders rather than being a devbook folder
     /// with an order of its own.</summary>
     public static DevbookMenuOutline None { get; } = new(
         null,
@@ -191,7 +191,7 @@ internal sealed class DevbookMenuOutline
 
     /// <summary>
     /// A file's own heading, as the outline recorded it — the label a split file's
-    /// row takes in the New domain view (local ADR 0037). Unlike
+    /// row takes in the New domain view (local ADR 0040). Unlike
     /// <see cref="TryTitle"/> it answers for a file, because a split file is
     /// titled after the unit it holds rather than after its context; it shares
     /// the drift rung, so a chapter touched since the build keeps its name.
@@ -214,7 +214,7 @@ internal sealed class DevbookMenuOutline
     /// <summary>
     /// A base file's heading when it names the file's kind rather than its
     /// context — the label a kind's row takes in the New domain view (local ADR
-    /// 0037): Fincent's <c>actors.md</c> is "Actoren". False where the heading is
+    /// 0040): Fincent's <c>actors.md</c> is "Actoren". False where the heading is
     /// the folder's own title, as every chapter of a Backlog context is headed,
     /// and wherever <see cref="TryHeading"/> is.
     /// </summary>

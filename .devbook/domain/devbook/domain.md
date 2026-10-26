@@ -44,7 +44,7 @@ feed, which tells it apart from an Inbox [Note](../inbox/domain.md#note) (local
 ADR 0025). An Inbox Note waits for triage, and triaging it **To Brain** makes a
 Knowledge Note of it.
 
-Any knowledge chapter, a Brain note or a repository chapter, may carry two
+Any devbook chapter, a Brain note or a repository chapter, may carry two
 planning fields in its `meta` block. The first is an optional [Effort](#effort).
 The second is a `roadmap` list of
 [Roadmap Contributions](#roadmap-contribution). Roadmap Planning reads both when
@@ -237,7 +237,7 @@ rather than living inside a single aggregate. Invocation semantics: consistency 
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/devbook/features.md#instruction-optimization, .devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
+related: [.devbook/domain/devbook/features.md#instruction-optimization, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings]
 ```
 
 Reviews the agent-facing instruction documents a repository carries, the
@@ -249,8 +249,8 @@ None of the review is built yet. Its switch is reserved
 records the intended design and no rule below has a type that enforces it.
 
 It is a service rather than an aggregate because the documents belong to the
-repository. They are read through the knowledge-folder settings
-[Repository Management](../repository-management/features.md#repository-knowledge-folder-settings)
+repository. They are read through the devbook-folder settings
+[Repository Management](../repository-management/features.md#repository-devbook-folder-settings)
 owns, and several tools' instruction sets are examined as one subject. No aggregate
 here may hold their content without becoming a second, staler copy of it.
 
@@ -368,7 +368,7 @@ aliases: [effort, story points, story-point estimate]
 related: [.devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/tasks/domain.md#effort]
 ```
 
-The size of a knowledge chapter in **story points**, carried in its `meta` block.
+The size of a devbook chapter in **story points**, carried in its `meta` block.
 It is an optional whole number of zero or more. As with a Task's effort, absent
 means "not estimated" and `0` is a real estimate. Unlike a Task's, a negative
 value is not refused: a chapter is a file nothing checks on save, so the reader

@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// How the Domain view's functional pages keep to the domain's own language
-/// (local ADR 0037 §5–6): a summary is the first sentence without the list of
+/// (local ADR 0040 §5–6): a summary is the first sentence without the list of
 /// fields it may close on, an enum's values read as words, and the sentence
 /// after them shows only when it names no field.
 /// </summary>

@@ -371,7 +371,7 @@ host has none, the tools say so in words rather than failing.
 type: feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/domain/tasks/features.md#search-filter-and-organize]
+related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
 Read the knowledge a repository already carries alongside its code, next to the
@@ -420,15 +420,24 @@ rather than offering an empty tab strip.
 ```meta
 type: sub-feature
 status: draft
+feature-flag: [.devbook/domain/devbook/context.md#devbook-editing, .devbook/domain/devbook/context.md#devbook-status]
 related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
 ```
 
 Present each area's documents as readable content rather than raw files:
 headings and sections, the metadata each chapter declares, cross-references
-between knowledge documents, and embedded diagrams rendered as diagrams. A
+between devbook documents, and embedded diagrams rendered as diagrams. A
 cross-reference may name a chapter in the repository's backlog folder, even though
 that folder is not a browsable area. It is read with that folder's own status
 vocabulary rather than as an unknown one.
+
+Two parts of this are switches of their own, both off by default.
+[Devbook status](context.md#devbook-status) draws the status and decision state
+beside each file and chapter, and
+[Devbook editing](context.md#devbook-editing) offers Edit on a repository
+chapter; a Brain note keeps Edit either way. What follows about showing a status
+or a decision holds while status is on. Off, the file still states them and the
+app draws neither.
 
 Documents appear in the order the convention gives them:
 
@@ -453,7 +462,7 @@ checks reject:
   that are simply current carry no status at all and are shown as current.
   Choosing "current" for one removes the word rather than writing it, and a
   chapter that spells it out anyway is pointed out. Technology and AI-adoption
-  chapters are ratings, so theirs is always stated.
+  chapters are ratings, so the file always states theirs.
 - **A decision is state, not content.** A domain chapter can stand approved
   (someone agreed it), and above that accepted (someone saw the built work
   against it and accepted it). Where a review stands on the way there is state
@@ -649,7 +658,7 @@ repository read from a branch without a clone is prepared too.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Say whether the knowledge in view is the latest version the repository has, and
@@ -695,7 +704,7 @@ with it.
 type: sub-feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/design/typography-and-layout.md#iconography]
+related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/design/typography-and-layout.md#iconography]
 ```
 
 Read a repository's devbook from its local clone or from any of its branches,
@@ -789,7 +798,7 @@ status: draft
 feature-flag: .devbook/domain/devbook/context.md#new-domain-view
 roadmap: [devbook-domain-view]
 depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
-related: [.devbook/domain/devbook/requirements.md#domain-view-by-unit, .devbook/arc42/adr/0037-the-domain-view-reads-by-unit.md, .devbook/design/color-scheme.md#domain-view-element-tones]
+related: [.devbook/domain/devbook/requirements.md#domain-view-by-unit, .devbook/arc42/adr/0040-the-domain-view-reads-by-unit.md, .devbook/design/color-scheme.md#domain-view-element-tones]
 ```
 
 Read a repository's domain one unit at a time: the context map, then each bounded
@@ -815,7 +824,7 @@ true** tab, the demo as a **Demo** button, the dependencies as the neighbours at
 the top of the context's page. A
 file whose name starts with `_` stays hidden, and so does the `assets` folder,
 whose images the chapters show. How each file maps to a row is
-local [ADR 0037](../../arc42/adr/0037-the-domain-view-reads-by-unit.md).
+local [ADR 0040](../../arc42/adr/0040-the-domain-view-reads-by-unit.md).
 
 A kind's row is titled by its base file's heading, so Fincent's `actors.md`
 reads *Actoren* and its `flow.md` *Flows*, and it counts the rows under it at
@@ -993,7 +1002,7 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#instruction-optimization
 depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
-related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
+related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings]
 ```
 
 Review the working instructions as what they are: documents whose readers are

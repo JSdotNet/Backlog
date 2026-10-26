@@ -12,7 +12,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The Domain view's Features and Requirements pages, reached the way a reader
 /// reaches them: the New domain view switch on, a context opened, its Features or
-/// Requirements row picked (local ADR 0037). Features stand in columns by what
+/// Requirements row picked (local ADR 0040). Features stand in columns by what
 /// they build on with their proved requirements; Requirements reads a feature's
 /// requirements and scenarios, and its Always true link opens the aggregate's
 /// Always true tab on the Domain page.

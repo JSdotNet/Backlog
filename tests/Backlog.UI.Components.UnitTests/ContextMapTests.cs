@@ -3,7 +3,7 @@ using Backlog.UI.Components.Diagrams;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The Domain view's Context map page (local ADR 0037): the contexts of the map's
+/// The Domain view's Context map page (local ADR 0040): the contexts of the map's
 /// Mermaid fence classified by its Subdomain landscape table, one line per pair of
 /// contexts worded by the source context's dependency row, laid out on a ring that
 /// crosses as few lines as it can, and drawn as Map and List with no pattern name.
@@ -363,7 +363,7 @@ public sealed class ContextMapTests
 
         var layout = ContextMapLayout.Arrange(map);
 
-        Assert.Equal(14, layout.Cards.Count);
+        Assert.Equal(15, layout.Cards.Count);
         Assert.Equal(map.Lines.Count, layout.Strokes.Count);
         var ids = map.Contexts.Select(c => c.Id).ToList();
         var pairs = map.Lines.Select(l => (ids.IndexOf(l.From), ids.IndexOf(l.To))).ToList();
@@ -383,7 +383,8 @@ public sealed class ContextMapTests
         Assert.Equal(
             ["ItemCaptured", "ItemTriaged", "StatusChanged", "TaskProjected", "TaskCompleted", "AIWorkLogged", "RoadmapItemScheduled",
              "Roadmap Item", "Roadmap Tag", "FollowUpCaptured", "MachineStatusChanged", "ComplianceUpdated", "ProductivityRecorded",
-             "Environment Shortcut Resolution", "Technology Baseline", "BaselineProvided", "The replica protocol"],
+             "Environment Shortcut Resolution", "Technology Baseline", "BaselineProvided",
+             "INotifications", "INotificationAnswerHandler", "NotificationDraft", "Backlog.Modules.Notifications.Abstractions", "The replica protocol"],
             map.Contracts.SelectMany(c => c.Names).Select(n => n.Name));
         Assert.Equal("Backlog", map.Title);
         Assert.True(map.RuleCards.Count >= 6);

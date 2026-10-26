@@ -398,7 +398,7 @@ public sealed class EntryWorkLinksTests
     [InlineData(LinkedSessionState.Finished, "finished", "finished")]
     public async Task A_session_badge_wears_its_state(LinkedSessionState state, string slug, string words)
     {
-        var sessions = new FakeSessionStates { ["e711d47d-3e09-4254"] = state };
+        var sessions = new FakeSessionStates { ["e711d47d-3e09-4254"] = new LinkedSession(state, Archived: null) };
         using var host = await TasksPaneHost.CreateAsync(
             roadmapTags: null, ["JSdotNet/Backlog"], sessionStates: sessions);
         var row = await host.WriteEntryAsync(Entry);
@@ -417,6 +417,80 @@ public sealed class EntryWorkLinksTests
             Assert.Equal(expected, session.GetAttribute("aria-label"));
             Assert.Null(session.QuerySelector(".integration-chip__glyph"));
         }
+    }
+
+    /// <summary>
+    /// A finished session also says whether the Claude desktop app still holds it
+    /// open — the muted ink, "still open" — or archived it — the quiet ink, "archived" —
+    /// on the row's badge and in the panel, in the tooltip and accessible name as well
+    /// as the ink. Live first: a running session is worded as running whatever the app
+    /// holds. No desktop record draws exactly as today.
+    /// </summary>
+    [Theory]
+    [InlineData(LinkedSessionState.Finished, true, "archived", "finished, archived")]
+    [InlineData(LinkedSessionState.Finished, false, "open", "finished, still open")]
+    [InlineData(LinkedSessionState.Finished, null, null, "finished")]
+    [InlineData(LinkedSessionState.Running, true, null, "running")]
+    public async Task A_finished_session_badge_says_whether_the_desktop_app_holds_it_open(
+        LinkedSessionState state,
+        bool? archived,
+        string? presenceSlug,
+        string words)
+    {
+        var sessions = new FakeSessionStates { ["e711d47d-3e09-4254"] = new LinkedSession(state, archived) };
+        using var host = await TasksPaneHost.CreateAsync(
+            roadmapTags: null, ["JSdotNet/Backlog"], sessionStates: sessions);
+        var row = await host.WriteEntryAsync(Entry);
+        row.SessionLinks = [new EntrySessionLink("JSdotNet/Backlog", "e711d47d-3e09-4254")];
+
+        await host.State.ReadSessionStatesAsync();
+        var pane = host.Context.Render<TasksPane>(parameters => parameters.Add(p => p.OnOpenSession, (string _) => { }));
+
+        foreach (var prefix in new[] { "row-", "entry-" })
+        {
+            var session = pane.Find($"[data-testid='{prefix}session']");
+            Assert.Contains($"integration-link--session-{state.ToString().ToLowerInvariant()}", session.ClassList);
+            if (presenceSlug is null)
+            {
+                Assert.DoesNotContain(session.ClassList, name => name is "integration-link--session-open" or "integration-link--session-archived");
+            }
+            else
+            {
+                Assert.Contains($"integration-link--session-{presenceSlug}", session.ClassList);
+            }
+
+            var expected = $"Session e711d47d-3e09-4254 · {words} — open in Sessions";
+            Assert.Equal(expected, session.GetAttribute("title"));
+            Assert.Equal(expected, session.GetAttribute("aria-label"));
+        }
+    }
+
+    /// <summary>The list keeps what the Sessions record answered about each linked
+    /// session — its state, and whether the desktop app archived it — for the badges
+    /// to draw from; the fact is read, never written onto the task.</summary>
+    [Fact]
+    public async Task The_list_keeps_whether_the_desktop_app_archived_a_linked_session()
+    {
+        var sessions = new FakeSessionStates
+        {
+            ["archived-one"] = new LinkedSession(LinkedSessionState.Finished, Archived: true),
+            ["open-one"] = new LinkedSession(LinkedSessionState.Finished, Archived: false)
+        };
+        using var host = await TasksPaneHost.CreateAsync(
+            roadmapTags: null, ["JSdotNet/Backlog"], sessionStates: sessions);
+        var row = await host.WriteEntryAsync(Entry);
+        row.SessionLinks =
+        [
+            new EntrySessionLink("JSdotNet/Backlog", "archived-one"),
+            new EntrySessionLink("JSdotNet/Backlog", "open-one")
+        ];
+
+        await host.State.ReadSessionStatesAsync();
+
+        Assert.Equal(new LinkedSession(LinkedSessionState.Finished, Archived: true), host.State.SessionOf("ARCHIVED-ONE"));
+        Assert.Equal(new LinkedSession(LinkedSessionState.Finished, Archived: false), host.State.SessionOf("open-one"));
+        Assert.Null(host.State.SessionOf("never-linked"));
+        Assert.DoesNotContain("archived", row.RawText, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>A session the record does not hold has no state to wear, and draws
@@ -487,7 +561,7 @@ public sealed class EntryWorkLinksTests
             link => Assert.Equal(IntegrationReviewState.None, link.Review));
     }
 
-    private sealed class FakeSessionStates : Dictionary<string, LinkedSessionState>, ILinkedSessionStates
+    private sealed class FakeSessionStates : Dictionary<string, LinkedSession>, ILinkedSessionStates
     {
         public FakeSessionStates() : base(StringComparer.OrdinalIgnoreCase)
         {
@@ -495,12 +569,12 @@ public sealed class EntryWorkLinksTests
 
         public List<IReadOnlyCollection<string>> Asked { get; } = [];
 
-        public Task<IReadOnlyDictionary<string, LinkedSessionState>> StatesOfAsync(
+        public Task<IReadOnlyDictionary<string, LinkedSession>> StatesOfAsync(
             IReadOnlyCollection<string> sessionIds,
             CancellationToken cancellationToken = default)
         {
             Asked.Add(sessionIds);
-            return Task.FromResult<IReadOnlyDictionary<string, LinkedSessionState>>(
+            return Task.FromResult<IReadOnlyDictionary<string, LinkedSession>>(
                 sessionIds.Where(ContainsKey).ToDictionary(id => id, id => this[id]));
         }
     }

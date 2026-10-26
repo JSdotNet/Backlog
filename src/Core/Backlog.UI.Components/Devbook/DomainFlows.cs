@@ -163,7 +163,7 @@ public sealed record DomainFlowSection(DomainChapter Chapter, IReadOnlyList<Doma
 
 /// <summary>
 /// Reads a flow's <c>stateDiagram-v2</c> into one row of states and lays it out
-/// (local ADR 0037, the Flow page): each state a box with its description, the
+/// (local ADR 0040, the Flow page): each state a box with its description, the
 /// moves between neighbours straight along the row — forward on top, the way
 /// back underneath — every other forward arc above the row, every other way back
 /// below it, and the restore loop — the way from the last state back to the

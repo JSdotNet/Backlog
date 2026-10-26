@@ -74,6 +74,11 @@ internal static class SyncResults
         // loud about.
         SyncErrorCodes.SyncCursorNotYours => StatusCodes.Status403Forbidden,
 
+        // A device of the same owner, named correctly, that the caller did not
+        // pair: the caller knows it exists, so 404 would hide nothing, and 403
+        // says it is this caller who may not revoke it.
+        SyncErrorCodes.DeviceRevokeNotPairer => StatusCodes.Status403Forbidden,
+
         // The replica is not there yet — locally, the Cosmos emulator still
         // starting. Come back; there is nothing to change about the request.
         SyncErrorCodes.ReplicaUnavailable => StatusCodes.Status503ServiceUnavailable,
@@ -107,6 +112,12 @@ internal static class SyncResults
         // And over the annotation container, under the same rule.
         SyncErrorCodes.AnnotationBatchTooLarge => StatusCodes.Status400BadRequest,
 
+        // And over the notification container. A notification the store refused
+        // as too large surfaces under the same invalid code the edge uses, and
+        // as the same 400: the owner has to change it, not send it again.
+        SyncErrorCodes.NotificationBatchTooLarge => StatusCodes.Status400BadRequest,
+        SyncErrorCodes.NotificationInvalid => StatusCodes.Status400BadRequest,
+
         // An upload over the per-file cap (local ADR 0014). The same 413 as a
         // task too large for the store: sending it again will not help.
         SyncErrorCodes.AttachmentTooLarge => StatusCodes.Status413PayloadTooLarge,
@@ -118,6 +129,15 @@ internal static class SyncResults
         // The attachment store not there yet — locally, Azurite still starting.
         // The same 503 as the replica, under its own code.
         SyncErrorCodes.AttachmentStoreUnavailable => StatusCodes.Status503ServiceUnavailable,
+
+        // A nudge hub that did not mint a URL just now: the desktop retries soon.
+        SyncErrorCodes.NudgeUnavailable => StatusCodes.Status503ServiceUnavailable,
+
+        // A push registration with no usable FCM token: the phone has to send one.
+        SyncErrorCodes.PushTokenInvalid => StatusCodes.Status400BadRequest,
+
+        // A push hub that did not keep the installation just now: the phone registers again later.
+        SyncErrorCodes.PushUnavailable => StatusCodes.Status503ServiceUnavailable,
         _ => error.Type switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,

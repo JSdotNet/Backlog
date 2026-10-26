@@ -19,4 +19,8 @@
     <Using Include="Backlog.Infrastructure.Devbook" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\RecordingNotifications.cs" Link="Shared\TestDoubles\RecordingNotifications.cs" />
+  </ItemGroup>
+
 </Project>

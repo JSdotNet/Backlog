@@ -19,12 +19,16 @@ namespace Backlog.UI.Components.Integrations;
 /// <see cref="IntegrationSessionState.Stalled"/>.</param>
 /// <param name="Detail">One line under the title, already written — the repository,
 /// how many prompts, when it last moved.</param>
+/// <param name="Presence">Whether the session's own app still holds it open or has
+/// archived it — drawn on a finished session only
+/// (<see cref="IntegrationStates.ShownPresence"/>).</param>
 public sealed record WorkSession(
     string Id,
     string Title,
     IntegrationSessionState State,
     string? Detail = null,
-    IntegrationProvider Provider = IntegrationProvider.Claude);
+    IntegrationProvider Provider = IntegrationProvider.Claude,
+    IntegrationSessionPresence Presence = IntegrationSessionPresence.Unknown);
 
 /// <summary>
 /// One pull request as a work card draws it: its number and title, draft or open,
@@ -98,6 +102,32 @@ public sealed record WorkLinkOption(string Id, string Label, string? Detail = nu
 /// </summary>
 public static class WorkStates
 {
+    /// <summary>
+    /// The one wording for whether a session's own app holds it — "still open" or
+    /// "archived" — or null where nothing is said: a live session (liveness wins), or
+    /// one with no record to say (<see cref="IntegrationSessionPresence.Unknown"/>).
+    /// <para>
+    /// Read by every surface that says it — the session badge's screen-reader copy,
+    /// the work card, and a host's own tooltip — so they cannot word it apart. "Still
+    /// open" rather than "open", so it never reads as an act beside a host's "open in
+    /// Sessions".
+    /// </para>
+    /// </summary>
+    public static string? PresenceWords(IntegrationSessionState? state, IntegrationSessionPresence presence) =>
+        IntegrationStates.ShownPresence(state, presence) switch
+        {
+            IntegrationSessionPresence.Open => "still open",
+            IntegrationSessionPresence.Archived => "archived",
+            _ => null
+        };
+
+    /// <summary>A session as a card words it: its state, then whether its app still
+    /// holds it (<see cref="PresenceWords"/>) — "Finished, archived".</summary>
+    public static string SessionWords(WorkSession session) =>
+        PresenceWords(session.State, session.Presence) is { } presence
+            ? $"{SessionWords(session.State)}, {presence}"
+            : SessionWords(session.State);
+
     /// <summary>
     /// What a session's state is called on a card. Stalled is "Quiet 30 min": the
     /// session is still live and has not moved for longer than the host's threshold,

@@ -143,7 +143,7 @@ The product is an authoring tool used in long sessions; default to a
 | Rule | Requirement |
 |---|---|
 | Default component padding | `spacing-md` for component internals; `spacing-lg`/`spacing-xl` for outer sections. |
-| List rows | Backlog/knowledge list rows use `spacing-sm` vertical padding; MUST keep a ≥ 44 px pointer target (see `accessibility.md#target-sizes-and-text`). |
+| List rows | Backlog/devbook list rows use `spacing-sm` vertical padding; MUST keep a ≥ 44 px pointer target (see `accessibility.md#target-sizes-and-text`). |
 | Editor line length | Long-form editor content SHOULD cap measure at ~72–90 characters for readability, centered in the canvas. |
 | No cramped controls | Interactive controls MUST retain minimum touch/click targets even at compact density. |
 
@@ -297,7 +297,7 @@ related: [".devbook/design/color-scheme.md#badge-and-chip-tones", ".devbook/desi
 A metadata line, as drawn, is the run of small facts set beside or beneath a
 title: a due date, a reminder, a repeat, a step count, a freshness reading, a
 tag. It appears on a task row, on an integration reference, and under a
-knowledge heading, and it is one pattern in all three. This section is about the
+devbook heading, and it is one pattern in all three. This section is about the
 drawn line. The backtick-token line an entry is written with in Markdown is its
 source, and `content-editing.md#structured-metadata-sigils` owns that.
 

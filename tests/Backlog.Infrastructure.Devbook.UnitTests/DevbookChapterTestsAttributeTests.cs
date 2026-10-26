@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// <c>tests</c>, one per identifier and in the order written, read back through
 /// <see cref="DevbookDatabase.Attributes(string)"/>. The Domain view tells a
 /// proved requirement from one no test is linked to by these rows (local
-/// ADR 0037); <see cref="DevbookBuilderParityTests"/> holds the Node writer to
+/// ADR 0040); <see cref="DevbookBuilderParityTests"/> holds the Node writer to
 /// the same rows.
 /// </summary>
 [Collection(SqlitePoolClearingCollection.Name)]

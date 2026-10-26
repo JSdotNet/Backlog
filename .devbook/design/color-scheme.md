@@ -573,7 +573,7 @@ Rules:
 ## Domain View Element Tones
 
 ```meta
-related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0037-the-domain-view-reads-by-unit.md", ".devbook/design/accessibility.md#contrast"]
+related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0040-the-domain-view-reads-by-unit.md", ".devbook/design/accessibility.md#contrast"]
 ```
 
 The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
@@ -752,7 +752,7 @@ Rules:
   the rule is worded this way. They are already anchors, and their state colours
   are the cue.
 
-Knowledge chapters are the largest consumer of this scale: five folders spell
+Devbook chapters are the largest consumer of this scale: five folders spell
 their lifecycles five different ways. `DevbookStatus`
 (`src/Core/Backlog.UI.Components/Devbook/DevbookStatus.cs`) maps each folder's
 words onto one set of status tones. Review surface: storybook → *Badges*, and

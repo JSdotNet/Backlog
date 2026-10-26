@@ -72,7 +72,7 @@ public sealed class MarkdownViewMetaFenceTests
     public void Without_a_folder_the_fence_still_reads_back_as_a_plain_pill()
     {
         // The read view's default is folder-blind, and most markdown in this
-        // product is an entry body rather than a knowledge chapter.
+        // product is an entry body rather than a devbook chapter.
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters

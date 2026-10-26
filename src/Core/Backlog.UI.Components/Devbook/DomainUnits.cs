@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.Devbook;
 
 /// <summary>
 /// One chapter of a <c>.domain</c> file as the Domain view reads it (local ADR
-/// 0037): its heading, the fields of its <c>meta</c> block it needs, the prose it
+/// 0040): its heading, the fields of its <c>meta</c> block it needs, the prose it
 /// holds itself, and the chapters beneath it.
 /// </summary>
 /// <param name="Title">The heading as written.</param>
@@ -33,7 +33,7 @@ public sealed record DomainChapter(
     IReadOnlyList<DomainChapter> Children)
 {
     /// <summary>The chapter's first sentence as plain text — markdown links read
-    /// as their words, code spans as their text. What ADR 0037 §5 makes a unit's
+    /// as their words, code spans as their text. What ADR 0040 §5 makes a unit's
     /// summary.</summary>
     public string Summary => DomainUnits.FirstSentence(Prose);
 
@@ -134,7 +134,7 @@ public sealed record DomainEnum(string Title, IReadOnlyList<string> Values, stri
 }
 
 /// <summary>A domain event a unit raises, as one line: what it is and who listens.
-/// Never its payload, which is Model's (ADR 0037 §6).</summary>
+/// Never its payload, which is Model's (ADR 0040 §6).</summary>
 public sealed record DomainEventLine(string Name, string Summary, IReadOnlyList<string> Consumers);
 
 /// <summary>A requirement a domain service is held to, as its "You can count on"
@@ -147,7 +147,7 @@ public sealed record DomainGuarantee(string Title, string Reference);
 public sealed record DomainTerm(string Title, string Summary);
 
 /// <summary>
-/// Reads the units of a <c>.domain</c> file for the Domain view (local ADR 0037
+/// Reads the units of a <c>.domain</c> file for the Domain view (local ADR 0040
 /// §4–6). Pure: text in, records out, so the storybook draws the same pages from a
 /// sample string that the app draws from a repository.
 /// <para>

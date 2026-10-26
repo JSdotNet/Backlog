@@ -205,7 +205,7 @@ public sealed class LinkPullRequestByReferenceTests
             reader.PullRequests,
             host.State.RepositoryAliasFor,
             host.State.RepositoryColourFor,
-            host.State.SessionStateOf,
+            host.State.SessionOf,
             Noon,
             reader.SessionsRead,
             reader.LinkedPullRequests);

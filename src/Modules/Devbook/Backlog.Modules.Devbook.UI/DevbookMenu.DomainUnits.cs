@@ -2,7 +2,7 @@ namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// A bounded context listed by unit, as the New domain view reads it (local ADR
-/// 0037, "The menu follows the reading order" and "A split file is a child of its
+/// 0040, "The menu follows the reading order" and "A split file is a child of its
 /// kind").
 /// <para>
 /// The kinds come first, in the devbook reading order, each one row: Domain,

@@ -248,6 +248,81 @@ public sealed class IntegrationLinkTests
         Assert.Equal("Auto-merge on", mark.QuerySelector(".sr-only")!.TextContent.Trim());
     }
 
+    /// <summary>
+    /// A finished session whose app still holds it open wears the open modifier, one
+    /// it archived the archived modifier, each with its word beside the state's in the
+    /// sr-only copy. One whose presence is unknown — and any live session, whatever its
+    /// app holds, because liveness wins — draws exactly as before.
+    /// </summary>
+    [Theory]
+    [InlineData(IntegrationSessionState.Finished, IntegrationSessionPresence.Open, "integration-link--session-open", "Finished, still open")]
+    [InlineData(IntegrationSessionState.Finished, IntegrationSessionPresence.Archived, "integration-link--session-archived", "Finished, archived")]
+    [InlineData(IntegrationSessionState.Finished, IntegrationSessionPresence.Unknown, null, "Finished")]
+    [InlineData(IntegrationSessionState.Running, IntegrationSessionPresence.Archived, null, "Running")]
+    [InlineData(IntegrationSessionState.Stalled, IntegrationSessionPresence.Open, null, "Stalled")]
+    public void A_finished_session_wears_whether_its_app_holds_it_open_or_archived(
+        IntegrationSessionState state,
+        IntegrationSessionPresence presence,
+        string? modifier,
+        string words)
+    {
+        using var context = new BunitContext();
+
+        var link = context.Render<IntegrationLink>(parameters => parameters
+            .Add(l => l.Link, new IntegrationLinkRef("s1", IntegrationProvider.Claude, IntegrationLinkKind.Session, "e711d47d", SessionState: state)
+            {
+                SessionPresence = presence
+            })
+            .Add(l => l.StateAsInk, true)
+            .Add(l => l.ShowTitle, false)
+            .Add(l => l.TestId, "session")
+            .Add(l => l.StateTestId, "session-state"));
+
+        var classes = link.Find("[data-testid='session']").ClassList;
+        Assert.Contains($"integration-link--session-{state.ToString().ToLowerInvariant()}", classes);
+        if (modifier is null)
+        {
+            Assert.DoesNotContain(classes, name => name is "integration-link--session-open" or "integration-link--session-archived");
+        }
+        else
+        {
+            Assert.Contains(modifier, classes);
+        }
+
+        Assert.Equal(words, link.Find("[data-testid='session-state']").TextContent.Trim());
+    }
+
+    /// <summary>The work card says the same: a finished session open in its app, or
+    /// archived, in its state words and its class; one with no record to say, as
+    /// before.</summary>
+    [Theory]
+    [InlineData(IntegrationSessionPresence.Open, "work-card--session-open", "Finished, still open")]
+    [InlineData(IntegrationSessionPresence.Archived, "work-card--session-archived", "Finished, archived")]
+    [InlineData(IntegrationSessionPresence.Unknown, null, "Finished")]
+    public void A_finished_session_card_says_whether_its_app_holds_it_open_or_archived(
+        IntegrationSessionPresence presence,
+        string? modifier,
+        string words)
+    {
+        using var context = new BunitContext();
+
+        var card = context.Render<WorkSessionCard>(parameters => parameters
+            .Add(c => c.Session, new WorkSession("4a1c9e02", "Extract TaskCard", IntegrationSessionState.Finished, Presence: presence)));
+
+        var root = card.Find("[data-testid='work-session']");
+        if (modifier is null)
+        {
+            Assert.DoesNotContain(root.ClassList, name => name is "work-card--session-open" or "work-card--session-archived");
+        }
+        else
+        {
+            Assert.Contains(modifier, root.ClassList);
+        }
+
+        Assert.Equal(words, card.Find("[data-testid='work-session-state']").TextContent.Trim());
+        Assert.Equal($"Session Extract TaskCard — {words}", root.GetAttribute("title"));
+    }
+
     [Fact]
     public void A_session_reference_shows_a_session_state_and_never_an_artifact_one()
     {

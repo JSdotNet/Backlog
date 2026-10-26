@@ -33,6 +33,12 @@
     <!-- The blob-backed IAttachmentStore (.devbook/arc42/adr/0014), for the same
          reason: the storage packages stay in that project. -->
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.BlobStorage\Backlog.Infrastructure.BlobStorage.csproj" />
+    <!-- The Web PubSub INotificationNudgeChannel (local ADR 0039 §4), on the same
+         terms: the Web PubSub client stays in that project. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.WebPubSub\Backlog.Infrastructure.WebPubSub.csproj" />
+    <!-- The Notification Hubs INotificationPushChannel (local ADR 0039 §4), on the same
+         terms: the Notification Hubs client stays in that project. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.NotificationHubs\Backlog.Infrastructure.NotificationHubs.csproj" />
     <ProjectReference Include="..\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
   </ItemGroup>
 

@@ -37,13 +37,14 @@
     - attach, through IGoals.AttachAsync, every item a GoalSubject that GoalSubjects
       turns into the module's item. A No goal row's Attach… with no goal open opens the
       shared GoalPicker for it, over the open goals, its New goal… setting a goal (title
-      and due date) and attaching to it. An item another goal holds is refused with
+      and an optional due date) and attaching to it. An item another goal holds is refused with
       progress.item_in_other_goal: the GoalPicker opens on the goal it was meant for,
       with IGoals.FindGoalOfAsync's goal as the one it holds — the picker names that
       goal and says the attach moves it — and Attach attaches again with
       moveFromOtherGoal. A refusal inside the picker stays in it;
-    - a field of the open goal, through IGoals.EditAsync with the other two as stored.
-      A refusal — no title, no due date, an outcome of more than one line — shows in the
+    - a field of the open goal, through IGoals.EditAsync with the other two as stored;
+      an emptied due date clears it. A refusal — no title, an outcome of more than one
+      line — shows in the
       goal under its fields, in the module's words, and the field shows the stored value;
     - Delete goal…, once the board's ConfirmDialog has asked, through IGoals.DeleteAsync.
       What the goal held is left as it is and shows under No goal on the next reading;

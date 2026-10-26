@@ -36,18 +36,24 @@ public static class GoalsText
     }
 
     /// <summary>"9/15 · +3 · due 30 Oct · lands ~6 Nov": <c>+n</c> left out at nought, the
-    /// landing left out with no forecast.</summary>
+    /// landing left out with no forecast, and "due 23 Oct (end of iteration)" for a goal
+    /// without a due date of its own.</summary>
     public static string GoalLine(GoalCardModel goal)
     {
         ArgumentNullException.ThrowIfNull(goal);
 
         var parts = new List<string> { $"{goal.Counts.Done}/{goal.Counts.Total}" };
         if (goal.Counts.DoneInWindow > 0) parts.Add($"+{goal.Counts.DoneInWindow}");
-        parts.Add($"due {Day(goal.DueDate)}");
+        parts.Add(Due(goal.DueDate, goal.DueIsIterationEnd));
         if (goal.LandsOn is { } landsOn) parts.Add($"lands ~{Day(landsOn)}");
 
         return string.Join(Separator, parts);
     }
+
+    /// <summary>"due 30 Oct", or "due 23 Oct (end of iteration)" when the day is the
+    /// iteration's end because the goal has no due date of its own.</summary>
+    public static string Due(DateOnly day, bool isIterationEnd) =>
+        isIterationEnd ? $"due {Day(day)} (end of iteration)" : $"due {Day(day)}";
 
     /// <summary>The forecast badge's words.</summary>
     public static string Forecast(bool atRisk) => atRisk ? "At risk" : "On track";

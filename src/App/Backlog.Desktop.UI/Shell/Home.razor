@@ -480,6 +480,29 @@
                         </ToggleButton>
                     }
 
+                    @* The notification centre, with the count of questions waiting
+                       for an answer on the option itself: the one number in the
+                       header that asks the person for something, so it rides the
+                       control that answers it rather than a status region. *@
+                    @if (NotificationsOffered)
+                    {
+                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="NotificationsVisible"
+                                      id="notifications-toggle-button"
+                                      Title="Notifications"
+                                      TestId="notifications-toggle-button"
+                                      aria-controls="notifications-surface"
+                                      PressedChanged="ToggleNotifications">
+                            <BellIcon />
+                            <span class="header-nav-label header-nav-label--tier-1">Notifications</span>
+                            <NotificationsWaitingBadge />
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(NotificationsFeatures.Notifications)"
+                                                Title="@FeatureStatusTitle(NotificationsFeatures.Notifications)"
+                                                TestId="notifications-feature-status" />
+                        </ToggleButton>
+                    }
+
                     @if (IsFeatureEnabled(DevPcFeatures.SystemTools))
                     {
                         <ToggleButton BaseClass="header-group__option header-group__option--loose"
@@ -510,12 +533,13 @@
            band AppFooter mounts under all of them. The sync control stayed, because
            checking GitHub is a thing you do to the list in front of you. *@
         <div class="app-header__status">
-            @* Monitoring is a deliberate act, not a background poll: the backlog has
-               to open instantly and offline, so nothing here waits on GitHub until
-               somebody asks it to. This re-reads everything; the only read made
-               unasked is CheckPullRequestsAfterLoad's, which asks about pull
-               requests not yet landed once the list is already showing, and blocks
-               nothing when GitHub cannot be reached.
+            @* Nothing on screen waits on GitHub: the backlog has to open instantly
+               and offline. This button re-reads everything, on demand. Beside it
+               runs one background poll, CheckPullRequestsAfterLoad's: once the list
+               is showing, after every reload, and on the state's recheck tick every
+               PullRequestRecheckInterval while the window is open and the GitHub
+               integration is on, it asks about pull requests not yet landed. It
+               blocks nothing when GitHub cannot be reached.
 
                Only while the task list is on screen — the list is what a check
                refreshes, and the dashboard fetches from GitHub on its own.
@@ -694,6 +718,20 @@
                           SessionTask="SessionTaskFor"
                           PullRequestStatus="@(PullRequestsOffered ? SessionPullRequestStatusFor : null)"
                           FocusSessionId="@_focusSessionId" />
+        </main>
+    }
+    else if (NotificationsVisible)
+    {
+        <main class="workspace-surface"
+              id="notifications-surface"
+              data-testid="notifications-surface"
+              tabindex="-1"
+              @ref="_surfaceElement"
+              @onkeydown="OnSurfaceKeyDown"
+              data-escape-closes
+              aria-label="Notifications">
+            <NotificationCentrePane OnClose="CloseSurface"
+                                    FocusNotificationId="@_focusNotificationId" />
         </main>
     }
     else if (PullRequestsVisible)
@@ -896,6 +934,7 @@
             _ = ReadBrainNotesByTaskAsync();
         }
         State.WrittenElsewhere += HandleTasksWrittenElsewhere;
+        State.PullRequestRecheckDue += HandlePullRequestRecheckDue;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
         InboxState.BatchRouted += HandleInboxBatchRouted;
@@ -912,6 +951,12 @@
         // answering questions from outside, so a host that composed no activator
         // simply is not asked, which is the correct behaviour rather than a gap.
         _surfaceAttachment = Services.GetService<SessionsSurfaceActivator>()?.Attach(DescribeSessionsAsync);
+
+        // The notification centre on the same optional terms: an owner desktop composes it, a
+        // test rendering this page or a host without the module does not, and then the option
+        // is simply not offered. The requests are a Windows notification asking for the centre.
+        _notificationCentreComposed = Services.GetService<INotificationCentre>() is not null;
+        _notificationRequests = Services.GetService<NotificationCentreRequests>()?.Listen(OpenNotificationCentre);
 
         // The scenario screenshots an entry's body names, answered for the Tasks
         // pane, which may not reach the scenario pages. A host that composed no
@@ -931,8 +976,10 @@
     /// Has the Tasks state read, in the background, the entries' pull requests it
     /// does not know to have landed — never read, or last read open and not re-read
     /// for a while — so work that merged shows merged without the sync button,
-    /// whatever the entry's status. Called after the list loads and after every
-    /// reload of it.
+    /// whatever the entry's status, and a prompt entry whose pull request merged into
+    /// the default branch or a <c>plan/</c> branch goes Done. Called after the list
+    /// loads, after every reload of it, and on the state's recheck tick
+    /// (<see cref="HandlePullRequestRecheckDue"/>), so an idle window still notices.
     /// <para>
     /// Not awaited: the list is already on screen and must stay usable offline, and
     /// the state keeps its own one-at-a-time guard and stays quiet on failure. The
@@ -946,6 +993,10 @@
 
         _ = State.CheckPullRequestsAsync();
     }
+
+    /// <summary>The state's recheck tick, raised on a timer thread: the check runs on
+    /// this dispatcher, behind the same feature switch as every other.</summary>
+    private void HandlePullRequestRecheckDue() => _ = InvokeAsync(CheckPullRequestsAfterLoad);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -1052,10 +1103,18 @@
 
     private bool PullRequestsOffered => IsFeatureEnabled(SessionFeatures.PullRequests);
 
+    /// <summary>Whether the notification centre is on screen. The same shape again, for
+    /// the Notifications context, and only where the host composed the owner's centre —
+    /// a host without it offers no option rather than one that opens on nothing.</summary>
+    private bool NotificationsVisible => _surface == WorkspaceSurface.Notifications && NotificationsOffered;
+
+    private bool NotificationsOffered =>
+        IsFeatureEnabled(NotificationsFeatures.Notifications) && _notificationCentreComposed;
+
     /// <summary>Whether the workspace — the main view — is on screen. Anything that
     /// is not a takeover is the workspace, including a surface whose feature has
     /// been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible;
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible && !NotificationsVisible;
 
     /// <summary>The view the workspace shows: the one chosen, unless its feature
     /// has since been switched off — then Tasks, which is always offered. The
@@ -1179,11 +1238,11 @@
     /// <summary>The sentence under the panel's title, naming the area that answers.</summary>
     private string AiPanelBody => $"Answers from the {OpenAiArea?.AreaTitle} content.";
 
-    /// <summary>Whether the loose takeover group — the Dashboard and Tools — is
+    /// <summary>Whether the loose takeover group — the Dashboard, Notifications and Tools — is
     /// offered at all: with both features off it would be an empty group. Sessions
     /// and Pull requests have a group of their own. The name is older than that and
     /// is kept; nothing persists it.</summary>
-    private bool SurfaceSwitcherVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered;
+    private bool SurfaceSwitcherVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered || NotificationsOffered;
 
     /// <summary>Whether the view switch offers the Roadmap. The feature decides
     /// whether there is an option; the option decides what is on screen.</summary>
@@ -1269,6 +1328,29 @@
     private void ToggleTools() => ToggleSurface(WorkspaceSurface.Tools);
 
     private void ToggleDashboard() => ToggleSurface(WorkspaceSurface.Dashboard);
+
+    /// <summary>The Notifications option: opens the centre on what is waiting, or returns
+    /// to the workspace when it is already on screen.</summary>
+    private void ToggleNotifications()
+    {
+        _focusNotificationId = null;
+        ToggleSurface(WorkspaceSurface.Notifications);
+    }
+
+    /// <summary>
+    /// The centre asked for from outside the shell — a Windows notification pressed — open on
+    /// the notification named. Never closes it: a second press on the same notification shows
+    /// the centre again rather than toggling it away.
+    /// </summary>
+    private void OpenNotificationCentre(Guid? notificationId) =>
+        _ = InvokeAsync(() =>
+        {
+            if (!NotificationsOffered) return;
+
+            _focusNotificationId = notificationId;
+            if (_surface != WorkspaceSurface.Notifications) ToggleSurface(WorkspaceSurface.Notifications);
+            StateHasChanged();
+        });
 
     private void ToggleSessions() => ToggleSurface(WorkspaceSurface.Sessions);
 
@@ -1383,6 +1465,16 @@
     /// <summary>The pull request a card asked the pull requests list to open on, by
     /// its <c>owner/name#number</c> key, until the reader leaves the list.</summary>
     private string? _focusPullRequest;
+
+    /// <summary>The notification a Windows notification asked the centre to open on, until
+    /// the reader opens the centre from its own option.</summary>
+    private Guid? _focusNotificationId;
+
+    /// <summary>Whether the host composed the owner's notification centre at all.</summary>
+    private bool _notificationCentreComposed;
+
+    /// <summary>The listener on the requests to open the centre from outside the shell.</summary>
+    private IDisposable? _notificationRequests;
 
     /// <summary>
     /// A pull request a card in a task's side panel names,
@@ -1768,10 +1860,14 @@
     /// <summary>
     /// How a pull request the sessions list shows stands, as its readiness verdict: read
     /// from GitHub by number and judged the way the pull requests pane judges it, so one
-    /// pull request wears one chip on both screens. Null without GitHub.
+    /// pull request wears one chip on both screens. Null without GitHub. A pull request it
+    /// finds merged or closed closes the notifications about it.
     /// </summary>
     private Task<Backlog.Modules.Sessions.UI.SessionPullRequestStatus?> SessionPullRequestStatusFor(DeliveryRunReference pull) =>
-        Backlog.Desktop.UI.PullRequests.SessionPullRequestStatuses.ReadAsync(Services.GetService<GitHubIntegration>(), pull);
+        Backlog.Desktop.UI.PullRequests.SessionPullRequestStatuses.ReadAsync(
+            Services.GetService<GitHubIntegration>(),
+            pull,
+            Services.GetService<Backlog.Desktop.UI.PullRequests.PullRequestSubjects>());
 
     /// <summary>
     /// The entry that linked a session, as the sessions list asks for it: the entry's
@@ -2905,12 +3001,14 @@
         if (_brainSettings is not null) _brainSettings.Changed -= HandleBrainSettingsChanged;
         if (_brainFolders is not null && _brainTaskLinks is not null) _brainFolders.Changed -= HandleBrainFoldersChanged;
         State.WrittenElsewhere -= HandleTasksWrittenElsewhere;
+        State.PullRequestRecheckDue -= HandlePullRequestRecheckDue;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;
         InboxState.BatchRouted -= HandleInboxBatchRouted;
         InboxState.RouteUndone -= HandleInboxRouteUndone;
         Features.Changed -= HandleFeaturesChanged;
         if (_taskSync is not null) _taskSync.Changed -= HandleTaskSyncChanged;
+        _notificationRequests?.Dispose();
         if (_devbookImages is not null)
         {
             _devbookImages.Changed -= HandleDevbookImagesChanged;

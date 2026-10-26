@@ -283,6 +283,10 @@ internal sealed class TasksPaneHost : IDisposable
         /// from <see cref="ReadByNumber"/>, so a test tells the status read from the slim one.</summary>
         public List<string> StatusReadByNumber { get; } = [];
 
+        /// <summary>The repositories whose status read GitHub refuses — a typo, or one the
+        /// token cannot read.</summary>
+        public HashSet<string> RefusedStatusReads { get; } = new(StringComparer.OrdinalIgnoreCase);
+
         /// <summary>The status read answers what <see cref="PullRequestsByNumber"/> holds,
         /// status facts and all, and records itself in <see cref="StatusReadByNumber"/>.</summary>
         public Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestStatusesAsync(
@@ -291,6 +295,11 @@ internal sealed class TasksPaneHost : IDisposable
             CancellationToken cancellationToken = default)
         {
             StatusReadByNumber.Add($"{repository.FullName} {string.Join(",", numbers.Order())}");
+
+            if (RefusedStatusReads.Contains(repository.FullName))
+            {
+                return Task.FromException<IReadOnlyList<GitHubLinkedPullRequest>>(new GitHubException($"{repository.FullName} refused."));
+            }
 
             IReadOnlyList<GitHubLinkedPullRequest> answer =
                 [.. PullRequestsByNumber.Where(pull =>

@@ -72,7 +72,7 @@ public sealed record DomainSequenceLayout(
 
 /// <summary>
 /// Reads a flow chapter's <c>sequenceDiagram</c> and lays it out in the
-/// lifecycle's cards and lines (local ADR 0037, the Flow page): a card per
+/// lifecycle's cards and lines (local ADR 0040, the Flow page): a card per
 /// participant on top with its lifeline beneath, each message a line between two
 /// lifelines with its text above it — a reply dashed, as a way back is — and each
 /// <c>alt</c>, <c>opt</c>, <c>loop</c> or <c>par</c> block a frame round its

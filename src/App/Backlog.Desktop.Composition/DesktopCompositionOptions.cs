@@ -60,6 +60,10 @@ public sealed class DesktopCompositionOptions
     /// <summary>The folder annotation replication keeps its progress file in.</summary>
     public required string AnnotationSyncFolder { get; init; }
 
+    /// <summary>The folder the notification exchange keeps its progress file in, or null to
+    /// keep it beside the annotation one.</summary>
+    public string? NotificationSyncFolder { get; init; }
+
     /// <summary>The file what the last backup did is kept in.</summary>
     public required string BackupStatePath { get; init; }
 

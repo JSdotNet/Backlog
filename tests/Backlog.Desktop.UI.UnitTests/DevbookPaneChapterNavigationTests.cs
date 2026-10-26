@@ -86,7 +86,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
     }
 
-    /// <summary>A chapter linking the way the knowledge folders actually link: the
+    /// <summary>A chapter linking the way the devbook folders actually link: the
     /// author writes the path their own editor resolves, which is relative to the
     /// file they are in and never rooted at the repository.</summary>
     private const string RelativeContextMap = """

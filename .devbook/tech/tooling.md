@@ -18,7 +18,7 @@ type: tool
 
 Source control for the repository and its worktree-based session model.
 
-- **Used for** — versioning code, the knowledge folders, and all governance
+- **Used for** — versioning code, the devbook folders, and all governance
   assets. `GitFileHistoryService` in `Backlog.Infrastructure.GitHub` also reads
   history as a product signal.
 - **Why** — it is the non-negotiable baseline, and worktrees are how parallel
@@ -437,7 +437,7 @@ related: [".devbook/tech/tooling.md#ajv", ".devbook/tech/tooling.md#simple-icons
 
 A JSON-IR diagram renderer, vendored under `tools/archify/`.
 
-- **Used for** — re-authoring a knowledge-chapter mermaid fence as a
+- **Used for** — re-authoring a devbook-chapter mermaid fence as a
   specification and rendering a self-contained HTML artifact from it. The
   desktop app shows that artifact in place of the drawn mermaid behind the
   `archify-diagrams` flag. `tools/diagrams/archify-artifacts.mjs` wraps it with

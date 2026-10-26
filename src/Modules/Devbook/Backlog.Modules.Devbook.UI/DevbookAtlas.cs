@@ -8,7 +8,7 @@ using Backlog.UI.Components.Devbook;
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// The knowledge folders as a map, read from the graph the metadata generator
+/// The devbook folders as a map, read from the graph the metadata generator
 /// already derives.
 ///
 /// <para>Nothing here parses Markdown. The generated devbook database
@@ -195,7 +195,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
     /// here: <see cref="DevbookScopeProjection"/> is the reading-side restatement
     /// of the same rule that produced the scoped JSON files, boundary nodes
     /// included. A scope with no rows — <c>instructions</c>, which is not a
-    /// knowledge folder and never had a graph — answers null rather than an empty
+    /// devbook folder and never had a graph — answers null rather than an empty
     /// map, so the message a reader sees is still about the index rather than about
     /// the scope.</para>
     /// </summary>
@@ -231,7 +231,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
 
     /// <summary>
     /// The database for this repository, found through the same port every other
-    /// knowledge read goes through: a knowledge folder resolves to a path, and the
+    /// knowledge read goes through: a devbook folder resolves to a path, and the
     /// database sits at the repository root above it.
     ///
     /// <para>Every enabled folder is tried rather than one being nominated,
@@ -252,7 +252,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
     ///
     /// <para>A folder scope resolves through the port like any other knowledge
     /// area. The whole-repository scope has no folder of its own, so it is found
-    /// beside the folders: the knowledge folders sit at the repository root and
+    /// beside the folders: the devbook folders sit at the repository root and
     /// the root index sits with them. Resolving through a folder rather than
     /// asking for a repository path keeps this on the port that already exists —
     /// the one that knows a folder can be turned off, or moved.</para>
@@ -267,7 +267,7 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
                 : null;
         }
 
-        // The whole-repository index sits beside the knowledge folders, so it is
+        // The whole-repository index sits beside the devbook folders, so it is
         // found by going up from one of them. Which one matters: `instructions`
         // resolves into `.github`, which is a directory deeper than the folders
         // that live at the root, and going up from it lands somewhere with no
@@ -314,10 +314,10 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
 /// </summary>
 /// <param name="Key">Stable identity, and what a host stores when it remembers a choice.</param>
 /// <param name="Label">The scope's name, as a reader sees it.</param>
-/// <param name="FolderKey">The knowledge folder key, or <see langword="null"/> for the whole repository.</param>
+/// <param name="FolderKey">The devbook folder key, or <see langword="null"/> for the whole repository.</param>
 public sealed record DevbookAtlasScope(string Key, string Label, string? FolderKey)
 {
-    /// <summary>Every knowledge folder at once, read from the repository's own
+    /// <summary>Every devbook folder at once, read from the repository's own
     /// root index.</summary>
     public static DevbookAtlasScope All { get; } = new("all", "Whole devbook", null);
 

@@ -1,0 +1,138 @@
+@page "/notifications/{Id:guid}"
+@using Backlog.Mobile.UI.Components.Notifications
+@using Backlog.Mobile.UI.Notifications
+@inject NotificationViewProjection Notifications
+@inject DeviceOutbox Outbox
+@inject AppLifecycle Lifecycle
+@inject TimeProvider Clock
+@implements IDisposable
+
+@*
+    One notification, opened from the list: the same card with its Markdown body
+    drawn through MarkdownView, Mermaid fences included, and the answer controls
+    for a question this phone may answer. Pulled on open, on resume, and every 30
+    seconds while a reply made here waits for its owner, as the list is.
+*@
+
+<PageTitle>@(Item?.Notification.Title ?? "Notification")</PageTitle>
+
+<nav class="standup-back" aria-label="Notification">
+    <a class="standup-back__link" href="notifications" aria-label="Back to notifications" data-testid="notification-back">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" /></svg>
+    </a>
+    <span class="standup-back__title">Notification</span>
+</nav>
+
+@if (_replyError is not null)
+{
+    <Alert Message="@_replyError" Role="status" BaseClass="capture__notice" TestId="notification-reply-error" />
+}
+
+@if (Item is { } item)
+{
+    <PhoneNotificationCard Notification="item"
+                           ShowBody="true"
+                           Busy="_replying"
+                           OnReply="ReplyAsync"
+                           OnRetry="RetryAsync" />
+}
+else if (_pulled)
+{
+    <EmptyState Title="This notification isn't on this phone"
+                Description="It may have expired, or not have reached this phone yet."
+                TestId="notification-missing">
+        <Action>
+            <a href="notifications">Back to notifications</a>
+        </Action>
+    </EmptyState>
+}
+else
+{
+    <Spinner Label="Loading the notification" />
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private bool _pulled;
+    private bool _pulling;
+    private bool _replying;
+    private string? _replyError;
+    private ITimer? _poll;
+
+    private PhoneNotification? Item => Notifications.Find(Id);
+
+    protected override void OnInitialized()
+    {
+        Notifications.Changed += OnChanged;
+        Lifecycle.Resumed += OnResumed;
+        _poll = Clock.CreateTimer(_ => OnPoll(), null, NotificationList.AwaitingPoll, NotificationList.AwaitingPoll);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await PullAsync();
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnResumed() => _ = InvokeAsync(PullAsync);
+
+    private void OnPoll()
+    {
+        if (Item?.Standing == NotificationStanding.AwaitingOwner) _ = InvokeAsync(PullAsync);
+    }
+
+    private async Task PullAsync()
+    {
+        if (_pulling) return;
+        _pulling = true;
+
+        try
+        {
+            await Notifications.PullAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The card is drawn as the phone last saw it; the list says why it is stale.
+        }
+        finally
+        {
+            _pulling = false;
+            _pulled = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReplyAsync(NotificationAnswerPick pick)
+    {
+        _replying = true;
+
+        try
+        {
+            await Notifications.ReplyAsync(Id, pick.ChoiceIds, pick.Text);
+            _replyError = null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The phone could not keep the reply — its own file, not the network, which the
+            // outbox rides out. The card can be answered again.
+            _replyError = "This phone could not keep your answer. Try again.";
+        }
+        finally
+        {
+            _replying = false;
+        }
+    }
+
+    private Task RetryAsync(Guid entryId) => Outbox.RetryAsync(entryId);
+
+    public void Dispose()
+    {
+        Notifications.Changed -= OnChanged;
+        Lifecycle.Resumed -= OnResumed;
+        _poll?.Dispose();
+    }
+}

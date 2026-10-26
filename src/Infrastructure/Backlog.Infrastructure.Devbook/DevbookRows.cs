@@ -2,14 +2,14 @@ namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
 /// One row of <c>node</c>: a chapter, a file, or a reference target outside the
-/// knowledge folders altogether.
+/// devbook folders altogether.
 /// </summary>
 /// <param name="Id">The chapter reference, <c>&lt;path&gt;#&lt;slug&gt;</c> for a
 /// chapter and the path alone for a file — the same opaque string a
 /// <c>related</c> or <c>depends-on</c> field carries, so a reference and a node
 /// line up without either side parsing the other.</param>
 /// <param name="Folder">The folder kind (<c>arc42</c>, <c>domain</c>) or
-/// <see langword="null"/> for a node outside the knowledge folders.</param>
+/// <see langword="null"/> for a node outside the devbook folders.</param>
 /// <param name="OutOfScope">Set by the writer for a node with no folder. It does
 /// not mean what a projected graph means by the word — see
 /// <see cref="DevbookScopeProjection"/>, which decides that per scope.</param>

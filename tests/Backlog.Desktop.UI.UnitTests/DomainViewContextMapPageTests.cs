@@ -11,7 +11,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Domain view's Context map page, reached the way a reader reaches it: the
-/// New domain view switch on, the Context map row picked (local ADR 0037). Map
+/// New domain view switch on, the Context map row picked (local ADR 0040). Map
 /// draws the contexts with a line per pair worded from each context's dependency
 /// tables; List names them in reading order; a card opens its context's page.
 /// </summary>
@@ -153,7 +153,7 @@ public sealed class DomainViewContextMapPageTests : IDisposable
         var read = DomainViewContextMapPage.Read(view);
 
         Assert.Null(read.Problem);
-        Assert.Equal(14, read.Map.Contexts.Count);
+        Assert.Equal(15, read.Map.Contexts.Count);
         Assert.All(read.Map.Contexts, context => Assert.NotNull(context.Slug));
         var unworded = read.Map.Lines.Where(line => line.Wording.Length == 0).Select(read.Map.Describe).ToList();
         Assert.True(unworded.Count == 0, "Lines no dependency row words: " + string.Join("; ", unworded));

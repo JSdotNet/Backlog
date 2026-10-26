@@ -23,7 +23,7 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
     }
 
     /// <summary>Whether the Domain area lists a bounded context by unit (local ADR
-    /// 0037) rather than as the flat list of its files.</summary>
+    /// 0040) rather than as the flat list of its files.</summary>
     private bool DomainUnitsEnabled => features?.IsEnabled(DevbookFeatures.DomainView) == true;
 
     /// <summary>
@@ -281,7 +281,7 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
         CancellationToken cancellationToken)
     {
         // No outline: the instruction area is assembled out of agent folders
-        // rather than being a knowledge folder with a reading order of its own.
+        // rather than being a devbook folder with a reading order of its own.
         var nodes = EnumerateChildren(tree, repositoryRoot, directory, areaKey, DevbookMenuOutline.None, cancellationToken, includeAllFiles: true);
         return nodes.Select(node => RewriteInstructionPath(node, displayRoot, sourceRoot)).ToList();
     }
@@ -495,7 +495,7 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
         return nodes;
     }
 
-    /// <summary>Where a directory sits inside the knowledge folder, as the
+    /// <summary>Where a directory sits inside the devbook folder, as the
     /// reading convention and the generated outline both key it: empty at the
     /// folder's own root, <c>/</c>-separated below it.</summary>
     private static string RelativeDirectory(string root, string directory)
@@ -611,7 +611,7 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeature
 
     /// <summary>Name segments that are acronyms rather than words, so a folder
     /// called "adr" reads as ADR instead of Adr. Deliberately only the segments
-    /// the knowledge folders actually use — anything else keeps title case
+    /// the devbook folders actually use — anything else keeps title case
     /// rather than being shouted on a guess.</summary>
     private static readonly HashSet<string> Acronyms = new(StringComparer.OrdinalIgnoreCase) { "adr", "tdr" };
 
@@ -645,7 +645,7 @@ public sealed record DevbookMenuNode(
     public bool HasChildren => Children.Count > 0;
 
     /// <summary>The number the row shows beside its label, or null for none —
-    /// how many pages a kind's row holds in the New domain view (local ADR 0037).</summary>
+    /// how many pages a kind's row holds in the New domain view (local ADR 0040).</summary>
     public int? Count { get; init; }
 }
 

@@ -14,7 +14,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// switch on and a context's Flow row picked. A lifecycle's stateDiagram-v2 is
 /// drawn as one row of states with the chapter's prose beneath it, a sequence in the
 /// same style, and a Mermaid diagram the page cannot read keeps the DiagramView
-/// rendering (local ADR 0037).
+/// rendering (local ADR 0040).
 /// </summary>
 public sealed class DomainViewFlowPageTests : IDisposable
 {

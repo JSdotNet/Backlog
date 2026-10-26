@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Domain menu with the New domain view switch (<c>devbook-domain-view</c>)
-/// on: a bounded context listed by unit, as local ADR 0037 decides — its kinds in
+/// on: a bounded context listed by unit, as local ADR 0040 decides — its kinds in
 /// the reading order, each split file nested under its kind and titled by its
 /// heading, the files that are a tab or a button on another page drawing no row.
 ///
@@ -272,7 +272,7 @@ public sealed class DevbookMenuDomainUnitsTests : IDisposable
         Assert.Equal(["Features", "Model"], context.Children.Select(node => node.Label));
     }
 
-    /// <summary>ADR 0037's file table gives the images folder no row, and the
+    /// <summary>ADR 0040's file table gives the images folder no row, and the
     /// board draws none: the chapters show its images, the menu does not.</summary>
     [Fact]
     public async Task The_assets_folder_draws_no_row_but_another_folder_does()

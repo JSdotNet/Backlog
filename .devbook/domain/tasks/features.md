@@ -544,9 +544,26 @@ Push a task to its target repository as an issue carrying the task's title,
 body, and tags. The resulting issue reference is kept on the task, so the link
 is part of the item rather than a note about it. The task can then be asked to
 re-read that issue's current state, and the pull request that references it.
-Downstream progress is then visible from the backlog. Reading GitHub state is a
-deliberate act rather than a background poll, because the backlog has to open
-instantly and offline.
+Downstream progress is then visible from the backlog.
+
+The pull requests a task records are also checked in the background, so a
+merge turns its link green without the person asking. The check reads each
+repository once rather than each pull request in list order, and puts every
+merged and closed answer on screen before the open pull requests are read one
+by one for their checks and merge offer. A pull request still open, or one
+that could not be read, is asked about again after two minutes.
+
+A merged or closed state is remembered on this device, beside the other
+activity caches (`IPullRequestStateMemory`), so the backlog still opens
+instantly and offline and draws a finished link from the first frame. It is
+never written to the task: the task keeps only the link, and losing the
+memory costs one read per pull request. An open pull request's status is never
+remembered, because a stale one would offer a merge GitHub no longer allows.
+
+A prompt entry moves to Done when its pull request merges into the
+repository's default branch or a `plan/` branch — once per entry and merge,
+and only where its lifecycle allows the move. A task or test entry stays the
+person's to tick.
 
 ## Linked tasks
 
@@ -736,7 +753,10 @@ The tags on the filter bar sit in one strip, one row high, and the strip shows a
 [plan](../roadmap/domain.md#roadmap-tag) leads the strip, whether the reader
 pressed it on the bar or arrived with it pressed from the roadmap. The plan
 carries a copy button fused to its chip, which copies the plan tag verbatim,
-`+` and all, so the reader can paste the plan's name elsewhere. **No plan** and
+`+` and all, so the reader can paste the plan's name elsewhere. With the
+[`session-requests`](../sessions/context.md#session-requests) flag on, the plan's
+[queue icon](../sessions/features.md#start-a-session-from-an-entry) follows the
+copy, and the waiting chip takes its place while a request is open. **No plan** and
 the general tags offer no copy, and a plan offers none once it is let go. When
 the reader presses a plan further along the strip, the plan moves to the front
 with its copy, and the focus stays on the moved chip.
@@ -935,6 +955,22 @@ more line on top.
 Every [type](domain.md#task-type) is copied this way, a `task` too. The copy says
 which entry it is, and the session, not the copy, decides whether to run it.
 
+### Start a session on a prompt
+
+```meta
+type: sub-feature
+status: draft
+feature-flag: .devbook/domain/sessions/context.md#session-requests
+related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#multi-repo-targeting]
+```
+
+Queue a coding session that runs a prompt, in its repository's clone folder, without
+copying it anywhere. The queue icon sits beside the prompt's copy button, on its row and
+in the open entry. Pressing it creates a session request in the Sessions context. The
+entry shows that it is waiting for a session until the session links itself. The
+[Sessions feature](../sessions/features.md#start-a-session-from-an-entry) says who is
+offered it and what the waiting chip shows.
+
 ### Hand-off to Copilot CLI
 
 ```meta
@@ -1021,7 +1057,7 @@ A plan also carries work around a prompt that is not the prompt itself:
 
 - a setup or dependency step the repository needs before the prompt can run,
   such as installing a plugin;
-- a reminder to update that repository's knowledge docs or devbook;
+- a reminder to update that repository's devbook;
 - a task only a person can do.
 
 None of these is a new kind of thing. They land as ordinary
@@ -1112,7 +1148,7 @@ the same tag that came from somewhere else was never part of the plan and is not
 touched.
 
 An `in_progress` task takes the new version's instructions, type, dependencies,
-target repository, and setup, knowledge and manual sub-items. Status is the one
+target repository, and setup, devbook and manual sub-items. Status is the one
 field a later version moves only when it asks to. If the version restates it, the
 task moves there. If the version leaves it out, the task keeps whatever progress
 it has made since it was imported. A plan that says nothing about where an entry

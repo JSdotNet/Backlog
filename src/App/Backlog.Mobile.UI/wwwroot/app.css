@@ -389,3 +389,67 @@ html, body { background-color: var(--color-background); color: var(--color-text-
     text-transform: uppercase;
 }
 .standup-detail__field .field__input { min-height: 44px; }
+
+/*
+  Notifications (local ADR 0039): the list and the detail, drawn as the proposal's
+  phone mockup draws them — a raised card per notification, its kind and severity
+  as small tags with the age across from them, the title, the summary, the answer
+  controls, where it stands, and the desktop that owns it in the mono line.
+*/
+.notifications-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.notifications-heading__titles { display: grid; gap: .125rem; }
+.notifications-heading__lede { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.notifications-heading h1 { margin: 0; font-family: var(--font-family-heading); }
+
+.notifications { padding-bottom: 1.5rem; }
+.notifications__list { display: grid; gap: .75rem; list-style: none; padding: 0; margin: 0; }
+
+.phone-notification {
+    display: grid;
+    gap: .5rem;
+    padding: .75rem .8125rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-raised);
+    min-width: 0;
+}
+.phone-notification__meta { display: flex; justify-content: space-between; align-items: center; gap: .5rem; color: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.phone-notification__tags { display: inline-flex; flex-wrap: wrap; gap: .25rem; }
+.phone-notification__tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
+    padding: 1px .4rem;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+}
+.phone-notification__tag--question { background: color-mix(in srgb, var(--color-primary) 14%, transparent); color: var(--color-primary); }
+.phone-notification__tag--alert { background: color-mix(in srgb, var(--color-info) 14%, transparent); color: var(--color-text-primary); }
+.phone-notification__tag--warning { background: color-mix(in srgb, var(--color-warning) 18%, transparent); color: var(--color-text-primary); }
+.phone-notification__tag--critical { background: color-mix(in srgb, var(--color-error) 16%, transparent); color: var(--color-error-text); }
+.phone-notification__title { margin: 0; font-size: 1rem; font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); overflow-wrap: anywhere; }
+h1.phone-notification__title { font-family: var(--font-family-heading); font-size: 1.375rem; }
+.phone-notification__title a { color: inherit; text-decoration: none; }
+.phone-notification__title a:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; }
+.phone-notification__summary { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+.phone-notification__body { min-width: 0; overflow-x: auto; }
+.phone-notification__answer { display: grid; gap: .5rem; }
+.phone-notification__choices { display: flex; flex-wrap: wrap; gap: .375rem; }
+.phone-notification__checks { display: grid; gap: .25rem; margin: 0; padding: 0; border: 0; }
+.phone-notification__legend { padding: 0; margin-bottom: .25rem; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.phone-notification__open { display: grid; gap: .375rem; }
+.phone-notification__standing { margin: 0; font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+.phone-notification[data-standing="answered-here"] .phone-notification__standing { color: var(--color-success-text); }
+.phone-notification__owner {
+    display: flex;
+    align-items: center;
+    gap: .375rem;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}

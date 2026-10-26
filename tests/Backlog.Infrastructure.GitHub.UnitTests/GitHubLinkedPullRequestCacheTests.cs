@@ -109,6 +109,25 @@ public sealed class GitHubLinkedPullRequestCacheTests
         Assert.Equal(2, _asked.Count);
     }
 
+    /// <summary>A repository that answered without the number, read in one batch beside
+    /// another repository's merged pull request with that number, is kept as answered
+    /// without — never as that merged pull request, which would be kept for good and
+    /// handed to everyone who later asks for the link on its own.</summary>
+    [Fact]
+    public async Task A_repository_that_answered_without_the_number_does_not_keep_another_repositorys_pull_request_with_it()
+    {
+        _github.Add(Pull(1477, GitHubItemState.Merged));
+        var cache = Cache();
+        var elsewhere = new GitHubPullRequestReference("JSdotNet/Marketplace", 1477);
+
+        await cache.ReadAsync([Link(1477), elsewhere], TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
+        var alone = await cache.ReadAsync([elsewhere], TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken);
+
+        Assert.Empty(alone.PullRequests);
+        Assert.Empty(alone.Failures);
+        Assert.Single(_asked);
+    }
+
     private async Task<GitHubLinkedPullRequestListing> ReadAsync(IReadOnlyList<GitHubPullRequestReference> links, CancellationToken cancellationToken)
     {
         _asked.Add(string.Join(",", links.Select(link => link.Number).Order()));

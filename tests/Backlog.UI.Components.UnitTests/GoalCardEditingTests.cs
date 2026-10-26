@@ -159,6 +159,24 @@ public sealed class GoalCardEditingTests : IDisposable
         Assert.Equal("Customers paid sooner", board.Find(Field("title")).GetAttribute("value"));
     }
 
+    /// <summary>A goal without a due date shows the iteration's last day, but that day is
+    /// read, not stored: its field starts empty, and editing another field hands back no date,
+    /// so the goal never takes the derived day as its own.</summary>
+    [Fact]
+    public void Editing_a_goal_without_a_due_date_never_hands_back_the_iteration_end_as_its_date()
+    {
+        var calls = new Calls();
+        var dateless = Paid with { DueDate = Oct(23), DueIsIterationEnd = true };
+        var board = RenderBoard(calls, Board(dateless, Search));
+
+        Assert.Equal(string.Empty, board.Find(Field("due")).GetAttribute("value") ?? string.Empty);
+
+        board.Find(Field("title")).Change("Customers paid sooner");
+
+        var edit = Assert.Single(calls.Edits);
+        Assert.Equal(new GoalEditRequest("paid", "Customers paid sooner", "Invoices are paid within 14 days", null), edit);
+    }
+
     [Fact]
     public void A_value_the_goal_already_says_is_not_handed_back()
     {
@@ -178,13 +196,54 @@ public sealed class GoalCardEditingTests : IDisposable
     {
         var host = RenderHarness();
 
-        Type(host, "due", string.Empty);
+        Type(host, "due", "2026-13-45");
         Assert.Empty(host.Instance.Edits);
 
         host.Find(Field("due")).FocusOut();
 
         Assert.Equal("2026-10-30", host.Find(Field("due")).GetAttribute("value"));
         Assert.Empty(host.Instance.Edits);
+    }
+
+    /// <summary>Emptying the date and leaving the field clears the goal's due date: it is
+    /// then due at the end of the iteration, and its field stays empty.</summary>
+    [Fact]
+    public void Emptying_the_date_and_leaving_the_field_clears_the_goals_due_date()
+    {
+        var host = RenderHarness();
+
+        Type(host, "due", string.Empty);
+        Assert.Empty(host.Instance.Edits);
+
+        host.Find(Field("due")).FocusOut();
+
+        Assert.Equal(new GoalEditRequest("paid", "Customers get paid faster", "Invoices are paid within 14 days", null), Assert.Single(host.Instance.Edits));
+        Assert.Equal(string.Empty, host.Find(Field("due")).GetAttribute("value") ?? string.Empty);
+    }
+
+    [Fact]
+    public void Enter_on_an_empty_date_clears_the_goals_due_date()
+    {
+        var host = RenderHarness();
+
+        Type(host, "due", string.Empty);
+        host.Find(Field("due")).KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.Null(Assert.Single(host.Instance.Edits).DueDate);
+    }
+
+    /// <summary>A goal without a due date takes one typed into its empty field.</summary>
+    [Fact]
+    public void A_date_typed_into_an_empty_field_sets_the_goals_due_date()
+    {
+        var host = _context.Render<GoalsBoardEditHarness>(p => p
+            .Add(c => c.Model, Board(Paid with { DueDate = Oct(23), DueIsIterationEnd = true }, Search)));
+
+        Type(host, "due", "2026-11-06");
+        host.Find(Field("due")).FocusOut();
+
+        Assert.Equal(new DateOnly(2026, 11, 6), Assert.Single(host.Instance.Edits).DueDate);
+        Assert.Equal("2026-11-06", host.Find(Field("due")).GetAttribute("value"));
     }
 
     [Fact]

@@ -57,7 +57,7 @@ public sealed record DomainOwnedEnum(string Name, string Title, IReadOnlyList<st
 /// it: the heading, its first sentence, its aliases and its status.</summary>
 public sealed record DomainModelProfile(string Title, string Summary, IReadOnlyList<string> Aliases, string? Status);
 
-/// <summary>The Fields tab for one aggregate root (local ADR 0037): its fields in
+/// <summary>The Fields tab for one aggregate root (local ADR 0040): its fields in
 /// groups, and what it owns.</summary>
 /// <param name="Written">Whether the groups are the model file's own purpose
 /// groups rather than the kinds the types say.</param>

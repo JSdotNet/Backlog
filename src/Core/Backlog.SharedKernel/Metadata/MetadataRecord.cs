@@ -4,7 +4,7 @@ namespace Backlog.SharedKernel.Metadata;
 
 /// <summary>
 /// The contents of one fenced <c>meta</c> block: the small, parseable record a
-/// knowledge chapter or file carries directly under its heading.
+/// devbook chapter or file carries directly under its heading.
 ///
 /// <para>Only <c>status</c> is required. Every other field is written only when
 /// it has a value — the convention is explicit that empty collections and nulls
@@ -109,7 +109,7 @@ public sealed record MetadataRecord
     /// chapter in the running product, by key.
     ///
     /// <para>Plain strings, and explicitly not references: the flag lives in the
-    /// application's own catalog rather than in a knowledge folder, so there is no
+    /// application's own catalog rather than in a devbook folder, so there is no
     /// chapter to address and the key is never validated here. One chapter may
     /// name several flags, and one flag may appear on several chapters.</para>
     ///
