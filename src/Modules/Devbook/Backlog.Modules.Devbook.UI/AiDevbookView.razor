@@ -1,4 +1,5 @@
 @inject AiDevbookProvider AiDevbook
+@inject IServiceProvider Services
 
 @*
     The AI section of the pane: the repository's `.ai` adoption record — how the
@@ -37,6 +38,7 @@
 
     private IReadOnlyList<DocumentDevbookFile>? _modelFiles;
     private AiModel? _model;
+    private DevbookStackStamps? _stamps;
 
     /// <summary>The open tab, held here rather than by the strip: the picture is
     /// drawn in the overview and above the open root file, two places in the
@@ -54,6 +56,10 @@
         {
             _modelFiles = files;
             _model = AiModel.From(files);
+
+            // The Devbook tab's stamps, read again with the folder: the
+            // configuration sits beside it in the same repository.
+            _stamps = DevbookStackStamps.Load(Services.GetService<IDevbookFolderSource>(), AiDevbook.Folder.Key, RepositoryAlias);
         }
 
         var model = _model!;
@@ -73,7 +79,7 @@
                 <AiModelView Model="@model" OnNavigateToChapter="@OnNavigateToChapter" />
             </TabPanel>
             <TabPanel Id="@DevbookTab" Title="Devbook" Element="section" TestId="ai-devbook-panel" TabTestId="ai-devbook-tab">
-                <DevbookAdoptionView Model="@model" OnNavigateToChapter="@OnNavigateToChapter" />
+                <DevbookAdoptionView Model="@model" Stamps="@_stamps" OnNavigateToChapter="@OnNavigateToChapter" />
             </TabPanel>
         </Tabs>;
     }
