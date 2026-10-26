@@ -28,7 +28,9 @@ public static class ProgressDocuments
     /// <summary>The goal a <c>goal</c> document holds, or null when it does not read as one —
     /// not JSON, no title, or naming another id than <paramref name="id"/> when one is given.
     /// An attachment of a kind this build does not know, or missing what its kind needs, is
-    /// left out rather than refusing the goal.</summary>
+    /// left out rather than refusing the goal. No <c>dueDate</c>, or <c>0001-01-01</c>, is a
+    /// goal without one: the second is what a build that required a date writes back for a
+    /// document that had none.</summary>
     public static GoalDocumentDto? ReadGoal(string? content, Guid? id = null)
     {
         if (Parse<GoalShape>(content) is not { } shape) return null;
@@ -43,10 +45,16 @@ public static class ProgressDocuments
                 .ToList();
 
         return new GoalDocumentDto(
-            new GoalDto(shape.Id, shape.Title, shape.Outcome, shape.DueDate, attachments),
+            new GoalDto(shape.Id, shape.Title, shape.Outcome, StoredDueDate(shape.DueDate), attachments),
             shape.CreatedAt,
             deleted);
     }
+
+    /// <summary>A goal's stored due date as the goal holds it: <c>0001-01-01</c> is none. A
+    /// build that required a date reads a missing <c>dueDate</c> as that day and writes it back
+    /// on its next edit, so every reader of a <c>goal</c> document — this one and the desktop's
+    /// store — treats it as no date.</summary>
+    public static DateOnly? StoredDueDate(DateOnly? stored) => stored == DateOnly.MinValue ? null : stored;
 
     /// <summary>The impediment an <c>impediment</c> document holds, or null when it does not
     /// read as one — not JSON, no title, no history, or another id than
@@ -153,7 +161,7 @@ public static class ProgressDocuments
         Guid Id,
         string? Title,
         string? Outcome,
-        DateOnly DueDate,
+        DateOnly? DueDate,
         List<AttachmentShape?>? Attachments,
         DateTimeOffset? CreatedAt,
         DateTimeOffset? DeletedAt);

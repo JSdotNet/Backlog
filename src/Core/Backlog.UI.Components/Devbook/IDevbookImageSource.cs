@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components;
 namespace Backlog.UI.Components.Devbook;
 
 /// <summary>
-/// A host's answer to an image a knowledge chapter names by something other than a
+/// A host's answer to an image a devbook chapter names by something other than a
 /// path — <c>scenario:&lt;scenarios file&gt;#&lt;label&gt;</c>, a journey's latest capture
 /// of a screenshot point — cascaded to every chapter view below it.
 /// <para>

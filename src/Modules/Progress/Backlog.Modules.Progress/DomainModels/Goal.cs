@@ -4,8 +4,10 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Progress.DomainModels;
 
 /// <summary>
-/// Something a person is working towards, with a date it should be reached by
-/// (<c>.devbook/domain/progress/domain.md#goal</c>, local ADR 0035 §2). The consistency
+/// Something a person is working towards, with an optional date it should be reached by
+/// (<c>.devbook/domain/progress/domain.md#goal</c>, local ADR 0035 §2). Without one it is
+/// due at the end of next, read afresh on every reading and never stored
+/// (<see cref="GoalForecasting.DueOn"/>). The consistency
 /// boundary for its own attachments: one item is attached once, and the counting rules
 /// see the whole set.
 /// <para>
@@ -23,7 +25,7 @@ public sealed class Goal
 {
     private readonly List<GoalAttachment> _attachments;
 
-    private Goal(Guid id, string title, string? outcome, DateOnly dueDate, List<GoalAttachment> attachments, DateTimeOffset? createdAt)
+    private Goal(Guid id, string title, string? outcome, DateOnly? dueDate, List<GoalAttachment> attachments, DateTimeOffset? createdAt)
     {
         Id = id;
         Title = title;
@@ -40,7 +42,8 @@ public sealed class Goal
     /// <summary>One line saying what is true once the goal is reached, or null.</summary>
     public string? Outcome { get; private set; }
 
-    public DateOnly DueDate { get; private set; }
+    /// <summary>The day the goal should be reached by, or null for none.</summary>
+    public DateOnly? DueDate { get; private set; }
 
     /// <summary>The plans, tasks and pull requests whose work reaches the goal, in the
     /// order they were attached.</summary>
@@ -50,9 +53,8 @@ public sealed class Goal
     /// alike on every device. Null for a goal restored without one.</summary>
     public DateTimeOffset? CreatedAt { get; }
 
-    /// <summary>A new goal holding nothing. Refused without a title
-    /// (<c>progress.goal_without_title</c>) or a due date
-    /// (<c>progress.goal_without_due_date</c>), or with an outcome that is not one line
+    /// <summary>A new goal holding nothing, with or without a due date. Refused without a
+    /// title (<c>progress.goal_without_title</c>), or with an outcome that is not one line
     /// (<c>progress.outcome_not_one_line</c>).</summary>
     public static Result<Goal> Create(
         Guid id,
@@ -67,9 +69,7 @@ public sealed class Goal
         var cleanOutcome = CleanOutcome(outcome);
         if (cleanOutcome.IsFailure) return cleanOutcome.Error;
 
-        if (dueDate is not { } due) return ProgressErrors.GoalWithoutDueDate();
-
-        return new Goal(id, cleanTitle.Value, cleanOutcome.Value, due, [], createdAt);
+        return new Goal(id, cleanTitle.Value, cleanOutcome.Value, dueDate, [], createdAt);
     }
 
     /// <summary>Rehydration from storage. Trusted, as every stored aggregate is: the rules
@@ -78,7 +78,7 @@ public sealed class Goal
         Guid id,
         string title,
         string? outcome,
-        DateOnly dueDate,
+        DateOnly? dueDate,
         IEnumerable<GoalAttachment> attachments,
         DateTimeOffset? createdAt = null) =>
         new(id, title, string.IsNullOrWhiteSpace(outcome) ? null : outcome, dueDate, [.. attachments.Distinct()], createdAt);
@@ -102,11 +102,10 @@ public sealed class Goal
         return Result.Success();
     }
 
+    /// <summary>Sets the due date, or clears it with null.</summary>
     public Result ChangeDueDate(DateOnly? dueDate)
     {
-        if (dueDate is not { } due) return Result.Failure(ProgressErrors.GoalWithoutDueDate());
-
-        DueDate = due;
+        DueDate = dueDate;
         return Result.Success();
     }
 

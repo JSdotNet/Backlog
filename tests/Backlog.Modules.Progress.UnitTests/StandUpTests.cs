@@ -319,6 +319,24 @@ public sealed class StandUpTests : IDisposable
         Assert.Equal(GoalStanding.AtRisk, line.Standing);
     }
 
+    /// <summary>A goal without a due date is due on the last day of next, Friday 23 October,
+    /// and says so; a dated goal carries its own date.</summary>
+    [Fact]
+    public async Task A_goal_without_a_due_date_reads_as_due_at_the_end_of_next()
+    {
+        var dateless = MakeGoal.Named("Invoices settle in a day");
+        Assert.True(dateless.ChangeDueDate(null).IsSuccess);
+        await _goals.SaveAsync(dateless, Cancellation);
+        var dated = await GoalAsync("Customers get paid faster");
+
+        var standUp = await ReadAsync();
+
+        var derived = standUp.Goals.Single(goal => goal.Id == dateless.Id);
+        Assert.Equal((Oct(23), true), (derived.DueDate, derived.DueIsIterationEnd));
+        var own = standUp.Goals.Single(goal => goal.Id == dated.Id);
+        Assert.Equal((MakeGoal.Due, false), (own.DueDate, own.DueIsIterationEnd));
+    }
+
     /// <summary>Scenario "An impediment on a plan's entry": a goal that lands in time reads On
     /// track until an open impediment holds back one of its open entries, then At risk.</summary>
     [Fact]

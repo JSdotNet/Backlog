@@ -13,9 +13,10 @@ public sealed record GoalForecast(GoalStanding Standing, DateOnly? LandsOn, deci
 /// Forecasts a goal from its done rate (<c>.devbook/domain/progress/domain.md#goal-forecast</c>):
 /// the items done in each of the four iterations ending with last, averaged. At that rate
 /// the open items need <c>n</c> more iterations, counting next as the first, and the goal
-/// lands on the last day of the <c>n</c>-th. It is At risk when that day falls after the due
-/// date, when it has open items and no landing date, or when an open impediment holds back
-/// one of its items; landing on the due date is On track, and so is a goal with nothing open.
+/// lands on the last day of the <c>n</c>-th. It is At risk when that day falls after the day
+/// it is due on (<see cref="DueOn"/>: its due date, or the last day of next without one), when
+/// it has open items and no landing date, or when an open impediment holds back one of its
+/// items; landing on that day is On track, and so is a goal with nothing open.
 /// Pure, and in the published surface beside <see cref="Iterations"/>.
 /// </summary>
 public static class GoalForecasting
@@ -27,12 +28,13 @@ public static class GoalForecasting
     /// <param name="doneOn">The day each done item was done, in any order; a day no window of
     /// the four iterations read contains is ignored.</param>
     /// <param name="next">The window the reading calls next.</param>
+    /// <param name="dueDate">The goal's due date, or null for none.</param>
     /// <param name="heldBack">Whether an open impediment holds back one of the goal's items.</param>
     public static GoalForecast Forecast(
         int open,
         IEnumerable<DateOnly> doneOn,
         IterationWindow next,
-        DateOnly dueDate,
+        DateOnly? dueDate,
         bool heldBack,
         WorkingHours week)
     {
@@ -54,7 +56,12 @@ public static class GoalForecasting
         var landing = next;
         for (var i = 1; i < needed; i++) landing = Iterations.Following(landing, week);
 
-        var standing = heldBack || landing.Last > dueDate ? GoalStanding.AtRisk : GoalStanding.OnTrack;
+        var standing = heldBack || landing.Last > DueOn(dueDate, next) ? GoalStanding.AtRisk : GoalStanding.OnTrack;
         return new GoalForecast(standing, landing.Last, rate);
     }
+
+    /// <summary>The day a goal is due on: its <paramref name="dueDate"/>, or the last day of
+    /// <paramref name="next"/> for a goal without one. Worked out on every reading and never
+    /// stored, so every head shows the day the standing was read against.</summary>
+    public static DateOnly DueOn(DateOnly? dueDate, IterationWindow next) => dueDate ?? next.Last;
 }

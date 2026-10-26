@@ -65,6 +65,14 @@ public class BacklogMcpToolsTests
                 "raise_impediment",
                 "set_impediment_state",
 
+                // Progress's goals: read, set, edit, attach, detach, delete (local ADR 0035).
+                "list_goals",
+                "create_goal",
+                "update_goal",
+                "attach_to_goal",
+                "detach_from_goal",
+                "delete_goal",
+
                 // Notifications' four (local ADR 0038).
                 "notify",
                 "ask",
@@ -89,8 +97,9 @@ public class BacklogMcpToolsTests
         Assert.Equal(DevbookFeatures.RepositoryDevbook, BacklogMcpTools.Devbook.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
-        // Progress has no switch: its impediment tools ride the always-on Tasks key.
+        // Progress has no switch: its impediment and goal tools ride the always-on Tasks key.
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Impediments.FeatureKey);
+        Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Goals.FeatureKey);
         Assert.Equal(NotificationsFeatures.Notifications, BacklogMcpTools.Notifications.FeatureKey);
     }
 
@@ -116,9 +125,9 @@ public class BacklogMcpToolsTests
     /// </para>
     /// <para>
     /// No key crosses a bounded context but one: the Tasks key also gates Progress's
-    /// impediment tools, because Progress has no switch of its own — goals are always
-    /// on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
-    /// keys the eight groups name are five.
+    /// impediment and goal tools, because Progress has no switch of its own — goals are
+    /// always on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
+    /// keys the nine groups name are five.
     /// </para>
     /// </summary>
     [Fact]
@@ -130,10 +139,10 @@ public class BacklogMcpToolsTests
 
         Assert.Equal(5, byKey.Count);
 
-        // The impediment tools are Progress's, which has no switch of its own: goals are
-        // always on, so they ride the Tasks key, which cannot be turned off either.
+        // The impediment and goal tools are Progress's, which has no switch of its own:
+        // goals are always on, so they ride the Tasks key, which cannot be turned off either.
         Assert.Equal(
-            [BacklogMcpTools.Work, BacklogMcpTools.Tracker, BacklogMcpTools.Impediments],
+            [BacklogMcpTools.Work, BacklogMcpTools.Tracker, BacklogMcpTools.Impediments, BacklogMcpTools.Goals],
             byKey[TasksFeatures.Tasks]);
 
         Assert.Equal(
@@ -203,10 +212,17 @@ public class BacklogMcpToolsTests
     /// particular — the list below says which and why.
     /// </para>
     /// <para>
-    /// Nothing declares itself destructive, there being no delete tool here to
-    /// destroy anything with. The description is the other half: a model reads it
-    /// to decide whether to call the tool at all, and a tool with no description
-    /// is one that gets called for the wrong reason.
+    /// One tool declares itself destructive, and it is the one delete here:
+    /// <c>delete_goal</c> removes a goal and what it holds, which no later call brings
+    /// back. Every other writer adds or replaces. The description is the other half: a
+    /// model reads it to decide whether to call the tool at all, and a tool with no
+    /// description is one that gets called for the wrong reason.
+    /// </para>
+    /// <para>
+    /// The goal writes split on the same line as the rest: <c>create_goal</c> sets a
+    /// second goal when repeated; <c>update_goal</c> writes the same fields again,
+    /// attaching or detaching what is already so changes nothing, and a deleted goal
+    /// stays deleted — those four are safe to repeat.
     /// </para>
     /// </summary>
     [Fact]
@@ -231,10 +247,17 @@ public class BacklogMcpToolsTests
             SurfaceTools.FinishRun,
             ImpedimentTools.RaiseImpediment,
             ImpedimentTools.SetImpedimentState,
+            GoalTools.CreateGoal,
+            GoalTools.UpdateGoal,
+            GoalTools.AttachToGoal,
+            GoalTools.DetachFromGoal,
+            GoalTools.DeleteGoal,
             NotificationTools.Notify,
             NotificationTools.Ask,
             NotificationTools.Close
         ];
+
+        string[] destructive = [GoalTools.DeleteGoal];
 
         // The writes a client may safely repeat, and which ones is not guessable
         // from the verb. On the surface: showing a pane that is already showing
@@ -243,7 +266,8 @@ public class BacklogMcpToolsTests
         // closes a run that is already closed to the same place. The two that are
         // not: record_prompt appends, and update_stage counts every transition to
         // done — a stage re-run after requested changes has to read as a second
-        // pass rather than a retry of the first.
+        // pass rather than a retry of the first. delete_goal is not either: a
+        // second delete is refused as progress.goal_not_found.
         string[] repeatable =
         [
             DevbookTools.ResolveAnnotation,
@@ -254,7 +278,10 @@ public class BacklogMcpToolsTests
             SurfaceTools.OpenDashboard,
             SurfaceTools.StartRun,
             SurfaceTools.SetRunContext,
-            SurfaceTools.FinishRun
+            SurfaceTools.FinishRun,
+            GoalTools.UpdateGoal,
+            GoalTools.AttachToGoal,
+            GoalTools.DetachFromGoal
         ];
 
         var seen = new List<string>();
@@ -283,7 +310,7 @@ public class BacklogMcpToolsTests
                 // tool never reaches the wire with the hint at all (the SDK omits
                 // it), so reading the attribute for one would be asserting against
                 // a default rather than against a claim anybody made.
-                Assert.False(tool.Destructive, $"{tool.Name} declares itself destructive.");
+                Assert.Equal(destructive.Contains(tool.Name, StringComparer.Ordinal), tool.Destructive);
 
                 Assert.Equal(repeatable.Contains(tool.Name, StringComparer.Ordinal), tool.Idempotent);
             }
@@ -300,14 +327,15 @@ public class BacklogMcpToolsTests
     /// <para>
     /// <c>OpenWorld</c> is contract metadata a client acts on, so it has to
     /// describe what the tool does rather than what the group would like to be
-    /// true of it. The two devbook tools that resolve a knowledge folder can meet
+    /// true of it. The two devbook tools that resolve a devbook folder can meet
     /// a repository whose devbook is read from a branch snapshot (local ADR
     /// 0008): <c>read_knowledge_chapter</c> fetches the named file through
     /// <c>PrepareContentAsync</c> and <c>list_knowledge_contexts</c> asks the
     /// auto-fetch to make sure the branch has been indexed. The two Devbook
     /// reference tools resolve what an entry points at the same way — a page the
     /// database does not hold is read through <c>PrepareContentAsync</c>, which
-    /// fetches it for a branch snapshot. Every other tool here
+    /// fetches it for a branch snapshot. <c>list_goals</c> answers each goal's progress,
+    /// which reads the state of every pull request it counts from GitHub. Every other tool here
     /// reads this machine and nothing else — the SQLite backlog, the roadmap
     /// store, the annotation store, the session files — and the replicated
     /// session source "reads a store and never the network".
@@ -325,7 +353,8 @@ public class BacklogMcpToolsTests
             DevbookTools.ListKnowledgeContexts,
             DevbookTools.ReadKnowledgeChapter,
             TrackerTools.SetDevbookReferences,
-            TrackerTools.ListDevbookReferences
+            TrackerTools.ListDevbookReferences,
+            GoalTools.ListGoals
         ];
 
         foreach (var group in BacklogMcpTools.Groups)

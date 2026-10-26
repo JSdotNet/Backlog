@@ -1690,9 +1690,12 @@ h1, h2, h3 {
     color: var(--color-success-text);
 }
 
+/* Closed takes the quiet ink, not the disabled one: a closed pull request is
+   information, not an unavailable control
+   (.devbook/design/color-scheme.md#integration-roles). */
 .entry-doc__work-link--closed.integration-link--link,
 .entry-doc__work-link--closed.integration-link--link:hover {
-    color: var(--color-text-disabled);
+    color: var(--integration-ink-quiet);
 }
 
 /* The panel's: in the footer beside the creation date, small like it, wrapping
@@ -8470,7 +8473,7 @@ a.pull-request-detail-checks__name:hover {
 /* --------------------------------------------------------------------------
    Devbook atlas
    --------------------------------------------------------------------------
-   The map over a knowledge folder, or over all of them. It takes the section
+   The map over a devbook folder, or over all of them. It takes the section
    body when it is open, so it is a column that fills the room and clips: the
    map fits and the list inside it scrolls, exactly as the technology atlas
    does.

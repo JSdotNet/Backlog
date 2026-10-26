@@ -165,7 +165,7 @@ public sealed class GitHubSettingsTests
         }
     }
 
-    /// <summary>The <c>path</c> of every knowledge folder of every repository as the
+    /// <summary>The <c>path</c> of every devbook folder of every repository as the
     /// settings file itself holds it, rather than as the store re-normalizes it on
     /// the way back in.</summary>
     private static List<JsonElement> StoredDevbookFolderPaths(string settingsPath)

@@ -86,6 +86,8 @@ public sealed class AppFeatureSettingsStoreTests
                 DevbookFeatures.C4Diagrams,
                 DevbookFeatures.Search,
                 DevbookFeatures.SemanticSearch,
+                DevbookFeatures.Editing,
+                DevbookFeatures.Status,
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
                 SessionFeatures.PullRequests,
@@ -137,6 +139,46 @@ public sealed class AppFeatureSettingsStoreTests
 
         Assert.Equal(status, feature.Status);
         Assert.Equal(enabledByDefault, feature.EnabledByDefault);
+    }
+
+    /// <summary>The viewer's Edit control and its status display each sit behind
+    /// a switch of their own while their removal is weighed. Both are finished, so
+    /// both are Released; both start off, so a person keeps them only by asking.
+    /// The keys are persisted values and are pinned as literals.</summary>
+    [Theory]
+    [InlineData(DevbookFeatures.Editing, "devbook-editing")]
+    [InlineData(DevbookFeatures.Status, "devbook-status")]
+    public void The_devbook_viewer_switches_are_released_product_areas_that_start_off(string key, string persisted)
+    {
+        var feature = Assert.Single(AppFeatures.All, feature => feature.Key == key);
+
+        Assert.Equal(persisted, key);
+        Assert.Equal(AppFeatureStatus.Released, feature.Status);
+        Assert.False(feature.EnabledByDefault);
+        Assert.Equal(AppFeatureGroup.Domain, feature.Group);
+    }
+
+    [Theory]
+    [InlineData(DevbookFeatures.Editing)]
+    [InlineData(DevbookFeatures.Status)]
+    public void A_devbook_viewer_switch_stays_off_until_it_is_asked_for(string key)
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+
+            Assert.False(store.IsEnabled(key));
+
+            store.SetEnabled(key, enabled: true);
+
+            Assert.True(new AppFeatureSettingsStore(AppFeatures.All, path).IsEnabled(key));
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
     }
 
     [Fact]

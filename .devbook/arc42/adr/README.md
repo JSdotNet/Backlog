@@ -61,8 +61,9 @@ between inherited ADRs 0005 and 0009.
 - **[0032 — The My Day preferences ride the task feed as one whole document, and the phone folds it](0032-my-day-preferences-ride-the-task-feed.md)** *(accepted, not yet built; follows 0018 and 0021)*
 - **[0033 — The Dashboard sends its figures to Foundry, whichever part was pressed](0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md)** *(accepted, built in PR #1316; widens what Ask AI sends, beside 0023)*
 - **[0034 — Archify renders are generated on demand into app storage, not committed](0034-archify-renders-are-generated-on-demand-not-committed.md)** *(proposed, built; amends 0004 and 0008, changes the remediation of TDR 0001)*
-- **[0035 — Goals and impediments replace sprints](0035-goals-and-impediments-replace-sprints.md)** *(proposed, not yet built; supersedes the sprint parts of 0022 §2 and 0028)*
+- **[0035 — Goals and impediments replace sprints](0035-goals-and-impediments-replace-sprints.md)** *(proposed, not yet built; supersedes the sprint parts of 0022 §2 and 0028; §2, §8 and §9 amended by 0037)*
 - **[0036 — The iteration settings ride the task feed as one whole document](0036-the-iteration-settings-ride-the-task-feed.md)** *(accepted, built; refines 0035 §3, follows 0032)*
+- **[0037 — A session attaches to a goal as its own item](0037-a-session-attaches-to-a-goal-as-its-own-item.md)** *(proposed, not yet built; amends 0035 §2, §8 and §9)*
 - **[0038 — Notifications are an owned document kind on their own replica container, and the realtime channel only nudges](0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md)** *(proposed, built and declared in Bicep, not deployed; extends 0005, follows 0011)*
 
 ## Inherited decisions

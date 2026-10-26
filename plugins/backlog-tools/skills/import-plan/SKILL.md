@@ -110,13 +110,13 @@ decision, not the plan's.
    - **Setup sub-items.** A `##` sub-item per repository prerequisite the instructions
      assume (installing a plugin, updating one, wiring a related change), ordered ahead of
      everything else in the entry, titled `Setup: ...`.
-   - **Knowledge/devbook reminder.** One more `##` sub-item reminding whoever runs the
-     prompt to update the target repository's own knowledge folders or devbook once it is
+   - **Devbook reminder.** One more `##` sub-item reminding whoever runs the
+     prompt to update the target repository's own devbook once it is
      done. Every prompt carries this.
 
    For each **`task`** entry: a title naming what the user does, then a body addressed to
    the user — what to do and what "done" looks like, concise. No marker, no session-name
-   line, no `Setup:` or knowledge sub-item: those direct an AI session, and a task has
+   line, no `Setup:` or devbook sub-item: those direct an AI session, and a task has
    none. `- [ ]` checklist lines are fine for the user's own steps. A task or test that
    checks or acts on something the source describes — a test against the design above all —
    carries the same `Read first:` line, as the body's first line. Every task or test but
@@ -153,7 +153,7 @@ decision, not the plan's.
      rather than noted and forgotten. It opens with the marker and session-name line like
      every other prompt, then — when the source has an address — a `Read first:` line
      naming all of it, and
-     carries no knowledge/devbook reminder — it changes no
+     carries no devbook reminder — it changes no
      repository of its own.
    - The **sign-off task**, titled `Sign off the <plan subject> plan`. It carries
      `id:sign-off-plan`, `after:review-plan`, `effort:1` and, like the review, `repo:` once

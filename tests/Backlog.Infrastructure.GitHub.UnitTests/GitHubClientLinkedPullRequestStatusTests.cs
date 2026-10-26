@@ -104,9 +104,41 @@ public sealed class GitHubClientLinkedPullRequestStatusTests
 
         var pull = Assert.Single(await new GitHubClient(transport).ReadLinkedPullRequestsAsync(Repository, [12], Cancellation));
 
-        Assert.DoesNotContain("baseRef", transport.Bodies[0]!, StringComparison.Ordinal);
+        // The base branch's rules are a status fact; its name is not (see below).
+        Assert.DoesNotContain("baseRef {", transport.Bodies[0]!, StringComparison.Ordinal);
         Assert.DoesNotContain("statusCheckRollup", transport.Bodies[0]!, StringComparison.Ordinal);
         Assert.Equal(12, pull.Number);
+    }
+
+    /// <summary>
+    /// The slim read says where each pull request merges and what the repository's
+    /// default branch is — once for the repository, not per pull request — so a merge
+    /// it finds can finish the entry that recorded it without a read of its own
+    /// (<c>PullRequestLanding</c>).
+    /// </summary>
+    [Fact]
+    public async Task The_slim_linked_read_says_where_each_pull_request_merges()
+    {
+        var merged = """
+            {
+              "number": 12, "title": "Land it", "url": "https://github.com/JSdotNet/Backlog/pull/12",
+              "state": "MERGED", "isDraft": false, "mergedAt": "2026-10-20T09:00:00Z",
+              "createdAt": "2026-10-16T09:00:00Z", "author": { "login": "octo" },
+              "baseRefName": "plan/lobes-atlas"
+            }
+            """;
+        var transport = new RoutingTransport().Returns(
+            "graphql",
+            $$"""{ "data": { "repository": { "defaultBranchRef": { "name": "main" }, "p12": {{merged}} } } }""");
+
+        var pull = Assert.Single(await new GitHubClient(transport).ReadLinkedPullRequestsAsync(Repository, [12], Cancellation));
+
+        using var body = JsonDocument.Parse(transport.Bodies[0]!);
+        var query = body.RootElement.GetProperty("query").GetString()!;
+        Assert.Equal(1, query.Split("defaultBranchRef { name }").Length - 1);
+        Assert.Contains("baseRefName", query, StringComparison.Ordinal);
+        Assert.Equal("plan/lobes-atlas", pull.BaseRefName);
+        Assert.Equal("main", pull.DefaultBranch);
     }
 
     [Fact]

@@ -10,7 +10,8 @@ namespace Backlog.Infrastructure.Sqlite.Progress;
 /// The stored shape of one <see cref="Goal"/>: one JSON document per row of
 /// <c>progress_goals</c>, and the <c>goal</c> document that travels between devices
 /// (local ADR 0035 §9). Dates are written as <c>yyyy-MM-dd</c> and the kind by name, so
-/// the stored text reads the same on every machine.
+/// the stored text reads the same on every machine. A goal without a due date has no
+/// <c>dueDate</c>: never an explicit null, which a build that required a date cannot read.
 /// </summary>
 internal sealed record GoalDocument
 {
@@ -32,7 +33,9 @@ internal sealed record GoalDocument
 
     public string? Outcome { get; init; }
 
-    public DateOnly DueDate { get; init; }
+    /// <summary>The due date, or null for none; <c>0001-01-01</c> reads as none too
+    /// (<see cref="ProgressDocuments.StoredDueDate"/>).</summary>
+    public DateOnly? DueDate { get; init; }
 
     public List<GoalAttachmentDocument> Attachments { get; init; } = [];
 
@@ -77,7 +80,7 @@ internal sealed record GoalDocument
             attachments.Add(attachment.Value);
         }
 
-        return Goal.Restore(Id, Title, Outcome, DueDate, attachments, CreatedAt);
+        return Goal.Restore(Id, Title, Outcome, ProgressDocuments.StoredDueDate(DueDate), attachments, CreatedAt);
     }
 }
 

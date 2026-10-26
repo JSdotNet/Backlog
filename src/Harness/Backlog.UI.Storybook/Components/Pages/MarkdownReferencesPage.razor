@@ -190,7 +190,7 @@ The third sample is the same list on a delivery run, under the verify stage that
     </Story>
 
     <Story Name="In prose: a path written in a sentence"
-           Description="The first of the two places. An author writing a knowledge chapter mentions another one the way they would anywhere — a code span holding a path, or an ordinary markdown link — and what comes out is the same reference the record fields carry, drawn by the same component.
+           Description="The first of the two places. An author writing a devbook chapter mentions another one the way they would anywhere — a code span holding a path, or an ordinary markdown link — and what comes out is the same reference the record fields carry, drawn by the same component.
 
 `DevbookInlineTargets.For` is the mechanism: a hook handed to the inline renderer, which offers it every code span and every link before drawing one itself. It lives outside `MarkdownView` because that view is not the only thing rendering a chapter — the arc42 fallback and the design sections render their own block trees straight through `MarkdownRender`, and while they passed no hook their links were browser anchors on repository paths.
 
@@ -397,7 +397,7 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
             "Nothing after the hash, so it reads as the file it plainly points at rather than as a chapter that is missing."),
 
         new("Outside the folders", "docs/handbook.md", "outside",
-            "Addressable, but in no knowledge folder — Folder comes back Unknown and everything else still works.")
+            "Addressable, but in no devbook folder — Folder comes back Unknown and everything else still works.")
     ];
 
     private string ProseFollowedSummary => _followedInProse is null

@@ -27,10 +27,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.1" />
-    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.4" />
+    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.6.4" />
     <!--
       The Azure sign-in the Foundry cost reader borrows: Azure CLI, Azure
       Developer CLI, or Visual Studio. Cost Management is a Resource Manager API
@@ -44,8 +44,8 @@
       hosting package from another release binds against a different
       Aspire.Hosting than the AppHost resolves.
     -->
-    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.1-preview.1.26506.6" />
-    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.1-preview.1.26506.6" />
+    <PackageVersion Include="Aspire.Hosting.Foundry" Version="13.6.4-preview.1.26523.11" />
+    <PackageVersion Include="Aspire.Hosting.Maui" Version="13.6.4-preview.1.26523.11" />
 
     <!--
       The client-side half of the Cosmos wiring: it reads the connection string
@@ -53,7 +53,7 @@
       Backlog.Infrastructure.Cosmos resolves. It moves with the hosting packages
       above for the same reason they move with each other.
     -->
-    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.6.4" />
 
     <!--
       The client-side half of the attachment store (local ADR 0014): it reads the
@@ -61,7 +61,7 @@
       the BlobContainerClient that Backlog.Infrastructure.BlobStorage resolves.
       Moves with the hosting packages above, like the Cosmos one.
     -->
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.4" />
 
     <!--
       The client-side half of the realtime nudge (local ADR 0038 §4): it registers the
@@ -95,7 +95,7 @@
       of one assembly. Bump the two together or not at all.
     -->
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" />
-    <PackageVersion Include="bunit" Version="2.11.3" />
+    <PackageVersion Include="bunit" Version="2.12.5" />
     <!--
       Named explicitly so the lock files stop depending on which SDK restored them.
       A Microsoft.NET.Sdk.Web project with .razor content gets an implicit
@@ -135,16 +135,16 @@
       does (AddInboxModule() over in-memory ports) rather than newing its
       handlers one by one. Products get it from their host; only tests name it.
     -->
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.13" />
     <!--
       A HostApplicationBuilder in a test. Backlog.Infrastructure.Cosmos's
       registration extension takes an IHostApplicationBuilder and decides what to
       do by its environment, and the only honest way to assert that is to hand it
       a real builder rather than a stand-in that implements the interface.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <!--
       ILoggingBuilder and its filters, for the file log the installed desktop
@@ -152,9 +152,9 @@
       package in their framework already; the library that registers the provider
       has to name it.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.13" />
 
     <!--
       ValidateDataAnnotations(), for a project that is a plain library rather than
@@ -162,9 +162,9 @@
       only Backlog.Infrastructure.Cosmos names it: without it, options with
       [Required] and [Range] on them would bind and never be checked.
     -->
-    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.10.0" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
 
     <!--
       Pinned to the version Microsoft.AspNetCore.Authentication.JwtBearer 10.0.11

@@ -1,10 +1,11 @@
 @*
     The Goals view's New goal (.devbook/domain/progress/features.md#setting-a-goal): a
-    title, a one-line outcome and a due date. Save hands the draft back trimmed — a blank
-    outcome as null, a blank or unreadable date as null — and the host creates the goal
-    through the module, closing the dialog, or keeps it open with the module's refusal in
-    Error. The module owns every rule: a goal needs a title and a due date, and its
-    outcome is one line. The fields start empty at each opening.
+    title, a one-line outcome and an optional due date. Save hands the draft back trimmed —
+    a blank outcome as null, a blank or unreadable date as null — and the host creates the
+    goal through the module, closing the dialog, or keeps it open with the module's refusal
+    in Error. The module owns every rule: a goal needs a title, its outcome is one line, and
+    a goal without a due date is due at the end of the iteration. The fields start empty at
+    each opening.
 *@
 <Modal Open="Open"
        OpenChanged="OpenChanged"
@@ -22,7 +23,7 @@
                    ValueChanged="value => _outcome = value"
                    Placeholder="One line on what is true once it lands"
                    TestId="@Part("outcome")" />
-        <TextField Label="Due date"
+        <TextField Label="Due date (optional)"
                    Type="date"
                    Value="@_due"
                    ValueChanged="value => _due = value"

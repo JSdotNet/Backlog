@@ -116,6 +116,24 @@ No new parameter buys this. `RenderDevbookMetadata` is the same opt-in the chapt
         </div>
     </Story>
 
+    <Story Name="The status, switched off"
+           Description="`ShowDevbookStatus` off takes the status away at both levels — beside the file's name in the header, and beside every chapter's heading in the body — with the decision state that qualifies it. It is not `CanEditDevbookStatus`, which keeps the status and takes away only the select.
+
+The name, the headings, the sync direction and the fields stay where they were. A Devbook host passes it when its status display is switched off in Settings."
+           Code="@StatusHiddenCode"
+           Source="@FileFixtures.TwoLevelFile">
+        <FileView Name="shared.md"
+                  Kind="Technology stack"
+                  Path=".devbook/tech/shared.md"
+                  Body="@FileFixtures.TwoLevelFile"
+                  MaxHeight="22rem"
+                  TestId="file-view-status-hidden"
+                  RenderDevbookMetadata="true"
+                  RenderDevbookMetadataFields="false"
+                  DevbookFolder="DevbookFolder.Tech"
+                  ShowDevbookStatus="false" />
+    </Story>
+
     <Story Name="The frontmatter is read once, here"
            Description="`ShowFrontmatter` is another reading: the pane reads the YAML block a markdown file may open with, hands the result to the body as a value, and hands the body the text *without* those lines. Left in, the same four lines come back underneath as the divider and run-together paragraph the markdown parser makes of them, which is the noise this replaces.
 
@@ -322,6 +340,20 @@ Tab through this one and then the arbitration story above. A supplied body gives
                   RenderDevbookMetadata="true"
                   DevbookFolder="DevbookFolder.Tech"
                   OnDevbookStatusChanged="HearStatus" />
+        """;
+
+    private const string StatusHiddenCode = """
+        @* The same file with the status display off: names and headings stay,
+           no status or decision state beside them at either level. *@
+        <FileView Name="shared.md"
+                  Kind="Technology stack"
+                  Path=".devbook/tech/shared.md"
+                  Body="@markdown"
+                  MaxHeight="22rem"
+                  RenderDevbookMetadata="true"
+                  RenderDevbookMetadataFields="false"
+                  DevbookFolder="DevbookFolder.Tech"
+                  ShowDevbookStatus="false" />
         """;
 
     // The one piece of state on this page: the hosted-body story is only worth

@@ -265,6 +265,23 @@ Every badge carries its full state twice, on its tooltip and as its `AriaLabel`,
         <p class="sb-state" data-testid="task-list-work-badge-state">@(_lastSessionOpened is null ? "No session opened yet." : $"Opened session {_lastSessionOpened}.")</p>
     </Story>
 
+    <Story Name="Finished sessions: still open, or archived"
+           Description="A finished session's badge also says whether the Claude desktop app still holds it open or has archived it, through `SessionPresence` on the `IntegrationLinkRef`: still open in the muted ink, archived in the quiet ink — information, never the disabled ink. A session with no desktop record to say — CLI-only, Copilot, another machine — keeps the plain finished look, because unknown is not open.
+
+Live first: a running or stalled session is drawn as live whatever its app holds. The word rides in the tooltip, the accessible name and the sr-only copy, so the ink is never the only carrier."
+           Code="@PresenceCode">
+        <div class="sb-row" data-testid="task-list-session-presence">
+            @foreach (var session in IntegrationFixtures.PresenceSessions)
+            {
+                <IntegrationLink Link="@session"
+                                 ShowTitle="false"
+                                 StateAsInk="true"
+                                 AriaLabel="@session.Title"
+                                 TestId="@($"session-presence-{session.Id}")" />
+            }
+        </div>
+    </Story>
+
     <Story Name="Right-click, and what the host puts there"
            Description="`OnContextMenu` is the gesture and nothing more. The row reports which row was asked and where the pointer was, and the host decides what the menu holds — here the library's own `ContextMenu` from Menus, filled with the acts the desktop pane offers. Nothing is applied: the choice is written below, the way a rename or a delete is on the stories above.
 
@@ -858,6 +875,21 @@ It exists for the row that was projected from a document the task itself does no
                          OnOpen="@(link => _lastSessionOpened = link.Id)"
                          TestId="@($"work-badges-{task.Id}-session")" />
     };
+
+    private const string PresenceCode = """
+        <IntegrationLink Link="@archived" ShowTitle="false" StateAsInk="true" AriaLabel="@archived.Title" />
+
+        @code {
+            // Finished, and the desktop app archived it: the quiet ink, "archived" in the words.
+            private readonly IntegrationLinkRef archived = new("c04e8a57", IntegrationProvider.Claude,
+                IntegrationLinkKind.Session, "c04e8a57",
+                "Session c04e8a57 · finished, archived — open in Sessions",
+                SessionState: IntegrationSessionState.Finished)
+            {
+                SessionPresence = IntegrationSessionPresence.Archived
+            };
+        }
+        """;
 
     private const string WorkBadgeCode = """
         <IntegrationLink Link="@pullRequest" ShowTitle="false" AriaLabel="@pullRequest.Title" />

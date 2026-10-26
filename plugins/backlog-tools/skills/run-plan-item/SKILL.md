@@ -29,7 +29,7 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    read them off the plan-item marker; with the connector, `read_item` answers them too. An
    entry carrying only the session-name line yields the tag alone — say so and continue.
    A `Read first:` line (the grammar's `## Read-first line`) names the material the plan
-   was written from. The body is the instructions; `## Setup:`, the knowledge/devbook reminder and `- [ ]`
+   was written from. The body is the instructions; `## Setup:`, the devbook reminder and `- [ ]`
    lines are its steps. A `plan` type on the metadata line, or from `read_item`, is a
    roadmap item, not work: reply in one line that a `plan` entry is brought in by Import
    and never run — its steps are what to paste — and stop. A `task` or `test` type — or a
@@ -77,8 +77,8 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    each open note by steps 3–5 of `../handle-remarks/SKILL.md` — fence first, resolve
    second. Name the changed chapter files and offer the commit; never push.
    `handle-remarks` is the skill to invoke when notes are the whole job.
-7. **Close.** The knowledge/devbook reminder is a real step — do it through the repository's
-   knowledge skills. Report `(tag, id)`, what was done, and the evidence behind anything
+7. **Close.** The devbook reminder is a real step — do it through the repository's
+   devbook skills. Report `(tag, id)`, what was done, and the evidence behind anything
    skipped as already done. The flow's own Work Item Update phase is the one that speaks to
    the entry; with the connector it is these calls, once each, after the pull request opens:
    - `link_change` with the pull request number, so the task links to it — not idempotent,

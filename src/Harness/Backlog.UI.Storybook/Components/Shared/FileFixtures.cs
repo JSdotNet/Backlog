@@ -23,7 +23,7 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// </remarks>
 internal static class FileFixtures
 {
-    /// <summary>A short knowledge chapter with a title, a paragraph, a list and
+    /// <summary>A short devbook chapter with a title, a paragraph, a list and
     /// two sections: enough to scroll at a modest cap, and the body the header
     /// stories offer to copy.</summary>
     public const string SharedTechnologies = """
@@ -336,7 +336,7 @@ internal static class FileFixtures
 
         ## Devbook
 
-        Owns the checked-in knowledge folders.
+        Owns the checked-in devbook folders.
         """;
 
     public const string ContextMapAfter = """
@@ -350,7 +350,7 @@ internal static class FileFixtures
 
         ## Devbook
 
-        Owns the checked-in knowledge folders and the chapters inside them.
+        Owns the checked-in devbook folders and the chapters inside them.
 
         ## Shell
 

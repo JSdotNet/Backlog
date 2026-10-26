@@ -23,7 +23,7 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
 
     /// <param name="time">Stamps the writes a panel makes, so a test can fix
     /// them.</param>
-    /// <param name="folders">Where this machine has each knowledge folder
+    /// <param name="folders">Where this machine has each devbook folder
     /// pointed, so a chapter path can be put in canonical form — see
     /// <see cref="Canonical"/>. Optional for the same reason the whole class is a
     /// fallback: the storybook has no repository registry to ask, and without one

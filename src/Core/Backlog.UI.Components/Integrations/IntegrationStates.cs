@@ -116,6 +116,24 @@ internal static class IntegrationStates
         _ => Fallback
     }, Fallback);
 
+    /// <summary>
+    /// The presence a session wears, or null when it wears none: only a finished
+    /// session, and only one whose app said open or archived. A running or stalled
+    /// session is drawn as live whatever its app holds — liveness wins — and a
+    /// session with no record to say is drawn as it always was.
+    /// </summary>
+    public static IntegrationSessionPresence? ShownPresence(IntegrationSessionState? state, IntegrationSessionPresence presence) =>
+        state is IntegrationSessionState.Finished && presence is not IntegrationSessionPresence.Unknown ? presence : null;
+
+    /// <summary>The class slug of a shown presence. The words are
+    /// <see cref="WorkStates.PresenceWords"/>, the one wording every surface reads.</summary>
+    public static string SlugOf(IntegrationSessionPresence presence) => presence switch
+    {
+        IntegrationSessionPresence.Open => "open",
+        IntegrationSessionPresence.Archived => "archived",
+        _ => Fallback
+    };
+
     /// <summary>"Waiting for you" rather than "Waiting", because the pair that
     /// earns this whole vocabulary is <see cref="IntegrationSessionState.Waiting"/>
     /// against <see cref="IntegrationSessionState.Stalled"/>: both look like

@@ -14,7 +14,7 @@
 
     It is a separate project from Backlog.Infrastructure.FileSystem on purpose.
     That project holds the adapters that genuinely are files - the workspace
-    settings, the feature settings, the knowledge folder resolver - and a
+    settings, the feature settings, the devbook folder resolver - and a
     database inside a project called FileSystem would be misfiled.
   -->
   <PropertyGroup>

@@ -96,6 +96,7 @@ flowchart LR
     DevPC -.->|"Customer/Supplier (not built)<br/>Machine identity for an environment"| Sessions
     Sessions -->|Customer/Supplier<br/>Agent session facts| Productivity
     Sessions -->|Customer/Supplier<br/>Linked session state| Tasks
+    Sessions -.->|"Customer/Supplier (not built)<br/>Attached session: state, branch"| Progress
     Sessions -.->|"Customer/Supplier (not built)<br/>Stalled-session observation"| Monitor
 
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Tasks
@@ -172,9 +173,9 @@ flowchart LR
   sides keep only foreign ids and the link semantics are coordinated through the
   Cross-Linking service rather than a shared aggregate.
 - `Roadmap Planning` **totals** what it does not **own**. Story-point `effort` is
-  registered on Tasks and on knowledge chapters. A
+  registered on Tasks and on devbook chapters. A
   [roadmap tag](roadmap/domain.md#roadmap-tag) is the vocabulary Tasks offers in
-  its picker and a knowledge chapter names in its `roadmap` list. Roadmap gathers
+  its picker and a devbook chapter names in its `roadmap` list. Roadmap gathers
   tasks and chapters by tag and by direct reference, and adds up their registered
   effort. It registers no effort and defines no tag.
 - `Technology Stack` is the standards supplier for both `Repository Management`
@@ -211,9 +212,9 @@ flowchart LR
   the product-wide device identity issued by the shared kernel
   (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns. That
   identity is still not Dev PC Management's Machine, so the rule stands unchanged.
-- `Progress` names a task by its id and a plan by its
-  [plan tag](roadmap/domain.md#roadmap-tag), and reads both from their owners
-  on every reading. `Tasks` holds no knowledge of goals or impediments: no task
+- `Progress` names a task by its id, a plan by its
+  [plan tag](roadmap/domain.md#roadmap-tag) and a session by its agent and session
+  id, and reads each from its owner on every reading. `Tasks` holds no knowledge of goals or impediments: no task
   field, tag, status or entry-text token names one, and attaching a task to a goal
   changes nothing on it. Marking a task blocked raises an impediment because
   Progress reacts to the mark; Tasks does not call Progress and stores no
@@ -222,7 +223,7 @@ flowchart LR
   the boundary of
   `.devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md`).
   Progress publishes no event, so it has no row in the published-language table;
-  its three edges are Customer/Supplier reads.
+  its edges are Customer/Supplier reads. The Sessions edge is local ADR 0037's.
 - `Sync` carries other contexts' documents without interpreting them.
   It stores each one whole under its [Owner](sync/domain.md#owner), orders
   pushed copies by stamp and tombstone

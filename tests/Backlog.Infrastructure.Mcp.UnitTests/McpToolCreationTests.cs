@@ -53,8 +53,13 @@ public class McpToolCreationTests
         SessionTools.ListSessions,
         SurfaceTools.ListRuns,
         SurfaceTools.GetRun,
+        GoalTools.ListGoals,
         NotificationTools.GetAnswer
     ];
+
+    /// <summary>The one writer that destroys: <c>delete_goal</c> removes a goal and what
+    /// it holds. Every other writer adds or replaces.</summary>
+    private static readonly string[] Destructive = [GoalTools.DeleteGoal];
 
     /// <summary>
     /// Every tool builds, under the name the catalog claims, and reaches the wire
@@ -68,8 +73,8 @@ public class McpToolCreationTests
     /// from: the hint is what a client shows a person before it runs something, so
     /// a write claiming to be a read is worse than an unstated hint, and a write
     /// quietly flattened into one more read is how that happens. Every writer is
-    /// held to <c>DestructiveHint == false</c> besides — none of them destroys
-    /// anything, there being no delete tool to.
+    /// held to <c>DestructiveHint == false</c> besides, but the one in
+    /// <see cref="Destructive"/>: <c>delete_goal</c> is the only delete here.
     /// </para>
     /// <para>
     /// Naming the readers rather than the writers is deliberate. A tool added
@@ -98,9 +103,9 @@ public class McpToolCreationTests
             {
                 Assert.NotEqual(true, annotations?.ReadOnlyHint);
 
-                Assert.False(
-                    annotations?.DestructiveHint,
-                    $"{tool.ProtocolTool.Name} reaches the wire as destructive, and nothing here destroys an entry.");
+                Assert.Equal(
+                    Destructive.Contains(tool.ProtocolTool.Name, StringComparer.Ordinal),
+                    annotations?.DestructiveHint);
             }
 
             Assert.False(
@@ -129,10 +134,14 @@ public class McpToolCreationTests
         Assert.Equal(
             [
                 NotificationTools.Ask,
+                GoalTools.AttachToGoal,
                 DevbookTools.CaptureNote,
                 NotificationTools.Close,
                 TrackerTools.Comment,
+                GoalTools.CreateGoal,
                 TrackerTools.CreateItem,
+                GoalTools.DeleteGoal,
+                GoalTools.DetachFromGoal,
                 SurfaceTools.FinishRun,
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
@@ -147,6 +156,7 @@ public class McpToolCreationTests
                 SurfaceTools.SetRunContext,
                 SurfaceTools.StartRun,
                 TrackerTools.Transition,
+                GoalTools.UpdateGoal,
                 SurfaceTools.UpdateStage
             ],
             [.. writers]);
@@ -179,6 +189,18 @@ public class McpToolCreationTests
         Assert.Equal(["id", "blocked"], schemas["set_blocked"]);
         Assert.Equal(["title", "holdsBack", "note"], schemas["raise_impediment"]);
         Assert.Equal(["id", "state", "with"], schemas["set_impediment_state"]);
+        Assert.Empty(schemas["list_goals"]);
+        Assert.Equal(["title", "dueDate", "outcome"], schemas["create_goal"]);
+        Assert.Equal(["id", "title", "outcome", "dueDate"], schemas["update_goal"]);
+        Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "update_goal")));
+        Assert.Equal(["goalId", "planTag", "taskId", "repository", "number", "moveFromOtherGoal"], schemas["attach_to_goal"]);
+        Assert.Equal(["goalId", "planTag", "taskId", "repository", "number"], schemas["detach_from_goal"]);
+
+        // "Exactly one of plan, task or pull request" is no `required` list either, for the
+        // reason find_item gives: only the goal is required.
+        Assert.Equal(["goalId"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "attach_to_goal")));
+        Assert.Equal(["goalId"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "detach_from_goal")));
+        Assert.Equal(["id"], schemas["delete_goal"]);
         Assert.Equal(["title", "summary", "body", "severity", "sessionId"], schemas["notify"]);
         Assert.Equal(
             ["title", "choices", "allowMultiple", "openAnswer", "placeholder", "summary", "body", "severity", "sessionId"],
@@ -272,6 +294,7 @@ public class McpToolCreationTests
                 new FakeRepositoryDirectory()),
             [typeof(SurfaceTools)] = new SurfaceTools(new FakeDeliverySurfaceLifecycle()),
             [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments()),
+            [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
             [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications())
         };
 

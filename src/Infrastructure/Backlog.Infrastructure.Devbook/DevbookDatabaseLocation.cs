@@ -109,7 +109,7 @@ public static class DevbookDatabaseLocation
     }
 
     /// <summary>
-    /// The database for the repository a knowledge folder belongs to. The
+    /// The database for the repository a devbook folder belongs to. The
     /// repository root is one level up from a root-layout folder (<c>.arc42</c>)
     /// and two from a devbook-layout one (<c>.devbook/arc42</c>). A Brain folder
     /// (<see cref="ForBrainFolder"/>) is its own root.
@@ -148,7 +148,7 @@ public static class DevbookDatabaseLocation
     public static DevbookCorpusKind KindFor(string? root) =>
         IsBrainRoot(root) ? DevbookCorpusKind.Brain : DevbookCorpusKind.Repository;
 
-    /// <summary>The repository root above a knowledge folder, or
+    /// <summary>The repository root above a devbook folder, or
     /// <see langword="null"/> when the path has no parent to go to.</summary>
     public static string? RepositoryRootFor(string? devbookFolderPath)
     {

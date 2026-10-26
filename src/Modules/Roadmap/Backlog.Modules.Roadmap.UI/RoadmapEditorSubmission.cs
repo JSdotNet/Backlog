@@ -17,7 +17,7 @@ namespace Backlog.Modules.Roadmap.UI;
 /// <param name="Tag">The slug this item is known by wherever tags are used. The editor
 /// pre-fills it from the title-derived slug and lets it be overridden; a blank one
 /// means "derive it from the title".</param>
-/// <param name="KnowledgeRefs">The knowledge chapters this item points at, as opaque
+/// <param name="KnowledgeRefs">The devbook chapters this item points at, as opaque
 /// reference strings.</param>
 public sealed record RoadmapEditorSubmission(
     Guid? ItemId,

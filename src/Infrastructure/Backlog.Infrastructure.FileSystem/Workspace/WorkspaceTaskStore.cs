@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// A thin pass-through over the workspace settings, and deliberately still its
 /// own type. The module declares the port; which adapter answers it, and over
 /// what, is the host's business — and the settings store answers three other
-/// audiences (the GitHub repository behind the folder, the knowledge folder
+/// audiences (the GitHub repository behind the folder, the devbook folder
 /// list, and the Inbox context's folder) that the module may not see.
 /// </para>
 /// </summary>

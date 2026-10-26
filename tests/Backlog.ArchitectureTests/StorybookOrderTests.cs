@@ -38,7 +38,7 @@ public class StorybookOrderTests
     ///
     /// <para>Three folders are documented on chapters named for something else:
     /// <c>Metadata</c> on the Devbook pages, because a metadata record is a
-    /// knowledge chapter's; <c>Tasks</c> on Inputs as well as Task list, because
+    /// devbook chapter's; <c>Tasks</c> on Inputs as well as Task list, because
     /// <c>TaskAction</c> is introduced with the date, time and repeat it sits over;
     /// and <c>Icons</c> on Foundations, because a glyph is a foundation the way a
     /// type scale is — one grid and one stroke weight every page under it borrows —

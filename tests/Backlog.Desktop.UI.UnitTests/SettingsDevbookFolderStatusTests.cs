@@ -95,7 +95,7 @@ public sealed class SettingsDevbookFolderStatusTests
         // The space between the two clauses is asserted, not just each clause: Razor
         // drops whitespace-only text between elements, so the sentences run together
         // unless the separator is written out.
-        Assert.Contains("Uses .devbook/arc42. Architecture knowledge folder was not found at", status.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Uses .devbook/arc42. Architecture devbook folder was not found at", status.TextContent, StringComparison.Ordinal);
         Assert.Contains(Path.Combine(settings.CloneDirectory!, ".devbook", "arc42"), status.TextContent, StringComparison.Ordinal);
         Assert.Contains(Path.Combine(settings.CloneDirectory!, ".arc42"), status.TextContent, StringComparison.Ordinal);
     }
