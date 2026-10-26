@@ -181,7 +181,7 @@
 
         try
         {
-            var answered = await Centre.AnswerAsync(id, reply.ChoiceIds, reply.Text);
+            var answered = await Centre.AnswerAsync(id, reply.ChoiceIds, reply.Text, reply.Note);
             if (answered.IsFailure) ShowError(id, answered.Error.Message);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

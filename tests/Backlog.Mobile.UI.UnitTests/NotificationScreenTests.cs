@@ -258,6 +258,41 @@ public sealed class NotificationScreenTests
     }
 
     [Fact]
+    public void Eight_choices_wrap_and_a_note_goes_with_the_choice_into_the_outbox()
+    {
+        var spec = new AnswerSpec(
+            [.. Enumerable.Range(1, 8).Select(n => new AnswerChoice($"c{n}", $"Choice {n}"))],
+            Note: new OpenAnswer("Why, or anything the asker should know", 4000));
+        var (host, service, _) = Phone(TestNotifications.Question("Which rounding rule applies to invoice totals?", Now.AddMinutes(-4), spec));
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-note-text'] textarea")));
+
+        Assert.Equal(8, app.FindAll("button[data-testid^='notification-choice-']").Count);
+        Assert.Contains("phone-notification__choices--many", app.Find("[data-testid='notification-choices']").ClassList);
+        Assert.Contains("Add a note (optional)", app.Find("[data-testid='notification-note']").TextContent);
+        Assert.Equal("4000", app.Find("[data-testid='notification-note-text'] textarea").GetAttribute("maxlength"));
+
+        app.Find("[data-testid='notification-note-text'] textarea").Input("Only for invoice totals");
+        app.Find("[data-testid='notification-choice-c8']").Click();
+
+        app.WaitForAssertion(() => Assert.Equal("Only for invoice totals", Assert.Single(service.Replies).Note));
+        Assert.Equal(["c8"], service.Replies[0].ChoiceIds);
+    }
+
+    [Fact]
+    public void A_question_without_a_note_draws_no_note_box()
+    {
+        var (host, _, _) = Phone(Migration());
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-yes']")));
+
+        Assert.Empty(app.FindAll("[data-testid='notification-note']"));
+        Assert.DoesNotContain("phone-notification__choices--many", app.Find("[data-testid='notification-choices']").ClassList);
+    }
+
+    [Fact]
     public void An_alert_draws_no_answer_controls()
     {
         var (host, _, _) = Phone(TestNotifications.Alert("Remark left on “Storage and sync”", Now.AddHours(-1)));

@@ -35,8 +35,9 @@ internal static class Drafts
         Guid? from = null,
         string[]? choices = null,
         string? text = null,
-        Guid? ownerInstance = null) =>
-        new(Guid.NewGuid(), notification.Id, ownerInstance ?? notification.OwnerInstanceId, from ?? Phone, choices ?? [], text, Now);
+        Guid? ownerInstance = null,
+        string? note = null) =>
+        new(Guid.NewGuid(), notification.Id, ownerInstance ?? notification.OwnerInstanceId, from ?? Phone, choices ?? [], text, Now, note);
 }
 
 internal sealed class FixedDevice(Guid id) : IDeviceIdentitySource

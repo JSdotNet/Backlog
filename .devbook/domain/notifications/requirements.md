@@ -55,15 +55,22 @@ The system SHALL refuse a Question that names no subject.
 ```meta
 status: proposed
 type: requirement
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_offers_one_of_four_answer_shapes, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.Any_other_answer_spec_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_offers_two_to_eight_set_choices, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_accepts_an_open_answer_instead_of_a_choice, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_keeps_the_note_with_the_accepted_answer, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreTests.An_answer_carries_the_note_written_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.NotificationCardTests.Seven_or_eight_choices_lay_out_as_a_wrapping_grid_and_fewer_stay_one_row, unit:dotnet:Backlog.UI.Components.UnitTests.NotificationCardTests.A_question_that_takes_a_note_sends_it_with_the_choice_pressed, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.Eight_choices_wrap_and_a_note_goes_with_the_choice_into_the_outbox]
 ```
 
-The system SHALL accept a Question whose answer is single choice, multiple choice, open plain text, or choices plus an open answer, and nothing else.
+The system SHALL accept a Question whose answer is single choice from two to eight set choices, multiple choice, open plain text, or choices plus an open answer, and nothing else; and SHALL let any of these shapes take an optional plain-text note that a reply carries beside its answer.
 
 #### Scenario: Choices with an open answer
 
 - **Given** a source asks "Pick a name for the module, or suggest one" with three choices and an open answer
 - **When** a viewer types "Signals" instead of picking a choice
 - **Then** the owner accepts "Signals" as the answer
+
+#### Scenario: Eight choices and a note
+
+- **Given** a source asks "Which rounding rule applies to invoice totals?" with eight choices and a note of at most 4,000 characters
+- **When** a viewer picks "Round half even" and writes "Only for invoice totals" in "Add a note (optional)"
+- **Then** the owner accepts "Round half even" as the answer, with "Only for invoice totals" as its note
 
 ### Requirement: A notification has no deadline and no default answer
 
