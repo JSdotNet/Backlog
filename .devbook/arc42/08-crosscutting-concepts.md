@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 ```
 
 - **Local-first, one canonical local store.** The desktop's own store is the single
@@ -41,7 +41,7 @@ Optional cloud sync carries this state between a person's devices:
 | Impediment | kind `impediment` in `tasks`, one document per impediment under its own id; the phone's edits go through the device outbox | last-write-wins per impediment on its `updated_at` | local ADR 0018's arrangement, local ADR 0035 |
 | Session records | a record in the `sessions` container | not reconciled: one machine writes each ([Session Record Sync](#session-record-sync)) | local ADR 0005 |
 | Remarks on devbook chapters | a remark in the `annotations` container | the task container's last-write-wins and tombstone terms | local ADR 0011 |
-| Notifications and replies | a notification in the `notifications` container, a reply in `notificationReplies` | not reconciled: the owner instance writes each notification, and a viewer writes each reply once ([Notifications](#notifications)) | local ADR 0038 |
+| Notifications and replies | a notification in the `notifications` container, a reply in `notificationReplies` | not reconciled: the owner instance writes each notification, and a viewer writes each reply once ([Notifications](#notifications)) | local ADR 0039 |
 
 - **A capture is a task-shaped document with its own kind token.** On the desktop
   it is handed to the Inbox's intake before the task merge. It becomes an inbox
@@ -405,13 +405,13 @@ flowchart TB
 
 ```meta
 status: proposed
-related: [".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/context.md", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
+related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/domain/notifications/context.md", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/tech/cloud.md#azure-web-pubsub", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
 Every context that needs to tell the person something, or ask them a question,
 publishes through one port, `INotifications`, in
 `Backlog.Modules.Notifications.Abstractions`. No context builds its own channel
-between devices. Local ADR 0038 records the decision, and the
+between devices. Local ADR 0039 records the decision, and the
 [Notifications context](../domain/notifications/context.md) owns the model.
 The owner's side is built: the port, the handler and probe contracts, the
 `notifications` table in `backlog.db`, the answer replay and the startup probe

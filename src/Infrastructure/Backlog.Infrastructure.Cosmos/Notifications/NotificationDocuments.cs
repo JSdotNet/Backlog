@@ -6,7 +6,7 @@ using Backlog.Modules.Sync.DomainModels;
 namespace Backlog.Infrastructure.Cosmos.Notifications;
 
 /// <summary>
-/// One notification as it sits in the <c>notifications</c> container (local ADR 0038): the
+/// One notification as it sits in the <c>notifications</c> container (local ADR 0039): the
 /// envelope the service reads, the device that wrote it, and the notification itself stored
 /// whole. <see cref="OwnerId"/> is the partition key; the container is created on
 /// <c>/ownerId</c> in both the AppHost and <c>infra/sync/main.bicep</c>.

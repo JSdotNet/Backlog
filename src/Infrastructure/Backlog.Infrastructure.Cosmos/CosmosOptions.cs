@@ -120,7 +120,7 @@ public sealed class CosmosOptions
     public int AnnotationTombstoneTtlSeconds { get; set; } = 15_552_000;
 
     /// <summary>
-    /// The container holding notification documents (local ADR 0038), partitioned on
+    /// The container holding notification documents (local ADR 0039), partitioned on
     /// <c>/ownerId</c> — the fourth replica container. Each notification has one writer, its
     /// owner instance, and expires <see cref="NotificationSettledTtlSeconds"/> after it left
     /// Open.
@@ -138,7 +138,7 @@ public sealed class CosmosOptions
     public string NotificationRepliesContainerName { get; set; } = "notificationReplies";
 
     /// <summary>How long a notification is kept after it left Open, in seconds — 30 days
-    /// (local ADR 0038 §3).</summary>
+    /// (local ADR 0039 §3).</summary>
     [Range(86_400, 63_072_000)]
     public int NotificationSettledTtlSeconds { get; set; } = 2_592_000;
 
@@ -146,7 +146,7 @@ public sealed class CosmosOptions
     /// How long an open notification is kept after its last push, in seconds — 90 days. Not a
     /// deadline: the owner instance pushes an open notification again well inside it, so a
     /// question on a running desktop never expires. It is what makes an owner that is unpaired
-    /// for good leave nothing behind (ADR 0038 §1, "those expire").
+    /// for good leave nothing behind (ADR 0039 §1, "those expire").
     /// </summary>
     [Range(86_400, 63_072_000)]
     public int NotificationOpenTtlSeconds { get; set; } = 7_776_000;

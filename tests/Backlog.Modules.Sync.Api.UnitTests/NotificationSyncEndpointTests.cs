@@ -8,7 +8,7 @@ using Backlog.Modules.Sync.Api.Endpoints;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// The notification exchange over HTTP (local ADR 0038): an owner instance pushes its
+/// The notification exchange over HTTP (local ADR 0039): an owner instance pushes its
 /// notifications, every device of the owner pulls the feed, any of them posts a reply, and only
 /// the owner instance lists and deletes the replies addressed to it — and nobody under another
 /// account reaches any of it.
@@ -62,7 +62,7 @@ public class NotificationSyncEndpointTests : IDisposable
         Assert.Equal(NotificationStates.Answered, arrived.Change.State);
     }
 
-    /// <summary>One writer per notification (ADR 0038 §1): a push naming another owner
+    /// <summary>One writer per notification (ADR 0039 §1): a push naming another owner
     /// instance does not overwrite a notification, and says so without holding the rest of its
     /// batch back.</summary>
     [Fact]
@@ -88,7 +88,7 @@ public class NotificationSyncEndpointTests : IDisposable
         Assert.Equal(DesktopInstance, held.Change.OwnerInstanceId);
     }
 
-    /// <summary>The owner is the installation, not the pairing (ADR 0038 §1): a desktop that
+    /// <summary>The owner is the installation, not the pairing (ADR 0039 §1): a desktop that
     /// pairs again pushes its open notifications under its new device and takes the replies
     /// addressed to it along, and the old device no longer reads them.</summary>
     [Fact]
@@ -158,7 +158,7 @@ public class NotificationSyncEndpointTests : IDisposable
         Assert.Empty((await phone.ListReplies(DesktopInstance)).Replies);
     }
 
-    /// <summary>The service's half of <c>reply.foreign_owner</c> (ADR 0038 §2): a device under
+    /// <summary>The service's half of <c>reply.foreign_owner</c> (ADR 0039 §2): a device under
     /// another account finds no such notification in its own partition, and its reply is never
     /// stored where the owner instance would read it.</summary>
     [Fact]

@@ -80,7 +80,7 @@
          port the panels use. Published surface only, taken as optional so a head
          with no annotation store composes unchanged. -->
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
-    <!-- The Notifications module's published surface (local ADR 0038): the notification
+    <!-- The Notifications module's published surface (local ADR 0039): the notification
          exchange reads the owner's notifications through INotificationReplication and hands
          each reply to INotificationReplies, the owner's one gate, so the first valid reply
          wins. Published surface only, resolved per cycle, so a head without the module

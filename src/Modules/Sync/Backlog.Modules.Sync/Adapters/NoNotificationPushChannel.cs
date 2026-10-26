@@ -6,7 +6,7 @@ namespace Backlog.Modules.Sync.Adapters;
 /// <summary>
 /// The channel a host without Notification Hubs runs on — under Aspire, in a bare
 /// <c>dotnet run</c> and in the endpoint tests: a registration answers "not registered" and a
-/// send goes nowhere, so a phone learns of a notification on its next pull (local ADR 0038 §4).
+/// send goes nowhere, so a phone learns of a notification on its next pull (local ADR 0039 §4).
 /// Registered with <c>TryAdd</c>, so the Notification Hubs adapter wins wherever a host
 /// configures one.
 /// </summary>

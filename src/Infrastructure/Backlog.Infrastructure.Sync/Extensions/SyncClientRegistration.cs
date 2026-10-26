@@ -538,7 +538,7 @@ public static class SyncClientRegistration
     }
 
     /// <summary>
-    /// Adds the notification exchange (local ADR 0038) on top of <see cref="AddSyncClient"/>:
+    /// Adds the notification exchange (local ADR 0039) on top of <see cref="AddSyncClient"/>:
     /// the client, the exchange and the two-minute loop that runs it on an owner desktop.
     /// <para>
     /// Opt-in like the other feeds: the exchange takes the Notifications module's
@@ -562,7 +562,7 @@ public static class SyncClientRegistration
         services.TryAddTransient<NotificationSyncSession>();
         services.TryAddSingleton<NotificationSyncWorker>();
 
-        // The realtime nudge (local ADR 0038 §4): the listener holds the Web PubSub socket and
+        // The realtime nudge (local ADR 0039 §4): the listener holds the Web PubSub socket and
         // drives the worker above. Like the worker it is a singleton the head resolves once;
         // against a sync service with no hub it asks, hears there is none, and the worker's
         // two-minute poll carries on alone.

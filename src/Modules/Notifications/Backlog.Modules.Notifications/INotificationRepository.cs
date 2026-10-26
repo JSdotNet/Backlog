@@ -9,7 +9,7 @@ namespace Backlog.Modules.Notifications;
 /// An internal port, deliberately not registered by <c>AddNotificationsModule()</c>: which
 /// adapter implements it is the host's decision — today one row per notification in the same
 /// SQLite database the tasks live in (<c>notifications</c>), as local ADR 0003 does for tasks
-/// and ADR 0038 §3 asks of the owner.
+/// and ADR 0039 §3 asks of the owner.
 /// </para>
 /// </summary>
 public interface INotificationRepository

@@ -43,10 +43,10 @@ param sessionRetentionSeconds int = 31536000
 @description('Seconds an annotation tombstone survives in the annotations container. Local ADR 0011 keeps it at the same 180 days as a task tombstone.')
 param annotationTombstoneTtlSeconds int = 15552000
 
-@description('Seconds a notification survives in the notifications container after it left Open. Local ADR 0038 fixes this at 30 days.')
+@description('Seconds a notification survives in the notifications container after it left Open. Local ADR 0039 fixes this at 30 days.')
 param notificationSettledTtlSeconds int = 2592000
 
-@description('Seconds an open notification survives after its last push. Not a deadline: the owner desktop re-pushes an open notification well inside it; this is what lets an owner unpaired for good leave nothing behind (local ADR 0038).')
+@description('Seconds an open notification survives after its last push. Not a deadline: the owner desktop re-pushes an open notification well inside it; this is what lets an owner unpaired for good leave nothing behind (local ADR 0039).')
 param notificationOpenTtlSeconds int = 7776000
 
 @description('Seconds an unprocessed reply survives in the notificationReplies container. The owner instance deletes each reply once processed; this is the backstop for one that never comes back.')
@@ -113,11 +113,11 @@ var containerAppName = 'ca-sync-${resourceToken}'
 var storageAccountName = 'st${resourceToken}'
 var webPubSubName = 'wps-${resourceToken}'
 
-// The one hub the desktops connect to (local ADR 0038 §4). The service reads the same
+// The one hub the desktops connect to (local ADR 0039 §4). The service reads the same
 // name from Sync__WebPubSub__Hub, so the two are written down here once.
 var notificationsHubName = 'notifications'
 
-// The Android push (local ADR 0038 §4): a Notification Hubs namespace and the one hub the
+// The Android push (local ADR 0039 §4): a Notification Hubs namespace and the one hub the
 // phones' installations live in. The service reads the hub's name from
 // Sync__NotificationHubs__Hub, so it is written down here once.
 var notificationHubsNamespaceName = 'ntfns-${resourceToken}'
@@ -433,7 +433,7 @@ resource annotationsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabase
   }
 }
 
-// `notifications` — the fourth replica container (local ADR 0038): the notifications
+// `notifications` — the fourth replica container (local ADR 0039): the notifications
 // a desktop owner instance publishes, one writer per document. defaultTtl -1 enables
 // expiry without expiring anything by itself; the service stamps a notification with
 // Sync__Cosmos__NotificationSettledTtlSeconds once it leaves Open, so it goes 30 days
@@ -701,7 +701,7 @@ resource attachmentsDataContributor 'Microsoft.Authorization/roleAssignments@202
 // ---------------------------------------------------------------------------
 // Web PubSub
 //
-// The realtime nudge to the desktops (local ADR 0038 §4). The sync service publishes
+// The realtime nudge to the desktops (local ADR 0039 §4). The sync service publishes
 // "pull now" to an owner's group when a notification or a reply lands, and a desktop
 // holds the WebSocket here instead of on the sync service, which therefore keeps
 // scaling to zero. The hub carries no document: a missed nudge costs only time,
@@ -756,7 +756,7 @@ resource webPubSubServiceOwner 'Microsoft.Authorization/roleAssignments@2022-04-
 // ---------------------------------------------------------------------------
 // Notification Hubs
 //
-// The Android push to the phones (local ADR 0038 §4). When a notification is published
+// The Android push to the phones (local ADR 0039 §4). When a notification is published
 // or changes state, the sync service sends a data-only FCM v1 message to the owner's tag,
 // and the hub relays it to Firebase; the service never talks to Google. The message
 // carries the tray text and nothing a phone could not pull, so a lost push costs a buzz
@@ -771,7 +771,7 @@ resource webPubSubServiceOwner 'Microsoft.Authorization/roleAssignments@2022-04-
 // connection strings, read here and passed straight into container app secrets — no
 // person ever handles a key. Two rules, because a rule's rights are fixed and
 // Notification Hubs needs Manage to create or delete an installation: `sync-send` can
-// only send, and `sync-manage` keeps the phones' installations (ADR 0038 §5, amended).
+// only send, and `sync-manage` keeps the phones' installations (ADR 0039 §5, amended).
 // ---------------------------------------------------------------------------
 
 resource notificationHubsNamespace 'Microsoft.NotificationHubs/namespaces@2023-09-01' = {

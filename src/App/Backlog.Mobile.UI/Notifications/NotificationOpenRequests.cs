@@ -1,7 +1,7 @@
 namespace Backlog.Mobile.UI.Notifications;
 
 /// <summary>
-/// A tap on a notification in the tray, handed from the head to the shell (local ADR 0038 §4):
+/// A tap on a notification in the tray, handed from the head to the shell (local ADR 0039 §4):
 /// the layout follows it to the notification's detail. The tap that launched the app arrives
 /// before the layout exists, so the last request waits here until something subscribes — the
 /// shape of <see cref="Services.BufferedSharedContentReceiver"/>, and for the same reason.

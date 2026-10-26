@@ -166,7 +166,7 @@ public static class MauiProgram
         // folder picker over, so it is the one host that registers one.
         builder.Services.TryAddSingleton<IBrainFolderPicker, WindowsBrainFolderPicker>();
 
-        // The owner's Windows app notifications (local ADR 0038, the notification centre's
+        // The owner's Windows app notifications (local ADR 0039, the notification centre's
         // plan entry), and the channel a press in one opens the shell's centre through.
         builder.Services.TryAddSingleton<Backlog.Modules.Notifications.UI.NotificationCentreRequests>();
         builder.Services.TryAddSingleton<WindowsAppNotifications>();
@@ -226,10 +226,10 @@ public static class MauiProgram
         // And annotation replication's loop, the third sibling, on the same terms.
         _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
-        // And the notification exchange's loop (local ADR 0038), on the same terms.
+        // And the notification exchange's loop (local ADR 0039), on the same terms.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
 
-        // And its realtime nudge (local ADR 0038 §4): the Web PubSub socket that has the loop
+        // And its realtime nudge (local ADR 0039 §4): the Web PubSub socket that has the loop
         // above run at once when a reply lands, with the two-minute poll as its fallback.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationNudgeListener>();
 
@@ -252,7 +252,7 @@ public static class MauiProgram
         // here on.
         app.Services.GetRequiredService<WindowsAppNotifications>().Start();
 
-        // And the notifications startup pass (local ADR 0038): it closes the open notifications
+        // And the notifications startup pass (local ADR 0039): it closes the open notifications
         // whose subject ended while the app was closed, and hands every stored answer no handler
         // took yet to its handler. Started on the thread pool, never ahead of the first window.
         _ = app.Services.GetRequiredService<Backlog.Modules.Notifications.Services.NotificationsStartup>().Start();

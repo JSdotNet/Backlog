@@ -47,7 +47,7 @@
     </ItemGroup>
 
     <!-- Firebase project backlog-push's Android app config, registered for
-         com.jsdotnet.backlog.mobile (local ADR 0038): identifiers, not secrets.
+         com.jsdotnet.backlog.mobile (local ADR 0039): identifiers, not secrets.
          The Firebase messaging package's targets turn it into Android resources.
          The Razor SDK's default glob also takes every .json as Content copied to
          the output; the Remove keeps this file to its one build action. -->
@@ -56,7 +56,7 @@
     </ItemGroup>
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
         <GoogleServicesJson Include="Platforms\Android\google-services.json" />
-        <!-- The Android push (local ADR 0038 §4): the FCM token this install
+        <!-- The Android push (local ADR 0039 §4): the FCM token this install
              registers with the sync service, and the data messages Notification
              Hubs relays to Services/BacklogFirebaseMessagingService. -->
         <PackageReference Include="Xamarin.Firebase.Messaging" />
@@ -81,7 +81,7 @@
              store over MAUI SecureStorage (Services/SecureStorageDeviceCredentialStore);
              DPAPI is Windows and Android has its own. -->
         <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
-        <!-- Notifications as a viewer (local ADR 0038): the phone shows notifications and
+        <!-- Notifications as a viewer (local ADR 0039): the phone shows notifications and
              replies, and never publishes or changes one. -->
         <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
     </ItemGroup>

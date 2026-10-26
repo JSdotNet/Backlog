@@ -2,7 +2,7 @@
 
   <!--
     Notification Hubs adapter: the Android push the sync service sends an owner's phones
-    (local ADR 0038 §4), relayed by the hub to FCM v1. It implements
+    (local ADR 0039 §4), relayed by the hub to FCM v1. It implements
     INotificationPushChannel, a port declared by Backlog.Modules.Sync; the module never sees
     this project, which is the direction Backlog.Infrastructure.WebPubSub runs in beside it.
 
@@ -10,7 +10,7 @@
     reason the Web PubSub client is: the host depends on a port implementation rather than
     on a service driver. The hub supports no managed identity, so the client is built from
     two SAS connection strings that Bicep writes into container app secrets — a Send-only
-    one for the message, and a Manage one for the installations (ADR 0038 §5).
+    one for the message, and a Manage one for the installations (ADR 0039 §5).
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Infrastructure.NotificationHubs</RootNamespace>

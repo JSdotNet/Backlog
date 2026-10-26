@@ -8,7 +8,7 @@ using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.Features.DeleteNotificationReply;
 
-/// <summary>An owner instance removes a reply it has processed (local ADR 0038 §2).</summary>
+/// <summary>An owner instance removes a reply it has processed (local ADR 0039 §2).</summary>
 public sealed record DeleteNotificationReplyCommand(OwnerScope Scope, Guid ReplyId);
 
 /// <summary>

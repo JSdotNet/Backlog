@@ -1,5 +1,5 @@
 // The Cosmos replica's half of "only a new notification or a state change reaches a phone"
-// (local ADR 0038 §4). The read-compare-write loop itself needs an emulator; the decision it
+// (local ADR 0039 §4). The read-compare-write loop itself needs an emulator; the decision it
 // makes between the read and the write does not, and it is what decides a transition.
 
 using System.Text.Json;

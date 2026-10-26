@@ -11,7 +11,7 @@ namespace Backlog.Mobile;
 
 /// <summary>
 /// Where Firebase hands this app its token and the data messages Notification Hubs relays
-/// (local ADR 0038 §4). The messages are data-only at high priority, so this runs whether the
+/// (local ADR 0039 §4). The messages are data-only at high priority, so this runs whether the
 /// app is on screen, in the background or not running at all.
 /// </summary>
 /// <remarks>

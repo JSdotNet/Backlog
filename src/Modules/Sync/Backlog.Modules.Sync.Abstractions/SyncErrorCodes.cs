@@ -101,7 +101,7 @@ public static class SyncErrorCodes
     public const string AttachmentStoreUnavailable = "sync.attachment_store_unavailable";
 
     /// <summary>The service has a nudge hub but could not mint a client access URL for it just
-    /// now (local ADR 0038 §4). A 503, under its own code, so a desktop retries soon — unlike a
+    /// now (local ADR 0039 §4). A 503, under its own code, so a desktop retries soon — unlike a
     /// success with no URL, which says there is no hub and is asked again only rarely.</summary>
     public const string NudgeUnavailable = "sync.nudge_unavailable";
 
@@ -111,7 +111,7 @@ public static class SyncErrorCodes
     public const string PushTokenInvalid = "sync.push_token_invalid";
 
     /// <summary>The service has a push hub but could not keep the phone's installation just now
-    /// (local ADR 0038 §4). A 503 under its own code, so the phone registers again later —
+    /// (local ADR 0039 §4). A 503 under its own code, so the phone registers again later —
     /// unlike a success with <c>registered: false</c>, which says there is no hub.</summary>
     public const string PushUnavailable = "sync.push_unavailable";
 
@@ -175,7 +175,7 @@ public static class SyncErrorCodes
     public const string NotificationInvalid = "sync.notification_invalid";
 
     /// <summary>A push names a notification held under another owner instance. A
-    /// notification has one writer, its owner instance (local ADR 0038 §1), so it is not
+    /// notification has one writer, its owner instance (local ADR 0039 §1), so it is not
     /// written; the push answers its id in <c>NotOwned</c> and this code is the reason the
     /// trace carries.</summary>
     public const string NotificationNotOwner = "sync.notification_not_owner";

@@ -10,12 +10,12 @@ using Microsoft.Extensions.Logging;
 namespace Backlog.Infrastructure.NotificationHubs;
 
 /// <summary>
-/// The Android push over Azure Notification Hubs (local ADR 0038 §4): one FCM v1 installation
+/// The Android push over Azure Notification Hubs (local ADR 0039 §4): one FCM v1 installation
 /// per phone, keyed by its sync device and tagged <c>owner:</c> and <c>device:</c>, and a
 /// data-only FCM v1 message sent to an owner's tag, which the hub relays to Firebase.
 /// <para>
 /// Two clients, because the hub takes no managed identity and a SAS rule's rights are fixed
-/// (ADR 0038 §5): the Send-only rule sends, and the Manage rule — which Notification Hubs requires
+/// (ADR 0039 §5): the Send-only rule sends, and the Manage rule — which Notification Hubs requires
 /// to create or delete an installation — keeps the installations. Each call is bounded by
 /// <see cref="CallBudget"/>, and the client's own retries are cut to one (see
 /// <c>PushChannelRegistration</c>). Nothing logged here names a token, a title or a summary.

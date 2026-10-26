@@ -198,7 +198,7 @@ closes; the first revision provisioned with a key is the first one that can come
 | Key Vault | RBAC authorization, soft delete, purge protection off. Empty and unread today; see below |
 | Log Analytics workspace | 30-day retention, 1 GB/day ingestion cap |
 | Application Insights | Workspace-based, ingesting into that workspace |
-| Notification Hubs namespace `ntfns-<token>` | Free tier; the Android push (local ADR 0038 §4) |
+| Notification Hubs namespace `ntfns-<token>` | Free tier; the Android push (local ADR 0039 §4) |
 | Notification hub `backlog` | Rules `sync-send` (Send) and `sync-manage` (Listen, Manage, Send); no FCM credential |
 
 The container registry is not in ADR 0005's resource list. It is there because `azd`

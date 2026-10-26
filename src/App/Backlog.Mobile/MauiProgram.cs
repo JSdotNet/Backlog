@@ -116,7 +116,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IPreferences>(Preferences.Default);
 		builder.Services.AddSingleton<IAppUpdateCheckStamp, PreferencesAppUpdateCheckStamp>();
 
-		// The Android push (local ADR 0038 §4): Firebase's token, registered with the sync
+		// The Android push (local ADR 0039 §4): Firebase's token, registered with the sync
 		// service by the shell's PushRegistration, and the tray the messaging service and the
 		// answer receiver draw in. Before AddMobileShell, whose token source answers no token
 		// for a host without OS push.
@@ -127,7 +127,7 @@ public static class MauiProgram
 		// the sync status the app bar reads. The browser harness calls the same method.
 		builder.Services.AddMobileShell();
 
-		// Notifications as a viewer (local ADR 0038): the phone never publishes or changes a
+		// Notifications as a viewer (local ADR 0039): the phone never publishes or changes a
 		// notification, so every write through INotifications is refused here. What it shows,
 		// and the replies it sends through the outbox, arrive with the sync exchange.
 		builder.Services.AddNotificationsModule(NotificationsRole.Viewer);

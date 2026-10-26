@@ -5,7 +5,7 @@ namespace Backlog.Modules.Sync.Features.PushNotifications;
 
 /// <summary>
 /// Builds the Android push for a notification that was published or changed state (local ADR
-/// 0038 §4) from its envelope alone — the id, the state, and the owner's push preview — so the
+/// 0039 §4) from its envelope alone — the id, the state, and the owner's push preview — so the
 /// service never opens the document to send one, and the body cannot travel.
 /// </summary>
 public static class NotificationPushMessages

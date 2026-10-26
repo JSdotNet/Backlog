@@ -11,16 +11,16 @@ namespace Backlog.Infrastructure.Sync.Notifications;
 /// <summary>
 /// The schedule the notification exchange needs on an owner desktop: a timer that runs
 /// <see cref="NotificationSyncSession.SyncAsync"/> every two minutes, so a question published
-/// here reaches the phone and a reply made there reaches the source that asked (local ADR 0038
+/// here reaches the phone and a reply made there reaches the source that asked (local ADR 0039
 /// §4).
 /// <para>
-/// Two minutes is ADR 0038's fallback poll while a question is open. The session keeps the
+/// Two minutes is ADR 0039's fallback poll while a question is open. The session keeps the
 /// "stay idle otherwise" half: a tick with no open question and nothing new to push sends no
 /// request at all, so what a quiet desktop pays for this loop is one read of its own
 /// <c>backlog.db</c> every two minutes.
 /// </para>
 /// <para>
-/// The realtime nudge (ADR 0038 §4, <see cref="NotificationNudgeListener"/>) calls
+/// The realtime nudge (ADR 0039 §4, <see cref="NotificationNudgeListener"/>) calls
 /// <see cref="RequestSync"/> on every "pull now" to run a full cycle at once, and says through
 /// <see cref="SetNudgeOpen"/> whether its socket is up. While it is, the tick still pushes what
 /// was published here but leaves the replies to the nudge; while it is down — or on a host
@@ -39,7 +39,7 @@ public sealed class NotificationSyncWorker : IDisposable, INotificationNudgeTarg
     /// other loops.</summary>
     internal static readonly TimeSpan FirstCycleDelay = TimeSpan.FromSeconds(13);
 
-    /// <summary>How often a cycle runs: the reply poll ADR 0038 sets while a question is open.</summary>
+    /// <summary>How often a cycle runs: the reply poll ADR 0039 sets while a question is open.</summary>
     internal static readonly TimeSpan CyclePeriod = TimeSpan.FromMinutes(2);
 
     public const string UnexpectedFailure = TaskSyncWorker.UnexpectedFailure;

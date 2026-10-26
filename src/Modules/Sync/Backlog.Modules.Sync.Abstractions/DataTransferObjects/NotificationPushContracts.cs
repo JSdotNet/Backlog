@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// What an owner instance lets the Android push say about a notification (local ADR 0038 §4):
+/// What an owner instance lets the Android push say about a notification (local ADR 0039 §4):
 /// the four fields a phone's tray shows before it has pulled anything. The owner writes it on
 /// the <see cref="NotificationChange"/> envelope beside the opaque document, so the service
 /// reads its own envelope and never the document.
@@ -53,7 +53,7 @@ public static class NotificationSeverities
 }
 
 /// <summary>
-/// The keys of the FCM data message a phone receives (local ADR 0038 §4). Every value is a
+/// The keys of the FCM data message a phone receives (local ADR 0039 §4). Every value is a
 /// string, because FCM v1 delivers only string values in <c>data</c>. Shared by the service,
 /// which writes them, and the phone, which reads them.
 /// </summary>
@@ -85,7 +85,7 @@ public static class NotificationPushData
 
 /// <summary>
 /// A phone hands the service its FCM registration token, so the service can keep the phone's
-/// Notification Hubs installation (local ADR 0038 §4). Only the token: the owner and the device
+/// Notification Hubs installation (local ADR 0039 §4). Only the token: the owner and the device
 /// the installation is tagged with come from the caller's device token.
 /// </summary>
 /// <param name="FcmToken">The token Firebase Messaging issued this app install.</param>

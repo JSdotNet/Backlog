@@ -14,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// The service's half of the realtime nudge (local ADR 0038 §4): negotiate hands a paired
+/// The service's half of the realtime nudge (local ADR 0039 §4): negotiate hands a paired
 /// device a URL for its own owner's group, or none where the host has no hub, and a write that
 /// landed — a pushed notification, a newly stored reply — publishes "pull now" to that owner and
 /// nobody else. The hub itself is behind <see cref="INotificationNudgeChannel"/>, replaced here

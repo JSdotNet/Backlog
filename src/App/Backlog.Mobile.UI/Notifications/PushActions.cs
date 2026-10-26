@@ -25,7 +25,7 @@ public enum PushActionKind
 public sealed record PushAction(string Key, string Label, PushActionKind Kind, string? Placeholder = null);
 
 /// <summary>
-/// The answers a question offers from the tray (local ADR 0038 §4,
+/// The answers a question offers from the tray (local ADR 0039 §4,
 /// <c>.devbook/domain/notifications/requirements.md#requirement-android-is-the-only-phone-platform</c>), and
 /// the reply one of them makes. Pure, so the mapping is tested without a device.
 /// <para>

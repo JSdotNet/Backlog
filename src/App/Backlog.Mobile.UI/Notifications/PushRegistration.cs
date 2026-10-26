@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Mobile.UI.Notifications;
 
 /// <summary>
-/// Keeps the sync service holding this phone's push token (local ADR 0038 §4): the token goes
+/// Keeps the sync service holding this phone's push token (local ADR 0039 §4): the token goes
 /// to <c>PUT /api/sync/notifications/push</c> behind the device token, and the service tags its
 /// Notification Hubs installation with the owner and the device that token names.
 /// <para>

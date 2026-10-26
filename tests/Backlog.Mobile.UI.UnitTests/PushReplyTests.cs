@@ -8,7 +8,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// An answer given from the tray (local ADR 0038 §4): the action the person tapped, or the text
+/// An answer given from the tray (local ADR 0039 §4): the action the person tapped, or the text
 /// typed into the inline reply, becomes the same <see cref="ReplyOutboxKind"/> entry a reply
 /// made in the app does, through <see cref="NotificationViewProjection.ReplyAsync"/> — and a
 /// question the phone may no longer answer queues nothing.

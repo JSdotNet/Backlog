@@ -4,7 +4,7 @@ namespace Backlog.Modules.Sync.Ports;
 
 /// <summary>
 /// The Android push that tells an owner's phones a notification was published or changed state
-/// (local ADR 0038 §4). Declared here and implemented outside — Azure Notification Hubs relaying
+/// (local ADR 0039 §4). Declared here and implemented outside — Azure Notification Hubs relaying
 /// to FCM, deployed — beside <see cref="INotificationNudgeChannel"/>, so the module says what it
 /// needs without naming the service.
 /// <para>

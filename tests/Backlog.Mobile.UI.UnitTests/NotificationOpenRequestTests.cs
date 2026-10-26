@@ -3,7 +3,7 @@ using Backlog.Mobile.UI.Notifications;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// A tap on a notification in the tray opens it in the app (local ADR 0038 §4): the head hands
+/// A tap on a notification in the tray opens it in the app (local ADR 0039 §4): the head hands
 /// the id over, the layout navigates to its detail — also when the tap launched the app and
 /// arrived before the layout was drawn.
 /// </summary>

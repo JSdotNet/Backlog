@@ -7,7 +7,7 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Infrastructure.Sync.Notifications;
 
 /// <summary>
-/// The notification exchange as a device calls it (local ADR 0038): push this owner
+/// The notification exchange as a device calls it (local ADR 0039): push this owner
 /// instance's notifications, pull the owner's notification feed, post a reply, list the replies
 /// addressed to this instance, and delete one once processed. Transport and nothing else, on
 /// <see cref="Annotations.AnnotationSyncClient"/>'s terms and its failure convention.
@@ -66,7 +66,7 @@ public sealed class NotificationSyncClient
                 cancellationToken),
             cancellationToken);
 
-    /// <summary>Asks for the Web PubSub URL this device's nudge socket opens on (local ADR 0038
+    /// <summary>Asks for the Web PubSub URL this device's nudge socket opens on (local ADR 0039
     /// §4). A success with no URL means the service runs without a hub, and the desktop keeps
     /// polling.</summary>
     public Task<Result<NotificationNudgeNegotiateResponse>> NegotiateNudgeAsync(CancellationToken cancellationToken = default) =>

@@ -2,7 +2,7 @@
 
   <!--
     The Notifications module's public surface (.devbook/domain/notifications,
-    local ADR 0038) — everything another context or a host is allowed to see:
+    local ADR 0039) — everything another context or a host is allowed to see:
       INotifications            the one port every context publishes through
       INotificationReplies      where a reply reaches the owner instance
       INotificationCentre       what the owner's screens read and answer through

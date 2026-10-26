@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
 /// The tools a session tells the person something, or asks them something, through
-/// (<c>.devbook/domain/notifications/features.md#publishing-a-notification</c>, local ADR 0038):
+/// (<c>.devbook/domain/notifications/features.md#publishing-a-notification</c>, local ADR 0039):
 /// <c>notify</c> publishes an alert, <c>ask</c> a question, <c>get_answer</c> polls a question,
 /// and <c>close</c> withdraws what the session published.
 /// <para>

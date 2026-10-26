@@ -66,7 +66,7 @@ public static class SyncRoutes
     /// <see cref="Tasks"/>, over the third replica container.</summary>
     public const string Annotations = "/annotations";
 
-    /// <summary>The notification replica (local ADR 0038): POST pushes a batch of the
+    /// <summary>The notification replica (local ADR 0039): POST pushes a batch of the
     /// calling owner instance's notifications, GET pulls the owner's notification feed from
     /// a cursor. Bearer.</summary>
     public const string Notifications = "/notifications";
@@ -79,12 +79,12 @@ public static class SyncRoutes
     /// processed it. Use <see cref="NotificationReplyFor"/> to build a concrete URL.</summary>
     public const string NotificationReply = "/notifications/replies/{id:guid}";
 
-    /// <summary>The realtime nudge (local ADR 0038 §4): GET answers a client access URL for
+    /// <summary>The realtime nudge (local ADR 0039 §4): GET answers a client access URL for
     /// the Web PubSub hub that joins the caller to its owner's group, or none where the service
     /// runs without one. Bearer.</summary>
     public const string NotificationNudge = "/notifications/negotiate";
 
-    /// <summary>The Android push (local ADR 0038 §4): PUT hands the service the calling phone's
+    /// <summary>The Android push (local ADR 0039 §4): PUT hands the service the calling phone's
     /// FCM token, and the service keeps one Notification Hubs installation for the device,
     /// tagged with its owner and itself from the token. Answers whether it registered — never,
     /// where the service runs without a hub. Bearer.</summary>

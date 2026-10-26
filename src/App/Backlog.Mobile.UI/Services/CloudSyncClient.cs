@@ -109,7 +109,7 @@ public sealed class CloudSyncClient(HttpClient http)
     }
 
     /// <summary>One page of the owner's notification feed from <paramref name="since"/>,
-    /// or from the beginning when it is null (local ADR 0038) — the same paging and the
+    /// or from the beginning when it is null (local ADR 0039) — the same paging and the
     /// same <see cref="SyncUnavailableException"/> as <see cref="PullTasksAsync"/>.</summary>
     public async Task<PullNotificationsResponse> PullNotificationsAsync(string? since, CancellationToken ct = default)
     {
@@ -146,7 +146,7 @@ public sealed class CloudSyncClient(HttpClient http)
     }
 
     /// <summary>Hands the service this install's FCM token, so it keeps this device's Notification
-    /// Hubs installation (local ADR 0038 §4). <see cref="RegisterPushInstallationResponse.Registered"/>
+    /// Hubs installation (local ADR 0039 §4). <see cref="RegisterPushInstallationResponse.Registered"/>
     /// is false from a service with no hub, which is not worth asking again; any other refusal is
     /// <see cref="SyncUnavailableException"/> with the problem's code.</summary>
     public async Task<RegisterPushInstallationResponse> RegisterPushAsync(string fcmToken, CancellationToken ct = default)

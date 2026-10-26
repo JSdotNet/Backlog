@@ -4,7 +4,7 @@ using Backlog.Modules.Notifications.Abstractions;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// What the tray shows for a push once the phone has pulled (local ADR 0038 §4): the words the
+/// What the tray shows for a push once the phone has pulled (local ADR 0039 §4): the words the
 /// service sent — private wording included — the answers the question offers from the tray, and
 /// nothing at all for a notification that has settled, by the message or by the pull.
 /// </summary>

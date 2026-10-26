@@ -34,7 +34,7 @@ var cosmosDatabase = cosmos.AddCosmosDatabase("backlog");
 cosmosDatabase.AddContainer("tasks", "/ownerId");
 cosmosDatabase.AddContainer("sessions", "/ownerId");
 cosmosDatabase.AddContainer("annotations", "/ownerId");
-// Notifications and the replies to them (local ADR 0038), partitioned on the owner like
+// Notifications and the replies to them (local ADR 0039), partitioned on the owner like
 // the other replicas. Their TTLs — 30 days after a notification settles, and the reply
 // backstop — are stamped per document and live only in the bicep, as the others do.
 cosmosDatabase.AddContainer("notifications", "/ownerId");
@@ -65,7 +65,7 @@ var attachments = builder.AddAzureStorage("storage")
 // the same way: until Azurite answers, the attachment routes say 503
 // sync.attachment_store_unavailable rather than holding the service back.
 //
-// No Web PubSub, on purpose (local ADR 0038 §4). There is no emulator for it, and the nudge
+// No Web PubSub, on purpose (local ADR 0039 §4). There is no emulator for it, and the nudge
 // holds no data: with no hub configured the sync service's negotiate hands out no URL, and
 // every desktop harness stays on its two-minute reply poll.
 var sync = builder.AddProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sync.Api\\Backlog.Modules.Sync.Api.csproj")

@@ -150,7 +150,7 @@ public static class DesktopCompositionRegistration
         // (§10).
         services.AddProgressModule();
 
-        // Notifications (local ADR 0038): this desktop owns what it publishes, kept in the
+        // Notifications (local ADR 0039): this desktop owns what it publishes, kept in the
         // notifications table AddSqlite registered above. Each context that asks questions adds
         // its handler with AddNotificationAnswerHandler<T>(). The heads start
         // NotificationsStartup once the container is built.
@@ -404,7 +404,7 @@ public static class DesktopCompositionRegistration
         services.AddSessionSyncClient(SyncServiceAddress);
         services.AddAnnotationSyncClient(SyncServiceAddress);
 
-        // The notification exchange (local ADR 0038): this desktop pushes the notifications it
+        // The notification exchange (local ADR 0039): this desktop pushes the notifications it
         // owns and, while a question is open, takes the replies addressed to it every two
         // minutes. Answers to the sync switch and to the notifications switch.
         services.AddNotificationSyncClient(SyncServiceAddress);

@@ -11,7 +11,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// The phone hands the sync service its FCM token behind its device token (local ADR 0038 §4),
+/// The phone hands the sync service its FCM token behind its device token (local ADR 0039 §4),
 /// so the service can keep this device's Notification Hubs installation: once per device and
 /// token, again when Firebase issues a new token or the phone is paired anew, and never while
 /// the phone is not paired or has no token.

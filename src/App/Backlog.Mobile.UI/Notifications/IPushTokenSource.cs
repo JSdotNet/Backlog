@@ -1,7 +1,7 @@
 namespace Backlog.Mobile.UI.Notifications;
 
 /// <summary>
-/// Where this install's push token comes from (local ADR 0038 §4). The Android head answers with
+/// Where this install's push token comes from (local ADR 0039 §4). The Android head answers with
 /// Firebase Messaging's token; a host with no OS push — the browser harness, the tests' shell —
 /// answers null through <see cref="NoPushTokenSource"/>, and nothing is registered.
 /// </summary>

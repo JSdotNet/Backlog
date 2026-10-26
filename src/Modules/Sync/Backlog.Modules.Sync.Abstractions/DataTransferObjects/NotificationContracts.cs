@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// One notification as its owner instance pushes it (local ADR 0038): the envelope the
+/// One notification as its owner instance pushes it (local ADR 0039): the envelope the
 /// sync service reads, and the notification itself as an opaque document it stores and
 /// hands back unread.
 /// <para>
@@ -21,7 +21,7 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// <para>
 /// No owner and no device id, for the reason <see cref="TaskChange"/> gives: both come from
 /// the caller's validated token. <see cref="OwnerInstanceId"/> is the publishing desktop's
-/// installation identity (local ADR 0038 §1): a notification already stored is written again
+/// installation identity (local ADR 0039 §1): a notification already stored is written again
 /// only by a push naming the same instance, and a reply names it to say which desktop it is
 /// addressed to. The instance, not the pairing, is the owner, so a desktop that pairs again
 /// keeps its notifications and the replies to them.
@@ -32,7 +32,7 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// <param name="State">Where it stands — one of <see cref="NotificationStates"/>.</param>
 /// <param name="UpdatedAt">When the owner last changed it, on the owner's clock.</param>
 /// <param name="Notification">The notification itself, stored whole and never read here.</param>
-/// <param name="Preview">What the Android push may say about it (ADR 0038 §4) — the
+/// <param name="Preview">What the Android push may say about it (ADR 0039 §4) — the
 /// envelope's own copy of kind, severity, title and summary, so the service never reads the
 /// document to send one. Null from an owner that predates it; the push then carries the id and
 /// the state only. Used for the send and not stored.</param>
@@ -69,7 +69,7 @@ public sealed record NotificationChangeRecord(NotificationChange Change, Guid De
 public sealed record PushNotificationsRequest(IReadOnlyList<NotificationChange> Notifications);
 
 /// <summary>How many notifications the replica took, and which it refused because they
-/// belong to another owner instance — one writer per notification (ADR 0038 §1). The rest of
+/// belong to another owner instance — one writer per notification (ADR 0039 §1). The rest of
 /// the batch is stored either way, so a refused id never holds the others back.</summary>
 public sealed record PushNotificationsResponse(int Accepted, IReadOnlyList<Guid> NotOwned);
 

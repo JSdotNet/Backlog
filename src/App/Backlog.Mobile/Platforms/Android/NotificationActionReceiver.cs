@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 namespace Backlog.Mobile;
 
 /// <summary>
-/// Where a set answer or an inline reply tapped in the tray arrives (local ADR 0038 §4). The
+/// Where a set answer or an inline reply tapped in the tray arrives (local ADR 0039 §4). The
 /// reply is queued exactly as one made in the app — <see cref="PushActions.ReplyAsync"/> through
 /// <see cref="NotificationViewProjection.ReplyAsync"/>, a <see cref="ReplyOutboxKind"/> entry —
 /// and the outbox is flushed once, so it leaves now when there is signal and waits in the outbox

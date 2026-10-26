@@ -92,7 +92,7 @@ public static class NotificationPayloads
 
     /// <summary>The change to push for <paramref name="snapshot"/>, stamped
     /// <paramref name="updatedAt"/>, naming its owner as <paramref name="ownerName"/>, with the
-    /// Android push preview on its envelope (local ADR 0038 §4) — a private notification's
+    /// Android push preview on its envelope (local ADR 0039 §4) — a private notification's
     /// without its summary, which then never leaves this desktop in a push.</summary>
     public static NotificationChange ToChange(
         NotificationSnapshot snapshot,

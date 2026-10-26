@@ -4,7 +4,7 @@ using Backlog.Modules.Notifications.Abstractions;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// The buttons an Android notification carries for a question (local ADR 0038 §4,
+/// The buttons an Android notification carries for a question (local ADR 0039 §4,
 /// <c>.devbook/domain/notifications/requirements.md#requirement-android-is-the-only-phone-platform</c>): set
 /// answers as actions and an open answer as an inline reply, within Android's three actions —
 /// and none at all where an answer from the tray could not be the whole answer, so the tap opens

@@ -12,24 +12,24 @@ namespace Backlog.Modules.Sync.Features.PushNotifications;
 
 /// <summary>
 /// An owner instance hands over the notifications it published, or changed, since it last
-/// managed to (local ADR 0038). The scope comes from the token and the notifications from the
+/// managed to (local ADR 0039). The scope comes from the token and the notifications from the
 /// body, and nothing in a <see cref="NotificationChange"/> can name an owner.
 /// </summary>
 public sealed record PushNotificationsCommand(OwnerScope Scope, IReadOnlyList<NotificationChange> Changes);
 
 /// <summary>
 /// Writes the batch and answers what it took. A notification held under another owner instance
-/// is not written (one writer per notification, ADR 0038 §1) and comes back in
+/// is not written (one writer per notification, ADR 0039 §1) and comes back in
 /// <see cref="PushNotificationsResponse.NotOwned"/> rather than refusing the batch, so one
 /// colliding id never holds the owner's other notifications back.
 /// <para>
-/// A batch that wrote anything nudges the owner's desktops (ADR 0038 §4) — after the write, so
+/// A batch that wrote anything nudges the owner's desktops (ADR 0039 §4) — after the write, so
 /// a desktop that pulls on the nudge finds what caused it. The nudge names the kind of change
 /// and nothing of it.
 /// </para>
 /// <para>
 /// Then each notification the replica reports as published now or moved state is pushed to the
-/// owner's phones (ADR 0038 §4), and nothing else is: the owner's ten-minute presence refresh
+/// owner's phones (ADR 0039 §4), and nothing else is: the owner's ten-minute presence refresh
 /// re-pushes every open notification in the state already held. Best effort and bounded — a
 /// failure is logged and counted and never fails the push, once the hub has failed the rest of
 /// the batch is not sent, and the whole batch's sends share <see cref="SendBudget"/>, so a hub

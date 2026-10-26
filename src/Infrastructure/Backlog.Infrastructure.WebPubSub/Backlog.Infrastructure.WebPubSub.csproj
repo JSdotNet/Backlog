@@ -2,7 +2,7 @@
 
   <!--
     Web PubSub adapter: the realtime nudge the sync service sends an owner's desktops
-    (local ADR 0038 §4). It implements INotificationNudgeChannel, a port declared by
+    (local ADR 0039 §4). It implements INotificationNudgeChannel, a port declared by
     Backlog.Modules.Sync; the module never sees this project, which is the direction
     Backlog.Infrastructure.Cosmos and Backlog.Infrastructure.BlobStorage run in beside it.
 

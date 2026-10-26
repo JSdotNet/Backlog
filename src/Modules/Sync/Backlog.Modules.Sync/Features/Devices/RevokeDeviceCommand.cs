@@ -29,7 +29,7 @@ public sealed record RevokeDeviceCommand(OwnerScope Scope, Guid DeviceId);
 /// ADR 0012 — because tokens are checked by signature, not against the registry.
 /// </para>
 /// <para>
-/// A revoked phone's push installation is deleted too (local ADR 0038 §4), so it is pushed
+/// A revoked phone's push installation is deleted too (local ADR 0039 §4), so it is pushed
 /// nothing more. Best effort: the device is already revoked when the hub is asked, and a hub
 /// that fails is logged and counted rather than turning the revoke into a failure.
 /// </para>

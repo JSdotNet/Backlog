@@ -80,7 +80,7 @@ public sealed class NotificationSyncTests
     }
 
     /// <summary>
-    /// The realtime nudge's fallback (local ADR 0038 §4): opening the socket runs a full cycle
+    /// The realtime nudge's fallback (local ADR 0039 §4): opening the socket runs a full cycle
     /// at once; while it is open the two-minute tick leaves the replies to it and lists nothing;
     /// once it closes the tick polls the replies again.
     /// </summary>
@@ -306,7 +306,7 @@ public sealed class NotificationSyncTests
     // --- The owner's second account check --------------------------------------------
 
     /// <summary>
-    /// ADR 0038 §2: the sync service stores a reply only in its poster's own partition, and the
+    /// ADR 0039 §2: the sync service stores a reply only in its poster's own partition, and the
     /// owner checks again. A reply the replica stamped with another account is rejected as
     /// invalid with <c>reply.foreign_owner</c>, never handed to the owner's gate, and deleted.
     /// </summary>

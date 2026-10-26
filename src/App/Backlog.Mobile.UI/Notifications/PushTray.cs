@@ -16,7 +16,7 @@ namespace Backlog.Mobile.UI.Notifications;
 public sealed record PushTrayEntry(Guid Id, string Title, string? Text, bool Urgent, IReadOnlyList<PushAction> Actions);
 
 /// <summary>
-/// Decides what the tray shows for a push (local ADR 0038 §4), from the message and the copy the
+/// Decides what the tray shows for a push (local ADR 0039 §4), from the message and the copy the
 /// phone pulled on receiving it. Pure, so the tray's rules are tested without a device.
 /// <para>
 /// The message's own words win: the service already put a private notification's fixed text in

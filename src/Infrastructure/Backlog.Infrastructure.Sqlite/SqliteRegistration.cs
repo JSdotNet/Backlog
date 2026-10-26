@@ -25,7 +25,7 @@ public static class SqliteRegistration
 {
     /// <summary>
     /// Registers the task repository, the roadmap plan, the goals, the impediments, the inbox tables, the notifications and the
-    /// Claude Code api_request table, each a
+    /// Claude Code api_request table, the model prices and the session request queue, each a
     /// singleton rooted at <paramref name="rootDirectory"/>.
     /// <para>
     /// The root is asked per call rather than fixed here, because somebody can move
@@ -86,7 +86,7 @@ public static class SqliteRegistration
         services.AddSingleton<IInboxItemRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
         services.AddSingleton<IInboxOrganizerRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
 
-        // The notifications this desktop owns (local ADR 0038 §3): one row per notification in
+        // The notifications this desktop owns (local ADR 0039 §3): one row per notification in
         // the notifications table, its accepted answer kept there until its handler takes it.
         services.AddSingleton<INotificationRepository>(sp =>
             new RootedSqliteNotificationRepository(() => rootDirectory(sp)));
@@ -101,6 +101,11 @@ public static class SqliteRegistration
         // reported no cost for: the same context's table, in the same file.
         services.AddSingleton<IModelPriceStore>(sp =>
             new RootedSqliteModelPriceStore(() => rootDirectory(sp)));
+
+        // The session requests a click in the app queues for a dispatcher (local ADR
+        // 0038): this machine's queue, the same context's table, in the same file.
+        services.AddSingleton<ISessionRequestStore>(sp =>
+            new RootedSqliteSessionRequestStore(() => rootDirectory(sp)));
 
         return services;
     }

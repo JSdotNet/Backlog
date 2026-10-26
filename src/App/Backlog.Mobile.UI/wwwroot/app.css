@@ -391,7 +391,7 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .standup-detail__field .field__input { min-height: 44px; }
 
 /*
-  Notifications (local ADR 0038): the list and the detail, drawn as the proposal's
+  Notifications (local ADR 0039): the list and the detail, drawn as the proposal's
   phone mockup draws them — a raised card per notification, its kind and severity
   as small tags with the age across from them, the title, the summary, the answer
   controls, where it stands, and the desktop that owns it in the mono line.

@@ -40,7 +40,7 @@
          project, so the port comes from its abstractions; same direction otherwise. -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <!-- Notifications' INotificationRepository, answered under Notifications/ by the
-         notifications table in the same database (local ADR 0038 §3). Same direction.
+         notifications table in the same database (local ADR 0039 §3). Same direction.
          Its published INotifications too: the task store is where a task's end is
          noticed, so it closes the notifications about that task. -->
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />

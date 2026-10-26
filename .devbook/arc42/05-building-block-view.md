@@ -751,7 +751,7 @@ for monitoring. Capture uses session context to create backlog and knowledge ite
 ## Cloud Service
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
+related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#notification-reply", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 ```
 
 The cloud service is the glossary's *Thin cloud* (`.devbook/arc42/12-glossary.md#terms`),
@@ -762,7 +762,7 @@ TTL-based, and never canonical domain data or external credentials (local ADR 00
 does. It is implemented by `src/Modules/Sync/Backlog.Modules.Sync.Api` and appears
 in the Aspire app model as the `sync` resource. The Sync Service and Notification
 Service components below are built. The notification service's Azure resources
-are declared in Bicep and not deployed (local ADR 0038). The webhook receiver and
+are declared in Bicep and not deployed (local ADR 0039). The webhook receiver and
 PC registry are not built.
 
 The sync service is seven projects:
@@ -805,7 +805,7 @@ shows.
   and the owner-scoping filter.
 - `Backlog.Infrastructure.Cosmos` implements the replica ports against the
   `tasks`, `sessions`, `annotations`, `notifications` and `notificationReplies`
-  containers (local ADRs 0005, 0011 and 0038). It
+  containers (local ADRs 0005, 0011 and 0039). It
   serves the device registry and pairing-code store from `devices` and
   `pairingCodes`, so a registration survives a restart of the service. It is the
   only project that references the Cosmos SDK, so the API head depends on a port
@@ -833,7 +833,7 @@ owner's waiting captures from the same route, and it acknowledges one with
 behind the same paired-device authorization, owner-scope and replica-fault
 filters as every other sync route.
 
-Notifications have two containers (local ADR 0038). The owner desktop pushes to
+Notifications have two containers (local ADR 0039). The owner desktop pushes to
 `POST /api/sync/notifications`, every device reads the feed from
 `GET /api/sync/notifications`, and a viewer posts a reply to
 `POST /api/sync/notifications/replies`. The owner instance lists the replies
@@ -901,7 +901,7 @@ Cloud components:
 | **API Gateway & Auth** | Minimal REST surface; GitHub OAuth for webhook registration; JWT device sessions; rate limiting. |
 | **Sync Service** | The only domain-aware service; stores sync *state*, never the canonical domain data; delta push/pull of the task, session, annotation and notification replicas, the capture inbox, and attachments; conflict listing/resolution. |
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
-| **Notification Service** | Tells a device to pull the `notifications` container, and carries no document itself. The sync service publishes to an Azure Web PubSub hub (Free tier) that desktops hold a WebSocket to. It sends Android pushes through Azure Notification Hubs (Free tier), which relays them to FCM, only when a notification is published or changes state. A push is a data-only FCM v1 message holding the id, kind, severity, state, title and summary from the owner's push preview, never the body. Bicep passes two SAS keys, Send and Manage, into container app secrets. Built and declared in Bicep, not deployed: local ADR 0038. |
+| **Notification Service** | Tells a device to pull the `notifications` container, and carries no document itself. The sync service publishes to an Azure Web PubSub hub (Free tier) that desktops hold a WebSocket to. It sends Android pushes through Azure Notification Hubs (Free tier), which relays them to FCM, only when a notification is published or changes state. A push is a data-only FCM v1 message holding the id, kind, severity, state, title and summary from the owner's push preview, never the body. Bicep passes two SAS keys, Send and Manage, into container app secrets. Built and declared in Bicep, not deployed: local ADR 0039. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
 
 

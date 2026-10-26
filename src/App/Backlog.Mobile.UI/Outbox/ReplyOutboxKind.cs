@@ -8,7 +8,7 @@ namespace Backlog.Mobile.UI.Outbox;
 /// <summary>
 /// A reply the person made on the phone to a question a desktop owns, as an outbox entry: the
 /// <see cref="NotificationReplyPost"/> posted to <c>POST /api/sync/notifications/replies</c>
-/// (local ADR 0038, <c>.devbook/domain/notifications/domain.md#reply</c>).
+/// (local ADR 0039, <c>.devbook/domain/notifications/domain.md#reply</c>).
 /// <para>
 /// The same queue, order, backoff and waiting marker as every other kind, so a reply made with
 /// no signal is kept and sent once there is one. No idempotency key is needed beyond the reply's

@@ -2,7 +2,7 @@ namespace Backlog.Modules.Notifications.Abstractions;
 
 /// <summary>
 /// What the sync exchange reads off the owner instance to carry its notifications to the
-/// other devices (local ADR 0038, <c>.devbook/domain/notifications/context.md</c>): the open
+/// other devices (local ADR 0039, <c>.devbook/domain/notifications/context.md</c>): the open
 /// notifications, and any one notification as it stands. Read-only — a reply goes back in
 /// through <see cref="INotificationReplies"/>, so the owner's gate stays the one every change
 /// passes through.

@@ -31,7 +31,7 @@ status: draft
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
 | Progress | Supporting | It keeps the goals a person's work is attached to and the impediments that hold it back, and reads both over an iteration as a stand-up, naming tasks by id, plans by tag and pull requests by number without owning any of them. |
 | Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
-| Notifications | Supporting | It lets any context tell the person something or ask them a question, and hands the answer back from whichever paired device they used. It carries no work of its own (local ADR 0038). |
+| Notifications | Supporting | It lets any context tell the person something or ask them a question, and hands the answer back from whichever paired device they used. It carries no work of its own (local ADR 0039). |
 | Sync | Supporting | It keeps one person's data the same across their devices. It is built in-house (local ADR 0005), and its pairing and precedence rules are cut to Backlog's local-first model, but it carries other contexts' documents rather than being what makes the product different. |
 
 ## Context map
@@ -116,7 +116,7 @@ flowchart LR
     Sync -->|OHS + Published Language<br/>Annotation replica| Brain
     Sync -->|Customer/Supplier<br/>capture-kind documents for IInboxIntake| Inbox
 
-    %% Notifications. Not built yet: local ADR 0038. It conforms to Sync's replica
+    %% Notifications. Not built yet: local ADR 0039. It conforms to Sync's replica
     %% protocol and offers INotifications to the contexts that publish.
     Sync -.->|"Conformist (not built)<br/>Notification and reply replica"| Notify
     Notify -.->|"OHS + Published Language (not built)<br/>INotifications, answer handler"| Sessions
@@ -234,7 +234,7 @@ flowchart LR
   replica protocol through an adapter in `Backlog.Infrastructure.Sync`; it never
   reaches into another context's documents on the replica.
 - `Notifications` is downstream of `Sync` and upstream of every context that
-  publishes (local ADR 0038). It conforms to the replica protocol for its
+  publishes (local ADR 0039). It conforms to the replica protocol for its
   `notifications` container, as Tasks, Sessions and Devbook do for theirs. The
   contexts that publish depend on `Backlog.Modules.Notifications.Abstractions`, the
   way they depend on `Tasks.Abstractions`, and never on its module. Notifications

@@ -1,4 +1,4 @@
-# ADR 0038: Notifications are an owned document kind on their own replica container, and the realtime channel only nudges
+# ADR 0039: Notifications are an owned document kind on their own replica container, and the realtime channel only nudges
 
 ```meta
 date: 2026-10-26

@@ -3,7 +3,7 @@ using Backlog.Mobile.UI.Notifications;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// The data message the sync service sends a phone through Notification Hubs (local ADR 0038
+/// The data message the sync service sends a phone through Notification Hubs (local ADR 0039
 /// §4), read back on the phone: an open notification is shown, any other state takes the entry
 /// out of the tray, and a map that is not one of these messages is passed over.
 /// </summary>

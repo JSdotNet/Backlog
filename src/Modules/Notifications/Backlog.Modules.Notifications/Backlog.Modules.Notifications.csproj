@@ -2,7 +2,7 @@
 
   <!--
     Notifications module — the Notifications bounded context
-    (.devbook/domain/notifications, local ADR 0038). Clean architecture, inside out:
+    (.devbook/domain/notifications, local ADR 0039). Clean architecture, inside out:
       DomainModels/  the Notification aggregate, its answer-spec and reply rules
       Services/      the owner's INotifications, the viewer's refusal, answer
                      delivery and replay, and the startup subject probe pass

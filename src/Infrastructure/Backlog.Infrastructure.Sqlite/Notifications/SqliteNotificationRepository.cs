@@ -11,7 +11,7 @@ namespace Backlog.Infrastructure.Sqlite.Notifications;
 
 /// <summary>
 /// Local-first <see cref="INotificationRepository"/>: one row per notification in
-/// <c>notifications</c>, in the same SQLite database the tasks live in (local ADR 0003, ADR 0038
+/// <c>notifications</c>, in the same SQLite database the tasks live in (local ADR 0003, ADR 0039
 /// §3), each row the whole notification as one JSON document beside the two columns the module
 /// queries on — its state, and whether an accepted answer still waits for its handler.
 /// <para>

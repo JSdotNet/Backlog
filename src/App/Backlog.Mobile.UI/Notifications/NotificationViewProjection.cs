@@ -9,7 +9,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 namespace Backlog.Mobile.UI.Notifications;
 
 /// <summary>
-/// The phone's notifications (local ADR 0038, <c>.devbook/domain/notifications/context.md</c>):
+/// The phone's notifications (local ADR 0039, <c>.devbook/domain/notifications/context.md</c>):
 /// the owner's notification feed folded into <see cref="INotificationViewStore"/>, read back as
 /// <see cref="PhoneNotification"/>s, and the one thing the phone writes — a reply to a question,
 /// queued through the <see cref="DeviceOutbox"/> as a <see cref="ReplyOutboxKind"/> entry.

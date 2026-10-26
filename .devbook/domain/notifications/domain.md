@@ -15,7 +15,7 @@ type: domain
 ```meta
 status: proposed
 type: aggregate
-related: [.devbook/domain/notifications/domain.invariants.md#notification, .devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
+related: [.devbook/domain/notifications/domain.invariants.md#notification, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md]
 aliases: [NotificationDraft, NotificationId]
 ```
 

@@ -15,7 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// The owner desktop's notification exchange end to end (local ADR 0038,
+/// The owner desktop's notification exchange end to end (local ADR 0039,
 /// <c>.devbook/domain/notifications/requirements.md#answering-from-another-device</c>): the
 /// real Notifications module over its own <c>backlog.db</c>, the real
 /// <see cref="NotificationSyncSession"/> and a real sync service, with a phone and a second

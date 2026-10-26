@@ -81,12 +81,12 @@ status: candidate
 type: library
 version: "125.1.3"
 depends-on: [".devbook/tech/mobile.md#android", ".devbook/tech/cloud.md#firebase-cloud-messaging"]
-related: [".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/07-deployment-view.md#local-deployment-mobile", ".devbook/tech/cloud.md#azure-notification-hubs"]
+related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/07-deployment-view.md#local-deployment-mobile", ".devbook/tech/cloud.md#azure-notification-hubs"]
 alternatives: ["Plugin.Firebase"]
 ```
 
 The Android binding of Firebase Cloud Messaging that the phone receives the
-Android push through (local ADR 0038).
+Android push through (local ADR 0039).
 
 - **Used for** — the FCM token the phone registers with the sync service, and
   the data messages Notification Hubs relays. `BacklogFirebaseMessagingService`

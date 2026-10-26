@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 namespace Backlog.Infrastructure.WebPubSub;
 
 /// <summary>
-/// The realtime nudge over Azure Web PubSub (local ADR 0038 §4): one group per owner on the
+/// The realtime nudge over Azure Web PubSub (local ADR 0039 §4): one group per owner on the
 /// <c>notifications</c> hub, a client access URL that joins a device to its own owner's group
 /// and grants it nothing else, and a "pull now" message published to that group.
 /// <para>

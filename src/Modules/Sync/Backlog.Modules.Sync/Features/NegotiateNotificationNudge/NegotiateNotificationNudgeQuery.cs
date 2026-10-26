@@ -8,7 +8,7 @@ using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.Features.NegotiateNotificationNudge;
 
-/// <summary>A paired desktop asks where to hold its nudge socket (local ADR 0038 §4).</summary>
+/// <summary>A paired desktop asks where to hold its nudge socket (local ADR 0039 §4).</summary>
 public sealed record NegotiateNotificationNudgeQuery(OwnerScope Scope);
 
 /// <summary>

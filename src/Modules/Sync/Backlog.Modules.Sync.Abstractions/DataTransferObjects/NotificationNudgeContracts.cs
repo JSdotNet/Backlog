@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 /// <summary>
-/// What the negotiate endpoint answers (local ADR 0038 §4): the client access URL a desktop
+/// What the negotiate endpoint answers (local ADR 0039 §4): the client access URL a desktop
 /// opens its WebSocket on, or <see langword="null"/> where the service runs without a Web
 /// PubSub hub — under Aspire and in every endpoint test — and the desktop keeps polling.
 /// <para>

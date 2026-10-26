@@ -4,7 +4,7 @@ namespace Backlog.Mobile.UI.Notifications;
 
 /// <summary>
 /// The data message the sync service sends this phone through Notification Hubs when one of its
-/// owner's notifications is published or changes state (local ADR 0038 §4), read off the FCM
+/// owner's notifications is published or changes state (local ADR 0039 §4), read off the FCM
 /// data map. It never carries a body: only <c>id</c> and <c>state</c> are certain, and the
 /// preview fields are absent when the owner sent none.
 /// </summary>

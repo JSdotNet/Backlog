@@ -288,11 +288,11 @@ a workspace-based Application Insights resource over it.
 status: candidate
 type: service
 depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis"]
-related: [".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/arc42/05-building-block-view.md#cloud-service"]
+related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/arc42/05-building-block-view.md#cloud-service"]
 alternatives: ["Server-sent events on the sync service"]
 ```
 
-The realtime channel to the desktops (local ADR 0038).
+The realtime channel to the desktops (local ADR 0039).
 
 - **Used for** — telling a desktop to pull the `notifications` container now. A
   desktop holds a WebSocket to one hub, and the sync service publishes to it when
@@ -317,12 +317,12 @@ The realtime channel to the desktops (local ADR 0038).
 status: candidate
 type: service
 depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis", ".devbook/tech/cloud.md#firebase-cloud-messaging"]
-related: [".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/tech/mobile.md#android"]
+related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/tech/mobile.md#android"]
 alternatives: ["Firebase Cloud Messaging called directly, with workload identity federation"]
 ```
 
 The push service the sync service sends Android notifications through (local
-ADR 0038).
+ADR 0039).
 
 - **Used for** — waking the Android phone with a data-only push that carries a
   notification's id, kind, severity, state, title and summary, and never its
@@ -347,11 +347,11 @@ ADR 0038).
 ```meta
 status: candidate
 type: service
-related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/tech/mobile.md#android", ".devbook/tech/mobile.md#xamarinfirebasemessaging", ".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
+related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/tech/mobile.md#android", ".devbook/tech/mobile.md#xamarinfirebasemessaging", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 ```
 
 The Android push transport behind
-[Azure Notification Hubs](#azure-notification-hubs) (local ADR 0038).
+[Azure Notification Hubs](#azure-notification-hubs) (local ADR 0039).
 
 - **Used for** — delivering the hub's pushes to the Android phone. The sync
   service never calls it directly.

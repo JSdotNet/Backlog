@@ -10,7 +10,7 @@ namespace Backlog.Modules.Notifications.UnitTests;
 
 /// <summary>
 /// <see cref="INotificationReplication"/>, what the sync exchange reads off the owner instance
-/// (local ADR 0038): the open notifications and any one as it stands, whole, and only on an
+/// (local ADR 0039): the open notifications and any one as it stands, whole, and only on an
 /// owner.
 /// </summary>
 public sealed class NotificationReplicationTests

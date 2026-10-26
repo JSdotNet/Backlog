@@ -8,7 +8,7 @@ namespace Backlog.Modules.Notifications.Services;
 /// <summary>
 /// The owner instance's <see cref="INotifications"/> and <see cref="INotificationReplies"/>: a
 /// desktop publishes notifications it then owns under its <see cref="DeviceIdentity.Id"/>, and is
-/// the only instance that changes them or decides their answer (local ADR 0038 §1–2).
+/// the only instance that changes them or decides their answer (local ADR 0039 §1–2).
 /// <para>
 /// One change at a time, under one gate, so two replies racing for the same question are
 /// processed in turn and the first valid one wins; the second meets an Answered question and is

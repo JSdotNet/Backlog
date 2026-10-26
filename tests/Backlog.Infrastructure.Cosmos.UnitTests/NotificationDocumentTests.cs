@@ -1,6 +1,6 @@
 // What is testable about the notification adapter without Cosmos: the shape of the two
 // documents, the names the containers are partitioned and queried on, and the TTL rule
-// (local ADR 0038 §3). Change-feed delivery and TTL expiry are not, for the reasons
+// (local ADR 0039 §3). Change-feed delivery and TTL expiry are not, for the reasons
 // TaskDocumentTests gives at its head.
 
 using System.Text.Json;

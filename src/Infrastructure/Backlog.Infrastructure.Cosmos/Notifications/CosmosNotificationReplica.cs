@@ -13,7 +13,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Infrastructure.Cosmos.Notifications;
 
 /// <summary>
-/// The notification replica, in Cosmos DB (local ADR 0038): notifications in the
+/// The notification replica, in Cosmos DB (local ADR 0039): notifications in the
 /// <c>notifications</c> container and the replies to them in <c>notificationReplies</c>, both
 /// partitioned on <c>/ownerId</c>.
 /// <para>
@@ -77,7 +77,7 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
     internal enum WriteOutcome
     {
         /// <summary>Written, and new here or in another state than the one held: a phone is
-        /// pushed (ADR 0038 §4).</summary>
+        /// pushed (ADR 0039 §4).</summary>
         Transition,
 
         /// <summary>Written, in the state already held — the owner's presence refresh.</summary>
@@ -147,7 +147,7 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
     /// What writing <paramref name="change"/> over <paramref name="held"/> — the document read
     /// just before, or null when there is none — would be: refused as another owner instance's
     /// or as older than the one held, or written, and then a transition when it is new here or
-    /// moves the state held (ADR 0038 §4: only those reach a phone).
+    /// moves the state held (ADR 0039 §4: only those reach a phone).
     /// </summary>
     internal static WriteOutcome Decide(NotificationDocument? held, NotificationChange change)
     {
@@ -227,7 +227,7 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
 
         // The notification is looked for in the caller's own partition only. A device
         // under another account finds nothing there, which is the service's half of
-        // reply.foreign_owner (ADR 0038 §2).
+        // reply.foreign_owner (ADR 0039 §2).
         NotificationDocument notification;
         var notifications = await _notifications.ContainerAsync(cancellationToken).ConfigureAwait(false);
         try

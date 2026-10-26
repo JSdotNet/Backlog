@@ -4,7 +4,7 @@ namespace Backlog.Modules.Sync.Ports;
 
 /// <summary>
 /// The realtime channel that tells an owner's desktops to pull the notification exchange now
-/// (local ADR 0038 §4). Declared here and implemented outside — Azure Web PubSub, deployed —
+/// (local ADR 0039 §4). Declared here and implemented outside — Azure Web PubSub, deployed —
 /// beside <see cref="INotificationReplica"/>, so the module says what it needs without naming
 /// the service.
 /// <para>

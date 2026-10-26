@@ -5,7 +5,7 @@ using Backlog.Modules.Sync.Features.PushNotifications;
 namespace Backlog.Modules.Sync.UnitTests;
 
 /// <summary>
-/// What a phone is sent when a notification is published or changes state (local ADR 0038 §4):
+/// What a phone is sent when a notification is published or changes state (local ADR 0039 §4):
 /// a data-only message whose values are all strings, carrying the envelope and the owner's push
 /// preview — and never the body, which stays in the opaque document the service does not read.
 /// </summary>

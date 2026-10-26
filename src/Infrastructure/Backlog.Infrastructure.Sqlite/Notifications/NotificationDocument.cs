@@ -7,7 +7,7 @@ using Backlog.Modules.Notifications.DomainModels;
 namespace Backlog.Infrastructure.Sqlite.Notifications;
 
 /// <summary>
-/// One notification as the JSON document its row holds — the shape local ADR 0038 §3 gives the
+/// One notification as the JSON document its row holds — the shape local ADR 0039 §3 gives the
 /// travelling <c>notification</c> document, kept here as the owner's local copy. Versioned so a
 /// later shape can be told from this one.
 /// </summary>

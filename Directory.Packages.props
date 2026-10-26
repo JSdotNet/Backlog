@@ -64,7 +64,7 @@
     <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.4" />
 
     <!--
-      The client-side half of the realtime nudge (local ADR 0038 §4): it registers the
+      The client-side half of the realtime nudge (local ADR 0039 §4): it registers the
       WebPubSubServiceClient that Backlog.Infrastructure.WebPubSub mints client access
       URLs and publishes "pull now" through, with the managed identity as its
       credential. Moves with the hosting packages above, like the Cosmos one.
@@ -72,7 +72,7 @@
     <PackageVersion Include="Aspire.Azure.Messaging.WebPubSub" Version="13.6.1" />
 
     <!--
-      The Android push (local ADR 0038 §4): the Notification Hubs data-plane client that
+      The Android push (local ADR 0039 §4): the Notification Hubs data-plane client that
       Backlog.Infrastructure.NotificationHubs keeps each phone's FCM v1 installation
       through and sends the data message with. No Aspire integration exists for it, and
       the hub takes no managed identity, so the client is built from the SAS connection
@@ -215,7 +215,7 @@
     <PackageVersion Include="SkiaSharp" Version="4.153.1" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
     <!--
-      The Android push (local ADR 0038 §4): Firebase Cloud Messaging's token and
+      The Android push (local ADR 0039 §4): Firebase Cloud Messaging's token and
       the data messages Notification Hubs relays, in the Android head only. The
       Microsoft-maintained binding, with an explicit net10.0-android36.0 group;
       its Play Services targets turn Platforms/Android/google-services.json into

@@ -54,7 +54,7 @@ public class InfrastructureGraphTests
         ("Backlog.Infrastructure.Mcp", 6,
             "The MCP server is one adapter: the agent tools over each context's published port, one tool "
             + "group per context behind that context's own key (local ADR 0012 §7) — Tasks, Roadmap, Devbook, "
-            + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0038) and, for the "
+            + "Sessions, Notifications for notify, ask, get_answer and close (local ADR 0039) and, for the "
             + "impediment tools beside set_blocked, Progress (local ADR 0035). It references abstractions "
             + "only, never a module's implementation.")
     ];

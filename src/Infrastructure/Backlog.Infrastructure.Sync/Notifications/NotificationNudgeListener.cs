@@ -26,7 +26,7 @@ public interface INotificationNudgeTarget
 }
 
 /// <summary>
-/// The desktop's half of the realtime nudge (local ADR 0038 §4): it asks the sync service where
+/// The desktop's half of the realtime nudge (local ADR 0039 §4): it asks the sync service where
 /// to listen, holds the WebSocket to the Web PubSub hub, and on every "pull now" has
 /// <see cref="NotificationSyncWorker"/> run an exchange at once.
 /// <para>

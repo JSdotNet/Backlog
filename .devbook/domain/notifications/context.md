@@ -5,7 +5,7 @@ status: proposed
 index: root
 type: context
 deployment: module
-related: [.devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/08-crosscutting-concepts.md#notifications, .devbook/arc42/05-building-block-view.md#cloud-service, .devbook/arc42/06-runtime-view.md#notification-reply]
+related: [.devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/08-crosscutting-concepts.md#notifications, .devbook/arc42/05-building-block-view.md#cloud-service, .devbook/arc42/06-runtime-view.md#notification-reply]
 ```
 
 Notifications lets a desktop instance tell the person something, or ask them
@@ -40,7 +40,7 @@ Outside it:
 
 Android is the only phone platform. The local decision behind the storage and
 the realtime nudge is
-`.devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md`.
+`.devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md`.
 
 The module is `Backlog.Modules.Notifications`, published to other contexts through
 `Backlog.Modules.Notifications.Abstractions`, with its screens in
@@ -143,7 +143,7 @@ contract to the contexts that publish, as an open host service.
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Sync](../sync/context.md) | Conformist (Notifications = conformist) | A notification exchange in `Backlog.Infrastructure.Sync` pushes to the `notifications` container and takes replies from `notificationReplies`, with the push preview on each `NotificationChange`; the phone posts replies through its device outbox, and registers for the Android push through `PUT /api/sync/notifications/push` | The replica protocol in `Backlog.Modules.Sync.Abstractions`; local ADR 0038 | Notifications and replies reach every paired device, and the sync service checks the owner before it stores a reply. |
+| [Sync](../sync/context.md) | Conformist (Notifications = conformist) | A notification exchange in `Backlog.Infrastructure.Sync` pushes to the `notifications` container and takes replies from `notificationReplies`, with the push preview on each `NotificationChange`; the phone posts replies through its device outbox, and registers for the Android push through `PUT /api/sync/notifications/push` | The replica protocol in `Backlog.Modules.Sync.Abstractions`; local ADR 0039 | Notifications and replies reach every paired device, and the sync service checks the owner before it stores a reply. |
 | Shared kernel device identity | Conformist | `DeviceIdentity` in `Backlog.SharedKernel` | `.devbook/domain/tasks/domain.md#device` | The owner instance is named by the device that published the notification. |
 
 ### Inbound dependents (known)

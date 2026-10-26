@@ -7,7 +7,7 @@ using Firebase.Messaging;
 namespace Backlog.Mobile;
 
 /// <summary>
-/// <see cref="IPushTokenSource"/> over Firebase Messaging (local ADR 0038 §4): the token this
+/// <see cref="IPushTokenSource"/> over Firebase Messaging (local ADR 0039 §4): the token this
 /// install receives pushes under. Firebase starts itself from the resources the binding builds
 /// out of <c>google-services.json</c>; a build where it could not start throws here, which
 /// <see cref="PushRegistration"/> takes as "no token yet".

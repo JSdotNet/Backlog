@@ -119,7 +119,7 @@ sync-dependent channel. It is not canonical, so this section covers only how the
 APK reaches a device. `.devbook/tech/mobile.md#local-offline-store` documents its
 on-device SQLite outbox.
 
-For the Android push (local ADR 0038), the APK carries
+For the Android push (local ADR 0039), the APK carries
 `Platforms/Android/google-services.json` and the
 [Firebase Messaging binding](../tech/mobile.md#xamarinfirebasemessaging). The
 JSON file holds the Firebase project's identifiers, not a secret. On Android 13
@@ -227,7 +227,7 @@ sequenceDiagram
 ## Cloud Deployment (Azure)
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0038-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
+related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
 The optional cloud service is deployed to Azure as a single-region, low-cost
@@ -331,7 +331,7 @@ Deployment considerations:
   exist until its container app does. The app could then not be granted the
   registry pull it needs in order to start.
 - **Two Notification Hubs keys, because that service takes no identity** *(local
-  ADR 0038 §5)* — the only data credentials the deployment hands the service are
+  ADR 0039 §5)* — the only data credentials the deployment hands the service are
   the connection strings of the hub's `sync-send` and `sync-manage` rules. Bicep
   reads them with `listKeys()` into the container app secrets
   `notification-hubs-send-connection-string` and

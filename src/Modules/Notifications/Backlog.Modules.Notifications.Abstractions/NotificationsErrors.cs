@@ -70,7 +70,7 @@ public static class NotificationsErrors
         Error.Conflict("reply.owner_only", "This question is answered only on the desktop that asked it.");
 
     /// <summary>A reply from a device under another account. Checked by the sync service and
-    /// again by the owner once the replica carries the account (ADR 0038 §2).</summary>
+    /// again by the owner once the replica carries the account (ADR 0039 §2).</summary>
     public static Error ReplyForeignOwner() =>
         Error.Conflict("reply.foreign_owner", "The reply comes from a device under another owner.");
 

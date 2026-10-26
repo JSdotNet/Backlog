@@ -73,7 +73,12 @@ public class BacklogMcpToolsTests
                 "detach_from_goal",
                 "delete_goal",
 
-                // Notifications' four (local ADR 0038).
+                // The dispatcher tools of the session request queue (local ADR 0038).
+                "claim_session_request",
+                "mark_session_request",
+                "list_session_requests",
+
+                // Notifications' four (local ADR 0039).
                 "notify",
                 "ask",
                 "get_answer",
@@ -100,6 +105,8 @@ public class BacklogMcpToolsTests
         // Progress has no switch: its impediment and goal tools ride the always-on Tasks key.
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Impediments.FeatureKey);
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Goals.FeatureKey);
+        // The dispatcher tools have the queue's own key, off by default (local ADR 0038 §5).
+        Assert.Equal(SessionFeatures.SessionRequests, BacklogMcpTools.SessionRequests.FeatureKey);
         Assert.Equal(NotificationsFeatures.Notifications, BacklogMcpTools.Notifications.FeatureKey);
     }
 
@@ -127,7 +134,9 @@ public class BacklogMcpToolsTests
     /// No key crosses a bounded context but one: the Tasks key also gates Progress's
     /// impediment and goal tools, because Progress has no switch of its own — goals are
     /// always on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
-    /// keys the nine groups name are five.
+    /// keys the ten groups name are six: the session request queue's dispatcher tools
+    /// have <c>session-requests</c> to themselves, and the notification tools
+    /// <c>notifications</c>.
     /// </para>
     /// </summary>
     [Fact]
@@ -137,7 +146,7 @@ public class BacklogMcpToolsTests
             .GroupBy(group => group.FeatureKey, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
-        Assert.Equal(5, byKey.Count);
+        Assert.Equal(6, byKey.Count);
 
         // The impediment and goal tools are Progress's, which has no switch of its own:
         // goals are always on, so they ride the Tasks key, which cannot be turned off either.
@@ -252,6 +261,8 @@ public class BacklogMcpToolsTests
             GoalTools.AttachToGoal,
             GoalTools.DetachFromGoal,
             GoalTools.DeleteGoal,
+            SessionRequestTools.ClaimSessionRequest,
+            SessionRequestTools.MarkSessionRequest,
             NotificationTools.Notify,
             NotificationTools.Ask,
             NotificationTools.Close

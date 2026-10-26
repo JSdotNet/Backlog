@@ -8,7 +8,7 @@ using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Sync.Features.RegisterPushInstallation;
 
-/// <summary>A paired phone hands over its FCM token (local ADR 0038 §4). The scope comes from
+/// <summary>A paired phone hands over its FCM token (local ADR 0039 §4). The scope comes from
 /// the token, the FCM token from the body, and nothing in the body can name an owner.</summary>
 public sealed record RegisterPushInstallationCommand(OwnerScope Scope, string FcmToken);
 

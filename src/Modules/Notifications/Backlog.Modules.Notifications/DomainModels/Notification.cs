@@ -7,7 +7,7 @@ namespace Backlog.Modules.Notifications.DomainModels;
 
 /// <summary>
 /// One message a source raises on an owner instance
-/// (<c>.devbook/domain/notifications/domain.md#notification</c>, local ADR 0038): its kind,
+/// (<c>.devbook/domain/notifications/domain.md#notification</c>, local ADR 0039): its kind,
 /// severity, content and lifecycle, and the consistency boundary for its answer.
 /// <para>
 /// Its rules are <c>.devbook/domain/notifications/domain.invariants.md</c>, each with a unit
@@ -20,7 +20,7 @@ namespace Backlog.Modules.Notifications.DomainModels;
 /// </para>
 /// <para>
 /// <c>reply.foreign_owner</c> — a reply from a device under another account — is the sync
-/// service's check first (ADR 0038 §2), and the owner's second check needs the account the
+/// service's check first (ADR 0039 §2), and the owner's second check needs the account the
 /// replica carries. Neither exists before the sync exchange does, so this step checks only that
 /// the reply is addressed to this instance (<c>reply.wrong_instance</c>).
 /// </para>

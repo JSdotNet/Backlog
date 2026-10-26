@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-  The status-bar icon of a Backlog notification (local ADR 0038 §4). Android draws
+  The status-bar icon of a Backlog notification (local ADR 0039 §4). Android draws
   a notification's small icon from its alpha channel alone, so this is a white
   silhouette - the bell the phone's Notifications tab carries - rather than the
   full-colour launcher icon, which would show as a blank square.

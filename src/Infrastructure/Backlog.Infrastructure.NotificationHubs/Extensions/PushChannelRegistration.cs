@@ -11,7 +11,7 @@ namespace Backlog.Infrastructure.NotificationHubs.Extensions;
 /// <summary>
 /// Wires the Notification Hubs push into a host — or, with nothing configured, deliberately
 /// does nothing, so the module's no-op channel stands and every phone learns of a notification
-/// on its next pull (local ADR 0038 §4).
+/// on its next pull (local ADR 0039 §4).
 /// </summary>
 public static partial class PushChannelRegistration
 {

@@ -11,7 +11,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
-/// The desktop's nudge socket (local ADR 0038 §4) against a scripted negotiate and a fake hub:
+/// The desktop's nudge socket (local ADR 0039 §4) against a scripted negotiate and a fake hub:
 /// it opens the socket and tells the loop so, has the loop run on every "pull now", hands the
 /// replies back to the two-minute poll the moment the socket drops, reconnects with a growing
 /// wait, and against a service with no hub never opens a socket at all.

@@ -14,7 +14,7 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Sync.Api.Endpoints;
 
 /// <summary>
-/// The notification exchange (local ADR 0038): an owner instance pushes the notifications it
+/// The notification exchange (local ADR 0039): an owner instance pushes the notifications it
 /// published and their state changes, every device of the owner pulls the feed, a viewer posts
 /// a reply, and the owner instance lists the replies addressed to it (<c>?instance=</c>) and
 /// deletes each once it has processed it.
@@ -27,11 +27,11 @@ namespace Backlog.Modules.Sync.Api.Endpoints;
 /// </para>
 /// <para>
 /// A sixth route, negotiate, hands a desktop the Web PubSub URL its nudge socket opens on
-/// (ADR 0038 §4), behind the same filter: the group in the URL is the token's owner, so no
+/// (ADR 0039 §4), behind the same filter: the group in the URL is the token's owner, so no
 /// device can listen to another owner's nudges.
 /// </para>
 /// <para>
-/// A seventh, push, takes a phone's FCM token for the Android push (ADR 0038 §4), behind the
+/// A seventh, push, takes a phone's FCM token for the Android push (ADR 0039 §4), behind the
 /// same filter once more: the installation is tagged with the token's owner and device, so no
 /// phone can register to hear another owner's notifications.
 /// </para>

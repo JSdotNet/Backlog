@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
 /// The owner desktop writes the Android push preview on the envelope beside the document (local
-/// ADR 0038 §4), so the sync service never reads the document to buzz a phone — and a private
+/// ADR 0039 §4), so the sync service never reads the document to buzz a phone — and a private
 /// notification's summary never leaves the desktop at all.
 /// </summary>
 public class NotificationPushPreviewTests

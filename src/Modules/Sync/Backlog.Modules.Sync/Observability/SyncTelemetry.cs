@@ -66,7 +66,7 @@ public static class SyncTelemetry
         unit: "{cursor}",
         description: "Pull cursors refused, tagged by the reason they were refused.");
 
-    /// <summary>Android pushes the hub took (local ADR 0038 §4) — one per notification that was
+    /// <summary>Android pushes the hub took (local ADR 0039 §4) — one per notification that was
     /// published or moved state.</summary>
     public static readonly Counter<long> PushSent = Meter.CreateCounter<long>(
         "backlog.sync.push_sent",

@@ -11,7 +11,7 @@ using RemoteInput = AndroidX.Core.App.RemoteInput;
 namespace Backlog.Mobile;
 
 /// <summary>
-/// Puts a pushed notification in the Android tray and takes it out again (local ADR 0038 §4).
+/// Puts a pushed notification in the Android tray and takes it out again (local ADR 0039 §4).
 /// <para>
 /// Each entry is tagged with the notification's id, so the next push about the same
 /// notification replaces it, and a settled one is removed by the same tag. Its tap opens the

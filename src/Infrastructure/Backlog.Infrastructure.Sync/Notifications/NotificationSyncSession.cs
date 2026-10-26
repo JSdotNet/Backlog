@@ -19,7 +19,7 @@ namespace Backlog.Infrastructure.Sync.Notifications;
 public sealed record NotificationSyncSummary(int Pushed, int Accepted, int Rejected, bool PolledReplies, DateTimeOffset At);
 
 /// <summary>
-/// One exchange of the owner instance with the notification replica (local ADR 0038,
+/// One exchange of the owner instance with the notification replica (local ADR 0039,
 /// <c>.devbook/arc42/06-runtime-view.md#notification-reply</c>):
 /// <list type="number">
 /// <item>push the notifications published here, and the ones that settled here, since the last
@@ -34,7 +34,7 @@ public sealed record NotificationSyncSummary(int Pushed, int Accepted, int Rejec
 /// <para>
 /// The owner checks the account again before it accepts: a reply the replica stamped with
 /// another owner is rejected as <c>reply.foreign_owner</c> — the service's partition already
-/// keeps one out, and this is the second check ADR 0038 §2 asks for.
+/// keeps one out, and this is the second check ADR 0039 §2 asks for.
 /// </para>
 /// <para>
 /// Processing is idempotent, so a reply whose delete failed is safe to see again: one that is
@@ -116,7 +116,7 @@ public sealed class NotificationSyncSession
 
     /// <summary>
     /// The same exchange, with the reply listing left to the caller. <paramref name="pollReplies"/>
-    /// false is the scheduled tick while the desktop's nudge socket is open (local ADR 0038 §4):
+    /// false is the scheduled tick while the desktop's nudge socket is open (local ADR 0039 §4):
     /// a reply then announces itself, so the tick only pushes, and the sync service is not woken
     /// every two minutes to say there is nothing. The cycle that settles a question still lists
     /// the replies once, whatever this says.

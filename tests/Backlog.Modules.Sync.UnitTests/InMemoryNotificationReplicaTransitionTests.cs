@@ -7,7 +7,7 @@ namespace Backlog.Modules.Sync.UnitTests;
 
 /// <summary>
 /// The replica says which notifications in a push were published or moved state, because only
-/// those reach a phone (local ADR 0038 §4). The owner re-pushes every open notification every
+/// those reach a phone (local ADR 0039 §4). The owner re-pushes every open notification every
 /// ten minutes to show it is present, and once a week to refresh it; none of that may buzz a
 /// phone again.
 /// </summary>

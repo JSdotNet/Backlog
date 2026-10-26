@@ -15,13 +15,13 @@ public sealed record PostNotificationReplyCommand(OwnerScope Scope, Notification
 /// <summary>
 /// Stores the reply against a notification the caller's own owner holds, or refuses it with
 /// <see cref="SyncErrorCodes.NotificationNotFound"/>. This is the sync service's half of
-/// <c>reply.foreign_owner</c> (local ADR 0038 §2): a device under another account finds no
+/// <c>reply.foreign_owner</c> (local ADR 0039 §2): a device under another account finds no
 /// notification in its own partition, so its reply is never stored where the owner instance
 /// would read it. Whether the reply fits the question, and whether it is the first, is the
 /// owner instance's to decide; the service reads none of it. Posting the same reply id twice
 /// stores it once, so a phone's outbox may send it again.
 /// <para>
-/// A reply stored for the first time nudges the owner's desktops (ADR 0038 §4), so the owner
+/// A reply stored for the first time nudges the owner's desktops (ADR 0039 §4), so the owner
 /// instance processes it within seconds rather than on its two-minute poll. A repeat send
 /// stored nothing new and nudges nobody.
 /// </para>

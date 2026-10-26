@@ -4,7 +4,7 @@ namespace Backlog.Modules.Notifications.Abstractions;
 
 /// <summary>
 /// The one port every context tells the person something, or asks them something, through
-/// (<c>.devbook/arc42/08-crosscutting-concepts.md#notifications</c>, local ADR 0038). The
+/// (<c>.devbook/arc42/08-crosscutting-concepts.md#notifications</c>, local ADR 0039). The
 /// desktop that publishes becomes the notification's owner instance, and only it changes the
 /// notification afterwards.
 /// <para>

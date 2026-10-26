@@ -15,7 +15,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
-/// The service's half of the Android push (local ADR 0038 §4): a paired phone registers its FCM
+/// The service's half of the Android push (local ADR 0039 §4): a paired phone registers its FCM
 /// token and gets one installation tagged with its owner and device, both from its device token;
 /// a notification that is published or moves state is pushed to the owner, and nothing else is;
 /// a hub that fails never fails the push; and a revoked phone's installation goes. The hub itself

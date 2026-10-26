@@ -5,7 +5,7 @@ namespace Backlog.Modules.Sync.Ports;
 
 /// <summary>
 /// Where an owner's notifications and the replies to them are kept while they travel between
-/// that person's devices (local ADR 0038). Declared here and implemented outside, so the module
+/// that person's devices (local ADR 0039). Declared here and implemented outside, so the module
 /// says what it needs of storage without naming Cosmos.
 /// <para>
 /// Two collections behind one port, because one rule joins them: a reply is stored only
@@ -17,7 +17,7 @@ namespace Backlog.Modules.Sync.Ports;
 /// </para>
 /// <para>
 /// The owner of a notification is its owner instance — the publishing desktop's installation
-/// identity (ADR 0038 §1) — not the sync device it paired as. The replica remembers which sync
+/// identity (ADR 0039 §1) — not the sync device it paired as. The replica remembers which sync
 /// device last wrote each notification, and that device speaks for the instance: it is the one
 /// that may list and delete the instance's replies. A desktop that pairs again pushes its open
 /// notifications under its new device and so takes its replies with it.
@@ -41,7 +41,7 @@ public interface INotificationReplica
     /// <para>
     /// A written change that the replica did not hold yet, or that moves the state it held, is
     /// also named in <see cref="NotificationUpsertResult.Transitions"/>: those are the changes a
-    /// phone is pushed (ADR 0038 §4). A re-push in the state already held — the owner's
+    /// phone is pushed (ADR 0039 §4). A re-push in the state already held — the owner's
     /// ten-minute presence refresh — is written and is no transition. A batch that faults part
     /// way reports no transitions at all, and its retry finds the written ones in the state
     /// already held: those phones are not pushed. Accepted, because a lost push costs a buzz and

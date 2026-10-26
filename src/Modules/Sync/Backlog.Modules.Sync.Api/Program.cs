@@ -47,13 +47,13 @@ builder.AddCosmosReplicas();
 // connection, which leaves the module's in-memory store standing.
 builder.AddAttachmentBlobStore();
 
-// The realtime nudge to the desktops (local ADR 0038 §4), on the same terms once more —
+// The realtime nudge to the desktops (local ADR 0039 §4), on the same terms once more —
 // except that with no hub configured it is a no-op in every environment, because the nudge
 // holds no data: the module's no-op channel stands, negotiate hands out no URL, and every
 // desktop keeps its two-minute poll. That is the Aspire run, which has no Web PubSub.
 builder.AddWebPubSubNudge();
 
-// The Android push to the phones (local ADR 0038 §4), on the nudge's terms: with no hub
+// The Android push to the phones (local ADR 0039 §4), on the nudge's terms: with no hub
 // configured it is a no-op in every environment, because a push holds no data either — the
 // module's no-op channel stands, registration answers "not registered", and a phone finds a
 // notification on its next pull. That is the Aspire run, which has no Notification Hubs.

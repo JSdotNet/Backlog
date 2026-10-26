@@ -10,7 +10,7 @@ namespace Backlog.Infrastructure.WebPubSub.Extensions;
 
 /// <summary>
 /// Wires the Web PubSub nudge into a host — or, with nothing configured, deliberately does
-/// nothing, so the module's no-op channel stands and every desktop polls (local ADR 0038 §4).
+/// nothing, so the module's no-op channel stands and every desktop polls (local ADR 0039 §4).
 /// </summary>
 public static partial class NudgeChannelRegistration
 {
