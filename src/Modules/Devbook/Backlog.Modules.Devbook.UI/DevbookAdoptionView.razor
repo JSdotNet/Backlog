@@ -1,19 +1,240 @@
 @*
-    The AI section's Devbook tab: how far the devbook itself has been adopted,
-    read from AiModel. Empty for now; until it is drawn the tab says so rather
-    than showing a blank panel.
+    The AI section's Devbook tab: what this repository adopted from the stack,
+    read only from the stamps under `components` in `.devbook/config.json` —
+    DevbookStackStamps. No installed or newest version is shown: the stamp is
+    what the repository took up, and it is the whole source.
+
+    One card per component — delivery, devbook, schedule — each with its stamped
+    plugin version. A component with no stamp is drawn as not adopted, never as
+    an error; a repository with no configuration at all gets the empty state.
+
+    Where each component works is not authored here a second time: it is the AI
+    usage chapters whose `depends-on` names the component's
+    `.devbook/tech/ai-development.md` entry, read from AiModel, with the stages
+    and layers those chapters sit at.
 *@
-<div data-testid="devbook-adoption-view">
-    <EmptyState Title="Devbook adoption is not drawn yet"
-                Description="How far this repository has taken up the devbook will be drawn here." />
+<div class="devbook-adoption" data-testid="devbook-adoption-view">
+    @if (Stamps is null)
+    {
+        <EmptyState Title="No stack configuration"
+                    Description="No readable .devbook/config.json was found for this repository, so nothing records what it adopted from the stack."
+                    TestId="devbook-adoption-empty" />
+    }
+    else
+    {
+        <p class="devbook-adoption__lead">
+            What this repository adopted from the stack, as the stamps in <code>.devbook/config.json</code> record it.
+        </p>
+        <div class="devbook-adoption__cards">
+            @foreach (var (key, _) in DevbookStackUsages.Components)
+            {
+                var version = VersionOf(key);
+                var adopted = IsAdopted(key);
+                <Card Title="@TitleOf(key)" Compact="true" CssClass="devbook-adoption__card" TestId="@($"devbook-adoption-{key}")">
+                    <Actions>
+                        @if (adopted)
+                        {
+                            <Badge Kind="tone" Slug="settled" Title="@($"The plugin version stamped in components.{key}")" TestId="@($"devbook-adoption-{key}-version")">@(version ?? "No version")</Badge>
+                        }
+                        else
+                        {
+                            <Badge Kind="tone" Slug="quiet" Title="@($"No components.{key} stamp in .devbook/config.json")" TestId="@($"devbook-adoption-{key}-not-adopted")">Not adopted</Badge>
+                        }
+                    </Actions>
+                    <ChildContent>
+                        <p class="devbook-adoption__key"><code>components.@key</code></p>
+                        @if (adopted && key == "devbook")
+                        {
+                            @DevbookFacts(Stamps.Devbook!)
+                        }
+                        @if (adopted && key == "schedule")
+                        {
+                            @ScheduleFacts(Stamps.Schedule!)
+                        }
+                        @WhereItWorks(key)
+                    </ChildContent>
+                </Card>
+            }
+        </div>
+    }
 </div>
 
 @code {
-    /// <summary>The model the tab draws, read from the folder by <see cref="AiModel.From"/>.</summary>
+    /// <summary>The model the tab draws its usages from, read from the folder by
+    /// <see cref="AiModel.From"/>.</summary>
     [Parameter, EditorRequired]
     public AiModel Model { get; set; } = default!;
 
-    /// <summary>Raised when a reader opens a usage's chapter; the host owns the selection.</summary>
+    /// <summary>The stamps the repository's configuration records, or null when it
+    /// has none — the empty state.</summary>
+    [Parameter]
+    public DevbookStackStamps? Stamps { get; set; }
+
+    /// <summary>Raised when a reader opens a usage's chapter or an adopted folder;
+    /// the host owns the selection.</summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    private static string TitleOf(string key) => key switch
+    {
+        "delivery" => "Delivery engine",
+        "devbook" => "Devbook",
+        "schedule" => "Delivery schedule",
+        _ => key
+    };
+
+    private bool IsAdopted(string key) => key switch
+    {
+        "delivery" => Stamps?.Delivery is not null,
+        "devbook" => Stamps?.Devbook is not null,
+        "schedule" => Stamps?.Schedule is not null,
+        _ => false
+    };
+
+    private string? VersionOf(string key) => key switch
+    {
+        "delivery" => Stamps?.Delivery?.PluginVersion,
+        "devbook" => Stamps?.Devbook?.PluginVersion,
+        "schedule" => Stamps?.Schedule?.PluginVersion,
+        _ => null
+    };
+
+    private Task Open(DevbookChapterLink link) => OnNavigateToChapter.InvokeAsync(link);
+
+    private static string StageName(string key) =>
+        AiModel.StageVocabulary.FirstOrDefault(stage => stage.Key == key).Name ?? key;
+
+    private static string LayerName(string key) =>
+        AiModel.LayerVocabulary.FirstOrDefault(layer => layer.Key == key).Name ?? key;
+
+    private RenderFragment DevbookFacts(DevbookPluginStamp devbook) => __builder =>
+    {
+        <dl class="devbook-adoption__facts">
+            <div>
+                <dt>Contract</dt>
+                <dd data-testid="devbook-adoption-devbook-contract">@(devbook.ContractVersion ?? "Not recorded")</dd>
+            </div>
+            <div>
+                <dt>Materialized files</dt>
+                <dd data-testid="devbook-adoption-devbook-files">@devbook.MaterializedFiles — @devbook.ManagedFiles managed, @devbook.UnmanagedFiles unmanaged</dd>
+            </div>
+        </dl>
+
+        <section class="devbook-adoption__group" aria-label="Adopted folders">
+            <h4 class="devbook-adoption__label">Folders</h4>
+            @if (devbook.Adopted.Count == 0)
+            {
+                <p class="devbook-adoption__none">No folder adopted.</p>
+            }
+            else
+            {
+                <div class="devbook-adoption__chips" data-testid="devbook-adoption-folders">
+                    @foreach (var folder in devbook.Adopted)
+                    {
+                        if (DevbookChapterLink.ForFolder(folder) is { } link)
+                        {
+                            <Badge Kind="tone" Slug="live"
+                                   Title="@($"Open {DevbookAreaCatalog.Label(link.AreaKey)} in the Devbook pane")"
+                                   OnClick="@(() => Open(link))">@folder</Badge>
+                        }
+                        else
+                        {
+                            <Badge Kind="tone" Slug="quiet">@folder</Badge>
+                        }
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="devbook-adoption__group" aria-label="Adopted procedures">
+            <h4 class="devbook-adoption__label">Procedures</h4>
+            @if (devbook.Procedures.Count == 0)
+            {
+                <p class="devbook-adoption__none">No procedure adopted.</p>
+            }
+            else
+            {
+                <div class="devbook-adoption__chips" data-testid="devbook-adoption-procedures">
+                    @foreach (var procedure in devbook.Procedures)
+                    {
+                        <Badge Kind="tone" Slug="quiet">@procedure</Badge>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="devbook-adoption__group" aria-label="Recorded migrations">
+            <h4 class="devbook-adoption__label">Migrations (@devbook.Migrations.Count)</h4>
+            @if (devbook.Migrations.Count == 0)
+            {
+                <p class="devbook-adoption__none">No migration recorded.</p>
+            }
+            else
+            {
+                <ol class="devbook-adoption__migrations" data-testid="devbook-adoption-migrations">
+                    @foreach (var migration in devbook.Migrations)
+                    {
+                        <li>
+                            <code>@migration.Id</code>
+                            @if (migration.Applied is { } applied)
+                            {
+                                <span class="devbook-adoption__date">@applied</span>
+                            }
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+    };
+
+    private RenderFragment ScheduleFacts(DevbookScheduleStamp schedule) => __builder =>
+    {
+        <section class="devbook-adoption__group" aria-label="Enabled schedules">
+            <h4 class="devbook-adoption__label">Enabled schedules (@schedule.Enabled.Count)</h4>
+            @if (schedule.Enabled.Count == 0)
+            {
+                <p class="devbook-adoption__none">No schedule enabled.</p>
+            }
+            else
+            {
+                <div class="devbook-adoption__chips" data-testid="devbook-adoption-schedules">
+                    @foreach (var name in schedule.Enabled)
+                    {
+                        <Badge Kind="tone" Slug="quiet">@name</Badge>
+                    }
+                </div>
+            }
+        </section>
+    };
+
+    private RenderFragment WhereItWorks(string key) => __builder =>
+    {
+        var usages = DevbookStackUsages.Of(Model, key);
+        <section class="devbook-adoption__group" aria-label="Where it works" data-testid="@($"devbook-adoption-{key}-usages")">
+            <h4 class="devbook-adoption__label">Where it works</h4>
+            @if (usages.Count == 0)
+            {
+                <p class="devbook-adoption__none">No AI usage chapter depends on it.</p>
+            }
+            else
+            {
+                <ul class="devbook-adoption__usages">
+                    @foreach (var usage in usages)
+                    {
+                        <li class="devbook-adoption__usage">
+                            <AppButton BaseClass="devbook-adoption__usage-link" Variant="ButtonVariant.None" OnClick="@(() => Open(usage.Link))">@usage.Heading</AppButton>
+                            @if (usage.Stages.Count > 0)
+                            {
+                                <span class="devbook-adoption__place" data-testid="devbook-adoption-usage-stages">Stages: @string.Join(", ", usage.Stages.Select(StageName))</span>
+                            }
+                            @if (usage.Layers.Count > 0)
+                            {
+                                <span class="devbook-adoption__place devbook-adoption__place--layer" data-testid="devbook-adoption-usage-layers">Layers: @string.Join(", ", usage.Layers.Select(LayerName))</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    };
 }

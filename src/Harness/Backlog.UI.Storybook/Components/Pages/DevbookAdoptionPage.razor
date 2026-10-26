@@ -1,0 +1,166 @@
+@page "/devbook/devbook-adoption"
+
+<PageTitle>Devbook adoption — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Devbook adoption"
+           Summary="The AI section's Devbook tab: what a repository adopted from the stack, read only from the stamps under `components` in `.devbook/config.json` — one Card per component with its stamped plugin version, the devbook card's folders, procedures, files and migrations, the schedule card's enabled schedules, and where each component works on the path. The view lives in the Devbook module and cannot render here; these samples draw it from the same library parts."
+           Guidelines="@Rules">
+
+    <Story Name="A full stack"
+           Description="All three components stamped. Each card's corner is its stamped plugin version. No installed or newest version is drawn: the stamp is what this repository took up, and it is the whole source.
+
+An adopted folder is a followable badge and opens that folder's tab in the Devbook pane; a folder the pane has no section for stays text. Where it works lists the AI usage chapters whose `depends-on` names the component's `.devbook/tech/ai-development.md` entry, with the stages and layers they sit at."
+           Code="@ViewCode"
+           Source="@FullConfig"
+           SourceLanguage="json"
+           SourceLabel="config.json">
+        @Stack(true, true, true)
+    </Story>
+
+    <Story Name="A partial stack"
+           Description="Only the devbook is stamped. The delivery engine and the schedule are drawn as not adopted rather than as an error, and their cards still say where the AI record has them working, because the chapters exist whether or not the component is stamped."
+           Code="@ViewCode"
+           Source="@PartialConfig"
+           SourceLanguage="json"
+           SourceLabel="config.json">
+        @Stack(false, true, false)
+    </Story>
+
+    <Story Name="No stack"
+           Description="A repository with no `.devbook/config.json` records no adoption at all, so the tab draws the EmptyState rather than three not-adopted cards."
+           Code="@ViewCode">
+        <EmptyState Title="No stack configuration"
+                    Description="No readable .devbook/config.json was found for this repository, so nothing records what it adopted from the stack." />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#badge-and-chip-tones", "Why a stamped version is settled, not adopted is quiet, and a followable folder takes the live ink."),
+        new("interaction-guidelines.md#empty-states", "What the tab says when the repository has no configuration."),
+        new("design-principles.md#low-chrome-content-first", "Why each component is one quiet card and not a dashboard of tiles.")
+    ];
+
+    private RenderFragment Stack(bool delivery, bool devbook, bool schedule) => __builder =>
+    {
+        <div class="sb-row">
+            <div class="sb-board-column">
+                @ComponentCard("Delivery engine", delivery ? "1.28.0" : null, "delivery", null, ["Plan delivery — Stages: Specify & plan", "Implement — Stages: Code"])
+            </div>
+            <div class="sb-board-column">
+                @ComponentCard("Devbook", devbook ? "1.30.1" : null, "devbook", devbook ? DevbookFacts : null, ["Devbook sweeps — Stages: Verify; Layers: Spec ↔ code thread"])
+            </div>
+            <div class="sb-board-column">
+                @ComponentCard("Delivery schedule", schedule ? "1.26.0" : null, "schedule", schedule ? ScheduleFacts : null, ["Issue sweep — Stages: Code, Verify; Layers: Upkeep loop", "Merge review — Stages: Integrate"])
+            </div>
+        </div>
+    };
+
+    private RenderFragment ComponentCard(string title, string? version, string key, RenderFragment? facts, string[] usages) => __builder =>
+    {
+        <Card Title="@title" Compact="true">
+            <Actions>
+                @if (version is not null)
+                {
+                    <Badge Kind="tone" Slug="settled" Title="@($"The plugin version stamped in components.{key}")">@version</Badge>
+                }
+                else
+                {
+                    <Badge Kind="tone" Slug="quiet" Title="@($"No components.{key} stamp in .devbook/config.json")">Not adopted</Badge>
+                }
+            </Actions>
+            <ChildContent>
+                <p><code>components.@key</code></p>
+                @facts
+                <p><strong>Where it works</strong></p>
+                <ul>
+                    @foreach (var usage in usages)
+                    {
+                        <li>@usage</li>
+                    }
+                </ul>
+            </ChildContent>
+        </Card>
+    };
+
+    private RenderFragment DevbookFacts => __builder =>
+    {
+        <p>Contract 36 · 44 materialized files — 39 managed, 5 unmanaged</p>
+        <div class="sb-row">
+            @foreach (var folder in new[] { "arc42", "domain", "tech", "design", "ai" })
+            {
+                <Badge Kind="tone" Slug="live" Title="Open the folder in the Devbook pane" OnClick="@(() => { })">@folder</Badge>
+            }
+        </div>
+        <div class="sb-row">
+            @foreach (var procedure in new[] { "run", "capture", "diagnose", "estimate" })
+            {
+                <Badge Kind="tone" Slug="quiet">@procedure</Badge>
+            }
+        </div>
+        <p><strong>Migrations (2)</strong></p>
+        <ol>
+            <li><code>033-c4-workspace</code> 2026-10-20</li>
+            <li><code>035-delivery-path-stages</code> 2026-10-26</li>
+        </ol>
+    };
+
+    private RenderFragment ScheduleFacts => __builder =>
+    {
+        <p><strong>Enabled schedules (3)</strong></p>
+        <div class="sb-row">
+            @foreach (var name in new[] { "issue-sweep", "merge-review", "morning-brief" })
+            {
+                <Badge Kind="tone" Slug="quiet">@name</Badge>
+            }
+        </div>
+    };
+
+    private const string FullConfig = """
+        {
+          "components": {
+            "delivery": { "pluginVersion": "1.28.0" },
+            "devbook": {
+              "pluginVersion": "1.30.1",
+              "contractVersion": 36,
+              "adopted": ["arc42", "domain", "tech", "design", "ai"],
+              "procedures": { "adopted": ["run", "capture", "diagnose", "estimate"] },
+              "materialized": { "AGENTS.md#devbook": { "managed": true } },
+              "migrations": [
+                { "id": "033-c4-workspace", "applied": "2026-10-20" },
+                { "id": "035-delivery-path-stages", "applied": "2026-10-26" }
+              ]
+            },
+            "schedule": {
+              "pluginVersion": "1.26.0",
+              "enabled": ["issue-sweep", "merge-review", "morning-brief"]
+            }
+          }
+        }
+        """;
+
+    private const string PartialConfig = """
+        {
+          "components": {
+            "devbook": {
+              "pluginVersion": "1.30.1",
+              "contractVersion": 36,
+              "adopted": ["arc42", "domain", "tech", "design", "ai"],
+              "procedures": { "adopted": ["run", "capture", "diagnose", "estimate"] },
+              "materialized": { "AGENTS.md#devbook": { "managed": true } },
+              "migrations": [
+                { "id": "033-c4-workspace", "applied": "2026-10-20" },
+                { "id": "035-delivery-path-stages", "applied": "2026-10-26" }
+              ]
+            }
+          }
+        }
+        """;
+
+    private const string ViewCode = """
+        <DevbookAdoptionView Model="@model"
+                             Stamps="@DevbookStackStamps.Load(folders, AiDevbook.Folder.Key, RepositoryAlias)"
+                             OnNavigateToChapter="@OnNavigateToChapter" />
+        """;
+}

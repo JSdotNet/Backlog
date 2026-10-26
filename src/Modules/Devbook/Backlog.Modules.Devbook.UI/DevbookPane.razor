@@ -1895,6 +1895,15 @@
         _selectedC4View = null;
 
         var root = _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, target.AreaKey, StringComparison.Ordinal));
+
+        // A folder rather than a chapter — the Devbook tab's adopted folders: the
+        // reader gets that section's tab, as pressing it in the strip would.
+        if (target.IsFolder)
+        {
+            if (root is { Available: true }) SelectSection(target.AreaKey);
+            return;
+        }
+
         if (root is null || !root.Available || !ContainsPath(root, target.RelativePath)) return;
 
         _selectedSection = target.AreaKey;

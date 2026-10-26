@@ -8698,6 +8698,125 @@ a.pull-request-detail-checks__name:hover {
 .devbook-stack__update-status--available { color: var(--color-primary); }
 .devbook-stack__update-status--blocked { color: var(--color-error-text); }
 
+/* The AI section's Devbook tab: one card per stack component, read from the
+   stamps in .devbook/config.json. The cards wrap rather than squeeze, so a
+   narrow pane stacks them. */
+.devbook-adoption {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.devbook-adoption__lead {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.devbook-adoption__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--spacing-sm);
+    align-items: start;
+}
+
+.devbook-adoption__card .card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.devbook-adoption__key,
+.devbook-adoption__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.devbook-adoption__facts {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+}
+
+.devbook-adoption__facts > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.devbook-adoption__facts dt {
+    color: var(--color-text-secondary);
+}
+
+.devbook-adoption__facts dd {
+    margin: 0;
+}
+
+.devbook-adoption__group {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.devbook-adoption__label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.devbook-adoption__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+}
+
+.devbook-adoption__migrations,
+.devbook-adoption__usages {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding-left: var(--spacing-md);
+    font-size: var(--font-size-sm);
+}
+
+/* A long migration record scrolls inside the card rather than lengthening it. */
+.devbook-adoption__card .devbook-adoption__migrations {
+    max-height: 12rem;
+    overflow-y: auto;
+}
+
+.devbook-adoption__date,
+.devbook-adoption__place {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.devbook-adoption__usage-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+}
+
+.devbook-adoption__usage-link:hover {
+    color: var(--color-primary-light);
+}
+
+.devbook-adoption__usage-link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
+
 .devbook-atlas-facts {
     display: flex;
     flex-wrap: wrap;

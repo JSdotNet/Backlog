@@ -380,7 +380,12 @@ internal static class StorybookIndex
 
             // After AI tabs and AI adoption, because it is what the Model tab draws. It draws
             // DevbookStatusPill and AppButton, both introduced above.
-            new("devbook/delivery-path", "Delivery path", "DeliveryPathBoard: the Model tab's board — the stages with their where-labels and the pull-request marker, sub-stages as cards of usages, the feedback arrow, the layers beneath, and a picked usage lighting every card it sits in.")
+            new("devbook/delivery-path", "Delivery path", "DeliveryPathBoard: the Model tab's board — the stages with their where-labels and the pull-request marker, sub-stages as cards of usages, the feedback arrow, the layers beneath, and a picked usage lighting every card it sits in."),
+
+            // After the Model tab's page, in tab order, and last: the Devbook tab.
+            // Drawn from library parts, Card and Badge from above, because the
+            // Devbook module's view cannot render here.
+            new("devbook/devbook-adoption", "Devbook adoption", "The AI section's Devbook tab: one Card per stack component read from the stamps in `.devbook/config.json` — a full stack, a partial one and none.")
         ]),
 
         // The first subject, ahead of Integrations rather than with Progress where its
