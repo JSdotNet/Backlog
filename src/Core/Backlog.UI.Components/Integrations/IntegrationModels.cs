@@ -119,6 +119,29 @@ public enum IntegrationSessionState
 }
 
 /// <summary>
+/// Whether the agent's own app still holds a session open — in its sidebar — or has
+/// archived it. Orthogonal to <see cref="IntegrationSessionState"/>: a session's
+/// liveness says whether it is working, this says whether anyone kept it around.
+/// <para>
+/// Drawn only on a <see cref="IntegrationSessionState.Finished"/> session
+/// (<see cref="IntegrationStates.ShownPresence"/>). A live one is worth saying as
+/// live, whatever its app does with it; liveness wins.
+/// </para>
+/// </summary>
+public enum IntegrationSessionPresence
+{
+    /// <summary>No record to say — a CLI-only session, another provider, another
+    /// machine. Not open: nothing is drawn for it.</summary>
+    Unknown,
+
+    /// <summary>The app still holds it open.</summary>
+    Open,
+
+    /// <summary>The app has archived it.</summary>
+    Archived
+}
+
+/// <summary>
 /// Why the product cannot perform an act.
 /// <para>
 /// <see cref="FeatureOff"/> rather than <c>Disabled</c>: <c>Disabled</c> already
@@ -421,6 +444,12 @@ public sealed record IntegrationLinkRef(
     bool AutoMerge = false,
     IntegrationReviewState Review = IntegrationReviewState.None)
 {
+    /// <summary>Whether a session's own app still holds it open or has archived it.
+    /// Drawn on a finished session only (<see cref="IntegrationSessionPresence"/>);
+    /// <see cref="IntegrationSessionPresence.Unknown"/> draws nothing. An init member
+    /// rather than a parameter, so no positional construction changes meaning.</summary>
+    public IntegrationSessionPresence SessionPresence { get; init; }
+
     public static IntegrationLinkRef Issue(
         string id,
         string label,
