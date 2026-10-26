@@ -321,6 +321,13 @@
                                                     TestId="tag-filter-copy-plan"
                                                     ButtonTestId="tag-filter-copy-plan-button"
                                                     StatusTestId="tag-filter-copy-plan-status" />
+
+                                        @* The plan's queue icon beside its copy, or the
+                                           wait it is on — see RenderPlanSession. Inside
+                                           the pair, so the strip keeps or clips them
+                                           with the chip and components.js reserves the
+                                           width of all three when the pair leads. *@
+                                        @RenderPlanSession(plan)
                                     </span>
                                 }
                                 else
@@ -541,6 +548,11 @@
                                         @RenderRowWork(entry)
                                     }
 
+                                    @if (_sessionRequests.OpenFor(entry.Id) is { } waiting)
+                                    {
+                                        @RenderSessionRequestChip(waiting, "row-session-request")
+                                    }
+
                                     @if (entry.DevbookReferences.Count > 0)
                                     {
                                         @RenderRowDevbook(entry)
@@ -668,6 +680,10 @@
                                 @if (EntryFor(task.Id) is { } entry)
                                 {
                                     @RenderRowPickers(entry, task.Title)
+
+                                    @* Last in the slot, so it sits right before the
+                                       row's copy — where the open entry puts it too. *@
+                                    @QueueSessionFor(entry, QueueSessionPlace.Row)
                                 }
                             </RowActions>
                             <RowBadges Context="task">
@@ -680,6 +696,11 @@
                                     @if (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any())
                                     {
                                         @RenderRowWork(entry)
+                                    }
+
+                                    @if (_sessionRequests.OpenFor(entry.Id) is { } waiting)
+                                    {
+                                        @RenderSessionRequestChip(waiting, "row-session-request")
                                     }
 
                                     @* What the entry is about in the Devbook, as a count:
@@ -752,6 +773,49 @@
              AriaLabel="Entry actions"
              TestId="entry-menu"
              OnItemSelected="OnRowMenuItemAsync" />
+
+@* Which repository a session starts in, for a prompt that names several. Each one
+   is a button; one with no clone folder on this machine is offered disabled, its
+   reason beside it, so the choice says why it is not a choice. Outside the section
+   for the reason the row menu is. *@
+@if (_sessionChooserRow is { Id: { } chooserId } chooserRow && SessionQueueOfferFor(chooserRow) is { } chooserOffer)
+{
+    <Modal Open="true"
+           OpenChanged="OnSessionChooserOpenChanged"
+           Title="Queue a session in which repository?"
+           CssClass="session-chooser"
+           TestId="session-chooser">
+        <ChildContent>
+            <ul class="session-chooser__list" data-testid="session-chooser-list">
+                @foreach (var target in chooserOffer.Targets)
+                {
+                    var reasonId = $"session-chooser-reason-{target.Repository.Replace('/', '-')}";
+
+                    <li class="session-chooser__item">
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   Disabled="@(!target.HasCloneFolder)"
+                                   title="@target.MissingReason"
+                                   aria-describedby="@(target.HasCloneFolder ? null : reasonId)"
+                                   OnClick="() => QueueSessionInAsync(chooserId, target)"
+                                   TestId="@($"session-chooser-{target.Repository}")">
+                            @target.Repository
+                        </AppButton>
+
+                        @if (target.MissingReason is { } missing)
+                        {
+                            <span id="@reasonId" class="session-chooser__reason">@missing</span>
+                        }
+                    </li>
+                }
+            </ul>
+        </ChildContent>
+        <Footer>
+            <AppButton Variant="ButtonVariant.Ghost" OnClick="() => OnSessionChooserOpenChanged(false)" TestId="session-chooser-cancel">
+                Cancel
+            </AppButton>
+        </Footer>
+    </Modal>
+}
 
 @code {
     /// <summary>The first load's placeholder rows, of differing length so that
@@ -925,6 +989,7 @@
     private const string RowMenuMoveDown = "move-down";
     private const string RowMenuDelete = "delete";
     private const string RowMenuMergePullRequest = "merge-pr";
+    private const string RowMenuCancelSession = "cancel-session-request";
 
     protected override void OnInitialized()
     {
@@ -937,6 +1002,18 @@
 
         _calendarCapacity = Services.GetService(typeof(ICalendarCapacity)) as ICalendarCapacity;
         if (_calendarCapacity is not null) _calendarCapacity.Changed += HandleCalendarCapacityChanged;
+
+        _sessionRequests = new TasksSessionRequests(
+            Services.GetService(typeof(IEntrySessionRequests)) as IEntrySessionRequests,
+            Services.GetService(typeof(TimeProvider)) as TimeProvider);
+        _sessionRequests.Changed += HandleSessionRequestsChanged;
+        _ = _sessionRequests.RefreshAsync();
+
+        _planSessions = new TasksPlanSessionRequests(
+            Services.GetService(typeof(IPlanTagSessionRequests)) as IPlanTagSessionRequests,
+            Services.GetService(typeof(TimeProvider)) as TimeProvider);
+        _planSessions.Changed += HandleSessionRequestsChanged;
+        _ = _planSessions.RefreshAsync(withRepositories: true);
     }
 
     /// <summary>The raw editor's element id, so the caret can be put in it the render
@@ -1132,6 +1209,14 @@
             if (Layout == TasksLayout.Calendar) await ReadCalendarPlansAsync();
             StateHasChanged();
         });
+
+        // The session-requests switch turned on reads the queue now rather than at
+        // the next poll, so a request made before it was turned off shows at once.
+        _ = _sessionRequests.RefreshAsync();
+
+        // The plans' repositories too: a roadmap edit made while the switch was off
+        // was heard and not read, and the icon must offer the plan as it is now.
+        _ = _planSessions.RefreshAsync(withRepositories: true);
     }
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
@@ -1236,6 +1321,300 @@
         if (Layout != TasksLayout.Calendar) return;
         _ = InvokeAsync(StateHasChanged);
     }
+
+    // --- Session requests (local ADR 0038) ---------------------------------
+
+    /// <summary>The session requests the entries have open, the queue icon's press
+    /// and Cancel. Offers nothing in a host that composed no queue, or while the
+    /// <c>session-requests</c> switch is off.</summary>
+    private TasksSessionRequests _sessionRequests = null!;
+
+    /// <summary>The entry whose repositories the chooser is asking between, or null
+    /// while it is closed.</summary>
+    private EntryRow? _sessionChooserRow;
+
+    private void HandleSessionRequestsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>Where a queue icon is drawn: on the entry's list row, or on the
+    /// heading of the open entry. Both can be on screen at once for the same entry,
+    /// so each names its own reason element.</summary>
+    private enum QueueSessionPlace
+    {
+        Row,
+        Entry
+    }
+
+    /// <summary>The queue icon's name: which repository the session is queued for,
+    /// or that the press asks.</summary>
+    private static string QueueSessionLabel(SessionStartOffer offer) =>
+        offer.Only is { } only
+            ? $"Queue a session for this entry in {only.Repository}"
+            : offer.AsksWhichRepository
+                ? "Queue a session for this entry — choose the repository"
+                : "Queue a session for this entry";
+
+    /// <summary>
+    /// The queue icon for <paramref name="row"/> at <paramref name="place"/>, or null
+    /// when queueing offers nothing there — see <see cref="SessionQueueOfferFor"/>;
+    /// while a request is open the waiting chip stands in its place.
+    /// <para>
+    /// Disabled rather than absent when there is no clone folder or no repository,
+    /// with the reason to the pointer through the tooltip and to assistive technology
+    /// through an sr-only span the button's <c>aria-describedby</c> names. That span's
+    /// id carries the entry and the place: every prompt row can draw one, and the
+    /// open entry draws its own beside its row's, so a fixed id would repeat.
+    /// </para>
+    /// </summary>
+    private RenderFragment? QueueSessionFor(EntryRow row, QueueSessionPlace place)
+    {
+        if (row.Id is not { } id || SessionQueueOfferFor(row) is not { } offer) return null;
+
+        var (testId, buttonClass) = place == QueueSessionPlace.Row
+            ? ("row-queue-session", "task-item__action-button")
+            : ("entry-queue-session", "task-panel__action-button");
+        var reasonId = $"{testId}-reason-{id:N}";
+        var label = QueueSessionLabel(offer);
+
+        // While a press is on its way the icon stays in the tab order, marked
+        // aria-disabled rather than natively disabled, so focus stays on it
+        // (design interaction guidelines, busy state); the port refuses the
+        // second press.
+        var busy = _sessionRequests.IsBusy(row.Id);
+
+        return @<text>
+            <IconButton CssClass="@buttonClass"
+                        TestId="@testId"
+                        Disabled="@(!offer.IsEnabled)"
+                        aria-busy="@(busy ? "true" : null)"
+                        aria-disabled="@(busy ? "true" : null)"
+                        AriaLabel="@label"
+                        Title="@(offer.DisabledReason ?? label)"
+                        aria-describedby="@(offer.DisabledReason is null ? null : reasonId)"
+                        OnClick="() => OnQueueSessionAsync(row)">
+                <ListEndIcon />
+            </IconButton>
+
+            @if (offer.DisabledReason is { } reason)
+            {
+                <span id="@reasonId" class="sr-only" data-testid="@($"{testId}-reason")">@reason</span>
+            }
+        </text>;
+    }
+
+    // --- The plan filter's queue icon (local ADR 0038 §2) ----------------------
+
+    /// <summary>The plan session requests and where each plan is filed, through Tasks'
+    /// own port — offers nothing in a host that composed no queue, or while the
+    /// <c>session-requests</c> switch is off.</summary>
+    private TasksPlanSessionRequests _planSessions = null!;
+
+    /// <summary>The sr-only reason's id. Only the pressed plan is drawn in a pair, so
+    /// one id never repeats.</summary>
+    private const string PlanQueueReasonId = "tag-filter-queue-plan-reason";
+
+    /// <summary>
+    /// What queueing a session offers for the pressed <paramref name="plan"/>, or null
+    /// when it offers nothing: the action is not offered, no roadmap item carries the
+    /// tag — the session starts in the item's repositories, so a plan the roadmap does
+    /// not hold has nowhere to start — or a request is open, when the waiting chip
+    /// stands in its place.
+    /// </summary>
+    private PlanQueueOffer? PlanQueueOfferFor(string plan)
+    {
+        if (!_planSessions.IsOffered || _planSessions.OpenFor(plan) is not null) return null;
+        if (_planSessions.RepositoriesOf(plan) is not { } filing) return null;
+
+        // The roadmap item's own spelling of the tag, not the filter's: the request
+        // names the plan as the roadmap dialog's would.
+        return PlanQueueOffer.For(filing.Tag, filing.Repositories.Select(GitHub.ResolveRepository));
+    }
+
+    /// <summary>The plan icon's name: the plan with its sigil, as the copy beside it
+    /// copies it, and the repository the session starts in.</summary>
+    private static string PlanQueueLabel(PlanQueueOffer offer) =>
+        offer.Repository is { } repository
+            ? $"Queue a session for the +{offer.Tag} plan in {repository}"
+            : $"Queue a session for the +{offer.Tag} plan";
+
+    /// <summary>
+    /// The pressed plan's queue icon, fused to its copy as a third segment, or the
+    /// waiting chip — with Cancel while no dispatcher has picked the request up — once
+    /// a request is open; nothing while the action is not offered. The roadmap item
+    /// dialog's plan icon on the same terms: disabled with the reason in the tooltip and
+    /// an sr-only span, and kept in the tab order while a press is on its way, marked
+    /// aria-disabled and aria-busy rather than natively disabled.
+    /// </summary>
+    private RenderFragment? RenderPlanSession(string plan)
+    {
+        if (_planSessions.OpenFor(plan) is { } waiting)
+        {
+            return @<span class="filter-bar__plan-session" data-testid="tag-filter-plan-session-request">
+                <IntegrationStateChip Session="IntegrationSessionState.Starting"
+                                      Kind="IntegrationLinkKind.Session"
+                                      Text="Waiting for a session"
+                                      Title="@PlanSessionRequestTitle(waiting)"
+                                      TestId="tag-filter-plan-session-chip" />
+
+                @if (waiting.State is EntrySessionRequestState.Requested)
+                {
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               CssClass="filter-bar__plan-cancel"
+                               Busy="@_planSessions.Busy"
+                               BusyLabel="Cancelling"
+                               aria-label="Cancel the plan session request"
+                               OnClick="() => OnCancelPlanSessionAsync(plan)"
+                               TestId="tag-filter-plan-session-cancel">
+                        Cancel request
+                    </AppButton>
+                }
+            </span>;
+        }
+
+        if (PlanQueueOfferFor(plan) is not { } offer) return null;
+
+        var label = PlanQueueLabel(offer);
+        var busy = _planSessions.Busy;
+
+        // The reason on the wrapper's title too, as the roadmap dialog's: a disabled
+        // button raises no pointer events in some engines (CopyButton's reason).
+        return @<span class="filter-bar__plan-queue"
+                      title="@offer.DisabledReason"
+                      data-testid="tag-filter-queue-plan-wrapper">
+            <IconButton BaseClass="filter-bar__plan-copy-button filter-bar__plan-queue-button"
+                        TestId="tag-filter-queue-plan"
+                        Disabled="@(!offer.IsEnabled)"
+                        aria-busy="@(busy ? "true" : null)"
+                        aria-disabled="@(busy ? "true" : null)"
+                        AriaLabel="@label"
+                        Title="@(offer.DisabledReason ?? label)"
+                        aria-describedby="@(offer.DisabledReason is null ? null : PlanQueueReasonId)"
+                        OnClick="() => OnQueuePlanSessionAsync(plan)">
+                <ListEndIcon />
+            </IconButton>
+
+            @if (offer.DisabledReason is { } reason)
+            {
+                <span id="@PlanQueueReasonId" class="sr-only" data-testid="tag-filter-queue-plan-reason">@reason</span>
+            }
+        </span>;
+    }
+
+    /// <summary>The press. Refused while one is on its way: the icon is aria-disabled
+    /// then, not natively disabled, so the handler still runs.</summary>
+    private async Task OnQueuePlanSessionAsync(string plan)
+    {
+        if (_planSessions.Busy || PlanQueueOfferFor(plan) is not { IsEnabled: true } offer) return;
+
+        if (await _planSessions.RequestAsync(offer))
+        {
+            Toasts.Publish(ToastMessage.Info($"Asked for a session in {offer.Repository}.", "plan-session-request-queued"));
+        }
+        else if (_planSessions.Error is { } error)
+        {
+            Toasts.Publish(ToastMessage.Error(error, "plan-session-request-failed"));
+        }
+    }
+
+    private async Task OnCancelPlanSessionAsync(string plan)
+    {
+        if (!await _planSessions.CancelAsync(plan) && _planSessions.Error is { } error)
+        {
+            Toasts.Publish(ToastMessage.Error(error, "plan-session-request-cancel-failed"));
+        }
+    }
+
+    /// <summary>The plan's waiting chip sentence for each open state — the roadmap
+    /// dialog's words.</summary>
+    private static string PlanSessionRequestTitle(EntrySessionRequest request) => request.State switch
+    {
+        EntrySessionRequestState.Claimed => $"Waiting for a session in {request.Repository} — a dispatcher is starting it",
+        EntrySessionRequestState.Started => $"Waiting for a session in {request.Repository} — started, not yet linked to the plan",
+        _ => $"Waiting for a session in {request.Repository} — no dispatcher has picked the request up yet"
+    };
+
+    private void OnSessionChooserOpenChanged(bool open)
+    {
+        if (!open) _sessionChooserRow = null;
+    }
+
+    /// <summary>
+    /// What queueing a session offers on <paramref name="row"/>, or null when it offers
+    /// nothing: the action is not offered, the entry is not a saved prompt — see
+    /// <see cref="SessionStartOffer.For"/> — or a request is already open for it, when
+    /// the waiting chip stands where the action would.
+    /// </summary>
+    private SessionStartOffer? SessionQueueOfferFor(EntryRow row)
+    {
+        if (!_sessionRequests.IsOffered || _sessionRequests.OpenFor(row.Id) is not null) return null;
+
+        return SessionStartOffer.For(
+            row.PreviewType,
+            row.IsPersisted && row.Id is not null,
+            row.PreviewRepoIds.Select(GitHub.ResolveRepository));
+    }
+
+    /// <summary>The press: straight into the one repository there is, or the chooser
+    /// when the entry names several. A press while a request for the entry is on its
+    /// way does nothing: the icon is aria-disabled then, not natively disabled, so
+    /// the handler still runs and must refuse it before the chooser opens.</summary>
+    private async Task OnQueueSessionAsync(EntryRow row)
+    {
+        if (row.Id is not { } id || _sessionRequests.IsBusy(id)) return;
+        if (SessionQueueOfferFor(row) is not { IsEnabled: true } offer) return;
+
+        if (offer.Only is { } only)
+        {
+            await QueueSessionInAsync(id, only);
+            return;
+        }
+
+        _sessionChooserRow = row;
+    }
+
+    private async Task QueueSessionInAsync(Guid entryId, SessionStartTarget target)
+    {
+        _sessionChooserRow = null;
+
+        if (await _sessionRequests.RequestAsync(entryId, target))
+        {
+            Toasts.Publish(ToastMessage.Info($"Asked for a session in {target.Repository}.", "session-request-queued"));
+        }
+        else if (_sessionRequests.Error is { } error)
+        {
+            Toasts.Publish(ToastMessage.Error(error, "session-request-failed"));
+        }
+    }
+
+    private async Task OnCancelSessionRequestAsync(EntryRow row)
+    {
+        if (row.Id is not { } id) return;
+
+        if (!await _sessionRequests.CancelAsync(id) && _sessionRequests.Error is { } error)
+        {
+            Toasts.Publish(ToastMessage.Error(error, "session-request-cancel-failed"));
+        }
+    }
+
+    /// <summary>The waiting chip's sentence for each open state: what the entry is
+    /// waiting for, said plainly, because the three states are one wait to the
+    /// person.</summary>
+    private static string SessionRequestTitle(EntrySessionRequest request) => request.State switch
+    {
+        EntrySessionRequestState.Claimed => $"Waiting for a session in {request.Repository} — a dispatcher is starting it",
+        EntrySessionRequestState.Started => $"Waiting for a session in {request.Repository} — started, not yet linked to this entry",
+        _ => $"Waiting for a session in {request.Repository} — no dispatcher has picked the request up yet"
+    };
+
+    /// <summary>The waiting chip: the integration family's Starting state, reworded,
+    /// so it reads as one more state of the session the entry will link rather than a
+    /// badge of its own.</summary>
+    private RenderFragment RenderSessionRequestChip(EntrySessionRequest request, string testId) =>
+        @<IntegrationStateChip Session="IntegrationSessionState.Starting"
+                               Kind="IntegrationLinkKind.Session"
+                               Text="Waiting for a session"
+                               Title="@SessionRequestTitle(request)"
+                               TestId="@testId" />;
 
     /// <summary>
     /// The roadmap's plans for the Calendar, through Tasks' own port — null in a host
@@ -1543,37 +1922,68 @@
     /// finished is muted. A session the record does not hold, or that has not been
     /// read yet, has no state and draws as it always did.
     /// </para>
+    /// <para>
+    /// A finished session also says whether the Claude desktop app still holds it
+    /// open — the muted ink — or has archived it — the quiet ink — in the library's
+    /// one wording (<see cref="WorkStates.PresenceWords"/>). Live first: a running or
+    /// stalled session is worded and inked as live whatever the app holds. A session
+    /// with no desktop record (CLI-only, another machine) says neither, because
+    /// unknown is not open.
+    /// </para>
     /// </summary>
     private IntegrationLinkRef Link(EntrySessionLink session)
     {
-        var state = State.SessionStateOf(session.SessionId);
+        var known = State.SessionOf(session.SessionId);
 
-        return new(
+        return new IntegrationLinkRef(
             session.SessionId,
             IntegrationProvider.Claude,
             IntegrationLinkKind.Session,
             session.ShortId,
-            state is { } known
-                ? $"Session {session.SessionId} · {SessionStateWords(known)} — open in Sessions"
+            known is { } read
+                ? $"Session {session.SessionId} · {SessionStateWords(read)} — open in Sessions"
                 : $"Session {session.SessionId} — open in Sessions",
-            SessionState: state switch
-            {
-                LinkedSessionState.Running => IntegrationSessionState.Running,
-                LinkedSessionState.Stalled => IntegrationSessionState.Stalled,
-                LinkedSessionState.Finished => IntegrationSessionState.Finished,
-                _ => null
-            });
+            SessionState: InkOf(known))
+        {
+            SessionPresence = PresenceOf(known)
+        };
     }
+
+    private static IntegrationSessionState? InkOf(LinkedSession? session) => session?.State switch
+    {
+        LinkedSessionState.Running => IntegrationSessionState.Running,
+        LinkedSessionState.Stalled => IntegrationSessionState.Stalled,
+        LinkedSessionState.Finished => IntegrationSessionState.Finished,
+        _ => null
+    };
+
+    /// <summary>Whether the desktop app holds a linked session open, in the library's
+    /// words; unknown when there is no desktop record to say.</summary>
+    private static IntegrationSessionPresence PresenceOf(LinkedSession? session) => session?.Archived switch
+    {
+        true => IntegrationSessionPresence.Archived,
+        false => IntegrationSessionPresence.Open,
+        null => IntegrationSessionPresence.Unknown
+    };
 
     /// <summary>A linked session's state in the badge's words. Stalled says what it
     /// means — nothing has moved for the Sessions threshold — because "stalled" on
-    /// its own reads as a fault, and the session is usually waiting on the person.</summary>
-    private static string SessionStateWords(LinkedSessionState state) => state switch
+    /// its own reads as a fault, and the session is usually waiting on the person. A
+    /// finished one adds whether the desktop app still holds it, in the library's
+    /// words (<see cref="WorkStates.PresenceWords"/>), where its record says.</summary>
+    private static string SessionStateWords(LinkedSession session)
     {
-        LinkedSessionState.Stalled => "Quiet 30 min",
-        LinkedSessionState.Finished => "finished",
-        _ => "running"
-    };
+        var state = session.State switch
+        {
+            LinkedSessionState.Stalled => "Quiet 30 min",
+            LinkedSessionState.Finished => "finished",
+            _ => "running"
+        };
+
+        return WorkStates.PresenceWords(InkOf(session), PresenceOf(session)) is { } presence
+            ? $"{state}, {presence}"
+            : state;
+    }
 
     /// <summary>
     /// The work links, drawn once for both surfaces: every recorded pull request
@@ -2847,6 +3257,15 @@
                 Disabled: row.GitHubBusy));
         }
 
+        // The request the prompt is waiting on, while it can still be withdrawn.
+        // Queueing one is not here: the queue icon on the row, beside its copy,
+        // is that act, and a second route to it would be the same press twice.
+        if (_sessionRequests.OpenFor(row.Id) is { State: EntrySessionRequestState.Requested })
+        {
+            items.Add(MenuItem.Divider("session"));
+            items.Add(new(RowMenuCancelSession, "Cancel session request", "✕", Disabled: _sessionRequests.IsBusy(row.Id)));
+        }
+
         items.Add(MenuItem.Divider("end"));
         items.Add(new(RowMenuDelete, "Delete task", "🗑", Destructive: true));
 
@@ -2965,6 +3384,9 @@
                 break;
             case RowMenuMergePullRequest:
                 await OnMergeChosenAsync(row);
+                break;
+            case RowMenuCancelSession:
+                await OnCancelSessionRequestAsync(row);
                 break;
         }
     }
@@ -3214,6 +3636,7 @@
                        Source="@State.LinkedSources.ToTaskSource(row.SourceRef)"
                        CssClass="entry-detail__panel"
                        Goal="@GoalFor(row)"
+                       HeaderActions="@QueueSessionFor(row, QueueSessionPlace.Entry)"
                        TestId="entry-panel">
                 <StatusContent>
                     @* On the heading line, where the list row also shows it. The
@@ -3246,6 +3669,30 @@
                 <Body>
                     @* Above the body, under the fields: the work on the entry is read
                        before its text and acted on from here — opened, or linked. *@
+                    @* The session this prompt asked for and has not got yet: the chip
+                       until the session links itself, then the linked session in the
+                       work below, as a pasted run shows it. Cancel only while no
+                       dispatcher has picked the request up. *@
+                    @if (_sessionRequests.OpenFor(row.Id) is { } waiting)
+                    {
+                        <div class="entry-session-request" data-testid="session-request">
+                            @RenderSessionRequestChip(waiting, "session-request-chip")
+
+                            @if (waiting.State is EntrySessionRequestState.Requested)
+                            {
+                                <AppButton Variant="ButtonVariant.Ghost"
+                                           Size="ButtonSize.Small"
+                                           Busy="@_sessionRequests.IsBusy(row.Id)"
+                                           BusyLabel="Cancelling"
+                                           aria-label="Cancel the session request"
+                                           OnClick="() => OnCancelSessionRequestAsync(row)"
+                                           TestId="session-request-cancel">
+                                    Cancel request
+                                </AppButton>
+                            }
+                        </div>
+                    }
+
                     @if (LinkedWork is not null && row.IsPersisted)
                     {
                         @LinkedWork(row)
@@ -4672,8 +5119,9 @@
         // The row menu's backdrop takes the focus the moment the menu opens, and
         // it sits outside both halves. That is the reader asking a row for its
         // menu, not leaving the entry — and as often as not the entry is the one
-        // the menu is about.
-        if (_rowMenuOpen) return;
+        // the menu is about. The repository chooser is the same case: a dialog
+        // about the open entry, outside both halves.
+        if (_rowMenuOpen || _sessionChooserRow is not null) return;
 
         // Picking a different row is a switch, not a departure — and by the time
         // the JS round trip above resolves, that click's own selection may already
@@ -5340,6 +5788,10 @@
         Features.Changed -= HandleFeaturesChanged;
         if (_calendarPlans is not null) _calendarPlans.Changed -= HandleCalendarPlansChanged;
         if (_calendarCapacity is not null) _calendarCapacity.Changed -= HandleCalendarCapacityChanged;
+        _sessionRequests.Changed -= HandleSessionRequestsChanged;
+        _sessionRequests.Dispose();
+        _planSessions.Changed -= HandleSessionRequestsChanged;
+        _planSessions.Dispose();
 
         if (_undoKeysReference is null) return;
 

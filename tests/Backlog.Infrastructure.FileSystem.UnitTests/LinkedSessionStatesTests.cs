@@ -24,7 +24,26 @@ public class LinkedSessionStatesTests
 
         var states = await adapter.StatesOfAsync(["e711d47d-3e09"], TestContext.Current.CancellationToken);
 
-        Assert.Equal(expected, states["e711d47d-3e09"]);
+        Assert.Equal(expected, states["e711d47d-3e09"].State);
+    }
+
+    /// <summary>
+    /// Whether the Claude desktop app still holds the session open or has archived it
+    /// crosses as the Sessions record has it: archived, open, or — with no desktop
+    /// record at all (a CLI-only or Copilot session, one from another machine) —
+    /// unknown, which is not open.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [InlineData(null)]
+    public async Task Whether_the_desktop_app_archived_a_session_crosses_unchanged(bool? archived)
+    {
+        var adapter = new LinkedSessionStates(new StubSessions(Session("e711d47d-3e09", AgentSessionState.Finished) with { Archived = archived }));
+
+        var states = await adapter.StatesOfAsync(["e711d47d-3e09"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(new LinkedSession(LinkedSessionState.Finished, archived), states["e711d47d-3e09"]);
     }
 
     /// <summary>Keyed by the id as the task asked, matched without regard to case,
@@ -36,9 +55,9 @@ public class LinkedSessionStatesTests
 
         var states = await adapter.StatesOfAsync(["e711d47d-3e09"], TestContext.Current.CancellationToken);
 
-        var (id, state) = Assert.Single(states);
+        var (id, session) = Assert.Single(states);
         Assert.Equal("e711d47d-3e09", id);
-        Assert.Equal(LinkedSessionState.Stalled, state);
+        Assert.Equal(LinkedSessionState.Stalled, session.State);
     }
 
     [Fact]

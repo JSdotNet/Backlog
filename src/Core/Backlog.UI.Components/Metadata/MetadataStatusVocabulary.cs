@@ -14,7 +14,7 @@ namespace Backlog.UI.Components.Metadata;
 /// like, so a caller outside <c>.arc42</c>, <c>.domain</c>, <c>.design</c>,
 /// <c>.backlog</c> and <c>.tech</c> had no way in at all. Handing the vocabulary
 /// down instead means the view knows what a status is worth without knowing what
-/// a knowledge folder is.</para>
+/// a devbook folder is.</para>
 ///
 /// <para>Four questions and no more, because four is what the view actually
 /// asks: which options may be offered, whether the one in hand is among them,
@@ -169,7 +169,7 @@ public sealed class MetadataStatusVocabulary
     /// an explicit "no status" entry where <see cref="AllowsNone"/>.
     ///
     /// <para>The blank belongs here rather than in the control. The status select
-    /// is shared with surfaces that are not knowledge folders at all — a task's
+    /// is shared with surfaces that are not devbook folders at all — a task's
     /// status among them — and a control parameter defaulting to off would protect
     /// those only until somebody flipped it for convenience. A vocabulary that
     /// answers <c>false</c> cannot be talked round from a call site.</para>

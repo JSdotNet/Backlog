@@ -33,10 +33,13 @@
                    explicitly drafted chapter went unmarked to hide the ones that
                    had simply said nothing. Absent is now absent, so the test is
                    what it always meant: did this chapter state a status at all. *@
-                @if (!string.IsNullOrWhiteSpace(heading.Metadata.Status) || heading.Metadata.Related.Count > 0)
+                @if ((ShowStatus && !string.IsNullOrWhiteSpace(heading.Metadata.Status)) || heading.Metadata.Related.Count > 0)
                 {
                     <p class="devbook-meta-line">
-                        <StatusBadge BaseClass="devbook-status" Kind="" Status="@heading.Metadata.Status" />
+                        @if (ShowStatus)
+                        {
+                            <StatusBadge BaseClass="devbook-status" Kind="" Status="@heading.Metadata.Status" />
+                        }
                         @foreach (var related in heading.Metadata.Related)
                         {
                             @* The relation as the rest of the product draws one.
@@ -108,6 +111,13 @@
     /// follow — and the state this view is in on the standalone page.</summary>
     [Parameter]
     public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
+
+    /// <summary>Whether a heading's stated status is drawn on its meta line. On
+    /// by default; the relations on that line stay either way. The same switch
+    /// <c>FileView.ShowDevbookStatus</c> is, for the fallback that renders when
+    /// the file view has no text to read.</summary>
+    [Parameter]
+    public bool ShowStatus { get; set; } = true;
 
     /// <summary>What a drawn diagram is captioned with, which is
     /// <c>DiagramView</c>'s own default. A <c>DevbookDiagramBlock</c> carries a

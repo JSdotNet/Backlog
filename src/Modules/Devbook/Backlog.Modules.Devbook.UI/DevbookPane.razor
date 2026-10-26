@@ -1224,7 +1224,7 @@
         _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, areaKey, StringComparison.Ordinal));
 
     /// <summary>
-    /// The row that opens a whole knowledge folder at once, above the chapters —
+    /// The row that opens a whole devbook folder at once, above the chapters —
     /// or nothing, for an area whose panel has no such reading.
     /// <para>
     /// Only the document-shaped folders, <c>.design</c> and <c>.ai</c>. Their
@@ -1898,7 +1898,7 @@
     private DevbookChapterLink? LinkFor(string reference) =>
         BrainMode ? DevbookChapterLink.ForBrainNote(reference) : DevbookChapterLink.From(reference);
 
-    /// <summary>Widens the map to every knowledge folder at once. This is the
+    /// <summary>Widens the map to every devbook folder at once. This is the
     /// explicit way back to the unfiltered view — the section tabs already narrow
     /// the map to the one they name via <see cref="FollowSectionWithAtlas"/>, but
     /// none of them names "all of it", because none of them is a knowledge area of

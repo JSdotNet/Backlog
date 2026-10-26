@@ -80,6 +80,12 @@
          port the panels use. Published surface only, taken as optional so a head
          with no annotation store composes unchanged. -->
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+    <!-- The Notifications module's published surface (local ADR 0039): the notification
+         exchange reads the owner's notifications through INotificationReplication and hands
+         each reply to INotificationReplies, the owner's one gate, so the first valid reply
+         wins. Published surface only, resolved per cycle, so a head without the module
+         composes unchanged. -->
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
     <!-- The published surface only, and deliberately not Backlog.Infrastructure.Sessions,
          which holds the local readers. Session replication reads AgentSession off
          whatever answers IAgentSessionSource and hands replicated records back as a
@@ -90,6 +96,11 @@
          published surface - which is why the replicated source lives here rather
          than beside the local one. -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <!-- Notifications' published surface, for PairingSubjects: a pairing code this
+         device issues is a subject a notification can be about, and the pairing client
+         that issues it is here, so this is where the pairing's end reaches
+         INotifications (.devbook/domain/notifications/context.md). Never the module. -->
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

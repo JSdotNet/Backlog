@@ -42,9 +42,9 @@ public interface IGoals
     /// question an attach button asks before it offers to attach.</summary>
     Task<Result<GoalDto?>> FindGoalOfAsync(GoalItemDto item, CancellationToken cancellationToken = default);
 
-    /// <summary>Sets a new goal, holding nothing yet. Refused without a title
-    /// (<c>progress.goal_without_title</c>) or a due date (<c>progress.goal_without_due_date</c>),
-    /// or with an outcome of more than one line (<c>progress.outcome_not_one_line</c>).</summary>
+    /// <summary>Sets a new goal, holding nothing yet, with or without a due date. Refused
+    /// without a title (<c>progress.goal_without_title</c>), or with an outcome of more than
+    /// one line (<c>progress.outcome_not_one_line</c>).</summary>
     Task<Result<GoalDto>> CreateAsync(SetGoalRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>Replaces a goal's title, outcome and due date, on the rules

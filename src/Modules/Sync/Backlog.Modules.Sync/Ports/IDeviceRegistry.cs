@@ -24,4 +24,14 @@ public interface IDeviceRegistry
     /// <summary>Whether this owner exists at all — that is, has at least one
     /// device. There is no owner record separate from its devices.</summary>
     Task<bool> OwnerExists(OwnerId ownerId, CancellationToken cancellationToken = default);
+
+    /// <summary>Every device this owner has, in no particular order.</summary>
+    Task<IReadOnlyList<Device>> ListByOwner(OwnerId ownerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Forgets one device of this owner, so its credential mints no further token.
+    /// Answers false when the owner has no such device — already removed, or never
+    /// theirs — which the caller reports the same way.
+    /// </summary>
+    Task<bool> Remove(OwnerId ownerId, DeviceId id, CancellationToken cancellationToken = default);
 }

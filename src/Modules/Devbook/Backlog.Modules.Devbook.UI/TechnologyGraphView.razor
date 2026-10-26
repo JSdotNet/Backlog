@@ -10,7 +10,7 @@
     The sheet is rendered in Blazor rather than painted on the canvas, and that
     is the whole reason the selection round-trips through .NET. It carries a
     status select that writes back to `.tech` and references that navigate to
-    another knowledge folder — neither of which a canvas can hold.
+    another devbook folder — neither of which a canvas can hold.
 *@
 
 <GraphAtlas Title=""
@@ -44,7 +44,7 @@
                         <Badge Kind="">@DegreeSummary(node)</Badge>
                     </div>
 
-                    @* A boundary node is a chapter in another knowledge folder. Its
+                    @* A boundary node is a chapter in another devbook folder. Its
                        status belongs to that folder, so this atlas prints it and does
                        not offer to change it — writing it from here would be `.tech`
                        editing `.arc42`. *@
@@ -121,7 +121,7 @@
     public TechnologyDevbookView View { get; set; } = null!;
 
     /// <summary>Raised when a reader follows a reference off a technology onto a
-    /// chapter in another knowledge folder.</summary>
+    /// chapter in another devbook folder.</summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 

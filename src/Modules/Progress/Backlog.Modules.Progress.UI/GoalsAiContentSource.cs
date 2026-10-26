@@ -92,6 +92,7 @@ internal sealed class GoalsAiContentSource(IStandUp standUp) : IAiContentSource
         var text = new StringBuilder("Goal: ").Append(goal.Title.Trim());
 
         text.Append(", due ").Append(AiContentBudget.Date(goal.DueDate));
+        if (goal.DueIsIterationEnd) text.Append(" (end of iteration)");
         text.Append(", ").Append(Number(progress.Done)).Append(" of ").Append(Number(progress.Total)).Append(" done");
         text.Append(", ").Append(Number(progress.DoneInWindow)).Append(" in last");
         text.Append(", ").Append(Number(progress.Doing)).Append(" doing");

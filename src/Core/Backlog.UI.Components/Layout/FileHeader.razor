@@ -91,6 +91,7 @@
                               FileName="@MetadataFileName"
                               ShowFields="false"
                               CanEditStatus="@CanEditStatus"
+                              ShowStatus="@ShowStatus"
                               OnStatusChanged="@OnStatusChanged"
                               OnNavigate="@OnNavigate"
                               HrefFor="@HrefFor"
@@ -378,7 +379,7 @@
     public MetadataStatusVocabulary Vocabulary { get; set; } = MetadataStatusVocabulary.None;
 
     /// <summary>
-    /// The knowledge folder the record was read from, handed straight on to
+    /// The devbook folder the record was read from, handed straight on to
     /// <see cref="MetadataFileView"/> so it can report what the folder's rules
     /// say about the record — an explicit resting status, a field that is not in
     /// this folder's vocabulary.
@@ -420,6 +421,12 @@
     /// the means of altering it goes away.</summary>
     [Parameter]
     public bool CanEditStatus { get; set; } = true;
+
+    /// <summary>Whether the file's status is drawn beside its name at all. False
+    /// leaves the name and path with no status or decision state beside
+    /// them.</summary>
+    [Parameter]
+    public bool ShowStatus { get; set; } = true;
 
     /// <summary>Raised with the reference a reader activated in the record.</summary>
     [Parameter]

@@ -11,7 +11,9 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// Roadmap's next door do: the backlog's pane may not reference Sessions' published
 /// surface, so an adapter that may see both answers Tasks' port. It is a mapping and
 /// nothing else — whether a session is stalled is the Sessions context's call, made
-/// against its own threshold, and is passed on unchanged.
+/// against its own threshold, and is passed on unchanged, as is whether the desktop
+/// app archived it (<see cref="AgentSession.Archived"/>), which the timestamps depth
+/// stamps as every depth does.
 /// </para>
 /// <para>
 /// It reads the newest-per-agent inventory, the reading the Sessions pane itself
@@ -28,13 +30,13 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// </summary>
 public sealed class LinkedSessionStates(IAgentSessionSource sessions) : ILinkedSessionStates
 {
-    public async Task<IReadOnlyDictionary<string, LinkedSessionState>> StatesOfAsync(
+    public async Task<IReadOnlyDictionary<string, LinkedSession>> StatesOfAsync(
         IReadOnlyCollection<string> sessionIds,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sessionIds);
 
-        var answer = new Dictionary<string, LinkedSessionState>(StringComparer.OrdinalIgnoreCase);
+        var answer = new Dictionary<string, LinkedSession>(StringComparer.OrdinalIgnoreCase);
         if (sessionIds.Count == 0) return answer;
 
         AgentSessionCatalog catalog;
@@ -52,15 +54,18 @@ public sealed class LinkedSessionStates(IAgentSessionSource sessions) : ILinkedS
             return answer;
         }
 
-        var held = new Dictionary<string, AgentSessionState>(StringComparer.OrdinalIgnoreCase);
+        var held = new Dictionary<string, AgentSession>(StringComparer.OrdinalIgnoreCase);
         foreach (var session in catalog.Sessions)
         {
-            held.TryAdd(session.Id, session.State);
+            held.TryAdd(session.Id, session);
         }
 
+        // Archived passes through as the record has it, null included: no desktop
+        // record is not "open", and guessing it would draw a CLI or Copilot session as
+        // one the desktop app holds.
         foreach (var id in sessionIds)
         {
-            if (held.TryGetValue(id, out var state)) answer[id] = Map(state);
+            if (held.TryGetValue(id, out var session)) answer[id] = new LinkedSession(Map(session.State), session.Archived);
         }
 
         return answer;

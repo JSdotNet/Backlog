@@ -2,16 +2,18 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 
 /// <summary>
 /// One goal as a caller receives it (<c>.devbook/domain/progress/domain.md#goal</c>): what
-/// it is for, the day it should be reached by, and the work attached to it. A snapshot:
+/// it is for, the day it should be reached by when it has one, and the work attached to it. A snapshot:
 /// how far the goal has come is <see cref="GoalSummaryDto.Progress"/>, read afresh from
 /// that work on every reading.
 /// </summary>
 /// <param name="Outcome">One line saying what is true once the goal is reached, or null.</param>
+/// <param name="DueDate">The day it should be reached by, or null for none: such a goal is
+/// due at the end of next (<see cref="GoalForecasting.DueOn"/>), which is never stored.</param>
 public sealed record GoalDto(
     Guid Id,
     string Title,
     string? Outcome,
-    DateOnly DueDate,
+    DateOnly? DueDate,
     IReadOnlyList<GoalAttachmentDto> Attachments);
 
 /// <summary>
@@ -62,5 +64,5 @@ public sealed record GoalSummaryDto(GoalDto Goal, GoalProgressDto Progress);
 /// <summary>What a person gives a goal when they set it or edit it
 /// (<c>.devbook/domain/progress/features.md#setting-a-goal</c>). An edit replaces all three.</summary>
 /// <param name="Outcome">One line, or null or blank for none.</param>
-/// <param name="DueDate">Required: a goal without one is refused.</param>
+/// <param name="DueDate">The due date, or null for none; on an edit, null clears it.</param>
 public sealed record SetGoalRequest(string Title, string? Outcome, DateOnly? DueDate);

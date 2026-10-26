@@ -648,7 +648,7 @@ Rules:
   the rule is worded this way. They are already anchors, and their state colours
   are the cue.
 
-Knowledge chapters are the largest consumer of this scale: five folders spell
+Devbook chapters are the largest consumer of this scale: five folders spell
 their lifecycles five different ways. `DevbookStatus`
 (`src/Core/Backlog.UI.Components/Devbook/DevbookStatus.cs`) maps each folder's
 words onto one set of status tones. Review surface: storybook → *Badges*, and

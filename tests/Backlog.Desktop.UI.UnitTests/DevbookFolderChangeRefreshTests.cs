@@ -496,6 +496,9 @@ internal sealed class DevbookWorkspace : IDisposable
 
         Features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         Assert.Null(Features.SetEnabled(DevbookFeatures.RepositoryDevbook, true));
+        // Several of these open an editor, which is behind its own switch and off
+        // by default.
+        Assert.Null(Features.SetEnabled(DevbookFeatures.Editing, true));
     }
 
     public string RepositoryPath { get; }
@@ -511,7 +514,7 @@ internal sealed class DevbookWorkspace : IDisposable
     public static DevbookWorkspace Create() =>
         new(Path.Combine(Path.GetTempPath(), "backlog-devbook-refresh-tests", Guid.NewGuid().ToString("n")));
 
-    /// <summary>Moves the configured knowledge folders, which is what a user
+    /// <summary>Moves the configured devbook folders, which is what a user
     /// changing the clone directory in Settings does.</summary>
     public void PointRepositoryAt(string cloneDirectory) =>
         Assert.Null(RepositorySettings.SetCloneDirectory(Alias, cloneDirectory));
@@ -521,7 +524,7 @@ internal sealed class DevbookWorkspace : IDisposable
     public void RewriteContextMap(string repositoryPath, string name) =>
         WriteRepository(repositoryPath, name);
 
-    /// <summary>Turns one knowledge folder on or off for the repository, which is
+    /// <summary>Turns one devbook folder on or off for the repository, which is
     /// the Settings gesture that changes which sections the pane has without
     /// moving anything on disk.</summary>
     public void SetFolderEnabled(string key, bool enabled) =>

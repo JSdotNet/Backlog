@@ -6,10 +6,12 @@ using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 
 using Backlog.Desktop.UI.Extensions;
+using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.Mcp;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.Tests;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,7 +49,11 @@ public class McpEndpointGateTests
     /// <summary>Development for the reason <see cref="WebHarnessHostTests"/>
     /// gives — it is the only environment where the provider validates — plus the
     /// feature switch this class needs to decide.</summary>
-    private sealed class Harness(bool sessions = true, IDeliverySurfaceLifecycle? surface = null)
+    private sealed class Harness(
+        bool sessions = true,
+        IDeliverySurfaceLifecycle? surface = null,
+        bool sessionRequests = true,
+        ISessionRequestStore? queue = null)
         : IsolatedHarnessFactory<DesktopHarness::Program>
     {
         protected override void ConfigureHarness(IWebHostBuilder builder)
@@ -56,11 +62,14 @@ public class McpEndpointGateTests
             // the last registration of a service wins.
             builder.ConfigureServices(services =>
             {
-                services.AddSingleton<IAppFeatureSettings>(new FixedFeatures(sessions));
+                services.AddSingleton<IAppFeatureSettings>(new FixedFeatures(sessions, sessionRequests));
 
                 // A recording double rather than the real run store, which files
                 // runs under this machine's shared state: a test run is not a run.
                 if (surface is not null) services.AddSingleton(surface);
+
+                // And an in-memory queue rather than the workspace's backlog.db.
+                if (queue is not null) services.AddSingleton(queue);
             });
         }
     }
@@ -70,7 +79,7 @@ public class McpEndpointGateTests
     /// endpoint itself — the MCP server is always on — so what is switchable here
     /// is a context's key, which decides which of its tools the endpoint lists.
     /// </summary>
-    private sealed class FixedFeatures(bool sessions = true) : IAppFeatureSettings
+    private sealed class FixedFeatures(bool sessions = true, bool sessionRequests = true) : IAppFeatureSettings
     {
         public event Action? Changed;
 
@@ -81,6 +90,7 @@ public class McpEndpointGateTests
         public bool IsEnabled(string key) => key switch
         {
             _ when string.Equals(key, SessionFeatures.Sessions, StringComparison.Ordinal) => sessions,
+            _ when string.Equals(key, SessionFeatures.SessionRequests, StringComparison.Ordinal) => sessionRequests,
             _ => true
         };
 
@@ -333,6 +343,91 @@ public class McpEndpointGateTests
         Assert.All(
             BacklogMcpTools.Tracker.ToolNames,
             tool => Assert.Contains($"\"{tool}\"", body, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The session request queue's dispatcher tools are listed while
+    /// <c>session-requests</c> is on (local ADR 0038 §5), through the same
+    /// <c>ApplyFeatureGates</c> filter every group goes through.
+    /// </summary>
+    [Fact]
+    public async Task The_dispatcher_tools_are_listed_while_session_requests_is_on()
+    {
+        await using var harness = new Harness();
+        using var client = harness.CreateClient();
+
+        var body = await ListToolsAsync(client);
+
+        Assert.All(
+            BacklogMcpTools.SessionRequests.ToolNames,
+            tool => Assert.Contains($"\"{tool}\"", body, StringComparison.Ordinal));
+    }
+
+    /// <summary>And absent while it is off, with every other area still listed.</summary>
+    [Fact]
+    public async Task The_dispatcher_tools_are_absent_while_session_requests_is_off()
+    {
+        await using var harness = new Harness(sessionRequests: false);
+        using var client = harness.CreateClient();
+
+        var body = await ListToolsAsync(client);
+
+        Assert.All(
+            BacklogMcpTools.SessionRequests.ToolNames,
+            tool => Assert.DoesNotContain($"\"{tool}\"", body, StringComparison.Ordinal));
+
+        Assert.All(
+            BacklogMcpTools.Sessions.ToolNames.Concat(BacklogMcpTools.Tracker.ToolNames),
+            tool => Assert.Contains($"\"{tool}\"", body, StringComparison.Ordinal));
+    }
+
+    /// <summary>The harness maps the wait route too: the waiting request at once while
+    /// the flag is on.</summary>
+    [Fact]
+    public async Task The_harness_wait_route_hands_out_the_waiting_request()
+    {
+        var queue = new InMemorySessionRequestStore();
+        var request = queue.Add(SessionRequests.ForPlan("+session-dispatch", "JSdotNet/Backlog", @"D:\Repos\Backlog", DateTimeOffset.UtcNow));
+        await using var harness = new Harness(queue: queue);
+        using var client = harness.CreateClient();
+
+        using var response = await client.GetAsync(SessionRequestWaitEndpoint.RoutePath, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = JsonNode.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken))!;
+        Assert.Equal(request.Id.ToString("D"), body["id"]!.GetValue<string>());
+        Assert.Equal("/backlog-tools:execute-plan +session-dispatch", body["brief"]!.GetValue<string>());
+    }
+
+    /// <summary>404 while <c>session-requests</c> is off, without asking the queue.</summary>
+    [Fact]
+    public async Task The_harness_wait_route_is_not_found_while_session_requests_is_off()
+    {
+        var queue = new InMemorySessionRequestStore();
+        await using var harness = new Harness(sessionRequests: false, queue: queue);
+        using var client = harness.CreateClient();
+
+        using var response = await client.GetAsync(SessionRequestWaitEndpoint.RoutePath, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(0, queue.NextCalls);
+    }
+
+    /// <summary>And behind the harness's loopback Origin check, as <c>/mcp</c> is.</summary>
+    [Fact]
+    public async Task The_harness_wait_route_refuses_a_cross_origin_call()
+    {
+        var queue = new InMemorySessionRequestStore();
+        await using var harness = new Harness(queue: queue);
+        using var client = harness.CreateClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, SessionRequestWaitEndpoint.RoutePath);
+        request.Headers.Add("Origin", "https://evil.example");
+
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(0, queue.NextCalls);
     }
 
     /// <summary>

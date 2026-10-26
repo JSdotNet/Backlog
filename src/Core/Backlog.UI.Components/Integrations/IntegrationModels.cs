@@ -119,6 +119,29 @@ public enum IntegrationSessionState
 }
 
 /// <summary>
+/// Whether the agent's own app still holds a session open — in its sidebar — or has
+/// archived it. Orthogonal to <see cref="IntegrationSessionState"/>: a session's
+/// liveness says whether it is working, this says whether anyone kept it around.
+/// <para>
+/// Drawn only on a <see cref="IntegrationSessionState.Finished"/> session
+/// (<see cref="IntegrationStates.ShownPresence"/>). A live one is worth saying as
+/// live, whatever its app does with it; liveness wins.
+/// </para>
+/// </summary>
+public enum IntegrationSessionPresence
+{
+    /// <summary>No record to say — a CLI-only session, another provider, another
+    /// machine. Not open: nothing is drawn for it.</summary>
+    Unknown,
+
+    /// <summary>The app still holds it open.</summary>
+    Open,
+
+    /// <summary>The app has archived it.</summary>
+    Archived
+}
+
+/// <summary>
 /// Why the product cannot perform an act.
 /// <para>
 /// <see cref="FeatureOff"/> rather than <c>Disabled</c>: <c>Disabled</c> already
@@ -177,7 +200,7 @@ public enum IntegrationDensity
     Toolbar,
 
     /// <summary>Icon and label, small, three visible. A row inside content, a
-    /// knowledge chapter footer.</summary>
+    /// devbook chapter footer.</summary>
     Inline,
 
     /// <summary>Icon only, small, two visible. A backlog list row, a roadmap
@@ -292,7 +315,7 @@ public sealed record IntegrationReadiness(
 /// <para>
 /// A surface adds an integration by adding a record to a list, not by adding
 /// markup — which is the only reason the same six acts can look the same on a
-/// backlog entry, a knowledge chapter and a roadmap bar.
+/// backlog entry, a devbook chapter and a roadmap bar.
 /// </para>
 /// </summary>
 /// <param name="Id">Stable across renders, and the identifier a host would log
@@ -421,6 +444,12 @@ public sealed record IntegrationLinkRef(
     bool AutoMerge = false,
     IntegrationReviewState Review = IntegrationReviewState.None)
 {
+    /// <summary>Whether a session's own app still holds it open or has archived it.
+    /// Drawn on a finished session only (<see cref="IntegrationSessionPresence"/>);
+    /// <see cref="IntegrationSessionPresence.Unknown"/> draws nothing. An init member
+    /// rather than a parameter, so no positional construction changes meaning.</summary>
+    public IntegrationSessionPresence SessionPresence { get; init; }
+
     public static IntegrationLinkRef Issue(
         string id,
         string label,

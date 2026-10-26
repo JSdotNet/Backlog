@@ -69,6 +69,28 @@ The system SHALL show a goal as At risk when its landing date falls after its du
 - **When** the Goals view is read
 - **Then** the goal reads "On track"
 
+### Requirement: A goal without a due date is At risk when it lands after the current iteration
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_landing_after_next_is_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_landing_inside_next_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_is_due_on_the_last_day_of_next_at_every_length, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_without_a_due_date_reads_as_due_at_the_end_of_next, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.A_goal_without_a_due_date_reaches_the_card_due_at_the_iteration_end]
+```
+
+The system SHALL show a goal without a due date as At risk when its landing date falls after the last day of [next](domain.md#iteration).
+
+#### Scenario: A dateless goal landing a week late
+
+- **Given** the goal "Devbook search ships" has no due date and lands 30 October, and no open impediment holds it back
+- **When** the Goals view is read
+- **Then** the goal reads "due 23 Oct (end of iteration)", "At risk" and "lands ~30 Oct"
+
+#### Scenario: A dateless goal landing in the iteration
+
+- **Given** the goal "Devbook search ships" has no due date and lands 23 October, and no open impediment holds it back
+- **When** the Goals view is read
+- **Then** the goal reads "due 23 Oct (end of iteration)" and "On track"
+
 ### Requirement: An open impediment puts its goal at risk
 
 ```meta
@@ -131,20 +153,21 @@ status: draft
 related: [.devbook/domain/progress/features.md#setting-a-goal]
 ```
 
-### Requirement: A goal needs a title and a due date
+### Requirement: A goal needs a title
 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalsTests.A_goal_without_a_due_date_is_saved_without_one, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalsTests.A_goal_without_a_title_is_not_saved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalPickerTests.New_goal_with_a_title_and_no_due_date_hands_back_no_date]
 ```
 
-The system SHALL refuse to save a goal without a title or without a due date.
+The system SHALL refuse to save a goal only when it has no title.
 
 #### Scenario: No due date
 
 - **Given** the person opened New goal
 - **When** they give the title "Customers get paid faster" and no due date, and save
-- **Then** the goal is not saved and the due date field says it is needed
+- **Then** the goal is saved and reads "due 23 Oct (end of iteration)"
 
 ### Requirement: Deleting a goal leaves its work unchanged
 
@@ -226,6 +249,90 @@ The system SHALL count an attached pull request that no attached task links as o
 - **When** the goal is read
 - **Then** its progress is 1/1
 
+### Requirement: An attached session counts once with its tasks and pull request
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
+```
+
+The system SHALL count an attached session as one item, and SHALL not count again the tasks linked to it or the pull request on its branch.
+
+#### Scenario: A session with a task and a pull request
+
+- **Given** the goal holds only "Session abcd1234", which is linked to the task "Quick add by session" and whose branch has #1531
+- **When** the goal is read
+- **Then** its total is 1
+
+#### Scenario: A session beside its linked task
+
+- **Given** the goal holds "Session abcd1234" and also the task "Quick add by session", which is linked to it
+- **When** the goal is read
+- **Then** its total is 1, counted as the task
+
+#### Scenario: A session beside its pull request
+
+- **Given** the goal holds "Session abcd1234" and also #1531, the pull request on its branch
+- **When** the goal is read
+- **Then** its total is 1
+
+### Requirement: An attached session is done by its work
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/domain.md#done]
+```
+
+The system SHALL count an attached session as done when the pull request on its branch is merged, or when it has linked tasks and every one of them is done, and SHALL NOT count it done because the session finished.
+
+#### Scenario: Its pull request merges
+
+- **Given** the goal holds only "Session abcd1234", whose branch pull request #1531 is open
+- **When** #1531 is merged
+- **Then** the goal's progress reads 1/1
+
+#### Scenario: Its linked task is done
+
+- **Given** the goal holds only "Session abcd1234", linked to "Quick add by session", and its branch has no pull request
+- **When** "Quick add by session" is marked Done
+- **Then** the goal's progress reads 1/1
+
+#### Scenario: A finished session that shipped nothing
+
+- **Given** the goal holds only "Session abcd1234", which has finished, has no linked task and no pull request on its branch
+- **When** the goal is read
+- **Then** its progress is 0/1
+
+### Requirement: Quick add by session number offers the session and what it has
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/features.md#attaching-work-to-a-goal]
+```
+
+The system SHALL find a session in a goal's attach search by its session id, typed whole or as its first eight characters, and SHALL list the session first, then each task linked to it, then the pull request on its branch when there is one.
+
+#### Scenario: Typing a short id
+
+- **Given** "Session abcd1234" is linked to "Quick add by session" and its branch has #1531
+- **When** the person types `abcd1234` in the goal's attach search
+- **Then** the list shows "Session abcd1234", then "Quick add by session", then #1531, each named by its kind
+
+#### Scenario: A session with nothing yet
+
+- **Given** "Session ef015678" has no linked task and no pull request on its branch
+- **When** the person types `Session ef015678` in the goal's attach search
+- **Then** the list shows only "Session ef015678"
+
+#### Scenario: The Sessions area is off
+
+- **Given** the Sessions area is switched off
+- **When** the person types `abcd1234` in the goal's attach search
+- **Then** no session is listed
+
 ### Requirement: A task in an attached plan counts once
 
 ```meta
@@ -249,7 +356,7 @@ status: draft
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.An_item_another_goal_holds_asks_first_and_moves_on_confirm, unit:dotnet:Backlog.UI.Components.UnitTests.GoalPickerTests]
 ```
 
-The system SHALL NOT attach a plan, task or pull request that another goal holds without asking: it SHALL name that goal, ask whether to move the item, and on yes move it, so the item is never in two goals.
+The system SHALL NOT attach a plan, task, pull request or session that another goal holds without asking: it SHALL name that goal, ask whether to move the item, and on yes move it, so the item is never in two goals.
 
 #### Scenario: A task another goal holds
 
@@ -282,7 +389,7 @@ type: requirement
 status: draft
 ```
 
-The system SHALL leave a plan, task or pull request unchanged when it is attached to a goal or detached from one.
+The system SHALL leave a plan, task, pull request or session unchanged when it is attached to a goal or detached from one.
 
 #### Scenario: Detaching a task
 

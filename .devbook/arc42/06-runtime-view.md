@@ -738,3 +738,63 @@ sequenceDiagram
   that names it, and the desktop fetches it from the attachment store. An edit
   uploads only the files it added. The service releases a note's files when it
   takes the note's tombstone, as it does a capture's.
+
+## Notification Reply
+
+```meta
+status: proposed
+related: [".devbook/domain/notifications/domain.md#reply", ".devbook/domain/notifications/requirements.md#answering-from-another-device", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/06-runtime-view.md#mobile-note-sync"]
+```
+
+A question raised on a desktop is answered from the phone. Desktop A owns the
+notification, so the phone's reply only proposes an answer, and Desktop A decides.
+Local ADR 0039 records the decision. The scenario is built; the Android push is not
+deployed, and no push reaches a phone until the hub has its FCM credential.
+
+```mermaid
+sequenceDiagram
+    participant Source as Source on Desktop A
+    participant Owner as Notifications on Desktop A
+    participant Sync as Sync Service
+    participant Phone as Phone
+
+    Phone->>Sync: PUT notifications/push with its FCM token, once paired
+    Source->>Owner: PublishAsync(question)
+    Owner->>Owner: Store locally, show a Windows notification
+    Owner->>Sync: POST notification with its push preview
+    Sync-->>Phone: Push through Notification Hubs: new, so it sends
+    Phone->>Sync: GET notifications feed, then show the tray entry
+    Phone->>Phone: Lock-screen action or inline reply into the outbox
+    Phone->>Sync: Flush the outbox: POST reply
+    Sync-->>Owner: Web PubSub nudge
+    Owner->>Sync: GET replies
+    Owner->>Owner: Check the reply against the answer spec, accept the first valid one
+    Owner->>Source: HandleAnswerAsync(answer)
+    Owner->>Sync: POST notification, state Answered
+    Sync-->>Phone: Push, state answered
+    Phone->>Phone: Take the entry out of the tray
+    Phone->>Sync: GET notifications feed, shows "Answered from this phone"
+```
+
+- **The push carries no body.** It is a data-only message, and the phone's OS
+  notification shows the title and summary from it. The phone pulls the feed
+  before it shows the entry, because the actions come from the pulled answer spec.
+  It pulls the body when the person opens the notification.
+- **Only a transition pushes.** The sync service pushes when a notification is
+  new or changes state. The owner's 10-minute presence re-push sends nothing.
+- **The tray answers only what fits.** A single-choice question with up to three
+  choices gets one action per choice. An open answer gets an inline reply, beside
+  up to two choices. Anything else, an owner-only question included, gets no
+  actions, and a tap opens the notification in the app.
+- **An offline owner delays the answer, not the reply.** The reply waits in the
+  `notificationReplies` container. The phone shows "delivers on wake" until Desktop A
+  wakes, pulls the reply and accepts it.
+- **A missed nudge costs only time.** On every nudge, Desktop A runs a full
+  exchange. When its socket opens, it runs one exchange to catch up. While a
+  question is open and the socket is down, it polls for replies every two minutes.
+  So a lost Web PubSub message delays the answer and never loses it.
+- **The answer survives a restart.** Desktop A stores the accepted answer in
+  SQLite before it calls the source's handler. It replays the answer to a handler
+  that was not running, so the handler must accept the same answer twice.
+- **A late reply is rejected with its reason.** A reply to a question that was
+  already answered or closed is rejected, and the phone shows which answer won.

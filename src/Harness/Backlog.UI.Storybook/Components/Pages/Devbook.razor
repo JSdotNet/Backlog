@@ -253,7 +253,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     private static readonly DesignGuideline[] Rules =
     [
         new("content-editing.md#knowledge-metadata-blocks", "Which block is drawn where — the file's in a header, a chapter's beside its heading."),
-        new("README.md#status-vocabulary", "The status words a knowledge chapter may carry."),
+        new("README.md#status-vocabulary", "The status words a devbook chapter may carry."),
         new("color-scheme.md#badge-and-chip-tones", "The tone each status and reference kind is drawn in."),
         new("content-editing.md#structured-metadata-sigils", "The fenced metadata grammar this block reads."),
         new("typography-and-layout.md#metadata-lines", "How a record of fields sits above the prose it describes.")
@@ -468,7 +468,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     ];
 
     private const string ConventionCode = """
-        @* What a chapter of a knowledge folder looks like on disk. The fence is
+        @* What a chapter of a devbook folder looks like on disk. The fence is
            `meta`, it sits directly under its heading, and only `status` is
            required — every other field is written only when it has a value. *@
 
@@ -508,7 +508,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
            existing caller of this component is already relying on. *@
         <MarkdownView Blocks="@blocks" />
 
-        @* On, for a document the host knows came out of a knowledge folder. The
+        @* On, for a document the host knows came out of a devbook folder. The
            folder is read off the path, so nothing has to be told it twice. *@
         <MarkdownView Blocks="@blocks"
                       RenderDevbookMetadata="true"

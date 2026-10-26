@@ -34,7 +34,7 @@ Editing hands the same string to the editor that the parser was reading, so a bo
     </Story>
 
     <Story Name="Reading a knowledge chapter"
-           Description="`RenderDevbookMetadata` says the body is a chapter of a knowledge folder, so the `meta` fence under its heading is read as the record it is and drawn beside that heading. Left unset — every entry body, every checklist — the same fence stays a fenced block, which is what it is anywhere else.
+           Description="`RenderDevbookMetadata` says the body is a chapter of a devbook folder, so the `meta` fence under its heading is read as the record it is and drawn beside that heading. Left unset — every entry body, every checklist — the same fence stays a fenced block, which is what it is anywhere else.
 
 `DevbookFolder` is what turns the status from a word into a value out of that folder's list, so the pill becomes a picker — and a picker is only worth offering if somebody is listening, which is `OnDevbookStatusChanged`. Pick one: the fence under the heading is rewritten below, because writing it is the host's and never this component's. `DevbookHrefFor` resolves a reference to an address, which is what makes `related` a link rather than a button the host has to handle.
 
@@ -170,7 +170,7 @@ Editing works the same either way: a fresh remark opens straight into a box with
     private string? _chapterStatus;
 
     /// <summary>A real host maps a reference to whatever route it serves the
-    /// chapter on. The storybook serves no knowledge folder, so it points at the
+    /// chapter on. The storybook serves no devbook folder, so it points at the
     /// page that does show how the mapping is written.</summary>
     private static string? ChapterHref(DevbookReference reference) => "/markdown/references";
 

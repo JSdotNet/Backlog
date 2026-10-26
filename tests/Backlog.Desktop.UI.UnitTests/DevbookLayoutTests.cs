@@ -5,7 +5,7 @@ using Backlog.SharedKernel.Devbook;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The knowledge folders default to the devbook layout — <c>.devbook/arc42</c>
+/// The devbook folders default to the devbook layout — <c>.devbook/arc42</c>
 /// rather than <c>.arc42</c> at the repository root — and a repository still on
 /// the root layout keeps reading as it did, because an unconfigured folder falls
 /// back to its legacy spot. Remark keys stay on the legacy spelling either way.

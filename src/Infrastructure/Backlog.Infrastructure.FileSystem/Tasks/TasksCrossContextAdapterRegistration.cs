@@ -1,5 +1,7 @@
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.FileSystem.Tasks;
@@ -7,7 +9,7 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// <summary>
 /// What the backlog asks of the contexts beside it, answered by adapters that may see
 /// both sides: the state of the agent sessions a task links to
-/// (<see cref="ILinkedSessionStates"/>), read from the Sessions context's record.
+/// (<see cref="ILinkedSessionStates"/>), read from the Sessions context's record, and the queue icons that queue an entry session or a plan session (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>), over its request queue.
 /// </summary>
 public static class TasksCrossContextAdapterRegistration
 {
@@ -26,6 +28,19 @@ public static class TasksCrossContextAdapterRegistration
                 ? new LinkedSessionStates(sessions)
                 : NoLinkedSessionStates.Instance);
 
+        // The queue icons that queue an entry session and queue a plan session, over
+        // the Sessions context's request queue (local ADR 0038). Only when the host composed
+        // the queue: without one nothing is registered and neither icon is offered. One
+        // instance answers both ports, a singleton over the singleton store.
+        // Without a queue both ports answer with one that is never offered, the way
+        // the session states above answer with none.
+        services.AddSingleton<SessionRequestActions>(sp =>
+            sp.GetService<ISessionRequestStore>() is { } queue
+                ? new SessionRequestActions(queue, sp.GetService<IAppFeatureSettings>(), sp.GetService<TimeProvider>())
+                : SessionRequestActions.NotOffered);
+        services.AddSingleton<IEntrySessionRequests>(sp => sp.GetRequiredService<SessionRequestActions>());
+        services.AddSingleton<IPlanSessionRequests>(sp => sp.GetRequiredService<SessionRequestActions>());
+
         return services;
     }
 
@@ -33,9 +48,9 @@ public static class TasksCrossContextAdapterRegistration
     {
         public static readonly NoLinkedSessionStates Instance = new();
 
-        public Task<IReadOnlyDictionary<string, LinkedSessionState>> StatesOfAsync(
+        public Task<IReadOnlyDictionary<string, LinkedSession>> StatesOfAsync(
             IReadOnlyCollection<string> sessionIds,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyDictionary<string, LinkedSessionState>>(new Dictionary<string, LinkedSessionState>());
+            Task.FromResult<IReadOnlyDictionary<string, LinkedSession>>(new Dictionary<string, LinkedSession>());
     }
 }

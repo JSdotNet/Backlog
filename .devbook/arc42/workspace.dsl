@@ -35,7 +35,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
                 inbox = component "Inbox" "Triage of arriving items: classify, route, promote or discard." "Razor Class Library"
                 backlogModule = component "Backlog" "Entries, sub-items and the entry text language." "Razor Class Library"
                 roadmap = component "Roadmap" "The timeline view over planned work." "Razor Class Library"
-                devbook = component "Devbook" "Reads the repository knowledge folders and draws their chapters and diagrams." "Razor Class Library"
+                devbook = component "Devbook" "Reads the repository devbook folders and draws their chapters and diagrams." "Razor Class Library"
                 dashboard = component "Dashboard" "Monitoring signals and saved dashboards." "Razor Class Library"
                 devPc = component "Dev PC Management" "The machines this system knows about and what is installed on them." "Razor Class Library"
                 sessions = component "Sessions" "The record of Claude and Copilot sessions on this PC." "Razor Class Library"
@@ -62,7 +62,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
         email = softwareSystem "Email / IMAP" "Email capture inbox." "External"
         websites = softwareSystem "Websites / RSS" "Web content monitoring by RSS and DOM diff." "External"
         appInsights = softwareSystem "Application Insights" "Telemetry behind the monitoring dashboards." "External"
-        pushProvider = softwareSystem "Push Provider" "FCM, for Android alerts." "External"
+        pushProvider = softwareSystem "Push Provider" "Azure Notification Hubs, relaying to FCM, for Android alerts." "External"
 
         # --- how the channels are used -------------------------------------------
 
@@ -119,7 +119,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
 
                 userRoot = deploymentNode "User-owned root" "The storage root, %LOCALAPPDATA%\Backlog by default, holding backlog.db and the per-device settings." "File system" {
                     containerInstance backlog.taskStore
-                    clones = infrastructureNode "Repository working copies" "The knowledge folders are read in place, wherever the repository was cloned." "Git"
+                    clones = infrastructureNode "Repository working copies" "The devbook folders are read in place, wherever the repository was cloned." "Git"
                 }
 
                 vscode = deploymentNode "VS Code / Visual Studio" "The IDE extension host on the same machine; the extension talks to the sync service, not the desktop store." "Extension host" {

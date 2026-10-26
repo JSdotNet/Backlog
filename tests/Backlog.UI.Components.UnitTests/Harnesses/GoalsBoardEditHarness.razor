@@ -1,6 +1,7 @@
 @using Backlog.UI.Components.Progress
 @* A host for the Goals board reduced to the module's goal rules: it refuses a goal with no
-   title or a second outcome line, as SetGoal does, keeps every other edit and answers each
+   title or a second outcome line, as SetGoal does, keeps every other edit — a goal without
+   a due date reads as due on the next window's last day, as the stand-up reads it — and answers each
    delete — after a pause when Delay is set, so a test can send a second edit before the
    first one's reading lands. It re-renders the board with its answer the way GoalsHost
    does, which is what the card's refusal handling reads. *@
@@ -43,7 +44,6 @@
         if (Delay > TimeSpan.Zero) await Task.Delay(Delay);
 
         _error = request.Title.Length == 0 ? "A goal needs a title."
-            : request.DueDate is null ? "A goal needs a due date."
             : request.Outcome?.Contains('\n') == true ? "A goal's outcome is one line."
             : null;
         if (_error is not null) return;
@@ -51,7 +51,13 @@
         _model = _model with
         {
             Goals = [.. _model.Goals.Select(goal => goal.Id == request.GoalId
-                ? goal with { Title = request.Title, Outcome = request.Outcome, DueDate = request.DueDate!.Value }
+                ? goal with
+                {
+                    Title = request.Title,
+                    Outcome = request.Outcome,
+                    DueDate = request.DueDate ?? _model.Next.Last,
+                    DueIsIterationEnd = request.DueDate is null
+                }
                 : goal)]
         };
     }

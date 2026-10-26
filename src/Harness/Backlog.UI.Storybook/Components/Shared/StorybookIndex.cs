@@ -316,7 +316,7 @@ internal static class StorybookIndex
         // which fields hold one, which is a fact about the record.
         new("Devbook",
         [
-            new("devbook", "Metadata", "The fenced meta block a knowledge chapter carries: every field drawn as a record, and the parameters that turn the drawing on. Opt-in throughout — nothing already rendering changed.", Exact: true),
+            new("devbook", "Metadata", "The fenced meta block a devbook chapter carries: every field drawn as a record, and the parameters that turn the drawing on. Opt-in throughout — nothing already rendering changed.", Exact: true),
             new("devbook/state", "State", "What scoping a status buys: five folder vocabularies under one tone scale, a caller's own words where no folder applies, and a flag on a value that is in neither."),
 
             // After State rather than before it: two of its fourteen stories are
@@ -463,6 +463,16 @@ internal static class StorybookIndex
             new("ai-usage", "AI usage and cost", "The same components composed into the view they were built for: what AI cost this fortnight, on what, and for whom."),
             new("productivity", "Productivity over time", "MetricScore, MetricTrellis, MetricHeatmap, MetricSpotlight, MetricStackedArea, MetricStackedBars: a score, where the time went, and how one hue compares them across repositories and weeks."),
             new("session-list", "Session list", "EffortChip and StageStrip: the effort a session ran at on one gold ladder, and how far its delivery run got — the parts the Sessions pane's rows and detail panel are drawn with.")
+        ]),
+
+        // A subject of its own: the notification centre's question card. After
+        // Dashboard and before Settings, and by the rule: it draws the Badge,
+        // AppButton, Checkbox, TextArea and Alert the parts groups introduced, and
+        // its body is the MarkdownView Content introduced, Mermaid through
+        // DiagramView included.
+        new("Notifications",
+        [
+            new("notification-card", "Notification card", "NotificationCard: one alert or question, read in Markdown and answered in place — buttons for a set answer, checkboxes for several, a plain-text box for an open answer, Acknowledge on an alert, and the answer that won or the reason it closed.")
         ]),
 
         // A subject of its own after Dashboard, and after it by the rule: a settings

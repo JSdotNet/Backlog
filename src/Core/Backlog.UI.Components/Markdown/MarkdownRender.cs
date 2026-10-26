@@ -50,7 +50,7 @@ public static class MarkdownRender
     /// <para>
     /// A hook rather than a rule baked in here, because the same code span means
     /// different things in different places: <c>.devbook/domain/sessions/domain.md</c> in
-    /// a knowledge chapter is a chapter somebody can open, and the identical span
+    /// a devbook chapter is a chapter somebody can open, and the identical span
     /// in an entry's body is a path being quoted. Only the caller knows which
     /// document it is rendering.
     /// </para>
@@ -68,7 +68,7 @@ public static class MarkdownRender
     /// target is fetched with no click to consent to it, so a caller that cannot
     /// place one is not choosing between a link and plain words but between a
     /// request it cannot vouch for and none. A relative <c>src</c> is also the one
-    /// target with nowhere to resolve <em>to</em> — a knowledge chapter's picture
+    /// target with nowhere to resolve <em>to</em> — a devbook chapter's picture
     /// sits beside it on disk, outside any <c>wwwroot</c>, so there is no origin
     /// the path could be right about.
     /// </para>

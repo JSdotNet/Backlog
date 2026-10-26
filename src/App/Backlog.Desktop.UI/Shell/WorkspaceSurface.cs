@@ -88,6 +88,12 @@ internal enum WorkspaceSurface
     /// was. Escape closes it as it closes the other takeovers.</summary>
     Devbook,
 
+    /// <summary>The notification centre — the owner's alerts and questions, grouped by
+    /// subject, with the one picked drawn and answered beside the list — taking the whole
+    /// screen. Appended after <see cref="Devbook"/> for the reason
+    /// <see cref="PullRequests"/> was. Escape closes it as it closes the other takeovers.</summary>
+    Notifications,
+
     /// <summary>The Lobes atlas — the Brain and every registered devbook drawn as
     /// brains — taking the whole screen while its flag is on
     /// (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>). Opened from the

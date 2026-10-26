@@ -100,7 +100,7 @@ public sealed class RedeemPairingCodeCommandHandler(
         var credential = credentials.Next();
 
         await devices.Add(
-            new Device(deviceId, code.OwnerId, name.Value, hasher.Hash(credential), clock.GetUtcNow()),
+            new Device(deviceId, code.OwnerId, name.Value, hasher.Hash(credential), clock.GetUtcNow(), PairedBy: code.IssuedBy),
             cancellationToken);
 
         return new DeviceRegistrationResponse(code.OwnerId.Value, deviceId.Value, credential);

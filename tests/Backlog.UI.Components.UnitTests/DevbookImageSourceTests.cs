@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// A host's image source, cascaded to a knowledge chapter: it answers the images it
+/// A host's image source, cascaded to a devbook chapter: it answers the images it
 /// claims — a scenario screenshot — and every other image keeps the knowledge rule,
 /// which leaves a relative image inert.
 /// </summary>

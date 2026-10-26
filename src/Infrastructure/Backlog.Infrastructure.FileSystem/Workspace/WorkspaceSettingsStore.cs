@@ -31,7 +31,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// </para>
 /// <para>
 /// The storage folder used to carry a devbook of its own — a configured set of
-/// knowledge folders read when no repository was scoped. It no longer does: a
+/// devbook folders read when no repository was scoped. It no longer does: a
 /// devbook belongs to a repository, and the repository rows on the Repositories
 /// tab are where its folders are configured. A settings file written while that
 /// was still true still opens; the rows it carried are ignored and the next

@@ -6,6 +6,7 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.SharedKernel;
 
 // The namespace deliberately does not match the folder, for the reason
@@ -116,6 +117,16 @@ public static class AppFeatures
             Status: AppFeatureStatus.Dev,
             FormerKeys: ["knowledge-semantic-search"]),
         new(
+            DevbookFeatures.Editing,
+            "Devbook editing",
+            "Offer Edit on a repository devbook chapter, to rewrite it in place. Off, the chapter reads only and its file header shows no Edit control. Brain notes stay editable either way.",
+            EnabledByDefault: false),
+        new(
+            DevbookFeatures.Status,
+            "Devbook status",
+            "Show the status every devbook file and each of its chapters state, Brain notes included, beside the file's name and beside each heading, with who signed it off. Off, no status or decision state is shown there; a chapter's other fields still are, and the AI loop's usage pills and the atlas badges are not affected.",
+            EnabledByDefault: false),
+        new(
             DevPcFeatures.SystemTools,
             "System tools",
             "Check, update, enable, and disable what this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.",
@@ -130,6 +141,12 @@ public static class AppFeatures
             "Pull requests",
             "Open the full-screen list of your open pull requests across every registered repository, and update, ready or merge them from there.",
             Status: AppFeatureStatus.Dev),
+        new(
+            SessionFeatures.SessionRequests,
+            "Session requests",
+            "Start a Claude session on a prompt entry or a plan with one click: the app queues a request naming the entry or plan, the repository and its clone folder, and a dispatcher session waiting on the MCP server starts it. Nothing of the entry's text is handed over.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
         new(DashboardFeatures.Dashboard, "Dashboard", "Open the full-screen dashboard of your productivity and what your assistants cost."),
         new(
             SyncFeatures.Sync,
@@ -138,6 +155,12 @@ public static class AppFeatures
             EnabledByDefault: false,
             Status: AppFeatureStatus.Beta,
             FormerKeys: ["device-pairing", "task-sync", "session-sync"]),
+        new(
+            NotificationsFeatures.Notifications,
+            "Notifications",
+            "Let this desktop tell you something, or ask you something, and hear the answer from whichever paired device you are holding.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
 
         // --- Cross-cutting: something the whole product uses -----------------
         new(

@@ -574,7 +574,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void Ask_ai_asks_the_devbook_while_it_has_the_screen_and_the_view_after()
     {
-        // A fixed Devbook body: the harness has no knowledge folder to read, and what
+        // A fixed Devbook body: the harness has no devbook folder to read, and what
         // is pinned is which source the shell asks, not what the Devbook finds.
         using var harness = CreateHarness(
             features => features.SetEnabled(AppFeatures.AiAssistant, true),
@@ -1911,13 +1911,13 @@ public sealed class HomeWorkspaceSurfaceTests
     /// <summary>
     /// The surfaces are stored by name, so each is appended and none reordered, and
     /// the Devbook joined after the Inbox (local ADR 0022, amendment of
-    /// 2026-10-15), then the Lobes atlas after it. A tripwire on a later tidy-up
-    /// rather than a test of behaviour, which is why it lists members.
+    /// 2026-10-15) then the notification centre, then the Lobes atlas last. A tripwire on a later tidy-up rather than a test of behaviour,
+    /// which is why it lists members.
     /// </summary>
     [Fact]
-    public void The_devbook_is_appended_after_the_inbox_and_the_atlas_after_it()
+    public void The_notification_centre_then_the_atlas_are_appended_after_the_devbook()
     {
-        string[] expected = ["Workspace", "Tools", "Dashboard", "Roadmap", "Sessions", "PullRequests", "Inbox", "Devbook", "Atlas"];
+        string[] expected = ["Workspace", "Tools", "Dashboard", "Roadmap", "Sessions", "PullRequests", "Inbox", "Devbook", "Notifications", "Atlas"];
 
         Assert.Equal(expected, Enum.GetNames<WorkspaceSurface>());
     }

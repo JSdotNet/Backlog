@@ -3345,7 +3345,7 @@
         layer with thirty technologies is denser than one with four rather than
         swallowing the map.
 
-        Boundary nodes — chapters in other knowledge folders — go to the middle and
+        Boundary nodes — chapters in other devbook folders — go to the middle and
         to the back. They are not part of the stack; they are what it leans on from
         outside, and putting them behind everything says that without a legend.
     */

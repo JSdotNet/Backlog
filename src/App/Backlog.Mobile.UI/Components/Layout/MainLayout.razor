@@ -1,11 +1,15 @@
 @inherits LayoutComponentBase
 @using Backlog.Infrastructure.Sync
+@using Backlog.Mobile.UI.Notifications
 @using Backlog.Mobile.UI.Progress
 @inject IDeviceCredentialStore Credentials
 @inject SharedContentCapture SharedCapture
 @inject ProgressViewProjection Progress
+@inject NotificationViewProjection Notifications
 @inject AppLifecycle Lifecycle
 @inject SyncCompatibility Compatibility
+@inject NotificationOpenRequests OpenRequests
+@inject NavigationManager Navigation
 @implements IDisposable
 
 @*
@@ -36,6 +40,18 @@
     (SyncCompatibility) and a callout under the bar says so on every tab, with
     the update window as its one action. Queued captures wait in the outbox
     meanwhile; none is set aside.
+
+    The Notifications tab follows Inbox once the phone holds a notification
+    (NotificationViewProjection.HoldsAny): a desktop pushes them only with its
+    notifications feature on, so a phone whose desktops have it off never shows
+    the tab. The layout pulls the notification feed with Progress — once drawn,
+    on every return to the front and on a new pairing — so a question reaches
+    the phone on whichever tab it is (local ADR 0039).
+
+    A tap on a notification in the Android tray lands here too (NotificationOpenRequests):
+    the layout is the one component every tab sits inside, so it follows the tap to the
+    notification's detail — after the first render, like a share, and including the tap
+    that launched the app before anything was drawn.
 *@
 
 <div class="page">
@@ -82,6 +98,9 @@
     private static readonly RenderFragment InboxGlyph = @<InboxIcon Size="20" />;
     private static readonly RenderFragment StandUpGlyph = @<TargetIcon Size="20" />;
     private static readonly RenderFragment NotesGlyph = @<StickyNoteIcon Size="20" />;
+    private static readonly RenderFragment NotificationsGlyph = @<BellIcon Size="20" />;
+
+    private static readonly NavItem NotificationsTab = new("notifications", "Notifications", Icon: NotificationsGlyph);
 
     private static readonly IReadOnlyList<NavItem> TabsWithoutStandUp =
     [
@@ -99,9 +118,21 @@
     ];
 
     private bool _pullingProgress;
+    private bool _pullingNotifications;
     private AppUpdateControl? _updates;
+    private IDisposable? _openRequests;
 
-    private IReadOnlyList<NavItem> Tabs => Progress.HoldsStandUp ? TabsWithStandUp : TabsWithoutStandUp;
+    private IReadOnlyList<NavItem> Tabs
+    {
+        get
+        {
+            var tabs = Progress.HoldsStandUp ? TabsWithStandUp : TabsWithoutStandUp;
+
+            // After Inbox: both are what reached the phone, and a question waiting is the
+            // tab a person comes back for.
+            return Notifications.HoldsAny ? [.. tabs.Take(2), NotificationsTab, .. tabs.Skip(2)] : tabs;
+        }
+    }
 
     private bool Paired => Credentials.Current is not null;
 
@@ -109,6 +140,7 @@
     {
         Credentials.Changed += OnCredentialsChanged;
         Progress.Changed += OnProgressChanged;
+        Notifications.Changed += OnNotificationsChanged;
         Lifecycle.Resumed += OnResumed;
         Compatibility.Changed += OnCompatibilityChanged;
     }
@@ -123,12 +155,17 @@
     private void OnCredentialsChanged() => _ = InvokeAsync(() =>
     {
         StateHasChanged();
-        return PullProgressAsync();
+        return PullAllAsync();
     });
 
     private void OnProgressChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private void OnResumed() => _ = InvokeAsync(PullProgressAsync);
+    private void OnNotificationsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnResumed() => _ = InvokeAsync(PullAllAsync);
+
+    // Raised on the platform's main thread by the Android head.
+    private void OnOpenRequested(Guid id) => _ = InvokeAsync(() => Navigation.NavigateTo($"notifications/{id:D}"));
 
     /// <summary>
     /// Started after the first render rather than on initialisation: the browser
@@ -140,7 +177,35 @@
         if (!firstRender) return;
 
         SharedCapture.Start(work => InvokeAsync(work));
-        await PullProgressAsync();
+        _openRequests = OpenRequests.Subscribe(OnOpenRequested);
+        await PullAllAsync();
+    }
+
+    private Task PullAllAsync() => Task.WhenAll(PullProgressAsync(), PullNotificationsAsync());
+
+    /// <summary>
+    /// Pulls the notification feed while a paired phone is on screen — on open and on every
+    /// return to the front — so the tab appears, and a question reaches the phone, on whichever
+    /// tab it is. One pull at a time; a failure leaves the phone as it last knew it, and the
+    /// Notifications page is where it is put in words.
+    /// </summary>
+    private async Task PullNotificationsAsync()
+    {
+        if (_pullingNotifications || !Paired) return;
+        _pullingNotifications = true;
+
+        try
+        {
+            await Notifications.PullAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Said on the Notifications page; tried again on the next resume.
+        }
+        finally
+        {
+            _pullingNotifications = false;
+        }
     }
 
     /// <summary>
@@ -172,8 +237,10 @@
     {
         Credentials.Changed -= OnCredentialsChanged;
         Progress.Changed -= OnProgressChanged;
+        Notifications.Changed -= OnNotificationsChanged;
         Lifecycle.Resumed -= OnResumed;
         Compatibility.Changed -= OnCompatibilityChanged;
+        _openRequests?.Dispose();
 
         // The capture is the scope's and may outlive this layout; it must not
         // dispatch through a component the renderer has let go.

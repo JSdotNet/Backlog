@@ -21,7 +21,7 @@ The desktop app is installed on Windows machines and is the canonical deployment
   row in it, and a task's content is markdown text inside it. JSON files hold the
   workspace settings and feature flags, which are per-device. There is one file to
   back up, and one to keep off a synced disk.
-- **Repository Devbook.** Knowledge folders are not deployed with the app. They live
+- **Repository Devbook.** Devbook folders are not deployed with the app. They live
   in each registered repository's own working copy, wherever the user cloned it, and
   are read in place. The app builds the generated index over them (`devbook.db`) into
   its own storage, one per repository path under the devbook cache folder, and never
@@ -111,13 +111,20 @@ flowchart LR
 ## Local Deployment (Mobile)
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
+related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/tech/mobile.md#xamarinfirebasemessaging"]
 ```
 
 The mobile app is installed on Android devices as a capture-first,
 sync-dependent channel. It is not canonical, so this section covers only how the
 APK reaches a device. `.devbook/tech/mobile.md#local-offline-store` documents its
 on-device SQLite outbox.
+
+For the Android push (local ADR 0039), the APK carries
+`Platforms/Android/google-services.json` and the
+[Firebase Messaging binding](../tech/mobile.md#xamarinfirebasemessaging). The
+JSON file holds the Firebase project's identifiers, not a secret. On Android 13
+and later the app asks for the `POST_NOTIFICATIONS` permission at runtime, and the
+phone shows no push until the person allows it.
 
 ### Installation and Updates (Mobile)
 
@@ -220,7 +227,7 @@ sequenceDiagram
 ## Cloud Deployment (Azure)
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
+related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/tech/cloud.md#azure-notification-hubs"]
 ```
 
 The optional cloud service is deployed to Azure as a single-region, low-cost
@@ -238,6 +245,10 @@ flowchart TB
             CosmosDB["Azure Cosmos DB (serverless)\ntasks, sessions, annotations,\ndevices, pairingCodes containers,\nchange feed per replica container"]
             KeyVault["Azure Key Vault\n(webhook secrets, OAuth tokens)"]
             Storage["Azure Storage (Standard LRS)\nprivate container attachments,\n30-day lifecycle rule"]
+        end
+        subgraph "Messaging"
+            WebPubSub["Azure Web PubSub (Free_F1)\nhub notifications"]
+            NotificationHubs["Azure Notification Hubs (Free)\nnamespace ntfns, hub backlog"]
         end
     end
 
@@ -263,10 +274,11 @@ flowchart TB
 
     GitHub -->|"Webhook events"| AppService
 
-    AppService -->|"Android push"| FCM
-
-
-    FCM -.->|Notification| Mobile
+    AppService -->|"Managed identity — Web PubSub Service Owner"| WebPubSub
+    WebPubSub -.->|"Pull now"| Desktop
+    AppService -->|"SAS: Send / Manage"| NotificationHubs
+    NotificationHubs -->|"FCM v1"| FCM
+    FCM -.->|"Data-only push"| Mobile
 
 ```
 
@@ -311,13 +323,27 @@ Deployment considerations:
   attachment stays a path on the desktop's local file system.
 - **Scale-to-zero** — Container Apps on the consumption plan costs nothing while
   nobody is syncing, which is most of the time for a personal tool.
-- **No keys in configuration** — the container app reaches Cosmos through a
+- **No keys for Cosmos or Storage** — the container app reaches Cosmos through a
   user-assigned managed identity with a data-plane role assignment. The account
-  carries `disableLocalAuth`, so a key cannot be used even if one existed.
-  Connection strings and account keys are not issued at all, per inherited ADR
+  carries `disableLocalAuth`, so a key cannot be used even if one existed. No
+  Cosmos or Storage connection string or account key is issued, per inherited ADR
   0013. The identity is user-assigned because a system-assigned one does not
   exist until its container app does. The app could then not be granted the
   registry pull it needs in order to start.
+- **Two Notification Hubs keys, because that service takes no identity** *(local
+  ADR 0039 §5)* — the only data credentials the deployment hands the service are
+  the connection strings of the hub's `sync-send` and `sync-manage` rules. Bicep
+  reads them with `listKeys()` into the container app secrets
+  `notification-hubs-send-connection-string` and
+  `notification-hubs-manage-connection-string`. The service reads them as
+  `Sync__NotificationHubs__SendConnectionString` and
+  `…ManageConnectionString`, beside `Sync__NotificationHubs__Hub`. No output
+  echoes either; `docs/deployment/sync.md` lists the resources.
+- **The FCM credential is entered by hand** — the hub's FCM v1 credential
+  (project id, client email, private key) is not in Bicep. A person enters it on
+  the hub once Firebase is set up. Until then no phone is pushed.
+- **Not deployed yet** — the Web PubSub and Notification Hubs resources are
+  declared in `infra/sync/main.bicep`, and neither is deployed or used for real.
 
 ### Provisioning and Delivery
 

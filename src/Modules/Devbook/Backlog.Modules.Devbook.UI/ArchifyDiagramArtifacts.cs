@@ -14,7 +14,7 @@ namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// Answers <see cref="IDiagramArtifactSource"/> from the repository clone the
-/// knowledge chapters are read out of.
+/// devbook chapters are read out of.
 /// <para>
 /// Everything the library deliberately does not know is here: whether the feature
 /// is switched on, which clone the chapters came from, where <c>_archify/</c> sits
@@ -45,7 +45,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
 
     private const string IndexFile = "index.json";
 
-    /// <summary>The knowledge folders whose chapters carry diagrams. The
+    /// <summary>The devbook folders whose chapters carry diagrams. The
     /// instructions folder is left out on purpose: it is a set of rules for
     /// agents rather than a set of chapters, and nothing in it is drawn.</summary>
     private static readonly string[] DiagramFolderKeys = [".domain", ".arc42", ".tech", ".design"];
@@ -132,7 +132,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     /// What exists for this diagram, or null.
     /// <para>
     /// Null covers two cases that look the same from here and are the same to the
-    /// caller: the feature is off, or this is not a knowledge chapter diagram at
+    /// caller: the feature is off, or this is not a devbook chapter diagram at
     /// all — a storybook sample, a diagram in an entry's description, anything
     /// with no chapter to write a specification beside. Answering with an empty
     /// artifact in the second case would put a "generate" offer under a diagram
@@ -297,7 +297,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     {
         if (Diagram(source) is not { } diagram)
         {
-            return "This diagram is not part of a knowledge chapter, so there is nothing to render.";
+            return "This diagram is not part of a devbook chapter, so there is nothing to render.";
         }
 
         if (Find(source, "mermaid") is not { SpecPath: { } specFile })
@@ -374,7 +374,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     {
         if (Diagram(source) is not { } diagram)
         {
-            return "This diagram is not part of a knowledge chapter, so there is nowhere to author a specification.";
+            return "This diagram is not part of a devbook chapter, so there is nowhere to author a specification.";
         }
 
         var type = ArchifyDiagramTypes.For(source);
@@ -547,7 +547,7 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
     }
 
     /// <summary>
-    /// Every mermaid fence in every knowledge chapter the app can currently
+    /// Every mermaid fence in every devbook chapter the app can currently
     /// reach, filed by hash.
     /// <para>
     /// Every configured scope rather than the one on screen, because a diagram's
