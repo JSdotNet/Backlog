@@ -363,7 +363,7 @@ The system SHALL leave branch updates, sync verdicts and scenario marks out of t
 
 #### Scenario: The same devbook content, Brain against repository
 
-- **Given** a devbook with a scenario page and sync verdicts for its chapters
+- **Given** a devbook with a scenarios file holding a journey, and sync verdicts for its chapters
 - **When** the pane shows it for a repository, and then shows the Brain
 - **Then** the repository view draws the update action, the verdict badges and the scenario mark, and the Brain view draws none of them
 
@@ -861,16 +861,22 @@ related: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.The_nine_state_fields_are_never_rows_in_the_strip, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.Approval_and_acceptance_are_drawn_beside_the_status_as_who_and_when]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.The_nine_state_fields_are_never_rows_in_the_strip, unit:dotnet:Backlog.Desktop.UI.UnitTests.DomainDevbookContractSixteenPanelTests.Approval_and_acceptance_are_drawn_beside_the_status_as_who_and_when, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests.Status_is_not_shown_while_devbook_status_is_off, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataStatusHiddenTests.Findings_about_the_status_and_its_sign_off_go_with_it]
 ```
 
-The system SHALL show a domain chapter's decision and review state as one line beside its status, saying who decided and when, and never as fields among the chapter's metadata.
+While [Devbook status](context.md#devbook-status) is on, the system SHALL show a domain chapter's decision and review state as one line beside its status, saying who decided and when, and never as fields among the chapter's metadata.
 
 #### Scenario: An accepted chapter
 
-- **Given** a domain chapter approved by `jobsc` on 2026-09-02 and accepted by `ann` on 2026-09-20
+- **Given** Devbook status is on, and a domain chapter approved by `jobsc` on 2026-09-02 and accepted by `ann` on 2026-09-20
 - **When** the reader opens it in the domain panel
 - **Then** the bar beside its status reads *approved by jobsc · 2026-09-02; accepted by ann · 2026-09-20*, and none of the approval or acceptance fields is listed with the chapter's metadata
+
+#### Scenario: Status switched off
+
+- **Given** Devbook status is off, and the same accepted domain chapter
+- **When** the reader opens it in the domain panel
+- **Then** neither its status nor the decision line is drawn, and the approval and acceptance fields are still not listed with its metadata
 
 ### Requirement: Leaving a decision step takes its record with it
 

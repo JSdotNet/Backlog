@@ -496,6 +496,9 @@ internal sealed class DevbookWorkspace : IDisposable
 
         Features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         Assert.Null(Features.SetEnabled(DevbookFeatures.RepositoryDevbook, true));
+        // Several of these open an editor, which is behind its own switch and off
+        // by default.
+        Assert.Null(Features.SetEnabled(DevbookFeatures.Editing, true));
     }
 
     public string RepositoryPath { get; }

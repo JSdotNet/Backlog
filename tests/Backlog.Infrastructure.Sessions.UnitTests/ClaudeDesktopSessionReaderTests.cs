@@ -62,6 +62,28 @@ public sealed class ClaudeDesktopSessionReaderTests : IDisposable
         Assert.False(sessions.IsOpen("cli-a"));
     }
 
+    /// <summary>
+    /// The record's top-level <c>title</c> is the name the sidebar shows, whoever gave it
+    /// — the desktop app, a tool or the person — so it is read whatever its
+    /// <c>titleSource</c> says. A blank one states nothing, and a <c>title</c> nested in
+    /// a blob is not the record's.
+    /// </summary>
+    [Fact]
+    public async Task The_sidebar_title_is_read_from_the_records_top_level()
+    {
+        GivenRecord(Account, Org, "local_a", """{"sessionId":"local_a","cliSessionId":"cli-a","title":"DESIGN: Finance app design","titleSource":"user"}""");
+        GivenRecord(Account, Org, "local_b", """{"sessionId":"local_b","cliSessionId":"cli-b","title":"Pull latest version","titleSource":"auto"}""");
+        GivenRecord(Account, Org, "local_c", """{"sessionId":"local_c","cliSessionId":"cli-c","title":"   "}""");
+        GivenRecord(Account, Org, "local_d", """{"sessionId":"local_d","toolSurfaceSnapshot":{"tools":[{"title":"not this one"}]},"cliSessionId":"cli-d"}""");
+
+        var sessions = await ReadAsync();
+
+        Assert.Equal("DESIGN: Finance app design", sessions.For("cli-a")!.Title);
+        Assert.Equal("Pull latest version", sessions.For("cli-b")!.Title);
+        Assert.Null(sessions.For("cli-c")!.Title);
+        Assert.Null(sessions.For("cli-d")!.Title);
+    }
+
     [Fact]
     public async Task Only_local_records_are_read_and_never_the_scheduled_tasks_file()
     {

@@ -91,6 +91,7 @@
                               FileName="@MetadataFileName"
                               ShowFields="false"
                               CanEditStatus="@CanEditStatus"
+                              ShowStatus="@ShowStatus"
                               OnStatusChanged="@OnStatusChanged"
                               OnNavigate="@OnNavigate"
                               HrefFor="@HrefFor"
@@ -420,6 +421,12 @@
     /// the means of altering it goes away.</summary>
     [Parameter]
     public bool CanEditStatus { get; set; } = true;
+
+    /// <summary>Whether the file's status is drawn beside its name at all. False
+    /// leaves the name and path with no status or decision state beside
+    /// them.</summary>
+    [Parameter]
+    public bool ShowStatus { get; set; } = true;
 
     /// <summary>Raised with the reference a reader activated in the record.</summary>
     [Parameter]

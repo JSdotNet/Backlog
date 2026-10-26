@@ -81,6 +81,64 @@ The plan `+c4-zoom-navigation` owns the rollout. It ships off by default, and th
 switch is retired once the zoom tab has been validated and replaces the **C4** tab
 (local ADR 0037).
 
+## Devbook editing
+
+```meta
+status: draft
+type: feature-flag
+key: devbook-editing
+default: off
+related: [".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/domain/devbook/requirements.md#requirement-a-brain-note-is-always-editable"]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookScopeViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.AppFeatureSettingsStoreTests.The_devbook_viewer_switches_are_released_product_areas_that_start_off]
+```
+
+Turning it on offers Edit in the header of a repository devbook file, in the
+architecture, domain, design, AI adoption and instruction areas. Edit swaps the
+rendered chapter for its editor. Off, a chapter reads only and its header shows
+no Edit control. Turning it off while an editor is open saves what was typed,
+then closes the editor.
+
+A Brain note is outside the switch: it is
+[always editable](requirements.md#requirement-a-brain-note-is-always-editable),
+whatever the switch says. The switch is therefore the repository viewer's, not
+Devbook-wide.
+
+It is released and off by default while the owner weighs removing repository
+editing altogether. It is retired either way: the key goes when Edit is removed,
+or when Edit stays and is simply there. It has its own key rather than sharing
+one with [Devbook status](#devbook-status), because the two may be kept or
+removed apart. This context's scope service answers whether Edit is offered, and
+each panel follows a change live, with no restart.
+
+## Devbook status
+
+```meta
+status: draft
+type: feature-flag
+key: devbook-status
+default: off
+related: [".devbook/domain/devbook/features.md#rendered-devbook-documents", ".devbook/domain/devbook/requirements.md#requirement-decision-state-is-shown-beside-the-status", ".devbook/design/content-editing.md#knowledge-metadata-blocks"]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookScopeViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPanelsViewerSwitchesTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainStatusSwitchTests, unit:dotnet:Backlog.UI.Components.UnitTests.MetadataStatusHiddenTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.AppFeatureSettingsStoreTests.The_devbook_viewer_switches_are_released_product_areas_that_start_off]
+```
+
+Turning it on shows the status every devbook file and each of its chapters
+state: the selector or badge beside the file's name and beside each heading, and
+the decision state that qualifies it. It covers every area, the technology
+ratings and Brain notes included. Off, no status or decision state is drawn
+there, and neither are the findings about them. A chapter's other fields, such
+as `related` and `sync`, are still drawn, and a heading over an otherwise empty
+`meta` fence still renders.
+
+It switches the file and chapter surfaces only. The AI loop's usage pills and the
+atlas badges read a chapter's status as a summary shown somewhere else, and are
+not behind it.
+
+It is released and off by default while the owner weighs removing the status
+display, and it is retired when that is decided. It has its own key rather than
+sharing one with [Devbook editing](#devbook-editing): a status is read, not
+written, wherever the reader cannot change it, so it can stay or go apart from
+Edit. Each panel follows a change live, with no restart.
+
 ## Brain folder
 
 ```meta
