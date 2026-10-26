@@ -1,4 +1,4 @@
-# ADR 0038: C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees
+# ADR 0039: C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees
 
 ```meta
 date: 2026-10-21

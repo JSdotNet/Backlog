@@ -59,7 +59,7 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// </summary>
     public string? Account { get; init; }
 
-    /// <summary>The knowledge folders configured for this repository. The type
+    /// <summary>The devbook folders configured for this repository. The type
     /// is Devbook's published language rather than this adapter's: a
     /// repository is one place those folders can live, not the thing that
     /// defines them. That is why this project references that module's

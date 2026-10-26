@@ -64,7 +64,8 @@ between inherited ADRs 0005 and 0009.
 - **[0035 — Goals and impediments replace sprints](0035-goals-and-impediments-replace-sprints.md)** *(proposed, not yet built; supersedes the sprint parts of 0022 §2 and 0028; §2, §8 and §9 amended by 0037)*
 - **[0036 — The iteration settings ride the task feed as one whole document](0036-the-iteration-settings-ride-the-task-feed.md)** *(accepted, built; refines 0035 §3, follows 0032)*
 - **[0037 — A session attaches to a goal as its own item](0037-a-session-attaches-to-a-goal-as-its-own-item.md)** *(proposed, not yet built; amends 0035 §2, §8 and §9)*
-- **[0038 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](0038-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, not yet built; builds on 0004, 0015 and 0016)*
+- **[0038 — Backlog queues session requests and a Manager session dispatches them](0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)** *(proposed, not yet built; adds a route and a tool group to 0012's listener, beside 0024)*
+- **[0039 — C4 zoom navigation is a second tab, its links are read from devbook metadata, and its code from syntax trees](0039-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md)** *(proposed, not yet built; builds on 0004, 0015 and 0016)*
 
 ## Inherited decisions
 

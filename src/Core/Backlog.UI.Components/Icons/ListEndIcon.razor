@@ -1,0 +1,52 @@
+@*
+    A list with something going on at its end: three lines, and a return arrow
+    curling round from the right to put one more item under the last.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives, and as
+    Lucide's own `list-end`, on exactly the terms
+    `.devbook/design/typography-and-layout.md#iconography` allows: an outline on
+    the 24x24 grid, stroked at 2, round caps and joins, filled nowhere.
+
+    Named for the shape, not for a meaning. The Tasks pane and the roadmap put it
+    on the control that queues a session — the request joins the end of a line a
+    manager session works through — and the name the action answers to stays on
+    the control that holds the glyph.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    <path d="M16 5H3" />
+    <path d="M16 12H3" />
+    <path d="M9 19H3" />
+    <path d="m16 16-3 3 3 3" />
+    <path d="M21 5v12a2 2 0 0 1-2 2h-6" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "list-end-icon" : $"list-end-icon {CssClass}";
+}

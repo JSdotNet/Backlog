@@ -19,7 +19,7 @@ internal delegate Task<VsCodeLaunchOutcome> VsCodeProcessLauncher(ProcessStartIn
 /// under <c>Workspace/</c> are: finding the installed VS Code means reading
 /// environment variables, walking PATH and probing for files on this machine's
 /// disk, which is file-system work and nothing else. No context owns it — a
-/// knowledge chapter, a repository clone and a session worktree are all just a
+/// devbook chapter, a repository clone and a session worktree are all just a
 /// folder by the time this class sees one — so it answers
 /// <see cref="IFolderEditorLauncher"/> from the shared kernel rather than living
 /// inside whichever module happened to want it first.</para>

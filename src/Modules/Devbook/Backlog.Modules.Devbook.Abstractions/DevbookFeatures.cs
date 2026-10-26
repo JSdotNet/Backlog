@@ -26,7 +26,7 @@ public static class DevbookFeatures
     /// one exists, instead of rendering the mermaid.
     /// <para>
     /// A devbook key rather than a shell one, by the same rule as its
-    /// neighbours: what it switches is how a knowledge chapter's diagrams are
+    /// neighbours: what it switches is how a devbook chapter's diagrams are
     /// drawn, so it belongs with the context the chapters are of. The Shell only
     /// contributes the catalog row that names and describes it, and the adapter
     /// that answers it lives with the panels that render the chapters.
@@ -53,7 +53,7 @@ public static class DevbookFeatures
     /// reading of the same model, and with the model off there is nothing to zoom
     /// through. Its own key rather than a change to the C4 tab, so the new navigation
     /// can be used beside the current one and replace it only once it is validated
-    /// (local ADR 0038).
+    /// (local ADR 0039).
     /// </para></summary>
     public const string C4Zoom = "c4-zoom";
 

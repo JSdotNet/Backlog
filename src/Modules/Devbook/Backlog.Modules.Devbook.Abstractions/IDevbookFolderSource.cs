@@ -96,7 +96,7 @@ public interface IDevbookFolderSource
 }
 
 /// <summary>
-/// Where a knowledge folder resolved to, or why it did not.
+/// Where a devbook folder resolved to, or why it did not.
 /// <para>
 /// The repository is named rather than handed over: this record is part of a
 /// module's published surface and <c>GitHubRepositoryRef</c> belongs to an
@@ -166,7 +166,7 @@ public sealed record DevbookFolderLocation(
 }
 
 /// <summary>
-/// Which of the two places a resolved knowledge folder came from.
+/// Which of the two places a resolved devbook folder came from.
 /// <para>
 /// It rides on the location rather than being asked of the settings again,
 /// because the question every caller actually has is not "how is this repository

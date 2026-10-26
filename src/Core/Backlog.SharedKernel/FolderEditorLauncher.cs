@@ -6,7 +6,7 @@ namespace Backlog.SharedKernel;
 /// The port is in the shared kernel for the same reason
 /// <see cref="IAppFeatureSettings"/> is: more than one context asks the
 /// question and none of them owns the answer. "Show me this folder in an
-/// editor" is true of a knowledge chapter, a repository clone and a session
+/// editor" is true of a devbook chapter, a repository clone and a session
 /// worktree alike — the folder is the only thing the caller has to name, and
 /// nothing about the operation is devbook-shaped. Which editor is installed
 /// and how it is started is local-machine detail, so the implementations sit in

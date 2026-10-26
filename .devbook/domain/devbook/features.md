@@ -371,7 +371,7 @@ host has none, the tools say so in words rather than failing.
 type: feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/domain/tasks/features.md#search-filter-and-organize]
+related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
 Read the knowledge a repository already carries alongside its code, next to the
@@ -426,7 +426,7 @@ related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .d
 
 Present each area's documents as readable content rather than raw files:
 headings and sections, the metadata each chapter declares, cross-references
-between knowledge documents, and embedded diagrams rendered as diagrams. A
+between devbook documents, and embedded diagrams rendered as diagrams. A
 cross-reference may name a chapter in the repository's backlog folder, even though
 that folder is not a browsable area. It is read with that folder's own status
 vocabulary rather than as an unknown one.
@@ -658,7 +658,7 @@ repository read from a branch without a clone is prepared too.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
 ```
 
 Say whether the knowledge in view is the latest version the repository has, and
@@ -704,7 +704,7 @@ with it.
 type: sub-feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#devbook-pane
-related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/design/typography-and-layout.md#iconography]
+related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/design/typography-and-layout.md#iconography]
 ```
 
 Read a repository's devbook from its local clone or from any of its branches,
@@ -797,7 +797,7 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#c4-zoom
 depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
-related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0038-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
+related: [.devbook/domain/devbook/requirements.md#c4-zoom-navigation, .devbook/arc42/adr/0039-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
 Walk the architecture the way C4 draws it, one level at a time, from the system
@@ -893,7 +893,7 @@ stays the text that is read; the model is what is drawn.
 
 Which element a record names, a TDR's severity and lifecycle, which ADR supersedes
 which, and which code a component maps to are read from the chapters' own devbook
-metadata, never from a file kept beside the model (local ADR 0038).
+metadata, never from a file kept beside the model (local ADR 0039).
 
 ## Instruction optimization
 
@@ -902,7 +902,7 @@ type: feature
 status: draft
 feature-flag: .devbook/domain/devbook/context.md#instruction-optimization
 depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
-related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/repository-management/features.md#repository-knowledge-folder-settings]
+related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings]
 ```
 
 Review the working instructions as what they are: documents whose readers are

@@ -292,7 +292,9 @@ app.UseWhen(
     context => context.Request.Path.StartsWithSegments(BacklogMcpServerRegistration.EndpointPath)
         || context.Request.Path.StartsWithSegments(BacklogTelemetryEndpoint.RoutePath)
         // And Claude Code's OTLP logs (local ADR 0024), on the same terms.
-        || context.Request.Path.StartsWithSegments(ClaudeCodeLogsEndpoint.RoutePath),
+        || context.Request.Path.StartsWithSegments(ClaudeCodeLogsEndpoint.RoutePath)
+        // And the session-request long poll a dispatcher waits on (local ADR 0038).
+        || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath),
     branch => branch.Use(async (context, next) =>
     {
         // The same predicate the desktop listener refuses on, and the same
@@ -349,6 +351,35 @@ app.MapPost(ClaudeCodeLogsEndpoint.RoutePath, async context =>
     if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "Claude Code's telemetry could not be stored; the exporter was asked to retry.");
     if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
     if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
+});
+
+// And the long poll a dispatcher waits on for session requests (local ADR 0038 §4),
+// over this harness's backlog.db. No token here, for the reason the MCP endpoint has
+// none; 404 while the session-requests flag is off.
+app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
+{
+    SessionRequestWaitEndpoint.Reply reply;
+
+    try
+    {
+        reply = await SessionRequestWaitEndpoint.WaitAsync(
+            context.RequestServices.GetRequiredService<ISessionRequestStore>(),
+            context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
+            TimeProvider.System,
+            context.RequestAborted);
+    }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+    {
+        return;
+    }
+
+    context.Response.StatusCode = reply.StatusCode;
+    if (reply.Failure is not null) app.Logger.LogError(reply.Failure, "The session request queue could not be read; the dispatcher was asked to retry.");
+    if (reply.RetryAfterSeconds is { } retryAfter) context.Response.Headers.RetryAfter = retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    if (reply.Body.Length == 0) return;
+
+    context.Response.ContentType = SessionRequestWaitEndpoint.Reply.ContentType;
+    await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
 });
 
 app.Run();

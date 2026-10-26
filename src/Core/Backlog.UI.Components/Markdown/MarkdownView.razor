@@ -323,7 +323,7 @@
     /// <para>It widened to take the AI affordances rather than gaining a second
     /// flag beside it, so a view that asks for none of them renders exactly the
     /// markup it rendered before any of this existed. That "nothing already
-    /// rendering changed" guarantee is the same one the knowledge metadata work
+    /// rendering changed" guarantee is the same one the devbook metadata work
     /// made, and it is worth keeping for the same reason: a stylesheet and a
     /// screenshot test both see the wrapper.</para></summary>
     private bool Annotated => CanComment || CanRewrite || Comments.Count > 0 || Proposals.Count > 0;
@@ -849,7 +849,7 @@
 
     /// <summary>Whether a chapter's status may be changed from this view. False
     /// draws the static badge in place of the select — the status is still
-    /// stated, only the means of altering it goes away. A knowledge folder read
+    /// stated, only the means of altering it goes away. A devbook folder read
     /// from a repository branch passes false, because the file behind it is a
     /// copy of a commit and an edit would not survive the next fetch.</summary>
     [Parameter]
@@ -862,7 +862,7 @@
     [Parameter]
     public bool ShowDevbookStatus { get; set; } = true;
 
-    /// <summary>Which knowledge folder the document was read from, so a status
+    /// <summary>Which devbook folder the document was read from, so a status
     /// can be checked against that folder's vocabulary.</summary>
     [Parameter]
     public DevbookFolder DevbookFolder { get; set; } = DevbookFolder.Unknown;
@@ -885,7 +885,7 @@
     /// read from, carrying its area folder — <c>.devbook/domain/roadmap/features.md</c>.
     ///
     /// <para>Without it a relative link in the prose is unreadable, and the
-    /// knowledge folders write almost every link relative: a sibling as
+    /// devbook folders write almost every link relative: a sibling as
     /// <c>domain.md#roadmap-item-gathering</c> and another context as
     /// <c>../tasks/domain.md#task</c>, because those folders are read in
     /// plain markdown viewers too. The blocks say nothing about where they came

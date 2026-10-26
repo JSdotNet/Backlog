@@ -3,7 +3,7 @@ using Backlog.Infrastructure.Devbook.Code;
 namespace Backlog.Infrastructure.Devbook.UnitTests;
 
 /// <summary>
-/// The C4 zoom tab's Code level read from syntax trees (local ADR 0038 §3),
+/// The C4 zoom tab's Code level read from syntax trees (local ADR 0039 §3),
 /// against <c>Fixtures/CodeReader</c>: a small shop whose <c>Order</c> is split
 /// over two partial files, with a positional record, a record struct, a nested
 /// type, a generic type, an interface, an enum and a delegate. Each test copies

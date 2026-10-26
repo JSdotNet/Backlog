@@ -66,7 +66,7 @@ Seven edits to the registry look alike and do different things:
 
 | Edit | How it is made | What follows it | What is kept |
 |---|---|---|---|
-| Rename | A new owner and name, given on the repository itself | Every entry and inbox item naming the old repository, including an entry's links to issues it created there | The clone directory, colour, account and knowledge folder settings, under the new name, and a [Rename Record](domain.md#rename-record) of the old name |
+| Rename | A new owner and name, given on the repository itself | Every entry and inbox item naming the old repository, including an entry's links to issues it created there | The clone directory, colour, account and devbook folder settings, under the new name, and a [Rename Record](domain.md#rename-record) of the old name |
 | Merge | A rename to a name another registered repository already has | Everything filed against the old name, to the other repository | The other repository's settings; the renamed one goes |
 | Removal | Removing the repository from the list | Nothing | A [Removal Record](domain.md#removal-record); entries keep the removed name and show no repository |
 | Archive | Choosing Archive on the repository's row ([Archiving a repository](#archiving-a-repository)) | Nothing is re-pointed; the panes stop reading the repository as active work | Everything: the identity, the settings, the tasks filed against it, and its devbook |
@@ -186,7 +186,7 @@ is, and it is written wherever the colour is shown.
 The choice can be given back, which returns the repository to its automatic
 placement rather than leaving it colourless.
 
-### Repository knowledge folder settings
+### Repository devbook folder settings
 
 ```meta
 type: sub-feature
@@ -194,7 +194,7 @@ status: draft
 related: [.devbook/domain/devbook/features.md#repository-devbook-areas]
 ```
 
-Decide, per repository, which knowledge folders the product may read and where
+Decide, per repository, which devbook folders the product may read and where
 they live. Each folder can be switched off entirely, and most can point at a
 non-standard location instead of the conventional one. A folder is readable only
 when all three of these hold:

@@ -106,7 +106,7 @@
     -->
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.2" />
     <!--
-      Syntax trees only, for the C4 zoom tab's Code level (local ADR 0038 §3):
+      Syntax trees only, for the C4 zoom tab's Code level (local ADR 0039 §3):
       Backlog.Infrastructure.Devbook parses a component's C# files with
       CSharpSyntaxTree.ParseText and never creates a compilation, so nothing
       here has to match the SDK's own compiler version.

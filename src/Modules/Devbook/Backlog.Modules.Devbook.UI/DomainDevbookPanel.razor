@@ -60,7 +60,7 @@
                     TestId="domain-devbook-error"
                     role="status">
             <Action>
-                <a class="md-link" href="settings">Configure repository knowledge folders</a>
+                <a class="md-link" href="settings">Configure repository devbook folders</a>
             </Action>
         </EmptyState>
     }
@@ -174,7 +174,7 @@
 
     /// <summary>The chapter as it was when it was opened, and the chapter as it
     /// was last committed. Two answers to "compared with what?", and the two a
-    /// reader of a knowledge folder actually asks: what have I changed in this
+    /// reader of a devbook folder actually asks: what have I changed in this
     /// sitting, and what has changed since this was agreed.</summary>
     private const string OpenedBaselineId = "opened";
 
@@ -846,7 +846,7 @@
         {
             GitFileAtRevisionState.Committed => (result.Content, (string?)null),
             GitFileAtRevisionState.NotTracked => (null, "This chapter has not been committed yet, so there is no earlier version of it to compare with."),
-            GitFileAtRevisionState.NotARepository => (null, result.Message ?? "The knowledge folder is not inside a git repository."),
+            GitFileAtRevisionState.NotARepository => (null, result.Message ?? "The devbook folder is not inside a git repository."),
             _ => (null, result.Message ?? "Git could not read the committed version of this chapter.")
         };
     }
@@ -1503,7 +1503,7 @@
             <IconButton BaseClass="entry-doc__icon-action entry-doc__icon-action--copilot"
                         TestId="devbook-copilot-cli-button"
                         Disabled="@IsCopilotBusy(item)"
-                        Title="Start GitHub Copilot CLI for this knowledge item"
+                        Title="Start GitHub Copilot CLI for this devbook item"
                         AriaLabel="@($"Start GitHub Copilot CLI for {item.Title}")"
                         OnClick="() => StartDevbookCopilotAsync(item)">
                 @if (IsCopilotBusy(item))

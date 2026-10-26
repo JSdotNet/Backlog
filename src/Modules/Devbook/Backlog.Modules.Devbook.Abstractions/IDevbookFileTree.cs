@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Devbook.Abstractions;
 
 /// <summary>
-/// The shape of a resolved knowledge folder — which directories and files it
+/// The shape of a resolved devbook folder — which directories and files it
 /// holds — asked of whoever knows, rather than of the disk.
 /// <para>
 /// For a local folder that is the disk, and <see cref="DevbookDiskFileTree"/>

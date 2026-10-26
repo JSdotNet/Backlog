@@ -25,7 +25,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.RepositoryArchiveTests.Archiving_and_unarchiving_change_nothing_but_the_flag, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.RepositoryArchiveTests.Every_other_mutator_keeps_the_flag, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.RepositoryArchiveTests.A_re_typed_repositories_list_keeps_the_flag]
 ```
 
-Archiving or unarchiving a repository changes only whether it is [archived](domain.md#archived-repository): its `RepositoryId`, alias, clone directory, colour, account, token, knowledge folder settings and pull request labels stay as they were.
+Archiving or unarchiving a repository changes only whether it is [archived](domain.md#archived-repository): its `RepositoryId`, alias, clone directory, colour, account, token, devbook folder settings and pull request labels stay as they were.
 Unarchive restores everything only because Archive never touched it.
 
 Enforced at: SetRepositoryArchived() (GitHubSettingsStore)

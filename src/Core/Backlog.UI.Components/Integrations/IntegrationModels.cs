@@ -200,7 +200,7 @@ public enum IntegrationDensity
     Toolbar,
 
     /// <summary>Icon and label, small, three visible. A row inside content, a
-    /// knowledge chapter footer.</summary>
+    /// devbook chapter footer.</summary>
     Inline,
 
     /// <summary>Icon only, small, two visible. A backlog list row, a roadmap
@@ -315,7 +315,7 @@ public sealed record IntegrationReadiness(
 /// <para>
 /// A surface adds an integration by adding a record to a list, not by adding
 /// markup — which is the only reason the same six acts can look the same on a
-/// backlog entry, a knowledge chapter and a roadmap bar.
+/// backlog entry, a devbook chapter and a roadmap bar.
 /// </para>
 /// </summary>
 /// <param name="Id">Stable across renders, and the identifier a host would log

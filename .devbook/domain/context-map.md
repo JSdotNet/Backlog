@@ -162,9 +162,9 @@ flowchart LR
   sides keep only foreign ids and the link semantics are coordinated through the
   Cross-Linking service rather than a shared aggregate.
 - `Roadmap Planning` **totals** what it does not **own**. Story-point `effort` is
-  registered on Tasks and on knowledge chapters. A
+  registered on Tasks and on devbook chapters. A
   [roadmap tag](roadmap/domain.md#roadmap-tag) is the vocabulary Tasks offers in
-  its picker and a knowledge chapter names in its `roadmap` list. Roadmap gathers
+  its picker and a devbook chapter names in its `roadmap` list. Roadmap gathers
   tasks and chapters by tag and by direct reference, and adds up their registered
   effort. It registers no effort and defines no tag.
 - `Technology Stack` is the standards supplier for both `Repository Management`

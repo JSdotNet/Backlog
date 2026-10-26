@@ -260,7 +260,7 @@ Devbook module's Abstractions, so the builder, the MCP chapter read and the
 Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes the
 same tables, and `DevbookBuilderParityTests` compares the two writers.
 
-The same project reads the C4 zoom tab's Code level (local ADR 0038 §3).
+The same project reads the C4 zoom tab's Code level (local ADR 0039 §3).
 `Code/CSharpCodeReader` parses every `*.cs` under a component's folder, `bin/`
 and `obj/` left out, with Roslyn syntax trees and never a compilation. It returns
 the types with their public members and the members of every accessibility, and
@@ -364,7 +364,7 @@ Tasks pane is not allowed to reach on its own. The shell answers the pane's
 `DevbookImagesFor` parameter from `DevbookScenarioImageSources`, one
 `IDevbookImageSource` per repository over the same store. `IDevbookImageSource`
 lives in the component library, so Tasks.UI still references no Devbook project.
-Outside a knowledge document, `MarkdownView` asks that source about images and
+Outside a devbook document, `MarkdownView` asks that source about images and
 nothing else. A followed reference's `#anchor` reaches a scenarios file as a
 `DevbookFocus`, passed from `DevbookPane` through `DomainDevbookPanel` to the
 `DevbookScenarioPage` of each journey in the file. The journey holding that part

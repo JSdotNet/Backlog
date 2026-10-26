@@ -75,7 +75,7 @@ public class PlanningTagTests
 }
 
 /// <summary>
-/// The knowledge chapters an item points at: opaque references, trimmed and
+/// The devbook chapters an item points at: opaque references, trimmed and
 /// de-duplicated, in the order they were given.
 /// </summary>
 public class KnowledgeReferencesTests

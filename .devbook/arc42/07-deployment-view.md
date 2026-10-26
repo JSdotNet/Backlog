@@ -21,7 +21,7 @@ The desktop app is installed on Windows machines and is the canonical deployment
   row in it, and a task's content is markdown text inside it. JSON files hold the
   workspace settings and feature flags, which are per-device. There is one file to
   back up, and one to keep off a synced disk.
-- **Repository Devbook.** Knowledge folders are not deployed with the app. They live
+- **Repository Devbook.** Devbook folders are not deployed with the app. They live
   in each registered repository's own working copy, wherever the user cloned it, and
   are read in place. The app builds the generated index over them (`devbook.db`) into
   its own storage, one per repository path under the devbook cache folder, and never

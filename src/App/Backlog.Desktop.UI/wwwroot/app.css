@@ -707,6 +707,52 @@ h1, h2, h3 {
     outline-offset: 2px;
 }
 
+/*
+   The pressed plan's queue icon (local ADR 0038 §2): a third segment of the pair,
+   after the copy. It wears the copy segment's class, so it takes the same fill,
+   border, hairline and hover, and the copy hands it the pair's rounded end. Like the
+   copy it stays inside the strip's one-row clip, which cuts anything taller than a
+   chip, so its target is the segment itself.
+
+   Disabled (no clone folder, no repository) or busy, it keeps the fill and dims the
+   glyph, with no hover: the press does nothing then. It sits in a wrapper that
+   carries the disabled reason as its title, as the roadmap dialog's icon does; the
+   wrapper stretches to the pair's height and passes it on to the segment.
+*/
+.filter-bar__plan-queue {
+    display: inline-flex;
+    align-items: stretch;
+}
+
+.filter-bar__plan-copy:has(+ .filter-bar__plan-queue) .filter-bar__plan-copy-button {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+}
+
+.filter-bar__plan-queue-button:disabled,
+.filter-bar__plan-queue-button[aria-disabled="true"],
+.filter-bar__plan-queue-button:disabled:hover,
+.filter-bar__plan-queue-button[aria-disabled="true"]:hover {
+    background: var(--color-primary);
+    color: color-mix(in srgb, var(--color-text-inverse) 55%, transparent);
+    cursor: not-allowed;
+}
+
+/* The wait the plan is on, where the queue icon was: the waiting chip and, while no
+   dispatcher has picked the request up, Cancel. Beside the pair's segments rather
+   than fused to them, because it is news about the plan, not a control on it; the
+   Cancel's block padding goes so it fits the strip's one chip-high row. */
+.filter-bar__plan-session {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-inline-start: var(--spacing-xs);
+}
+
+.filter-bar__plan-session .filter-bar__plan-cancel {
+    padding-block: 0;
+}
+
 /* The one group in the bar that is not a filter. It keeps its room for the same
    reason the scopes do, and more strongly: it is the only way into the selection
    gutter and the only way back out of the mode, so a chip squeezed out of view
@@ -1889,6 +1935,37 @@ h1, h2, h3 {
 .entry-doc__icon-action--push { border-style: dashed; }
 
 .entry-doc__icon-action--copilot { border-color: var(--color-primary-dark); }
+
+/* The session a prompt asked for and has not got yet, above the linked work. */
+.entry-session-request {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0 0 var(--spacing-sm);
+}
+
+/* The repositories a prompt naming several could start its session in. */
+.session-chooser__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.session-chooser__item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+}
+
+.session-chooser__reason {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
 
 .entry-doc__gh-error {
     margin: var(--spacing-xs) 0 0;
@@ -8830,7 +8907,7 @@ a.pull-request-detail-checks__name:hover {
 /* --------------------------------------------------------------------------
    Devbook atlas
    --------------------------------------------------------------------------
-   The map over a knowledge folder, or over all of them. It takes the section
+   The map over a devbook folder, or over all of them. It takes the section
    body when it is open, so it is a column that fills the room and clips: the
    map fits and the list inside it scrolls, exactly as the technology atlas
    does.

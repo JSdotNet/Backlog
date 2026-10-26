@@ -88,7 +88,7 @@ public enum RoadmapItemAction
 /// Whether tasks carry a roadmap item and whether a person completed it by hand - what decides
 /// the actions it offers, on its bar and in its editor (<see cref="RoadmapItemCompletion"/>).
 /// </summary>
-/// <param name="HasTasks">It gathered at least one backlog entry. A knowledge chapter is no
+/// <param name="HasTasks">It gathered at least one backlog entry. A devbook chapter is no
 /// task.</param>
 /// <param name="CompletedOn">The day a person completed it, read only while no task carries
 /// it; <c>null</c> while it is open, and always once tasks carry it.</param>
@@ -997,7 +997,7 @@ public static class RoadmapPlanView
     /// The item's gathered tasks as the steps drawn inside its bar (ADR 0013,
     /// ruling 6).
     /// <para>
-    /// Tasks only. A knowledge chapter is gathered too, but it is a reference, not a
+    /// Tasks only. A devbook chapter is gathered too, but it is a reference, not a
     /// step of the work: it has no status to colour and no place in an order of
     /// <c>after:</c> edges. So the bar's fill and its "n unestimated" count are the
     /// tasks' figures, and a chapter the item references changes neither.
@@ -1175,8 +1175,8 @@ public static class RoadmapPlanView
         if (item.Knowledge.Count > 0)
         {
             parts.Add(item.Knowledge.Count == 1
-                ? "references 1 knowledge chapter"
-                : $"references {item.Knowledge.Count} knowledge chapters");
+                ? "references 1 devbook chapter"
+                : $"references {item.Knowledge.Count} devbook chapters");
         }
 
         // One fact to a line: the timeline lists them in the tooltip and reads them

@@ -244,7 +244,7 @@
             }
 
             @* The C4 zoom tab, beside the C4 tab rather than in place of it, while
-               both switches are on (local ADR 0038). The same model, walked one
+               both switches are on (local ADR 0039). The same model, walked one
                level at a time; it replaces the C4 tab only once it is validated, so
                until then the C4 tab above is left exactly as it was. *@
             @if (_c4.Workspaces.Count > 0 && _c4Store is { ZoomEnabled: true } && Workspace is { } zoomWorkspace)
@@ -1285,7 +1285,7 @@
 
     /// <summary>The chapters the open view documents, drawn under the diagram. Handed
     /// to the explorer as a slot because the component library has no idea what a
-    /// knowledge chapter is, and should not learn.</summary>
+    /// devbook chapter is, and should not learn.</summary>
     private RenderFragment<C4View> ViewReferences => view => builder =>
     {
         var references = ReferencesTo(view);

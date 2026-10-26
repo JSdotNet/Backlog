@@ -4,7 +4,7 @@ using Backlog.Modules.Devbook.Abstractions;
 namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
-/// Resolves a repository's configured knowledge folders to local directories —
+/// Resolves a repository's configured devbook folders to local directories —
 /// its clone, or the cached snapshot of its branch.
 /// <para>
 /// A devbook belongs to a repository. The storage folder used to carry one of
@@ -185,7 +185,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         {
             return DevbookFolderLocation.Unavailable(
                 key,
-                $"{repository.FullName} has no {key} knowledge-folder setting.",
+                $"{repository.FullName} has no {key} devbook-folder setting.",
                 repository.FullName,
                 repositoryAlias: repository.Alias);
         }
@@ -194,7 +194,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         {
             return DevbookFolderLocation.Unavailable(
                 key,
-                $"{folder.DisplayName} knowledge folder is turned off for {repository.FullName}.",
+                $"{folder.DisplayName} devbook folder is turned off for {repository.FullName}.",
                 repository.FullName,
                 folder,
                 rootPath: repository.CloneDirectory,
@@ -236,7 +236,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         {
             return DevbookFolderLocation.Unavailable(
                 key,
-                $"Add a local clone directory for {repository.FullName} in Settings to read the {folder.DisplayName} knowledge folder.",
+                $"Add a local clone directory for {repository.FullName} in Settings to read the {folder.DisplayName} devbook folder.",
                 repository.FullName,
                 folder,
                 repositoryAlias: repository.Alias);
@@ -513,7 +513,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
             {
                 return DevbookFolderLocation.Unavailable(
                     key,
-                    $"{folder.DisplayName} knowledge folder path is not valid: {ex.Message}",
+                    $"{folder.DisplayName} devbook folder path is not valid: {ex.Message}",
                     repository?.FullName,
                     folder,
                     fullPath,
@@ -551,8 +551,8 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         return DevbookFolderLocation.Unavailable(
             key,
             source is DevbookSourceKind.Branch
-                ? $"{scopeLabel} has no {folder.DisplayName} knowledge folder at {string.Join(" or ", folder.CandidatePaths)}."
-                : $"{folder.DisplayName} knowledge folder was not found at {string.Join(" or ", missing)}.",
+                ? $"{scopeLabel} has no {folder.DisplayName} devbook folder at {string.Join(" or ", folder.CandidatePaths)}."
+                : $"{folder.DisplayName} devbook folder was not found at {string.Join(" or ", missing)}.",
             repository?.FullName,
             folder,
             missing[0],

@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using Backlog.Modules.Sessions.Abstractions;
+
 namespace Backlog.Infrastructure.Mcp;
 
 /*
@@ -270,7 +272,7 @@ public sealed record RoadmapPayload(
     IReadOnlyList<RoadmapMilestonePayload> Milestones,
     IReadOnlyList<RoadmapContradictionPayload> Contradictions);
 
-/// <summary>One configured knowledge folder, and where it resolved to.</summary>
+/// <summary>One configured devbook folder, and where it resolved to.</summary>
 /// <param name="Message">Why it is unavailable, in the words the panels show.
 /// Null while it is available.</param>
 /// <param name="Pending">The folder is on its way rather than absent — a branch
@@ -285,7 +287,7 @@ public sealed record KnowledgeContextPayload(
     string Source,
     bool Pending);
 
-/// <summary>The knowledge folders configured for one repository.</summary>
+/// <summary>The devbook folders configured for one repository.</summary>
 public sealed record KnowledgeContextsPayload(string Repository, string RepositoryAlias, IReadOnlyList<KnowledgeContextPayload> Contexts);
 
 /// <summary>
@@ -348,7 +350,7 @@ public sealed record ChapterBlockPayload(
 /// <summary>
 /// A chapter as a session reads it.
 /// </summary>
-/// <param name="ContextKey">The knowledge folder the chapter was found in.</param>
+/// <param name="ContextKey">The devbook folder the chapter was found in.</param>
 /// <param name="Markdown">
 /// The chapter itself. Outside review mode it is the file with the lines of its
 /// <c>meta</c> and <c>annotation</c> fences cut out and every other byte
@@ -478,6 +480,90 @@ public sealed record SessionsPayload(
     bool Capped,
     IReadOnlyList<string> Unreadable,
     IReadOnlyList<SessionPayload> Sessions);
+
+/// <summary>
+/// One session request as a dispatcher sees it (local ADR 0038), on the wait route and
+/// from every dispatcher tool alike — one shape, so a request handed out by the route
+/// reads the same when <c>list_session_requests</c> answers it again.
+/// </summary>
+/// <param name="Id">The request's id: what the dispatcher claims and marks.</param>
+/// <param name="Kind"><c>entry</c> or <c>plan</c>.</param>
+/// <param name="EntryId">The entry an entry request runs; null on a plan request.</param>
+/// <param name="PlanTag">The plan a plan request runs, without its sigil; null on an
+/// entry request.</param>
+/// <param name="Repository">The repository, as <c>owner/name</c>.</param>
+/// <param name="CloneFolder">That repository's clone folder on this machine: where the
+/// session starts.</param>
+/// <param name="State">The state it reads as now — a lapsed claim reads
+/// <c>requested</c>: <c>requested</c>, <c>claimed</c>, <c>started</c>, <c>linked</c> or
+/// <c>cancelled</c>.</param>
+/// <param name="ClaimedBy">The dispatcher holding the claim, while claimed.</param>
+/// <param name="LeaseEndsAt">When that claim's lease runs out, while claimed.</param>
+/// <param name="SessionId">The session the dispatcher reported, once started.</param>
+/// <param name="CreatedAt">When the person asked.</param>
+/// <param name="Brief">The line to start the session with, built by the server from the
+/// kind and the id alone. Passed on as it is; a dispatcher never writes its own.</param>
+public sealed record SessionRequestPayload(
+    Guid Id,
+    string Kind,
+    Guid? EntryId,
+    string? PlanTag,
+    string Repository,
+    string CloneFolder,
+    string State,
+    string? ClaimedBy,
+    DateTimeOffset? LeaseEndsAt,
+    string? SessionId,
+    DateTimeOffset CreatedAt,
+    string Brief)
+{
+    /// <summary>The request as it reads at <paramref name="now"/>.</summary>
+    public static SessionRequestPayload From(SessionRequest request, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var state = request.StateAt(now);
+        var claimed = state == SessionRequestState.Claimed;
+
+        return new SessionRequestPayload(
+            request.Id,
+            WireName(request.Kind),
+            request.EntryId,
+            request.PlanTag,
+            request.Repository,
+            request.CloneFolder,
+            WireName(state),
+            claimed ? request.ClaimedBy : null,
+            claimed ? request.LeaseEndsAt : null,
+            request.SessionId,
+            request.CreatedAt,
+            SessionRequests.BriefFor(request));
+    }
+
+    /// <summary>A kind or state as the wire spells it: its member name, lower-cased.</summary>
+    public static string WireName<TEnum>(TEnum value)
+        where TEnum : struct, Enum => value.ToString().ToLowerInvariant();
+}
+
+/// <summary>What <c>claim_session_request</c> answered.</summary>
+/// <param name="Claimed">Whether this dispatcher now holds the request under the
+/// 2-minute lease. False when it was taken — claimed, started, linked or cancelled
+/// already — and then the dispatcher leaves it alone.</param>
+/// <param name="Refusal">Why it was not claimed, or null.</param>
+/// <param name="Request">The request as it now stands.</param>
+public sealed record SessionRequestClaimPayload(bool Claimed, string? Refusal, SessionRequestPayload Request);
+
+/// <summary>What <c>mark_session_request</c> answered.</summary>
+/// <param name="Outcome"><c>started</c> or <c>released</c>, as asked.</param>
+/// <param name="Marked">Whether the request moved. False when this dispatcher no longer
+/// holds the claim — its lease ran out, or another dispatcher holds it.</param>
+/// <param name="Refusal">Why it did not move, or null.</param>
+/// <param name="Request">The request as it now stands.</param>
+public sealed record SessionRequestMarkPayload(string Outcome, bool Marked, string? Refusal, SessionRequestPayload Request);
+
+/// <summary>What <c>list_session_requests</c> answered: the requests, oldest first.</summary>
+/// <param name="State">The state the list was narrowed to, or null for every request.</param>
+public sealed record SessionRequestsPayload(string? State, int Count, IReadOnlyList<SessionRequestPayload> Requests);
 
 /*
     The delivery surface's answers, and the three shapes its one rich argument
