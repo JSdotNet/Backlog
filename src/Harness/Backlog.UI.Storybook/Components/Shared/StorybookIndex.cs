@@ -376,7 +376,11 @@ internal static class StorybookIndex
             // After the strip it sits under: AdoptionBoard, the Adoption tab's board, is a
             // library component, so it renders here; its parts beyond its own — ToggleButton
             // from Buttons — are introduced above.
-            new("devbook/ai-adoption", "AI adoption", "AdoptionBoard: how far each AI usage has got — the strip per stage and layer, three findings counted from the cards, the evidence legend and its toggle, and the ladder grid with the pull-request divider.")
+            new("devbook/ai-adoption", "AI adoption", "AdoptionBoard: how far each AI usage has got — the strip per stage and layer, three findings counted from the cards, the evidence legend and its toggle, and the ladder grid with the pull-request divider."),
+
+            // After AI tabs and AI adoption, because it is what the Model tab draws. It draws
+            // DevbookStatusPill and AppButton, both introduced above.
+            new("devbook/delivery-path", "Delivery path", "DeliveryPathBoard: the Model tab's board — the stages with their where-labels and the pull-request marker, sub-stages as cards of usages, the feedback arrow, the layers beneath, and a picked usage lighting every card it sits in.")
         ]),
 
         // The first subject, ahead of Integrations rather than with Progress where its
