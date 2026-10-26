@@ -73,8 +73,9 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories)
     public async Task<GoalPayload> CreateAsync(
         [Description("What the goal is, e.g. \"Local development\".")]
         string title,
-        [Description("The day it should be reached by, as yyyy-MM-dd.")]
-        DateOnly dueDate,
+        [Description("Optional. The day it should be reached by, as yyyy-MM-dd; without one the goal is due on "
+            + "the last day of the current iteration.")]
+        DateOnly? dueDate = null,
         [Description("Optional. One line saying what is true once the goal is reached.")]
         string? outcome = null,
         CancellationToken cancellationToken = default)
@@ -246,14 +247,15 @@ public sealed record GoalsPayload(IReadOnlyList<GoalPayload> Goals);
 /// <param name="Id">The goal's id.</param>
 /// <param name="Title">What the goal is.</param>
 /// <param name="Outcome">One line saying what is true once it is reached, or null.</param>
-/// <param name="DueDate">The day it should be reached by.</param>
+/// <param name="DueDate">The day it should be reached by, or null for a goal due at the end of
+/// the current iteration.</param>
 /// <param name="Items">The plans, tasks and pull requests attached to it, in the order they were attached.</param>
 /// <param name="Progress">How far it has come; null on the answer to a write, which reads no progress.</param>
 public sealed record GoalPayload(
     Guid Id,
     string Title,
     string? Outcome,
-    DateOnly DueDate,
+    DateOnly? DueDate,
     IReadOnlyList<GoalItemPayload> Items,
     GoalProgressPayload? Progress)
 {

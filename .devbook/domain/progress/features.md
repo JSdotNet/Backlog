@@ -44,7 +44,10 @@ window, such as "12–16 Oct → 19–23 Oct", **New goal**, **Copy**
 
 Each goal reads as one row: its title, its progress as `done/total`, the items done in
 the last iteration as `+3`, its due date, its landing date as "lands ~6 Nov" and an
-**At risk** or **On track** badge. A bar shows how much is done, in progress, blocked
+**At risk** or **On track** badge. A goal without a due date shows the last day of the
+next window instead, as "due 23 Oct (end of iteration)". The
+[Attach to goal](#attaching-work-to-a-goal) picker lists such a goal as "due end of
+iteration", and its **New goal…** needs only a title. A bar shows how much is done, in progress, blocked
 and not started, and says it in words to a screen reader. One goal is open at a time,
 the first when the view opens. Opened, the row lists what is attached to it under
 Plan, Tasks and Pull requests. A plan shows its own `done/total`; a pull request shows
@@ -68,8 +71,11 @@ related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/requ
 ```
 
 Say what the work is for. **New goal** asks for a title, an optional one-line outcome
-and a due date. A goal's row offers the same fields to edit, and **Delete goal…**,
-which asks first. Deleting a goal frees what it held: no plan, task or pull request
+and an optional due date, its field labelled **Due date (optional)**. A goal without a
+due date is due at the end of the iteration, as [Goal](domain.md#goal) says. A goal's
+row offers the same fields to edit, and **Delete goal…**, which asks first. Emptying
+the row's due date field and leaving it clears the goal's date, and typing a date sets
+it again. Deleting a goal frees what it held: no plan, task or pull request
 changes. Goals are set on the desktop only.
 
 ## Attaching work to a goal
@@ -143,7 +149,9 @@ blocks, read over the [iteration](#choosing-the-iteration):
 | Planned | the [planned](domain.md#planned) items for the next window, grouped by goal, with the points tag |
 | Impediments | each open impediment with its state, then how many were resolved in the last window |
 
-Each block's heading carries its count. A planned item shows its `effort:` in points,
+Each block's heading carries its count. A goal without a due date reads as due at the
+end of the next window, such as "due 23 Oct (end of iteration)", here and in the copied
+text. A planned item shows its `effort:` in points,
 and a planned item with a pull request shows its [status](#pull-request-status).
 
 On the desktop, the Goals block is the goals beside the stand-up, which holds
@@ -287,7 +295,8 @@ related: [.devbook/domain/progress/requirements.md#goals-on-the-phone, .devbook/
 Read the stand-up on the way to it. The phone's **Stand-up** tab shows the four blocks
 with the iteration switch. A goal opens on its own page: its badge, due and landing
 date, `done/total` with how many items are doing, blocked and to do, and its items
-under Plan, Tasks, Pull requests and Sessions. An impediment opens on its own page: its age, the
+under Plan, Tasks, Pull requests and Sessions. A goal without a due date reads "due 23 Oct
+(end of iteration)" on its stand-up card and on its page. An impediment opens on its own page: its age, the
 goal it holds back, its history, its check-again date, its note and the tasks it
 holds back.
 
@@ -331,3 +340,8 @@ deleted: it is resolved.
 One that arrives from another
 device shows at once on every screen that draws it, without the person pressing
 Refresh.
+
+A goal without a due date travels with no date in its document. A device that still
+runs a build from before due dates were optional shows such a goal as due 1 Jan 0001
+until it updates. A newer build reads 0001-01-01 as no date, so a goal that an older
+build saves back stays dateless everywhere else.

@@ -84,6 +84,17 @@ public sealed class GoalToolsTests
         Assert.Empty(goals.Stored);
     }
 
+    [Fact]
+    public async Task Create_without_a_due_date_sets_a_goal_without_one()
+    {
+        var goals = new FakeGoals();
+
+        var payload = await Tools(goals).CreateAsync("Fundering Financieel", cancellationToken: Cancellation);
+
+        Assert.Null(payload.DueDate);
+        Assert.Null(Assert.Single(goals.Stored).DueDate);
+    }
+
     // --- update_goal -------------------------------------------------------------
 
     [Fact]
@@ -326,8 +337,8 @@ public sealed class GoalToolsTests
 }
 
 /// <summary>
-/// Progress's goal port over a list, holding the rules the tools rely on it for: a title and
-/// due date, a one-line outcome, an item in at most one goal unless moved, and detaching what
+/// Progress's goal port over a list, holding the rules the tools rely on it for: a title,
+/// a one-line outcome, an item in at most one goal unless moved, and detaching what
 /// is not held changing nothing. It records the last edit and attach it was asked for.
 /// </summary>
 internal sealed class FakeGoals : IGoals
@@ -369,7 +380,7 @@ internal sealed class FakeGoals : IGoals
     {
         if (Refusal(request) is { } error) return Task.FromResult(Result.Failure<GoalDto>(error));
 
-        var goal = new GoalDto(Guid.NewGuid(), request.Title.Trim(), Blank(request.Outcome), request.DueDate!.Value, []);
+        var goal = new GoalDto(Guid.NewGuid(), request.Title.Trim(), Blank(request.Outcome), request.DueDate, []);
         _goals.Add(goal);
         return Task.FromResult(Result.Success(goal));
     }
@@ -385,7 +396,7 @@ internal sealed class FakeGoals : IGoals
         {
             Title = request.Title.Trim(),
             Outcome = Blank(request.Outcome),
-            DueDate = request.DueDate!.Value
+            DueDate = request.DueDate
         })));
     }
 
@@ -439,7 +450,6 @@ internal sealed class FakeGoals : IGoals
 
     private static Error? Refusal(SetGoalRequest request) =>
         string.IsNullOrWhiteSpace(request.Title) ? ProgressErrors.GoalWithoutTitle()
-        : request.DueDate is null ? ProgressErrors.GoalWithoutDueDate()
         : request.Outcome?.Contains('\n', StringComparison.Ordinal) == true ? ProgressErrors.OutcomeNotOneLine()
         : null;
 

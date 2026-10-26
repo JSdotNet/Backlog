@@ -104,6 +104,33 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
         Assert.Contains("\"version\":1", document, StringComparison.Ordinal);
     }
 
+    /// <summary>A goal without a due date is written with no <c>dueDate</c>, so a build that
+    /// reads one finds none rather than a null it cannot hold, and it reads back without one.</summary>
+    [Fact]
+    public async Task A_goal_without_a_due_date_is_written_without_one_and_reads_back_without_one()
+    {
+        var goal = Goal();
+        goal.ChangeDueDate(null);
+
+        await _repository.SaveAsync(goal, Cancellation);
+
+        Assert.DoesNotContain("dueDate", await ScalarAsync("SELECT document FROM progress_goals;"), StringComparison.Ordinal);
+        Assert.Null((await _repository.GetAsync(goal.Id, Cancellation))!.DueDate);
+    }
+
+    /// <summary>An older build that required a date reads a missing one as <c>0001-01-01</c>
+    /// and writes that back on its next edit; it reads here as no date.</summary>
+    [Fact]
+    public async Task A_copy_holding_the_first_day_of_year_one_reads_as_a_goal_without_a_due_date()
+    {
+        var id = Guid.NewGuid();
+        var copy = new GoalReplicaCopyDto(id, "x", $$"""{"version":1,"id":"{{id}}","title":"T","dueDate":"0001-01-01"}""", DateTimeOffset.UtcNow);
+
+        Assert.True(await _repository.TryWriteAsync(copy, Cancellation));
+
+        Assert.Null((await _repository.GetAsync(id, Cancellation))!.DueDate);
+    }
+
     [Fact]
     public async Task A_row_that_will_not_parse_is_skipped_and_left_as_it_is()
     {

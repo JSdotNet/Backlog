@@ -25,7 +25,7 @@ public sealed class GoalForecastingTests
         Oct(13), Oct(15)
     ];
 
-    private static GoalForecast Forecast(int open, IEnumerable<DateOnly> done, DateOnly due, bool heldBack = false, DateOnly? today = null) =>
+    private static GoalForecast Forecast(int open, IEnumerable<DateOnly> done, DateOnly? due, bool heldBack = false, DateOnly? today = null) =>
         GoalForecasting.Forecast(open, done, NextWeek(today ?? Oct(17)), due, heldBack, Week);
 
     /// <summary>Scenario "Two items a week, six open".</summary>
@@ -116,5 +116,97 @@ public sealed class GoalForecastingTests
 
         Assert.Equal(0.5m, forecast.DoneRate);
         Assert.Equal(new DateOnly(2026, 11, 30), forecast.LandsOn);
+    }
+
+    // --- A goal without a due date is due at the end of next ---------------------
+    // Today Monday 19 October, Week: next is 19-23 October.
+
+    /// <summary>Scenario "Lands within the iteration".</summary>
+    [Fact]
+    public void A_goal_without_a_due_date_landing_inside_next_is_on_track()
+    {
+        var forecast = Forecast(2, TwoAWeek, null, today: Oct(19));
+
+        Assert.Equal(Oct(23), forecast.LandsOn);
+        Assert.Equal(GoalStanding.OnTrack, forecast.Standing);
+    }
+
+    /// <summary>Scenario "Lands after the iteration".</summary>
+    [Fact]
+    public void A_goal_without_a_due_date_landing_after_next_is_at_risk()
+    {
+        var forecast = Forecast(4, TwoAWeek, null, today: Oct(19));
+
+        Assert.Equal(Oct(30), forecast.LandsOn);
+        Assert.Equal(GoalStanding.AtRisk, forecast.Standing);
+    }
+
+    [Fact]
+    public void A_goal_without_a_due_date_held_back_by_an_open_impediment_is_at_risk()
+    {
+        var forecast = Forecast(2, TwoAWeek, null, heldBack: true, today: Oct(19));
+
+        Assert.Equal(Oct(23), forecast.LandsOn);
+        Assert.Equal(GoalStanding.AtRisk, forecast.Standing);
+    }
+
+    [Fact]
+    public void A_goal_without_a_due_date_and_nothing_open_is_on_track()
+    {
+        var forecast = Forecast(0, [], null, today: Oct(19));
+
+        Assert.Equal(GoalStanding.OnTrack, forecast.Standing);
+        Assert.Null(forecast.LandsOn);
+    }
+
+    [Fact]
+    public void A_goal_without_a_due_date_and_nothing_done_in_four_iterations_is_at_risk_with_no_landing_date()
+    {
+        var forecast = Forecast(7, [new DateOnly(2026, 9, 1)], null, today: Oct(19));
+
+        Assert.Equal(GoalStanding.AtRisk, forecast.Standing);
+        Assert.Null(forecast.LandsOn);
+    }
+
+    /// <summary>Per length, today Monday 19 October, one item done in each window of the
+    /// history: the last day of next, and the last day of the window after it.</summary>
+    public static TheoryData<IterationLength, DateOnly?, DateOnly[], DateOnly, DateOnly> Lengths => new()
+    {
+        { IterationLength.Day, null, [Oct(13), Oct(14), Oct(15), Oct(16)], Oct(19), Oct(20) },
+        { IterationLength.Week, null, [new(2026, 9, 21), new(2026, 9, 28), Oct(5), Oct(12)], Oct(23), Oct(30) },
+        // Counted from Monday 28 September, next is 12-25 October; with no start it would be 19 October-1 November.
+        { IterationLength.TwoWeeks, new DateOnly(2026, 9, 28), [new(2026, 8, 17), new(2026, 8, 31), new(2026, 9, 14), new(2026, 9, 28)], Oct(25), new DateOnly(2026, 11, 8) },
+        { IterationLength.Month, null, [new(2026, 6, 1), new(2026, 7, 1), new(2026, 8, 3), new(2026, 9, 1)], Oct(31), new DateOnly(2026, 11, 30) },
+    };
+
+    [Theory]
+    [MemberData(nameof(Lengths))]
+    public void A_goal_without_a_due_date_is_due_on_the_last_day_of_next_at_every_length(
+        IterationLength length,
+        DateOnly? twoWeekStart,
+        DateOnly[] done,
+        DateOnly endOfNext,
+        DateOnly endOfFollowing)
+    {
+        var next = Iterations.Current(Oct(19), length, twoWeekStart, Week);
+
+        var inside = GoalForecasting.Forecast(1, done, next, null, false, Week);
+        var after = GoalForecasting.Forecast(2, done, next, null, false, Week);
+
+        Assert.Equal((endOfNext, GoalStanding.OnTrack), (inside.LandsOn!.Value, inside.Standing));
+        Assert.Equal((endOfFollowing, GoalStanding.AtRisk), (after.LandsOn!.Value, after.Standing));
+        Assert.Equal(endOfNext, GoalForecasting.DueOn(null, next));
+    }
+
+    [Fact]
+    public void A_set_due_date_is_the_day_a_goal_is_due_on()
+    {
+        Assert.Equal(new DateOnly(2026, 11, 30), GoalForecasting.DueOn(new DateOnly(2026, 11, 30), NextWeek(Oct(19))));
+    }
+
+    [Fact]
+    public void Without_a_due_date_a_goal_is_due_on_the_last_day_of_next()
+    {
+        Assert.Equal(Oct(23), GoalForecasting.DueOn(null, NextWeek(Oct(19))));
     }
 }

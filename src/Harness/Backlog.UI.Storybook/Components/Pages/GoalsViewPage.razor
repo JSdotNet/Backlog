@@ -41,8 +41,18 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         </div>
     </Story>
 
+    <Story Name="Without a due date"
+           Description="A goal set without a due date is due at the end of the iteration: its line names the last day of the next window — Friday 23 October here — and says it is the iteration's end, and the forecast reads At risk when it lands after that day. The day is read afresh on every reading and never stored, so the open goal's Due date field is empty; typing a date there gives the goal one of its own."
+           Code="@DatelessCode">
+        <div class="sb-stack">
+            <GoalCard Goal="@Dateless" TestId="goals-view-dateless" />
+            <GoalCard Goal="@Dateless" Expanded="true" OnEdit="@(request => _datelessSaid = DatelessSaid(request))" TestId="goals-view-dateless-open" />
+            <p class="sb-state" data-testid="goals-view-dateless-said">@(_datelessSaid ?? "Type a due date, then leave the field.")</p>
+        </div>
+    </Story>
+
     <Story Name="Editing a goal"
-           Description="With a host listening, the open goal leads with its title, outcome and due date as fields, edited in place: there is no Save button, and a field is handed back once it changes — leave it, press Enter, or pick a date. Escape abandons what was typed in a field. Clear the title and leave the field to see the module's refusal on it, and the field show what the goal still says; a date the field cannot read is put back when you leave it. Delete goal… sits beside the fields."
+           Description="With a host listening, the open goal leads with its title, outcome and due date as fields, edited in place: there is no Save button, and a field is handed back once it changes — leave it, press Enter, or pick a date. Escape abandons what was typed in a field. Clear the title and leave the field to see the module's refusal on it, and the field show what the goal still says. Empty the due date and leave the field to clear it: the goal is then due at the end of the iteration. A date the field cannot read is put back when you leave it. Delete goal… sits beside the fields."
            Code="@EditCode">
         <div class="sb-stack">
             <GoalCard Goal="@_edited"
@@ -156,7 +166,7 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     </Story>
 
     <Story Name="New goal"
-           Description="New goal opens a dialog over a title, a one-line outcome and a due date. Save hands the draft back trimmed; the host creates the goal through the module and closes the dialog, or keeps it open with the module's refusal under the fields."
+           Description="New goal opens a dialog over a title, a one-line outcome and an optional due date. Save hands the draft back trimmed; the host creates the goal through the module and closes the dialog, or keeps it open with the module's refusal under the fields. Leave the due date empty and the goal is due at the end of the iteration; leave the title empty to see the refusal."
            Code="@DialogCode">
         <AppButton OnClick="@(() => _dialogOpen = true)" TestId="goals-view-new-goal">New goal</AppButton>
         <GoalCreateDialog Open="_dialogOpen"
@@ -216,6 +226,12 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     }
     private string? _dialogError;
 
+    private string? _datelessSaid;
+
+    /// <summary>What the dateless goal's edit handed back, said in words.</summary>
+    private static string DatelessSaid(GoalEditRequest request) =>
+        request.DueDate is { } due ? $"Saved: due {due:d MMM}" : "Saved: due at the end of the iteration";
+
     private GoalCardModel _edited = Paid;
     private string? _editError;
     private string? _editSaid;
@@ -225,13 +241,19 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     private void EditSample(GoalEditRequest request)
     {
         _editError = request.Title.Length == 0 ? "A goal needs a title."
-            : request.DueDate is null ? "A goal needs a due date."
             : request.Outcome?.Contains('\n') == true ? "A goal's outcome is one line."
             : null;
         if (_editError is not null) return;
 
-        _edited = _edited with { Title = request.Title, Outcome = request.Outcome, DueDate = request.DueDate!.Value };
-        _editSaid = $"Saved: {request.Title} · {request.Outcome ?? "no outcome"} · due {request.DueDate:d MMM}";
+        // Without a date the goal is due at the end of the next window, as a reading derives it.
+        _edited = _edited with
+        {
+            Title = request.Title,
+            Outcome = request.Outcome,
+            DueDate = request.DueDate ?? Board.Next.Last,
+            DueIsIterationEnd = request.DueDate is null
+        };
+        _editSaid = $"Saved: {request.Title} · {request.Outcome ?? "no outcome"} · {GoalsText.Due(_edited.DueDate, _edited.DueIsIterationEnd)}";
     }
 
     private GoalsBoardModel _deleteBoard = Board;
@@ -287,6 +309,13 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
         [new GoalPlanModel("Devbook search", 5, 6)],
         [new GoalTaskModel("t5", "Highlight matches", GoalTaskStatus.ToDo)],
         []);
+
+    /// <summary>A goal set without a due date: due on the next window's last day, 23 October,
+    /// and landing a week after it.</summary>
+    private static readonly GoalCardModel Dateless = new(
+        "dateless", "Quotes go out the same day", Oct(23), Oct(30), true,
+        new GoalCounts(2, 6, 1, 0, 3, 1), [], [], [],
+        DueIsIterationEnd: true);
 
     private static readonly GoalCardModel Phone = new(
         "phone", "Phone capture in daily use", new DateOnly(2026, 11, 30), new DateOnly(2026, 11, 27), false,
@@ -371,11 +400,12 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     private void SaveDraft(NewGoalDraft draft)
     {
         if (draft.Title.Length == 0) { _dialogError = "A goal needs a title."; return; }
-        if (draft.DueDate is null) { _dialogError = "A goal needs a due date."; return; }
 
         _dialogError = null;
         _dialogOpen = false;
-        _said = $"New goal {draft.Title}, due {draft.DueDate:d MMM}";
+        _said = draft.DueDate is { } due
+            ? $"New goal {draft.Title}, due {due:d MMM}"
+            : $"New goal {draft.Title}, due at the end of the iteration";
     }
 
     private const string BoardCode = """
@@ -393,6 +423,10 @@ No goal lists the work in progress no goal holds, each with Attach…, which att
     private const string OnTrackCode = """
         <GoalCard Goal="@goal" />
         <GoalCard Goal="@goal" Expanded="true" Candidates="@candidates" OnAttach="AttachAsync" />
+        """;
+
+    private const string DatelessCode = """
+        <GoalCard Goal="@(goal with { DueDate = next.Last, DueIsIterationEnd = true })" />
         """;
 
     private const string EditCode = """

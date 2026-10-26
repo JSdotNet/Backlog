@@ -51,7 +51,9 @@ public sealed record GoalTaskModel(string Id, string Title, GoalTaskStatus Statu
 /// </summary>
 /// <param name="Id">The host's id for the goal; handed back on attach.</param>
 /// <param name="Title">The goal's title.</param>
-/// <param name="DueDate">The day the goal is due.</param>
+/// <param name="DueDate">The day the goal is due, to show: its own due date, or the last day
+/// of the next window for a goal without one (<paramref name="DueIsIterationEnd"/>). An edit
+/// reads <see cref="OwnDueDate"/>, never this.</param>
 /// <param name="LandsOn">The day the forecast expects it to land; null with none.</param>
 /// <param name="AtRisk">Whether the forecast reads At risk; On track otherwise.</param>
 /// <param name="Counts">The goal's items by status.</param>
@@ -62,6 +64,8 @@ public sealed record GoalTaskModel(string Id, string Title, GoalTaskStatus Statu
 /// <param name="PullRequestSubjects">Each of <paramref name="PullRequests"/> as the host names
 /// it, in its order, handed back on detach: null for one the goal holds only through a task,
 /// which detaching the goal's own pull request would not remove.</param>
+/// <param name="DueIsIterationEnd">Whether the goal has no due date of its own, so
+/// <paramref name="DueDate"/> is the next window's last day.</param>
 public sealed record GoalCardModel(
     string Id,
     string Title,
@@ -73,8 +77,13 @@ public sealed record GoalCardModel(
     IReadOnlyList<GoalTaskModel> Tasks,
     IReadOnlyList<PullRequestStatusModel> PullRequests,
     string? Outcome = null,
-    IReadOnlyList<GoalSubject?>? PullRequestSubjects = null)
+    IReadOnlyList<GoalSubject?>? PullRequestSubjects = null,
+    bool DueIsIterationEnd = false)
 {
+    /// <summary>The goal's own due date, the one an edit hands back; null for a goal without
+    /// one, whose <see cref="DueDate"/> is read afresh and never stored.</summary>
+    public DateOnly? OwnDueDate => DueIsIterationEnd ? null : DueDate;
+
     /// <summary>The subject of the pull request at <paramref name="index"/> in
     /// <see cref="PullRequests"/>; null when it has none.</summary>
     public GoalSubject? PullRequestSubject(int index) =>
@@ -219,7 +228,8 @@ public sealed record GoalDetachRequest(string GoalId, GoalSubject Subject);
 /// the three replace what the goal says (<c>.devbook/domain/progress/features.md#setting-a-goal</c>).</summary>
 /// <param name="GoalId">The host's id for the goal.</param>
 /// <param name="Outcome">The one-line outcome; null when blank.</param>
-/// <param name="DueDate">The due date; null when blank or unreadable, which the module refuses.</param>
+/// <param name="DueDate">The goal's own due date; null when the field was emptied, which
+/// clears it, so the goal is due at the end of the iteration.</param>
 public sealed record GoalEditRequest(string GoalId, string Title, string? Outcome, DateOnly? DueDate);
 
 /// <summary>Move the impediment <paramref name="ImpedimentId"/> to <paramref name="State"/>.</summary>
@@ -231,5 +241,6 @@ public sealed record ImpedimentNoteRequest(string ImpedimentId, string? Note);
 
 /// <summary>A new goal as the New goal dialog hands it back, trimmed.</summary>
 /// <param name="Outcome">The one-line outcome; null when left blank.</param>
-/// <param name="DueDate">The due date; null when left blank, which the module refuses.</param>
+/// <param name="DueDate">The due date; null when left blank or unreadable, for a goal
+/// without one, due at the end of the iteration.</param>
 public sealed record NewGoalDraft(string Title, string? Outcome, DateOnly? DueDate);

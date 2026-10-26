@@ -908,9 +908,9 @@ public sealed class GoalsBoardComponentsTests : IDisposable
     {
         var dialog = _context.Render<GoalCreateDialog>(p => p
             .Add(c => c.Open, true)
-            .Add(c => c.Error, "A goal needs a due date."));
+            .Add(c => c.Error, "A goal needs a title."));
 
-        Assert.Equal("A goal needs a due date.", dialog.Find("[data-testid='goal-create-dialog-error']").TextContent.Trim());
+        Assert.Equal("A goal needs a title.", dialog.Find("[data-testid='goal-create-dialog-error']").TextContent.Trim());
         Assert.Equal("date", dialog.Find("[data-testid='goal-create-dialog-due'] input").GetAttribute("type"));
     }
 
