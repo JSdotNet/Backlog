@@ -329,6 +329,26 @@
     margin-bottom: var(--spacing-sm);
 }
 
+/* The stored plan's tag to copy and, beside it, its queue icon: one line under the
+   Tag field, the copy's status line trailing them. */
+.roadmap-editor__plan {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.roadmap-editor__queue {
+    display: inline-flex;
+}
+
+/* The copy and the queue icon are icon-only targets: each takes the 44 px floor
+   (design accessibility, target sizes) over the library's 2rem icon button. */
+.roadmap-editor__plan-action {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+}
+
 .roadmap-editor__row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));

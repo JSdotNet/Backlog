@@ -12,7 +12,8 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// What the roadmap plan asks of the world outside it, answered by adapters that
 /// may see both sides: the backlog's tag picker offers the plan's tags
 /// (<see cref="IRoadmapTagSource"/>), Import lays a document's <c>plan</c> entries
-/// out on the plan (<see cref="IRoadmapPlanIntake"/>), a roadmap item rolls up the backlog entries
+/// out on the plan (<see cref="IRoadmapPlanIntake"/>), the backlog's plan filter chip
+/// queues a plan session (<see cref="IPlanTagSessionRequests"/>), a roadmap item rolls up the backlog entries
 /// and knowledge chapters it gathers (<see cref="IRoadmapItemRollup"/>), the
 /// reader's typed pace is read from the settings file
 /// (<see cref="IPlanningVelocitySettings"/>), the finished work a measured pace
@@ -48,6 +49,15 @@ public static class RoadmapCrossContextAdapterRegistration
         // The same join the other way: Import hands a document's `plan` entries to
         // Roadmap's own command through the scoped IRoadmapPlanning (ADR 0013).
         services.AddScoped<IRoadmapPlanIntake, RoadmapPlanIntake>();
+
+        // The plan filter chip's queue icon (local ADR 0037 §2): where a plan is filed,
+        // read from the scoped IRoadmapPlanning, and its requests through the roadmap's
+        // own plan queue port — optional, because a host without a queue registers
+        // none, and then the icon is not offered.
+        services.AddScoped<IPlanTagSessionRequests>(sp =>
+            new RoadmapPlanTagSessionRequests(
+                sp.GetRequiredService<IRoadmapPlanning>(),
+                sp.GetService<IPlanSessionRequests>()));
 
         // The rollup also captures the storage root, read per call rather than
         // pinned, so it stays a factory — but a scoped one, resolving its scoped

@@ -14,6 +14,7 @@
     close or to show why not — the same arrangement as a drag on the chart.
 *@
 @using global::Backlog.UI.Components.Goals
+@using global::Backlog.UI.Components.Icons
 @using global::Backlog.UI.Components.Integrations
 @implements IDisposable
 
@@ -108,6 +109,60 @@
                        Placeholder="@RoadmapTagSlug.From(_title)"
                        HelpText="How other parts of the product refer to this item. Kebab-case; derived from the title unless you change it."
                        TestId="roadmap-item-tag-input" />
+
+            @* The stored plan's tag with its plan sigil, `+<slug>`, to copy — as the Tasks
+               filter bar's plan chip copies it — and, with session requests on,
+               the queue icon beside it, as a prompt entry carries one beside its copy
+               (local ADR 0037 §2). Only for a stored tag, like the goal below: a tag
+               still being typed names no plan yet. The copy does not depend on the
+               switch; the queue icon does.
+
+               The queue icon writes nothing to the plan and leaves the dialog open, so
+               it does not wait out an unsaved change the way Open in Tasks does. It is
+               disabled with the reason when no repository has a clone folder — on the
+               wrapper's title too, because a disabled button raises no pointer events
+               in some engines (CopyButton's reason) — and gone while a request is open,
+               when the chip above says so. While a press is on its way it stays in the
+               tab order, marked aria-disabled rather than natively disabled, so focus
+               stays on it; the port ignores the second press. Both icon-only controls
+               take the 44 px target floor through roadmap-editor__plan-action. *@
+            @if (StoredTag is { } storedTag)
+            {
+                <div class="roadmap-editor__plan" data-testid="roadmap-editor-plan">
+                    <CopyButton Text="@storedTag"
+                                Label="@($"Copy {storedTag}")"
+                                ButtonCssClass="roadmap-editor__plan-action"
+                                TestId="roadmap-editor-copy-plan"
+                                ButtonTestId="roadmap-editor-copy-plan-button"
+                                StatusTestId="roadmap-editor-copy-plan-status" />
+
+                    @if (PlanSession is { } offer && WaitingSession is null)
+                    {
+                        <span class="roadmap-editor__queue"
+                              title="@offer.DisabledReason"
+                              data-testid="roadmap-editor-queue-session-wrapper">
+                            <IconButton AriaLabel="@QueueLabel(storedTag, offer)"
+                                        Title="@(offer.DisabledReason ?? QueueLabel(storedTag, offer))"
+                                        CssClass="roadmap-editor__plan-action"
+                                        Disabled="@(!offer.IsEnabled)"
+                                        aria-busy="@(SessionBusy ? "true" : null)"
+                                        aria-disabled="@(SessionBusy ? "true" : null)"
+                                        aria-describedby="@(offer.IsEnabled ? null : _sessionReasonId)"
+                                        OnClick="() => OnQueuePlanSession.InvokeAsync()"
+                                        TestId="roadmap-editor-queue-session">
+                                <ListEndIcon />
+                            </IconButton>
+
+                            @if (offer.DisabledReason is { } reason)
+                            {
+                                <span id="@_sessionReasonId"
+                                      class="sr-only"
+                                      data-testid="roadmap-editor-queue-session-reason">@reason</span>
+                            }
+                        </span>
+                    }
+                </div>
+            }
 
             @* The goal the stored plan counts toward, beside the tag it is attached by. Only
                for a stored tag: a goal holds a plan by its tag, and a tag still being typed
@@ -289,32 +344,6 @@
             }
         }
 
-        @* Start plan session: one session that runs the whole plan by its tag, in
-           the item's first repository with a clone folder. It writes nothing to the
-           plan and leaves the dialog open, so it does not wait out an unsaved change
-           the way Open in Tasks does. Disabled with the reason when no repository has
-           a clone folder; gone while a request is open, when the chip above says so. *@
-        @if (PlanSession is { } offer && WaitingSession is null)
-        {
-            <AppButton Variant="ButtonVariant.Secondary"
-                       Disabled="@(!offer.IsEnabled)"
-                       Busy="@SessionBusy"
-                       BusyLabel="Asking"
-                       title="@(offer.DisabledReason ?? $"Start a session that runs the {offer.Tag} plan in {offer.Repository}")"
-                       aria-describedby="@(offer.IsEnabled ? null : _sessionReasonId)"
-                       OnClick="() => OnStartPlanSession.InvokeAsync()"
-                       TestId="roadmap-editor-start-session">
-                Start plan session
-            </AppButton>
-
-            @if (offer.DisabledReason is { } reason)
-            {
-                <span id="@_sessionReasonId"
-                      class="sr-only"
-                      data-testid="roadmap-editor-start-session-reason">@reason</span>
-            }
-        }
-
         <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-editor-cancel">
             Cancel
         </AppButton>
@@ -340,7 +369,7 @@
     // Unique per instance: two editors on one page would otherwise send
     // aria-describedby to whichever reason the browser saw first.
     private readonly string _openTasksReasonId = $"roadmap-editor-open-tasks-reason-{Guid.NewGuid():N}";
-    private readonly string _sessionReasonId = $"roadmap-editor-start-session-reason-{Guid.NewGuid():N}";
+    private readonly string _sessionReasonId = $"roadmap-editor-queue-session-reason-{Guid.NewGuid():N}";
 
     private string _title = string.Empty;
     private string _start = string.Empty;
@@ -471,7 +500,7 @@
     [Parameter]
     public EventCallback<Guid> OnReopen { get; set; }
 
-    /// <summary>What Start plan session offers for this item (local ADR 0037 §2), or
+    /// <summary>What the plan's queue icon offers for this item (local ADR 0037 §2), or
     /// null when it offers nothing — the action is not offered, or the item is new or
     /// has no tag. The band decides; the dialog only shows it.</summary>
     [Parameter]
@@ -481,13 +510,26 @@
     [Parameter]
     public PlanSessionRequest? WaitingSession { get; set; }
 
-    /// <summary>Whether a Start plan session or Cancel press is still on its way.</summary>
+    /// <summary>Whether a queue or Cancel press is still on its way.</summary>
     [Parameter]
     public bool SessionBusy { get; set; }
 
-    /// <summary>Raised when the person asks for a session that runs the plan.</summary>
+    /// <summary>Raised when the person queues a session that runs the plan.</summary>
     [Parameter]
-    public EventCallback OnStartPlanSession { get; set; }
+    public EventCallback OnQueuePlanSession { get; set; }
+
+    /// <summary>The stored item's tag with its plan sigil, <c>+&lt;slug&gt;</c>, or null for a
+    /// new item or one with no tag: what the plan row copies and names. The slug is
+    /// normalised as <see cref="PlanSessionOffer"/> does it.</summary>
+    private string? StoredTag =>
+        Item?.Tag?.Trim().TrimStart('+', '#').Trim() is { Length: > 0 } slug ? $"+{slug}" : null;
+
+    /// <summary>The queue icon's accessible name and tooltip: the plan by its tag with
+    /// its sigil, and the repository the session would start in once there is one.</summary>
+    private static string QueueLabel(string tag, PlanSessionOffer offer) =>
+        offer.Repository is { } repository
+            ? $"Queue a session for the {tag} plan in {repository}"
+            : $"Queue a session for the {tag} plan";
 
     /// <summary>Raised when the person withdraws the plan's waiting request.</summary>
     [Parameter]

@@ -182,6 +182,13 @@ rests on that, and
 `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`
 settles the two spellings.
 
+A saved item's dialog offers a copy button beside the Tag field. It copies the tag
+with its plan sigil, `+release-q4`: the spelling a Task is filed under, which the
+Tasks filter bar's plan chip copies too. The copy button is there whether or not the
+[`session-requests`](../sessions/context.md#session-requests) flag is on; with it on, the plan's
+[queue icon](../sessions/features.md#start-a-session-from-an-entry) sits beside it.
+A new item, or one without a tag, has no copy button.
+
 ## Gathering work under an item and totalling its effort
 
 ```meta

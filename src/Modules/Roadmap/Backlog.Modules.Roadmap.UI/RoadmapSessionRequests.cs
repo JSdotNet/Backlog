@@ -4,7 +4,7 @@ namespace Backlog.Modules.Roadmap.UI;
 
 /// <summary>
 /// The roadmap's view of the plan session requests it has open: which plan is waiting
-/// for a session, the Start plan session press and Cancel (local ADR 0037). The
+/// for a session, the queue icon's press and Cancel (local ADR 0037). The
 /// requests move where the band cannot hear it, so while the action is offered they
 /// are read again every <see cref="PollInterval"/>, and <see cref="Changed"/> is raised
 /// only when the answer differs.

@@ -231,6 +231,8 @@ While a row is in flight the list shows the order the drop would produce. The ke
     <Story Name="The host's own controls on a row"
            Description="`RowActions` is a slot at the end of the row, after the copy button, and it is handed the task it is about. Clicks stop at the slot, the same way they stop at the pencil.
 
+A control that should sit as quietly as the copy — like the push arrow here — wears `CssClass=&quot;task-item__action-button&quot;`: the copy's ink until the row is reached, and refused the way the copy is.
+
 `RowBadges` is its companion ahead of the link handle, for what the host knows about a task rather than what a reader sets on it — the desktop pane puts the latest pull request and session there. Every row is handed it; a row with nothing in it draws nothing.
 
 Unset, a row renders exactly the markup it rendered before the slot existed."
@@ -804,6 +806,7 @@ It exists for the row that was projected from a document the task itself does no
     private RenderFragment HostActions(TaskRow task) =>
         @<text>
             <IconButton BaseClass="btn btn--icon"
+                        CssClass="task-item__action-button"
                         AriaLabel="@($"Push {task.Title}")"
                         TestId="@($"row-actions-{task.Id}-push")"
                         OnClick='() => Record("Pushed", task)'>↑</IconButton>
@@ -929,7 +932,7 @@ It exists for the row that was projected from a document the task itself does no
 
         @code {
             private RenderFragment Actions(TaskRow task) =>
-                @<IconButton AriaLabel="@($"Push {task.Title}")" OnClick="() => Push(task)">↑</IconButton>;
+                @<IconButton AriaLabel="@($"Push {task.Title}")" CssClass="task-item__action-button" OnClick="() => Push(task)">↑</IconButton>;
         }
         """;
 
