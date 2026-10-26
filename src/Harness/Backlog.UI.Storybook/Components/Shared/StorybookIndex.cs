@@ -371,7 +371,11 @@ internal static class StorybookIndex
             // is a module's surface drawn from library parts only — Tabs from Layout
             // and EmptyState from Feedback, both introduced above — because the AI
             // section's views live in the Devbook module and cannot render here.
-            new("devbook/ai-tabs", "AI tabs", "The tab strip over the AI section's chapters: Adoption, Cohesion, Model and Devbook on the library's Tabs, Adoption open first, each panel holding the EmptyState its view shows until it is drawn.")
+            new("devbook/ai-tabs", "AI tabs", "The tab strip over the AI section's chapters: Adoption, Cohesion, Model and Devbook on the library's Tabs, Adoption open first, each panel holding the EmptyState its view shows until it is drawn."),
+
+            // After AI tabs, because it is what the Cohesion tab draws. It draws
+            // ButtonGroup, ToggleButton and AppButton, all introduced above.
+            new("devbook/cohesion", "Cohesion board", "CohesionBoard: the Cohesion tab's board — usages on the stage lanes and layer bands, their hand-offs as arrows, the four views, a picked usage's fed by, hands on to and built on, and the platforms row.")
         ]),
 
         // The first subject, ahead of Integrations rather than with Progress where its
