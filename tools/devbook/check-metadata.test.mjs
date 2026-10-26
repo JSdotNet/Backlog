@@ -15,7 +15,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { checkRepository, formatReport, DEVBOOK_FOLDERS } from './check-metadata.mjs';
+import {
+    checkRepository,
+    formatReport,
+    placementVocabulary,
+    AI_PLACEMENT_FIELDS,
+    DEVBOOK_FOLDERS
+} from './check-metadata.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
@@ -250,4 +256,108 @@ test('a root with no devbook folders is an error, not a pass', async () => {
     } finally {
         await rm(root, { recursive: true, force: true });
     }
+});
+
+// The `ai/` placement fields, devbook contract 35. Each case is one `ai/`
+// chapter, so a finding is attributable to the one field it varies.
+//
+// The verdicts themselves are the installed checker's `aiChapterIssues`; what
+// these cases pin is that this gate passes them through at the same severity —
+// errors block, the two placement warnings stay advisory — so a change to
+// `classify` that promoted or swallowed one would fail here.
+
+const AI_FILE = { status: 'adopted', type: 'stage' };
+
+/** Check one `ai/` chapter carrying `fields` beside an adopted `agent` type. */
+function checkAiChapter(fields) {
+    return checkFixture(
+        '.devbook/ai/sample.md',
+        chapter(AI_FILE, { status: 'adopted', type: 'agent', ...fields })
+    );
+}
+
+test('the installed checker defines the placement vocabularies', () => {
+    // Membership rather than the whole list, so a devbook release that adds a
+    // word does not fail a test that has no defect to report.
+    const vocabulary = placementVocabulary();
+    assert.ok(vocabulary.stages.includes('verify') && !vocabulary.stages.includes('test'), vocabulary.stages.join(', '));
+    assert.ok(vocabulary.layers.includes('harness'), vocabulary.layers.join(', '));
+    assert.ok(vocabulary.evidence.includes('recorded'), vocabulary.evidence.join(', '));
+});
+
+test('a checker that predates contract 35 is refused, naming devbook:update', () => {
+    assert.throws(
+        () => placementVocabulary({ validateDocument: () => [] }),
+        new RegExp(`predates contract 35[\\s\\S]*${AI_PLACEMENT_FIELDS.join(', ')}[\\s\\S]*devbook:update`)
+    );
+});
+
+test('substage, layer, feeds and evidence are accepted on an ai chapter', async () => {
+    const result = await checkAiChapter({
+        stage: '[verify]',
+        substage: '[verify/review]',
+        layer: '[harness]',
+        feeds: '[".devbook/ai/sample.md#a-chapter: hands back"]',
+        evidence: 'recorded',
+    });
+    assert.equal(result.blocking.length, 0, blockingText(result));
+});
+
+test('a DevOps loop word in stage blocks and names the migration', async () => {
+    const result = await checkAiChapter({ stage: '[test]' });
+    assert.equal(result.blocking.length, 1, blockingText(result));
+    assert.match(result.blocking[0].message, /`stage` entry "test"/);
+    assert.match(result.blocking[0].message, /035-delivery-path-stages/);
+});
+
+test('a layer outside the three blocks', async () => {
+    const result = await checkAiChapter({ layer: '[ci]' });
+    assert.equal(result.blocking.length, 1, blockingText(result));
+    assert.match(result.blocking[0].message, /`layer` entry "ci"[\s\S]*thread, upkeep, harness/);
+});
+
+test('a substage blocks when malformed or under a stage the chapter does not list', async () => {
+    const malformed = await checkAiChapter({ stage: '[verify]', substage: '[review]' });
+    assert.equal(malformed.blocking.length, 1, blockingText(malformed));
+    assert.match(malformed.blocking[0].message, /`substage` entry "review"[\s\S]*<stage>\/<word>/);
+
+    const elsewhere = await checkAiChapter({ stage: '[code]', substage: '[verify/review]' });
+    assert.equal(elsewhere.blocking.length, 1, blockingText(elsewhere));
+    assert.match(elsewhere.blocking[0].message, /under "verify", which its `stage` does not list/);
+});
+
+test('a feeds entry without a label blocks', async () => {
+    const result = await checkAiChapter({ stage: '[code]', feeds: '[".devbook/ai/sample.md#a-chapter"]' });
+    assert.equal(result.blocking.length, 1, blockingText(result));
+    assert.match(result.blocking[0].message, /`feeds` entry[\s\S]*label, which is required/);
+});
+
+test('evidence blocks unless it is one word from the vocabulary', async () => {
+    for (const evidence of ['proven', '[recorded, partial]']) {
+        const result = await checkAiChapter({ stage: '[code]', evidence });
+        assert.equal(result.blocking.length, 1, `${evidence}: ${blockingText(result)}`);
+        assert.match(result.blocking[0].message, /`evidence`[\s\S]*recorded, partial, fired, none/);
+    }
+});
+
+test('a placement field on the file-level block blocks', async () => {
+    const result = await checkFixture(
+        '.devbook/ai/sample.md',
+        chapter({ ...AI_FILE, layer: '[harness]' }, { status: 'adopted', type: 'agent', stage: '[code]' })
+    );
+    assert.equal(result.blocking.length, 1, blockingText(result));
+    assert.match(result.blocking[0].message, /`layer` on the file-level block/);
+});
+
+test('an unplaced chapter and a missing Moves up when bullet stay advisory, as in the devbook checker', async () => {
+    const unplaced = await checkAiChapter({});
+    assert.equal(unplaced.blocking.length, 0, blockingText(unplaced));
+    assert.ok(unplaced.advisory >= 1, 'The devbook checker warns on a chapter with no stage and no layer.');
+
+    const trial = await checkFixture(
+        '.devbook/ai/sample.md',
+        chapter(AI_FILE, { status: 'trial', type: 'agent', stage: '[code]' })
+    );
+    assert.equal(trial.blocking.length, 0, blockingText(trial));
+    assert.ok(trial.advisory >= 1, 'The devbook checker warns on a trial chapter without a Moves up when bullet.');
 });

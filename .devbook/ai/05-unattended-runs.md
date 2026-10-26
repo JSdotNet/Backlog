@@ -14,7 +14,7 @@ type: stage
 ```meta
 status: trial
 type: guardrail
-stage: [plan, code, release, operate, monitor]
+stage: [specify, code, integrate, operate]
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 related: [".devbook/ai/concepts.md#unattended-runs-park", ".devbook/ai/concepts.md#external-text-is-data", ".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-26
@@ -41,7 +41,7 @@ rather than duplicated.
 ```meta
 status: trial
 type: workflow
-stage: [plan, code]
+stage: [specify, code]
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#delivery-engine"]
 date: 2026-09-26
 ```
@@ -62,7 +62,7 @@ says what could not be proved. The brief lands as a `schedule-report` issue.
 ```meta
 status: trial
 type: workflow
-stage: [release]
+stage: [integrate]
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
@@ -181,7 +181,7 @@ tests.
 ```meta
 status: trial
 type: workflow
-stage: [monitor]
+stage: [operate]
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
@@ -206,7 +206,7 @@ unread one is extended rather than joined by another.
 ```meta
 status: candidate
 type: workflow
-stage: [monitor]
+stage: [operate]
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```

@@ -50,7 +50,7 @@ repeatable procedure with a record.
 ```meta
 status: adopted
 type: concept
-stage: [test]
+stage: [verify]
 date: 2026-09-26
 ```
 
@@ -100,7 +100,7 @@ misses.
 ```meta
 status: trial
 type: concept
-stage: [operate, monitor]
+stage: [operate]
 date: 2026-09-26
 ```
 
