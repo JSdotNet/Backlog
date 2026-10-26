@@ -203,7 +203,7 @@ public sealed class DevbookFullTextSearchTests
 
     /// <summary>
     /// A folder pointing somewhere with no repository above it is the same answer
-    /// as no database, which is what makes a knowledge folder configured off a
+    /// as no database, which is what makes a devbook folder configured off a
     /// clone safe to search rather than an exception.
     /// </summary>
     [Fact]

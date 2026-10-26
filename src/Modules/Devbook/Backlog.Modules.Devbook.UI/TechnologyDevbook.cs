@@ -153,7 +153,7 @@ public sealed record TechnologyGraphData(IReadOnlyList<TechnologyGraphNode> Node
 /// <param name="OutDegree">How many technologies this one depends on.</param>
 /// <param name="ToneSlug">The status badge modifier this node's status wears, through its folder's own vocabulary.</param>
 /// <param name="IsFoundation">Nothing in this project sits below it — no outgoing edge, per <c>.devbook/tech/technology-graph.md</c>.</param>
-/// <param name="IsBoundary">Documented in another knowledge folder; this atlas shows it because something here depends on it.</param>
+/// <param name="IsBoundary">Documented in another devbook folder; this atlas shows it because something here depends on it.</param>
 public sealed record TechnologyGraphNode(
     string Id,
     string Label,
@@ -197,7 +197,7 @@ public sealed record DevbookMetadata(
 
 internal static class TechnologyDevbookReader
 {
-    /// <summary>The knowledge folder this reader is about, as the generated
+    /// <summary>The devbook folder this reader is about, as the generated
     /// database spells a scope.</summary>
     private const string TechnologyScope = ".tech";
 
@@ -602,7 +602,7 @@ internal static class TechnologyDevbookReader
 
     /// <summary>The index writes a folder as the bare word (<c>arc42</c>); the
     /// atlas prints it as the cluster's name, so it is titled here rather than in
-    /// the renderer, which has no business knowing what the knowledge folders are
+    /// the renderer, which has no business knowing what the devbook folders are
     /// called.</summary>
     private static string FolderTitle(string? folder) => folder?.ToLowerInvariant() switch
     {

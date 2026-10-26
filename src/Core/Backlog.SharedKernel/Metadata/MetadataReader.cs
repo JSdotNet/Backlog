@@ -3,7 +3,7 @@ using Backlog.SharedKernel.Devbook;
 namespace Backlog.SharedKernel.Metadata;
 
 /// <summary>
-/// Reads the fenced <c>meta</c> block a knowledge chapter or file carries under
+/// Reads the fenced <c>meta</c> block a devbook chapter or file carries under
 /// its heading.
 ///
 /// <para>Hand-rolled rather than handed to a YAML library, and deliberately so:

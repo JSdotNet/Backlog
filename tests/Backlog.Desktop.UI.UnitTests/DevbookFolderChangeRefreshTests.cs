@@ -514,7 +514,7 @@ internal sealed class DevbookWorkspace : IDisposable
     public static DevbookWorkspace Create() =>
         new(Path.Combine(Path.GetTempPath(), "backlog-devbook-refresh-tests", Guid.NewGuid().ToString("n")));
 
-    /// <summary>Moves the configured knowledge folders, which is what a user
+    /// <summary>Moves the configured devbook folders, which is what a user
     /// changing the clone directory in Settings does.</summary>
     public void PointRepositoryAt(string cloneDirectory) =>
         Assert.Null(RepositorySettings.SetCloneDirectory(Alias, cloneDirectory));
@@ -524,7 +524,7 @@ internal sealed class DevbookWorkspace : IDisposable
     public void RewriteContextMap(string repositoryPath, string name) =>
         WriteRepository(repositoryPath, name);
 
-    /// <summary>Turns one knowledge folder on or off for the repository, which is
+    /// <summary>Turns one devbook folder on or off for the repository, which is
     /// the Settings gesture that changes which sections the pane has without
     /// moving anything on disk.</summary>
     public void SetFolderEnabled(string key, bool enabled) =>

@@ -131,7 +131,7 @@ internal sealed record RoadmapItemDocument
     /// bump <see cref="RoadmapPlanDocument.Version"/>.</summary>
     public string? Tag { get; init; }
 
-    /// <summary>The knowledge chapters this item points at, as opaque references.
+    /// <summary>The devbook chapters this item points at, as opaque references.
     /// Omitted when empty — written as <c>null</c> rather than <c>[]</c> so the
     /// serializer's default rule drops it, the same habit <c>PlanWide</c> follows —
     /// so an item that points at no chapter costs no line. Additive for the same

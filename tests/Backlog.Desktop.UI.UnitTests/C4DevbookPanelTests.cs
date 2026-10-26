@@ -193,7 +193,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     /// <summary>
     /// The reverse half of the one authored statement in `_c4/references.json`,
     /// drawn under the diagram through the explorer's footer slot — because the
-    /// component library has no idea what a knowledge chapter is.
+    /// component library has no idea what a devbook chapter is.
     /// </summary>
     [Fact]
     public async Task A_view_names_the_chapters_that_reference_it()

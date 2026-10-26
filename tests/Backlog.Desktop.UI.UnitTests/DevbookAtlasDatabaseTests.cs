@@ -157,7 +157,7 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
         }
     }
 
-    /// <summary>The knowledge folders of one repository on disk, with nothing else
+    /// <summary>The devbook folders of one repository on disk, with nothing else
     /// the port can do — no settings file, no clone, no branch snapshot.</summary>
     private sealed class FixedDevbookFolderSource(string root) : IDevbookFolderSource
     {

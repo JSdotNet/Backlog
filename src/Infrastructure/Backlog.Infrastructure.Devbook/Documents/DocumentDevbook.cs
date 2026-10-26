@@ -90,7 +90,7 @@ public abstract class DocumentDevbookProvider : IDisposable
         if (files.Count == 0)
         {
             return DocumentDevbookModel.Unavailable(
-                $"No Markdown files were found in the {Folder.DisplayName} knowledge folder at {folderPath}.");
+                $"No Markdown files were found in the {Folder.DisplayName} devbook folder at {folderPath}.");
         }
 
         files = OrderFiles(files);

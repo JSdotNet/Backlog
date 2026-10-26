@@ -1135,7 +1135,7 @@ button.badge:hover {
     min-width: 2.25rem;
 }
 
-/* The area an entry is filed under, and what kind of thing a knowledge chapter
+/* The area an entry is filed under, and what kind of thing a devbook chapter
    describes — a quiet counterpart to the tag chips.
 
    One rule for the two because they are the same fact about different things: the

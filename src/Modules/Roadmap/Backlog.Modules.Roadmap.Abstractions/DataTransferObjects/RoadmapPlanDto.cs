@@ -46,10 +46,10 @@ public sealed record RoadmapPlanDto(
 /// work.</param>
 /// <param name="DependsOn">The nodes — items or milestones — this waits for.</param>
 /// <param name="Tag">The slug this item is known by wherever tags are used — the
-/// backlog item tag list, and a <c>roadmap:</c> field in a knowledge chapter's
+/// backlog item tag list, and a <c>roadmap:</c> field in a devbook chapter's
 /// <c>meta</c> block. Always present: derived from the title when the item was first
 /// given none, and left alone by a rename.</param>
-/// <param name="KnowledgeRefs">The knowledge chapters this item points at, as opaque
+/// <param name="KnowledgeRefs">The devbook chapters this item points at, as opaque
 /// references that may dangle. Empty means it points at none.</param>
 /// <param name="PlacedByImport">Which rule an import placed the window by, while it
 /// is still the importer's; null once a person has placed it.</param>
@@ -78,7 +78,7 @@ public sealed record RoadmapItemDto(
     /// <summary>How many days it covers, counting both ends.</summary>
     public int Days => End.DayNumber - Start.DayNumber + 1;
 
-    /// <summary>The knowledge chapters this item points at, never null.</summary>
+    /// <summary>The devbook chapters this item points at, never null.</summary>
     public IReadOnlyList<string> Knowledge => KnowledgeRefs ?? [];
 }
 

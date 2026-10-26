@@ -30,7 +30,7 @@ public class DevbookScopeProjectionTests
 
     /// <summary>
     /// Membership is decided by path, not by the folder column. They agree for
-    /// every chapter in a knowledge folder and disagree for a node outside them,
+    /// every chapter in a devbook folder and disagree for a node outside them,
     /// which carries no folder at all — so a folder filter would silently drop the
     /// boundary nodes the map is supposed to show as stubs.
     /// </summary>
@@ -124,7 +124,7 @@ public class DevbookScopeProjectionTests
     private static DevbookNodeRow Chapter(string id, string path) =>
         new(id, "chapter", id, path.Split('/')[0].TrimStart('.'), path, null, null, null, "active", false, null, null, null, null);
 
-    /// <summary>A reference target outside the knowledge folders: no folder, no
+    /// <summary>A reference target outside the devbook folders: no folder, no
     /// path, and already flagged by the writer.</summary>
     private static DevbookNodeRow External(string id) =>
         new(id, "external", id, null, null, null, null, null, null, true, null, null, null, null);

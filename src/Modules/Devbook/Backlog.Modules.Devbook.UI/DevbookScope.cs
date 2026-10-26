@@ -22,7 +22,7 @@ public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolde
     public GitHubRepositoryRef? Repository(string? repositoryAlias) =>
         string.IsNullOrWhiteSpace(repositoryAlias) ? null : repositories.Current.Find(repositoryAlias);
 
-    /// <summary>The knowledge folders in play: the repository's when one is
+    /// <summary>The devbook folders in play: the repository's when one is
     /// scoped, none otherwise — a devbook belongs to a repository. The port
     /// answers, so this context never learns where a snapshot is kept.</summary>
     public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) =>

@@ -9,7 +9,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// passage it is about — and that is a shared review artefact that travels with
 /// the repository through git. This is the other thing: a private reading note,
 /// owned by the person and their devices rather than by the repository, never
-/// written into a governed knowledge folder, and so free to exist on a chapter
+/// written into a governed devbook folder, and so free to exist on a chapter
 /// read from a branch snapshot nobody can write to. The two are deliberately not
 /// the same store, and nothing promotes one into the other yet.
 /// </para>

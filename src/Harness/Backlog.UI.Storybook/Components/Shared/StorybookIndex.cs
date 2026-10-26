@@ -315,7 +315,7 @@ internal static class StorybookIndex
         // which fields hold one, which is a fact about the record.
         new("Devbook",
         [
-            new("devbook", "Metadata", "The fenced meta block a knowledge chapter carries: every field drawn as a record, and the parameters that turn the drawing on. Opt-in throughout — nothing already rendering changed.", Exact: true),
+            new("devbook", "Metadata", "The fenced meta block a devbook chapter carries: every field drawn as a record, and the parameters that turn the drawing on. Opt-in throughout — nothing already rendering changed.", Exact: true),
             new("devbook/state", "State", "What scoping a status buys: five folder vocabularies under one tone scale, a caller's own words where no folder applies, and a flag on a value that is in neither."),
 
             // After State rather than before it: two of its fourteen stories are

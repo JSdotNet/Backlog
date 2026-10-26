@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// may see both sides: the backlog's tag picker offers the plan's tags
 /// (<see cref="IRoadmapTagSource"/>), Import lays a document's <c>plan</c> entries
 /// out on the plan (<see cref="IRoadmapPlanIntake"/>), a roadmap item rolls up the backlog entries
-/// and knowledge chapters it gathers (<see cref="IRoadmapItemRollup"/>), the
+/// and devbook chapters it gathers (<see cref="IRoadmapItemRollup"/>), the
 /// reader's typed pace is read from the settings file
 /// (<see cref="IPlanningVelocitySettings"/>), the finished work a measured pace
 /// counts comes from the backlog (<see cref="IRoadmapCompletedWork"/>), and the

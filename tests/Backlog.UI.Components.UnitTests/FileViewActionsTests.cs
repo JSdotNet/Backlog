@@ -674,7 +674,7 @@ public sealed class FileViewActionsTests
     [Fact]
     public void Two_baselines_that_both_match_the_file_are_two_reasons_to_say_nothing()
     {
-        // The shape a knowledge chapter arrives in once its host has read both
+        // The shape a devbook chapter arrives in once its host has read both
         // sides: the text as it was opened, and the text as it was committed. A
         // chapter nobody has touched since the commit matches both, and the control
         // has to stay away — one baseline agreeing is not enough to offer, and

@@ -161,6 +161,6 @@ public interface IAppFeatureSettings
 public static class AppFeatureKeys
 {
     /// <summary>Tasks starts the CLI from an entry and Devbook
-    /// starts it from a knowledge chapter. Two contexts, one key.</summary>
+    /// starts it from a devbook chapter. Two contexts, one key.</summary>
     public const string CopilotCli = "copilot-cli";
 }

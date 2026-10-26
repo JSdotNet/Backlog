@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// A knowledge chapter writes its references in prose the same way it writes them
+/// A devbook chapter writes its references in prose the same way it writes them
 /// in a <c>meta</c> fence — a code span holding a repository path — so the two go
 /// through the same plumbing and a reader can follow either.
 ///
@@ -61,7 +61,7 @@ public sealed class MarkdownViewDevbookLinkTests
     public void Everything_that_is_not_plainly_a_chapter_stays_code(string span)
     {
         // A destination on a word, a command or a folder is a promise nothing can
-        // keep. The rule asks for a known knowledge folder at the front, `.md` at
+        // keep. The rule asks for a known devbook folder at the front, `.md` at
         // the end, and nothing but a path in between.
         using var context = new BunitContext();
 
@@ -149,7 +149,7 @@ public sealed class MarkdownViewDevbookLinkTests
     [Fact]
     public void A_relative_link_navigates_to_the_chapter_it_resolves_to()
     {
-        // How the knowledge folders actually write a cross-context link. It used
+        // How the devbook folders actually write a cross-context link. It used
         // to reach MarkdownRender as a schemeless URL, which is a relative href
         // with `target="_blank"` on it — the reader's browser, opening a path that
         // means nothing outside a checkout.
