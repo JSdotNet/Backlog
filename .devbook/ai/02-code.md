@@ -13,7 +13,10 @@ type: stage
 ```meta
 status: adopted
 type: guardrail
-stage: [code]
+stage: [code, verify]
+substage: [code/start, code/implement, verify/build-test, verify/review]
+feeds: [".devbook/ai/03-test.md#qa-agent-on-the-running-application: verify", ".devbook/ai/03-test.md#devbook-checks-around-a-flow: spec check"]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/ai-development.md#repository-instruction-files"]
 related: [".devbook/ai/concepts.md#gate-before-the-first-write", ".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-26
@@ -37,8 +40,11 @@ Validation.
 status: adopted
 type: skill
 stage: [code]
+substage: [code/start]
+feeds: [".devbook/ai/02-code.md#code-gate-through-flow-code: through the gate"]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#backlog-tools-plugin", ".devbook/tech/ai-development.md#model-context-protocol-servers"]
-related: [".devbook/ai/01-plan.md#import-plans", ".devbook/ai/02-code.md#backlog-as-the-delivery-tracker"]
+related: [".devbook/ai/02-code.md#backlog-as-the-delivery-tracker"]
 date: 2026-09-25
 ```
 
@@ -61,8 +67,10 @@ same plugin notices the entry marker and nudges the session to invoke the skill.
 ```meta
 status: adopted
 type: agent
-stage: [specify, code, verify]
+layer: [harness]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#subagents", ".devbook/tech/ai-development.md#delivery-engine"]
+related: [".devbook/ai/02-code.md#code-gate-through-flow-code"]
 date: 2026-09-25
 ```
 
@@ -92,9 +100,10 @@ hands that phase to it, and a phase with no entry runs inline in the session.
 ```meta
 status: adopted
 type: practice
-stage: [code]
+layer: [harness]
+evidence: recorded
 depends-on: [".devbook/tech/tooling.md#git", ".devbook/tech/ai-development.md#claude-code"]
-related: [".devbook/ai/concepts.md#isolation-per-session"]
+related: [".devbook/ai/concepts.md#isolation-per-session", ".devbook/ai/02-code.md#plan-items-pasted-into-a-session"]
 date: 2026-09-25
 ```
 
@@ -115,9 +124,10 @@ ports and user secrets stay per session.
 ```meta
 status: adopted
 type: practice
-stage: [code]
+layer: [harness]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#repository-instruction-files"]
-related: [".devbook/ai/concepts.md#one-rule-one-place"]
+related: [".devbook/ai/concepts.md#one-rule-one-place", ".devbook/ai/02-code.md#code-gate-through-flow-code"]
 date: 2026-09-25
 ```
 
@@ -137,7 +147,9 @@ standing brief `CLAUDE.md` imports. The devbook plugin also installs a wrapper p
 ```meta
 status: adopted
 type: mcp-server
-stage: [specify, code, integrate]
+stage: [decide]
+feeds: [".devbook/ai/01-plan.md#devbook-chapters-through-flow-spec: what you pick"]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#model-context-protocol-servers"]
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
 date: 2026-09-25
@@ -171,7 +183,8 @@ sequenceDiagram
 ```meta
 status: adopted
 type: mcp-server
-stage: [code, verify, integrate]
+layer: [harness]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#delivery-surfaces"]
 date: 2026-09-25
 ```
@@ -190,7 +203,8 @@ QA scenarios and their evidence and the Personal Validation decision.
 ```meta
 status: adopted
 type: hook
-stage: [code]
+layer: [harness]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#claude-code-hooks", ".devbook/tech/ai-development.md#backlog-tools-plugin"]
 related: [".devbook/ai/02-code.md#run-tracking-on-delivery-surfaces"]
 date: 2026-09-26
@@ -213,8 +227,10 @@ run's row.
 ```meta
 status: retired
 type: hook
-stage: [code]
+stage: [decide]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#claude-code-hooks"]
+related: [".devbook/ai/05-unattended-runs.md#scheduled-issue-sweep"]
 date: 2026-10-03
 ```
 
@@ -234,8 +250,10 @@ this repository, skipping a title already open.
 ```meta
 status: retired
 type: mcp-server
-stage: [code]
+layer: [harness]
+evidence: recorded
 depends-on: [".devbook/tech/ai-development.md#model-context-protocol-servers"]
+related: [".devbook/ai/02-code.md#rules-wrapped-per-host"]
 date: 2026-08-27
 ```
 
