@@ -16034,6 +16034,19 @@ select.field__input {
     color: var(--integration-ink-off);
 }
 
+/* A finished session's presence in its own app, where the host knows it: still
+   open in the muted ink, archived in the quiet one — information, never the
+   disabled ink (.devbook/design/color-scheme.md#integration-roles). A finished
+   session with no record to say keeps the off ink above. The words ride in the
+   .sr-only copy and the host's tooltip. */
+.integration-link--session-finished.integration-link--session-open .provider-mark {
+    color: var(--integration-ink-muted);
+}
+
+.integration-link--session-finished.integration-link--session-archived .provider-mark {
+    color: var(--integration-ink-quiet);
+}
+
 .integration-link--session-stalled {
     padding: 0 var(--spacing-xs);
     border-radius: var(--border-radius-full);
@@ -17663,7 +17676,7 @@ select.field__input {
 /* ---- the C4 zoom tab ------------------------------------------------------
 
    One model zoomed a level at a time, beside the C4 tab rather than inside it
-   (local ADR 0037). The zoom bar heads it: the current step ringed in the primary
+   (local ADR 0038). The zoom bar heads it: the current step ringed in the primary
    colour, a step that jumps drawn plain, a step still waiting on a selection
    drawn grey. Nothing here is reached by a .c4-explorer rule, so the C4 tab draws
    exactly as before.                                                           */
@@ -21427,6 +21440,16 @@ button.c4-code__record:focus-visible .c4-code__record-title {
 
 .work-card--session-running .work-card__dot {
     background: var(--color-success-text);
+}
+
+/* A finished session's presence in its own app, as on the session badge: open in
+   the muted ink, archived in the quiet one, the word beside the state. */
+.work-card--session-finished.work-card--session-open .work-card__dot {
+    background: var(--integration-ink-muted);
+}
+
+.work-card--session-finished.work-card--session-archived .work-card__dot {
+    background: var(--integration-ink-quiet);
 }
 
 .work-card--session-stalled .work-card__dot,

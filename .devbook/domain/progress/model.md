@@ -28,6 +28,7 @@ classDiagram
         +PlanTag Plan
         +TaskId Task
         +PullRequestRef PullRequest
+        +SessionIdentity Session
         +DateOnly AttachedOn
     }
 
@@ -68,6 +69,9 @@ classDiagram
     class PullRequest {
         <<GitHub>>
     }
+    class AgentSession {
+        <<Sessions>>
+    }
 
     Goal "1" *-- "0..*" GoalAttachment
     Impediment "1" *-- "1..*" StateChange
@@ -75,6 +79,7 @@ classDiagram
     GoalAttachment ..> RoadmapTag : plan by tag
     GoalAttachment ..> Task : task by id
     GoalAttachment ..> PullRequest : repository and number
+    GoalAttachment ..> AgentSession : agent and session id
     HoldsBack ..> Task : task by id
 ```
 
@@ -85,7 +90,8 @@ classDiagram
   through a task the goal counts.
 - Every arrow out of Progress is a reference by identity. A plan is named by its
   [Roadmap Tag](../roadmap/domain.md#roadmap-tag), a task by its id and a pull request
-  by its repository and number. None of them is copied.
+  by its repository and number, and a session by its agent and session id. None of them
+  is copied.
 - [Goal Progress](domain.md#goal-progress) and [Goal Forecast](domain.md#goal-forecast)
   are not stored. The [Stand-up Reading](domain.md#stand-up-reading) service computes
   them over an [Iteration](domain.md#iteration), which is a window and holds no

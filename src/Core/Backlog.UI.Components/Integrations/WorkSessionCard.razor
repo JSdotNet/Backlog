@@ -43,7 +43,7 @@ else
 
     private string StateSlug => Session.State.ToString().ToLowerInvariant();
 
-    private string Words => WorkStates.SessionWords(Session.State);
+    private string Words => WorkStates.SessionWords(Session);
 
     private string TitleValue => $"Session {Session.Title} — {Words}";
 
@@ -52,6 +52,11 @@ else
         get
         {
             var value = $"work-card work-card--session work-card--session-{StateSlug}";
+            if (IntegrationStates.ShownPresence(Session.State, Session.Presence) is { } presence)
+            {
+                value += $" work-card--session-{IntegrationStates.SlugOf(presence)}";
+            }
+
             if (WorkStates.NeedsYou(Session)) value += " work-card--needs-you";
             if (OnOpen.HasDelegate) value += " work-card--opens";
             return string.IsNullOrWhiteSpace(CssClass) ? value : $"{value} {CssClass}";

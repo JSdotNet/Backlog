@@ -33,9 +33,9 @@ public static class TasksCrossContextAdapterRegistration
     {
         public static readonly NoLinkedSessionStates Instance = new();
 
-        public Task<IReadOnlyDictionary<string, LinkedSessionState>> StatesOfAsync(
+        public Task<IReadOnlyDictionary<string, LinkedSession>> StatesOfAsync(
             IReadOnlyCollection<string> sessionIds,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyDictionary<string, LinkedSessionState>>(new Dictionary<string, LinkedSessionState>());
+            Task.FromResult<IReadOnlyDictionary<string, LinkedSession>>(new Dictionary<string, LinkedSession>());
     }
 }
