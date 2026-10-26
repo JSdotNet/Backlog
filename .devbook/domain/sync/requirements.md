@@ -53,6 +53,22 @@ The sync service SHALL accept a pairing code once and refuse every later redempt
 - **When** a third device enters the same code
 - **Then** the third device is not paired
 
+### Requirement: A refused device is revoked
+
+```meta
+type: requirement
+status: draft
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.The_device_list_names_the_caller_and_the_device_whose_code_paired_each, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_revoked_device_can_no_longer_mint_a_token_and_leaves_the_list, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.A_device_cannot_revoke_itself_or_another_owners_device, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.DeviceRosterEndpointTests.Only_the_device_whose_code_paired_another_may_revoke_it]
+```
+
+The sync service SHALL list an owner's devices with the device whose code paired each, and SHALL let the device whose code paired another revoke it, and no other device, after which the revoked device's credential mints no token.
+
+#### Scenario: The person refuses a device
+
+- **Given** a phone that redeemed the code the desktop showed
+- **When** the person answers Refuse to "Pair *phone*?" on the desktop
+- **Then** the phone is no longer in the owner's device list, and its credential is refused at the token exchange
+
 ### Requirement: The registration credential is shown once
 
 ```meta

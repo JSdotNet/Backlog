@@ -1,0 +1,297 @@
+@namespace Backlog.Mobile.UI.Components.Notifications
+@using Backlog.Mobile.UI.Notifications
+@using Backlog.Modules.Notifications.Abstractions
+@inject TimeProvider Clock
+
+@*
+    One notification on the phone, as the proposal's phone mockup draws it: the
+    kind and severity with its age, the title, the summary, the answer controls
+    while the phone may answer, where it stands, and the desktop that owns it
+    with whether that desktop is running (.devbook/domain/notifications/context.md).
+
+    The list draws it without the body and links the title to the detail; the
+    detail draws the Markdown body through MarkdownView, so a ```mermaid fence is
+    a diagram like it is everywhere else.
+
+    The answer controls follow the question's shape and nothing else:
+      single choice      one AppButton per set answer, pressed to answer
+      multiple choice    one Checkbox per set answer, and Answer to send the picks
+      open               a plain-text TextArea and Send
+      choices with open  the buttons, and the box with Send below them
+    A question that says answerOn: owner draws none: only its owner takes an
+    answer. An alert draws none either; acknowledging one stays on the desktop.
+
+    The card answers nothing itself. It raises OnReply, the page queues the reply
+    through the outbox, and the card shows where the reply stands from then on —
+    waiting to send, waiting for the owner, rejected with the owner's reason (and
+    the controls back, to answer again), or the owner's answer: from this phone,
+    or from elsewhere with the answer that won.
+*@
+
+<article class="phone-notification" data-testid="notification-card" data-standing="@StandingSlug"
+         data-notification="@Notification.Id" aria-labelledby="@TitleId">
+    <header class="phone-notification__meta">
+        <span class="phone-notification__tags">
+            <Badge BaseClass="phone-notification__tag" Kind="" Slug="@KindSlug" TestId="notification-kind">@KindLabel</Badge>
+            <Badge BaseClass="phone-notification__tag" Kind="" Slug="@SeveritySlug" TestId="notification-severity">@SeverityLabel</Badge>
+        </span>
+        <span class="phone-notification__age" data-testid="notification-age">@Age</span>
+    </header>
+
+    @if (Href is not null)
+    {
+        <h2 class="phone-notification__title" id="@TitleId">
+            <a href="@Href" data-testid="notification-open">@Item.Title</a>
+        </h2>
+    }
+    else
+    {
+        <h1 class="phone-notification__title" id="@TitleId" data-testid="notification-title">@Item.Title</h1>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Item.Summary))
+    {
+        <p class="phone-notification__summary" data-testid="notification-summary">@Item.Summary</p>
+    }
+
+    @if (ShowBody && !string.IsNullOrWhiteSpace(Item.BodyMarkdown))
+    {
+        <div class="phone-notification__body" data-testid="notification-body">
+            <MarkdownView Blocks="@MarkdownPreview.ParseDocument(Item.BodyMarkdown)" Source="@Item.BodyMarkdown" />
+        </div>
+    }
+
+    @if (Notification.Standing == NotificationStanding.Rejected && !string.IsNullOrWhiteSpace(Notification.Verdict))
+    {
+        <Alert Message="@RejectedText" Inline="true" TestId="notification-rejected" />
+    }
+
+    @if (Notification.CanAnswer && Spec is { } spec)
+    {
+        <div class="phone-notification__answer" data-testid="notification-answer">
+            @if (spec.AllowMultiple)
+            {
+                <fieldset class="phone-notification__checks" data-testid="notification-checkboxes">
+                    <legend class="phone-notification__legend">@PickHint(spec)</legend>
+                    @foreach (var choice in spec.Choices)
+                    {
+                        <Checkbox Label="@choice.Label"
+                                  Checked="@_picked.Contains(choice.Id)"
+                                  CheckedChanged="@(on => Toggle(choice.Id, on))"
+                                  Disabled="@Busy"
+                                  TestId="@($"notification-check-{choice.Id}")" />
+                    }
+                </fieldset>
+                <div class="phone-notification__choices">
+                    <AppButton Variant="ButtonVariant.Primary"
+                               Busy="@Busy"
+                               BusyLabel="Answering"
+                               Disabled="@(!NotificationStandings.Fits(spec, _picked, null))"
+                               TestId="notification-submit"
+                               OnClick="SubmitPicksAsync">Answer</AppButton>
+                </div>
+            }
+            else if (spec.Choices.Count > 0)
+            {
+                <div class="phone-notification__choices" data-testid="notification-choices">
+                    @foreach (var choice in spec.Choices)
+                    {
+                        <AppButton Variant="@VariantFor(choice.Style)"
+                                   Disabled="@Busy"
+                                   TestId="@($"notification-choice-{choice.Id}")"
+                                   OnClick="@(() => ReplyAsync([choice.Id], null))">@choice.Label</AppButton>
+                    }
+                </div>
+            }
+
+            @if (spec.Open is { } open)
+            {
+                <div class="phone-notification__open" data-testid="notification-open-answer">
+                    <TextArea Label="@(spec.Choices.Count > 0 ? "Or answer in your own words" : "Your answer")"
+                              @bind-Value="_text"
+                              Placeholder="@(open.Placeholder ?? "Write an answer…")"
+                              Disabled="@Busy"
+                              Rows="2"
+                              TestId="notification-text"
+                              maxlength="@open.MaxLength" />
+                    <div class="phone-notification__choices">
+                        <AppButton Variant="@(spec.Choices.Count > 0 ? ButtonVariant.Secondary : ButtonVariant.Primary)"
+                                   Busy="@Busy"
+                                   BusyLabel="Sending"
+                                   Disabled="@(string.IsNullOrWhiteSpace(_text))"
+                                   TestId="notification-send"
+                                   OnClick="@(() => ReplyAsync([], _text))">Send</AppButton>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <Alert Message="@StandingText" Role="status" BaseClass="phone-notification__standing" TestId="notification-standing" />
+
+    @if (Notification.Waiting is { IsParked: true, Refused: false } parked)
+    {
+        <Alert Message="@($"Your answer is not sent yet: {parked.LastError}")"
+               Inline="true"
+               ActionLabel="Try again"
+               OnAction="() => OnRetry.InvokeAsync(parked.Id)"
+               ActionTestId="notification-retry"
+               TestId="notification-stuck" />
+    }
+
+    <p class="phone-notification__owner" data-testid="notification-owner">
+        @if (Notification.Presence != OwnerPresence.Unknown)
+        {
+            <StatusDot Tone="@(Notification.Presence == OwnerPresence.Online ? FlowStepTone.Done : FlowStepTone.Pending)"
+                       CssClass="phone-notification__presence" TestId="notification-presence" />
+        }
+        @OwnerLine
+    </p>
+</article>
+
+@code {
+    private readonly string _titleId = "notification-" + Guid.NewGuid().ToString("N");
+    private readonly HashSet<string> _picked = new(StringComparer.Ordinal);
+    private string? _text;
+    private Guid _shownId;
+
+    /// <summary>The notification and where it stands for this phone.</summary>
+    [Parameter, EditorRequired]
+    public PhoneNotification Notification { get; set; } = default!;
+
+    /// <summary>Where the title leads — the detail — or null on the detail itself, where the
+    /// title is the page's heading.</summary>
+    [Parameter]
+    public string? Href { get; set; }
+
+    /// <summary>Whether the Markdown body is drawn: on the detail, not in the list.</summary>
+    [Parameter]
+    public bool ShowBody { get; set; }
+
+    /// <summary>True while the host is keeping a reply.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>The picked choice ids and the typed text, for the host to queue.</summary>
+    [Parameter]
+    public EventCallback<NotificationAnswerPick> OnReply { get; set; }
+
+    /// <summary>A parked reply's outbox entry, to try again.</summary>
+    [Parameter]
+    public EventCallback<Guid> OnRetry { get; set; }
+
+    private NotificationSnapshot Item => Notification.Notification;
+
+    private AnswerSpec? Spec => Item.AnswerSpec;
+
+    private string TitleId => _titleId;
+
+    private string KindSlug => Item.Kind == NotificationKind.Question ? "question" : "alert";
+
+    private string KindLabel => Item.Kind == NotificationKind.Question ? "Question" : "Alert";
+
+    private string SeveritySlug => Item.Severity.ToString().ToLowerInvariant();
+
+    private string SeverityLabel => Item.Severity switch
+    {
+        NotificationSeverity.Critical => "Critical",
+        NotificationSeverity.Warning => "Warning",
+        _ => "Info"
+    };
+
+    private string StandingSlug => Notification.Standing switch
+    {
+        NotificationStanding.OwnerOnly => "owner-only",
+        NotificationStanding.AwaitingOwner => "awaiting-owner",
+        NotificationStanding.AnsweredHere => "answered-here",
+        NotificationStanding.AnsweredElsewhere => "answered-elsewhere",
+        var other => other.ToString().ToLowerInvariant()
+    };
+
+    private string Age => SyncStatusLine.Relative(Clock.GetUtcNow() - Item.CreatedAt);
+
+    private string OwnerWord => string.IsNullOrWhiteSpace(Notification.OwnerName) ? "The desktop" : Notification.OwnerName!;
+
+    /// <summary>The owner's reason, or cloud sync's refusal when the reply never reached it.</summary>
+    private string RejectedText => Notification.Waiting is { Refused: true }
+        ? $"Your answer was not sent: {Notification.Verdict} You can answer again."
+        : $"{OwnerWord} turned your answer down: {Notification.Verdict} You can answer again.";
+
+    private string OwnerName => string.IsNullOrWhiteSpace(Notification.OwnerName) ? "a desktop" : Notification.OwnerName!;
+
+    private string OwnerLine => Notification.Presence switch
+    {
+        OwnerPresence.Online => $"Owned by {OwnerName} · online",
+        OwnerPresence.Offline when Notification.OwnerSeenAt is { } seen =>
+            $"Owned by {OwnerName} · offline since {Local(seen)}, delivers on wake",
+        OwnerPresence.Offline => $"Owned by {OwnerName} · offline, delivers on wake",
+        _ => $"Owned by {OwnerName}"
+    };
+
+    private string? StandingText => Notification.Standing switch
+    {
+        NotificationStanding.OwnerOnly => $"Only {OwnerName} takes an answer to this one.",
+        NotificationStanding.Sending when Notification.Waiting is { IsParked: true, Refused: false } => null,
+        NotificationStanding.Sending => "Your answer is waiting to be sent.",
+        NotificationStanding.AwaitingOwner when Notification.Presence == OwnerPresence.Offline =>
+            $"Answer sent. It counts once {OwnerName} wakes and accepts it.",
+        NotificationStanding.AwaitingOwner => $"Answer sent, waiting for {OwnerName} to accept it.",
+        NotificationStanding.AnsweredHere => $"Answered from this phone · {Notification.Verdict}",
+        NotificationStanding.AnsweredElsewhere => $"Answered elsewhere · {Notification.Verdict}",
+        NotificationStanding.Acknowledged => "Acknowledged",
+        NotificationStanding.Closed => Notification.Verdict is { } reason ? $"Closed · {reason}" : "Closed",
+        _ => null
+    };
+
+    protected override void OnParametersSet()
+    {
+        // A card handed another notification starts its answer over.
+        if (_shownId == Notification.Id) return;
+
+        _shownId = Notification.Id;
+        _picked.Clear();
+        _text = null;
+    }
+
+    private string Local(DateTimeOffset at)
+    {
+        var local = TimeZoneInfo.ConvertTime(at, Clock.LocalTimeZone);
+        var now = TimeZoneInfo.ConvertTime(Clock.GetUtcNow(), Clock.LocalTimeZone);
+
+        return Backlog.Mobile.UI.Notes.NoteTimeLabel.For(local, now);
+    }
+
+    private static string PickHint(AnswerSpec spec)
+    {
+        var least = spec.MinChoices ?? 1;
+        var most = spec.MaxChoices ?? spec.Choices.Count;
+
+        return least == most ? $"Pick {least}" : most >= spec.Choices.Count ? $"Pick {least} or more" : $"Pick {least} to {most}";
+    }
+
+    private static ButtonVariant VariantFor(AnswerChoiceStyle style) => style switch
+    {
+        AnswerChoiceStyle.Primary => ButtonVariant.Primary,
+        AnswerChoiceStyle.Destructive => ButtonVariant.Danger,
+        _ => ButtonVariant.Secondary
+    };
+
+    private void Toggle(string id, bool on)
+    {
+        if (on) _picked.Add(id);
+        else _picked.Remove(id);
+    }
+
+    private Task SubmitPicksAsync() =>
+        ReplyAsync([.. Spec!.Choices.Where(choice => _picked.Contains(choice.Id)).Select(choice => choice.Id)], null);
+
+    private async Task ReplyAsync(IReadOnlyList<string> choiceIds, string? text)
+    {
+        if (Busy) return;
+
+        await OnReply.InvokeAsync(new NotificationAnswerPick(choiceIds, text));
+
+        _picked.Clear();
+        _text = null;
+    }
+}

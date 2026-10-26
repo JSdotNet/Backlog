@@ -1,7 +1,9 @@
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Infrastructure.Sessions;
 
@@ -125,8 +127,17 @@ public static class SessionsAdapterRegistration
             RecordedSourceKey,
             (sp, _) => new RecordedAgentSessionSource(sp.GetService<IAgentSessionRecordStore>()));
 
+        // Watched for a session that ends: every reading anybody takes is where an
+        // archive or a delete is noticed, because the desktop app's store raises nothing
+        // (SessionEndWatchingSource). Notifications is resolved when an end is noticed
+        // and not here, so a context whose answer handler reads sessions cannot make
+        // the two singletons wait on each other; a host that composed none closes
+        // nothing.
         services.AddSingleton<IAgentSessionSource>(sp =>
-            new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]));
+            new SessionEndWatchingSource(
+                new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]),
+                sp.GetService<INotifications>,
+                sp.GetService<ILogger<SessionEndWatchingSource>>()));
 
         // The delivery runs go in with the sessions rather than behind a call of their
         // own, and that is the opposite of the choice AddAgentActivitySource makes.
@@ -155,7 +166,9 @@ public static class SessionsAdapterRegistration
             new LocalDeliverySurfaceLifecycle(
                 sp.GetRequiredService<IDeviceIdentitySource>(),
                 sp.GetService<ISessionsSurfaceActivator>(),
-                sp.GetService<IDevbookSyncVerdicts>()));
+                sp.GetService<IDevbookSyncVerdicts>(),
+                sp.GetService<INotifications>,
+                sp.GetService<ILogger<LocalDeliverySurfaceLifecycle>>()));
 
         // And the measured half of the same runs: the hook events a session forwards,
         // attributed to the run it is driving. A singleton because it carries each

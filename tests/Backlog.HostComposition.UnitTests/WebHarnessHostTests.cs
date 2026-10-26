@@ -332,6 +332,44 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// Each context that owns subjects answers the notifications startup probe about
+    /// them, one probe per subject context, and the places that notice an end are the
+    /// ones the hosts resolve: the remark store every caller gets is the watched one,
+    /// and the pull request port the Sessions probe asks is composed.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_a_subject_probe_for_every_context_that_owns_subjects()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        var probes = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationSubjectProbe>().ToList();
+
+        Assert.Equal(["devbook", "sessions", "sync", "tasks"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
+        Assert.IsType<Backlog.Infrastructure.Devbook.RemarkNotificationStore>(
+            harness.Services.GetRequiredService<Backlog.Modules.Devbook.Abstractions.IDevbookAnnotationStore>());
+        Assert.IsType<Backlog.Desktop.UI.PullRequests.PullRequestSubjects>(
+            harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.ISessionPullRequestStates>());
+        Assert.NotNull(harness.Services.GetRequiredService<Backlog.Infrastructure.Sync.PairingSubjects>());
+    }
+
+    /// <summary>
+    /// Every context that asks questions registers an answer handler for its source, and
+    /// the port resolves with them: the MCP tools, the Settings page's test question
+    /// (Notifications), a run's Personal Validation (Sessions), and the device that
+    /// redeemed a pairing code (Sync).
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_an_answer_handler_for_every_context_that_asks()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        var handlers = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationAnswerHandler>().ToList();
+
+        Assert.Equal(["mcp", "notifications", "sessions", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
+        Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Notifications.Abstractions.INotifications>());
+    }
+
+    /// <summary>
     /// The mobile harness, which has no <c>ITaskRepository</c> and never will:
     /// the phone carries the Inbox, not a local task database. It composes the
     /// pairing surface and nothing of replication, and it has to start.

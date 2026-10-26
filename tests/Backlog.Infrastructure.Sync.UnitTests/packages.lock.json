@@ -70,6 +70,14 @@
         "resolved": "18.10.1",
         "contentHash": "tV7tCyp/t+DuwQugLkCeUN7NBFFB4fEGRPr0gkMQ2nQgAvQQjmGlZZi1dsLzbyoe/A0mbnKybmkIh8qhT9p4Zw=="
       },
+      "Microsoft.Data.Sqlite.Core": {
+        "type": "Transitive",
+        "resolved": "10.0.12",
+        "contentHash": "2aL9eL5HQr0V4b8V909SD+jQAx6qnTTl7sT/v3D8dIvmr2UGdpZIQxqm1pj2Js3e4EYTvpw0oMH7DjapJJuPPw==",
+        "dependencies": {
+          "SQLitePCLRaw.core": "2.1.12"
+        }
+      },
       "Microsoft.DiaSymReader": {
         "type": "Transitive",
         "resolved": "2.2.10",
@@ -343,6 +351,33 @@
           "System.Threading.RateLimiting": "8.0.0"
         }
       },
+      "SQLitePCLRaw.bundle_e_sqlite3": {
+        "type": "Transitive",
+        "resolved": "2.1.12",
+        "contentHash": "mAgscpQMLw5/nfA1Q5oJVAT29yROUo1ifZGbbTpx/lwZpSxMUGoYbKfmvdm8oXER+RzxqBmmQzeBEVKfeHv2nw==",
+        "dependencies": {
+          "SQLitePCLRaw.lib.e_sqlite3": "2.1.12",
+          "SQLitePCLRaw.provider.e_sqlite3": "2.1.12"
+        }
+      },
+      "SQLitePCLRaw.core": {
+        "type": "Transitive",
+        "resolved": "2.1.12",
+        "contentHash": "ETpNw9DY3ckWLgRRAeCHj+GKOuPi61aeczkXhgHexUvqoZBAYg8RYESE2J7O1M7+o6QbdSEZwrw9bfqztUVWXg=="
+      },
+      "SQLitePCLRaw.lib.e_sqlite3": {
+        "type": "Transitive",
+        "resolved": "2.1.12",
+        "contentHash": "fWi8Dbknuhgg72fWinIdjXVaqO1hHL4YBBwVLnr7e1c9TAZwJ0QE38j9syW1hwx6HaqEVTwI+O07WPdZn8Rp0w=="
+      },
+      "SQLitePCLRaw.provider.e_sqlite3": {
+        "type": "Transitive",
+        "resolved": "2.1.12",
+        "contentHash": "W3oH4XIfCzFrgUSDKHhN6N+dgzA5YHOR2VxX8GB6Qy7CyrJJgxPEG8NirgYWlPQC5P2jz2knSsexWu4tDUL33g==",
+        "dependencies": {
+          "SQLitePCLRaw.core": "2.1.12"
+        }
+      },
       "System.Security.AccessControl": {
         "type": "Transitive",
         "resolved": "6.0.1",
@@ -421,11 +456,26 @@
           "xunit.v3.runner.common": "[4.0.2]"
         }
       },
+      "backlog.infrastructure.sqlite": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Inbox": "[1.0.0, )",
+          "Backlog.Modules.Notifications": "[1.0.0, )",
+          "Backlog.Modules.Progress": "[1.0.0, )",
+          "Backlog.Modules.Roadmap": "[1.0.0, )",
+          "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Tasks": "[1.0.0, )",
+          "Microsoft.Data.Sqlite": "[10.0.12, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
+        }
+      },
       "backlog.infrastructure.sync": {
         "type": "Project",
         "dependencies": {
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
@@ -441,16 +491,56 @@
       "backlog.modules.devbook.abstractions": {
         "type": "Project"
       },
+      "backlog.modules.inbox": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
+        }
+      },
       "backlog.modules.inbox.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
+      "backlog.modules.notifications": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
+        }
+      },
+      "backlog.modules.notifications.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.progress": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+        }
+      },
       "backlog.modules.progress.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.roadmap": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
         }
       },
       "backlog.modules.roadmap.abstractions": {
@@ -485,6 +575,17 @@
       },
       "backlog.sharedkernel": {
         "type": "Project"
+      },
+      "Microsoft.Data.Sqlite": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.12, )",
+        "resolved": "10.0.12",
+        "contentHash": "xUq9xUc653ue7ac2rMfCaf8UQN+U3zS8poWYlugycpvJllplMM0Mk7v/+MM0CTlu9zGvbGML4BPH8YWhrUOfGw==",
+        "dependencies": {
+          "Microsoft.Data.Sqlite.Core": "10.0.12",
+          "SQLitePCLRaw.bundle_e_sqlite3": "2.1.12",
+          "SQLitePCLRaw.core": "2.1.12"
+        }
       },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "CentralTransitive",

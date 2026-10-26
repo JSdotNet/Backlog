@@ -107,4 +107,20 @@ public sealed class SqliteRegistrationTests
         Assert.Same(store, provider.GetRequiredService<IImpedimentRepository>());
         Assert.Same(store, provider.GetRequiredService<IImpedimentReplicaStore>());
     }
+
+    [Fact]
+    public void The_notification_store_is_one_rooted_singleton()
+    {
+        var services = new ServiceCollection();
+        services.AddSqlite(_ => Path.GetTempPath());
+
+        var descriptor = Assert.Single(services, d => d.ServiceType == typeof(Backlog.Modules.Notifications.INotificationRepository));
+        Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
+
+        using var provider = services.BuildServiceProvider();
+
+        var store = provider.GetRequiredService<Backlog.Modules.Notifications.INotificationRepository>();
+        Assert.IsType<Backlog.Infrastructure.Sqlite.Notifications.RootedSqliteNotificationRepository>(store);
+        Assert.Same(store, provider.GetRequiredService<Backlog.Modules.Notifications.INotificationRepository>());
+    }
 }

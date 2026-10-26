@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// Which of the two C4 tabs draws group bands. The zoom tab asks the layout for them;
-/// the C4 tab does not, and local ADR 0039 holds its picture still while the two stand
+/// the C4 tab does not, and local ADR 0040 holds its picture still while the two stand
 /// side by side — so the C4 tab draws a grouped model exactly as it drew it before
 /// bands existed.
 /// </summary>

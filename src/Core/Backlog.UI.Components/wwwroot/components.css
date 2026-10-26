@@ -17731,7 +17731,7 @@ select.field__input {
 /* ---- the C4 zoom tab ------------------------------------------------------
 
    One model zoomed a level at a time, beside the C4 tab rather than inside it
-   (local ADR 0039). The zoom bar heads it: the current step ringed in the primary
+   (local ADR 0040). The zoom bar heads it: the current step ringed in the primary
    colour, a step that jumps drawn plain, a step still waiting on a selection
    drawn grey. Nothing here is reached by a .c4-explorer rule, so the C4 tab draws
    exactly as before.                                                           */
@@ -23371,3 +23371,106 @@ button.c4-code__record:focus-visible .c4-code__record-title {
     align-items: center;
     min-width: 0;
 }
+
+/* --- Notifications ---------------------------------------------------------
+   NotificationCard: one alert or question, read and answered in place. The kind
+   and severity are badges on the existing tones — a question reads gold like
+   every other thing that wants the person, critical takes the error tone — and
+   a settled card steps back to the secondary text colour, so the open ones lead
+   a list without a second palette. */
+
+.notification-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.notification-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.notification-card__meta {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.notification-card__title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.notification-card__summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.notification-card__body {
+    min-width: 0;
+}
+
+.notification-card__answer,
+.notification-card__open {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.notification-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.notification-card__choices {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.notification-card__legend {
+    padding: 0;
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.notification-card__outcome {
+    margin: 0;
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.notification-card--answered .notification-card__title,
+.notification-card--acknowledged .notification-card__title,
+.notification-card--closed .notification-card__title {
+    color: var(--color-text-secondary);
+}
+
+.badge--notification-question { background: var(--color-primary); color: var(--color-text-inverse); }
+.badge--notification-alert { background: var(--color-info); color: var(--color-text-primary); }
+/* The count of questions waiting on the shell's Notifications option: the question's gold,
+   as a small pill beside the label. */
+.badge--notification-waiting {
+    min-width: 1.25rem;
+    justify-content: center;
+    border-radius: var(--border-radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+.badge--severity-warning { background: var(--color-warning); color: var(--color-text-primary); }
+.badge--severity-critical { background: var(--color-error); color: var(--color-text-primary); }
+.badge--notification-state-answered { background: var(--color-success); color: var(--color-success-text); }
+.badge--notification-state-acknowledged { background: var(--color-background-raised); color: var(--color-text-secondary); }
+.badge--notification-state-closed { background: transparent; color: var(--color-text-disabled); border: var(--border-width) solid var(--color-border); }

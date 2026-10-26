@@ -64,6 +64,30 @@
     <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.4" />
 
     <!--
+      The client-side half of the realtime nudge (local ADR 0039 §4): it registers the
+      WebPubSubServiceClient that Backlog.Infrastructure.WebPubSub mints client access
+      URLs and publishes "pull now" through, with the managed identity as its
+      credential. Moves with the hosting packages above, like the Cosmos one.
+    -->
+    <PackageVersion Include="Aspire.Azure.Messaging.WebPubSub" Version="13.6.1" />
+
+    <!--
+      The Android push (local ADR 0039 §4): the Notification Hubs data-plane client that
+      Backlog.Infrastructure.NotificationHubs keeps each phone's FCM v1 installation
+      through and sends the data message with. No Aspire integration exists for it, and
+      the hub takes no managed identity, so the client is built from the SAS connection
+      strings Bicep puts into the container app's secrets. FCM v1 installations and
+      native sends arrived in 4.2.0.
+    -->
+    <PackageVersion Include="Microsoft.Azure.NotificationHubs" Version="4.2.0" />
+    <!--
+      Lifted from the 6.0.1 Microsoft.Azure.NotificationHubs above depends on, which carries
+      a high-severity advisory (GHSA-qj66-m88j-hmgj). Referenced directly by
+      Backlog.Infrastructure.NotificationHubs only, because transitive pinning is off.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
+
+    <!--
       Pinned to the version Aspire.Azure.Storage.Blobs above resolves
       transitively, for the reason Microsoft.Azure.Cosmos below is: the blob
       adapter stages and commits blocks through the SDK's own types, and naming a
@@ -106,7 +130,7 @@
     -->
     <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.2" />
     <!--
-      Syntax trees only, for the C4 zoom tab's Code level (local ADR 0039 §3):
+      Syntax trees only, for the C4 zoom tab's Code level (local ADR 0040 §3):
       Backlog.Infrastructure.Devbook parses a component's C# files with
       CSharpSyntaxTree.ParseText and never creates a compilation, so nothing
       here has to match the SDK's own compiler version.
@@ -197,6 +221,26 @@
     -->
     <PackageVersion Include="SkiaSharp" Version="4.153.1" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+    <!--
+      The Android push (local ADR 0039 §4): Firebase Cloud Messaging's token and
+      the data messages Notification Hubs relays, in the Android head only. The
+      Microsoft-maintained binding, with an explicit net10.0-android36.0 group;
+      its Play Services targets turn Platforms/Android/google-services.json into
+      the resources Firebase reads at start.
+    -->
+    <PackageVersion Include="Xamarin.Firebase.Messaging" Version="125.1.3" />
+    <!--
+      Firebase Messaging's Play Services graph lifts AndroidX Fragment, Collection
+      and Lifecycle past the versions MAUI's own -ktx packages are pinned to. Those
+      artifacts merged their -ktx classes into the main one, so the older -ktx left
+      beside a newer main artifact puts each class in the dex twice (D8 "defined
+      multiple times"). The Android head references these at the matching versions.
+    -->
+    <PackageVersion Include="Xamarin.AndroidX.Collection.Ktx" Version="1.6.0.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Fragment.Ktx" Version="1.9.0" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.LiveData" Version="2.11.0.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" Version="2.11.0.1" />
+    <PackageVersion Include="Xamarin.AndroidX.Lifecycle.Process" Version="2.11.0.1" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>

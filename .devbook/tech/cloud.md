@@ -282,17 +282,83 @@ a workspace-based Application Insights resource over it.
   system is busiest. This is a rule about what the service logs; no template can
   enforce it.
 
+## Azure Web PubSub
+
+```meta
+status: candidate
+type: service
+depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis"]
+related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/arc42/05-building-block-view.md#cloud-service"]
+alternatives: ["Server-sent events on the sync service"]
+```
+
+The realtime channel to the desktops (local ADR 0039).
+
+- **Used for** — telling a desktop to pull the `notifications` container now. A
+  desktop holds a WebSocket to one hub, and the sync service publishes to it when
+  a notification or a reply lands. The message carries no document.
+- **Why** — the hub holds the connections, so the sync service keeps scaling to
+  zero. An SSE stream on the sync service would hold a replica awake around the
+  clock.
+- **How** — the Free tier (`Free_F1`), which allows 20 concurrent connections
+  and 20,000 messages a day. That covers a personal setup. `infra/sync/main.bicep`
+  declares the resource with local auth off and a `notifications` hub that refuses
+  anonymous connects. The sync service reaches it with its managed identity, which
+  holds the Web PubSub Service Owner role. The service-side client is
+  `Aspire.Azure.Messaging.WebPubSub`, in `Backlog.Infrastructure.WebPubSub` alone.
+  A desktop holds a plain `ClientWebSocket` on the URL that negotiate hands it.
+  There is no emulator, so the Aspire run has no hub and polls.
+- **Status** — `candidate`: built and declared in Bicep, but not yet deployed or
+  used for real.
+
+## Azure Notification Hubs
+
+```meta
+status: candidate
+type: service
+depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis", ".devbook/tech/cloud.md#firebase-cloud-messaging"]
+related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/tech/mobile.md#android"]
+alternatives: ["Firebase Cloud Messaging called directly, with workload identity federation"]
+```
+
+The push service the sync service sends Android notifications through (local
+ADR 0039).
+
+- **Used for** — waking the Android phone with a data-only push that carries a
+  notification's id, kind, severity, state, title and summary, and never its
+  body.
+- **Why** — the sync service talks only to Azure, and the hub relays to
+  [Firebase Cloud Messaging](#firebase-cloud-messaging). Calling FCM directly
+  would need workload identity federation set up with `gcloud`, which is outside
+  the stack.
+- **How** — the Free tier, which allows one million pushes a month and 500
+  devices. Notification Hubs supports no managed identity. So
+  `infra/sync/main.bicep` declares a `sync-send` rule and a `sync-manage` rule on
+  the `backlog` hub, and passes both connection strings straight into container
+  app secrets; no person handles them. The service-side client is
+  `Microsoft.Azure.NotificationHubs` 4.2.0, in
+  `Backlog.Infrastructure.NotificationHubs` alone. It keeps one FCM v1
+  installation per phone and sends to the owner's tag. There is no emulator, so
+  the Aspire run has no hub and pushes nothing.
+- **Status** — `candidate`: built and declared in Bicep, not deployed.
+
 ## Firebase Cloud Messaging
 
 ```meta
 status: candidate
 type: service
-related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/tech/mobile.md#android"]
-alternatives: ["Azure Notification Hubs"]
+related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/tech/mobile.md#android", ".devbook/tech/mobile.md#xamarinfirebasemessaging", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md"]
 ```
 
-The push-notification transport to the phone client.
+The Android push transport behind
+[Azure Notification Hubs](#azure-notification-hubs) (local ADR 0039).
 
-- **Used for** — delivering sync and triage notifications to Android.
-- **Why** — the native push channel for Android, and it needs no additional
-  Azure resource.
+- **Used for** — delivering the hub's pushes to the Android phone. The sync
+  service never calls it directly.
+- **Why** — the native push channel for Android, and Android is the only phone
+  platform.
+- **How** — a one-time Firebase console setup. Its FCM v1 credential lives only
+  inside the hub, entered there by hand. The phone takes its token and the data
+  messages through
+  [Xamarin.Firebase.Messaging](mobile.md#xamarinfirebasemessaging).
+- **Status** — `candidate` until the first push reaches a phone.

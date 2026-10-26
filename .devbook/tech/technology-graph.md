@@ -18,7 +18,9 @@ These are still `candidate`:
 - the Visual Studio channel (`Visual Studio Extensibility` and `WPF`) and the
   VS Code webview UI;
 - the desktop's background workers, which are designed but not yet implemented;
-- `Firebase Cloud Messaging`, the push transport to the phone;
+- `Azure Web PubSub` and `Azure Notification Hubs`, the realtime nudge to the
+  desktops and the phone, `Firebase Cloud Messaging`, the push transport behind
+  the hub, and `Xamarin.Firebase.Messaging`, its binding on the phone;
 - the `Anthropic Claude Platform` and the `GitHub Copilot Usage APIs`, the two
   sources of measured AI usage.
 
@@ -136,6 +138,7 @@ flowchart LR
         subgraph Mobile["Mobile - Android capture and review"]
             OfflineStore["Local Offline Store"]:::adopted
             SkiaSharp["SkiaSharp"]:::adopted
+            FirebaseMessaging["Xamarin.Firebase.Messaging"]:::candidate
             AndroidTools["Android SDK Build Tools"]:::adopted
             APK["APK Packaging"]:::adopted
         end
@@ -155,6 +158,8 @@ flowchart LR
             AzureIdentity["Azure.Identity"]:::adopted
             BlobStorage["Azure Blob Storage"]:::trial
             ACA["Azure Container Apps"]:::trial
+            WebPubSub["Azure Web PubSub"]:::candidate
+            NotificationHubs["Azure Notification Hubs"]:::candidate
         end
     end
 
@@ -260,6 +265,8 @@ flowchart LR
     OfflineStore --> DataSqlite
     OfflineStore --> JSON
     SkiaSharp --> DotNet
+    FirebaseMessaging --> Android
+    FirebaseMessaging --> FCM
     AndroidTools --> Android
     AndroidTools --> JavaJdk
     APK --> Android
@@ -280,6 +287,9 @@ flowchart LR
     AzureIdentity --> DotNet
     ACA --> MinimalApis
     BlobStorage --> MinimalApis
+    WebPubSub --> MinimalApis
+    NotificationHubs --> MinimalApis
+    NotificationHubs --> FCM
 
     XUnit --> DotNet
     XUnit --> CSharp

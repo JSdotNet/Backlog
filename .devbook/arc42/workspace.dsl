@@ -69,7 +69,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
 
         group "Operations" {
             appInsights = softwareSystem "Application Insights" "Telemetry behind the monitoring dashboards." "External"
-            pushProvider = softwareSystem "Push Provider" "FCM, for Android alerts." "External"
+            pushProvider = softwareSystem "Push Provider" "Azure Notification Hubs, relaying to FCM, for Android alerts." "External"
         }
 
         # --- how the channels are used -------------------------------------------

@@ -13,6 +13,8 @@
     <!-- The goal and impediment aggregates, for the same reason: the tests build a goal
          by hand and assert what comes back. -->
     <ProjectReference Include="..\..\src\Modules\Progress\Backlog.Modules.Progress\Backlog.Modules.Progress.csproj" />
+    <!-- The notification aggregate, for the same reason. -->
+    <ProjectReference Include="..\..\src\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 
@@ -21,6 +23,10 @@
          registers rather than reading descriptors alone. Logging is the package
          in the central set that carries Microsoft.Extensions.DependencyInjection. -->
     <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\TestDoubles\RecordingNotifications.cs" Link="Shared\TestDoubles\RecordingNotifications.cs" />
   </ItemGroup>
 
 </Project>

@@ -55,7 +55,8 @@ public class McpToolCreationTests
         SurfaceTools.ListRuns,
         SurfaceTools.GetRun,
         GoalTools.ListGoals,
-        SessionRequestTools.ListSessionRequests
+        SessionRequestTools.ListSessionRequests,
+        NotificationTools.GetAnswer
     ];
 
     /// <summary>The one writer that destroys: <c>delete_goal</c> removes a goal and what
@@ -134,9 +135,11 @@ public class McpToolCreationTests
 
         Assert.Equal(
             [
+                NotificationTools.Ask,
                 GoalTools.AttachToGoal,
                 DevbookTools.CaptureNote,
                 SessionRequestTools.ClaimSessionRequest,
+                NotificationTools.Close,
                 TrackerTools.Comment,
                 GoalTools.CreateGoal,
                 TrackerTools.CreateItem,
@@ -146,6 +149,7 @@ public class McpToolCreationTests
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
                 SessionRequestTools.MarkSessionRequest,
+                NotificationTools.Notify,
                 SurfaceTools.OpenDashboard,
                 ImpedimentTools.RaiseImpediment,
                 SurfaceTools.RecordPrompt,
@@ -201,6 +205,14 @@ public class McpToolCreationTests
         Assert.Equal(["goalId"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "attach_to_goal")));
         Assert.Equal(["goalId"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "detach_from_goal")));
         Assert.Equal(["id"], schemas["delete_goal"]);
+        Assert.Equal(["title", "summary", "body", "severity", "sessionId"], schemas["notify"]);
+        Assert.Equal(
+            ["title", "choices", "allowMultiple", "openAnswer", "placeholder", "summary", "body", "severity", "sessionId"],
+            schemas["ask"]);
+        Assert.Equal(["id", "sessionId"], schemas["get_answer"]);
+        Assert.Equal(["id", "reason", "sessionId"], schemas["close"]);
+        Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "ask")));
+        Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "get_answer")));
         Assert.Equal(["id", "text"], schemas["comment"]);
         Assert.Equal(["id", "repository", "externalId"], schemas["link_change"]);
         Assert.Equal(["id", "repository", "sessionId"], schemas["link_session"]);
@@ -295,7 +307,8 @@ public class McpToolCreationTests
             [typeof(SurfaceTools)] = new SurfaceTools(new FakeDeliverySurfaceLifecycle()),
             [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments()),
             [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
-            [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore())
+            [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),
+            [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications())
         };
 
         foreach (var group in BacklogMcpTools.Groups)

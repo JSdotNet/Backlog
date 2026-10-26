@@ -66,6 +66,7 @@ public class StorybookOrderTests
         ["Metadata"] = ["devbook"],
         ["Metrics"] = ["usage-metrics", "productivity"],
         ["Notes"] = ["notes"],
+        ["Notifications"] = ["notification-card"],
         ["Overlays"] = ["overlays"],
         ["PhoneStandup"] = ["standup"],
         ["Roadmap"] = ["roadmap"],

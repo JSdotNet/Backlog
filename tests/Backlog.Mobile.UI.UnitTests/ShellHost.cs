@@ -29,11 +29,13 @@ internal sealed class ShellHost : IDisposable
         TimeProvider? clock,
         ScriptedTaskService? tasks = null,
         ITaskViewStore? taskView = null,
-        IAppUpdateService? updates = null)
+        IAppUpdateService? updates = null,
+        ScriptedNotificationService? notifications = null)
     {
         Inbox = inbox ?? new ScriptedInboxService();
         Tasks = tasks ?? new ScriptedTaskService();
-        _handler = new ScriptedSyncHandler(pair, Inbox, Tasks);
+        Notifications = notifications ?? new ScriptedNotificationService();
+        _handler = new ScriptedSyncHandler(pair, Inbox, Tasks, Notifications);
         Credentials = credentials;
 
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -75,6 +77,9 @@ internal sealed class ShellHost : IDisposable
     /// <summary>The service's side of the task feed.</summary>
     public ScriptedTaskService Tasks { get; }
 
+    /// <summary>The service's side of the notification feed and its replies.</summary>
+    public ScriptedNotificationService Notifications { get; }
+
     public NavigationManager Navigation => _context.Services.GetRequiredService<NavigationManager>();
 
     public DeviceOutbox Outbox => _context.Services.GetRequiredService<DeviceOutbox>();
@@ -104,8 +109,9 @@ internal sealed class ShellHost : IDisposable
         TimeProvider? clock = null,
         ScriptedTaskService? tasks = null,
         ITaskViewStore? taskView = null,
-        IAppUpdateService? updates = null) =>
-        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView, updates);
+        IAppUpdateService? updates = null,
+        ScriptedNotificationService? notifications = null) =>
+        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView, updates, notifications);
 
     /// <summary>Renders the app opened on <paramref name="route"/>, relative to
     /// the base address — "" is Today, and the default is the Inbox, which most
@@ -121,7 +127,8 @@ internal sealed class ShellHost : IDisposable
     private sealed class ScriptedSyncHandler(
         Func<HttpRequestMessage, int, CancellationToken, Task<HttpResponseMessage>>? pair,
         ScriptedInboxService inbox,
-        ScriptedTaskService tasks) : HttpMessageHandler
+        ScriptedTaskService tasks,
+        ScriptedNotificationService notifications) : HttpMessageHandler
     {
         private int _pairAttempts;
 
@@ -142,6 +149,11 @@ internal sealed class ShellHost : IDisposable
                             Encoding.UTF8,
                             "application/json")
                     };
+            }
+
+            if (path.StartsWith("/api/sync/notifications", StringComparison.Ordinal))
+            {
+                return await notifications.AnswerAsync(request, cancellationToken);
             }
 
             if (path.EndsWith("/api/sync/tasks", StringComparison.Ordinal))

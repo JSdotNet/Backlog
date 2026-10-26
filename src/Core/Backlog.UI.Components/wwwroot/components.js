@@ -5375,7 +5375,7 @@
         The C4 zoom tab's viewer.
 
         Separate from the C4 tab's viewer above on purpose: the two tabs stand side by
-        side until the zoom tab is validated (local ADR 0039), and nothing the zoom tab
+        side until the zoom tab is validated (local ADR 0040), and nothing the zoom tab
         needs may change how the C4 tab behaves. The C4 tab drills on one press; here
         one press selects and the zoom is a double-click, the card's Zoom in chip, or
         Enter.

@@ -8,7 +8,7 @@ namespace Backlog.UI.Components.Diagrams.C4;
 /// <para>
 /// Every option is off by default, and a writer handed no options draws exactly
 /// what it drew before options existed. The C4 tab's explorer never passes any; the
-/// C4 zoom tab passes the ones its navigation needs. That is the rule local ADR 0039
+/// C4 zoom tab passes the ones its navigation needs. That is the rule local ADR 0040
 /// sets for the two tabs while they stand side by side: the new one may ask the shared
 /// renderer for more, and the old one must not notice.
 /// </para>
