@@ -61,7 +61,7 @@ same plugin notices the entry marker and nudges the session to invoke the skill.
 ```meta
 status: adopted
 type: agent
-stage: [plan, code, test]
+stage: [specify, code, verify]
 depends-on: [".devbook/tech/ai-development.md#subagents", ".devbook/tech/ai-development.md#delivery-engine"]
 date: 2026-09-25
 ```
@@ -137,7 +137,7 @@ standing brief `CLAUDE.md` imports. The devbook plugin also installs a wrapper p
 ```meta
 status: adopted
 type: mcp-server
-stage: [plan, code, release]
+stage: [specify, code, integrate]
 depends-on: [".devbook/tech/ai-development.md#model-context-protocol-servers"]
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
 date: 2026-09-25
@@ -171,7 +171,7 @@ sequenceDiagram
 ```meta
 status: adopted
 type: mcp-server
-stage: [code, test, release]
+stage: [code, verify, integrate]
 depends-on: [".devbook/tech/ai-development.md#delivery-surfaces"]
 date: 2026-09-25
 ```

@@ -12,7 +12,7 @@ type: stage
 ```meta
 status: adopted
 type: workflow
-stage: [plan]
+stage: [specify]
 depends-on: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/ai/concepts.md#task-scoped-context", ".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-26
@@ -37,7 +37,7 @@ folder, runs the devbook check, and stops at Personal Validation before a pull r
 ```meta
 status: adopted
 type: skill
-stage: [plan]
+stage: [specify]
 depends-on: [".devbook/tech/ai-development.md#backlog-tools-plugin"]
 related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/ai/02-code.md#plan-items-pasted-into-a-session"]
 date: 2026-09-25
@@ -61,7 +61,7 @@ session runs a `prompt` step, and only a person does a `task` or `test` step. Ea
 ```meta
 status: trial
 type: skill
-stage: [plan]
+stage: [specify]
 depends-on: [".devbook/tech/ai-development.md#agent-skills"]
 date: 2026-09-26
 ```
@@ -82,7 +82,7 @@ reference each estimate was compared with.
 ```meta
 status: trial
 type: skill
-stage: [plan]
+stage: [specify]
 depends-on: [".devbook/tech/ai-development.md#backlog-tools-plugin", ".devbook/tech/ai-development.md#model-context-protocol-servers"]
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md"]
 date: 2026-09-26

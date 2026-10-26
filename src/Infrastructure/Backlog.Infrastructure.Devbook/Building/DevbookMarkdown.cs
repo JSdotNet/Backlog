@@ -220,7 +220,7 @@ internal static partial class DevbookMarkdown
         return start == 0 && end == value.Length ? value : value[start..end];
     }
 
-    private static bool IsJsWhitespace(char c) =>
+    internal static bool IsJsWhitespace(char c) =>
         (int)c is 0x09 or 0x0a or 0x0b or 0x0c or 0x0d or 0x20 or 0xa0 or 0x1680
             or (>= 0x2000 and <= 0x200a)
             or 0x2028 or 0x2029 or 0x202f or 0x205f or 0x3000 or 0xfeff;

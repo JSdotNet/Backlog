@@ -14,7 +14,7 @@ type: stage
 ```meta
 status: trial
 type: skill
-stage: [release]
+stage: [integrate]
 depends-on: [".devbook/tech/ai-development.md#delivery-engine"]
 related: [".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-25
@@ -34,7 +34,7 @@ repairs failing checks, and answers review findings, through the delivery engine
 ```meta
 status: candidate
 type: skill
-stage: [monitor]
+stage: [operate]
 depends-on: [".devbook/tech/ai-development.md#delivery-engine"]
 date: 2026-09-25
 ```
