@@ -91,7 +91,9 @@ public static class NotificationPayloads
     };
 
     /// <summary>The change to push for <paramref name="snapshot"/>, stamped
-    /// <paramref name="updatedAt"/>, naming its owner as <paramref name="ownerName"/>.</summary>
+    /// <paramref name="updatedAt"/>, naming its owner as <paramref name="ownerName"/>, with the
+    /// Android push preview on its envelope (local ADR 0038 §4) — a private notification's
+    /// without its summary, which then never leaves this desktop in a push.</summary>
     public static NotificationChange ToChange(
         NotificationSnapshot snapshot,
         IReadOnlyList<NotificationReplyRejection> rejected,
@@ -106,8 +108,36 @@ public static class NotificationPayloads
             snapshot.OwnerInstanceId,
             StateOf(snapshot.State),
             updatedAt,
-            JsonSerializer.SerializeToElement(new NotificationPayload(snapshot, rejected, ownerName), Options));
+            JsonSerializer.SerializeToElement(new NotificationPayload(snapshot, rejected, ownerName), Options),
+            PreviewOf(snapshot));
     }
+
+    /// <summary>What the Android push may say about <paramref name="snapshot"/>: kind and
+    /// severity as the payload writes them, the title, and the summary unless it is private.</summary>
+    public static NotificationPushPreview PreviewOf(NotificationSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        return new NotificationPushPreview(
+            KindOf(snapshot.Kind),
+            SeverityOf(snapshot.Severity),
+            snapshot.Title,
+            snapshot.IsPrivate ? null : snapshot.Summary,
+            snapshot.IsPrivate);
+    }
+
+    private static string KindOf(NotificationKind kind) => kind switch
+    {
+        NotificationKind.Alert => NotificationKinds.Alert,
+        NotificationKind.Question => NotificationKinds.Question,
+    };
+
+    private static string SeverityOf(NotificationSeverity severity) => severity switch
+    {
+        NotificationSeverity.Info => NotificationSeverities.Info,
+        NotificationSeverity.Warning => NotificationSeverities.Warning,
+        NotificationSeverity.Critical => NotificationSeverities.Critical,
+    };
 
     /// <summary>The payload a change carries, or null for one this build cannot read.</summary>
     public static NotificationPayload? Read(NotificationChange change)

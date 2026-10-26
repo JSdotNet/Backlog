@@ -161,6 +161,7 @@ The system SHALL reject a reply that does not fit the answer spec with its reaso
 ```meta
 status: proposed
 type: requirement
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.NotificationPushEndpointTests.A_published_notification_is_pushed_to_its_owner_once, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.NotificationPushEndpointTests.The_hub_is_sent_a_data_only_fcm_v1_message_at_high_priority, unit:dotnet:Backlog.Mobile.UI.UnitTests.PushActionsTests, unit:dotnet:Backlog.Mobile.UI.UnitTests.PushTrayTests, unit:dotnet:Backlog.Mobile.UI.UnitTests.PushMessageTests, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationOpenRequestTests]
 ```
 
 The system SHALL deliver notifications to a phone only on Android.
@@ -168,8 +169,14 @@ The system SHALL deliver notifications to a phone only on Android.
 #### Scenario: A phone receives a question
 
 - **Given** a paired Android phone
-- **When** Desktop A publishes a question
-- **Then** the phone shows an OS notification with the title and summary, and set choices as notification actions
+- **When** Desktop A publishes a single-choice question with up to three choices
+- **Then** the phone shows an OS notification with the title and summary, and one action per choice
+
+#### Scenario: A question the tray cannot answer whole
+
+- **Given** a paired Android phone
+- **When** Desktop A publishes a multiple-choice question, or one that says `answerOn: owner`
+- **Then** the phone shows an OS notification with no actions, and a tap opens the question in the app
 
 ## Asking from the contexts
 

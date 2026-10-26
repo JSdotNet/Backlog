@@ -58,6 +58,15 @@ public static class MobileShellServiceCollectionExtensions
         services.TryAddSingleton(_ => SyncAppVersion.OfEntryAssembly());
         services.TryAddSingleton<SyncCompatibility>();
 
+        // The Android push (local ADR 0038 §4): a tap in the tray handed to the layout, and the
+        // registration of this install's push token. The Android head registers Firebase's
+        // token source first; every other host has no OS push, so its source answers no token
+        // and nothing is ever registered. Singletons, because the head raises both from outside
+        // any scope.
+        services.TryAddSingleton<NotificationOpenRequests>();
+        services.TryAddSingleton<IPushTokenSource, NoPushTokenSource>();
+        services.TryAddSingleton<PushRegistration>();
+
         return services;
     }
 

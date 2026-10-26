@@ -760,11 +760,12 @@ TTL-based, and never canonical domain data or external credentials (local ADR 00
 
 "Cloud Service" names where this container runs; the code is named after what it
 does. It is implemented by `src/Modules/Sync/Backlog.Modules.Sync.Api` and appears
-in the Aspire app model as the `sync` resource. Only the Sync Service component
-below is built. The notification service is decided and is being built
-(local ADR 0038). The webhook receiver and PC registry are not built.
+in the Aspire app model as the `sync` resource. The Sync Service and Notification
+Service components below are built. The notification service's Azure resources
+are declared in Bicep and not deployed (local ADR 0038). The webhook receiver and
+PC registry are not built.
 
-The sync service is five projects:
+The sync service is seven projects:
 
 ```mermaid
 flowchart LR
@@ -773,29 +774,38 @@ flowchart LR
   Abs["Backlog.Modules.Sync.Abstractions\n(contracts, error codes)"]
   Cosmos["Backlog.Infrastructure.Cosmos\n(replica ports, device registry)"]
   Blob["Backlog.Infrastructure.BlobStorage\n(IAttachmentStore)"]
-  CosmosDb[("Cosmos DB\ntasks, sessions, annotations,\ndevices, pairingCodes")]
-  Storage[("Blob container\nattachments")]
+  WebPubSub["Backlog.Infrastructure.WebPubSub\n(INotificationNudgeChannel)"]
+  Hubs["Backlog.Infrastructure.NotificationHubs\n(INotificationPushChannel)"]
 
   Api --> Module
   Api --> Abs
   Module --> Abs
   Cosmos -->|implements ports| Module
   Blob -->|implements port| Module
-  Cosmos --> CosmosDb
-  Blob --> Storage
+  WebPubSub -->|implements port| Module
+  Hubs -->|implements port| Module
 ```
+
+Each adapter project is the only one that references its Azure SDK. Cosmos DB,
+the `attachments` blob container, the Web PubSub hub and the Notification Hubs
+hub sit behind them, as [Cloud Deployment (Azure)](07-deployment-view.md#cloud-deployment-azure)
+shows.
 
 - `Backlog.Modules.Sync.Abstractions` carries the contracts and error codes both
   sides reference.
 - `Backlog.Modules.Sync` holds the domain logic behind ports: device registration,
   pairing-code issuance and redemption, and device-token issuance. Its `Ports`
-  declare `ITaskReplica`, `ISessionReplica`, `IAnnotationReplica` and
-  `IAttachmentStore`. Its `Adapters` hold an in-memory stand-in for each, for the
-  endpoint tests and for a run with no Cosmos configured.
+  declare `ITaskReplica`, `ISessionReplica`, `IAnnotationReplica`,
+  `INotificationReplica`, `IAttachmentStore`, `INotificationNudgeChannel` and
+  `INotificationPushChannel`. Its `Adapters` hold an in-memory stand-in for each
+  store, for the endpoint tests and for a run with no Cosmos configured. The two
+  channels get a no-op stand-in instead, `NoNotificationNudgeChannel` and
+  `NoNotificationPushChannel`, for a run with no hub, Aspire included.
 - `Backlog.Modules.Sync.Api` wires the module to HTTP, JWT-bearer authentication,
   and the owner-scoping filter.
 - `Backlog.Infrastructure.Cosmos` implements the replica ports against the
-  `tasks`, `sessions` and `annotations` containers (local ADRs 0005 and 0011). It
+  `tasks`, `sessions`, `annotations`, `notifications` and `notificationReplies`
+  containers (local ADRs 0005, 0011 and 0038). It
   serves the device registry and pairing-code store from `devices` and
   `pairingCodes`, so a registration survives a restart of the service. It is the
   only project that references the Cosmos SDK, so the API head depends on a port
@@ -803,6 +813,12 @@ flowchart LR
 - `Backlog.Infrastructure.BlobStorage` implements `IAttachmentStore` against the
   `attachments` blob container (local ADR 0014). It is the only project that
   references the Storage SDK.
+- `Backlog.Infrastructure.WebPubSub` implements `INotificationNudgeChannel`: it
+  hands a desktop its socket URL and publishes "pull now" to an owner's group.
+- `Backlog.Infrastructure.NotificationHubs` implements `INotificationPushChannel`
+  through `Microsoft.Azure.NotificationHubs`. It keeps one FCM v1 installation per
+  phone and sends a data-only push to the owner's tag. It sends with the hub's
+  `sync-send` rule and keeps installations with `sync-manage`.
 
 The API head serves sessions and annotations as one route each,
 `/api/sync/sessions` and `/api/sync/annotations`. A device pushes a batch with
@@ -821,7 +837,10 @@ Notifications have two containers (local ADR 0038). The owner desktop pushes to
 `POST /api/sync/notifications`, every device reads the feed from
 `GET /api/sync/notifications`, and a viewer posts a reply to
 `POST /api/sync/notifications/replies`. The owner instance lists the replies
-addressed to it and deletes each once processed.
+addressed to it and deletes each once processed. A desktop asks
+`GET /api/sync/notifications/negotiate` for its Web PubSub socket URL. A phone
+hands its FCM token to `PUT /api/sync/notifications/push`, which answers whether
+the service registered it.
 
 The Cosmos database therefore holds seven containers. `tasks`, `sessions`,
 `annotations`, `notifications` and `notificationReplies` are partitioned on the
@@ -847,7 +866,7 @@ flowchart TB
       NotificationService["Notification Service\n(Web PubSub, Notification Hubs)"]
     end
     subgraph "Data Layer"
-      DB["Cosmos DB (sync state only)\ntasks, sessions, annotations,\ndevices, pairingCodes"]
+      DB["Cosmos DB (sync state only)\ntasks, sessions, annotations,\nnotifications, notificationReplies,\ndevices, pairingCodes"]
       Blobs["Attachment Store\n(capture files, 30-day backstop)"]
     end
   end
@@ -880,9 +899,9 @@ Cloud components:
 | Component | Responsibility |
 |---|---|
 | **API Gateway & Auth** | Minimal REST surface; GitHub OAuth for webhook registration; JWT device sessions; rate limiting. |
-| **Sync Service** | The only domain-aware service; stores sync *state*, never the canonical domain data; delta push/pull of the task, session and annotation replicas, the capture inbox, and attachments; conflict listing/resolution. |
+| **Sync Service** | The only domain-aware service; stores sync *state*, never the canonical domain data; delta push/pull of the task, session, annotation and notification replicas, the capture inbox, and attachments; conflict listing/resolution. |
 | **GitHub Webhook Receiver** | Validates HMAC-SHA256, stores events (TTL 24h), forwards to desktop; never processes domain data. |
-| **Notification Service** | Tells a device to pull the `notifications` container, and carries no document itself. The sync service publishes to an Azure Web PubSub hub (Free tier) that desktops hold a WebSocket to. It sends Android pushes through Azure Notification Hubs (Free tier), which relays them to FCM. A push carries only an id, a title and a summary. Bicep passes the hub's Send-only key into a container app secret. Decided and being built, no longer reserved: local ADR 0038. |
+| **Notification Service** | Tells a device to pull the `notifications` container, and carries no document itself. The sync service publishes to an Azure Web PubSub hub (Free tier) that desktops hold a WebSocket to. It sends Android pushes through Azure Notification Hubs (Free tier), which relays them to FCM, only when a notification is published or changes state. A push is a data-only FCM v1 message holding the id, kind, severity, state, title and summary from the owner's push preview, never the body. Bicep passes two SAS keys, Send and Manage, into container app secrets. Built and declared in Bicep, not deployed: local ADR 0038. |
 | **Remote PC Registry & WoL Relay** | Register machines, heartbeat, Wake-on-LAN relay, connection details. |
 
 

@@ -21,6 +21,7 @@ using Backlog.Modules.Sync.Features.PushSessions;
 using Backlog.Modules.Sync.Features.PushTasks;
 using Backlog.Modules.Sync.Features.ReadAttachment;
 using Backlog.Modules.Sync.Features.RedeemPairingCode;
+using Backlog.Modules.Sync.Features.RegisterPushInstallation;
 using Backlog.Modules.Sync.Features.RegisterFirstDevice;
 using Backlog.Modules.Sync.Features.StoreAttachment;
 using Backlog.Modules.Sync.Ports;
@@ -69,6 +70,7 @@ public static class SyncModuleRegistration
         services.AddScoped<IQueryHandler<ListNotificationRepliesQuery, Result<PullNotificationRepliesResponse>>, ListNotificationRepliesQueryHandler>();
         services.AddScoped<ICommandHandler<DeleteNotificationReplyCommand, Result>, DeleteNotificationReplyCommandHandler>();
         services.AddScoped<IQueryHandler<NegotiateNotificationNudgeQuery, Result<NotificationNudgeNegotiateResponse>>, NegotiateNotificationNudgeQueryHandler>();
+        services.AddScoped<ICommandHandler<RegisterPushInstallationCommand, Result<RegisterPushInstallationResponse>>, RegisterPushInstallationCommandHandler>();
         services.AddScoped<IQueryHandler<ListInboxQuery, Result<IReadOnlyList<InboxItem>>>, ListInboxQueryHandler>();
         services.AddScoped<ICommandHandler<CaptureInboxItemCommand, Result<CaptureOutcome>>, CaptureInboxItemCommandHandler>();
         services.AddScoped<ICommandHandler<AcknowledgeInboxItemCommand, Result>, AcknowledgeInboxItemCommandHandler>();
@@ -93,6 +95,7 @@ public static class SyncModuleRegistration
         services.TryAddSingleton<IAnnotationReplica, InMemoryAnnotationReplica>();
         services.TryAddSingleton<INotificationReplica, InMemoryNotificationReplica>();
         services.TryAddSingleton<INotificationNudgeChannel, NoNotificationNudgeChannel>();
+        services.TryAddSingleton<INotificationPushChannel, NoNotificationPushChannel>();
         services.TryAddSingleton<IAttachmentStore, InMemoryAttachmentStore>();
 
         return services;

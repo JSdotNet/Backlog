@@ -126,7 +126,9 @@ public sealed class NotificationsSettingsTests : IDisposable
         page.Find(SendAlert).Click();
 
         page.WaitForAssertion(() => Assert.StartsWith("Published: ", Step(page, "published"), StringComparison.Ordinal));
-        Assert.Equal($"Pushed to the phone: {NotificationsSettings.PushNotReported}", Step(page, "pushed"));
+        // A literal, not the constant: the reason is what a person reads, and it has to stay
+        // true now that the phone push is sent — it is the delivery receipt that is missing.
+        Assert.Equal("Pushed to the phone: Not reported — the phone push carries no delivery receipt", Step(page, "pushed"));
         Assert.Equal("Acknowledged: Not yet", Step(page, "answered"));
         Assert.Equal("Closed: Open", Step(page, "closed"));
         Assert.Contains("setting__check-step--passed", page.Find("[data-testid='notifications-test-step-published']").ClassName, StringComparison.Ordinal);

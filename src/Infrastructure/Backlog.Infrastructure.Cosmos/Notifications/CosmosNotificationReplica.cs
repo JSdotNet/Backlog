@@ -51,11 +51,12 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
     {
         ArgumentNullException.ThrowIfNull(changes);
 
-        if (changes.Count == 0) return new NotificationUpsertResult(0, []);
+        if (changes.Count == 0) return new NotificationUpsertResult(0, [], []);
 
         var container = await _notifications.ContainerAsync(cancellationToken).ConfigureAwait(false);
         var partition = new PartitionKey(ReplicaDocumentSerialization.Key(scope.OwnerId.Value));
         var notOwned = new ConcurrentQueue<Guid>();
+        var moved = new ConcurrentDictionary<NotificationChange, bool>(ReferenceEqualityComparer.Instance);
 
         var accepted = await ReplicaWrites.WriteAllAsync(
             changes,
@@ -64,15 +65,22 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
             {
                 var outcome = await WriteAsync(container, partition, scope, change, token).ConfigureAwait(false);
                 if (outcome is WriteOutcome.NotOwned) notOwned.Enqueue(change.Id);
-                return outcome is WriteOutcome.Written;
+                if (outcome is WriteOutcome.Transition) moved[change] = true;
+                return outcome is WriteOutcome.Written or WriteOutcome.Transition;
             },
             cancellationToken).ConfigureAwait(false);
 
-        return new NotificationUpsertResult(accepted, [.. notOwned]);
+        // In the push's own order, whatever order the parallel writes finished in.
+        return new NotificationUpsertResult(accepted, [.. notOwned], [.. changes.Where(moved.ContainsKey)]);
     }
 
-    private enum WriteOutcome
+    internal enum WriteOutcome
     {
+        /// <summary>Written, and new here or in another state than the one held: a phone is
+        /// pushed (ADR 0038 §4).</summary>
+        Transition,
+
+        /// <summary>Written, in the state already held — the owner's presence refresh.</summary>
         Written,
         Stale,
         NotOwned
@@ -81,7 +89,6 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
     private async Task<WriteOutcome> WriteAsync(Container container, PartitionKey partition, OwnerScope scope, NotificationChange change, CancellationToken cancellationToken)
     {
         var id = ReplicaDocumentSerialization.Key(change.Id);
-        var instance = ReplicaDocumentSerialization.Key(change.OwnerInstanceId);
 
         for (var attempt = 1; attempt <= WriteAttempts; attempt++)
         {
@@ -103,11 +110,8 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
                 throw Fault(failure);
             }
 
-            if (held is not null)
-            {
-                if (!string.Equals(held.OwnerInstanceId, instance, StringComparison.Ordinal)) return WriteOutcome.NotOwned;
-                if (change.UpdatedAt < held.UpdatedAt) return WriteOutcome.Stale;
-            }
+            var decision = Decide(held, change);
+            if (decision is WriteOutcome.NotOwned or WriteOutcome.Stale) return decision;
 
             var document = NotificationDocumentFactory.From(scope, change, _options);
 
@@ -122,7 +126,7 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
                     await container.ReplaceItemAsync(document, id, partition, new ItemRequestOptions { IfMatchEtag = etag }, cancellationToken).ConfigureAwait(false);
                 }
 
-                return WriteOutcome.Written;
+                return decision;
             }
             catch (CosmosException failure) when (failure.StatusCode is HttpStatusCode.PreconditionFailed or HttpStatusCode.Conflict)
             {
@@ -137,6 +141,23 @@ internal sealed class CosmosNotificationReplica : INotificationReplica
         }
 
         throw new SyncReplicaException(SyncErrorCodes.ReplicaBusy, "The notification replica is busy. Try again shortly.");
+    }
+
+    /// <summary>
+    /// What writing <paramref name="change"/> over <paramref name="held"/> — the document read
+    /// just before, or null when there is none — would be: refused as another owner instance's
+    /// or as older than the one held, or written, and then a transition when it is new here or
+    /// moves the state held (ADR 0038 §4: only those reach a phone).
+    /// </summary>
+    internal static WriteOutcome Decide(NotificationDocument? held, NotificationChange change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        if (held is null) return WriteOutcome.Transition;
+        if (!string.Equals(held.OwnerInstanceId, ReplicaDocumentSerialization.Key(change.OwnerInstanceId), StringComparison.Ordinal)) return WriteOutcome.NotOwned;
+        if (change.UpdatedAt < held.UpdatedAt) return WriteOutcome.Stale;
+
+        return string.Equals(held.State, change.State, StringComparison.Ordinal) ? WriteOutcome.Written : WriteOutcome.Transition;
     }
 
     public async Task<NotificationReplicaPage> ReadChanges(OwnerId owner, NotificationReplicaCursor? cursor, int maxItems, CancellationToken cancellationToken = default)

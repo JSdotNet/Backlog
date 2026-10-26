@@ -7,6 +7,7 @@ using Backlog.Modules.Sync.Features.NegotiateNotificationNudge;
 using Backlog.Modules.Sync.Features.PostNotificationReply;
 using Backlog.Modules.Sync.Features.PullNotifications;
 using Backlog.Modules.Sync.Features.PushNotifications;
+using Backlog.Modules.Sync.Features.RegisterPushInstallation;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -28,6 +29,11 @@ namespace Backlog.Modules.Sync.Api.Endpoints;
 /// A sixth route, negotiate, hands a desktop the Web PubSub URL its nudge socket opens on
 /// (ADR 0038 §4), behind the same filter: the group in the URL is the token's owner, so no
 /// device can listen to another owner's nudges.
+/// </para>
+/// <para>
+/// A seventh, push, takes a phone's FCM token for the Android push (ADR 0038 §4), behind the
+/// same filter once more: the installation is tagged with the token's owner and device, so no
+/// phone can register to hear another owner's notifications.
 /// </para>
 /// </summary>
 internal static class NotificationSyncEndpoints
@@ -67,6 +73,10 @@ internal static class NotificationSyncEndpoints
 
         notifications.MapGet(SyncRoutes.NotificationNudge, NegotiateNudge)
             .WithSummary("Hands the calling device a Web PubSub client access URL for its owner's nudge group, or none where the service runs without one.");
+
+        notifications.MapPut(SyncRoutes.NotificationPush, RegisterPush)
+            .WithMetadata(new RequestBodyLimit(SyncRequestLimits.PushRegistrationBodyBytes))
+            .WithSummary("Keeps the calling phone's push installation for its FCM token, tagged with its owner and device, or answers not registered where the service runs without a hub.");
 
         return sync;
     }
@@ -163,6 +173,25 @@ internal static class NotificationSyncEndpoints
         CancellationToken cancellationToken)
     {
         var result = await handler.Handle(new NegotiateNotificationNudgeQuery(context.GetOwnerScope()), cancellationToken);
+
+        return SyncResults.From(context, result, Results.Ok);
+    }
+
+    private static async Task<IResult> RegisterPush(
+        HttpContext context,
+        RegisterPushInstallationRequest? request,
+        ICommandHandler<RegisterPushInstallationCommand, Result<RegisterPushInstallationResponse>> handler,
+        CancellationToken cancellationToken)
+    {
+        if (NotificationPushLimits.WhyRefused(request) is { } reason)
+        {
+            return SyncResults.From(
+                context,
+                Result.Failure<RegisterPushInstallationResponse>(Error.Validation(SyncErrorCodes.PushTokenInvalid, reason)),
+                Results.Ok);
+        }
+
+        var result = await handler.Handle(new RegisterPushInstallationCommand(context.GetOwnerScope(), request!.FcmToken!), cancellationToken);
 
         return SyncResults.From(context, result, Results.Ok);
     }

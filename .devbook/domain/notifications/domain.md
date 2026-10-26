@@ -31,13 +31,14 @@ instance writes it, so only the owner decides which [Reply](#reply) becomes the
 Its content is meant to be shown on every channel:
 
 - The title holds at most 80 characters, and the summary at most 180, both plain
-  text. Only these two leave the replica in an OS notification or a push
-  payload.
+  text. They are the only content that leaves the replica in an OS notification
+  or a push payload. A push also names the notification's id, kind, severity and
+  state.
 - The body is Markdown, with Mermaid diagrams and images. Images travel as
   attachments through the blob store
   (`.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md`).
-- A source can mark a notification private. Its summary is then replaced by a
-  fixed text outside the app.
+- A source can mark a notification private. Outside the app its summary then
+  reads "Backlog has a question for you".
 - A notification may carry a deep link that opens the item that raised it.
 
 A notification has no deadline and no default answer. A question stays open until

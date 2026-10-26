@@ -250,6 +250,10 @@ internal static class SyncRequestLimits
     /// <summary>The most one reply post may weigh: 64 KB, far above an open answer
     /// at <see cref="NotificationRecordLimits.ReplyTextLength"/> characters.</summary>
     internal const long NotificationReplyBodyBytes = 64L * 1024;
+
+    /// <summary>The most one push registration may weigh: 16 KB, far above an FCM token at
+    /// <see cref="NotificationPushLimits.FcmTokenLength"/> characters.</summary>
+    internal const long PushRegistrationBodyBytes = 16L * 1024;
 }
 
 

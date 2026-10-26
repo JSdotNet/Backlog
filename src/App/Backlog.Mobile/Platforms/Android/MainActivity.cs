@@ -1,9 +1,14 @@
+using Android;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 
+using AndroidX.Core.App;
+using AndroidX.Core.Content;
+
 using Backlog.Mobile.Services;
+using Backlog.Mobile.UI.Notifications;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,6 +35,8 @@ public class MainActivity : MauiAppCompatActivity
         // built the layout that captures it, which is why the receiver buffers
         // rather than just raising an event.
         Forward(Intent);
+
+        AskToNotify();
     }
 
     /// <summary>A share into an app that is already running, thanks to
@@ -66,6 +73,36 @@ public class MainActivity : MauiAppCompatActivity
     /// field: the activity can outlive a MauiApp rebuild, and a stale receiver
     /// would publish into a buffer nothing is subscribed to.
     /// </summary>
-    private static void Forward(Intent? intent) =>
-        IPlatformApplication.Current?.Services.GetService<AndroidShareTargetReceiver>()?.Receive(intent);
+    private static void Forward(Intent? intent)
+    {
+        var services = IPlatformApplication.Current?.Services;
+
+        services?.GetService<AndroidShareTargetReceiver>()?.Receive(intent);
+
+        // A tap on a notification in the tray (PushTrayPresenter): the layout opens its
+        // detail, now or once it is drawn. Cleared once read, like a share, so a recreated
+        // activity handed the same intent does not open it again.
+        if (intent?.Action == PushTrayPresenter.OpenAction
+            && Guid.TryParse(intent.GetStringExtra(PushTrayPresenter.NotificationIdExtra), out var notificationId))
+        {
+            intent.RemoveExtra(PushTrayPresenter.NotificationIdExtra);
+            services?.GetService<NotificationOpenRequests>()?.Request(notificationId);
+        }
+    }
+
+    /// <summary>
+    /// Android 13 and later show a notification only once the person allowed it, so the app
+    /// asks at start until they have answered; earlier versions allow it by default. Declining
+    /// leaves the app as it was — the Notifications tab still shows every question.
+    /// </summary>
+    private void AskToNotify()
+    {
+        if (!OperatingSystem.IsAndroidVersionAtLeast(33)) return;
+        if (ContextCompat.CheckSelfPermission(this, Manifest.Permission.PostNotifications) == Permission.Granted) return;
+
+        ActivityCompat.RequestPermissions(this, [Manifest.Permission.PostNotifications], NotifyPermissionRequest);
+    }
+
+    /// <summary>The request code of <see cref="AskToNotify"/>; nothing waits on its answer.</summary>
+    private const int NotifyPermissionRequest = 3801;
 }

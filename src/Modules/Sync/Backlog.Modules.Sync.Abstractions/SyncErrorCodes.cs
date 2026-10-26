@@ -105,6 +105,16 @@ public static class SyncErrorCodes
     /// success with no URL, which says there is no hub and is asked again only rarely.</summary>
     public const string NudgeUnavailable = "sync.nudge_unavailable";
 
+    /// <summary>A push registration whose FCM token is missing, blank, holds whitespace, or is
+    /// longer than any token Firebase issues. Mapped to 400: the phone has to send its token,
+    /// not the same body again.</summary>
+    public const string PushTokenInvalid = "sync.push_token_invalid";
+
+    /// <summary>The service has a push hub but could not keep the phone's installation just now
+    /// (local ADR 0038 §4). A 503 under its own code, so the phone registers again later —
+    /// unlike a success with <c>registered: false</c>, which says there is no hub.</summary>
+    public const string PushUnavailable = "sync.push_unavailable";
+
     /// <summary>More task changes in one push than the service will take. The
     /// client batches well below the cap, so reaching it is either a client that
     /// stopped batching or a caller that is not one of ours.</summary>

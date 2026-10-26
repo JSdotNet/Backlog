@@ -132,6 +132,12 @@ internal static class SyncResults
 
         // A nudge hub that did not mint a URL just now: the desktop retries soon.
         SyncErrorCodes.NudgeUnavailable => StatusCodes.Status503ServiceUnavailable,
+
+        // A push registration with no usable FCM token: the phone has to send one.
+        SyncErrorCodes.PushTokenInvalid => StatusCodes.Status400BadRequest,
+
+        // A push hub that did not keep the installation just now: the phone registers again later.
+        SyncErrorCodes.PushUnavailable => StatusCodes.Status503ServiceUnavailable,
         _ => error.Type switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,

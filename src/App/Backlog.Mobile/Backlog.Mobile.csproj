@@ -48,15 +48,24 @@
 
     <!-- Firebase project backlog-push's Android app config, registered for
          com.jsdotnet.backlog.mobile (local ADR 0038): identifiers, not secrets.
-         The Firebase messaging package's targets turn it into Android resources;
-         until that package is referenced, the item is inert. The Razor SDK's
-         default glob also takes every .json as Content copied to the output;
-         the Remove keeps this file to its one build action. -->
+         The Firebase messaging package's targets turn it into Android resources.
+         The Razor SDK's default glob also takes every .json as Content copied to
+         the output; the Remove keeps this file to its one build action. -->
     <ItemGroup>
         <Content Remove="Platforms\Android\google-services.json" />
     </ItemGroup>
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
         <GoogleServicesJson Include="Platforms\Android\google-services.json" />
+        <!-- The Android push (local ADR 0038 §4): the FCM token this install
+             registers with the sync service, and the data messages Notification
+             Hubs relays to Services/BacklogFirebaseMessagingService. -->
+        <PackageReference Include="Xamarin.Firebase.Messaging" />
+        <!-- Aligned with what Firebase's graph lifts AndroidX to; Directory.Packages.props says why. -->
+        <PackageReference Include="Xamarin.AndroidX.Collection.Ktx" />
+        <PackageReference Include="Xamarin.AndroidX.Fragment.Ktx" />
+        <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData" />
+        <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" />
+        <PackageReference Include="Xamarin.AndroidX.Lifecycle.Process" />
     </ItemGroup>
 
     <ItemGroup>

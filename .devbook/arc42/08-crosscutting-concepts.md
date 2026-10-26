@@ -420,7 +420,8 @@ replica containers, the sync routes and the owner desktop's exchange, and the
 desktops' Web PubSub nudge. So are the first publishers: a run's Personal
 Validation, the device that redeemed a pairing code, and a remark left on another
 device. So are the screens: the desktop's notification centre and the phone's
-list and answer screens. The Android phone push is not yet.
+list and answer screens. So is the Android phone push, declared in Bicep and not
+deployed; no push reaches a phone until the hub has its FCM credential.
 
 | Concern | How it works |
 |---|---|
@@ -429,18 +430,23 @@ list and answer screens. The Android phone push is not yet.
 | Ending | The context that owns a notification's subject calls `CloseForSubjectAsync` when the subject ends. It calls it from wherever it notices the end — a change synced in from another device included, since the context applies that change itself. Its `INotificationSubjectProbe` answers at startup and after a sync, to catch an end the owner missed. |
 | Storage | The owner keeps SQLite as its local store. Notifications replicate through the `notifications` container, which expires them 30 days after they close. Replies wait in `notificationReplies` until the owner deletes them. |
 | Exchange | The owner desktop pushes what it published or settled, and while a question is open lists the replies addressed to it every two minutes. It accepts the first valid reply, rejects the rest as already answered, closed or invalid, and puts each rejection on the notification it pushes next. A quiet desktop sends nothing. |
-| Realtime | A nudge only says "pull now". Desktops get it through Azure Web PubSub, one group per owner, on a socket the sync service's negotiate route hands out. The Android phone gets it through Azure Notification Hubs to FCM. While a desktop's socket is down, its two-minute reply poll is the fallback. |
+| Realtime | A nudge only says "pull now". Desktops get it through Azure Web PubSub, one group per owner, on a socket the sync service's negotiate route hands out. The Android phone gets it through Azure Notification Hubs to FCM, as a data-only push with the tray text, sent only when a notification is published or changes state. While a desktop's socket is down, its two-minute reply poll is the fallback. |
 
 - **One writer per document.** Only the owner instance writes a notification. A
   viewer writes a reply document once, and the owner accepts or rejects it. The
   first valid reply the owner processes wins.
-- **Push payloads hold no body.** A push or an OS notification carries the id,
-  the title and the summary. A source can mark a notification private, and the
-  summary is then replaced by a fixed text.
+- **Push payloads hold no body.** A push carries the id, kind, severity, state,
+  title and summary, from the push preview the owner writes on the envelope, and
+  never the body. An OS notification shows the title and the summary. A source
+  can mark a notification private, and the summary then reads "Backlog has a
+  question for you".
 - **Logs never hold content.** The service and the apps never log a body or the
   text of an open answer. One trace follows each notification from publish to
   answer, with the reply hop as a linked span. The metrics are time to first
-  view, time to answer, rejected replies and push failures.
+  view, time to answer, rejected replies and push failures. The sync service
+  counts pushes as `backlog.sync.push_sent` and contained failures as
+  `backlog.sync.push_failed`, tagged with the call that failed. No log line holds
+  an FCM token.
 - **Who may answer.** The sync API accepts a reply only from a device under the
   same owner, and the owner checks again. Any paired viewer may answer, critical
   questions included, unless the question says `answerOn: owner`.

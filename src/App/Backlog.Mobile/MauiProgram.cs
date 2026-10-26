@@ -1,5 +1,6 @@
 using Backlog.Mobile.Services;
 using Backlog.Mobile.UI.AppUpdate;
+using Backlog.Mobile.UI.Notifications;
 using Backlog.Mobile.UI.Services;
 using Backlog.UI.Components.AppUpdate;
 using Backlog.Infrastructure.Sync;
@@ -115,6 +116,13 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IPreferences>(Preferences.Default);
 		builder.Services.AddSingleton<IAppUpdateCheckStamp, PreferencesAppUpdateCheckStamp>();
 
+		// The Android push (local ADR 0038 §4): Firebase's token, registered with the sync
+		// service by the shell's PushRegistration, and the tray the messaging service and the
+		// answer receiver draw in. Before AddMobileShell, whose token source answers no token
+		// for a host without OS push.
+		builder.Services.AddSingleton<IPushTokenSource, FirebasePushTokenSource>();
+		builder.Services.AddSingleton(_ => new PushTrayPresenter(Android.App.Application.Context));
+
 		// The shell's own state: the capture draft that outlives a tab switch, and
 		// the sync status the app bar reads. The browser harness calls the same method.
 		builder.Services.AddMobileShell();
@@ -137,6 +145,10 @@ public static class MauiProgram
 		// work, rather than under the Inbox's first render — see the seam note
 		// on SecureValueDeviceCredentialStore.
 		_ = app.Services.GetRequiredService<IDeviceCredentialStore>();
+
+		// The push token goes to the sync service now, in the background, and again on every
+		// new pairing; a new token from Firebase reaches it through the messaging service.
+		app.Services.GetRequiredService<PushRegistration>().Start();
 
 		return app;
 	}

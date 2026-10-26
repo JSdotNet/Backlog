@@ -36,6 +36,9 @@
     <!-- The Web PubSub INotificationNudgeChannel (local ADR 0038 §4), on the same
          terms: the Web PubSub client stays in that project. -->
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.WebPubSub\Backlog.Infrastructure.WebPubSub.csproj" />
+    <!-- The Notification Hubs INotificationPushChannel (local ADR 0038 §4), on the same
+         terms: the Notification Hubs client stays in that project. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.NotificationHubs\Backlog.Infrastructure.NotificationHubs.csproj" />
     <ProjectReference Include="..\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
   </ItemGroup>
 
