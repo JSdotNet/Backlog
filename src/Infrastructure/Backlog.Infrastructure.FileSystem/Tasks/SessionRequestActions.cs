@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// <summary>
 /// The ports of the queue icons that queue an entry session and queue a plan session
 /// (<see cref="IEntrySessionRequests"/>, <see cref="IPlanSessionRequests"/>), answered
-/// out of the Sessions context's request queue (local ADR 0037).
+/// out of the Sessions context's request queue (local ADR 0038).
 /// <para>
 /// A cross-context join, here for the reason <see cref="LinkedSessionStates"/> is: the
 /// backlog's pane and the roadmap may not reference Sessions' published surface, so an

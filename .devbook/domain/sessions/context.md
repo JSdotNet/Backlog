@@ -23,7 +23,7 @@ transitions: a session's state is derived on every reading, not advanced.
 One record here is not evidence: a [Session Request](domain.md#session-request) asks
 for a session that does not exist yet. A person creates it with a click, and a
 dispatcher outside this context starts the session (local
-[ADR 0037](../../arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)).
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)).
 The request is the context's one command, and it still never starts a session itself.
 
 An optional Collections MCP can add a second kind of evidence: sanitized activity
@@ -74,7 +74,7 @@ status: draft
 type: feature-flag
 key: session-requests
 default: off
-related: [".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md"]
+related: [".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md"]
 ```
 
 Turning it on offers a queue icon on an entry and on a plan's roadmap item, maps

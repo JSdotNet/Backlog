@@ -8,7 +8,7 @@ using ModelContextProtocol;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// The dispatcher tools of local ADR 0037 §4 over the queue: a claim takes the 2-minute
+/// The dispatcher tools of local ADR 0038 §4 over the queue: a claim takes the 2-minute
 /// lease or reports the request taken, a mark moves a claimed request to Started or
 /// back to Requested, and the list answers the queue for a dispatcher that restarts —
 /// each answer carrying the brief the server built.

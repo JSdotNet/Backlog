@@ -12,7 +12,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The long poll a dispatcher waits on (local ADR 0037 §4): it answers <c>200</c> with
+/// The long poll a dispatcher waits on (local ADR 0038 §4): it answers <c>200</c> with
 /// the oldest Requested request the moment there is one, <c>204</c> once the hold has
 /// passed without one, and <c>404</c> while <c>session-requests</c> is off. The hold
 /// and the poll are shortened here; the route uses <see cref="SessionRequestWaitEndpoint.Hold"/>.

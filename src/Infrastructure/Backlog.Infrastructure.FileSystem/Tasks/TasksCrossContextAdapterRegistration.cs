@@ -29,7 +29,7 @@ public static class TasksCrossContextAdapterRegistration
                 : NoLinkedSessionStates.Instance);
 
         // The queue icons that queue an entry session and queue a plan session, over
-        // the Sessions context's request queue (local ADR 0037). Only when the host composed
+        // the Sessions context's request queue (local ADR 0038). Only when the host composed
         // the queue: without one nothing is registered and neither icon is offered. One
         // instance answers both ports, a singleton over the singleton store.
         // Without a queue both ports answer with one that is never offered, the way
@@ -48,9 +48,9 @@ public static class TasksCrossContextAdapterRegistration
     {
         public static readonly NoLinkedSessionStates Instance = new();
 
-        public Task<IReadOnlyDictionary<string, LinkedSessionState>> StatesOfAsync(
+        public Task<IReadOnlyDictionary<string, LinkedSession>> StatesOfAsync(
             IReadOnlyCollection<string> sessionIds,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyDictionary<string, LinkedSessionState>>(new Dictionary<string, LinkedSessionState>());
+            Task.FromResult<IReadOnlyDictionary<string, LinkedSession>>(new Dictionary<string, LinkedSession>());
     }
 }

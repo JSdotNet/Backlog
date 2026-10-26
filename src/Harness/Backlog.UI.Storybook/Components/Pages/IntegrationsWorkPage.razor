@@ -7,12 +7,14 @@
            Guidelines="@Rules">
 
     <Story Name="A session card in each state"
-           Description="`WorkSessionCard` takes a `WorkSession`: the host's id, a title, an `IntegrationSessionState` and a detail line the host has already written. Quiet and waiting are the two that ask for the person, so they wear the primary edge and a filled state; quiet is worded `Quiet 30 min`, the threshold after which the host stops calling a session running. With `OnOpen` the card is a button; without it, inert."
+           Description="`WorkSessionCard` takes a `WorkSession`: the host's id, a title, an `IntegrationSessionState` and a detail line the host has already written. Quiet and waiting are the two that ask for the person, so they wear the primary edge and a filled state; quiet is worded `Quiet 30 min`, the threshold after which the host stops calling a session running. A finished session also says whether its own app still holds it open — the muted dot, `Finished, still open` — or archived it — the quiet dot, `Finished, archived` — through `Presence`, in the one wording `WorkStates.PresenceWords` gives every surface; with no record to say, it is plain `Finished`. With `OnOpen` the card is a button; without it, inert."
            Code="@SessionCode">
         <div class="sb-stack" data-testid="work-session-states">
             <WorkSessionCard Session="@IntegrationFixtures.QuietSession" OnOpen="OpenSession" TestId="work-session-quiet" />
             <WorkSessionCard Session="@IntegrationFixtures.RunningSession" OnOpen="OpenSession" TestId="work-session-running" />
             <WorkSessionCard Session="@IntegrationFixtures.FinishedSession" OnOpen="OpenSession" TestId="work-session-finished" />
+            <WorkSessionCard Session="@IntegrationFixtures.FinishedOpenSession" OnOpen="OpenSession" TestId="work-session-finished-open" />
+            <WorkSessionCard Session="@IntegrationFixtures.FinishedArchivedSession" OnOpen="OpenSession" TestId="work-session-finished-archived" />
             <WorkSessionCard Session="@IntegrationFixtures.LooseSession" TestId="work-session-inert" />
         </div>
         <p class="sb-state" data-testid="work-cards-opened">Opened: @(_opened ?? "(none)")</p>

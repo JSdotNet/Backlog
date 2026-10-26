@@ -654,7 +654,7 @@ This section uses four words in a fixed sense:
 
 - An **act** is one thing the product does on an external tool, drawn as a
   button or a menu item.
-- The **act set** is every act a subject offers. A task, a knowledge chapter, a
+- The **act set** is every act a subject offers. A task, a devbook chapter, a
   roadmap bar and a menu show the same act set.
 - The **visible budget** is how many acts a surface shows before the rest go into
   an overflow menu.

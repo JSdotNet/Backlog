@@ -1,7 +1,7 @@
 {
   "$schema-note": "Authored by hand. Not generated, and not written by c4hero.",
   "$why-here": [
-    "Which knowledge chapter each C4 view documents. Read by the desktop app to draw the",
+    "Which devbook chapter each C4 view documents. Read by the desktop app to draw the",
     "reference in both directions: a view shows the chapters listed against it, and a",
     "chapter shows the views that list it — so the link is stated once, here, and the",
     "reverse direction is derived rather than stored a second time.",

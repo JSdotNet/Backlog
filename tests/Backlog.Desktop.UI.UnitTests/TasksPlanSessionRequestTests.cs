@@ -10,7 +10,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The pressed plan filter's queue icon (local ADR 0037 §2;
+/// The pressed plan filter's queue icon (local ADR 0038 §2;
 /// <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>): beside the
 /// plan chip's copy only while a plan is pressed and the <c>session-requests</c> switch is
 /// on, one session for the whole plan in the first of its roadmap item's repositories with

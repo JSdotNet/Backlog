@@ -204,7 +204,7 @@ related: [.devbook/domain/sessions/features.md#start-a-session-from-an-entry, .d
 ```
 
 > The requirements of one feature. The feature chapter itself says what the
-> capability is and why it exists; this says what it promises. Local ADR 0037 decides
+> capability is and why it exists; this says what it promises. Local ADR 0038 decides
 > them. Both sides are built: the queue icons that create a request (on an entry,
 > on a plan's roadmap item, and beside a selected plan filter chip), and the
 > dispatcher side, the wait route and the claim, mark and list tools a Manager

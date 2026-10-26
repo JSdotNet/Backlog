@@ -179,4 +179,4 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
 - `plugins/backlog-tools/skills/close-merged/SKILL.md` — moves the Backlog entries whose
   pull request merged into the default branch or a `plan/` branch to Done.
 - `plugins/backlog-tools/skills/dispatch-sessions/SKILL.md` — the Manager session that
-  dispatches the app's session requests (local ADR 0037); user-invoked only, no flow.
+  dispatches the app's session requests (local ADR 0038); user-invoked only, no flow.

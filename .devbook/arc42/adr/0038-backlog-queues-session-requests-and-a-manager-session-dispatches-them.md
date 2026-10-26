@@ -1,4 +1,4 @@
-# ADR 0037: Backlog queues session requests and a Manager session dispatches them
+# ADR 0038: Backlog queues session requests and a Manager session dispatches them
 
 ```meta
 date: 2026-10-22

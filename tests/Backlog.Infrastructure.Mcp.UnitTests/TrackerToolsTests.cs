@@ -817,7 +817,7 @@ public class TrackerToolsTests
         Assert.Empty(entries.Links);
     }
 
-    /// <summary>A link tells the session request queue (local ADR 0037), with the
+    /// <summary>A link tells the session request queue (local ADR 0038), with the
     /// entry and the plans it belongs to, so the request its session answers is
     /// Linked — and tells it again on a link already recorded.</summary>
     [Fact]
@@ -959,12 +959,18 @@ public class TrackerToolsTests
     /// <see cref="FakeTaskItems"/> throws on, so any tool that ever grew one
     /// would fail its own tests rather than this one.
     /// </para>
+    /// <para>
+    /// One delete is named, and it is not an entry's: <c>delete_goal</c> removes a goal
+    /// and leaves every task, plan and pull request it held as it was (local ADR 0035 §6).
+    /// It is excepted by name, on <see cref="GoalTools"/> alone, so a second delete
+    /// anywhere still fails here and has to be argued for in this list.
+    /// </para>
     /// </summary>
     [Fact]
     public void No_tool_in_the_catalog_is_a_delete()
     {
         Assert.DoesNotContain(
-            BacklogMcpTools.ToolNames,
+            BacklogMcpTools.ToolNames.Where(name => name != GoalTools.DeleteGoal),
             name => name.Contains("delete", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("remove", StringComparison.OrdinalIgnoreCase)
                 || name.Contains("archive", StringComparison.OrdinalIgnoreCase));
@@ -975,6 +981,7 @@ public class TrackerToolsTests
             .Select(group => group.ToolType)
             .Distinct()
             .SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.Instance))
+            .Where(method => !(method.DeclaringType == typeof(GoalTools) && method.Name == nameof(GoalTools.DeleteAsync)))
             .Select(method => method.Name);
 
         Assert.DoesNotContain(sources, name => name.Contains("Delete", StringComparison.Ordinal));

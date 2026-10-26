@@ -60,13 +60,34 @@ public sealed class GoalsTests : IDisposable
         Assert.Equal(1, _repository.Saves);
     }
 
-    /// <summary>Scenario "No due date": not saved.</summary>
+    /// <summary>Scenario "No due date": saved without one.</summary>
     [Fact]
-    public async Task A_goal_without_a_title_or_a_due_date_is_not_saved()
+    public async Task A_goal_without_a_due_date_is_saved_without_one()
     {
-        Assert.Equal("progress.goal_without_due_date", (await Goals.CreateAsync(Paid with { DueDate = null }, Cancellation)).Error.Code);
+        var created = await Goals.CreateAsync(Paid with { DueDate = null }, Cancellation);
+
+        Assert.True(created.IsSuccess);
+        Assert.Null(created.Value.DueDate);
+        Assert.Null((await Goals.GetAsync(created.Value.Id, Cancellation)).Value.DueDate);
+        Assert.Equal(1, _repository.Saves);
+    }
+
+    [Fact]
+    public async Task A_goal_without_a_title_is_not_saved()
+    {
         Assert.Equal("progress.goal_without_title", (await Goals.CreateAsync(Paid with { Title = " " }, Cancellation)).Error.Code);
         Assert.Equal(0, _repository.Saves);
+    }
+
+    [Fact]
+    public async Task An_edit_without_a_due_date_clears_it()
+    {
+        var goal = await CreateAsync();
+
+        var edited = await Goals.EditAsync(goal.Id, Paid with { DueDate = null }, Cancellation);
+
+        Assert.True(edited.IsSuccess);
+        Assert.Null((await Goals.GetAsync(goal.Id, Cancellation)).Value.DueDate);
     }
 
     [Fact]
@@ -248,7 +269,7 @@ public sealed class GoalsTests : IDisposable
 
         var goal = await CreateAsync();
         await Goals.AttachAsync(goal.Id, GoalItemDto.ForPlan("x"), cancellationToken: Cancellation);
-        await Goals.CreateAsync(Paid with { DueDate = null }, Cancellation);
+        await Goals.CreateAsync(Paid with { Title = " " }, Cancellation);
         await Goals.DeleteAsync(goal.Id, Cancellation);
 
         Assert.Equal(3, heard);

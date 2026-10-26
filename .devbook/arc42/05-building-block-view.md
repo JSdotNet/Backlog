@@ -351,7 +351,7 @@ Tasks pane is not allowed to reach on its own. The shell answers the pane's
 `DevbookImagesFor` parameter from `DevbookScenarioImageSources`, one
 `IDevbookImageSource` per repository over the same store. `IDevbookImageSource`
 lives in the component library, so Tasks.UI still references no Devbook project.
-Outside a knowledge document, `MarkdownView` asks that source about images and
+Outside a devbook document, `MarkdownView` asks that source about images and
 nothing else. A followed reference's `#anchor` reaches a scenarios file as a
 `DevbookFocus`, passed from `DevbookPane` through `DomainDevbookPanel` to the
 `DevbookScenarioPage` of each journey in the file. The journey holding that part

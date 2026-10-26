@@ -107,7 +107,7 @@ public sealed class GoalPickerTests : IDisposable
     }
 
     [Fact]
-    public async Task New_goal_hands_back_its_title_and_due_date_once_both_are_filled()
+    public async Task New_goal_hands_back_its_title_and_due_date_once_a_title_is_filled()
     {
         GoalDraft? created = null;
         var attached = false;
@@ -115,9 +115,10 @@ public sealed class GoalPickerTests : IDisposable
 
         await picker.Find("[data-testid=goal-picker-new]").ClickAsync(new MouseEventArgs());
         Assert.Empty(picker.FindAll("[data-testid=goal-picker-option]"));
+        Assert.True(picker.Find("[data-testid=goal-picker-attach]").HasAttribute("disabled"));
 
         await picker.Find("[data-testid=goal-picker-new-title] input").InputAsync(new ChangeEventArgs { Value = "  Ship the beta  " });
-        Assert.True(picker.Find("[data-testid=goal-picker-attach]").HasAttribute("disabled"));
+        Assert.False(picker.Find("[data-testid=goal-picker-attach]").HasAttribute("disabled"));
 
         await picker.Find("[data-testid=goal-picker-new-due] input").InputAsync(new ChangeEventArgs { Value = "2026-12-18" });
         Assert.False(picker.Find("[data-testid=goal-picker-attach]").HasAttribute("disabled"));
@@ -126,6 +127,20 @@ public sealed class GoalPickerTests : IDisposable
 
         Assert.Equal(new GoalDraft("Ship the beta", new DateOnly(2026, 12, 18)), created);
         Assert.False(attached);
+    }
+
+    /// <summary>A due date is optional: a title alone sets a goal due at the end of the iteration.</summary>
+    [Fact]
+    public async Task New_goal_with_a_title_and_no_due_date_hands_back_no_date()
+    {
+        GoalDraft? created = null;
+        var picker = Render(onCreate: draft => created = draft);
+
+        await picker.Find("[data-testid=goal-picker-new]").ClickAsync(new MouseEventArgs());
+        await picker.Find("[data-testid=goal-picker-new-title] input").InputAsync(new ChangeEventArgs { Value = "Ship the beta" });
+        await picker.Find("[data-testid=goal-picker-attach]").ClickAsync(new MouseEventArgs());
+
+        Assert.Equal(new GoalDraft("Ship the beta", null), created);
     }
 
     [Fact]

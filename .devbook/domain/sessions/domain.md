@@ -1120,7 +1120,7 @@ state.
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/sessions/context.md#session-requests, .devbook/domain/sessions/domain.invariants.md#session-request-queue]
+related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/features.md#start-a-session-from-an-entry, .devbook/domain/sessions/context.md#session-requests, .devbook/domain/sessions/domain.invariants.md#session-request-queue]
 ```
 
 The sessions a person has asked for and no session has answered yet. It is the one
@@ -1128,7 +1128,7 @@ part of this context that is not a reading of evidence: a person creates a reque
 with a click, a dispatcher outside the context turns it into a running session, and
 the request then joins the session the [Session Log](#session-log) reads. The queue
 never starts a session itself (local
-[ADR 0037](../../arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)).
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)).
 
 The queue is this machine's: a request names a clone folder on this machine, and is
 kept in the app's local database. It does not replicate.

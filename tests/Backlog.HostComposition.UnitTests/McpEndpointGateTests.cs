@@ -347,7 +347,7 @@ public class McpEndpointGateTests
 
     /// <summary>
     /// The session request queue's dispatcher tools are listed while
-    /// <c>session-requests</c> is on (local ADR 0037 §5), through the same
+    /// <c>session-requests</c> is on (local ADR 0038 §5), through the same
     /// <c>ApplyFeatureGates</c> filter every group goes through.
     /// </summary>
     [Fact]

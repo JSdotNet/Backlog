@@ -413,7 +413,7 @@
             as global::Backlog.SharedKernel.IShowArchivedRepositories;
         if (_showArchived is not null) _showArchived.Changed += OnShowArchivedChanged;
 
-        // The plan's queue icon (local ADR 0037), over Roadmap's own port. A host that
+        // The plan's queue icon (local ADR 0038), over Roadmap's own port. A host that
         // composed no session request queue offers nothing.
         _planSessions = new RoadmapSessionRequests(
             Services.GetService(typeof(IPlanSessionRequests)) as IPlanSessionRequests,
@@ -566,7 +566,7 @@
         _planSessions.Dispose();
     }
 
-    // --- Queue a plan session (local ADR 0037) -----------------------------
+    // --- Queue a plan session (local ADR 0038) -----------------------------
 
     /// <summary>The plan session requests the plans have open, the press and Cancel.</summary>
     private RoadmapSessionRequests _planSessions = null!;

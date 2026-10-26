@@ -3,7 +3,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
-/// The filter bar's view of plan session requests (local ADR 0037 §2): which plan is
+/// The filter bar's view of plan session requests (local ADR 0038 §2): which plan is
 /// waiting for a session, the plan chip's queue icon press and Cancel, and the
 /// repositories each plan is filed under, which the icon's offer is made from.
 /// <para>

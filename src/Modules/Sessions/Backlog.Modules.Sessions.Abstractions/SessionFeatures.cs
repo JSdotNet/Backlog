@@ -46,7 +46,7 @@ public static class SessionFeatures
 
     /// <summary>Queue a session request from an entry or a plan for a dispatcher to
     /// start, serve it to dispatchers on the MCP listener, and link it when its session
-    /// picks the entry up (local ADR 0037 §5). Off by default while the dispatchers are
+    /// picks the entry up (local ADR 0038 §5). Off by default while the dispatchers are
     /// built: off, the action is not shown, the wait route answers <c>404</c> and the
     /// dispatcher tools leave the endpoint.</summary>
     public const string SessionRequests = "session-requests";

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// Queueing a session on a prompt entry and the waiting chip (local ADR 0037;
+/// Queueing a session on a prompt entry and the waiting chip (local ADR 0038;
 /// <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>): who is
 /// offered the queue icon on the row and in the open entry, the repository choice,
 /// the disabled reason, Cancel, and the chip through Requested, Claimed and Started

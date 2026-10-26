@@ -78,7 +78,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// <c>DevbookAnnotationStore</c>, <c>GhCliAccountSource</c>,
 /// <c>GitHubSettingsStore</c>): optional, so a test can pin the date, and
 /// <see cref="TimeProvider.System"/> when nobody does.</param>
-/// <param name="sessionRequests">The session request queue (local ADR 0037), which
+/// <param name="sessionRequests">The session request queue (local ADR 0038), which
 /// <c>link_session</c> tells that a session picked its entry up. Optional, like
 /// <paramref name="clock"/>, so a host without the queue still links sessions.</param>
 /// <param name="features">The feature switches; the queue is told only while
@@ -502,7 +502,7 @@ public sealed class TrackerTools(
     }
 
     /// <summary>
-    /// Moves the session request this link answers to Linked (local ADR 0037 §3): an
+    /// Moves the session request this link answers to Linked (local ADR 0038 §3): an
     /// entry request on this entry, or a plan request for a plan the entry belongs to,
     /// that a dispatcher reported as Started with this very session. A link already
     /// recorded still tells the queue, because the request may have been reported

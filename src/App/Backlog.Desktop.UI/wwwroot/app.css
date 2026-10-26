@@ -708,7 +708,7 @@ h1, h2, h3 {
 }
 
 /*
-   The pressed plan's queue icon (local ADR 0037 §2): a third segment of the pair,
+   The pressed plan's queue icon (local ADR 0038 §2): a third segment of the pair,
    after the copy. It wears the copy segment's class, so it takes the same fill,
    border, hairline and hover, and the copy hands it the pair's rounded end. Like the
    copy it stays inside the strip's one-row clip, which cuts anything taller than a
@@ -1736,9 +1736,12 @@ h1, h2, h3 {
     color: var(--color-success-text);
 }
 
+/* Closed takes the quiet ink, not the disabled one: a closed pull request is
+   information, not an unavailable control
+   (.devbook/design/color-scheme.md#integration-roles). */
 .entry-doc__work-link--closed.integration-link--link,
 .entry-doc__work-link--closed.integration-link--link:hover {
-    color: var(--color-text-disabled);
+    color: var(--integration-ink-quiet);
 }
 
 /* The panel's: in the footer beside the creation date, small like it, wrapping

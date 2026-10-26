@@ -333,17 +333,8 @@ public class DesignTokenTests
     /// when the rule below was written. This is a backlog to retire, not a standing
     /// exemption: every entry is a violation that happens to predate the test, and
     /// the list is meant to shrink to nothing. Do not add to it to make a new colour
-    /// pass — declare a token instead.
-    ///
-    /// <para>The mobile harness hand-rolls a dark shell instead of using the
-    /// tokens.</para></summary>
-    private static readonly Dictionary<string, string[]> ToleratedColorLiterals = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["src/Harness/Backlog.Mobile.WebHarness/wwwroot/app.css"] =
-        [
-            "#0e0e11", "#e6e6e6", "#16161a", "#2a2a32"
-        ]
-    };
+    /// pass — declare a token instead.</summary>
+    private static readonly Dictionary<string, string[]> ToleratedColorLiterals = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>A hex colour written out in full: 3, 4, 6 or 8 digits, longest first
     /// so a six-digit value is not read as two three-digit ones.</summary>

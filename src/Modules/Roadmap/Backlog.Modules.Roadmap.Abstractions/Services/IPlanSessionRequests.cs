@@ -2,7 +2,7 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 
 /// <summary>
 /// Where a session request for a plan stands while it is still waiting to be
-/// answered (local ADR 0037 §3). Roadmap's own copy of the three open states, for the
+/// answered (local ADR 0038 §3). Roadmap's own copy of the three open states, for the
 /// reason the Tasks port keeps its own: a screen asks its own module, and the adapter
 /// that sees the Sessions context translates. Linked and Cancelled have no member.
 /// </summary>
@@ -25,7 +25,7 @@ public enum PlanSessionRequestState
 public sealed record PlanSessionRequest(Guid Id, PlanSessionRequestState State, string Repository);
 
 /// <summary>
-/// The plan queue icon's port (local ADR 0037 §2): queue a plan session — a request
+/// The plan queue icon's port (local ADR 0038 §2): queue a plan session — a request
 /// for a session that runs a whole plan, by its tag — read which plans have one waiting,
 /// and cancel one. Answered by an adapter over the Sessions context's queue; a host with
 /// none registers nothing and the roadmap offers no queue icon.

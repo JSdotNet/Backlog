@@ -1322,7 +1322,7 @@
         _ = InvokeAsync(StateHasChanged);
     }
 
-    // --- Session requests (local ADR 0037) ---------------------------------
+    // --- Session requests (local ADR 0038) ---------------------------------
 
     /// <summary>The session requests the entries have open, the queue icon's press
     /// and Cancel. Offers nothing in a host that composed no queue, or while the
@@ -1401,7 +1401,7 @@
         </text>;
     }
 
-    // --- The plan filter's queue icon (local ADR 0037 §2) ----------------------
+    // --- The plan filter's queue icon (local ADR 0038 §2) ----------------------
 
     /// <summary>The plan session requests and where each plan is filed, through Tasks'
     /// own port — offers nothing in a host that composed no queue, or while the
@@ -1922,37 +1922,68 @@
     /// finished is muted. A session the record does not hold, or that has not been
     /// read yet, has no state and draws as it always did.
     /// </para>
+    /// <para>
+    /// A finished session also says whether the Claude desktop app still holds it
+    /// open — the muted ink — or has archived it — the quiet ink — in the library's
+    /// one wording (<see cref="WorkStates.PresenceWords"/>). Live first: a running or
+    /// stalled session is worded and inked as live whatever the app holds. A session
+    /// with no desktop record (CLI-only, another machine) says neither, because
+    /// unknown is not open.
+    /// </para>
     /// </summary>
     private IntegrationLinkRef Link(EntrySessionLink session)
     {
-        var state = State.SessionStateOf(session.SessionId);
+        var known = State.SessionOf(session.SessionId);
 
-        return new(
+        return new IntegrationLinkRef(
             session.SessionId,
             IntegrationProvider.Claude,
             IntegrationLinkKind.Session,
             session.ShortId,
-            state is { } known
-                ? $"Session {session.SessionId} · {SessionStateWords(known)} — open in Sessions"
+            known is { } read
+                ? $"Session {session.SessionId} · {SessionStateWords(read)} — open in Sessions"
                 : $"Session {session.SessionId} — open in Sessions",
-            SessionState: state switch
-            {
-                LinkedSessionState.Running => IntegrationSessionState.Running,
-                LinkedSessionState.Stalled => IntegrationSessionState.Stalled,
-                LinkedSessionState.Finished => IntegrationSessionState.Finished,
-                _ => null
-            });
+            SessionState: InkOf(known))
+        {
+            SessionPresence = PresenceOf(known)
+        };
     }
+
+    private static IntegrationSessionState? InkOf(LinkedSession? session) => session?.State switch
+    {
+        LinkedSessionState.Running => IntegrationSessionState.Running,
+        LinkedSessionState.Stalled => IntegrationSessionState.Stalled,
+        LinkedSessionState.Finished => IntegrationSessionState.Finished,
+        _ => null
+    };
+
+    /// <summary>Whether the desktop app holds a linked session open, in the library's
+    /// words; unknown when there is no desktop record to say.</summary>
+    private static IntegrationSessionPresence PresenceOf(LinkedSession? session) => session?.Archived switch
+    {
+        true => IntegrationSessionPresence.Archived,
+        false => IntegrationSessionPresence.Open,
+        null => IntegrationSessionPresence.Unknown
+    };
 
     /// <summary>A linked session's state in the badge's words. Stalled says what it
     /// means — nothing has moved for the Sessions threshold — because "stalled" on
-    /// its own reads as a fault, and the session is usually waiting on the person.</summary>
-    private static string SessionStateWords(LinkedSessionState state) => state switch
+    /// its own reads as a fault, and the session is usually waiting on the person. A
+    /// finished one adds whether the desktop app still holds it, in the library's
+    /// words (<see cref="WorkStates.PresenceWords"/>), where its record says.</summary>
+    private static string SessionStateWords(LinkedSession session)
     {
-        LinkedSessionState.Stalled => "Quiet 30 min",
-        LinkedSessionState.Finished => "finished",
-        _ => "running"
-    };
+        var state = session.State switch
+        {
+            LinkedSessionState.Stalled => "Quiet 30 min",
+            LinkedSessionState.Finished => "finished",
+            _ => "running"
+        };
+
+        return WorkStates.PresenceWords(InkOf(session), PresenceOf(session)) is { } presence
+            ? $"{state}, {presence}"
+            : state;
+    }
 
     /// <summary>
     /// The work links, drawn once for both surfaces: every recorded pull request

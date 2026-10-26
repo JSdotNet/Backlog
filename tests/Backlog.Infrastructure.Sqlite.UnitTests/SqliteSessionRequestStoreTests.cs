@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
 /// <summary>
-/// The session request queue in <c>backlog.db</c> (local ADR 0037): a request comes
+/// The session request queue in <c>backlog.db</c> (local ADR 0038): a request comes
 /// back as it went in, a second ask returns the open one, the queue hands out the
 /// oldest first, a lapsed claim reads as Requested, and every transition is written.
 /// </summary>

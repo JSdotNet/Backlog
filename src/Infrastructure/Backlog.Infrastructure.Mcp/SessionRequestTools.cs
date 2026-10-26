@@ -8,7 +8,7 @@ using ModelContextProtocol.Server;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// The dispatcher tools of local ADR 0037 §4: claim a session request, report what came
+/// The dispatcher tools of local ADR 0038 §4: claim a session request, report what came
 /// of it, and list the queue.
 /// <para>
 /// Its own group (<see cref="BacklogMcpTools.SessionRequests"/>) behind

@@ -24,7 +24,7 @@
        CssClass="roadmap-editor"
        TestId="roadmap-editor">
     <ChildContent>
-        @* The session this plan asked for and has not got yet (local ADR 0037): the
+        @* The session this plan asked for and has not got yet (local ADR 0038): the
            waiting chip, with Cancel while no dispatcher has picked the request up.
            Above the fields, because it is news about the plan rather than one of
            its fields; once the session links itself it goes, and the plan's entries
@@ -113,7 +113,7 @@
             @* The stored plan's tag with its plan sigil, `+<slug>`, to copy — as the Tasks
                filter bar's plan chip copies it — and, with session requests on,
                the queue icon beside it, as a prompt entry carries one beside its copy
-               (local ADR 0037 §2). Only for a stored tag, like the goal below: a tag
+               (local ADR 0038 §2). Only for a stored tag, like the goal below: a tag
                still being typed names no plan yet. The copy does not depend on the
                switch; the queue icon does.
 
@@ -500,7 +500,7 @@
     [Parameter]
     public EventCallback<Guid> OnReopen { get; set; }
 
-    /// <summary>What the plan's queue icon offers for this item (local ADR 0037 §2), or
+    /// <summary>What the plan's queue icon offers for this item (local ADR 0038 §2), or
     /// null when it offers nothing — the action is not offered, or the item is new or
     /// has no tag. The band decides; the dialog only shows it.</summary>
     [Parameter]

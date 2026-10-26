@@ -7,7 +7,7 @@ using Backlog.SharedKernel;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// The long poll a dispatcher waits on for session requests (local ADR 0037 §4):
+/// The long poll a dispatcher waits on for session requests (local ADR 0038 §4):
 /// <c>GET /session-requests/wait</c>, on the MCP listener beside <c>/telemetry</c> and
 /// behind the same <c>Origin</c> check and bearer token.
 /// <para>

@@ -90,7 +90,7 @@ public static class SqliteRegistration
             new RootedSqliteModelPriceStore(() => rootDirectory(sp)));
 
         // The session requests a click in the app queues for a dispatcher (local ADR
-        // 0037): this machine's queue, the same context's table, in the same file.
+        // 0038): this machine's queue, the same context's table, in the same file.
         services.AddSingleton<ISessionRequestStore>(sp =>
             new RootedSqliteSessionRequestStore(() => rootDirectory(sp)));
 

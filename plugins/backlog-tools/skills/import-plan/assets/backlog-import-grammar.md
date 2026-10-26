@@ -73,18 +73,18 @@ does the work:
 - **`prompt`** — an AI session runs it. Opens with the [plan item marker](#plan-item-marker),
   the [session-name line](#step-numbers) and, when the source has an address, the
   [read-first line](#read-first-line); states `repo:`, and may carry `## Setup:` sub-items and the
-  knowledge/devbook reminder.
+  devbook reminder.
 - **`task`** — only the user does it: a decision, a sign-off, an action in an account or on a
   machine an AI session cannot reach. A plain entry addressed to the user — title, metadata
   line, body saying what to do and what done looks like, `- [ ]` lines for the user's own
   steps, opened by a [read-first line](#read-first-line) when it checks or acts on what the
-  source describes. No marker, no session-name line, no `Setup:` or knowledge sub-item. It still states
+  source describes. No marker, no session-name line, no `Setup:` or devbook sub-item. It still states
   `repo:` — once per repository the work is done in, on or for, or every repository the
   plan targets when it concerns none in particular — so it sits with its repository in
   Backlog like every other step.
 - **`test`** — the user checks by hand that work already landed behaves as agreed: an
   acceptance or exploratory pass in the running app. Shaped exactly like a `task` — no
-  marker, no session-name line, no `Setup:` or knowledge sub-item, `repo:` stated — with a body naming what
+  marker, no session-name line, no `Setup:` or devbook sub-item, `repo:` stated — with a body naming what
   to exercise and what a pass looks like, `- [ ]` lines for the checks, and `after:` on
   every prompt whose work it checks. Automated tests are never a `test` entry: they belong
   inside the prompt that writes the code.
@@ -193,7 +193,7 @@ with front matter, publisher `backlog` in the extension manifest.
 
 ## Setup: install the command-palette SDK
 
-## Update backlog-desktop's own knowledge docs / devbook once this prompt lands
+## Update backlog-desktop's own devbook once this prompt lands
 
 # 3 - Wire the export command into the toolbar
 
@@ -207,7 +207,7 @@ Read first: `.devbook/domain/export/features.md#toolbar-button`, https://claude.
 
 Wire the command from the previous prompt into the toolbar as a button.
 
-## Update backlog-desktop's own knowledge docs / devbook once this prompt lands
+## Update backlog-desktop's own devbook once this prompt lands
 
 # 4 - Review the VS Code desktop rollout plan for anything missed
 
@@ -333,7 +333,7 @@ These sub-items belong to `prompt` entries; a `task` entry carries none of them.
   instructions make sense (update a plugin, install one, make a related change first).
   Ordered ahead of everything else in the entry.
 - One further `##` sub-item reminding whoever runs the prompt to update the target
-  repository's own knowledge folders or devbook once it is done. Every prompt carries one;
+  repository's own devbook once it is done. Every prompt carries one;
   it is never optional. The plan's closing review prompt is the single exception — it
   changes no repository of its own.
 - There is no manual sub-item. A step only a person can do is a `task` entry of its own

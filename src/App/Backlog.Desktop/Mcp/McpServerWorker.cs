@@ -593,7 +593,7 @@ public sealed class McpServerWorker : IDisposable
             if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
         });
 
-        // And the long poll a dispatcher waits on for session requests (local ADR 0037
+        // And the long poll a dispatcher waits on for session requests (local ADR 0038
         // §4), behind the same guard: the bearer token is the one /mcp takes. It
         // answers 404 while the session-requests flag is off.
         app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>

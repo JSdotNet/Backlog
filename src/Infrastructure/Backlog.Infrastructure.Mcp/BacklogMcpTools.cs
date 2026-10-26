@@ -21,8 +21,9 @@ namespace Backlog.Infrastructure.Mcp;
 /// was read-only until the tracker operations arrived, and several docs under it
 /// said so in those words. What replaced that claim is narrower and still worth
 /// stating: nothing here registers a repository (see <see cref="RepositoryScope"/>),
-/// nothing here deletes, and every write goes through the Tasks port's one text
-/// grammar rather than setting a field.
+/// nothing here deletes a backlog entry — the one delete is <c>delete_goal</c>, which
+/// removes a goal and leaves its work as it was — and every backlog write goes through
+/// the Tasks port's one text grammar rather than setting a field.
 /// </para>
 /// <para>
 /// Local ADR 0012 §7 exposes tools "in groups, each behind one
@@ -205,7 +206,7 @@ public static class BacklogMcpTools
         [ImpedimentTools.RaiseImpediment, ImpedimentTools.SetImpedimentState]);
 
     /// <summary>
-    /// The dispatcher tools of local ADR 0037 §4 — claim a session request, report what
+    /// The dispatcher tools of local ADR 0038 §4 — claim a session request, report what
     /// came of it, list the queue — behind <c>session-requests</c>, the key that also
     /// gates the Start session action and the wait route (§5). Its own key rather than
     /// <c>sessions</c>: the queue is off by default while its dispatchers are built, and
@@ -220,8 +221,27 @@ public static class BacklogMcpTools
             SessionRequestTools.ListSessionRequests
         ]);
 
+    /// <summary>
+    /// The goal tools: read the goals, set, edit and delete one, attach and detach its work.
+    /// Progress's own, so their own group, beside <see cref="Impediments"/> rather than in it:
+    /// a goal and an impediment are two things a model is told about. Behind <c>backlog</c>,
+    /// the always-on Tasks key, for the reason the impediment tools give — Progress has no
+    /// switch of its own (local ADR 0035 §10), and a goal's work is the backlog's.
+    /// </summary>
+    public static McpToolGroup Goals { get; } = new(
+        TasksFeatures.Tasks,
+        typeof(GoalTools),
+        [
+            GoalTools.ListGoals,
+            GoalTools.CreateGoal,
+            GoalTools.UpdateGoal,
+            GoalTools.AttachToGoal,
+            GoalTools.DetachFromGoal,
+            GoalTools.DeleteGoal
+        ]);
+
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments, SessionRequests];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments, Goals, SessionRequests];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

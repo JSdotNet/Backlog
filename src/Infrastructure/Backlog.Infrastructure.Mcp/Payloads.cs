@@ -482,7 +482,7 @@ public sealed record SessionsPayload(
     IReadOnlyList<SessionPayload> Sessions);
 
 /// <summary>
-/// One session request as a dispatcher sees it (local ADR 0037), on the wait route and
+/// One session request as a dispatcher sees it (local ADR 0038), on the wait route and
 /// from every dispatcher tool alike — one shape, so a request handed out by the route
 /// reads the same when <c>list_session_requests</c> answers it again.
 /// </summary>

@@ -1,7 +1,7 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or knowledge-folder tooling. Seven skills: one for each direction of a plan,
+general-purpose or devbook tooling. Seven skills: one for each direction of a plan,
 one for running a whole plan, one for closing the entries whose pull request merged, one for
 bringing another tool's items into the Inbox, one for the remarks a person leaves while
 reading, and one that dispatches the session requests the app queues — and a pane that follows
@@ -121,7 +121,7 @@ a running plan.
   and the app is never the fence's writer. `run-plan-item` carries a short form of
   the same procedure for the notes an item it just ran leaves answerable.
 - **`dispatch-sessions`** — this machine's Manager session, the first dispatcher of local
-  ADR 0037 (`.devbook/arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md`).
+  ADR 0038 (`.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md`).
   A person starts it once as `/loop /backlog-tools:dispatch-sessions` in a pinned Claude
   Desktop session. A Monitor runs `skills/dispatch-sessions/assets/wait-requests.mjs`, which
   finds the app's port and token the way the telemetry forwarder does, loops on

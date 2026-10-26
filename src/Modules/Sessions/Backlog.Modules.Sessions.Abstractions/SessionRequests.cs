@@ -1,6 +1,6 @@
 namespace Backlog.Modules.Sessions.Abstractions;
 
-/// <summary>What a <see cref="SessionRequest"/> asks a session to run (local ADR 0037 §2).</summary>
+/// <summary>What a <see cref="SessionRequest"/> asks a session to run (local ADR 0038 §2).</summary>
 public enum SessionRequestKind
 {
     /// <summary>One prompt entry, briefed as <c>/backlog-tools:run-plan-item entry `&lt;id&gt;`:</c>.</summary>
@@ -10,7 +10,7 @@ public enum SessionRequestKind
     Plan
 }
 
-/// <summary>Where a <see cref="SessionRequest"/> stands (local ADR 0037 §3).</summary>
+/// <summary>Where a <see cref="SessionRequest"/> stands (local ADR 0038 §3).</summary>
 public enum SessionRequestState
 {
     /// <summary>Waiting for a dispatcher.</summary>
@@ -31,7 +31,7 @@ public enum SessionRequestState
 
 /// <summary>
 /// A person's ask for a session that runs one entry or one plan — the record of the
-/// Sessions context's Session Request Queue (local ADR 0037).
+/// Sessions context's Session Request Queue (local ADR 0038).
 /// <para>
 /// <b>It carries nothing of the entry's text</b>: no title, body or note, so no field
 /// here can become a brief. The brief is fixed by <see cref="Kind"/> and the id alone.
@@ -109,7 +109,7 @@ public sealed record SessionRequestOutcome(SessionRequest? Request, string? Refu
 }
 
 /// <summary>
-/// The Session Request's states and transitions (local ADR 0037 §3), as pure
+/// The Session Request's states and transitions (local ADR 0038 §3), as pure
 /// functions of the request and the clock. The store applies them inside one write,
 /// so a claim checks and moves the request in the same transaction.
 /// <code>
@@ -128,7 +128,7 @@ public static class SessionRequests
     public static readonly TimeSpan Lease = TimeSpan.FromMinutes(2);
 
     /// <summary>
-    /// The brief a dispatcher starts the session with (local ADR 0037 §2): the fixed
+    /// The brief a dispatcher starts the session with (local ADR 0038 §2): the fixed
     /// <c>run-plan-item</c> line for an entry request, the fixed <c>execute-plan</c> line
     /// for a plan request. Built from the kind and the id alone, so no entry text can
     /// become one; a dispatcher passes it on and never writes its own.
@@ -359,7 +359,7 @@ public static class SessionRequests
 }
 
 /// <summary>
-/// PORT — this machine's session request queue (local ADR 0037). One row per request in
+/// PORT — this machine's session request queue (local ADR 0038). One row per request in
 /// the app's local database; it does not replicate.
 /// <para>
 /// Every operation reads and writes in one transaction, so a claim checks the state

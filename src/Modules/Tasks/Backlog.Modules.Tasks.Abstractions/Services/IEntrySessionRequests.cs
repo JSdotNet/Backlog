@@ -3,7 +3,7 @@ namespace Backlog.Modules.Tasks.Abstractions.Services;
 /// <summary>
 /// Where a session request for an entry stands while it is still waiting to be
 /// answered, in the words the Sessions context uses for it
-/// (<c>.devbook/domain/sessions/domain.md#session-request-queue</c>, local ADR 0037 §3).
+/// (<c>.devbook/domain/sessions/domain.md#session-request-queue</c>, local ADR 0038 §3).
 /// <para>
 /// Tasks' own copy of the three open states rather than a reference to Sessions, for
 /// the reason <see cref="LinkedSessionState"/> is one: a screen asks its own module,
@@ -33,7 +33,7 @@ public enum EntrySessionRequestState
 public sealed record EntrySessionRequest(Guid Id, EntrySessionRequestState State, string Repository);
 
 /// <summary>
-/// The Start session action's port (local ADR 0037 §1): queue a session request for
+/// The Start session action's port (local ADR 0038 §1): queue a session request for
 /// one prompt entry, read which entries have one waiting, and cancel one.
 /// <para>
 /// Answered by an adapter over the Sessions context's request queue, so this module

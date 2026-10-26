@@ -18,7 +18,7 @@ public sealed record SessionStartTarget(string Repository, string? CloneFolder)
 }
 
 /// <summary>
-/// Whether an entry offers Start session, and on what terms (local ADR 0037 §1;
+/// Whether an entry offers Start session, and on what terms (local ADR 0038 §1;
 /// <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>).
 /// <para>
 /// Only a prompt entry offers it: a prompt is the type written to be run by an AI

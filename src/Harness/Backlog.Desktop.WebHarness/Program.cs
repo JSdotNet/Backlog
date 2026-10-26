@@ -293,7 +293,7 @@ app.UseWhen(
         || context.Request.Path.StartsWithSegments(BacklogTelemetryEndpoint.RoutePath)
         // And Claude Code's OTLP logs (local ADR 0024), on the same terms.
         || context.Request.Path.StartsWithSegments(ClaudeCodeLogsEndpoint.RoutePath)
-        // And the session-request long poll a dispatcher waits on (local ADR 0037).
+        // And the session-request long poll a dispatcher waits on (local ADR 0038).
         || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath),
     branch => branch.Use(async (context, next) =>
     {
@@ -353,7 +353,7 @@ app.MapPost(ClaudeCodeLogsEndpoint.RoutePath, async context =>
     if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted);
 });
 
-// And the long poll a dispatcher waits on for session requests (local ADR 0037 §4),
+// And the long poll a dispatcher waits on for session requests (local ADR 0038 §4),
 // over this harness's backlog.db. No token here, for the reason the MCP endpoint has
 // none; 404 while the session-requests flag is off.
 app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>

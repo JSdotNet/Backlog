@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.Sessions;
 
 /// <summary>
-/// The Sessions context's <see cref="ISessionRequestStore"/> (local ADR 0037): one row
+/// The Sessions context's <see cref="ISessionRequestStore"/> (local ADR 0038): one row
 /// per session request in the <c>session_requests</c> table of the same
 /// <c>backlog.db</c> the <c>claude_api_requests</c> live in. The queue is this
 /// machine's — a request names a clone folder here — and nothing replicates it.

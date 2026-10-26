@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
 /// Whether the pressed plan filter offers its queue icon, and where the session would
-/// start (local ADR 0037 §2; <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>).
+/// start (local ADR 0038 §2; <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>).
 /// The roadmap item dialog's plan icon on the same terms — the filter bar asks its own
 /// port for the item's repositories rather than Roadmap's offer.
 /// <para>

@@ -18,10 +18,10 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   `inbox_lists`, `inbox_groups`). JSON files hold the workspace settings and
   feature flags, which are per-device. See
   `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
-- **The Devbook is the other way round.** A repository's knowledge folders stay
+- **The Devbook is the other way round.** A repository's devbook folders stay
   markdown-canonical, and only the layer derived from them is a database. The two
   decisions are not in tension: the app owns a task, and the repository owns a
-  knowledge chapter, which is edited outside the app. See
+  devbook chapter, which is edited outside the app. See
   `.devbook/arc42/08-crosscutting-concepts.md#devbook-database`.
 - **Configurable repo paths** via a repo registry (`config/repos.json`).
 
@@ -455,7 +455,7 @@ knowledge base. That is how a roadmap item gathers contributing work without
 referencing each piece. A roadmap slug is derived from the item's title when it is
 created, and stays editable. It is deliberately **not** rewritten when the title is
 later renamed, because tags already written elsewhere would silently stop matching.
-Because a knowledge chapter's `roadmap:` entries are tag slugs rather than chapter
+Because a devbook chapter's `roadmap:` entries are tag slugs rather than chapter
 references, they stay node attributes and produce no edges in the knowledge graph.
 
 ## Authentication and Authorization
@@ -523,7 +523,7 @@ boundaries, which makes them an architectural concern:
 rather than a shared type. It appears in three places:
 
 - on tasks;
-- on knowledge chapters, as the `effort` field of a `meta` block, emitted into the
+- on devbook chapters, as the `effort` field of a `meta` block, emitted into the
   knowledge graph as a number;
 - as the arithmetic rollup a roadmap item reports over what it gathers.
 

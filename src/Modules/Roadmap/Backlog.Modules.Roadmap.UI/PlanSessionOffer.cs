@@ -5,7 +5,7 @@ namespace Backlog.Modules.Roadmap.UI;
 
 /// <summary>
 /// Whether a roadmap item offers its plan's queue icon, and where the session would start
-/// (local ADR 0037 §2; <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>).
+/// (local ADR 0038 §2; <c>.devbook/domain/sessions/features.md#start-a-session-from-an-entry</c>).
 /// <para>
 /// Only a stored item with a tag offers it: the request names the plan by its tag, and
 /// the session it starts runs <c>execute-plan</c> over every entry carrying it. The

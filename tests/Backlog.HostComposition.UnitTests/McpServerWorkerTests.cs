@@ -259,7 +259,7 @@ public sealed class McpServerWorkerTests : IDisposable
 
     /// <summary>
     /// The session-request long poll reaches the head's listener behind the same bearer
-    /// token as <c>/mcp</c> (local ADR 0037 §4): the real listener refuses a wait with no
+    /// token as <c>/mcp</c> (local ADR 0038 §4): the real listener refuses a wait with no
     /// token and one with the wrong token, and answers the right one with the waiting
     /// request at once.
     /// </summary>

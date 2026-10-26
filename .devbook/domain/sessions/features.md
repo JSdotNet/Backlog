@@ -1658,7 +1658,7 @@ this product show me sessions at all" is a single question.
 type: feature
 status: draft
 feature-flag: .devbook/domain/sessions/context.md#session-requests
-related: [.devbook/arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
+related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
 ```
 
 A person presses the queue icon on a prompt entry, or on a plan's roadmap item, to queue
@@ -1677,7 +1677,7 @@ through `run-plan-item`, which first checks it is still outstanding, so a reques
 answered twice, or late, does no harm.
 
 Local
-[ADR 0037](../../arc42/adr/0037-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
 decides it, and it sits behind the `session-requests` flag, off by default. The
 actions and the waiting chip are built; the dispatcher that answers a request is a
 later item of the `session-dispatch` plan.

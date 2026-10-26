@@ -408,7 +408,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | Session | One worktree's run: a [worktree session per change](../ai/02-code.md#worktree-session-per-change) is the isolation unit, on [Git](tooling.md#git); `.claude/` holds per-session state. |
 | System prompt | Composed from the harness plus [repository instruction files](ai-development.md#repository-instruction-files) |
 | Context window | The budget a run's record on the [delivery surfaces](ai-development.md#delivery-surfaces) exists to survive: a resumed session reattaches to it |
-| Turn, stateful, stateless | Harness-level. The repository's own statefulness is the dashboard run record and the checked-in knowledge folders. |
+| Turn, stateful, stateless | Harness-level. The repository's own statefulness is the dashboard run record and the checked-in devbook folders. |
 
 ### Tools and environment
 
@@ -417,7 +417,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | MCP | [Model Context Protocol servers](ai-development.md#model-context-protocol-servers): Backlog's own server, the Aspire and [Playwright](testing.md#playwright) servers, Microsoft Learn, and the [delivery surfaces](ai-development.md#delivery-surfaces). Guidance is not one of them — it is checked in under `.devbook/arc42/adr/guidelines/` and `.devbook/design/`. |
 | Tool, tool call, tool result | The MCP surfaces above, plus the harness's own file and shell tools |
 | Environment | The Aspire app model: [.NET Aspire](shared.md#net-aspire) is what gives an agent a running system to observe, with logs and traces |
-| Filesystem | The worktree. `.agents/rules/context-loading.md` limits which knowledge folders a given workflow may read. |
+| Filesystem | The worktree. `.agents/rules/context-loading.md` limits which devbook folders a given workflow may read. |
 | Sandbox | The git worktree, plus `aspire start --isolated` for ports and user-secrets state |
 | Permission mode, permission request | Harness-level; the repository does not pin one. The equivalent repository-level gate is Personal Validation, which no run may skip. |
 
@@ -436,7 +436,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | Term | In this repository |
 |---|---|
 | Handoff, handoff artifact | The run record on the [delivery surfaces](ai-development.md#delivery-surfaces), so a resumed session reattaches instead of opening a duplicate |
-| Compaction, autocompact, clearing | Harness-level. The repository's contribution is making a fresh session cheap to start: the standing brief plus the knowledge folders. |
+| Compaction, autocompact, clearing | Harness-level. The repository's contribution is making a fresh session cheap to start: the standing brief plus the devbook folders. |
 | Primary source | The code, `Directory.Packages.props`, the workflows, `.devbook/arc42` — what a `.devbook/tech` chapter is written *from* |
 | Secondary source | This folder. `.devbook/tech` records outcomes; `.devbook/arc42` keeps the reasoning, and where the two disagree `.devbook/arc42` wins. |
 | Spec, ticket | Backlog entries (local ADR 0007) and the GitHub issues they sync with |
@@ -447,7 +447,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 |---|---|
 | AGENTS.md | `AGENTS.md`, imported by `CLAUDE.md` — see [repository instruction files](ai-development.md#repository-instruction-files) |
 | Context pointer | Every `related` and `depends-on` reference, and the standing brief's links into `.agents/rules/` |
-| Progressive disclosure | The design of the whole knowledge convention: a short brief points at scoped instruction files, which point at chapters, which point at each other |
+| Progressive disclosure | The design of the whole devbook convention: a short brief points at scoped instruction files, which point at chapters, which point at each other |
 | Skill | [Agent Skills](ai-development.md#agent-skills): the plugin `flow-*` and `schedule-*` skills, and the `.agents/skills/` procedures |
 | Subagent | [Subagents](ai-development.md#subagents) — `architecture:architect`, `csharp-coding:coding`, `qa:qa`, and the rest |
 | Memory system | Not adopted in the repository. Cross-session state is deliberately the checked-in devbook folders and the run record on the delivery surfaces, both of which a human can read. |

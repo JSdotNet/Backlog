@@ -16089,6 +16089,19 @@ select.field__input {
     color: var(--integration-ink-off);
 }
 
+/* A finished session's presence in its own app, where the host knows it: still
+   open in the muted ink, archived in the quiet one — information, never the
+   disabled ink (.devbook/design/color-scheme.md#integration-roles). A finished
+   session with no record to say keeps the off ink above. The words ride in the
+   .sr-only copy and the host's tooltip. */
+.integration-link--session-finished.integration-link--session-open .provider-mark {
+    color: var(--integration-ink-muted);
+}
+
+.integration-link--session-finished.integration-link--session-archived .provider-mark {
+    color: var(--integration-ink-quiet);
+}
+
 .integration-link--session-stalled {
     padding: 0 var(--spacing-xs);
     border-radius: var(--border-radius-full);
@@ -20238,6 +20251,16 @@ select.field__input {
     background: var(--color-success-text);
 }
 
+/* A finished session's presence in its own app, as on the session badge: open in
+   the muted ink, archived in the quiet one, the word beside the state. */
+.work-card--session-finished.work-card--session-open .work-card__dot {
+    background: var(--integration-ink-muted);
+}
+
+.work-card--session-finished.work-card--session-archived .work-card__dot {
+    background: var(--integration-ink-quiet);
+}
+
 .work-card--session-stalled .work-card__dot,
 .work-card--session-waiting .work-card__dot {
     background: var(--color-primary);
@@ -21548,11 +21571,38 @@ select.field__input {
     padding: var(--spacing-md);
 }
 
+/* The whole row opens and folds the goal, so the whole row says it can be pressed. */
 .goal-card__head {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+}
+
+/* ChevronUpIcon turned half a turn: down while folded, up once open, as the
+   ChevronAtEnd fold does it. */
+.goal-card__chevron {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    transform: rotate(180deg);
+    transition: transform var(--transition-fast);
+}
+
+.goal-card__chevron--open {
+    transform: none;
+}
+
+.goal-card__head:hover .goal-card__chevron {
+    color: var(--color-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .goal-card__chevron {
+        transition: none;
+    }
 }
 
 .goal-card__title {

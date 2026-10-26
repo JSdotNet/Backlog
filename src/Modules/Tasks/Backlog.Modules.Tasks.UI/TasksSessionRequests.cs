@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
 /// The Tasks pane's view of the session requests its entries have open (local ADR
-/// 0037): what each entry is waiting for, the press that queues one and the Cancel
+/// 0038): what each entry is waiting for, the press that queues one and the Cancel
 /// that withdraws it.
 /// <para>
 /// The requests change where this pane cannot hear it — a dispatcher claims one and

@@ -40,6 +40,12 @@ public sealed record GoalsCandidates(
     IReadOnlyList<string> Plans,
     IReadOnlyList<GoalsPullRequestCandidate> PullRequests)
 {
+    /// <summary>The repositories a bare pull request number in the attach search is read in,
+    /// <c>owner/name</c> each: the one the header's scope holds when it holds one, else each it
+    /// holds, else every registered one. Empty reads a bare number against the candidates
+    /// alone.</summary>
+    public IReadOnlyList<string> Repositories { get; init; } = [];
+
     /// <summary>A shell with nothing to hand in.</summary>
     public static GoalsCandidates Empty { get; } = new([], [], []);
 }

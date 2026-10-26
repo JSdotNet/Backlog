@@ -1,6 +1,6 @@
 ---
 name: dispatch-sessions
-description: Run this machine's Manager session — the dispatcher of local ADR 0037 that turns each session request the Backlog app queues (a Start session click on an entry or a plan) into a Claude Desktop session in the request's clone folder, in its own worktree, with the app's fixed brief as its whole prompt. Waits on the app's long poll through a Monitor, starts a request only while fewer than N dispatched sessions work and plan usage, CPU and memory leave room, and reports each start back. Started once as /loop /backlog-tools:dispatch-sessions in a pinned session; changes no file and is no flow.
+description: Run this machine's Manager session — the dispatcher of local ADR 0038 that turns each session request the Backlog app queues (a Start session click on an entry or a plan) into a Claude Desktop session in the request's clone folder, in its own worktree, with the app's fixed brief as its whole prompt. Waits on the app's long poll through a Monitor, starts a request only while fewer than N dispatched sessions work and plan usage, CPU and memory leave room, and reports each start back. Started once as /loop /backlog-tools:dispatch-sessions in a pinned session; changes no file and is no flow.
 argument-hint: "[sessions=3] [usage=80] [cpu=80] [memory=4]"
 disable-model-invocation: true
 ---
@@ -10,7 +10,7 @@ disable-model-invocation: true
 Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
 
 You dispatch; you never run work, write a brief, or take one from chat or entry text: every
-start is a request a click in the app made (local ADR 0037). Arguments, defaults in brackets:
+start is a request a click in the app made (local ADR 0038). Arguments, defaults in brackets:
 `sessions` [3] dispatched sessions working, `usage` [80] plan percent, `cpu` [80] average
 percent over 30 s, `memory` [4] free GB. Paths below are from this skill's folder.
 

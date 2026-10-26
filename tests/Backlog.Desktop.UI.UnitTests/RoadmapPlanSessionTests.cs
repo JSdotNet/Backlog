@@ -11,7 +11,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The plan's queue icon on a roadmap item and the waiting chip in its dialog (local ADR
-/// 0037 §2): beside a copy of the stored tag, a plan request for the item's tag in its
+/// 0038 §2): beside a copy of the stored tag, a plan request for the item's tag in its
 /// first repository with a clone folder, disabled with the reason when none has one,
 /// the chip through the open states with Cancel while Requested, and no icon or chip
 /// with the switch off — the copy stays.

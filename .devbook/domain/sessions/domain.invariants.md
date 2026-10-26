@@ -806,7 +806,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#session-request-queue]
 ```
 
-> The rules the queue holds every session request to (local ADR 0037). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The queue icons are built too, in the Tasks pane (on a prompt entry and beside a selected plan filter chip) and the roadmap item's dialog, through `SessionRequestActions`. So is the dispatcher side: the wait route, `SessionRequestWaitEndpoint`, and the MCP tools that claim, mark and list requests, `SessionRequestTools`.
+> The rules the queue holds every session request to (local ADR 0038). The record and its queue are built: `SessionRequest` and the pure transitions in `SessionRequests`, in the Sessions abstractions, and `SqliteSessionRequestStore`, which applies each transition inside one immediate transaction. The queue icons are built too, in the Tasks pane (on a prompt entry and beside a selected plan filter chip) and the roadmap item's dialog, through `SessionRequestActions`. So is the dispatcher side: the wait route, `SessionRequestWaitEndpoint`, and the MCP tools that claim, mark and list requests, `SessionRequestTools`.
 
 ### Invariant: A request carries no entry text
 
@@ -819,7 +819,7 @@ tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_new
 A session request holds its kind, an entry id or a plan tag, a repository, a clone folder, its state, lease and claiming dispatcher, the session id it was answered with and when it was asked, and no field for anything an entry says.
 Entry text arrives through sync, imports and capture, so a brief built from it would run whatever anyone who can write an entry wrote.
 
-Enforced at: `SessionRequest`, which has no field for entry text (ADR 0037 §1)
+Enforced at: `SessionRequest`, which has no field for entry text (ADR 0038 §1)
 
 ### Invariant: Only the app creates a request
 
@@ -830,7 +830,7 @@ type: invariant
 
 A request is created only when a person presses a queue icon in the desktop app; no MCP tool, import, sync or capture creates one.
 
-Enforced at: `ISessionRequestStore.RequestAsync()`, which no MCP tool calls (ADR 0037 §1)
+Enforced at: `ISessionRequestStore.RequestAsync()`, which no MCP tool calls (ADR 0038 §1)
 
 ### Invariant: One open request per entry or plan
 
@@ -856,7 +856,7 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_se
 A claim succeeds only on a request in Requested, and moves it to Claimed in the same write; a claim on any other state is refused.
 So two dispatchers waiting at once never both start one request.
 
-Enforced at: `SessionRequests.Claim()`, applied by `SqliteSessionRequestStore.ClaimAsync()` inside one immediate transaction (ADR 0037 §3)
+Enforced at: `SessionRequests.Claim()`, applied by `SqliteSessionRequestStore.ClaimAsync()` inside one immediate transaction (ADR 0038 §3)
 
 ### Invariant: A lapsed claim returns the request to Requested
 
@@ -869,7 +869,7 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_cl
 A claim holds the request for two minutes; a request still Claimed when its lease ends reads as Requested again, and its claim is no longer the dispatcher's.
 A dispatcher that stopped mid-dispatch does not keep the request from the next one.
 
-Enforced at: `SessionRequest.StateAt()`, which every read of `SqliteSessionRequestStore` and every transition in `SessionRequests` asks (ADR 0037 §3)
+Enforced at: `SessionRequest.StateAt()`, which every read of `SqliteSessionRequestStore` and every transition in `SessionRequests` asks (ADR 0038 §3)
 
 ### Invariant: A request never expires
 
@@ -881,7 +881,7 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_Re
 
 A Requested request stays Requested however long no dispatcher runs; only the person's cancel ends it unanswered.
 
-Enforced at: `SessionRequests` and `SqliteSessionRequestStore`, which have no expiry (ADR 0037 §3)
+Enforced at: `SessionRequests` and `SqliteSessionRequestStore`, which have no expiry (ADR 0038 §3)
 
 ### Invariant: Linked and Cancelled are final
 
@@ -893,4 +893,4 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_St
 
 A Linked or Cancelled request changes no further: it cannot be claimed, reported, linked again or cancelled.
 
-Enforced at: `SessionRequests.Claim()`, `Report()`, `Link()` and `Cancel()` (ADR 0037 §3)
+Enforced at: `SessionRequests.Claim()`, `Report()`, `Link()` and `Cancel()` (ADR 0038 §3)

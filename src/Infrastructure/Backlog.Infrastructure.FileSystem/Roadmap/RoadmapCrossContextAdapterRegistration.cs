@@ -50,7 +50,7 @@ public static class RoadmapCrossContextAdapterRegistration
         // Roadmap's own command through the scoped IRoadmapPlanning (ADR 0013).
         services.AddScoped<IRoadmapPlanIntake, RoadmapPlanIntake>();
 
-        // The plan filter chip's queue icon (local ADR 0037 §2): where a plan is filed,
+        // The plan filter chip's queue icon (local ADR 0038 §2): where a plan is filed,
         // read from the scoped IRoadmapPlanning, and its requests through the roadmap's
         // own plan queue port — optional, because a host without a queue registers
         // none, and then the icon is not offered.

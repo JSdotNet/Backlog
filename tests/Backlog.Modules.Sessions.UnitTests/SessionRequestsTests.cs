@@ -3,7 +3,7 @@ using Backlog.Modules.Sessions.Abstractions;
 namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
-/// The Session Request's states and transitions (local ADR 0037 §3): every arrow of the
+/// The Session Request's states and transitions (local ADR 0038 §3): every arrow of the
 /// state diagram, every refusal off it, the two-minute lease, and the duplicate rule.
 /// </summary>
 public sealed class SessionRequestsTests

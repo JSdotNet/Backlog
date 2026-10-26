@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Tasks.Abstractions.Services;
 
 /// <summary>
-/// The plan filter's queue icon port (local ADR 0037 §2): queue a session that runs a
+/// The plan filter's queue icon port (local ADR 0038 §2): queue a session that runs a
 /// whole plan, named by the tag the filter bar has pressed, read which plans have one
 /// waiting, cancel one — and learn which repositories the plan is filed under, which
 /// only the roadmap knows.

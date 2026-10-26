@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The dispatch-sessions skill's only wait: run under a Monitor, it loops on the Backlog app's
-// GET /session-requests/wait long poll (local ADR 0037 §4) and prints one line per request, so
+// GET /session-requests/wait long poll (local ADR 0038 §4) and prints one line per request, so
 // the Manager session spends no model turn while nothing is queued.
 //
 // Port and token are found the way hooks/telemetry-forwarder.mjs finds them: BACKLOG_MCP_PORT /
