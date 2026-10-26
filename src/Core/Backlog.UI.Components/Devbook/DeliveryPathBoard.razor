@@ -1,0 +1,205 @@
+@*
+    The delivery path drawn as a board: the stages in path order, each with its
+    number, its where-label and its cards — the sub-stages, or one unnamed card —
+    holding the usages that work there; the pull-request marker before the first
+    stage after it; the feedback arrow from the last stage back to the first; and
+    the layers beneath as rows of their own.
+
+    A usage may sit in several cards. Picking it lights every card it sits in and
+    dims the rest, so how far one usage reaches reads at a glance; picking it again,
+    or Clear, lets the board go back to rest. The detail line above the board names
+    the picked usage, how many places it sits in, and offers its chapter.
+
+    The board judges nothing: what the stages, cards and layers are, and where a
+    usage sits, is the caller's. It draws an empty card as "no AI" because an empty
+    stage is a finding, not a gap to hide.
+*@
+<div class="delivery-path" data-testid="@TestId">
+    <div class="delivery-path__detail" data-testid="@($"{TestId}-detail")">
+        <span class="delivery-path__detail-text" aria-live="polite">
+            @if (Picked is { } named)
+            {
+                <span class="delivery-path__detail-name">@named.Name</span>
+                <DevbookStatusPill Folder="DevbookFolder.Ai" Status="@named.Status" TestId="@null" />
+                <span class="delivery-path__detail-reach" data-testid="@($"{TestId}-reach")">@Reach(named.Id)</span>
+            }
+            else
+            {
+                <span class="delivery-path__detail-hint">Pick a usage to light every card it appears in.</span>
+            }
+        </span>
+        @if (Picked is { } picked)
+        {
+            <span class="delivery-path__detail-actions">
+                @if (OnOpenUsage.HasDelegate)
+                {
+                    <AppButton Size="ButtonSize.Small" OnClick="() => OnOpenUsage.InvokeAsync(picked.Id)" TestId="@($"{TestId}-open")">Open chapter</AppButton>
+                }
+                <AppButton Size="ButtonSize.Small" Variant="ButtonVariant.Ghost" OnClick="() => Pick(null)" TestId="@($"{TestId}-clear")">Clear</AppButton>
+            </span>
+        }
+    </div>
+
+    <div class="delivery-path__scroll">
+        <div class="delivery-path__grid" style="--delivery-path-stages: @Math.Max(Stages.Count, 1)">
+            @if (Stages.Count > 1)
+            {
+                <div class="delivery-path__feedback" data-testid="@($"{TestId}-feedback")">
+                    <svg class="delivery-path__feedback-arrow" aria-hidden="true" focusable="false" preserveAspectRatio="none" viewBox="0 0 100 20">
+                        <path d="M100 20 V4 H0 V16" vector-effect="non-scaling-stroke" />
+                    </svg>
+                    <span class="delivery-path__feedback-head" aria-hidden="true"></span>
+                    <span class="delivery-path__feedback-label">feedback into @Stages[0].Name</span>
+                </div>
+            }
+
+            <ol class="delivery-path__stages" aria-label="The delivery path">
+                @for (var index = 0; index < Stages.Count; index++)
+                {
+                    var stage = Stages[index];
+                    var number = index + 1;
+                    var pullRequest = !stage.BeforePullRequest && (index == 0 || Stages[index - 1].BeforePullRequest);
+                    <li class="@StageClass(stage, pullRequest)" data-testid="@($"{TestId}-stage-{stage.Key}")">
+                        <div class="delivery-path__head">
+                            <span class="delivery-path__meta">
+                                <span class="delivery-path__number">@number.ToString("00")</span>
+                                <span class="delivery-path__where">@stage.Where</span>
+                            </span>
+                            <h3 class="delivery-path__name">@stage.Name</h3>
+                            @if (stage.Status is not null)
+                            {
+                                <DevbookStatusPill Folder="DevbookFolder.Ai" Status="@stage.Status" TestId="@null" />
+                            }
+                            @if (pullRequest)
+                            {
+                                <span class="delivery-path__pr" data-testid="@($"{TestId}-pull-request")">pull request</span>
+                            }
+                        </div>
+                        @foreach (var card in stage.Cards)
+                        {
+                            <div class="@CardClass(card.IsEmpty, card.Holds)" data-testid="@($"{TestId}-card")">
+                                @if (card.Name is not null)
+                                {
+                                    <span class="delivery-path__card-name">@card.Name</span>
+                                }
+                                @Usages(card.Usages)
+                            </div>
+                        }
+                    </li>
+                }
+            </ol>
+        </div>
+    </div>
+
+    @if (Layers.Count > 0)
+    {
+        <section class="delivery-path__layers" aria-label="What runs underneath">
+            @foreach (var layer in Layers)
+            {
+                <div class="delivery-path__layer" data-testid="@($"{TestId}-layer-{layer.Key}")">
+                    <h3 class="delivery-path__layer-name">@layer.Name</h3>
+                    <div class="@CardClass(layer.IsEmpty, layer.Holds)" data-testid="@($"{TestId}-card")">
+                        @Usages(layer.Usages)
+                    </div>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    /// <summary>The stages, in path order.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DeliveryPathStage> Stages { get; set; } = [];
+
+    /// <summary>The rows beneath the path, in the order they are drawn.</summary>
+    [Parameter]
+    public IReadOnlyList<DeliveryPathLayer> Layers { get; set; } = [];
+
+    /// <summary>The picked usage's id, or null at rest. Bind it to hold the pick
+    /// outside the board.</summary>
+    [Parameter]
+    public string? SelectedId { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> SelectedIdChanged { get; set; }
+
+    /// <summary>Raised with a usage's id when the reader opens it. Without a
+    /// delegate the detail line offers no Open chapter.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenUsage { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "delivery-path";
+
+    private string? _selected;
+    private string? _lastSelectedParameter;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.Equals(SelectedId, _lastSelectedParameter, StringComparison.Ordinal))
+        {
+            _lastSelectedParameter = SelectedId;
+            _selected = SelectedId;
+        }
+    }
+
+    private DeliveryPathUsage? Picked =>
+        _selected is null
+            ? null
+            : Stages.SelectMany(stage => stage.Cards).SelectMany(card => card.Usages)
+                .Concat(Layers.SelectMany(layer => layer.Usages))
+                .FirstOrDefault(usage => string.Equals(usage.Id, _selected, StringComparison.Ordinal));
+
+    private async Task Pick(string? id)
+    {
+        _selected = id;
+        await SelectedIdChanged.InvokeAsync(id);
+    }
+
+    private Task Toggle(string id) =>
+        Pick(string.Equals(_selected, id, StringComparison.Ordinal) ? null : id);
+
+    private string Reach(string id)
+    {
+        var places = Stages.Sum(stage => stage.Cards.Count(card => card.Holds(id)))
+                     + Layers.Count(layer => layer.Holds(id));
+        return places == 1 ? "in 1 place" : $"in {places} places";
+    }
+
+    private static string StageClass(DeliveryPathStage stage, bool pullRequest) =>
+        "delivery-path__stage"
+        + (stage.BeforePullRequest ? string.Empty : " delivery-path__stage--after")
+        + (pullRequest ? " delivery-path__stage--pull-request" : string.Empty);
+
+    private string CardClass(bool empty, Func<string?, bool> holds)
+    {
+        var css = "delivery-path__card";
+        if (empty) css += " delivery-path__card--empty";
+        if (Picked is null) return css;
+        return css + (holds(_selected) ? " delivery-path__card--lit" : " delivery-path__card--dim");
+    }
+
+    private RenderFragment Usages(IReadOnlyList<DeliveryPathUsage> usages) => __builder =>
+    {
+        if (usages.Count == 0)
+        {
+            <span class="delivery-path__none">no AI</span>
+            return;
+        }
+
+        foreach (var usage in usages)
+        {
+            var id = usage.Id;
+            <ToggleButton BaseClass="delivery-path__usage"
+                          PressedCssClass="delivery-path__usage--picked"
+                          Pressed="@string.Equals(_selected, id, StringComparison.Ordinal)"
+                          OnClick="() => Toggle(id)"
+                          TestId="@($"{TestId}-usage")"
+                          data-usage-id="@id">
+                <span class="delivery-path__usage-name">@usage.Name</span>
+                <DevbookStatusPill Folder="DevbookFolder.Ai" Status="@usage.Status" TestId="@null" />
+            </ToggleButton>
+        }
+    };
+}
