@@ -49,6 +49,9 @@ public static class NotificationsErrors
     public static Error SubjectIncomplete() =>
         Error.Validation("notification.subject_incomplete", "A subject is named by its context, its type and its id.");
 
+    public static Error OriginInvalid(string reason) =>
+        Error.Validation("notification.origin_invalid", reason);
+
     public static Error OtherSubject() =>
         Error.Validation("notification.other_subject", "The notification is about another subject.");
 

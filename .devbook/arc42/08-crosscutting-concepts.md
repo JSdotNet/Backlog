@@ -436,10 +436,15 @@ deployed; no push reaches a phone until the hub has its FCM credential.
   viewer writes a reply document once, and the owner accepts or rejects it. The
   first valid reply the owner processes wins.
 - **Push payloads hold no body.** A push carries the id, kind, severity, state,
-  title and summary, from the push preview the owner writes on the envelope, and
-  never the body. An OS notification shows the title and the summary. A source
+  title, summary and origin, from the push preview the owner writes on the
+  envelope, and never the body. An OS notification shows the title and the
+  summary, with the origin's "System · Place" as its attribution line. A source
   can mark a notification private, and the summary then reads "Backlog has a
-  question for you".
+  question for you"; the origin still travels, since it holds no content.
+- **Every notification says where it came from.** Its optional
+  [origin](../domain/notifications/domain.md#origin) names the system, the place
+  in it, who asked and how. It is shown everywhere a notification appears and is
+  never used to route: the source does that.
 - **Logs never hold content.** The service and the apps never log a body or the
   text of an open answer. One trace follows each notification from publish to
   answer, with the reply hop as a linked span. The metrics are time to first

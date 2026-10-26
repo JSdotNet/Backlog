@@ -44,7 +44,8 @@ public static class NotificationPresentation
         return $"{type} {subject.Id}";
     }
 
-    /// <summary>Who raised it — "Sessions", "MCP", "Devbook".</summary>
+    /// <summary>Who raised it, by its source alone — "Sessions", "MCP", "Devbook". What a
+    /// notification without an origin is drawn by.</summary>
     public static string SourceLabel(NotificationSource source)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -53,6 +54,44 @@ public static class NotificationPresentation
         if (context.Length == 0) return context;
         if (context.Length <= 3) return context.ToUpperInvariant();
         return char.ToUpperInvariant(context[0]) + context[1..];
+    }
+
+    /// <summary>Who raised it, as a person reads it: the origin's "System · Place" where the
+    /// notification names one, otherwise its source — "Sessions", "MCP".</summary>
+    public static string SourceLabel(NotificationView notification)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+
+        return notification.Origin is { } origin ? origin.Line : SourceLabel(notification.Source);
+    }
+
+    /// <summary>The system a notification comes from, which the centre's "From" filter picks by:
+    /// its origin's system, or its source for one that names no origin.</summary>
+    public static string From(NotificationView notification)
+    {
+        ArgumentNullException.ThrowIfNull(notification);
+
+        return notification.Origin?.System ?? SourceLabel(notification.Source);
+    }
+
+    /// <summary>Every system the notifications come from, once each, in alphabetical order — the
+    /// "From" filter's options.</summary>
+    public static IReadOnlyList<string> Froms(IEnumerable<NotificationView> notifications)
+    {
+        ArgumentNullException.ThrowIfNull(notifications);
+
+        return [.. notifications.Select(From).Distinct(StringComparer.Ordinal).Order(StringComparer.OrdinalIgnoreCase)];
+    }
+
+    /// <summary>The notifications from <paramref name="from"/>, or all of them when it is
+    /// null or empty.</summary>
+    public static IReadOnlyList<NotificationView> FromOnly(IReadOnlyList<NotificationView> notifications, string? from)
+    {
+        ArgumentNullException.ThrowIfNull(notifications);
+
+        return string.IsNullOrEmpty(from)
+            ? notifications
+            : [.. notifications.Where(n => string.Equals(From(n), from, StringComparison.Ordinal))];
     }
 
     /// <summary>How long ago, the way the centre says it — "just now", "2 min ago", "1 h ago",
@@ -98,9 +137,9 @@ public static class NotificationPresentation
         {
             NotificationState.Answered when notification.Answer is { } answer =>
                 Join($"Answered from {DeviceLabel(answer.FromDeviceId, thisDeviceId)}", AnswerText(notification)),
-            NotificationState.Acknowledged => Join("Acknowledged", SourceLabel(notification.Source)),
+            NotificationState.Acknowledged => Join("Acknowledged", SourceLabel(notification)),
             NotificationState.Closed => Join("Closed", notification.CloseReason),
-            _ => Join(SourceLabel(notification.Source), Ago(notification.CreatedAt, now))
+            _ => Join(SourceLabel(notification), Ago(notification.CreatedAt, now))
         };
     }
 
@@ -121,7 +160,7 @@ public static class NotificationPresentation
             notification.Title,
             notification.Summary,
             notification.BodyMarkdown,
-            SourceLabel(notification.Source),
+            SourceLabel(notification),
             Ago(notification.CreatedAt, now),
             notification.AnswerSpec is { } spec ? ToCardSpec(spec) : null,
             notification.State switch
@@ -131,7 +170,10 @@ public static class NotificationPresentation
                 NotificationState.Closed => NotificationCardState.Closed,
                 _ => NotificationCardState.Open
             },
-            Outcome(notification, now, thisDeviceId));
+            Outcome(notification, now, thisDeviceId),
+            notification.Origin is { } origin
+                ? new NotificationCardOrigin(origin.System, origin.Place, origin.AskedBy, origin.Via, origin.OpenLink)
+                : null);
     }
 
     private static NotificationCardOutcome? Outcome(NotificationView notification, DateTimeOffset now, Guid thisDeviceId)

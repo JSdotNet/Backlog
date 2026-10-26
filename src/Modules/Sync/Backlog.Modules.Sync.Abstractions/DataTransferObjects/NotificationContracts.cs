@@ -158,6 +158,10 @@ public static class NotificationRecordLimits
     /// bound.</summary>
     public const int PreviewSummaryLength = 180;
 
+    /// <summary>How long a push preview's origin may be: "System · Place", cut to fit a tray
+    /// subtitle.</summary>
+    public const int PreviewOriginLength = 60;
+
     /// <summary>Why <paramref name="change"/> would be refused, or null when it would be
     /// stored.</summary>
     public static string? WhyRefused(NotificationChange change)
@@ -186,6 +190,8 @@ public static class NotificationRecordLimits
             return $"A push preview's title is between 1 and {PreviewTitleLength} characters.";
         if (preview.Summary is { Length: > PreviewSummaryLength })
             return $"A push preview's summary holds at most {PreviewSummaryLength} characters.";
+        if (preview.Origin is { Length: > PreviewOriginLength })
+            return $"A push preview's origin holds at most {PreviewOriginLength} characters.";
 
         return null;
     }

@@ -16,6 +16,8 @@ namespace Backlog.UI.Components.Notifications;
 /// <param name="Answer">The answers a question takes; null on an alert.</param>
 /// <param name="State">Where it stands.</param>
 /// <param name="Outcome">How it was settled, or null while it is open.</param>
+/// <param name="Origin">Where it came from, drawn as a line above the title; null draws the card
+/// as it always was, <see cref="Source"/> beside the time.</param>
 public sealed record NotificationCardModel(
     string Id,
     NotificationCardKind Kind,
@@ -27,10 +29,28 @@ public sealed record NotificationCardModel(
     string When,
     NotificationCardAnswerSpec? Answer,
     NotificationCardState State,
-    NotificationCardOutcome? Outcome = null)
+    NotificationCardOutcome? Outcome = null,
+    NotificationCardOrigin? Origin = null)
 {
     public bool IsOpen => State == NotificationCardState.Open;
 }
+
+/// <summary>
+/// Where a notification came from, already in words: the system as a badge and the place beside
+/// it above the title, who asked and how under the title, and "Open in &lt;System&gt; ↗" when there
+/// is a link that opens it there.
+/// </summary>
+/// <param name="System">The system that raised it — "Claude Code", "spec-manager".</param>
+/// <param name="Place">Where in that system, or null.</param>
+/// <param name="AskedBy">The person who asked, or null.</param>
+/// <param name="Via">How it was asked — "Agent session", "MCP ask" — or null.</param>
+/// <param name="OpenLink">An absolute http or https link that opens it at its origin, or null.</param>
+public sealed record NotificationCardOrigin(
+    string System,
+    string? Place = null,
+    string? AskedBy = null,
+    string? Via = null,
+    string? OpenLink = null);
 
 public enum NotificationCardKind
 {

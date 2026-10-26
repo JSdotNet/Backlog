@@ -19,6 +19,11 @@
     A settled card draws no controls, only how it was settled: the winning answer
     and the device it came from, Acknowledged, or Closed with its reason.
 
+    An Origin, when the host hands one, says where the notification came from:
+    the system as a badge and the place beside it above the title, who asked and
+    how under it, and "Open in <System> ↗" at the foot when it carries a link.
+    Without one the header names the source beside the time, as it always did.
+
     The card does not answer anything itself. It raises OnAnswer or OnAcknowledge,
     the host takes the answer to its own reply path, and hands back Busy while it
     works and ErrorMessage when the answer was refused, so the person can answer
@@ -39,10 +44,35 @@
         {
             <Badge Kind="notification-state" Slug="@StateSlug" TestId="notification-card-state">@StateLabel</Badge>
         }
-        <span class="notification-card__meta">@Model.Source · @Model.When</span>
+        <span class="notification-card__meta">@(Model.Origin is null ? $"{Model.Source} · {Model.When}" : Model.When)</span>
     </header>
 
+    @if (Model.Origin is { } origin)
+    {
+        <p class="notification-card__origin" data-testid="notification-card-origin">
+            <Badge Kind="notification-origin" Slug="system" TestId="notification-card-system">@origin.System</Badge>
+            @if (!string.IsNullOrWhiteSpace(origin.Place))
+            {
+                <span class="notification-card__place" data-testid="notification-card-place">@origin.Place</span>
+            }
+        </p>
+    }
+
     <h3 class="notification-card__title" id="@TitleId">@Model.Title</h3>
+
+    @if (Model.Origin is { } asked && (!string.IsNullOrWhiteSpace(asked.AskedBy) || !string.IsNullOrWhiteSpace(asked.Via)))
+    {
+        <p class="notification-card__asked" data-testid="notification-card-asked">
+            @if (!string.IsNullOrWhiteSpace(asked.AskedBy))
+            {
+                <span data-testid="notification-card-asked-by">Asked by @asked.AskedBy</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(asked.Via))
+            {
+                <Badge Kind="notification-origin" Slug="via" TestId="notification-card-via">@asked.Via</Badge>
+            }
+        </p>
+    }
 
     @if (!string.IsNullOrWhiteSpace(Model.Summary))
     {
@@ -157,6 +187,17 @@
     else
     {
         <p class="notification-card__outcome" data-testid="notification-card-outcome">@OutcomeText</p>
+    }
+
+    @if (Model.Origin is { OpenLink: { Length: > 0 } link } linked && IsWebLink(link))
+    {
+        <div class="notification-card__footer">
+            <AppButton Href="@link"
+                       External="true"
+                       Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="notification-card-open-origin">Open in @linked.System ↗</AppButton>
+        </div>
     }
 </article>
 
@@ -289,6 +330,12 @@
         if (!string.IsNullOrWhiteSpace(when)) parts.Add(when);
         return string.Join(" · ", parts);
     }
+
+    /// <summary>Only an absolute http or https address becomes "Open in …": anything else — a
+    /// <c>javascript:</c> link above all — is dropped here whatever the host checked.</summary>
+    private static bool IsWebLink(string link) =>
+        Uri.TryCreate(link, UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
 
     private static ButtonVariant VariantFor(NotificationCardChoiceStyle style) => style switch
     {

@@ -183,7 +183,11 @@ internal static class ValidationQuestions
                     new AnswerChoice(SessionNotificationSubjects.ApproveChoice, "Approve", AnswerChoiceStyle.Primary),
                     new AnswerChoice(SessionNotificationSubjects.RejectChoice, "Reject", AnswerChoiceStyle.Destructive)
                 ],
-                Open: new OpenAnswer("What should change?")));
+                Open: new OpenAnswer("What should change?")),
+            Origin: NotificationOrigin.Fit(
+                NotificationOrigins.ClaudeCode,
+                string.IsNullOrWhiteSpace(repository) ? title : $"{repository.Trim()}{NotificationOrigin.Separator}{title}",
+                via: NotificationOrigins.AgentSession));
     }
 
     /// <summary>"Approve the validation of &lt;run&gt;?", the run's title shortened to fit

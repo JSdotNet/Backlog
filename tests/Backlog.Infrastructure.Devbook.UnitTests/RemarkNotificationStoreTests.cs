@@ -115,6 +115,10 @@ public sealed class RemarkNotificationStoreTests
         Assert.Equal("Does the reply container need its own TTL?", draft.Summary);
         Assert.Contains("> Does the reply container", draft.BodyMarkdown, StringComparison.Ordinal);
         Assert.Equal("backlog://devbook/backlog/.devbook/arc42/05%20building%20blocks.md", draft.DeepLink);
+        Assert.Equal("Backlog", draft.Origin!.System);
+        Assert.Equal(".devbook/arc42/05 building blocks.md", draft.Origin.Place);
+        Assert.Equal("Job", draft.Origin.AskedBy);
+        Assert.Null(draft.Origin.OpenLink);
     }
 
     [Fact]

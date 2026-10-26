@@ -78,6 +78,22 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
         Assert.True(read.IsPrivate);
         Assert.Equal(question.CreatedAt, read.CreatedAt);
         Assert.Equal(NotificationState.Open, read.State);
+        Assert.Null(read.Origin);
+    }
+
+    [Fact]
+    public async Task A_stored_origin_reads_back_unchanged()
+    {
+        var origin = new NotificationOrigin("Claude Code", "JSdotNet/Backlog · Notification origin", "Ada", "Agent session", "https://example.test/s/1");
+        var alert = Notification.Publish(
+            Guid.NewGuid(),
+            Owner,
+            new NotificationDraft(new NotificationSource("sessions", "run-1"), null, NotificationKind.Alert, NotificationSeverity.Info, "Run done", "", "", Origin: origin),
+            Now).Value;
+
+        await _repository.SaveAsync(alert, Cancellation);
+
+        Assert.Equal(origin, (await _repository.GetAsync(alert.Id, Cancellation))!.Origin);
     }
 
     [Fact]

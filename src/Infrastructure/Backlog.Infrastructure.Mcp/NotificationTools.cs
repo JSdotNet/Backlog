@@ -3,6 +3,7 @@ using System.ComponentModel;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.SharedKernel.Results;
 
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Backlog.Infrastructure.Mcp;
@@ -18,6 +19,12 @@ namespace Backlog.Infrastructure.Mcp;
 /// session — <c>sessions</c> / <c>session</c> / the id — when the caller names one, so the context
 /// that owns sessions can close them when the session ends; otherwise a question is about itself,
 /// <c>mcp</c> / <c>ask</c> / the call's key, and an alert is about nothing in particular.
+/// </para>
+/// <para>
+/// <b>The origin is the calling client.</b> What a person reads as where it came from is the MCP
+/// client's own name — "Claude Code" for <c>claude-code</c> — asked "MCP ask"
+/// (<c>.devbook/domain/notifications/domain.md#origin</c>). <see cref="Origin"/> says what it
+/// falls back on where the stateless endpoint cannot name the client.
 /// </para>
 /// <para>
 /// <b><c>ask</c> never blocks.</b> It answers the notification's id as soon as the question is
@@ -88,7 +95,8 @@ public sealed class NotificationTools(INotifications notifications, INotificatio
         string? severity = null,
         [Description("Your Claude session id, so the alert is about this session. Optional.")]
         string? sessionId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        McpServer? server = null)
     {
         var key = NewKey();
         var draft = new NotificationDraft(
@@ -98,7 +106,8 @@ public sealed class NotificationTools(INotifications notifications, INotificatio
             ReadSeverity(severity),
             title,
             summary ?? string.Empty,
-            body ?? string.Empty);
+            body ?? string.Empty,
+            Origin: Origin(server?.ClientInfo, sessionId));
 
         var id = (await notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false)).ValueOrThrow();
 
@@ -132,7 +141,8 @@ public sealed class NotificationTools(INotifications notifications, INotificatio
         string? severity = null,
         [Description("Your Claude session id, so the question is about this session. Optional.")]
         string? sessionId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        McpServer? server = null)
     {
         var key = NewKey();
         var labels = (choices ?? []).Select(label => label?.Trim() ?? string.Empty).ToList();
@@ -150,7 +160,8 @@ public sealed class NotificationTools(INotifications notifications, INotificatio
             title,
             summary ?? string.Empty,
             body ?? string.Empty,
-            new AnswerSpec([.. labels.Select(label => new AnswerChoice(label, label))], allowMultiple, open));
+            new AnswerSpec([.. labels.Select(label => new AnswerChoice(label, label))], allowMultiple, open),
+            Origin: Origin(server?.ClientInfo, sessionId));
 
         var id = (await notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false)).ValueOrThrow();
 
@@ -218,6 +229,40 @@ public sealed class NotificationTools(INotifications notifications, INotificatio
 
         return published && callers ? status : throw RepositoryScope.Failure(NotificationsErrors.NotFound(id));
     }
+
+    /// <summary>
+    /// Where a <c>notify</c> or <c>ask</c> came from: the calling MCP client as it names itself —
+    /// its title, else its name, with Claude Code's <c>claude-code</c> in words — asked
+    /// "MCP ask".
+    /// <para>
+    /// The endpoint is stateless, so a client on a revision with the <c>initialize</c> handshake
+    /// is not named on a later <c>tools/call</c>: only the 2026-07-28 revision carries the
+    /// client per request. Then a call that names a Claude session — the <c>sessionId</c> every
+    /// one of these tools asks a Claude session for — reads as Claude Code, and any other as
+    /// <see cref="UnnamedClient"/>.
+    /// </para>
+    /// </summary>
+    internal static NotificationOrigin? Origin(Implementation? client, string? sessionId = null)
+    {
+        var title = client?.Title;
+        var name = string.IsNullOrWhiteSpace(title) ? client?.Name : title;
+        var system = string.IsNullOrWhiteSpace(name)
+            ? string.IsNullOrWhiteSpace(sessionId) ? UnnamedClient : NotificationOrigins.ClaudeCode
+            : KnownClients.TryGetValue(name.Trim(), out var known) ? known : name;
+
+        return NotificationOrigin.Fit(system, via: NotificationOrigins.McpAsk);
+    }
+
+    /// <summary>The system an MCP client that sent no name is shown as.</summary>
+    internal const string UnnamedClient = "MCP client";
+
+    /// <summary>Client names that read better in words, matched case-insensitively.</summary>
+    private static readonly IReadOnlyDictionary<string, string> KnownClients =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["claude-code"] = NotificationOrigins.ClaudeCode,
+            ["claude-ai"] = "Claude",
+        };
 
     private static ModelContextProtocol.McpException InvalidChoices(string reason) =>
         RepositoryScope.Failure(NotificationsErrors.InvalidAnswerSpec(reason));
