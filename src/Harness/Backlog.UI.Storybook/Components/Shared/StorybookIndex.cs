@@ -375,7 +375,11 @@ internal static class StorybookIndex
 
             // After AI tabs, because it is what the Cohesion tab draws. It draws
             // ButtonGroup, ToggleButton and AppButton, all introduced above.
-            new("devbook/cohesion", "Cohesion board", "CohesionBoard: the Cohesion tab's board — usages on the stage lanes and layer bands, their hand-offs as arrows, the four views, a picked usage's fed by, hands on to and built on, and the platforms row.")
+            new("devbook/cohesion", "Cohesion board", "CohesionBoard: the Cohesion tab's board — usages on the stage lanes and layer bands, their hand-offs as arrows, the four views, a picked usage's fed by, hands on to and built on, and the platforms row."),
+
+            // After AI tabs, because it is what the Model tab draws. It draws
+            // DevbookStatusPill and AppButton, both introduced above.
+            new("devbook/delivery-path", "Delivery path", "DeliveryPathBoard: the Model tab's board — the stages with their where-labels and the pull-request marker, sub-stages as cards of usages, the feedback arrow, the layers beneath, and a picked usage lighting every card it sits in.")
         ]),
 
         // The first subject, ahead of Integrations rather than with Progress where its
