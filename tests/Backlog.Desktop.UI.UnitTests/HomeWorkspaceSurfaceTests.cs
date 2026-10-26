@@ -574,7 +574,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void Ask_ai_asks_the_devbook_while_it_has_the_screen_and_the_view_after()
     {
-        // A fixed Devbook body: the harness has no knowledge folder to read, and what
+        // A fixed Devbook body: the harness has no devbook folder to read, and what
         // is pinned is which source the shell asks, not what the Devbook finds.
         using var harness = CreateHarness(
             features => features.SetEnabled(AppFeatures.AiAssistant, true),

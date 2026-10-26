@@ -217,7 +217,7 @@
     ///
     /// <para>It travels through here for the same reason
     /// <see cref="DevbookDocumentPath"/> does: this is the read view of every
-    /// knowledge chapter an area lets a reader write, and a chapter that opens
+    /// devbook chapter an area lets a reader write, and a chapter that opens
     /// with a record was showing that record as a code fence. Off by default —
     /// most markdown in this product is an entry body, where a <c>meta</c> fence
     /// is only a fenced block.</para>
@@ -247,11 +247,11 @@
     [Parameter]
     public bool ShowDevbookStatus { get; set; } = true;
 
-    /// <summary>Which knowledge folder the text was read from, forwarded so a
+    /// <summary>Which devbook folder the text was read from, forwarded so a
     /// status can be checked against that folder's vocabulary — which is what
     /// turns it from a word into a value a reader can pick from a list. Unset,
     /// the read view is folder-blind and draws the word, which is right for every
-    /// body that is not a chapter of a knowledge folder.</summary>
+    /// body that is not a chapter of a devbook folder.</summary>
     [Parameter]
     public DevbookFolder DevbookFolder { get; set; } = DevbookFolder.Unknown;
 
@@ -260,7 +260,7 @@
     /// the chapter it names instead of to the reader's browser.
     ///
     /// <para>It travels through here because this component is the read view of
-    /// every knowledge chapter an area lets a reader write: three of the five
+    /// every devbook chapter an area lets a reader write: three of the five
     /// sections hand their body to an editing surface, and the surface renders the
     /// chapter through this. Left unset — which is every entry body and every
     /// other surface — nothing about the rendering changes.</para></summary>

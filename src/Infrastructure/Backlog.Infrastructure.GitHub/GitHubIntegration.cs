@@ -96,7 +96,7 @@ public sealed partial class GitHubIntegration(
         cliAccounts?.ListAsync(cancellationToken) ?? Task.FromResult<IReadOnlyList<GhCliAccount>>([]);
 
     /// <summary>Creates an issue from a title and body somebody else composed.
-    /// What makes a good issue out of a backlog entry, a knowledge chapter or a
+    /// What makes a good issue out of a backlog entry, a devbook chapter or a
     /// bug report is that context's business — this only knows how to file
     /// one.</summary>
     public async Task<GitHubIssueLink> CreateIssueAsync(

@@ -105,7 +105,7 @@ Markdown remains canonical behind the rich text editor.
     // block does not get to. They were added when the shared record dropped
     // `order` while the files still carried it, so `.design` had to parse its own.
     // `main` has since moved the declaration into the committed `_meta/index.json`
-    // and stripped every `order:` line from the knowledge folders, so there is no
+    // and stripped every `order:` line from the devbook folders, so there is no
     // fence left to read and nothing here to assert. What survived the move is
     // library-level and lives where it belongs: MetadataReaderTests pins that
     // `order` is recognised and dropped rather than surfacing as an unknown field.

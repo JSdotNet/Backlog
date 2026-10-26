@@ -533,7 +533,7 @@
 }
 
 /* What a roadmap item has already gathered — its linked and tagged backlog
-   entries, its knowledge chapters, and the effort registered against them. A
+   entries, its devbook chapters, and the effort registered against them. A
    read-only block below the editable fields, drawn quietly because it is context
    for those fields rather than another one of them. */
 .roadmap-gathered {

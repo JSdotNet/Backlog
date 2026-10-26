@@ -9,7 +9,7 @@ namespace Backlog.Modules.Roadmap.Abstractions;
 /// <para>
 /// Tasks win. While an item gathers at least one backlog entry, the hand-set day is not
 /// read: the item is finished when every entry is done, and ends when the last was ticked
-/// off. Knowledge chapters are no tasks — a chapter has no status — so an item made only
+/// off. Devbook chapters are no tasks — a chapter has no status — so an item made only
 /// of references is still one a person completes.
 /// </para>
 /// <para>

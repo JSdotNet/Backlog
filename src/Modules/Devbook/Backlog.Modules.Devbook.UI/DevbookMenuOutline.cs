@@ -49,7 +49,7 @@ internal sealed class DevbookMenuOutline
 
     /// <summary>A folder with neither answer: every directory sorts itself and
     /// every row keeps its filename label. What the instruction area gets, since
-    /// it is assembled out of agent folders rather than being a knowledge folder
+    /// it is assembled out of agent folders rather than being a devbook folder
     /// with an order of its own.</summary>
     public static DevbookMenuOutline None { get; } = new(
         null,

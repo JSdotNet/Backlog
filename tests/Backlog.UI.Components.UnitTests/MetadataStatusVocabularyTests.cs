@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The status words a surface allows, taken out of the knowledge folder they used
+/// The status words a surface allows, taken out of the devbook folder they used
 /// to be locked behind.
 ///
 /// <para><c>MetadataView</c> took a <c>DevbookFolder</c> and asked
@@ -18,7 +18,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// </summary>
 public sealed class MetadataStatusVocabularyTests
 {
-    /// <summary>The knowledge folders, so a claim about "every vocabulary" is made
+    /// <summary>The devbook folders, so a claim about "every vocabulary" is made
     /// against all five and not against the one that happened to be handy.</summary>
     private static readonly DevbookFolder[] Folders = Enum.GetValues<DevbookFolder>();
 
@@ -279,7 +279,7 @@ public sealed class MetadataStatusVocabularyTests
     [Fact]
     public void A_generic_surface_that_allows_none_still_leads_with_no_status()
     {
-        // The resting label is a knowledge folder's fact. A caller that allows
+        // The resting label is a devbook folder's fact. A caller that allows
         // none and names no resting value keeps the plain "No status" entry.
         var vocabulary = new MetadataStatusVocabulary(["open", "closed"], allowsNone: true);
 

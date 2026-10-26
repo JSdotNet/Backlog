@@ -33,7 +33,7 @@ public sealed record DevbookReference
     /// addresses the file as a whole.</summary>
     public string? Slug { get; }
 
-    /// <summary>The knowledge folder the target lives in, read from
+    /// <summary>The devbook folder the target lives in, read from
     /// <see cref="Path"/>.</summary>
     public DevbookFolder Folder { get; }
 
@@ -92,7 +92,7 @@ public sealed record DevbookReference
     /// path as often as it is a command, a type name or a single word, and
     /// turning the wrong one into a link puts a destination on something that has
     /// none. So this asks for all three of the things a real reference has — a
-    /// known knowledge folder at the front, <c>.md</c> at the end, and no
+    /// known devbook folder at the front, <c>.md</c> at the end, and no
     /// whitespace in between — and hands back nothing when any is missing.</para>
     /// </summary>
     public static DevbookReference? ParseDevbookPath(string? raw)
@@ -119,7 +119,7 @@ public sealed record DevbookReference
     /// out of this record to reach it.</para>
     ///
     /// <para>The reason it is needed at all is that the rooted form is not the form
-    /// the knowledge folders are written in. A <c>meta</c> fence spells a reference
+    /// the devbook folders are written in. A <c>meta</c> fence spells a reference
     /// from the repository root, but a link in prose is written the way every
     /// markdown viewer resolves one — <c>../tasks/domain.md#task</c>,
     /// or a bare sibling <c>domain.md</c> — because those folders are read outside
@@ -139,7 +139,7 @@ public sealed record DevbookReference
     /// heading of the chapter already on screen, and the reader who clicks it
     /// belongs in that chapter rather than in a browser.</para>
     ///
-    /// <para><paramref name="fromDocument"/> need not be in a knowledge folder. The
+    /// <para><paramref name="fromDocument"/> need not be in a devbook folder. The
     /// instruction files are read in the same pane and link into <c>.design</c> and
     /// <c>.domain</c> from the repository root; where their own folder sits decides
     /// nothing about where their links point.</para>

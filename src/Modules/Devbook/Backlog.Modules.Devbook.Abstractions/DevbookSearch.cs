@@ -19,7 +19,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// <param name="Slug">The heading's slug, or the empty string for a chapter that
 /// is the file itself.</param>
 /// <param name="Title">The heading as authored, when there is one.</param>
-/// <param name="Folder">The knowledge folder kind — <c>domain</c>, <c>arc42</c> —
+/// <param name="Folder">The devbook folder kind — <c>domain</c>, <c>arc42</c> —
 /// so a caller can group by area without splitting the path.</param>
 public sealed record DevbookChapterAddress(string Path, string Slug, string? Title, string? Folder)
 {
@@ -96,7 +96,7 @@ public interface IDevbookSearch
     /// and for refusing to hand a reader's punctuation to a parser.</param>
     /// <param name="repositoryAlias">Which repository's knowledge to search, or
     /// <see langword="null"/> for the storage-folder scope.</param>
-    /// <param name="scope">One knowledge folder — <c>.domain</c> — or
+    /// <param name="scope">One devbook folder — <c>.domain</c> — or
     /// <see langword="null"/> for every area at once, which is the default the
     /// domain asks for: "find the chapter that answers a question across every
     /// area and every note at once".</param>

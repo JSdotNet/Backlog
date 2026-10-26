@@ -467,7 +467,7 @@
             }
 
             @* Two columns: how this machine reaches the repository,
-               and which of its knowledge folders Backlog reads. *@
+               and which of its devbook folders Backlog reads. *@
             <div class="setting-columns">
                 <div>
                     <TextField Bare="true"
@@ -664,7 +664,7 @@
                 <div class="devbook-folders" data-testid="devbook-folder-settings">
                     <h4 class="devbook-folders__title">Devbook sections</h4>
                     <p class="setting__note">
-                        Repository knowledge folders default to their conventional paths.
+                        Repository devbook folders default to their conventional paths.
                         Clear an override to return to the default, or turn a section off for this repository.
                         Instructions are on/off only and use Backlog's standard repository discovery.
                     </p>
@@ -754,7 +754,7 @@
                                             @* The space is written out because Razor drops whitespace-only
                                                text between elements, and these two spans are one sentence
                                                apiece: without it the line reads "at the repository
-                                               root.Architecture knowledge folder was not found at ...". *@
+                                               root.Architecture devbook folder was not found at ...". *@
                                             @(" ")
                                             @* A branch being fetched for the first time is news, not a
                                                fault: nothing here is wrong and nothing needs fixing, so it

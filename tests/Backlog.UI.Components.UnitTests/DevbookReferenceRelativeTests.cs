@@ -3,7 +3,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// Reading a reference that was written the way an author actually writes one.
 ///
-/// <para>The knowledge folders almost never spell a link out from the repository
+/// <para>The devbook folders almost never spell a link out from the repository
 /// root. A chapter links to its sibling as <c>domain.md#roadmap-item-gathering</c>
 /// and to another context as <c>../tasks/domain.md#task</c>, because
 /// that is the form that works in every markdown viewer the folders are also read
@@ -62,7 +62,7 @@ public sealed class DevbookReferenceRelativeTests
     public void A_link_that_climbs_out_of_one_folder_and_into_another_crosses_areas()
     {
         // `.backlog/domain-backlog.md` writes it this way: up to the repository
-        // root and back down into a different knowledge folder.
+        // root and back down into a different devbook folder.
         var reference = DevbookReference.ParseDevbookPath(
             "../.domain/roadmap/domain.md#roadmap-plan",
             ".backlog/domain-backlog.md");
@@ -184,7 +184,7 @@ public sealed class DevbookReferenceRelativeTests
     // many, and the answer is nothing rather than a path that starts climbing.
     [InlineData("../../../etc/passwd", ".domain/roadmap/features.md")]
     [InlineData("../../secrets.md", ".domain/features.md")]
-    // Lands somewhere real but outside the knowledge folders: the sections are
+    // Lands somewhere real but outside the devbook folders: the sections are
     // the only thing this can address, and the repository's own README is not
     // one of them. (`../README.md` from the same document is a different answer
     // and a correct one — it is `.domain/README.md`, still inside the section.)

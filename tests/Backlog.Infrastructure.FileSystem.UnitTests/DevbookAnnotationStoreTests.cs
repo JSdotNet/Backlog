@@ -37,7 +37,7 @@ public class DevbookAnnotationStoreTests : IDisposable
 
     public DevbookAnnotationStoreTests() => Directory.CreateDirectory(_root);
 
-    /// <param name="folders">Where this machine has each knowledge folder
+    /// <param name="folders">Where this machine has each devbook folder
     /// pointed. Omitted — which is what every test predating the canonical
     /// chapter key does — the store reads the conventional folders, and the
     /// remarks those tests file are already named by them.</param>

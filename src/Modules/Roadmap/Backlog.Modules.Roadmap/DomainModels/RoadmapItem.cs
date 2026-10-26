@@ -92,7 +92,7 @@ public sealed class RoadmapItem
     /// matters.</summary>
     public PlanningTag Tag { get; private set; }
 
-    /// <summary>The knowledge chapters this item points at, as opaque references that
+    /// <summary>The devbook chapters this item points at, as opaque references that
     /// may dangle. Empty means it points at none.</summary>
     public KnowledgeReferences KnowledgeRefs { get; private set; }
 

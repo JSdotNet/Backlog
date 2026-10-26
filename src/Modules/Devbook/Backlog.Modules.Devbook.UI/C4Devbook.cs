@@ -81,7 +81,7 @@ public sealed class C4DevbookStore : IDisposable
     /// </summary>
     public const string ReferenceFile = "references.json";
 
-    /// <summary>The knowledge folder this feature is scoped to. Architecture only,
+    /// <summary>The devbook folder this feature is scoped to. Architecture only,
     /// deliberately: C4 describes systems, containers and components, and the other
     /// folders describe a domain model, a technology graph and a design language,
     /// none of which C4 has a vocabulary for.</summary>

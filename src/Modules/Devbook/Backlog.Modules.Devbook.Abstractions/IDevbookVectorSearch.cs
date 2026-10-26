@@ -40,7 +40,7 @@ public interface IDevbookVectorSearch
     /// different model, cannot be compared with these and is not.</param>
     /// <param name="repositoryAlias">Which repository's knowledge to search, or
     /// <see langword="null"/> for the storage-folder scope.</param>
-    /// <param name="scope">One knowledge folder, or <see langword="null"/> for
+    /// <param name="scope">One devbook folder, or <see langword="null"/> for
     /// every area at once.</param>
     /// <param name="limit">How many hits to return at most.</param>
     DevbookSearchAnswer Nearest(

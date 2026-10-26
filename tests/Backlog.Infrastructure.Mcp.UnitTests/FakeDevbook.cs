@@ -3,7 +3,7 @@ using Backlog.Modules.Devbook.Abstractions;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// Knowledge folders for one repository, pointed at a real directory on disk so
+/// Devbook folders for one repository, pointed at a real directory on disk so
 /// a chapter can actually be read.
 /// <para>
 /// Real files rather than an in-memory tree because the port hands back a path

@@ -596,7 +596,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         }
     }
 
-    /// <param name="configuredPath">Where the <c>.arc42</c> knowledge folder is
+    /// <param name="configuredPath">Where the <c>.arc42</c> devbook folder is
     /// pointed, or null for the conventional folder at the repository root. A
     /// folder somebody has moved is a supported configuration rather than a
     /// degraded one, so the arrangement inside it is the same either way and only

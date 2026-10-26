@@ -751,7 +751,7 @@ public class RoadmapPlanViewTests
             Plan([Item("Work", repositories: ["backlog"], tag: "sync", knowledge: ["a.md", "b.md#h"])]),
             Configured);
 
-        Assert.Contains("references 2 knowledge chapters", Assert.Single(view.Bars).Detail);
+        Assert.Contains("references 2 devbook chapters", Assert.Single(view.Bars).Detail);
     }
 
     [Fact]
