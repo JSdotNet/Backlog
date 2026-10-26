@@ -81,6 +81,7 @@
                               Expanded="@(goal.Id == _selected)"
                               OnToggle="() => ToggleAsync(goal.Id)"
                               Candidates="Model.Candidates"
+                              Repositories="Model.Repositories"
                               OnAttach="subject => OnAttach.InvokeAsync(new GoalAttachRequest(goal.Id, subject))"
                               OnEdit="@(OnEditGoal.HasDelegate ? EventCallback.Factory.Create<GoalEditRequest>(this, request => OnEditGoal.InvokeAsync(request)) : default)"
                               OnDelete="@(OnDeleteGoal.HasDelegate ? EventCallback.Factory.Create(this, () => _deleting = goal) : default)"

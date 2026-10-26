@@ -103,14 +103,12 @@ public sealed class GitHubGoalPullRequests(Func<GitHubIntegration?> gitHub) : IG
 
         foreach (var reference in asked)
         {
-            // The one in its own repository, or — renamed since it was linked — the only
-            // one with its number.
+            // The one in its own repository. GitHub answers under the name it was asked
+            // by — a renamed repository too — so a pull request under another name is
+            // another repository's, however alone its number is in the reading.
             var pull = listing.PullRequests.FirstOrDefault(candidate =>
-                    candidate.Number == reference.Number
-                    && string.Equals(candidate.RepositoryFullName, reference.RepositoryFullName, StringComparison.OrdinalIgnoreCase))
-                ?? (listing.PullRequests.Count(candidate => candidate.Number == reference.Number) == 1
-                    ? listing.PullRequests.Single(candidate => candidate.Number == reference.Number)
-                    : null);
+                candidate.Number == reference.Number
+                && string.Equals(candidate.RepositoryFullName, reference.RepositoryFullName, StringComparison.OrdinalIgnoreCase));
 
             if (pull is not null)
             {
