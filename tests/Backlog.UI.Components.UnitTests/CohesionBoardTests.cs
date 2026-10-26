@@ -229,4 +229,50 @@ public sealed class CohesionBoardTests
         Assert.Equal("M30 40 L25.5 31 L34.5 31 Z", CohesionBoard.HeadPath(points));
         Assert.EndsWith("L30 33", CohesionBoard.LinePath(points));
     }
+
+    [Fact]
+    public void Forward_puts_the_stage_number_in_the_accessible_name_too()
+    {
+        using var context = new BunitContext();
+        var board = Render(context, CohesionView.Forward);
+
+        Assert.Equal("GATE, adopted, Stage 2, stage 2", Node(board, "gate").GetAttribute("aria-label"));
+        Assert.Equal("PLAN, trial, Stage 1", Node(board, "plan").GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void Choosing_the_view_already_open_keeps_the_pick()
+    {
+        using var context = new BunitContext();
+        var board = Render(context);
+        Node(board, "gate").Click();
+
+        board.Find("[data-testid='cohesion-view-hand-offs']").Click();
+
+        Assert.Equal("true", Node(board, "gate").GetAttribute("aria-pressed"));
+    }
+
+    [Fact]
+    public void A_graph_that_no_longer_carries_the_pick_drops_it_and_says_so()
+    {
+        using var context = new BunitContext();
+        string? announced = "unset";
+        var board = context.Render<CohesionBoard>(parameters => parameters
+            .Add(p => p.Graph, Graph)
+            .Add(p => p.SelectedId, "gate")
+            .Add(p => p.SelectedIdChanged, (string? id) => announced = id));
+
+        board.Render(parameters => parameters.Add(p => p.Graph, Graph with { Nodes = [.. Graph.Nodes.Where(node => node.Id != "gate")] }));
+
+        Assert.Null(announced);
+        Assert.Contains("Pick any usage", board.Find("[data-testid='cohesion-detail']").TextContent);
+    }
+
+    [Fact]
+    public void A_last_segment_shorter_than_the_cut_is_cut_to_nothing_rather_than_reversed()
+    {
+        CohesionPoint[] points = [new(0, 0), new(30, 0), new(30, 4)];
+
+        Assert.EndsWith("L30 0", CohesionBoard.LinePath(points));
+    }
 }

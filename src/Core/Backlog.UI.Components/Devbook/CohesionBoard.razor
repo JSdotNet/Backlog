@@ -38,63 +38,67 @@
             <span class="cohesion__view-note" data-testid="@($"{TestId}-view-note")">@Views.First(view => view.View == _view).Note</span>
         </div>
 
-        <div class="cohesion__detail" aria-live="polite" data-testid="@($"{TestId}-detail")">
-            @if (PickedNode is { } picked)
-            {
-                <div class="cohesion__detail-head">
-                    <span class="cohesion__detail-title">@picked.Name</span>
-                    <span class="cohesion__detail-sub">@Subtitle(picked)</span>
-                    <span class="cohesion__detail-actions">
-                        @if (OnOpenUsage.HasDelegate)
-                        {
-                            <AppButton Size="ButtonSize.Small" OnClick="() => OnOpenUsage.InvokeAsync(picked.Id)" TestId="@($"{TestId}-open")">Open chapter</AppButton>
-                        }
-                        <AppButton Size="ButtonSize.Small" Variant="ButtonVariant.Ghost" OnClick="ClearAsync" TestId="@($"{TestId}-clear")">Clear</AppButton>
-                    </span>
-                </div>
-                <dl class="cohesion__detail-links">
-                    <div class="cohesion__detail-link" data-testid="@($"{TestId}-fed-by")">
-                        <dt>fed by</dt>
-                        <dd>@Listed(Incoming(picked.Id))</dd>
+        <div class="cohesion__detail" data-testid="@($"{TestId}-detail")">
+            @* Only the words are live: the actions stay out of the region, so a
+               pick announces the usage rather than its buttons. *@
+            <div class="cohesion__detail-content" aria-live="polite">
+                @if (PickedNode is { } picked)
+                {
+                    <div class="cohesion__detail-head">
+                        <span class="cohesion__detail-title">@picked.Name</span>
+                        <span class="cohesion__detail-sub">@Described(picked, " · ")</span>
                     </div>
-                    <div class="cohesion__detail-link" data-testid="@($"{TestId}-hands-on-to")">
-                        <dt>hands on to</dt>
-                        <dd>@Listed(Outgoing(picked.Id))</dd>
+                    <dl class="cohesion__detail-links">
+                        <div class="cohesion__detail-link" data-testid="@($"{TestId}-fed-by")">
+                            <dt>fed by</dt>
+                            <dd>@Listed(Incoming(picked.Id))</dd>
+                        </div>
+                        <div class="cohesion__detail-link" data-testid="@($"{TestId}-hands-on-to")">
+                            <dt>hands on to</dt>
+                            <dd>@Listed(Outgoing(picked.Id))</dd>
+                        </div>
+                        <div class="cohesion__detail-link" data-testid="@($"{TestId}-built-on")">
+                            <dt>built on</dt>
+                            <dd>@Listed(picked.Platforms.Select(id => Graph.Platform(id)?.Name ?? id))</dd>
+                        </div>
+                    </dl>
+                }
+                else if (PickedPlatform is { } platform)
+                {
+                    var users = Graph.Nodes.Where(candidate => candidate.Platforms.Contains(platform.Id, StringComparer.Ordinal)).ToList();
+                    <div class="cohesion__detail-head">
+                        <span class="cohesion__detail-title">@platform.Name</span>
+                        <span class="cohesion__detail-sub">@Usages(users.Count) built on it</span>
                     </div>
-                    <div class="cohesion__detail-link" data-testid="@($"{TestId}-built-on")">
-                        <dt>built on</dt>
-                        <dd>@Listed(picked.Platforms.Select(id => Graph.Platform(id)?.Name ?? id))</dd>
+                    <span class="cohesion__detail-body" data-testid="@($"{TestId}-platform-users")">@Listed(users.Select(user => user.Name))</span>
+                }
+                else
+                {
+                    <div class="cohesion__detail-head">
+                        <span class="cohesion__detail-title">Pick any usage</span>
+                        <span class="cohesion__detail-sub">or a platform below</span>
                     </div>
-                </dl>
-            }
-            else if (PickedPlatform is { } platform)
+                    <span class="cohesion__detail-body">Its links light up and this panel says what feeds it, what it hands on to, and what it is built on. Pick it again to clear.</span>
+                }
+            </div>
+            @if (_node is not null || _platform is not null)
             {
-                var users = Graph.Nodes.Where(candidate => candidate.Platforms.Contains(platform.Id, StringComparer.Ordinal)).ToList();
-                <div class="cohesion__detail-head">
-                    <span class="cohesion__detail-title">@platform.Name</span>
-                    <span class="cohesion__detail-sub">@Usages(users.Count) built on it</span>
-                    <span class="cohesion__detail-actions">
-                        <AppButton Size="ButtonSize.Small" Variant="ButtonVariant.Ghost" OnClick="ClearAsync" TestId="@($"{TestId}-clear")">Clear</AppButton>
-                    </span>
-                </div>
-                <span class="cohesion__detail-body" data-testid="@($"{TestId}-platform-users")">@Listed(users.Select(user => user.Name))</span>
-            }
-            else
-            {
-                <div class="cohesion__detail-head">
-                    <span class="cohesion__detail-title">Pick any usage</span>
-                    <span class="cohesion__detail-sub">or a platform below</span>
-                </div>
-                <span class="cohesion__detail-body">Its links light up and this panel says what feeds it, what it hands on to, and what it is built on. Pick it again to clear.</span>
+                <span class="cohesion__detail-actions">
+                    @if (PickedNode is { } open && OnOpenUsage.HasDelegate)
+                    {
+                        <AppButton Size="ButtonSize.Small" OnClick="() => OnOpenUsage.InvokeAsync(open.Id)" TestId="@($"{TestId}-open")">Open chapter</AppButton>
+                    }
+                    <AppButton Size="ButtonSize.Small" Variant="ButtonVariant.Ghost" OnClick="ClearAsync" TestId="@($"{TestId}-clear")">Clear</AppButton>
+                </span>
             }
         </div>
     </div>
 
     <ul class="cohesion__legend" aria-label="Legend">
-        <li><svg aria-hidden="true" focusable="false" width="44" height="10" viewBox="0 0 44 10"><g class="cohesion__edge cohesion__edge--feed"><path d="M1 5H36" /><path class="cohesion__head" d="M43 5 35 1v8z" /></g></svg>hands work on</li>
-        <li><svg aria-hidden="true" focusable="false" width="44" height="10" viewBox="0 0 44 10"><g class="cohesion__edge cohesion__edge--feed cohesion__edge--dashed"><path d="M1 5H36" /><path class="cohesion__head" d="M43 5 35 1v8z" /></g></svg>would hand on — a candidate</li>
-        <li><svg aria-hidden="true" focusable="false" width="44" height="10" viewBox="0 0 44 10"><g class="cohesion__edge cohesion__edge--support"><path d="M1 5H36" /><path class="cohesion__head" d="M43 5 35 1v8z" /></g></svg>supports or steers — shown on select</li>
-        <li><svg aria-hidden="true" focusable="false" width="44" height="10" viewBox="0 0 44 10"><g class="cohesion__edge cohesion__edge--open-loop cohesion__edge--dashed"><path d="M1 5H36" /><path class="cohesion__head" d="M43 5 35 1v8z" /></g></svg>the open loop from production</li>
+        <li><svg aria-hidden="true" focusable="false" width="44" height="10" viewBox="0 0 44 10"><g class="cohesion__edge cohesion__edge--feed"><path class="cohesion__line" d="M1 5H36" /><path class="cohesion__head" d="M43 5 35 1v8z" /></g></svg>hands work on</li>
+        <li><svg aria-hidden="true" focusable="false" width="44" height="10" viewBox="0 0 44 10"><g class="cohesion__edge cohesion__edge--feed cohesion__edge--dashed"><path class="cohesion__line" d="M1 5H36" /><path class="cohesion__head" d="M43 5 35 1v8z" /></g></svg>would hand on — a candidate</li>
+        <li><svg aria-hidden="true" focusable="false" width="44" height="10" viewBox="0 0 44 10"><g class="cohesion__edge cohesion__edge--support"><path class="cohesion__line" d="M1 5H36" /><path class="cohesion__head" d="M43 5 35 1v8z" /></g></svg>supports or steers — shown on select</li>
+        <li><svg aria-hidden="true" focusable="false" width="44" height="10" viewBox="0 0 44 10"><g class="cohesion__edge cohesion__edge--open-loop cohesion__edge--dashed"><path class="cohesion__line" d="M1 5H36" /><path class="cohesion__head" d="M43 5 35 1v8z" /></g></svg>the open loop from production</li>
         @if (Graph.PullRequestX is not null)
         {
             <li><span class="cohesion__legend-pr" aria-hidden="true"></span>the pull request</li>
@@ -156,7 +160,7 @@
                         class="@NodeClass(node)"
                         style="@($"left: {Px(node.X)}; top: {Px(node.Y)}; width: {Px(node.Width)}; height: {Px(node.Height)};")"
                         aria-pressed="@(IsPicked(node) ? "true" : "false")"
-                        aria-label="@AccessibleName(node)"
+                        aria-label="@AccessibleName(node, badge)"
                         data-testid="@($"{TestId}-node")"
                         data-id="@node.Id"
                         @onclick="() => PickNodeAsync(node.Id)">
@@ -247,7 +251,8 @@
     public EventCallback<string?> SelectedIdChanged { get; set; }
 
     /// <summary>The picked platform's id, or null. A usage and a platform are
-    /// never picked at once: picking one clears the other.</summary>
+    /// never picked at once: picking one clears the other, and when both are
+    /// handed in the usage wins.</summary>
     [Parameter]
     public string? SelectedPlatformId { get; set; }
 
@@ -269,19 +274,12 @@
     private string? _platform;
     private string? _lastPlatform;
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
         if (_lastView != View)
         {
             _lastView = View;
             _view = View;
-        }
-
-        if (!string.Equals(SelectedId, _lastNode, StringComparison.Ordinal))
-        {
-            _lastNode = SelectedId;
-            _node = SelectedId;
-            if (_node is not null) _platform = null;
         }
 
         if (!string.Equals(SelectedPlatformId, _lastPlatform, StringComparison.Ordinal))
@@ -291,10 +289,21 @@
             if (_platform is not null) _node = null;
         }
 
-        // A re-laid graph that no longer carries the pick drops it rather than
-        // keeping it hidden.
-        if (_node is not null && Graph.Node(_node) is null) _node = null;
-        if (_platform is not null && Graph.Platform(_platform) is null) _platform = null;
+        if (!string.Equals(SelectedId, _lastNode, StringComparison.Ordinal))
+        {
+            _lastNode = SelectedId;
+            _node = SelectedId;
+            if (_node is not null) _platform = null;
+        }
+
+        // A re-laid graph that no longer carries the pick drops it, and says so,
+        // rather than leaving the host holding an id the board cannot show.
+        var node = _node is not null && Graph.Node(_node) is null ? null : _node;
+        var platform = _platform is not null && Graph.Platform(_platform) is null ? null : _platform;
+        if (!string.Equals(node, _node, StringComparison.Ordinal) || !string.Equals(platform, _platform, StringComparison.Ordinal))
+        {
+            await SetPickAsync(node, platform);
+        }
     }
 
     private CohesionNode? PickedNode => Graph.Node(_node);
@@ -352,6 +361,8 @@
 
     private async Task SetView(CohesionView view)
     {
+        if (view == _view) return;
+
         _view = view;
         await ViewChanged.InvokeAsync(view);
         await SetPickAsync(null, null);
@@ -399,11 +410,15 @@
 
     private static string Usages(int count) => count == 1 ? "1 usage" : $"{count} usages";
 
-    private static string Subtitle(CohesionNode node) =>
-        string.Join(" · ", new[] { node.Status ?? "no status", node.Scheduled ? "scheduled" : null, node.Where }.Where(part => part is not null));
+    /// <summary>The usage in words — name aside: its rung, whether a schedule
+    /// runs it, and where it sits. The panel and the accessible name both read it.</summary>
+    private static string Described(CohesionNode node, string separator) =>
+        string.Join(separator, new[] { node.Status ?? "no status", node.Scheduled ? "scheduled" : null, node.Where }.Where(part => part is not null));
 
-    private static string AccessibleName(CohesionNode node) =>
-        string.Join(", ", new[] { node.Name, node.Status ?? "no status", node.Scheduled ? "scheduled" : null, node.Where }.Where(part => part is not null));
+    /// <summary>The box's accessible name: the visible name first, then the
+    /// same words the panel shows, and the stage number while Forward badges it.</summary>
+    private static string AccessibleName(CohesionNode node, string? badge) =>
+        $"{node.Name}, {Described(node, ", ")}" + (badge is null ? string.Empty : $", stage {badge}");
 
     private static string LaneClass(int index, CohesionLane lane)
     {
@@ -459,7 +474,10 @@
 
         var pts = points.ToList();
         var (a, b) = (pts[^2], pts[^1]);
-        pts[^1] = new CohesionPoint(b.X - Math.Sign(b.X - a.X) * (ArrowLength - 2), b.Y - Math.Sign(b.Y - a.Y) * (ArrowLength - 2));
+        // The layout's polylines are orthogonal; a last segment shorter than the
+        // cut is cut to nothing rather than turned back on itself.
+        var cut = Math.Min(ArrowLength - 2, Math.Abs(b.X - a.X) + Math.Abs(b.Y - a.Y));
+        pts[^1] = new CohesionPoint(b.X - Math.Sign(b.X - a.X) * cut, b.Y - Math.Sign(b.Y - a.Y) * cut);
 
         var d = new StringBuilder($"M{Num(pts[0].X)} {Num(pts[0].Y)}");
         for (var i = 1; i < pts.Count; i++)
