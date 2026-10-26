@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Backlog.Infrastructure.BlobStorage.Extensions;
 using Backlog.Infrastructure.Cosmos.Extensions;
+using Backlog.Infrastructure.NotificationHubs.Extensions;
+using Backlog.Infrastructure.WebPubSub.Extensions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Api;
 using Backlog.Modules.Sync.Api.Endpoints;
@@ -44,6 +46,18 @@ builder.AddCosmosReplicas();
 // so the blob-backed store wins, and a no-op in Development with no `attachments`
 // connection, which leaves the module's in-memory store standing.
 builder.AddAttachmentBlobStore();
+
+// The realtime nudge to the desktops (local ADR 0039 §4), on the same terms once more —
+// except that with no hub configured it is a no-op in every environment, because the nudge
+// holds no data: the module's no-op channel stands, negotiate hands out no URL, and every
+// desktop keeps its two-minute poll. That is the Aspire run, which has no Web PubSub.
+builder.AddWebPubSubNudge();
+
+// The Android push to the phones (local ADR 0039 §4), on the nudge's terms: with no hub
+// configured it is a no-op in every environment, because a push holds no data either — the
+// module's no-op channel stands, registration answers "not registered", and a phone finds a
+// notification on its next pull. That is the Aspire run, which has no Notification Hubs.
+builder.AddNotificationHubsPush();
 
 // The upload cap and the type allowlist. Settings, so widening "any file" is a
 // configuration change; validated at startup like every other section.
@@ -98,6 +112,7 @@ sync.MapInboxEndpoints();
 sync.MapTaskSyncEndpoints();
 sync.MapSessionSyncEndpoints();
 sync.MapAnnotationSyncEndpoints();
+sync.MapNotificationSyncEndpoints();
 sync.MapAttachmentSyncEndpoints();
 
 // The service saying what it is, and which build it is. No owner, no data,

@@ -246,6 +246,13 @@ _ = app.Services.GetRequiredService<SessionSyncWorker>();
 // And annotation replication's loop, the third sibling, on the same terms.
 _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+// And the notification exchange's loop (local ADR 0039), on the same terms.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
+
+// And its realtime nudge (local ADR 0039 §4). Under Aspire the sync service has no Web PubSub,
+// so the listener hears there is no hub and the two-minute poll carries on alone.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationNudgeListener>();
+
 // And the backup loop, on the same terms: a timer that only existed while the
 // Storage tab was open would miss every slot it was set for.
 _ = app.Services.GetRequiredService<BackupWorker>();
@@ -257,6 +264,10 @@ _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 // And the blocked-task watcher, on the same terms and for the same reason the desktop
 // head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
+
+// And the notifications startup pass, on the same terms and for the same reason the desktop
+// head starts it.
+_ = app.Services.GetRequiredService<Backlog.Modules.Notifications.Services.NotificationsStartup>().Start();
 
 // And the devbook database refresher: resolving it points every database reader
 // at the app's storage, so it has to exist before the first pane opens.

@@ -74,6 +74,36 @@ enter the outbox. It serves the Notes editor and the capture sheet's photo.
   alternatives were ImageSharp, with its split licence, and a per-platform pair
   of Android `Bitmap` beside a browser canvas.
 
+## Xamarin.Firebase.Messaging
+
+```meta
+status: candidate
+type: library
+version: "125.1.3"
+depends-on: [".devbook/tech/mobile.md#android", ".devbook/tech/cloud.md#firebase-cloud-messaging"]
+related: [".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/07-deployment-view.md#local-deployment-mobile", ".devbook/tech/cloud.md#azure-notification-hubs"]
+alternatives: ["Plugin.Firebase"]
+```
+
+The Android binding of Firebase Cloud Messaging that the phone receives the
+Android push through (local ADR 0039).
+
+- **Used for** — the FCM token the phone registers with the sync service, and
+  the data messages Notification Hubs relays. `BacklogFirebaseMessagingService`
+  in the Android head takes both. The reference sits in `Backlog.Mobile` under
+  an Android-only condition, so `Backlog.Mobile.UI` and its web harness stay free
+  of it.
+- **Why** — the Microsoft-maintained binding, with an explicit
+  `net10.0-android36.0` group. Its Play Services targets turn
+  `google-services.json` into the resources Firebase reads at start.
+  `Plugin.Firebase` is a community package with a much wider surface than one
+  token and one message.
+- **How** — Firebase's Play Services graph lifts AndroidX Collection, Fragment
+  and Lifecycle past MAUI's own pins. So `Backlog.Mobile` also references their
+  `-ktx` and companion packages at the matching versions, which keeps each class
+  in the dex once. `Directory.Packages.props` says why beside each version.
+- **Status** — `candidate` until a push reaches a phone.
+
 ## Android SDK Build Tools
 
 ```meta

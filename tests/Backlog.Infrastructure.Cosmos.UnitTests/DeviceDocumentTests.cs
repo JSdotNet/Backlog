@@ -27,6 +27,26 @@ public class DeviceDocumentTests
         Assert.Equal(device, restored);
     }
 
+    /// <summary>A paired device keeps the device whose code it redeemed, as <c>pairedBy</c>;
+    /// an owner's first device, and a document written before the field, read as paired by
+    /// nobody.</summary>
+    [Fact]
+    public void The_device_that_paired_one_round_trips_and_an_older_document_reads_as_none()
+    {
+        var paired = Registered() with { PairedBy = new DeviceId(Guid.Parse("33333333-3333-3333-3333-333333333333")) };
+
+        var document = DeviceDocumentFactory.From(paired);
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options));
+
+        Assert.Equal("33333333-3333-3333-3333-333333333333", json.RootElement.GetProperty("pairedBy").GetString());
+        Assert.Equal(paired, DeviceDocumentFactory.ToDevice(document));
+
+        var older = JsonSerializer.Deserialize<DeviceDocument>(
+            JsonSerializer.Serialize(DeviceDocumentFactory.From(Registered()), ReplicaDocumentSerialization.Options).Replace(",\"pairedBy\":null", string.Empty, StringComparison.Ordinal),
+            ReplicaDocumentSerialization.Options)!;
+        Assert.Null(DeviceDocumentFactory.ToDevice(older)!.PairedBy);
+    }
+
     /// <summary>
     /// The container is partitioned on <c>/id</c> — the device id, because the
     /// one lookup on every token mint has only that in hand — and the owner is

@@ -124,6 +124,14 @@
           "System.Memory.Data": "10.0.10"
         }
       },
+      "Azure.Messaging.WebPubSub": {
+        "type": "Transitive",
+        "resolved": "1.6.0",
+        "contentHash": "ewewoRnw/wJZMBuALoaIB8raguqM4aXp2Za3jhGYoAp0EEmKw9ZfHVXARzkB7Pb+aoOSwnsudL+izMhD9PA85Q==",
+        "dependencies": {
+          "Azure.Core": "1.46.0"
+        }
+      },
       "Azure.Storage.Common": {
         "type": "Transitive",
         "resolved": "12.29.0",
@@ -233,6 +241,14 @@
           "Azure.Core": "1.61.0",
           "Microsoft.Extensions.Configuration.Binder": "10.0.10",
           "Microsoft.Extensions.Logging": "10.0.10"
+        }
+      },
+      "Microsoft.Extensions.Caching.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.12",
+        "contentHash": "sI3A6MUAyZwccLnwq0cXuRmC3WBtXieimBWafXSfhRJ4jnM2uGVXrqImDDVyW27u4vVaTOGlJxNJd8d1FGvCNQ==",
+        "dependencies": {
+          "Microsoft.Extensions.Primitives": "10.0.12"
         }
       },
       "Microsoft.Extensions.Compliance.Abstractions": {
@@ -971,16 +987,28 @@
           "Microsoft.Extensions.Options.DataAnnotations": "[10.0.13, )"
         }
       },
+      "backlog.infrastructure.notificationhubs": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Sync": "[1.0.0, )",
+          "Microsoft.Azure.NotificationHubs": "[4.2.0, )",
+          "Microsoft.Extensions.Caching.Memory": "[10.0.12, )",
+          "Microsoft.Extensions.Hosting": "[10.0.13, )",
+          "Microsoft.Extensions.Logging": "[10.0.13, )"
+        }
+      },
       "backlog.infrastructure.sqlite": {
         "type": "Project",
         "dependencies": {
           "Backlog.Modules.Inbox": "[1.0.0, )",
+          "Backlog.Modules.Notifications": "[1.0.0, )",
           "Backlog.Modules.Progress": "[1.0.0, )",
           "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Tasks": "[1.0.0, )",
           "Microsoft.Data.Sqlite": "[10.0.12, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
         }
       },
       "backlog.infrastructure.sync": {
@@ -988,6 +1016,7 @@
         "dependencies": {
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
@@ -998,6 +1027,14 @@
           "Microsoft.Extensions.Http.Resilience": "[10.10.0, )",
           "Polly.Core": "[8.6.6, )",
           "System.Security.Cryptography.ProtectedData": "[10.0.12, )"
+        }
+      },
+      "backlog.infrastructure.webpubsub": {
+        "type": "Project",
+        "dependencies": {
+          "Aspire.Azure.Messaging.WebPubSub": "[13.6.1, )",
+          "Backlog.Modules.Sync": "[1.0.0, )",
+          "Microsoft.Extensions.Logging": "[10.0.13, )"
         }
       },
       "backlog.mobile.ui": {
@@ -1024,6 +1061,21 @@
         }
       },
       "backlog.modules.inbox.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.notifications": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
+        }
+      },
+      "backlog.modules.notifications.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
@@ -1081,6 +1133,8 @@
           "Backlog.Aspire.ServiceDefaults": "[1.0.0, )",
           "Backlog.Infrastructure.BlobStorage": "[1.0.0, )",
           "Backlog.Infrastructure.Cosmos": "[1.0.0, )",
+          "Backlog.Infrastructure.NotificationHubs": "[1.0.0, )",
+          "Backlog.Infrastructure.WebPubSub": "[1.0.0, )",
           "Backlog.Modules.Sync": "[1.0.0, )",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "[10.0.12, )",
           "Microsoft.AspNetCore.OpenApi": "[10.0.12, )",
@@ -1112,6 +1166,28 @@
           "Microsoft.AspNetCore.Components.Web": "[10.0.12, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.13, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
+        }
+      },
+      "Aspire.Azure.Messaging.WebPubSub": {
+        "type": "CentralTransitive",
+        "requested": "[13.6.1, )",
+        "resolved": "13.6.1",
+        "contentHash": "HDLLyW9cSalwmpNGISuHtg52ofwo+HHbnRM630+pOUOez4kz5j5/MCE+R1VLbZp+jnyJfm3pOQ9jG1oEWmruhA==",
+        "dependencies": {
+          "Azure.Core": "1.62.0",
+          "Azure.Messaging.WebPubSub": "1.6.0",
+          "Microsoft.Extensions.Azure": "1.14.1",
+          "Microsoft.Extensions.Configuration.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Configuration.Binder": "10.0.12",
+          "Microsoft.Extensions.Configuration.EnvironmentVariables": "10.0.12",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Diagnostics.HealthChecks": "10.0.12",
+          "Microsoft.Extensions.Hosting.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Logging": "10.0.12",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Options": "10.0.12",
+          "Microsoft.Extensions.Primitives": "10.0.12",
+          "OpenTelemetry.Extensions.Hosting": "1.17.0"
         }
       },
       "Aspire.Azure.Storage.Blobs": {
@@ -1224,6 +1300,16 @@
           "System.Configuration.ConfigurationManager": "6.0.0"
         }
       },
+      "Microsoft.Azure.NotificationHubs": {
+        "type": "CentralTransitive",
+        "requested": "[4.2.0, )",
+        "resolved": "4.2.0",
+        "contentHash": "LOCxFB/sB1frfuXjecdDRDKEHkH+I1qKRatS5NyWIgYhpKhIcAlPNIJajcwLgQBShckdc3hMG9E+75CnL3qDhQ==",
+        "dependencies": {
+          "Microsoft.Extensions.Caching.Memory": "6.0.1",
+          "Newtonsoft.Json": "13.0.1"
+        }
+      },
       "Microsoft.Data.Sqlite": {
         "type": "CentralTransitive",
         "requested": "[10.0.12, )",
@@ -1233,6 +1319,19 @@
           "Microsoft.Data.Sqlite.Core": "10.0.12",
           "SQLitePCLRaw.bundle_e_sqlite3": "2.1.12",
           "SQLitePCLRaw.core": "2.1.12"
+        }
+      },
+      "Microsoft.Extensions.Caching.Memory": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.12, )",
+        "resolved": "10.0.12",
+        "contentHash": "fhC3DHcBcFF4bXvHIxFtXJYNut7q7ZItqNFcgWfrIgmpVImlcEKNHhE7ztpNSPJYMHYYStS5QGND2I5mC26yeA==",
+        "dependencies": {
+          "Microsoft.Extensions.Caching.Abstractions": "10.0.12",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.12",
+          "Microsoft.Extensions.Options": "10.0.12",
+          "Microsoft.Extensions.Primitives": "10.0.12"
         }
       },
       "Microsoft.Extensions.DependencyInjection": {

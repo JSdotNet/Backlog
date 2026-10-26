@@ -62,7 +62,7 @@ workspace "Prompt Backlog" "Local-first, AI-first personal work management acros
         email = softwareSystem "Email / IMAP" "Email capture inbox." "External"
         websites = softwareSystem "Websites / RSS" "Web content monitoring by RSS and DOM diff." "External"
         appInsights = softwareSystem "Application Insights" "Telemetry behind the monitoring dashboards." "External"
-        pushProvider = softwareSystem "Push Provider" "FCM, for Android alerts." "External"
+        pushProvider = softwareSystem "Push Provider" "Azure Notification Hubs, relaying to FCM, for Android alerts." "External"
 
         # --- how the channels are used -------------------------------------------
 

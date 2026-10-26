@@ -198,6 +198,8 @@ closes; the first revision provisioned with a key is the first one that can come
 | Key Vault | RBAC authorization, soft delete, purge protection off. Empty and unread today; see below |
 | Log Analytics workspace | 30-day retention, 1 GB/day ingestion cap |
 | Application Insights | Workspace-based, ingesting into that workspace |
+| Notification Hubs namespace `ntfns-<token>` | Free tier; the Android push (local ADR 0039 §4) |
+| Notification hub `backlog` | Rules `sync-send` (Send) and `sync-manage` (Listen, Manage, Send); no FCM credential |
 
 The container registry is not in ADR 0005's resource list. It is there because `azd`
 deploying a container app has to push the built image somewhere; it issues no
@@ -245,7 +247,18 @@ Excluded by default (`/*`), with only these paths indexed:
 A session record is read by owner and by recency and by nothing else. Branch, turn
 count and duration are carried but not indexed, because nothing queries on them.
 
-## Identity, and why there are no keys
+### The Android push credential
+
+The hub relays the push to Firebase Cloud Messaging (FCM v1), and it needs the Firebase
+project's credential for that: the project id, the service account's client email and its
+private key. The template does not declare it. It is entered by hand on the `backlog` hub
+(Azure portal, the hub, **Settings > Google (FCM v1)**) once Firebase is set up — the
+Backlog plan entry for the FCM credential. Until then the hub keeps the phones'
+installations and drops every send, and the service carries on: a push is best effort, and
+a phone finds every notification on its next pull. The namespace and hub names are in the
+`NOTIFICATION_HUBS_NAMESPACE_NAME` and `NOTIFICATION_HUBS_HUB` outputs.
+
+## Identity, and why there are no keys but two
 
 The service reaches Cosmos as a **user-assigned managed identity** holding the
 built-in **Cosmos DB Data Contributor** data-plane role. Three things follow:
@@ -265,10 +278,17 @@ exist until its container app does, so the `AcrPull` assignment the app needs in
 to pull its own image cannot be granted before the app is created. Splitting the
 identity out breaks that cycle and lets one deployment grant every role.
 
-**The one connection string that remains** is
-`APPLICATIONINSIGHTS_CONNECTION_STRING`. It is a telemetry ingestion endpoint, not a
-data credential — it opens nothing and reaches no replica — and it is held as a
-container app secret rather than a plain environment variable.
+**The one telemetry connection string** is `APPLICATIONINSIGHTS_CONNECTION_STRING`. It is
+a telemetry ingestion endpoint, not a data credential — it opens nothing and reaches no
+replica — and it is held as a container app secret rather than a plain environment variable.
+
+**The two keys that remain** are the Notification Hubs connection strings, because
+Notification Hubs supports no managed identity. Bicep reads them from the hub's two rules
+with `listKeys()` and passes them straight into container app secrets
+(`notification-hubs-send-connection-string`, `notification-hubs-manage-connection-string`),
+so no person handles either, and no output echoes them. The service sends with the
+Send-only rule; it keeps the phones' installations with the Manage rule, because Notification
+Hubs requires Manage to create or delete one.
 
 **The data-plane role is account-scoped**, and ADR 0005 says plainly why that is not
 per-partition isolation: Cosmos cannot authorize device-session JWTs it has never
@@ -449,8 +469,9 @@ than paying its cold start each time. Docker must be running.
 
 Locally the service receives `ConnectionStrings__backlog` — and, because it is an
 emulator, the emulator's well-known account key with it. That is a local-only
-artifact of how the emulator authenticates; the deployed template issues no key at
-all, and the account it provisions would refuse one.
+artifact of how the emulator authenticates; the deployed template issues no Cosmos key at
+all, and the account it provisions would refuse one. Its only keys are the two
+Notification Hubs SAS connection strings described above.
 
 ### The `azure-environment` resource
 

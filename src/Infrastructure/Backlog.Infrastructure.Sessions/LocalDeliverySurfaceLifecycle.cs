@@ -1,8 +1,11 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Backlog.Infrastructure.Sessions;
 
@@ -27,22 +30,29 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     private readonly DeliveryRunReader _reader;
     private readonly ISessionsSurfaceActivator? _shell;
     private readonly IDevbookSyncVerdicts? _verdicts;
+    private readonly Func<INotifications?>? _notifications;
+    private readonly ILogger _logger;
 
     /// <summary>What a host composes: the dashboards' folders under the signed-in
     /// profile, this device's identity, whatever is showing the application — which
     /// may be nothing, on a host that composed the port without a window — and where
     /// chapter verdicts are kept, which may also be nothing: the run keeps its own
-    /// verdicts either way.</summary>
+    /// verdicts either way. And Notifications, told when a run finishes so a question
+    /// about it closes — nothing, on a host that composed no notifications.</summary>
     internal LocalDeliverySurfaceLifecycle(
         IDeviceIdentitySource identity,
         ISessionsSurfaceActivator? shell = null,
-        IDevbookSyncVerdicts? verdicts = null)
+        IDevbookSyncVerdicts? verdicts = null,
+        Func<INotifications?>? notifications = null,
+        ILogger? logger = null)
         : this(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
             IdOf(identity),
             identity.Current.Name,
             shell,
-            verdicts)
+            verdicts,
+            notifications,
+            logger)
     {
     }
 
@@ -53,12 +63,16 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         string environmentId,
         string environment,
         ISessionsSurfaceActivator? shell = null,
-        IDevbookSyncVerdicts? verdicts = null)
+        IDevbookSyncVerdicts? verdicts = null,
+        Func<INotifications?>? notifications = null,
+        ILogger? logger = null)
     {
         _store = new DeliveryRunStore(home);
         _reader = new DeliveryRunReader(home, environmentId, environment);
         _shell = shell;
         _verdicts = verdicts;
+        _notifications = notifications;
+        _logger = logger ?? NullLogger.Instance;
     }
 
     private static string IdOf(IDeviceIdentitySource identity)
@@ -391,6 +405,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         var now = Now();
         var done = string.Equals(status, DeliveryStageStatuses.Done, StringComparison.Ordinal);
         var doneCount = Count(stage, "doneCount") + (done ? 1 : 0);
+        var previousStatus = Text(stage, "status");
 
         stage["status"] = status;
         stage["updatedAt"] = now;
@@ -459,6 +474,11 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         // a different pass rather than an amendment to the first.
         if (execution is not null) stage["execution"] = execution.DeepClone();
 
+        // The gate asks the person in a notification, or closes the question once the
+        // gate moved on at the desktop — recorded on the run in the same write.
+        await ValidationQuestions.OnStageAsync(
+            run, Text(stage, "name") ?? string.Empty, previousStatus, status, worktree, runId, _notifications, _logger, cancellationToken).ConfigureAwait(false);
+
         WritePhaseDoneCounts(run);
 
         await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
@@ -506,6 +526,17 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
 
             repository = Text(run, "repo");
         }
+
+        // The run's end, whatever status it finished on: done, blocked, parked, or
+        // cancelled for a run abandoned. Every question about it closes — outside the
+        // gate, before anything else that could throw — and a run reopened later reopens
+        // none of them.
+        await SessionSubjectEnds.CloseAsync(
+            _notifications,
+            SessionSubjectEnds.Run(runId),
+            SessionNotificationSubjects.RunEndedReason,
+            _logger,
+            cancellationToken).ConfigureAwait(false);
 
         // Outside the run's gate: the chapter store has a gate of its own, and holding
         // one while waiting on the other is how two writers come to wait on each other.
@@ -590,6 +621,25 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         }
 
         return filed;
+    }
+
+    /// <summary>
+    /// Records the answer to a run's Personal Validation question as its gate decision, under
+    /// the run's gate, and says whether anything changed — nothing for a run that is gone, a
+    /// replayed answer, or one to a question the run moved past
+    /// (<see cref="ValidationQuestions.Record"/>).
+    /// </summary>
+    internal async Task<bool> RecordValidationAnswerAsync(string worktree, string runId, NotificationAnswer answer, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(answer);
+
+        using var held = await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
+
+        if (await _store.ReadAsync(worktree, runId, cancellationToken).ConfigureAwait(false) is not { } run) return false;
+        if (!ValidationQuestions.Record(run, answer)) return false;
+
+        await SaveAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     public async Task<IReadOnlyList<DeliveryRun>> ListRunsAsync(string worktree, CancellationToken cancellationToken = default)

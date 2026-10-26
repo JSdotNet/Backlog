@@ -28,7 +28,7 @@ param cosmosLocation string = 'swedencentral'
 @description('Container image for the sync service. Left empty on the first provision so a public placeholder runs; azd sets it to the built image on every deploy after that.')
 param containerImage string = ''
 
-@description('Cosmos DB database holding the three replica containers and the two registry containers beside them.')
+@description('Cosmos DB database holding the replica containers — tasks, sessions, annotations, notifications and notificationReplies — and the two registry containers beside them.')
 param databaseName string = 'backlog'
 
 // ADR 0005 fixes this at 180 days. It is provisioned rather than written into
@@ -42,6 +42,15 @@ param sessionRetentionSeconds int = 31536000
 
 @description('Seconds an annotation tombstone survives in the annotations container. Local ADR 0011 keeps it at the same 180 days as a task tombstone.')
 param annotationTombstoneTtlSeconds int = 15552000
+
+@description('Seconds a notification survives in the notifications container after it left Open. Local ADR 0039 fixes this at 30 days.')
+param notificationSettledTtlSeconds int = 2592000
+
+@description('Seconds an open notification survives after its last push. Not a deadline: the owner desktop re-pushes an open notification well inside it; this is what lets an owner unpaired for good leave nothing behind (local ADR 0039).')
+param notificationOpenTtlSeconds int = 7776000
+
+@description('Seconds an unprocessed reply survives in the notificationReplies container. The owner instance deletes each reply once processed; this is the backstop for one that never comes back.')
+param notificationReplyTtlSeconds int = 2592000
 
 @description('Days Log Analytics keeps ingested telemetry. Application observability only — no domain data reaches this workspace.')
 param logRetentionInDays int = 30
@@ -102,6 +111,17 @@ var containerAppName = 'ca-sync-${resourceToken}'
 // Storage account names are 3-24 lowercase letters and digits, no hyphen, and
 // globally unique; 'st' plus the 13-character token fits.
 var storageAccountName = 'st${resourceToken}'
+var webPubSubName = 'wps-${resourceToken}'
+
+// The one hub the desktops connect to (local ADR 0039 §4). The service reads the same
+// name from Sync__WebPubSub__Hub, so the two are written down here once.
+var notificationsHubName = 'notifications'
+
+// The Android push (local ADR 0039 §4): a Notification Hubs namespace and the one hub the
+// phones' installations live in. The service reads the hub's name from
+// Sync__NotificationHubs__Hub, so it is written down here once.
+var notificationHubsNamespaceName = 'ntfns-${resourceToken}'
+var pushHubName = 'backlog'
 
 // First provision has no built image yet. A public placeholder lets the container
 // app and its ingress come up so the rest of the template can be validated; azd
@@ -118,6 +138,9 @@ var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
 // Storage Blob Data Contributor: read, write and delete blobs, and nothing on the
 // account's control plane.
 var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+// Web PubSub Service Owner: send to groups and mint client access tokens through the
+// data-plane REST API. With local auth off, this role is the only way in.
+var webPubSubServiceOwnerRoleId = '12cf5a90-567b-43ae-8102-96cf46c7d9b4'
 
 // ---------------------------------------------------------------------------
 // Identity
@@ -410,6 +433,86 @@ resource annotationsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabase
   }
 }
 
+// `notifications` — the fourth replica container (local ADR 0039): the notifications
+// a desktop owner instance publishes, one writer per document. defaultTtl -1 enables
+// expiry without expiring anything by itself; the service stamps a notification with
+// Sync__Cosmos__NotificationSettledTtlSeconds once it leaves Open, so it goes 30 days
+// after it settled, and an open one with Sync__Cosmos__NotificationOpenTtlSeconds, which
+// the owner's periodic re-push keeps moving.
+resource notificationsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'notifications'
+  properties: {
+    resource: {
+      id: 'notifications'
+      partitionKey: {
+        paths: [
+          '/ownerId'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      defaultTtl: -1
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/notification/*'
+          }
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
+// `notificationReplies` — the replies viewers post to notifications, each written once
+// and deleted by the owner instance it is addressed to once processed. Queried by
+// `ownerInstanceId` within the owner's partition, in `_ts` order. Each reply carries
+// Sync__Cosmos__NotificationReplyTtlSeconds as a backstop.
+resource notificationRepliesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'notificationReplies'
+  properties: {
+    resource: {
+      id: 'notificationReplies'
+      partitionKey: {
+        paths: [
+          '/ownerId'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      defaultTtl: -1
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
+          {
+            path: '/text/?'
+          }
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
 // `devices` — one document per registered device, partitioned on `/id` (the
 // device id) rather than on the owner like the replicas above. The read that runs
 // on every token mint has only the device id in hand — it is the read that finds
@@ -596,6 +699,127 @@ resource attachmentsDataContributor 'Microsoft.Authorization/roleAssignments@202
 }
 
 // ---------------------------------------------------------------------------
+// Web PubSub
+//
+// The realtime nudge to the desktops (local ADR 0039 §4). The sync service publishes
+// "pull now" to an owner's group when a notification or a reply lands, and a desktop
+// holds the WebSocket here instead of on the sync service, which therefore keeps
+// scaling to zero. The hub carries no document: a missed nudge costs only time,
+// because the desktop's two-minute poll is the fallback while its socket is down.
+//
+// Free tier: one unit, 20 concurrent connections, 20,000 messages a day — far above
+// a personal setup. No access key is usable: local auth is off, so the service mints
+// client tokens and publishes with its managed identity, and a desktop only ever
+// holds the short-lived client access URL the negotiate endpoint hands it.
+// ---------------------------------------------------------------------------
+
+resource webPubSub 'Microsoft.SignalRService/webPubSub@2024-03-01' = {
+  name: webPubSubName
+  location: location
+  tags: allTags
+  sku: {
+    name: 'Free_F1'
+    tier: 'Free'
+    capacity: 1
+  }
+  properties: {
+    disableLocalAuth: true
+    disableAadAuth: false
+    publicNetworkAccess: 'Enabled'
+    tls: {
+      clientCertEnabled: false
+    }
+  }
+}
+
+// Declared rather than left to appear on first use, so anonymous connects are refused:
+// a desktop connects only with the token negotiate minted for its owner's group.
+resource notificationsHub 'Microsoft.SignalRService/webPubSub/hubs@2024-03-01' = {
+  parent: webPubSub
+  name: notificationsHubName
+  properties: {
+    anonymousConnectPolicy: 'deny'
+    eventHandlers: []
+  }
+}
+
+resource webPubSubServiceOwner 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(webPubSub.id, syncIdentity.id, webPubSubServiceOwnerRoleId)
+  scope: webPubSub
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', webPubSubServiceOwnerRoleId)
+    principalId: syncIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Notification Hubs
+//
+// The Android push to the phones (local ADR 0039 §4). When a notification is published
+// or changes state, the sync service sends a data-only FCM v1 message to the owner's tag,
+// and the hub relays it to Firebase; the service never talks to Google. The message
+// carries the tray text and nothing a phone could not pull, so a lost push costs a buzz
+// and never data.
+//
+// Free tier: 1 million pushes and 500 active devices — far above a personal setup.
+// The hub's FCM v1 credential (project id, client email, private key) is not declared
+// here: it is entered on the hub by hand once Firebase is set up, and until it is the
+// hub takes registrations and drops every send.
+//
+// Notification Hubs supports no managed identity, so the service reaches it with SAS
+// connection strings, read here and passed straight into container app secrets — no
+// person ever handles a key. Two rules, because a rule's rights are fixed and
+// Notification Hubs needs Manage to create or delete an installation: `sync-send` can
+// only send, and `sync-manage` keeps the phones' installations (ADR 0039 §5, amended).
+// ---------------------------------------------------------------------------
+
+resource notificationHubsNamespace 'Microsoft.NotificationHubs/namespaces@2023-09-01' = {
+  name: notificationHubsNamespaceName
+  location: location
+  tags: allTags
+  sku: {
+    name: 'Free'
+  }
+  properties: {
+    namespaceType: 'NotificationHub'
+  }
+}
+
+resource pushHub 'Microsoft.NotificationHubs/namespaces/notificationHubs@2023-09-01' = {
+  parent: notificationHubsNamespace
+  name: pushHubName
+  location: location
+  tags: allTags
+  properties: {}
+}
+
+// Send only: the rule the push itself goes out on.
+resource pushHubSendRule 'Microsoft.NotificationHubs/namespaces/notificationHubs/authorizationRules@2023-09-01' = {
+  parent: pushHub
+  name: 'sync-send'
+  properties: {
+    rights: [
+      'Send'
+    ]
+  }
+}
+
+// Manage, which Notification Hubs grants only together with Listen and Send: the rule a
+// phone's installation is created, replaced and deleted on.
+resource pushHubManageRule 'Microsoft.NotificationHubs/namespaces/notificationHubs/authorizationRules@2023-09-01' = {
+  parent: pushHub
+  name: 'sync-manage'
+  properties: {
+    rights: [
+      'Listen'
+      'Manage'
+      'Send'
+    ]
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Container registry
 //
 // Not named in ADR 0005's resource list, but `azd` deploying a container app has
@@ -633,9 +857,10 @@ resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 
 // `azure-monitor` rather than `log-analytics` as the log destination: the
 // log-analytics destination wants the workspace's shared key inline in the
-// environment's configuration, and this deployment issues no keys. The diagnostic
-// setting below routes the same console and system logs to the same workspace
-// through the platform instead.
+// environment's configuration, and this deployment issues no keys beyond the two
+// Notification Hubs SAS connection strings, which exist only because that service takes
+// no managed identity (see Notification Hubs above). The diagnostic setting below routes
+// the same console and system logs to the same workspace through the platform instead.
 resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: containerAppsEnvironmentName
   location: location
@@ -709,12 +934,14 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: syncIdentity.id
         }
       ]
-      // Two secrets, and they are not alike. The Application Insights connection
-      // string is the one connection string this deployment still hands the
-      // service: a telemetry ingestion endpoint, not a data credential — it opens
+      // Four secrets, and they are not alike. The Application Insights connection
+      // string is a telemetry ingestion endpoint, not a data credential — it opens
       // nothing, reads nothing, and reaches no replica — held as a secret rather
       // than a plain environment variable all the same. The token signing key
       // is a real secret: whoever holds it can mint a device token for any owner.
+      // The two Notification Hubs connection strings are the only data credentials
+      // this deployment hands the service, because the hub takes no managed
+      // identity: read from their rules here and never echoed in an output.
       secrets: [
         {
           name: 'applicationinsights-connection-string'
@@ -723,6 +950,14 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'sync-token-signing-key'
           value: tokenSigningKey
+        }
+        {
+          name: 'notification-hubs-send-connection-string'
+          value: pushHubSendRule.listKeys().primaryConnectionString
+        }
+        {
+          name: 'notification-hubs-manage-connection-string'
+          value: pushHubManageRule.listKeys().primaryConnectionString
         }
       ]
     }
@@ -768,6 +1003,14 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: annotationsContainer.name
             }
             {
+              name: 'Sync__Cosmos__NotificationsContainerName'
+              value: notificationsContainer.name
+            }
+            {
+              name: 'Sync__Cosmos__NotificationRepliesContainerName'
+              value: notificationRepliesContainer.name
+            }
+            {
               name: 'Sync__Cosmos__DevicesContainerName'
               value: devicesContainer.name
             }
@@ -783,12 +1026,50 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'Sync__Cosmos__AnnotationTombstoneTtlSeconds'
               value: string(annotationTombstoneTtlSeconds)
             }
+            {
+              name: 'Sync__Cosmos__NotificationSettledTtlSeconds'
+              value: string(notificationSettledTtlSeconds)
+            }
+            {
+              name: 'Sync__Cosmos__NotificationOpenTtlSeconds'
+              value: string(notificationOpenTtlSeconds)
+            }
+            {
+              name: 'Sync__Cosmos__NotificationReplyTtlSeconds'
+              value: string(notificationReplyTtlSeconds)
+            }
             // The attachment container, in the form Aspire's blob container
             // client reads: an endpoint and a container name, no key. The
             // credential is the managed identity, as it is for Cosmos.
             {
               name: 'ConnectionStrings__attachments'
               value: 'Endpoint=${storageAccount.properties.primaryEndpoints.blob};ContainerName=${attachmentsContainer.name}'
+            }
+            // The Web PubSub hub the nudge goes through: an endpoint and a hub
+            // name, no key. The credential is the managed identity, as it is for
+            // Cosmos and the attachments.
+            {
+              name: 'Sync__WebPubSub__Endpoint'
+              value: 'https://${webPubSub.properties.hostName}'
+            }
+            {
+              name: 'Sync__WebPubSub__Hub'
+              value: notificationsHub.name
+            }
+            // The Notification Hubs hub the Android push goes through, and the two
+            // rules' connection strings from their secrets: Send for the push, Manage
+            // for the phones' installations.
+            {
+              name: 'Sync__NotificationHubs__Hub'
+              value: pushHub.name
+            }
+            {
+              name: 'Sync__NotificationHubs__SendConnectionString'
+              secretRef: 'notification-hubs-send-connection-string'
+            }
+            {
+              name: 'Sync__NotificationHubs__ManageConnectionString'
+              secretRef: 'notification-hubs-manage-connection-string'
             }
             // Double underscore is how .NET reads a ':' configuration path from
             // an environment variable, so this lands on SyncTokenOptions as
@@ -816,6 +1097,7 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
     attachmentsDataContributor
     cosmosDataContributor
     keyVaultSecretsUser
+    webPubSubServiceOwner
   ]
 }
 
@@ -844,6 +1126,15 @@ output COSMOS_DATABASE_NAME string = cosmosDatabase.name
 
 output STORAGE_ACCOUNT_NAME string = storageAccount.name
 output STORAGE_BLOB_ENDPOINT string = storageAccount.properties.primaryEndpoints.blob
+
+output WEB_PUBSUB_NAME string = webPubSub.name
+output WEB_PUBSUB_ENDPOINT string = 'https://${webPubSub.properties.hostName}'
+output WEB_PUBSUB_HUB string = notificationsHub.name
+
+// The namespace and the hub, so the FCM v1 credential can be entered on the right hub.
+// Never a key or a connection string.
+output NOTIFICATION_HUBS_NAMESPACE_NAME string = notificationHubsNamespace.name
+output NOTIFICATION_HUBS_HUB string = pushHub.name
 
 output APPLICATIONINSIGHTS_NAME string = appInsights.name
 output LOG_ANALYTICS_WORKSPACE_NAME string = logAnalytics.name

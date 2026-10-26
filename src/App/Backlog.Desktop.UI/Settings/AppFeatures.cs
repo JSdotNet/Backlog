@@ -6,6 +6,7 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.SharedKernel;
 
 // The namespace deliberately does not match the folder, for the reason
@@ -148,6 +149,12 @@ public static class AppFeatures
             EnabledByDefault: false,
             Status: AppFeatureStatus.Beta,
             FormerKeys: ["device-pairing", "task-sync", "session-sync"]),
+        new(
+            NotificationsFeatures.Notifications,
+            "Notifications",
+            "Let this desktop tell you something, or ask you something, and hear the answer from whichever paired device you are holding.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
 
         // --- Cross-cutting: something the whole product uses -----------------
         new(

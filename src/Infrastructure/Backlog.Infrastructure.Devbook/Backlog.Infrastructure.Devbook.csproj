@@ -41,6 +41,11 @@
          can see both that port and the devbook it answers from - the join
          ModuleBoundaryTests puts in infrastructure rather than in a screen. -->
     <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <!-- Notifications' published surface, for RemarkNotificationStore and
+         RemarkSubjectProbe: Devbook owns the remark subject, so its adapter tells
+         Notifications when a remark is resolved and answers the startup probe about it
+         (.devbook/domain/notifications/context.md). Never the module. -->
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
     <!-- The devbook contract's folder rules and schema facts (DevbookFolder,
          DevbookSchema), for the chapter writers in Chapters/ and the design/ai
          document provider in Documents/ that moved here out of the Devbook UI

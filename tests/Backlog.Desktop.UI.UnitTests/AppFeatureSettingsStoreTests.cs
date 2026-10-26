@@ -94,6 +94,7 @@ public sealed class AppFeatureSettingsStoreTests
                 SessionFeatures.SessionRequests,
                 DashboardFeatures.Dashboard,
                 SyncFeatures.Sync,
+                Backlog.Modules.Notifications.Abstractions.NotificationsFeatures.Notifications,
 
                 // Cross-cutting
                 TasksFeatures.AdditionalRepositories,
