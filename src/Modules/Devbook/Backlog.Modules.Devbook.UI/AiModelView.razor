@@ -1,15 +1,37 @@
 @*
-    The AI section's Model tab: the seven stages of the delivery path, their
-    sub-stages where needed, and the three layers beneath, with each usage split
-    into the parts that do the work — read from AiModel. Empty for now; until it
-    is drawn the tab says so rather than showing a blank panel.
+    The AI section's Model tab: the AI usages on the delivery path — read from
+    AiModel and drawn by the library's DeliveryPathBoard. Under each of the seven
+    stages its sub-stages from `substage` as cards, each holding the usages that
+    name it; the usages at a stage that name none of its sub-stages share one
+    unnamed card, and a stage with no usage shows one empty card, "no AI". The
+    thread, upkeep and harness layers are the rows beneath. Picking a usage
+    lights every card it sits in; its chapter opens from the detail line.
+
+    The where-labels are the one thing drawn here that no chapter carries: like
+    the stage names they belong to the fixed vocabulary, so they sit beside it
+    rather than in a block.
 *@
 <div data-testid="ai-model-view">
-    <EmptyState Title="The model is not drawn yet"
-                Description="The seven stages, their sub-stages and the three layers beneath, with the AI usages at each, will be drawn here." />
+    <DeliveryPathBoard Stages="@_stages"
+                       Layers="@_layers"
+                       @bind-SelectedId="_selected"
+                       OnOpenUsage="@(OnNavigateToChapter.HasDelegate ? EventCallback.Factory.Create<string>(this, OpenUsage) : default)"
+                       TestId="ai-model-board" />
 </div>
 
 @code {
+    /// <summary>Where each stage's work happens, keyed by its vocabulary word.</summary>
+    internal static readonly IReadOnlyDictionary<string, string> WhereLabels = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["decide"] = "outer loop",
+        ["specify"] = "attended",
+        ["code"] = "your session",
+        ["verify"] = "your session",
+        ["integrate"] = "on the PR",
+        ["release"] = "on main",
+        ["operate"] = "production"
+    };
+
     /// <summary>The model the tab draws, read from the folder by <see cref="AiModel.From"/>.</summary>
     [Parameter, EditorRequired]
     public AiModel Model { get; set; } = default!;
@@ -17,4 +39,67 @@
     /// <summary>Raised when a reader opens a usage's chapter; the host owns the selection.</summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    private AiModel? _drawn;
+    private IReadOnlyList<DeliveryPathStage> _stages = [];
+    private IReadOnlyList<DeliveryPathLayer> _layers = [];
+    private Dictionary<string, AiModelUsage> _byId = new(StringComparer.Ordinal);
+
+    /// <summary>The picked usage, held here so a re-read folder that no longer
+    /// carries it drops the pick rather than keeping it hidden.</summary>
+    private string? _selected;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(Model, _drawn)) return;
+
+        _drawn = Model;
+        _byId = Model.Usages
+            .GroupBy(Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        _stages = [.. Model.Stages.Select(Stage)];
+        _layers = [.. Model.Layers.Select(layer => new DeliveryPathLayer(layer.Key, layer.Name, [.. layer.Usages.Select(Usage)]))];
+        if (_selected is not null && !_byId.ContainsKey(_selected)) _selected = null;
+    }
+
+    /// <summary>One stage's cards: its sub-stages in order of first appearance,
+    /// then one unnamed card for the usages that name none of them — or, for a
+    /// stage nothing names a sub-stage of, the unnamed card alone, empty or not.</summary>
+    internal static DeliveryPathStage Stage(AiModelStage stage)
+    {
+        var cards = stage.Substages
+            .Select(substage => new DeliveryPathCard(SubstageName(substage.Word), [.. substage.Usages.Select(Usage)]))
+            .ToList();
+
+        var loose = stage.Usages
+            .Where(usage => !stage.Substages.Any(substage => usage.Substages.Contains(substage.Key, StringComparer.Ordinal)))
+            .Select(Usage)
+            .ToList();
+
+        if (cards.Count == 0 || loose.Count > 0) cards.Add(new DeliveryPathCard(null, loose));
+
+        return new DeliveryPathStage(
+            stage.Key,
+            stage.Name,
+            WhereLabels.GetValueOrDefault(stage.Key, string.Empty),
+            stage.BeforePullRequest,
+            cards,
+            stage.Status);
+    }
+
+    /// <summary>The repository's word after the slash, read as a name: hyphens
+    /// become spaces and the first letter is capitalised — <c>break-down</c> is
+    /// "Break down".</summary>
+    internal static string SubstageName(string word)
+    {
+        var spaced = word.Replace('-', ' ').Trim();
+        return spaced.Length == 0 ? word : char.ToUpperInvariant(spaced[0]) + spaced[1..];
+    }
+
+    private static DeliveryPathUsage Usage(AiModelUsage usage) => new(Id(usage), usage.Heading, usage.Status);
+
+    private static string Id(AiModelUsage usage) => $"{usage.Link.Path}#{usage.Link.Anchor}";
+
+    private Task OpenUsage(string id) =>
+        _byId.TryGetValue(id, out var usage) ? OnNavigateToChapter.InvokeAsync(usage.Link) : Task.CompletedTask;
 }

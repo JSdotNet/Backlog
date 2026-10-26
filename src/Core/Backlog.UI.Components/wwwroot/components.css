@@ -3424,6 +3424,302 @@ button.devbook-chip__label:focus-visible {
 
 .scenario-checklist__count { color: var(--color-text-secondary); }
 
+/* --- Delivery path board ------------------------------------------------------
+   The stages as columns, each a head over its cards; the layers as rows beneath.
+   The columns keep a minimum width and the grid scrolls inside its own box below
+   it, so a narrow pane scrolls the board rather than the page. Picking a usage
+   lights the cards that hold it — an edge strip as well as the border hue, so
+   the cue is a shape and not a colour alone — and quietens the rest by their
+   surface and edge only, never their ink, so every word stays at AA. */
+.delivery-path {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.delivery-path__detail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    min-height: 2.5rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.delivery-path__detail-text {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.delivery-path__detail-name {
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.delivery-path__detail-reach,
+.delivery-path__detail-hint {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.delivery-path__detail-actions {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+}
+
+.delivery-path__scroll {
+    overflow-x: auto;
+    min-width: 0;
+}
+
+.delivery-path__grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: calc(var(--delivery-path-stages, 7) * 9.5rem + (var(--delivery-path-stages, 7) - 1) * var(--spacing-sm));
+    padding-top: var(--spacing-sm);
+}
+
+/* The arrow runs from the middle of the last column back to the middle of the
+   first and ends in a head pointing down at it: half a column in from each end,
+   a column being the row less its gaps, divided out. */
+.delivery-path__feedback {
+    position: relative;
+    height: 2rem;
+    margin-inline: calc((100% - (var(--delivery-path-stages, 7) - 1) * var(--spacing-sm)) / var(--delivery-path-stages, 7) / 2);
+    color: var(--color-text-secondary);
+}
+
+.delivery-path__feedback-arrow {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-dasharray: 6 6;
+    overflow: visible;
+}
+
+.delivery-path__feedback-head {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-50%);
+    border-left: 0.3rem solid transparent;
+    border-right: 0.3rem solid transparent;
+    border-top: 0.45rem solid currentColor;
+}
+
+.delivery-path__feedback-label {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    transform: translate(-50%, -0.6em);
+    padding: 0 var(--spacing-sm);
+    background: var(--color-background);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.delivery-path__stages {
+    display: grid;
+    grid-template-columns: repeat(var(--delivery-path-stages, 7), minmax(9.5rem, 1fr));
+    gap: var(--spacing-sm);
+    align-items: start;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.delivery-path__stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.delivery-path__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-height: 5rem;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-top: 0.25rem solid var(--color-primary);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.delivery-path__stage--after .delivery-path__head {
+    border-top-color: var(--color-border-strong);
+}
+
+/* The pull request is the line between the two loops: the first stage after it
+   carries a marker on its leading edge and says so in words. */
+.delivery-path__stage--pull-request .delivery-path__head {
+    box-shadow: calc(-1 * var(--spacing-xs)) 0 0 calc(-1 * var(--border-width)) var(--color-primary);
+}
+
+.delivery-path__meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.delivery-path__number {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.delivery-path__where {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: right;
+}
+
+.delivery-path__pr {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.delivery-path__name {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    color: var(--color-text-primary);
+}
+
+.delivery-path__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.delivery-path__card--empty {
+    background: transparent;
+    border-style: dashed;
+}
+
+.delivery-path__card--lit {
+    border-color: var(--color-primary);
+    box-shadow: inset 0.25rem 0 0 var(--color-primary);
+}
+
+.delivery-path__card--dim {
+    background: transparent;
+    border-color: transparent;
+}
+
+.delivery-path__card-name {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.delivery-path__none {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-secondary);
+}
+
+.delivery-path__usage {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    padding: var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.delivery-path__usage:hover {
+    border-color: var(--color-border-strong);
+}
+
+.delivery-path__usage:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width-2);
+}
+
+/* Picked is a filled edge strip inside the chip; focus is the ring outside it,
+   so the two never read as one another. */
+.delivery-path__usage--picked {
+    border-color: var(--color-primary);
+    box-shadow: inset 0.25rem 0 0 var(--color-primary);
+    padding-left: calc(var(--spacing-xs) + 0.25rem);
+}
+
+.delivery-path__usage-name {
+    line-height: var(--line-height-tight);
+}
+
+.delivery-path__layers {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.delivery-path__layer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.delivery-path__layer-name {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.delivery-path__layer .delivery-path__card {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.delivery-path__layer .delivery-path__usage {
+    width: auto;
+    min-width: 9.5rem;
+    max-width: 16rem;
+}
+
 /* The key to the scenario dot: one entry per state, wrapping to the width it is
    given — under a tree column that is narrow, so two to a line there. */
 .scenario-legend {
