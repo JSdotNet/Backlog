@@ -371,7 +371,11 @@ internal static class StorybookIndex
             // is a module's surface drawn from library parts only — Tabs from Layout
             // and EmptyState from Feedback, both introduced above — because the AI
             // section's views live in the Devbook module and cannot render here.
-            new("devbook/ai-tabs", "AI tabs", "The tab strip over the AI section's chapters: Adoption, Cohesion, Model and Devbook on the library's Tabs, Adoption open first, each panel holding the EmptyState its view shows until it is drawn.")
+            new("devbook/ai-tabs", "AI tabs", "The tab strip over the AI section's chapters: Adoption, Cohesion, Model and Devbook on the library's Tabs, Adoption open first, each panel holding the EmptyState its view shows until it is drawn."),
+
+            // After AI tabs, because it is what the Model tab draws. It draws
+            // DevbookStatusPill and AppButton, both introduced above.
+            new("devbook/delivery-path", "Delivery path", "DeliveryPathBoard: the Model tab's board — the stages with their where-labels and the pull-request marker, sub-stages as cards of usages, the feedback arrow, the layers beneath, and a picked usage lighting every card it sits in.")
         ]),
 
         // The first subject, ahead of Integrations rather than with Progress where its
