@@ -1091,7 +1091,9 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     /// <summary>
     /// The linked read's query for <paramref name="numbers"/>: the pinned read's aliases,
     /// each asking for the number, title, url, state, draft flag, merge time, the time it
-    /// was opened and author. With <paramref name="withStatus"/>, each also asks for the
+    /// was opened, the branch it merges into and author — and, once for the repository,
+    /// its default branch, so a merge read here says whether it landed work
+    /// (<c>PullRequestLanding</c>) without a read of its own. With <paramref name="withStatus"/>, each also asks for the
     /// head commit's check counts and its first <see cref="HeadCheckLimit"/> checks under
     /// the list's <c>checkCounts</c> alias, the review decision and the latest opinionated
     /// reviews, and the base branch's rules — its branch protection rule and the rules
@@ -1118,6 +1120,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                       isDraft
                       mergedAt
                       createdAt
+                      baseRefName
                       author { login }{{status}}
                     }
                 """));
@@ -1125,6 +1128,7 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         return $$"""
             query($owner: String!, $name: String!) {
               repository(owner: $owner, name: $name) {
+                defaultBranchRef { name }
             {{fields}}
               }
             }
@@ -1178,6 +1182,9 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
 
         var pulls = new List<GitHubLinkedPullRequest>();
+        var defaultBranch = repository.TryGetProperty("defaultBranchRef", out var defaultRef) && defaultRef.ValueKind == JsonValueKind.Object
+            ? String(defaultRef, "name")
+            : null;
 
         foreach (var asked in numbers)
         {
@@ -1211,7 +1218,9 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                         .Select(check => check.Name)
                         .Distinct(StringComparer.Ordinal)
                 ],
-                Reviews = ReadReviews(pull) with { Required = ReadRequiredApprovals(pull), RequiredRead = RequiredApprovalsWereRead(pull) }
+                Reviews = ReadReviews(pull) with { Required = ReadRequiredApprovals(pull), RequiredRead = RequiredApprovalsWereRead(pull) },
+                BaseRefName = String(pull, "baseRefName"),
+                DefaultBranch = defaultBranch
             });
         }
 

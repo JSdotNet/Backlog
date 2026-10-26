@@ -83,20 +83,27 @@ changes. Goals are set on the desktop only.
 ```meta
 type: feature
 status: draft
-related: [.devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/domain.md#goal-progress, .devbook/domain/progress/domain.md#goal-assignment, .devbook/domain/progress/requirements.md#attaching-work-to-a-goal]
+related: [.devbook/domain/progress/domain.md#goal-attachment, .devbook/domain/progress/domain.md#goal-progress, .devbook/domain/progress/domain.md#goal-assignment, .devbook/domain/progress/requirements.md#attaching-work-to-a-goal, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
 ```
 
-Say which work reaches a goal. Three kinds of item attach:
+Say which work reaches a goal. Four kinds of item attach:
 
 - a **plan**, by its [plan tag](../roadmap/domain.md#roadmap-tag), which brings in
   every entry its roadmap item gathers by tag — filed under `+tag` or carrying the
   bare `#tag` — including entries filed later;
 - a **task**, by its id, whose linked pull requests come with it;
-- a **pull request**, by its repository and number, for work no task covers.
+- a **pull request**, by its repository and number, for work no task covers;
+- a **session**, by its agent and session id, whose linked tasks and the pull request
+  on its branch come with it, for work that has no task or pull request yet.
 
-An open goal offers "Attach a plan, task or pull request": typing lists the matching
-plans, tasks and pull requests, each named by its kind, and a pull request is found by
-its number too. **Attach…** on a No goal row attaches the item to the open goal, or
+An open goal offers "Attach a plan, task, pull request or session": typing lists the
+matching plans, tasks, pull requests and sessions, each named by its kind, and a pull
+request is found by its number too. A session is found by its id, typed whole or as the
+eight characters the screens show, with or without the word "Session". Typing a
+session's number lists the session first, then the tasks linked to it, then the pull
+request on its branch when it has one, so the person attaches whichever fits. With the
+[Sessions area](../sessions/context.md#sessions-area) off, no session is offered, and a
+session already attached counts by its linked tasks alone. **Attach…** on a No goal row attaches the item to the open goal, or
 asks which goal when none is open. Both questions are the same **Attach to goal**
 picker every other goal control opens. An item belongs to at most one goal. An item
 another goal holds is not attached silently: the picker opens on the goal it was meant
@@ -105,7 +112,7 @@ for, names the goal that holds it and says attaching moves it from there, and
 action.
 
 [Goal Progress](domain.md#goal-progress) says how the attached work is counted.
-Attaching changes nothing on the task, the plan or the pull request.
+Attaching changes nothing on the task, the plan, the pull request or the session.
 
 ## Choosing the iteration
 
@@ -288,8 +295,8 @@ related: [.devbook/domain/progress/requirements.md#goals-on-the-phone, .devbook/
 Read the stand-up on the way to it. The phone's **Stand-up** tab shows the four blocks
 with the iteration switch. A goal opens on its own page: its badge, due and landing
 date, `done/total` with how many items are doing, blocked and to do, and its items
-under Plan, Tasks and Pull requests. A goal without a due date reads "due 23 Oct (end
-of iteration)" on its stand-up card and on its page. An impediment opens on its own page: its age, the
+under Plan, Tasks, Pull requests and Sessions. A goal without a due date reads "due 23 Oct
+(end of iteration)" on its stand-up card and on its page. An impediment opens on its own page: its age, the
 goal it holds back, its history, its check-again date, its note and the tasks it
 holds back.
 
@@ -302,8 +309,8 @@ still on the phone. Setting a goal, attaching work and copying the stand-up are 
 actions.
 
 The stand-up on the phone is the desktop's stand-up of the same work. Pull request
-checks and approvals show as a desktop last read them, so the phone never needs
-GitHub. A change made on the phone shows there once a desktop has applied it. When a
+checks and approvals, and each attached session's title and state, show as a desktop
+last read them, so the phone never needs GitHub or the session records. A change made on the phone shows there once a desktop has applied it. When a
 desktop changed the same field after the phone last synced, the desktop's change
 stands and the phone's is dropped. So does a change a desktop did not apply: once a
 newer copy of the impediment reaches the phone without it, the phone shows that copy.

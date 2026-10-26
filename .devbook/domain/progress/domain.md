@@ -13,8 +13,8 @@ status: draft
 > aggregates get their own chapter at the end instead of being duplicated.
 
 What Progress owns and what it leaves to Tasks and Roadmap Planning is in
-[context.md](context.md). The model holds no copy of a task, a plan or a pull
-request. A goal names each by its identity, and asks their owners for their state on
+[context.md](context.md). The model holds no copy of a task, a plan, a pull
+request or a session. A goal names each by its identity, and asks their owners for their state on
 every reading.
 
 ## Goal
@@ -32,8 +32,8 @@ holds:
 - its `title`, such as "Customers get paid faster";
 - an optional `outcome`, one line saying what is true once it is reached;
 - an optional `due date`;
-- its [Goal Attachments](#goal-attachment): the plans, tasks and pull requests whose
-  work reaches it;
+- its [Goal Attachments](#goal-attachment): the plans, tasks, pull requests and
+  sessions whose work reaches it;
 - the moment it was last changed, which travels with it to every device.
 
 How far it has come is its [Goal Progress](#goal-progress), and whether it lands in
@@ -59,22 +59,34 @@ it held are unchanged and belong to no goal from then on.
 type: value-object
 status: draft
 aliases: [attached item, GoalAttachment]
-related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref]
+related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#projection-ref, .devbook/domain/sessions/domain.md#agent-session, .devbook/domain/sessions/domain.md#session-identity, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
 ```
 
-One piece of work attached to a goal, of one of three kinds:
+One piece of work attached to a goal, of one of four kinds:
 
 | Kind | Named by | Brings in |
 |---|---|---|
 | Plan | its [plan tag](../roadmap/domain.md#roadmap-tag), without the `+` sigil | every entry its roadmap item [gathers by tag](../roadmap/domain.md#roadmap-item-gathering), in any repository, finished or not, including entries filed later |
 | Task | its task id | the task, and the pull requests it links |
 | Pull request | its repository and number | the pull request alone |
+| Session | its agent and session id | the session, the tasks linked to it, and the pull request on its branch |
 
 A plan counts exactly the entries its roadmap item's bar gathers by tag: the ones
 filed under `+tag`, and the ones carrying the bare tag, as an entry filed before the
 sigil does or one tagged `#tag` is stored. A person tag spelled like the plan is not
 one of them. Tasks owns that rule, and whoever hands Progress its tasks names each
 task's slugs by it, so a goal and the roadmap never count a plan differently.
+
+A session is named by its [Session Identity](../sessions/domain.md#session-identity):
+the agent and the full id the agent gave it, because a session id is unique only within
+its agent. The short id the screens show, "Session abcd1234", only finds a session and
+is never stored. The **tasks linked to it** are the tasks whose `session`
+[Projection Ref](../tasks/domain.md#projection-ref) names its session id. **The pull
+request on its branch** is the newest pull request whose head is the session's branch,
+in its resolved repository; a session with no branch or no resolved repository has
+none. Sessions owns the session, Tasks the link and GitHub the pull request, and all
+three are read on every reading (local
+[ADR 0037](../../arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)).
 
 Equality is by kind and identity. The attachment also stores the day it was made.
 
@@ -94,11 +106,18 @@ once:
 - an attached task counts 1, and the pull requests it links ride along with it and
   do not count again;
 - an attached pull request counts 1;
+- an attached session counts 1, and the tasks linked to it and the pull request on its
+  branch ride along with it and do not count again;
 - a task that is both attached directly and an entry of an attached plan counts once,
-  and so does a pull request attached directly that an attached task already links.
+  and so does a pull request attached directly that an attached task already links;
+- a session one of whose linked tasks the goal counts on its own does not count again,
+  and a pull request attached directly that is an attached session's branch pull request
+  counts once, as the session.
 
-Beside `done/total` it carries how the open items stand: doing, blocked and to do. It
-also carries how many items were done in the last iteration, shown as `+3`. Equality
+Beside `done/total` it carries how the open items stand: doing, blocked and to do. An
+open session is blocked when one of its linked tasks is marked blocked. It is doing
+when it is running or stalled, when its pull request is open or a draft, or when a
+linked task is in progress, and to do otherwise. Goal Progress also carries how many items were done in the last iteration, shown as `+3`. Equality
 is by value.
 
 ### Goal Forecast
@@ -318,7 +337,7 @@ status: draft
 ```meta
 type: term
 status: draft
-related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#completed]
+related: [.devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#completed, .devbook/domain/sessions/domain.md#session-state]
 ```
 
 A task is done when its status is Done, or when every pull request it links is
@@ -326,6 +345,12 @@ merged. Either is enough. A task with no linked pull request is done only by its
 status. A pull request is done when it is merged. A plan's entry is a task, done the
 same way. The day an item was done is the day its task was
 [completed](../tasks/domain.md#completed), or the day its last pull request merged.
+
+A session is done when the pull request on its branch is merged, or when it has linked
+tasks and every one of them is done. Either is enough. Its
+[state](../sessions/domain.md#session-state) never makes it done: a finished session
+may have shipped nothing. It was done on the earlier of the day that pull request merged
+and the day its last linked task was done.
 
 ### Stand-up
 

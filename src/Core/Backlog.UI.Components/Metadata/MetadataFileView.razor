@@ -51,6 +51,7 @@
                   Vocabulary="@Vocabulary"
                   ShowFields="@ShowFields"
                   CanEditStatus="@(CanEditStatus && Metadata is { IsEmpty: false })"
+                  ShowStatus="@ShowStatus"
                   OnStatusChanged="@OnStatusChanged"
                   OnNavigate="@OnNavigate"
                   HrefFor="@HrefFor"
@@ -127,6 +128,11 @@ else
     /// instead of the select when it is false.</summary>
     [Parameter]
     public bool CanEditStatus { get; set; } = true;
+
+    /// <summary>Whether the file's status is drawn at all. Forwarded verbatim to
+    /// <see cref="MetadataView.ShowStatus"/>.</summary>
+    [Parameter]
+    public bool ShowStatus { get; set; } = true;
 
     /// <summary>The devbook folder this file's block was read from, which turns
     /// on the findings — see <see cref="MetadataView.Folder"/>. Unknown, the
