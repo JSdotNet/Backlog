@@ -1,0 +1,393 @@
+@*
+    How far adoption has got: the board the AI section's Adoption tab draws.
+
+    Four parts, top to bottom. The strip — one tile per home, grouped as before the
+    pull request, after it and underneath, each with its adopted / trial /
+    candidate mix as a bar and in words. The three findings, every count taken
+    from the cards. The evidence legend beside the "Only what still needs
+    evidence" toggle. Then the ladder grid: one row per stage, the pull-request
+    divider, one row per layer; the columns are the ladder.
+
+    The board is domain-free: the host reads its own record into an
+    AdoptionBoardModel and is handed back the card a reader picks. Colour never
+    carries a meaning alone — every rung is a column heading, every evidence mark
+    is named to a screen reader and keyed in the legend, and every bar is said in
+    words under it.
+*@
+<div class="adoption-board@(_needsEvidenceOnly ? " adoption-board--gaps" : string.Empty)" data-testid="@TestId">
+    <section class="adoption-board__strip" aria-label="Adoption per stage and layer" data-testid="adoption-strip">
+        @foreach (var group in Groups)
+        {
+            var homes = Model.Homes.Where(home => home.Group == group).ToList();
+            if (homes.Count == 0) continue;
+
+            <div class="adoption-strip__group adoption-strip__group--@GroupSlug(group)"
+                 style="--adoption-group-span: @homes.Count"
+                 data-testid="adoption-strip-group">
+                <div class="adoption-strip__group-head">
+                    <span class="adoption-strip__group-name">@GroupName(group)</span>
+                    <span class="adoption-strip__group-note">@GroupNote(homes)</span>
+                </div>
+                <ul class="adoption-strip__tiles">
+                    @foreach (var home in homes)
+                    {
+                        var adopted = Model.Count(home, AdoptionRung.Adopted);
+                        var trial = Model.Count(home, AdoptionRung.Trial);
+                        var candidate = Model.Count(home, AdoptionRung.Candidate);
+                        <li class="adoption-strip__tile" data-testid="adoption-strip-tile" data-home="@home.Key">
+                            <span class="adoption-strip__tile-head">
+                                <span class="adoption-strip__tile-name">@home.Name</span>
+                                @if (home.Number is not null)
+                                {
+                                    <span class="adoption-strip__tile-number">@home.Number</span>
+                                }
+                            </span>
+                            <span class="adoption-strip__bar" aria-hidden="true">
+                                <span class="adoption-strip__bar-part adoption-strip__bar-part--adopted" style="width: @Share(adopted)"></span>
+                                <span class="adoption-strip__bar-part adoption-strip__bar-part--trial" style="width: @Share(trial)"></span>
+                                <span class="adoption-strip__bar-part adoption-strip__bar-part--candidate" style="width: @Share(candidate)"></span>
+                            </span>
+                            <span class="adoption-strip__mix" data-testid="adoption-strip-mix">@Mix(adopted, trial, candidate)</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    </section>
+
+    <section class="adoption-board__findings" aria-label="What the ratings say" data-testid="adoption-findings">
+        <div class="adoption-finding adoption-finding--adopted" data-testid="adoption-finding-adopted">
+            <span class="adoption-finding__count">@AdoptedCount</span>
+            <h3 class="adoption-finding__title">@AdoptedTitle</h3>
+            <p class="adoption-finding__body">@AdoptedBody</p>
+        </div>
+        <div class="adoption-finding adoption-finding--trial" data-testid="adoption-finding-trial">
+            <span class="adoption-finding__count">@TrialCount</span>
+            <h3 class="adoption-finding__title">@TrialTitle</h3>
+            @if (_findings.Trial > 0)
+            {
+                <span class="adoption-finding__bar" aria-hidden="true">
+                    <span class="adoption-finding__bar-part adoption-finding__bar-part--recorded" style="width: @TrialShare(_findings.TrialRecorded)"></span>
+                    <span class="adoption-finding__bar-part adoption-finding__bar-part--partial" style="width: @TrialShare(_findings.TrialPartial)"></span>
+                    <span class="adoption-finding__bar-part adoption-finding__bar-part--fired" style="width: @TrialShare(_findings.TrialFired)"></span>
+                    <span class="adoption-finding__bar-part adoption-finding__bar-part--none" style="width: @TrialShare(_findings.TrialNone)"></span>
+                </span>
+                <ul class="adoption-finding__key">
+                    @if (_findings.TrialRecorded > 0)
+                    {
+                        <li><span class="adoption-finding__swatch adoption-finding__swatch--recorded"></span>@_findings.TrialRecorded recorded</li>
+                    }
+                    @if (_findings.TrialPartial > 0)
+                    {
+                        <li><span class="adoption-finding__swatch adoption-finding__swatch--partial"></span>@_findings.TrialPartial partial</li>
+                    }
+                    @if (_findings.TrialFired > 0)
+                    {
+                        <li><span class="adoption-finding__swatch adoption-finding__swatch--fired"></span>@_findings.TrialFired fired, nothing published</li>
+                    }
+                    @if (_findings.TrialNone > 0)
+                    {
+                        <li><span class="adoption-finding__swatch adoption-finding__swatch--none"></span>@_findings.TrialNone none yet</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="adoption-finding__body">No usage is on trial.</p>
+            }
+        </div>
+        <div class="adoption-finding adoption-finding--next" data-testid="adoption-finding-next">
+            <span class="adoption-finding__count">next to move</span>
+            <h3 class="adoption-finding__title">@NextTitle</h3>
+            <p class="adoption-finding__body">@NextBody</p>
+        </div>
+    </section>
+
+    <section class="adoption-board__ladder" aria-label="The adoption ladder per stage" data-testid="adoption-ladder">
+        <div class="adoption-ladder__bar">
+            <ul class="adoption-legend" aria-label="Evidence marks" data-testid="adoption-legend">
+                <li class="adoption-legend__lead">evidence</li>
+                @foreach (var evidence in LegendOrder)
+                {
+                    <li class="adoption-legend__entry">
+                        <AdoptionEvidenceDots Evidence="@evidence" Decorative="true" />
+                        <span>@EvidenceWord(evidence)</span>
+                    </li>
+                }
+            </ul>
+            <ToggleButton Pressed="@_needsEvidenceOnly"
+                          PressedChanged="SetNeedsEvidenceOnly"
+                          BaseClass="btn btn--toggle adoption-ladder__toggle"
+                          TestId="adoption-gaps-toggle">Only what still needs evidence</ToggleButton>
+        </div>
+
+        <div class="adoption-ladder__grid" role="table" aria-label="Usages by home and rung">
+            <div class="adoption-ladder__row adoption-ladder__row--head" role="row">
+                <span class="adoption-ladder__home-head" role="columnheader">home</span>
+                @foreach (var column in AdoptionBoardModel.Columns)
+                {
+                    <span class="adoption-ladder__column-head adoption-ladder__column-head--@RungSlug(column)" role="columnheader">@RungSlug(column)</span>
+                }
+            </div>
+
+            @for (var index = 0; index < Model.Homes.Count; index++)
+            {
+                var home = Model.Homes[index];
+                var previous = index == 0 ? null : Model.Homes[index - 1];
+                var isEmpty = !Model.CardsAt(home).Any();
+
+                if (previous is not null && previous.Group != home.Group)
+                {
+                    <div class="adoption-ladder__divider adoption-ladder__divider--@GroupSlug(home.Group)" role="row" data-testid="adoption-divider">
+                        <span role="cell" aria-colspan="5">@DividerText(home.Group)</span>
+                    </div>
+                }
+
+                <div class="adoption-ladder__row adoption-ladder__row--@GroupSlug(home.Group)" role="row" data-testid="adoption-row" data-home="@home.Key">
+                    <div class="adoption-ladder__home" role="rowheader">
+                        @if (home.Number is not null)
+                        {
+                            <span class="adoption-ladder__home-number">@home.Number</span>
+                        }
+                        <span class="adoption-ladder__home-name">@home.Name</span>
+                        @if (isEmpty)
+                        {
+                            <span class="adoption-ladder__home-empty" data-testid="adoption-row-empty">No AI usage here yet.</span>
+                        }
+                    </div>
+                    @foreach (var column in AdoptionBoardModel.Columns)
+                    {
+                        <div class="adoption-ladder__cell adoption-ladder__cell--@RungSlug(column)" role="cell">
+                            @foreach (var card in Model.CardsAt(home, column))
+                            {
+                                var dim = _needsEvidenceOnly && !card.NeedsEvidence;
+                                <button type="button"
+                                        class="@CardClass(card, dim)"
+                                        data-testid="adoption-card"
+                                        data-rung="@RungSlug(card.Rung)"
+                                        @onclick="() => OnOpen.InvokeAsync(card)">
+                                    <span class="adoption-card__title">@card.Title</span>
+                                    @if (dim)
+                                    {
+                                        <span class="sr-only">@(card.Rung is AdoptionRung.Hold or AdoptionRung.Retired ? "off the ladder" : "has its record")</span>
+                                    }
+                                    @if (card.Rung == AdoptionRung.Hold)
+                                    {
+                                        <span class="adoption-card__rung">on hold</span>
+                                    }
+                                    <span class="adoption-card__meta">
+                                        @if (card.Evidence != AdoptionEvidence.Unstated)
+                                        {
+                                            <AdoptionEvidenceDots Evidence="@card.Evidence" />
+                                        }
+                                        @if (card.Since is not null)
+                                        {
+                                            <span>since @card.Since</span>
+                                        }
+                                        @if (card.Reach is { Count: > 0 } reach)
+                                        {
+                                            <span class="adoption-card__reach">· +@string.Join(", +", reach)</span>
+                                        }
+                                    </span>
+                                    @if (!string.IsNullOrWhiteSpace(card.EvidenceText))
+                                    {
+                                        <span class="adoption-card__evidence">@card.EvidenceText</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(card.MovesUpWhen))
+                                    {
+                                        <span class="adoption-card__next"><strong>Moves up when</strong> @card.MovesUpWhen</span>
+                                    }
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+</div>
+
+@code {
+    private static readonly AdoptionHomeGroup[] Groups =
+        [AdoptionHomeGroup.BeforePullRequest, AdoptionHomeGroup.AfterPullRequest, AdoptionHomeGroup.Underneath];
+
+    private static readonly AdoptionEvidence[] LegendOrder =
+        [AdoptionEvidence.Recorded, AdoptionEvidence.Partial, AdoptionEvidence.Fired, AdoptionEvidence.None];
+
+    private bool _needsEvidenceOnly;
+    private AdoptionFindings _findings = AdoptionFindings.From(AdoptionBoardModel.Empty);
+    private int _largest;
+
+    [Parameter, EditorRequired]
+    public AdoptionBoardModel Model { get; set; } = AdoptionBoardModel.Empty;
+
+    /// <summary>Raised with the card a reader picks; the host opens what it names.</summary>
+    [Parameter]
+    public EventCallback<AdoptionCard> OnOpen { get; set; }
+
+    /// <summary>Starts the board with only what still needs evidence at full strength.</summary>
+    [Parameter]
+    public bool NeedsEvidenceOnly { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "adoption-board";
+
+    private bool _initialized;
+
+    protected override void OnParametersSet()
+    {
+        if (!_initialized)
+        {
+            _needsEvidenceOnly = NeedsEvidenceOnly;
+            _initialized = true;
+        }
+
+        _findings = Model.Findings;
+        _largest = Model.LargestLiveTotal;
+    }
+
+    private void SetNeedsEvidenceOnly(bool pressed) => _needsEvidenceOnly = pressed;
+
+    private string Share(int count) =>
+        _largest == 0 ? "0%" : FormattableString.Invariant($"{count * 100.0 / _largest:0.##}%");
+
+    private string TrialShare(int count) =>
+        _findings.Trial == 0 ? "0%" : FormattableString.Invariant($"{count * 100.0 / _findings.Trial:0.##}%");
+
+    private static string Mix(int adopted, int trial, int candidate)
+    {
+        var parts = new List<string>();
+        if (adopted > 0) parts.Add($"{adopted} adopted");
+        if (trial > 0) parts.Add($"{trial} trial");
+        if (candidate > 0) parts.Add($"{candidate} cand.");
+        return parts.Count == 0 ? "no AI" : string.Join(" · ", parts);
+    }
+
+    private string GroupNote(IReadOnlyList<AdoptionHome> homes)
+    {
+        var withAdopted = homes.Count(home => Model.Count(home, AdoptionRung.Adopted) > 0);
+        if (withAdopted == 0) return "nothing adopted";
+
+        var adopted = homes.Sum(home => Model.Count(home, AdoptionRung.Adopted));
+        return withAdopted == homes.Count
+            ? $"every one has adopted usages · {adopted} in all"
+            : $"{withAdopted} of {homes.Count} have adopted usages · {adopted} in all";
+    }
+
+    private string AdoptedCount =>
+        _findings.Adopted == 0
+            ? "none adopted"
+            : $"{_findings.Adopted} adopted · " + (_findings.AdoptedRecorded == _findings.Adopted
+                ? "all with evidence"
+                : $"{_findings.AdoptedRecorded} with evidence");
+
+    private string AdoptedTitle => _findings switch
+    {
+        { Adopted: 0 } => "Nothing adopted yet",
+        { AdoptedAfter: 0, AdoptedBefore: > 0 } => "Adopted ends at the pull request",
+        { AdoptedAfter: > 0 } => "Adopted reaches past the pull request",
+        _ => "Adopted lives only underneath"
+    };
+
+    private string AdoptedBody
+    {
+        get
+        {
+            if (_findings.Adopted == 0) return "No usage is adopted yet: every home is still to reach the top of the ladder.";
+
+            var placed = $"{Usages(_findings.AdoptedBefore)} before the pull request, {_findings.AdoptedAfter} after it, {_findings.AdoptedUnderneath} underneath.";
+            var without = _findings.HomesWithoutAdopted;
+            return without.Count == 0
+                ? placed + " Every home has one."
+                : $"{placed} {JoinNames(without)} {(without.Count == 1 ? "has" : "have")} none.";
+        }
+    }
+
+    private string TrialCount => _findings.Trial == 0
+        ? "none on trial"
+        : $"{_findings.Trial} trial · " + (_findings.TrialRecorded == 0 ? "none" : _findings.TrialRecorded.ToString(System.Globalization.CultureInfo.InvariantCulture))
+        + " with recorded evidence";
+
+    private string TrialTitle => _findings switch
+    {
+        { Trial: 0 } => "Nothing on trial",
+        { TrialRecorded: 0 } => "Trial is wired, not proven",
+        var f when f.TrialRecorded == f.Trial => "Trial is proven, ready to move up",
+        _ => "Trial is partly proven"
+    };
+
+    private string NextTitle => _findings.Waiting switch
+    {
+        0 => "Nothing waits to move",
+        1 => "One usage waits on an event",
+        var n => $"{n} usages wait on an event"
+    };
+
+    private string NextBody
+    {
+        get
+        {
+            if (_findings.Waiting == 0)
+            {
+                return Model.Cards.Count == 0
+                    ? "No usage is on the board yet."
+                    : "Every usage is adopted, on hold or retired.";
+            }
+
+            var missing = _findings.Waiting - _findings.WaitingWithEvent;
+            var said = $"{_findings.WaitingWithEvent} of the trial and candidate usages name the event that would move them up — under Moves up when on each card.";
+            return missing == 0 ? said : $"{said} {Usages(missing)} name{(missing == 1 ? "s" : string.Empty)} none yet.";
+        }
+    }
+
+    private static string Usages(int count) => count == 1 ? "1 usage" : $"{count} usages";
+
+    private static string JoinNames(IReadOnlyList<string> names) =>
+        names.Count switch
+        {
+            1 => names[0],
+            _ => string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1]
+        };
+
+    private static string GroupSlug(AdoptionHomeGroup group) => group switch
+    {
+        AdoptionHomeGroup.BeforePullRequest => "before",
+        AdoptionHomeGroup.AfterPullRequest => "after",
+        _ => "underneath"
+    };
+
+    private static string GroupName(AdoptionHomeGroup group) => group switch
+    {
+        AdoptionHomeGroup.BeforePullRequest => "Before the pull request",
+        AdoptionHomeGroup.AfterPullRequest => "After it",
+        _ => "Underneath"
+    };
+
+    private static string DividerText(AdoptionHomeGroup group) => group switch
+    {
+        AdoptionHomeGroup.AfterPullRequest => "pull request — after this line, on GitHub and in production",
+        AdoptionHomeGroup.Underneath => "underneath the path — not stages",
+        _ => "before the pull request"
+    };
+
+    private static string CardClass(AdoptionCard card, bool settled) =>
+        $"adoption-card adoption-card--{RungSlug(card.Rung)}" + (settled ? " adoption-card--settled" : string.Empty);
+
+    internal static string RungSlug(AdoptionRung rung) => rung switch
+    {
+        AdoptionRung.Candidate => "candidate",
+        AdoptionRung.Trial => "trial",
+        AdoptionRung.Adopted => "adopted",
+        AdoptionRung.Hold => "hold",
+        _ => "retired"
+    };
+
+    internal static string EvidenceWord(AdoptionEvidence evidence) => evidence switch
+    {
+        AdoptionEvidence.Recorded => "recorded",
+        AdoptionEvidence.Partial => "partial",
+        AdoptionEvidence.Fired => "fired, nothing published",
+        AdoptionEvidence.None => "none yet",
+        _ => "not stated"
+    };
+}

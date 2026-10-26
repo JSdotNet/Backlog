@@ -3661,6 +3661,430 @@ button.devbook-chip__label:focus-visible {
 .devbook-scenario-shot--unknown-label .devbook-scenario-shot__source,
 .devbook-scenario-shot--unknown-page .devbook-scenario-shot__source { color: var(--color-error-text); }
 
+/* --- Adoption board ------------------------------------------------------
+   How far AI adoption has got (AdoptionBoard): the strip, the three findings,
+   the evidence legend and the ladder grid. Every colour is a palette token or a
+   chart role: adopted is the success surface and its ink, trial the warning
+   surface with the primary edge, candidate a dashed strong border on the card
+   surface, retired the base surface. The groups are told apart by their edge —
+   primary before the pull request, strong border after it, secondary
+   underneath — and always by their name; the band hues are repository identity
+   and are not spent here. */
+.adoption-board {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-base);
+}
+
+.adoption-board__strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+}
+
+.adoption-strip__group {
+    --adoption-accent: var(--color-primary);
+    flex: var(--adoption-group-span, 1) 1 0;
+    min-width: min(100%, 14rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.adoption-strip__group--after { --adoption-accent: var(--color-border-strong); }
+.adoption-strip__group--underneath { --adoption-accent: var(--color-secondary); }
+
+.adoption-strip__group-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    padding-bottom: var(--spacing-xs);
+    border-bottom: 3px solid var(--adoption-accent);
+}
+
+.adoption-strip__group-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+}
+
+.adoption-strip__group-note {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.adoption-strip__tiles {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.adoption-strip__tile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-top: 3px solid var(--adoption-accent);
+    border-radius: var(--border-radius-md);
+}
+
+.adoption-strip__tile-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.adoption-strip__tile-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+}
+
+.adoption-strip__tile-number,
+.adoption-strip__mix {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.adoption-strip__bar {
+    display: flex;
+    height: 0.625rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+}
+
+.adoption-strip__bar-part--adopted { background: var(--color-success-text); }
+.adoption-strip__bar-part--trial { background: var(--color-primary-dark); }
+.adoption-strip__bar-part--candidate { background: var(--color-border-strong); }
+
+.adoption-board__findings {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--spacing-md);
+}
+
+.adoption-finding {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+}
+
+.adoption-finding--adopted { background: var(--color-success); border-color: var(--color-success-text); }
+.adoption-finding--trial { background: var(--color-warning); border-color: var(--color-primary-dark); }
+
+.adoption-finding__count {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+.adoption-finding--adopted .adoption-finding__count { color: var(--color-success-text); }
+.adoption-finding--trial .adoption-finding__count { color: var(--color-primary); }
+
+.adoption-finding__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.adoption-finding__body {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    color: var(--color-text-secondary);
+}
+
+.adoption-finding__bar {
+    display: flex;
+    height: 0.875rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+}
+
+.adoption-finding__bar-part--recorded,
+.adoption-finding__swatch--recorded { background: var(--color-success-text); }
+.adoption-finding__bar-part--partial,
+.adoption-finding__swatch--partial { background: var(--color-primary); }
+.adoption-finding__bar-part--fired,
+.adoption-finding__swatch--fired { background: var(--chart-ramp-2); }
+.adoption-finding__bar-part--none { background: var(--color-background-raised); }
+
+.adoption-finding__key {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.adoption-finding__key li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.adoption-finding__swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: var(--border-radius-sm);
+}
+
+.adoption-finding__swatch--none {
+    background: var(--color-background-raised);
+    border: var(--border-width) solid var(--color-border-strong);
+    box-sizing: border-box;
+}
+
+.adoption-ladder__bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+}
+
+.adoption-legend {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.adoption-legend__lead {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.adoption-legend__entry {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.adoption-ladder__toggle { min-height: 2.75rem; border-radius: var(--border-radius-full); }
+
+.adoption-dots {
+    display: inline-flex;
+    gap: 3px;
+    flex: none;
+}
+
+.adoption-dots__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    box-sizing: border-box;
+    border: var(--border-width) solid var(--color-border-strong);
+}
+
+.adoption-dots__dot--on { border: none; background: var(--color-primary); }
+.adoption-dots--recorded .adoption-dots__dot--on { background: var(--color-success-text); }
+
+.adoption-ladder__grid {
+    display: flex;
+    flex-direction: column;
+    overflow-x: auto;
+}
+
+.adoption-ladder__row {
+    display: grid;
+    grid-template-columns: 10rem minmax(9rem, 1fr) minmax(12rem, 2fr) minmax(12rem, 2fr) minmax(9rem, 1fr);
+    column-gap: var(--spacing-sm);
+    padding: var(--spacing-md) 0;
+    border-bottom: var(--border-width) solid var(--color-background-raised);
+    min-width: 56rem;
+}
+
+.adoption-ladder__row--head {
+    padding: var(--spacing-sm) 0;
+    border-top: var(--border-width) solid var(--color-border);
+    border-bottom-color: var(--color-border);
+}
+
+.adoption-ladder__home-head {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+}
+
+.adoption-ladder__column-head {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.adoption-ladder__column-head--trial { color: var(--color-primary); }
+.adoption-ladder__column-head--adopted { color: var(--color-success-text); }
+.adoption-ladder__column-head--retired { color: var(--color-secondary); }
+
+.adoption-ladder__divider {
+    min-width: 56rem;
+    padding: var(--spacing-sm) 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    border-top: var(--border-width-2) solid var(--color-secondary);
+}
+
+.adoption-ladder__divider--after {
+    color: var(--color-primary);
+    border-top-style: dashed;
+    border-top-color: var(--color-primary);
+}
+
+.adoption-ladder__home {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.adoption-ladder__home-number {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-secondary);
+}
+
+.adoption-ladder__home-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+}
+
+.adoption-ladder__home-empty {
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    color: var(--color-secondary);
+}
+
+.adoption-ladder__cell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-sm);
+    align-content: start;
+}
+
+.adoption-ladder__cell--trial,
+.adoption-ladder__cell--adopted { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.adoption-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-sm);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    border: 1.5px dashed var(--color-border-strong);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+    transition: opacity var(--transition-fast), border-color var(--transition-fast);
+}
+
+.adoption-card:hover { border-color: var(--color-primary-light); }
+.adoption-card:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.adoption-card--adopted { background: var(--color-success); border: var(--border-width) solid var(--color-success-text); }
+.adoption-card--trial { background: var(--color-warning); border: var(--border-width) solid var(--color-primary-dark); }
+.adoption-card--retired,
+.adoption-card--hold { background: var(--color-background); border: var(--border-width) solid var(--color-border); }
+
+/* "Only what still needs evidence": what has its record, and what is off the
+   ladder, steps back. It stays in place and stays a button — the grid keeps its
+   shape, and a reader can still open a settled card. */
+.adoption-card--settled { opacity: 0.4; }
+.adoption-card--settled:hover,
+.adoption-card--settled:focus-visible { opacity: 1; }
+
+.adoption-card__title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.adoption-card--retired .adoption-card__title {
+    color: var(--color-text-secondary);
+    text-decoration: line-through;
+}
+
+.adoption-card__rung {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.adoption-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-secondary);
+}
+
+.adoption-card__evidence {
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    color: var(--color-text-secondary);
+}
+
+.adoption-card__next {
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    color: var(--color-text-secondary);
+}
+
+.adoption-card--trial .adoption-card__next {
+    color: var(--color-primary);
+    border-top-color: var(--color-primary-dark);
+}
+
+.adoption-card__next strong { font-weight: var(--font-weight-semibold); }
+
 /* --- Devbook type marker ------------------------------------------------ */
 /*
    The eighteen domain-type glyphs. Sized in em by the component so the mark

@@ -371,7 +371,12 @@ internal static class StorybookIndex
             // is a module's surface drawn from library parts only — Tabs from Layout
             // and EmptyState from Feedback, both introduced above — because the AI
             // section's views live in the Devbook module and cannot render here.
-            new("devbook/ai-tabs", "AI tabs", "The tab strip over the AI section's chapters: Adoption, Cohesion, Model and Devbook on the library's Tabs, Adoption open first, each panel holding the EmptyState its view shows until it is drawn.")
+            new("devbook/ai-tabs", "AI tabs", "The tab strip over the AI section's chapters: Adoption, Cohesion, Model and Devbook on the library's Tabs, Adoption open first, each panel holding the EmptyState its view shows until it is drawn."),
+
+            // After the strip it sits under: AdoptionBoard, the Adoption tab's board, is a
+            // library component, so it renders here; its parts beyond its own — ToggleButton
+            // from Buttons — are introduced above.
+            new("devbook/ai-adoption", "AI adoption", "AdoptionBoard: how far each AI usage has got — the strip per stage and layer, three findings counted from the cards, the evidence legend and its toggle, and the ladder grid with the pull-request divider.")
         ]),
 
         // The first subject, ahead of Integrations rather than with Progress where its
