@@ -46,6 +46,19 @@
         <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>
 
+    <!-- Firebase project backlog-push's Android app config, registered for
+         com.jsdotnet.backlog.mobile (local ADR 0038): identifiers, not secrets.
+         The Firebase messaging package's targets turn it into Android resources;
+         until that package is referenced, the item is inert. The Razor SDK's
+         default glob also takes every .json as Content copied to the output;
+         the Remove keeps this file to its one build action. -->
+    <ItemGroup>
+        <Content Remove="Platforms\Android\google-services.json" />
+    </ItemGroup>
+    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+        <GoogleServicesJson Include="Platforms\Android\google-services.json" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Controls" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" />

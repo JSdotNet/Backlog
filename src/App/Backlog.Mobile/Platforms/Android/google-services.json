@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "298474081908",
+    "project_id": "backlog-push",
+    "storage_bucket": "backlog-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:298474081908:android:6a439516548c21b7ad8b21",
+        "android_client_info": {
+          "package_name": "com.jsdotnet.backlog.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4QgVJElEeu2fcAPntgKlfq3CzsF78HhM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
