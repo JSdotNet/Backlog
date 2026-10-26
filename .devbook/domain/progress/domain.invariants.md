@@ -79,6 +79,19 @@ A bare number names a different pull request in every repository.
 
 Enforced at: `Goal Attachment`
 
+### Invariant: A session attachment names its agent and session id
+
+```meta
+status: draft
+type: invariant
+related: [.devbook/domain/sessions/domain.md#session-identity, .devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
+```
+
+A session attachment carries an agent and a non-blank session id (`progress.session_without_identity`).
+A session id is unique only within the agent that issued it.
+
+Enforced at: `Goal Attachment`
+
 ## Goal Assignment
 
 ```meta
@@ -97,7 +110,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Attaching_an_item_another_goal_holds_is_refused_naming_that_goal, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_plan_or_a_pull_request_belongs_to_one_goal_too, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Moving_an_item_takes_it_out_of_the_other_goal, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.Attaching_to_the_goal_that_holds_it_already_is_no_conflict, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_task_another_goal_holds_through_its_plan_may_be_attached_directly]
 ```
 
-Attaching a plan, task or pull request that another goal already holds is refused (`progress.item_in_other_goal`), naming that goal, unless the attach asks to move it (`moveFromOtherGoal`): then the item leaves the other goal in the same change.
+Attaching a plan, task, pull request or session that another goal already holds is refused (`progress.item_in_other_goal`), naming that goal, unless the attach asks to move it (`moveFromOtherGoal`): then the item leaves the other goal in the same change.
 An item counted in two goals would move both when it is done.
 
 Enforced at: `Assign()`
