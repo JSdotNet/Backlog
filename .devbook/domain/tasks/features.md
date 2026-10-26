@@ -1038,7 +1038,7 @@ A plan also carries work around a prompt that is not the prompt itself:
 
 - a setup or dependency step the repository needs before the prompt can run,
   such as installing a plugin;
-- a reminder to update that repository's knowledge docs or devbook;
+- a reminder to update that repository's devbook;
 - a task only a person can do.
 
 None of these is a new kind of thing. They land as ordinary
@@ -1129,7 +1129,7 @@ the same tag that came from somewhere else was never part of the plan and is not
 touched.
 
 An `in_progress` task takes the new version's instructions, type, dependencies,
-target repository, and setup, knowledge and manual sub-items. Status is the one
+target repository, and setup, devbook and manual sub-items. Status is the one
 field a later version moves only when it asks to. If the version restates it, the
 task moves there. If the version leaves it out, the task keeps whatever progress
 it has made since it was imported. A plan that says nothing about where an entry

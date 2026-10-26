@@ -161,7 +161,7 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-tag]
 ```
 
 Give every planned item a short [tag](domain.md#roadmap-tag) other work can be
-filed against. A Task or a knowledge chapter can then say "this belongs to that
+filed against. A Task or a devbook chapter can then say "this belongs to that
 plan item" without the plan having to name it first. The tag is derived from the
 item's title when the item is created, so a person does not invent it, and is
 then editable on its own.

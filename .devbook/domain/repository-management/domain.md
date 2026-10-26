@@ -68,7 +68,7 @@ GitHub, such as "org/repo-name". The registry holds for each repository:
 - its [identity colour](features.md#repository-identity-colour), as one of the
   colours the design system sanctions;
 - the account it is worked as, and optionally a personal access token;
-- its [knowledge folder settings](features.md#repository-knowledge-folder-settings);
+- its [devbook folder settings](features.md#repository-devbook-folder-settings);
 - whether it is [archived](#archived-repository).
 
 The registry is ordered, and the first repository that is not archived serves as
