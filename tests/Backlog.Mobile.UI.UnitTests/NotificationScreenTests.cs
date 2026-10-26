@@ -81,6 +81,33 @@ public sealed class NotificationScreenTests
         Assert.Empty(app.FindAll("[data-testid='notification-body']"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_list_and_the_detail_draw_the_origin_line(bool detail)
+    {
+        var question = Migration() with { Origin = new NotificationOrigin("Claude Code", "JSdotNet/Backlog · Notification origin") };
+        var (host, _, _) = Phone(question);
+        using var disposing = host;
+
+        var app = host.Open(detail ? $"notifications/{question.Id}" : "notifications");
+
+        app.WaitForAssertion(() => Assert.Equal("Claude Code", app.Find("[data-testid='notification-origin-system']").TextContent));
+        Assert.Equal("JSdotNet/Backlog · Notification origin", app.Find("[data-testid='notification-origin-place']").TextContent);
+    }
+
+    [Fact]
+    public void A_notification_without_an_origin_draws_no_origin_line()
+    {
+        var (host, _, _) = Phone(Migration());
+        using var disposing = host;
+
+        var app = host.Open("notifications");
+
+        app.WaitForAssertion(() => Assert.Single(app.FindAll("[data-testid='notification-card']")));
+        Assert.Empty(app.FindAll("[data-testid='notification-origin']"));
+    }
+
     [Fact]
     public void An_owner_that_stopped_pushing_is_offline_and_a_reply_delivers_on_wake()
     {

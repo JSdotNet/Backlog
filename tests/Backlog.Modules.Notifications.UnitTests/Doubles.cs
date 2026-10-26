@@ -98,7 +98,7 @@ internal sealed class InMemoryNotificationRepository : INotificationRepository
 
     private static Notification Copy(Notification n) => Notification.Restore(
         n.Id, n.OwnerInstanceId, n.Source, n.Subject, n.Kind, n.Severity, n.Title, n.Summary, n.BodyMarkdown,
-        n.AnswerSpec, n.DeepLink, n.IsPrivate, n.CreatedAt, n.State, n.SettledAt, n.CloseReason, n.Answer, n.AnswerDeliveredAt);
+        n.AnswerSpec, n.DeepLink, n.IsPrivate, n.CreatedAt, n.State, n.SettledAt, n.CloseReason, n.Answer, n.AnswerDeliveredAt, n.Origin);
 }
 
 /// <summary>A handler that records every answer it is handed, and can be told to throw.</summary>

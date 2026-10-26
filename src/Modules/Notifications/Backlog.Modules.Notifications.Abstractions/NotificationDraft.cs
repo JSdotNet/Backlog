@@ -9,6 +9,110 @@ namespace Backlog.Modules.Notifications.Abstractions;
 public sealed record NotificationSource(string Context, string Key);
 
 /// <summary>
+/// Where a notification came from, in words a person reads
+/// (<c>.devbook/domain/notifications/domain.md#origin</c>): the system that raised it, where in
+/// that system, who asked and how, and a link that opens it there. Optional beside
+/// <see cref="NotificationSource"/>, which routes the answer and is never shown; a notification
+/// without one is drawn as it always was, by its source.
+/// <para>
+/// All text, one line each, and bounded: <see cref="System"/> 40 characters, <see cref="Place"/>
+/// 120, <see cref="AskedBy"/> 80, <see cref="Via"/> 40. <see cref="OpenLink"/> is an absolute
+/// <c>http</c> or <c>https</c> address, or null. The owner refuses a draft whose origin breaks a
+/// bound; a source builds its origin through <see cref="Fit"/>, which cuts each part to fit.
+/// </para>
+/// </summary>
+/// <param name="System">The system that raised it — "Claude Code", "Backlog", "spec-manager". Required.</param>
+/// <param name="Place">Where in that system — a repository and session title, a product and item.</param>
+/// <param name="AskedBy">The person who asked, when known.</param>
+/// <param name="Via">How it was asked — "Agent session", "MCP ask".</param>
+/// <param name="OpenLink">A link that opens it at its origin, or null.</param>
+public sealed record NotificationOrigin(
+    string System,
+    string? Place = null,
+    string? AskedBy = null,
+    string? Via = null,
+    string? OpenLink = null)
+{
+    /// <summary>The most characters <see cref="System"/> holds.</summary>
+    public const int MaxSystemLength = 40;
+
+    /// <summary>The most characters <see cref="Place"/> holds.</summary>
+    public const int MaxPlaceLength = 120;
+
+    /// <summary>The most characters <see cref="AskedBy"/> holds.</summary>
+    public const int MaxAskedByLength = 80;
+
+    /// <summary>The most characters <see cref="Via"/> holds.</summary>
+    public const int MaxViaLength = 40;
+
+    /// <summary>The most characters <see cref="OpenLink"/> holds.</summary>
+    public const int MaxOpenLinkLength = 2048;
+
+    /// <summary>What sits between the system and the place in <see cref="Line"/>.</summary>
+    public const string Separator = " · ";
+
+    /// <summary>"System · Place", or the system alone — the attribution line of a Windows
+    /// notification, the phone's origin line and the push's <c>origin</c>.</summary>
+    public string Line => string.IsNullOrWhiteSpace(Place) ? System : System + Separator + Place;
+
+    /// <summary><see cref="Line"/> cut to <paramref name="length"/> characters, the last one an
+    /// ellipsis when it was cut.</summary>
+    public string LineWithin(int length) => Cut(Line, length);
+
+    /// <summary>
+    /// An origin built to fit: every part made one line, trimmed, and cut to its bound; a blank
+    /// part dropped, and a link that is not an absolute <c>http</c> or <c>https</c> address
+    /// dropped. Null when <paramref name="system"/> is blank, since an origin names its system.
+    /// </summary>
+    public static NotificationOrigin? Fit(string? system, string? place = null, string? askedBy = null, string? via = null, string? openLink = null)
+    {
+        var named = Part(system, MaxSystemLength);
+        if (named is null) return null;
+
+        return new NotificationOrigin(
+            named,
+            Part(place, MaxPlaceLength),
+            Part(askedBy, MaxAskedByLength),
+            Part(via, MaxViaLength),
+            IsOpenLink(openLink) ? openLink!.Trim() : null);
+    }
+
+    /// <summary>Whether <paramref name="link"/> may be an <see cref="OpenLink"/>: an absolute
+    /// <c>http</c> or <c>https</c> address within <see cref="MaxOpenLinkLength"/>.</summary>
+    public static bool IsOpenLink(string? link) =>
+        !string.IsNullOrWhiteSpace(link)
+        && link.Trim().Length <= MaxOpenLinkLength
+        && Uri.TryCreate(link.Trim(), UriKind.Absolute, out var uri)
+        && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp);
+
+    private static string? Part(string? text, int length)
+    {
+        var line = string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return line.Length == 0 ? null : Cut(line, length);
+    }
+
+    private static string Cut(string text, int length) =>
+        text.Length <= length ? text : text[..(length - 1)] + "…";
+}
+
+/// <summary>The words the sources inside Backlog put in a <see cref="NotificationOrigin"/>, so
+/// two sources that mean the same system say it the same way.</summary>
+public static class NotificationOrigins
+{
+    /// <summary>Backlog itself: pairing, Devbook remarks, the settings test.</summary>
+    public const string Backlog = "Backlog";
+
+    /// <summary>A Claude Code session, as a delivery run reports it.</summary>
+    public const string ClaudeCode = "Claude Code";
+
+    /// <summary>Asked by an agent in a session.</summary>
+    public const string AgentSession = "Agent session";
+
+    /// <summary>Asked through the MCP <c>ask</c> or <c>notify</c> tool.</summary>
+    public const string McpAsk = "MCP ask";
+}
+
+/// <summary>
 /// The entity a notification is about, named by its boundary, its type and its id, for
 /// example <c>sessions</c> / <c>session</c> / <c>sess-91</c>
 /// (<c>.devbook/domain/notifications/domain.md#subject</c>). Two subjects are the same when
@@ -67,6 +171,7 @@ public sealed record AnswerSpec(
 /// <param name="Answer">The answer spec; required for a question, absent on an alert.</param>
 /// <param name="DeepLink">A link that opens the item that raised it, or null.</param>
 /// <param name="IsPrivate">Replace the summary with a fixed text outside the app.</param>
+/// <param name="Origin">Where it came from, in words a person reads, or null.</param>
 public sealed record NotificationDraft(
     NotificationSource Source,
     NotificationSubject? Subject,
@@ -77,7 +182,8 @@ public sealed record NotificationDraft(
     string BodyMarkdown,
     AnswerSpec? Answer = null,
     string? DeepLink = null,
-    bool IsPrivate = false);
+    bool IsPrivate = false,
+    NotificationOrigin? Origin = null);
 
 /// <summary>
 /// What a person submitted to answer a question, from any instance

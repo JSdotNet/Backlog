@@ -227,4 +227,88 @@ public sealed class NotificationCardTests
         Assert.Equal("Closed · Session archived", card.Find("[data-testid='notification-card-outcome']").TextContent);
         Assert.Equal("closed", card.Find("article").GetAttribute("data-state"));
     }
+
+    // --- The origin ----------------------------------------------------------------------
+
+    private static readonly NotificationCardOrigin SpecManager =
+        new("spec-manager", "Billing · #7 Rounding in invoices", "Ada Lovelace", "Agent session", "https://spec-manager.example/q/7");
+
+    [Fact]
+    public void An_origin_draws_a_system_badge_and_the_place_above_the_title()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = SpecManager }));
+
+        var origin = card.Find("[data-testid='notification-card-origin']");
+        Assert.Equal("spec-manager", origin.QuerySelector("[data-testid='notification-card-system']")!.TextContent);
+        Assert.Equal("Billing · #7 Rounding in invoices", origin.QuerySelector("[data-testid='notification-card-place']")!.TextContent);
+        Assert.True(
+            card.Markup.IndexOf("notification-card__origin", StringComparison.Ordinal)
+            < card.Markup.IndexOf("notification-card__title", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Who_asked_and_how_sit_under_the_title()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = SpecManager }));
+
+        Assert.Equal("Asked by Ada Lovelace", card.Find("[data-testid='notification-card-asked-by']").TextContent);
+        Assert.Equal("Agent session", card.Find("[data-testid='notification-card-via']").TextContent);
+        Assert.True(
+            card.Markup.IndexOf("notification-card__title", StringComparison.Ordinal)
+            < card.Markup.IndexOf("notification-card__asked", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_link_offers_open_in_the_system_in_a_new_window()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = SpecManager }));
+
+        var open = card.Find("[data-testid='notification-card-open-origin']");
+        Assert.Equal("Open in spec-manager ↗", open.TextContent.Trim());
+        Assert.Equal("https://spec-manager.example/q/7", open.GetAttribute("href"));
+        Assert.Equal("_blank", open.GetAttribute("target"));
+    }
+
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("backlog://devbook/_/arc42.md")]
+    public void A_link_that_is_not_http_or_https_offers_nothing(string link)
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question() with { Origin = SpecManager with { OpenLink = link } }));
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-open-origin']"));
+    }
+
+    [Fact]
+    public void An_origin_without_a_link_place_or_asker_draws_only_the_badge()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Alert() with { Origin = new NotificationCardOrigin("Backlog") }));
+
+        Assert.Equal("Backlog", card.Find("[data-testid='notification-card-system']").TextContent);
+        Assert.Empty(card.FindAll("[data-testid='notification-card-place']"));
+        Assert.Empty(card.FindAll("[data-testid='notification-card-asked']"));
+        Assert.Empty(card.FindAll("[data-testid='notification-card-open-origin']"));
+        Assert.Equal("1 h ago", card.Find(".notification-card__meta").TextContent);
+    }
+
+    [Fact]
+    public void A_card_without_an_origin_names_its_source_beside_the_time_as_before()
+    {
+        using var context = Context();
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question()));
+
+        Assert.Equal("MCP · 2 min ago", card.Find(".notification-card__meta").TextContent);
+        Assert.Empty(card.FindAll("[data-testid='notification-card-origin']"));
+    }
 }

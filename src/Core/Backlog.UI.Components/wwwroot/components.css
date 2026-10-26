@@ -22164,6 +22164,44 @@ select.field__input {
     color: var(--color-text-secondary);
 }
 
+/* Where it came from: the system as a badge and the place beside it above the
+   title, who asked and how under it, "Open in <System> ↗" at the foot. All on
+   the existing badge tones — the system badge stands out by weight, the via pill
+   by its outline, so an origin reads as context and never as a second state. */
+.notification-card__origin,
+.notification-card__asked {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0;
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.notification-card__place {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.notification-card__footer {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.badge--notification-origin-system {
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.badge--notification-origin-via {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+}
+
 .notification-card__body {
     min-width: 0;
 }

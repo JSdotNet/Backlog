@@ -13,6 +13,12 @@
         <NotificationCard Model="@SingleChoice" TestId="notification-card-single" OnAnswer="@Answered" />
     </Story>
 
+    <Story Name="With an origin"
+           Description="Where it came from, above the title: the system as a badge and the place beside it — a product and item, a repository and session. Who asked and how sit under the title, the way asked as an outlined pill, and Open in the system at the foot when the origin carries a link. A card without an origin keeps its source beside the time instead."
+           Code="@OriginCode">
+        <NotificationCard Model="@WithOrigin" TestId="notification-card-origin-sample" OnAnswer="@Answered" />
+    </Story>
+
     <Story Name="Multiple choice"
            Description="A checkbox per set answer and one Answer button. The legend says how many to pick, and Answer stays disabled until the picks fit the question's minimum and maximum."
            Code="@MultipleCode"
@@ -158,6 +164,30 @@
         null,
         NotificationCardState.Open);
 
+    private static readonly NotificationCardModel WithOrigin = new(
+        "rounding",
+        NotificationCardKind.Question,
+        NotificationCardSeverity.Info,
+        "Which rounding rule applies to invoice totals?",
+        "#7 Rounding in invoices",
+        "Invoices round each line today, so a total can be a cent off the sum of its lines.",
+        "spec-manager · Billing · #7 Rounding in invoices",
+        "4 min ago",
+        new NotificationCardAnswerSpec(
+        [
+            new NotificationCardChoice("half-even", "Round half even", NotificationCardChoiceStyle.Primary),
+            new NotificationCardChoice("half-up", "Round half up"),
+            new NotificationCardChoice("truncate", "Truncate to cents")
+        ],
+        Open: new NotificationCardOpenAnswer("Other…")),
+        NotificationCardState.Open,
+        Origin: new NotificationCardOrigin(
+            "spec-manager",
+            "Billing · #7 Rounding in invoices",
+            AskedBy: "Ada Lovelace",
+            Via: "Agent session",
+            OpenLink: "https://spec-manager.example/billing/backlog/7"));
+
     private static readonly NotificationCardModel AnsweredQuestion = SingleChoice with
     {
         Id = "approve",
@@ -187,6 +217,18 @@
 
         // question.Answer = new NotificationCardAnswerSpec(
         //     [new("yes", "Yes, run it", NotificationCardChoiceStyle.Primary), new("no", "Not now")]);
+        """;
+
+    private const string OriginCode = """
+        <NotificationCard Model="@(question with
+        {
+            Origin = new NotificationCardOrigin(
+                "spec-manager",
+                "Billing · #7 Rounding in invoices",
+                AskedBy: "Ada Lovelace",
+                Via: "Agent session",
+                OpenLink: "https://spec-manager.example/billing/backlog/7")
+        })" OnAnswer="AnswerAsync" />
         """;
 
     private const string MultipleCode = """

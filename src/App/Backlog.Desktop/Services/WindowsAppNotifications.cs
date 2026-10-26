@@ -120,6 +120,9 @@ internal sealed class WindowsAppNotifications(
             .AddText(content.Title)
             .AddText(content.Summary);
 
+        // Where it came from, "System · Place", on the attribution line under the text.
+        if (!string.IsNullOrWhiteSpace(content.Attribution)) builder.SetAttributionText(content.Attribution);
+
         foreach (var (key, value) in content.Arguments) builder.AddArgument(key, value);
 
         if (content.Severity == NotificationSeverity.Critical && AppNotificationBuilder.IsUrgentScenarioSupported())

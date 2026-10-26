@@ -101,6 +101,21 @@ The title holds at most 80 characters and the summary at most 180, both plain te
 
 Enforced at: constructor
 
+### Invariant: An origin stays within its bounds
+
+```meta
+status: proposed
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationOriginTests.A_part_past_its_bound_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationOriginTests.An_origin_without_a_system_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationOriginTests.A_part_that_runs_over_a_line_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationOriginTests.A_link_that_is_not_http_or_https_is_refused]
+```
+
+An [origin](domain.md#origin) names its system. Its system holds at most 40
+characters, its place 120, who asked 80 and how 40, each one line of plain text
+(`notification.content_too_long`, `notification.origin_invalid`). Its link is an
+absolute `http` or `https` address.
+
+Enforced at: constructor
+
 ## Reply
 
 ```meta

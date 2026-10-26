@@ -33,7 +33,7 @@ Its content is meant to be shown on every channel:
 - The title holds at most 80 characters, and the summary at most 180, both plain
   text. They are the only content that leaves the replica in an OS notification
   or a push payload. A push also names the notification's id, kind, severity and
-  state.
+  state, and its [origin](#origin) as "System · Place".
 - The body is Markdown, with Mermaid diagrams and images. Images travel as
   attachments through the blob store
   (`.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md`).
@@ -58,6 +58,45 @@ aliases: [NotificationSource]
 The boundary that raised the notification, and the key inside it: for example
 `sessions` / `run-58`. The owner hands the accepted answer back to the handler
 registered for the source's boundary. An alert-only source registers no handler.
+The source routes; it is never shown. What a person reads is the
+[Origin](#origin).
+
+### Origin
+
+```meta
+status: proposed
+type: value-object
+aliases: [NotificationOrigin]
+related: [.devbook/domain/notifications/domain.invariants.md#invariant-an-origin-stays-within-its-bounds]
+```
+
+Where the notification came from, in words a person reads. Optional: a
+notification without one is drawn by its source, as before.
+
+| Part | Holds | Bound |
+|---|---|---|
+| System | The system that raised it: "Claude Code", "Backlog", "spec-manager". Required. | 40 characters |
+| Place | Where in that system: a repository and run title, a product and item, a chapter. | 120 characters |
+| Asked by | The person who asked, when known. | 80 characters |
+| Via | How it was asked: "Agent session", "MCP ask". | 40 characters |
+| Open link | An `http` or `https` link that opens it at its origin, or none. | |
+
+Every part is one line of plain text. The origin holds no content, so it
+travels wherever the title does, a private notification's push included.
+"System · Place" is the attribution line of a Windows notification, the
+subtitle of the phone's tray entry, and the push's `origin`, cut to 60
+characters there. The card draws the system as a badge with the place above
+the title, who asked and how under it, and "Open in &lt;System&gt;" when there is
+a link. The centre filters by the system.
+
+The sources inside Backlog fill it:
+
+| Source | System | Place | Via |
+|---|---|---|---|
+| A run's Personal Validation | Claude Code | The repository and the run's title | Agent session |
+| Pairing a device | Backlog | Pairing | |
+| A Devbook remark | Backlog | The chapter, the remark's author as asked by | |
+| MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask |
 
 ### Subject
 

@@ -46,6 +46,9 @@ public sealed class ValidationQuestionTests : IDisposable
         Assert.Equal(AnswerOn.AnyInstance, spec.AnswerOn);
         Assert.Contains("JSdotNet/Backlog", draft.BodyMarkdown, StringComparison.Ordinal);
         Assert.DoesNotContain(Worktree, draft.BodyMarkdown, StringComparison.Ordinal);
+        Assert.Equal(
+            new NotificationOrigin("Claude Code", "JSdotNet/Backlog · notifications:11 - Raise notifications", Via: "Agent session"),
+            draft.Origin);
 
         var asked = (await File(run))["validationQuestion"]!.AsObject();
         Assert.Equal(id.ToString("D"), asked["notificationId"]!.GetValue<string>());
