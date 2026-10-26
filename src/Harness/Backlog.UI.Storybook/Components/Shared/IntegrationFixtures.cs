@@ -15,7 +15,7 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// <para>
 /// One entry rather than a fresh set per page. The whole argument of this section
 /// is that the same six acts and the same reference shapes hold across a backlog
-/// entry, a knowledge chapter and a roadmap bar, and five pages inventing five
+/// entry, a devbook chapter and a roadmap bar, and five pages inventing five
 /// unrelated fixtures would quietly undercut it — a reader could not tell whether
 /// the density page and the actions page were showing the same acts collapsing or
 /// two different sets that happen to look alike.

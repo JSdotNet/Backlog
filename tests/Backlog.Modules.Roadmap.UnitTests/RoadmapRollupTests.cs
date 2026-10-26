@@ -177,7 +177,7 @@ public class RoadmapItemRollupDtoProgressTests
         Assert.Equal(1, dto.UnestimatedCount);
     }
 
-    /// <summary>A knowledge chapter registers no progress at all, and unknown is
+    /// <summary>A devbook chapter registers no progress at all, and unknown is
     /// never read as finished.</summary>
     [Fact]
     public void SomethingThatRegisteredNoProgress_IsNotDone()

@@ -162,7 +162,7 @@ public sealed record PlanningLane
 
 /// <summary>
 /// The slug that names a roadmap item wherever tags are used — the backlog item tag
-/// list, and the <c>roadmap:</c> field in a knowledge chapter's <c>meta</c> block.
+/// list, and the <c>roadmap:</c> field in a devbook chapter's <c>meta</c> block.
 /// Equality is by value.
 /// <para>
 /// Lowercase kebab-case, and never empty: it has to survive a trip through a class
@@ -249,7 +249,7 @@ public sealed record PlanningTag
 }
 
 /// <summary>
-/// The knowledge chapters a roadmap item points at, in the knowledge base's own
+/// The devbook chapters a roadmap item points at, in the knowledge base's own
 /// reference form — <c>&lt;repo-relative-path&gt;</c> or
 /// <c>&lt;repo-relative-path&gt;#&lt;heading-slug&gt;</c>. Equality is by value, and
 /// order is part of it: the person's ordering is the reading order.

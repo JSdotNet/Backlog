@@ -1087,7 +1087,7 @@ public sealed partial class GitHubSettingsStore
     }
 
     /// <summary>
-    /// Points one of a repository's knowledge folders somewhere else, or turns it
+    /// Points one of a repository's devbook folders somewhere else, or turns it
     /// off.
     /// <para>
     /// Local, and the whole list stays local rather than being split down the
@@ -1649,7 +1649,7 @@ public sealed partial class GitHubSettingsStore
     }
 
     /// <summary>Whether a repository has anything machine-local to remember at
-    /// all. The knowledge folders are compared against the defaults rather than
+    /// all. The devbook folders are compared against the defaults rather than
     /// merely counted, because "every section on, at its conventional folder" is
     /// already what a repository nobody has configured folders for
     /// answers.</summary>

@@ -222,7 +222,7 @@
                     <EmptyState TestId="roadmap-item-rollup-empty"
                                 CssClass="roadmap-gathered__empty"
                                 Title="Nothing gathered yet"
-                                Description="No backlog entry is linked or carries this item's tag, and no knowledge chapter names it. Link an entry, or tag work with the item's tag, and it is gathered here." />
+                                Description="No backlog entry is linked or carries this item's tag, and no devbook chapter names it. Link an entry, or tag work with the item's tag, and it is gathered here." />
                 }
                 else
                 {
@@ -253,7 +253,7 @@
                     @if (Rollup.KnowledgeChapters.Count > 0)
                     {
                         <div class="roadmap-gathered__group">
-                            <p class="roadmap-gathered__group-title">Knowledge chapters</p>
+                            <p class="roadmap-gathered__group-title">Devbook chapters</p>
                             <ul class="roadmap-gathered__list" data-testid="roadmap-item-linked-knowledge">
                                 @foreach (var link in Rollup.KnowledgeChapters)
                                 {
@@ -429,7 +429,7 @@
 
     /// <summary>
     /// What this item has gathered — its linked and tagged backlog entries, its
-    /// referenced and tag-named knowledge chapters, and the effort arithmetic over
+    /// referenced and tag-named devbook chapters, and the effort arithmetic over
     /// them. Handed in as a parameter rather than fetched here, so the dialog stays a
     /// thing that shows what it is given: the band gathers through its own module port
     /// and passes the result down, the same way it passes the repositories and the

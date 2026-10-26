@@ -10,7 +10,7 @@ using ModelContextProtocol.Server;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// The devbook a session reads: which knowledge folders a repository has, one
+/// The devbook a session reads: which devbook folders a repository has, one
 /// chapter out of one of them, and the private reading notes against it — and
 /// the same for the Brain, the person's own notes outside every repository.
 /// <para>
@@ -82,9 +82,9 @@ public sealed class DevbookTools(
     // branch has been fetched — so this answer depends on GitHub and can set a
     // download going. It never waits on one, which is why it is still Idempotent
     // and ReadOnly; what it is not is closed.
-    [McpServerTool(Name = ListKnowledgeContexts, Title = "List a repository's knowledge folders", ReadOnly = true, Idempotent = true, OpenWorld = true)]
+    [McpServerTool(Name = ListKnowledgeContexts, Title = "List a repository's devbook folders", ReadOnly = true, Idempotent = true, OpenWorld = true)]
     [Description(
-        "The knowledge folders configured for one repository — architecture, domain, technology, design, AI "
+        "The devbook folders configured for one repository — architecture, domain, technology, design, AI "
         + "adoption, instructions — and whether each one is readable right now. For " + BrainMcpScope.Value
         + ", the Brain's one folder. Read-only.")]
     public KnowledgeContextsPayload ListKnowledgeContextsFor(
@@ -143,9 +143,9 @@ public sealed class DevbookTools(
     // anything a caller reasons about, and nothing in this assembly writes a
     // chapter, an entry or a note — but "does not talk to the outside world" was
     // never true of it, and a client acts on these hints.
-    [McpServerTool(Name = ReadKnowledgeChapter, Title = "Read a knowledge chapter", ReadOnly = true, Idempotent = true, OpenWorld = true)]
+    [McpServerTool(Name = ReadKnowledgeChapter, Title = "Read a devbook chapter", ReadOnly = true, Idempotent = true, OpenWorld = true)]
     [Description(
-        "One knowledge chapter, as the author wrote it — the file's own text, never reformatted — plus an index of "
+        "One devbook chapter, as the author wrote it — the file's own text, never reformatted — plus an index of "
         + "its blocks. Ordinarily the file without the lines of its `meta` record or any `annotation` fence, and with "
         + "no private notes. With review set, the file unmodified, with the reader's private notes spliced in after "
         + "the block each one is anchored to, between `<!-- backlog:private-note ... -->` comment markers. Block "
@@ -190,7 +190,7 @@ public sealed class DevbookTools(
         {
             throw RepositoryScope.Failure(Error.NotFound(
                 "chapter.no_context",
-                $"No knowledge folder configured for '{scope.Id}' claims '{normalized}'. "
+                $"No devbook folder configured for '{scope.Id}' claims '{normalized}'. "
                 + $"Call {ListKnowledgeContexts} to see which are configured."));
         }
 
@@ -212,8 +212,8 @@ public sealed class DevbookTools(
         {
             throw RepositoryScope.Failure(Error.Validation(
                 "chapter.not_a_chapter",
-                $"'{normalized}' is not a knowledge chapter. A chapter is a Markdown file inside a configured "
-                + "knowledge folder — or, for the Instructions folder whose area is the repository itself, one of "
+                $"'{normalized}' is not a devbook chapter. A chapter is a Markdown file inside a configured "
+                + "devbook folder — or, for the Instructions folder whose area is the repository itself, one of "
                 + "the instruction documents the product recognises: CLAUDE.md or AGENTS.md at any depth, Markdown "
                 + "under .claude/, .github/copilot-instructions.md, .github/instructions/*.instructions.md, or a "
                 + "SKILL.md under .github/skills/ or .agents/skills/. "
@@ -377,7 +377,7 @@ public sealed class DevbookTools(
     // path can reach GitHub.
     [McpServerTool(Name = ListAnnotations, Title = "List the private notes on a chapter", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description(
-        "The reader's own private notes on one knowledge chapter — Backlog's remarks, not the devbook `annotation` "
+        "The reader's own private notes on one devbook chapter — Backlog's remarks, not the devbook `annotation` "
         + "fences in the file. Drafts nobody has typed into and deleted notes are left out. For " + BrainMcpScope.Value
         + ", the notes on one Brain note. `archived` is true when the repository is archived: its devbook is "
         + "read-only, so write no `annotation` fence into it and do not resolve its notes. Read-only.")]
@@ -428,7 +428,7 @@ public sealed class DevbookTools(
         Destructive = false,
         OpenWorld = false)]
     [Description(
-        "Marks one of the reader's own private notes on a knowledge chapter as dealt with. Write the answer into the "
+        "Marks one of the reader's own private notes on a devbook chapter as dealt with. Write the answer into the "
         + "chapter first, as a devbook `annotation` fence, with the devbook tooling in your own checkout — then call "
         + "this. That order matters: a fence nobody resolved can still be found, while a note resolved without its "
         + "answer written has lost the only record of where the answer is. Resolving a note that is already resolved "

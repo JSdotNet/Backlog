@@ -44,7 +44,7 @@ It is an inline like any other, so it turns up wherever inlines are parsed — a
 
 So the two have already drifted, and this page is where a reader should find that out rather than working it out from a stylesheet. `.tag-chip` styles the outer box and `.tag-chip__label` styles a child only one of the two draws, which means a rule aimed at the label reaches the component and misses every tag in every body.
 
-It is left that way deliberately. Adopting `TagChip` in `MarkdownRender` would change the markup of every tag in every body this product renders — every entry, every knowledge chapter, every comment — for a component whose two extra features a body has no use for. So this story draws the four live, side by side, and says which is which; the three component forms are documented on Badges, and are here only to be inspected against the inline."
+It is left that way deliberately. Adopting `TagChip` in `MarkdownRender` would change the markup of every tag in every body this product renders — every entry, every devbook chapter, every comment — for a component whose two extra features a body has no use for. So this story draws the four live, side by side, and says which is which; the three component forms are documented on Badges, and are here only to be inspected against the inline."
            Code="@DifferenceCode">
         <div class="sb-stack">
             <div class="sb-row" data-testid="markdown-tags-side-by-side">

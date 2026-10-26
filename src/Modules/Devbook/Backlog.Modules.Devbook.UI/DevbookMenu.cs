@@ -270,7 +270,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         CancellationToken cancellationToken)
     {
         // No outline: the instruction area is assembled out of agent folders
-        // rather than being a knowledge folder with a reading order of its own.
+        // rather than being a devbook folder with a reading order of its own.
         var nodes = EnumerateChildren(tree, repositoryRoot, directory, areaKey, DevbookMenuOutline.None, cancellationToken, includeAllFiles: true);
         return nodes.Select(node => RewriteInstructionPath(node, displayRoot, sourceRoot)).ToList();
     }
@@ -478,7 +478,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         return nodes;
     }
 
-    /// <summary>Where a directory sits inside the knowledge folder, as the
+    /// <summary>Where a directory sits inside the devbook folder, as the
     /// reading convention and the generated outline both key it: empty at the
     /// folder's own root, <c>/</c>-separated below it.</summary>
     private static string RelativeDirectory(string root, string directory)
@@ -594,7 +594,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
 
     /// <summary>Name segments that are acronyms rather than words, so a folder
     /// called "adr" reads as ADR instead of Adr. Deliberately only the segments
-    /// the knowledge folders actually use — anything else keeps title case
+    /// the devbook folders actually use — anything else keeps title case
     /// rather than being shouted on a guess.</summary>
     private static readonly HashSet<string> Acronyms = new(StringComparer.OrdinalIgnoreCase) { "adr", "tdr" };
 

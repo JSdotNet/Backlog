@@ -5,10 +5,10 @@ using System.Text.RegularExpressions;
 namespace Backlog.Infrastructure.Devbook.Chapters;
 
 /// <summary>
-/// Writes an edited knowledge chapter back over its source <c>.md</c> file.
+/// Writes an edited devbook chapter back over its source <c>.md</c> file.
 /// <para>
 /// Whole-file, unlike the segment writes Tasks makes into a
-/// <c>.backlog</c> file: a knowledge chapter is the file, and the editing surface
+/// <c>.backlog</c> file: a devbook chapter is the file, and the editing surface
 /// holds all of it. What carries over from that writer is the care about a file it
 /// did not author — the line endings, the final newline and the byte-order mark
 /// are the file's, not the app's, so a chapter someone edited one line of does not
@@ -302,7 +302,7 @@ public sealed class DevbookChapterWriter
         catch
         {
             // The caller still gets the failure; what it must not also get is a
-            // half-written sibling left in the knowledge folder. In the instructions
+            // half-written sibling left in the devbook folder. In the instructions
             // area, whose menu lists every file it finds rather than only *.md, it
             // would be offered as a chapter; in the four dotted areas nothing in the
             // app would ever show it, and it would simply sit in git status beside

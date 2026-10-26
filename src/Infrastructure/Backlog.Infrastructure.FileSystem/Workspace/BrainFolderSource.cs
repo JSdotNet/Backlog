@@ -5,7 +5,7 @@ namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
 /// Resolves the Brain — the person's own notes, one folder outside every
-/// repository (local ADR 0026) — as one knowledge folder keyed
+/// repository (local ADR 0026) — as one devbook folder keyed
 /// <see cref="BrainConventions.FolderKey"/>.
 ///
 /// <para>It sits beside <see cref="DevbookFolderSource"/> rather than inside it
@@ -126,7 +126,7 @@ public sealed class BrainFolderSource : IBrainFolderSource
 
         if (!string.Equals(key, BrainConventions.FolderKey, StringComparison.OrdinalIgnoreCase))
         {
-            return DevbookFolderLocation.Unavailable(key, $"The Brain has no {key} knowledge folder.", scopeLabel: ScopeLabel);
+            return DevbookFolderLocation.Unavailable(key, $"The Brain has no {key} devbook folder.", scopeLabel: ScopeLabel);
         }
 
         if (!IsBrainScope(repositoryAlias))

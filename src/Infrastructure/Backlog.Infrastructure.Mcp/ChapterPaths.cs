@@ -3,7 +3,7 @@ using Backlog.Modules.Devbook.Abstractions;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// Which knowledge folder a chapter path names, and where the file sits inside
+/// Which devbook folder a chapter path names, and where the file sits inside
 /// it.
 /// <para>
 /// A session spells a chapter the way the rest of the product does — repository

@@ -5,7 +5,7 @@ using Backlog.Modules.Devbook.Abstractions;
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// The Brain as a knowledge folder (local ADR 0026): one local folder keyed
+/// The Brain as a devbook folder (local ADR 0026): one local folder keyed
 /// <c>brain</c>, always editable, picked by the person and never defaulted.
 /// </summary>
 [Collection(BrainRootCollection.Name)]

@@ -272,7 +272,7 @@ public sealed record RoadmapPayload(
     IReadOnlyList<RoadmapMilestonePayload> Milestones,
     IReadOnlyList<RoadmapContradictionPayload> Contradictions);
 
-/// <summary>One configured knowledge folder, and where it resolved to.</summary>
+/// <summary>One configured devbook folder, and where it resolved to.</summary>
 /// <param name="Message">Why it is unavailable, in the words the panels show.
 /// Null while it is available.</param>
 /// <param name="Pending">The folder is on its way rather than absent — a branch
@@ -287,7 +287,7 @@ public sealed record KnowledgeContextPayload(
     string Source,
     bool Pending);
 
-/// <summary>The knowledge folders configured for one repository.</summary>
+/// <summary>The devbook folders configured for one repository.</summary>
 public sealed record KnowledgeContextsPayload(string Repository, string RepositoryAlias, IReadOnlyList<KnowledgeContextPayload> Contexts);
 
 /// <summary>
@@ -350,7 +350,7 @@ public sealed record ChapterBlockPayload(
 /// <summary>
 /// A chapter as a session reads it.
 /// </summary>
-/// <param name="ContextKey">The knowledge folder the chapter was found in.</param>
+/// <param name="ContextKey">The devbook folder the chapter was found in.</param>
 /// <param name="Markdown">
 /// The chapter itself. Outside review mode it is the file with the lines of its
 /// <c>meta</c> and <c>annotation</c> fences cut out and every other byte

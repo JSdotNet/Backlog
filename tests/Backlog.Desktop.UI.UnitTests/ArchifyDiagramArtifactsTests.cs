@@ -613,7 +613,7 @@ public sealed class ArchifyDiagramArtifactsTests
     }
 
     /// <summary>
-    /// A knowledge folder that cannot be reached — a clone on a drive that went
+    /// A devbook folder that cannot be reached — a clone on a drive that went
     /// away, a folder somebody locked down — is the same answer as no folder:
     /// the diagrams everywhere else are still found.
     /// </summary>
@@ -672,7 +672,7 @@ public sealed class ArchifyDiagramArtifactsTests
         Assert.Null(artifacts.Find(DeploymentSequence, "mermaid"));
     }
 
-    /// <summary>A folder inside a knowledge folder that cannot be listed is
+    /// <summary>A folder inside a devbook folder that cannot be listed is
     /// skipped; the chapters beside it are not.</summary>
     [Fact]
     public void A_directory_that_cannot_be_listed_is_skipped_and_its_neighbours_still_answer()
@@ -911,7 +911,7 @@ public sealed class ArchifyDiagramArtifactsTests
 }
 
 /// <summary>
-/// A repository clone with one knowledge folder in it, built the way the
+/// A repository clone with one devbook folder in it, built the way the
 /// generator would leave it: chapters holding mermaid fences, an <c>_archify/</c>
 /// folder beside them, and an <c>index.json</c> filing each artifact under the
 /// hash of the fence it was authored from.
@@ -1006,10 +1006,10 @@ file sealed class ArchifyWorkspace : IDisposable
     /// lets it re-stat the chapters again.</summary>
     internal void Advance(TimeSpan elapsed) => _clock.Advance(elapsed);
 
-    /// <summary>What a repointed clone or a moved knowledge folder raises.</summary>
+    /// <summary>What a repointed clone or a moved devbook folder raises.</summary>
     internal void MoveFolders() => _folders.Move();
 
-    /// <summary>Makes resolving one knowledge folder throw, the way a folder
+    /// <summary>Makes resolving one devbook folder throw, the way a folder
     /// source reading an unreachable clone — or a broken one — would.</summary>
     internal void FailResolve(string key, Exception failure) => _folders.Failures[key] = failure;
 
@@ -1137,7 +1137,7 @@ file sealed class FakeAppFeatureSettings(bool archifyDiagrams, bool copilotCli) 
 }
 
 /// <summary>
-/// A clone with one knowledge folder in it. The adapter asks for four —
+/// A clone with one devbook folder in it. The adapter asks for four —
 /// <c>.domain</c>, <c>.arc42</c>, <c>.tech</c> and <c>.design</c> — and a folder
 /// that is not in this fixture answers the way a folder nobody configured does.
 /// </summary>

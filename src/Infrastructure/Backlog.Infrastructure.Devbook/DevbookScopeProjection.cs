@@ -3,7 +3,7 @@ using Backlog.Modules.Devbook.Abstractions;
 namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
-/// One scope's reading of the graph: the nodes inside a knowledge folder, the
+/// One scope's reading of the graph: the nodes inside a devbook folder, the
 /// boundary nodes its outbound references reach, and the edges between them.
 ///
 /// <para>The database stores the graph once, unprojected, because "a scope" is a
@@ -19,7 +19,7 @@ namespace Backlog.Infrastructure.Devbook;
 /// <list type="bullet">
 /// <item>Membership is decided by <b>path</b>, not by
 /// <see cref="DevbookNodeRow.Folder"/>. They agree for every chapter in a
-/// knowledge folder and disagree for a node outside them, which has no folder at
+/// devbook folder and disagree for a node outside them, which has no folder at
 /// all and would silently vanish from a folder-kind filter it was supposed to
 /// appear in as a boundary.</item>
 /// <item>Only an <b>outbound</b> reference pulls a boundary node in. An unrelated

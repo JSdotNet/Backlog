@@ -53,7 +53,7 @@ public sealed partial class DevbookDatabase
     /// recomputed here for the same reason the graph is not re-derived from
     /// Markdown: there is already one answer.</para>
     /// </summary>
-    /// <param name="scope">A knowledge folder, or <see langword="null"/> for
+    /// <param name="scope">A devbook folder, or <see langword="null"/> for
     /// every area at once.</param>
     public IReadOnlyList<DevbookSearchRow> SearchChapters(string? match, string? scope, int limit)
     {

@@ -326,7 +326,7 @@ public class BacklogMcpToolsTests
     /// <para>
     /// <c>OpenWorld</c> is contract metadata a client acts on, so it has to
     /// describe what the tool does rather than what the group would like to be
-    /// true of it. The two devbook tools that resolve a knowledge folder can meet
+    /// true of it. The two devbook tools that resolve a devbook folder can meet
     /// a repository whose devbook is read from a branch snapshot (local ADR
     /// 0008): <c>read_knowledge_chapter</c> fetches the named file through
     /// <c>PrepareContentAsync</c> and <c>list_knowledge_contexts</c> asks the

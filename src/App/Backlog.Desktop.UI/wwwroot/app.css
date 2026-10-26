@@ -8550,7 +8550,7 @@ a.pull-request-detail-checks__name:hover {
 /* --------------------------------------------------------------------------
    Devbook atlas
    --------------------------------------------------------------------------
-   The map over a knowledge folder, or over all of them. It takes the section
+   The map over a devbook folder, or over all of them. It takes the section
    body when it is open, so it is a column that fills the room and clips: the
    map fits and the list inside it scrolls, exactly as the technology atlas
    does.
