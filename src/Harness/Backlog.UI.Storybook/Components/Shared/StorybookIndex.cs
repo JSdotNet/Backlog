@@ -368,10 +368,11 @@ internal static class StorybookIndex
             new("devbook/brain-pane", "Brain in the pane", "The Devbook pane on the Brain: the Brain badge after its title, the Brain | repository switch, the warning for OneDrive's conflict copies, and the prompt to set up a Brain."),
 
             // Last in the chapter, after the Brain pages: like Brain in the pane it
-            // is a module's surface drawn from library parts only — Tabs from Layout
-            // and EmptyState from Feedback, both introduced above — because the AI
-            // section's views live in the Devbook module and cannot render here.
-            new("devbook/ai-tabs", "AI tabs", "The tab strip over the AI section's chapters: Adoption, Cohesion, Model and Devbook on the library's Tabs, Adoption open first, each panel holding the EmptyState its view shows until it is drawn."),
+            // is a module's surface drawn from library parts only — Tabs from Layout,
+            // introduced above — because the AI section's views live in the Devbook
+            // module and cannot render here; each panel links the page below that
+            // shows its board instead.
+            new("devbook/ai-tabs", "AI tabs", "The tab strip over the AI section's chapters: Adoption, Cohesion, Model and Devbook on the library's Tabs, Adoption open first, each panel pointing to the page that shows its board."),
 
             // After the strip it sits under: AdoptionBoard, the Adoption tab's board, is a
             // library component, so it renders here; its parts beyond its own — ToggleButton
