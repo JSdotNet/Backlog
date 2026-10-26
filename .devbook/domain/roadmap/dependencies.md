@@ -40,7 +40,7 @@ related: [.devbook/domain/context-map.md]
   relationship: both sides keep only foreign ids, and the link semantics are
   coordinated rather than shared through an aggregate.
 - The tag vocabulary flows **out** of this context. Its stability across a rename
-  is the contract the Tasks picker and the knowledge chapters' `roadmap` lists
+  is the contract the Tasks picker and the devbook chapters' `roadmap` lists
   rest on ([Roadmap Tag](domain.md#roadmap-tag)). This context supplies the
   vocabulary and reads back what was filed under it. It does not learn the tag
   from either consumer.

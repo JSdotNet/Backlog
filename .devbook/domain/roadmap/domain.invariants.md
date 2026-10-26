@@ -352,7 +352,7 @@ The day is kept rather than cleared, so it reads again if every task leaves the 
 
 Enforced at: `RoadmapItemCompletion.IsFinished()`, `IsCompletedByHand()` and `FinishedOn()`, the one reading the layout, keep-up, the roadmap's bars and the dashboard share
 
-### Invariant: A knowledge chapter does not carry an item
+### Invariant: A devbook chapter does not carry an item
 
 ```meta
 status: draft
@@ -360,7 +360,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.AKnowledgeChapter_IsNoTask_SoTheHandSetDayStillCounts, unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemCompletionTests.AnItemWhoseWorkWasNotRead_ReadsAsHavingGatheredNothing]
 ```
 
-An item that gathered only knowledge chapters is an item no task carries, so its completion by hand counts.
+An item that gathered only devbook chapters is an item no task carries, so its completion by hand counts.
 A chapter registers no progress, so it cannot say the work is over.
 
 Enforced at: `RoadmapItemCompletion.HasTasks()`, which counts gathered backlog entries only
@@ -518,7 +518,7 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Roadmap.UnitTests.RoadmapItemRollupDtoProgressTests.SomethingThatRegisteredNoProgress_IsNotDone, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.RoadmapItemRollupBuilderTests.AKnowledgeChapter_RegistersNoProgress]
 ```
 
-A gathered thing that registered no progress, as a knowledge chapter does, carries none and never reads as done.
+A gathered thing that registered no progress, as a devbook chapter does, carries none and never reads as done.
 Progress has four states, and unknown is not a fifth.
 
 Enforced at: `RoadmapGatheredLink.IsDone`, true only for `RoadmapProgress.Done`
