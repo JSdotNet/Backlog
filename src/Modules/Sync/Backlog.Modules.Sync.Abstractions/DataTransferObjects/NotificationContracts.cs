@@ -93,13 +93,15 @@ public sealed record PullNotificationsResponse(IReadOnlyList<NotificationChangeR
 /// <param name="ChoiceIds">The chosen choice ids; empty for an open answer.</param>
 /// <param name="Text">The open answer, or null. Plain text, never logged.</param>
 /// <param name="RepliedAt">When the person replied, on the replying device's clock.</param>
+/// <param name="Note">The note written beside the answer, or null. Plain text, never logged.</param>
 public sealed record NotificationReplyPost(
     Guid Id,
     Guid NotificationId,
     Guid OwnerInstanceId,
     IReadOnlyList<string> ChoiceIds,
     string? Text,
-    DateTimeOffset RepliedAt);
+    DateTimeOffset RepliedAt,
+    string? Note = null);
 
 /// <summary>
 /// A stored reply as the owner instance pulls it: what the viewer posted, plus the owner
@@ -135,7 +137,7 @@ public static class NotificationRecordLimits
     public const int DocumentBytes = 64 * 1024;
 
     /// <summary>The most choices one reply may pick — the most a question offers.</summary>
-    public const int ReplyChoices = 6;
+    public const int ReplyChoices = 8;
 
     /// <summary>How long one choice id may be.</summary>
     public const int ChoiceIdLength = 100;
@@ -143,6 +145,10 @@ public static class NotificationRecordLimits
     /// <summary>How long an open answer may be on the wire. A question's own limit is
     /// checked by the owner; this bounds what reaches the store.</summary>
     public const int ReplyTextLength = 8_000;
+
+    /// <summary>How long a note beside an answer may be on the wire. A question's own note
+    /// limit is checked by the owner; this bounds what reaches the store.</summary>
+    public const int ReplyNoteLength = 8_000;
 
     /// <summary>How long a push preview's title may be — the notification's own title bound
     /// (<c>domain.md</c>).</summary>
@@ -199,6 +205,7 @@ public static class NotificationRecordLimits
         if (choices.Any(id => string.IsNullOrWhiteSpace(id) || id.Length > ChoiceIdLength))
             return $"A choice id is between 1 and {ChoiceIdLength} characters.";
         if (reply.Text is { Length: > ReplyTextLength }) return $"An open answer holds at most {ReplyTextLength} characters.";
+        if (reply.Note is { Length: > ReplyNoteLength }) return $"A note holds at most {ReplyNoteLength} characters.";
 
         // An empty reply is not refused here: a multiple-choice question with no minimum
         // takes one, and whether it fits is the owner's call against the answer spec.

@@ -253,7 +253,7 @@ public sealed class Notification
         if (AnswerSpec.AnswerOn == AnswerOn.Owner && reply.FromDeviceId != OwnerInstanceId)
             return NotificationsErrors.ReplyOwnerOnly();
 
-        var fits = ReplyValidation.Validate(AnswerSpec, reply.ChoiceIds, reply.Text);
+        var fits = ReplyValidation.Validate(AnswerSpec, reply.ChoiceIds, reply.Text, reply.Note);
         if (fits.IsFailure) return fits.Error;
 
         var answer = new NotificationAnswer(
@@ -263,7 +263,8 @@ public sealed class Notification
             reply.FromDeviceId,
             [.. reply.ChoiceIds ?? []],
             string.IsNullOrWhiteSpace(reply.Text) ? null : reply.Text,
-            at);
+            at,
+            string.IsNullOrWhiteSpace(reply.Note) ? null : reply.Note.Trim());
 
         Answer = answer;
         State = NotificationState.Answered;

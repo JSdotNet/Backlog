@@ -117,7 +117,7 @@ public static class NotificationStandings
                 var here = answer is not null
                     && (mine.Any(reply => reply.Id == answer.ReplyId) || (deviceId is { } me && answer.FromDeviceId == me));
                 return (here ? NotificationStanding.AnsweredHere : NotificationStanding.AnsweredElsewhere,
-                    answer is null ? null : AnswerText(notification.AnswerSpec, answer.ChoiceIds, answer.Text));
+                    answer is null ? null : AnswerText(notification.AnswerSpec, answer.ChoiceIds, answer.Text, answer.Note));
 
             case NotificationState.Acknowledged:
                 return (NotificationStanding.Acknowledged, null);
@@ -148,8 +148,9 @@ public static class NotificationStandings
             : (NotificationStanding.AwaitingOwner, null);
     }
 
-    /// <summary>An answer as a person reads it: the chosen labels, then the text.</summary>
-    public static string AnswerText(AnswerSpec? spec, IReadOnlyList<string>? choiceIds, string? text)
+    /// <summary>An answer as a person reads it: the chosen labels, then the text, then the
+    /// note written beside it.</summary>
+    public static string AnswerText(AnswerSpec? spec, IReadOnlyList<string>? choiceIds, string? text, string? note = null)
     {
         var labels = (choiceIds ?? [])
             .Select(id => spec?.Choices.FirstOrDefault(choice => choice.Id == id)?.Label ?? id)
@@ -157,17 +158,22 @@ public static class NotificationStandings
 
         if (!string.IsNullOrWhiteSpace(text)) labels.Add($"“{text.Trim()}”");
 
-        return labels.Count == 0 ? "No choice" : string.Join(", ", labels);
+        var answer = labels.Count == 0 ? "No choice" : string.Join(", ", labels);
+        return string.IsNullOrWhiteSpace(note) ? answer : $"{answer} · note: “{note.Trim()}”";
     }
 
-    /// <summary>Whether a reply of <paramref name="choiceIds"/> and <paramref name="text"/>
-    /// fits <paramref name="spec"/> — what enables the send. The owner checks again; this only
-    /// keeps the phone from sending what it already knows will be rejected.</summary>
-    public static bool Fits(AnswerSpec? spec, IReadOnlyCollection<string> choiceIds, string? text)
+    /// <summary>Whether a reply of <paramref name="choiceIds"/> and <paramref name="text"/>, with
+    /// <paramref name="note"/> beside it, fits <paramref name="spec"/> — what enables the send. The
+    /// owner checks again; this only keeps the phone from sending what it already knows will be
+    /// rejected.</summary>
+    public static bool Fits(AnswerSpec? spec, IReadOnlyCollection<string> choiceIds, string? text, string? note = null)
     {
         if (spec is null) return false;
 
         ArgumentNullException.ThrowIfNull(choiceIds);
+
+        if (!string.IsNullOrWhiteSpace(note) && (spec.Note is not { } noteSpec || note.Trim().Length > noteSpec.MaxLength))
+            return false;
 
         var choices = spec.Choices ?? [];
 

@@ -61,7 +61,7 @@ public sealed class NotificationCentreTests
     {
         var id = (await _owner.PublishAsync(Question(), Ct)).Value;
 
-        var answer = await _centre.AnswerAsync(id, ["yes"], null, Ct);
+        var answer = await _centre.AnswerAsync(id, ["yes"], null, cancellationToken: Ct);
 
         Assert.True(answer.IsSuccess);
         Assert.Equal(Owner, answer.Value.FromDeviceId);
@@ -75,7 +75,7 @@ public sealed class NotificationCentreTests
     {
         var id = (await _owner.PublishAsync(Question(), Ct)).Value;
 
-        var answer = await _centre.AnswerAsync(id, ["maybe"], null, Ct);
+        var answer = await _centre.AnswerAsync(id, ["maybe"], null, cancellationToken: Ct);
 
         Assert.Equal("reply.invalid", answer.Error.Code);
         Assert.True(Assert.Single(await _centre.ListAsync(Ct)).IsOpenQuestion);
@@ -87,9 +87,24 @@ public sealed class NotificationCentreTests
         var spec = new AnswerSpec([], Open: new OpenAnswer("Write an answer…", 200));
         var id = (await _owner.PublishAsync(Question(spec), Ct)).Value;
 
-        var answer = await _centre.AnswerAsync(id, [], "Ship it on Friday", Ct);
+        var answer = await _centre.AnswerAsync(id, [], "Ship it on Friday", cancellationToken: Ct);
 
         Assert.Equal("Ship it on Friday", answer.Value.Text);
+    }
+
+    [Fact]
+    public async Task An_answer_carries_the_note_written_beside_it()
+    {
+        var spec = new AnswerSpec(
+            [new AnswerChoice("yes", "Yes"), new AnswerChoice("no", "No")],
+            Note: new OpenAnswer("Add a note", 4000));
+        var id = (await _owner.PublishAsync(Question(spec), Ct)).Value;
+
+        var answer = await _centre.AnswerAsync(id, ["yes"], null, "After the backup", Ct);
+
+        Assert.Equal(["yes"], answer.Value.ChoiceIds);
+        Assert.Equal("After the backup", answer.Value.Note);
+        Assert.Equal("After the backup", Assert.Single(await _centre.ListAsync(Ct)).Answer!.Note);
     }
 
     [Fact]

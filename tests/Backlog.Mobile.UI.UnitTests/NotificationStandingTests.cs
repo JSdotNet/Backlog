@@ -148,4 +148,22 @@ public sealed class NotificationStandingTests
         Assert.False(NotificationStandings.Fits(TestNotifications.ReleaseNote, [], new string('x', 201)));
         Assert.False(NotificationStandings.Fits(TestNotifications.ReleaseNote, [], "   "));
     }
+
+    [Fact]
+    public void A_note_fits_beside_an_answer_only_where_the_question_takes_one_and_within_its_limit()
+    {
+        var withNote = TestNotifications.YesNo with { Note = new OpenAnswer(MaxLength: 10) };
+
+        Assert.True(NotificationStandings.Fits(withNote, ["yes"], null, "Tonight"));
+        Assert.False(NotificationStandings.Fits(withNote, ["yes"], null, new string('x', 11)));
+        Assert.False(NotificationStandings.Fits(withNote, [], null, "Tonight"));
+        Assert.False(NotificationStandings.Fits(TestNotifications.YesNo, ["yes"], null, "Tonight"));
+        Assert.True(NotificationStandings.Fits(TestNotifications.YesNo, ["yes"], null, "  "));
+    }
+
+    [Fact]
+    public void The_answer_reads_with_the_note_beside_it() =>
+        Assert.Equal(
+            "Yes, run it · note: “Tonight”",
+            NotificationStandings.AnswerText(TestNotifications.YesNo, ["yes"], null, " Tonight "));
 }
