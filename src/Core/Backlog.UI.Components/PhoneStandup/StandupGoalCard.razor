@@ -2,7 +2,8 @@
     One goal in the stand-up's Goals block
     (.devbook/domain/progress/domain.md#stand-up): its title and forecast badge,
     the bar of how its items stand, and one line under it — done/total, how many
-    were done inside the last window (the "+3"), and the due date. The whole card
+    were done inside the last window (the "+3"), and the due date — "due 23 Oct (end of
+    iteration)" for a goal without one of its own. The whole card
     is one link to the goal's own page, so a thumb can land anywhere on it; the
     bar's words and the badge's word are part of that link's name.
 
@@ -19,7 +20,7 @@
         <span data-testid="@PartTestId("done")">
             <strong class="standup-goal__done">@Done/@Total</strong>@(DoneInWindow > 0 ? $" · +{DoneInWindow}" : null)
         </span>
-        <span data-testid="@PartTestId("due")">due @StandupWords.Day(DueDate)</span>
+        <span data-testid="@PartTestId("due")">due @StandupWords.Day(DueDate)@(DueIsIterationEnd ? " (end of iteration)" : null)</span>
     </span>
 </a>
 
@@ -46,8 +47,15 @@
     [Parameter]
     public int DoneInWindow { get; set; }
 
+    /// <summary>The day the goal is due: its own due date, or the iteration's last day when
+    /// <see cref="DueIsIterationEnd"/>.</summary>
     [Parameter]
     public DateOnly DueDate { get; set; }
+
+    /// <summary>Whether <see cref="DueDate"/> is the iteration's last day because the goal
+    /// has no due date of its own; the line then says so.</summary>
+    [Parameter]
+    public bool DueIsIterationEnd { get; set; }
 
     /// <summary>The goal's own page.</summary>
     [Parameter]

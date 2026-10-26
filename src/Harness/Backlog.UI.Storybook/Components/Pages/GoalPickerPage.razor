@@ -59,7 +59,7 @@
     </Story>
 
     <Story Name="New goal…"
-           Description="New goal… swaps the list for a title and a due date; Attach waits until both are filled, and hands them back for the host to set the goal and attach the work to it. A refusal stays in the dialog in the module's words — here, a title the module already has."
+           Description="New goal… swaps the list for a title and an optional due date; Attach waits for a title, and hands both back for the host to set the goal and attach the work to it. Left without a date, the goal is due at the end of the iteration. A refusal stays in the dialog in the module's words — here, a title the module already has."
            Code="@NewCode">
         <AppButton Variant="ButtonVariant.Secondary" TestId="goal-picker-open-new" OnClick="() => _creating = true">Attach to goal…</AppButton>
         <GoalPicker Open="_creating"
@@ -104,7 +104,9 @@
 
     private void Created(GoalDraft draft)
     {
-        _attached = $"New goal {draft.Title}, due {draft.DueDate:d MMM}";
+        _attached = draft.DueDate is { } due
+            ? $"New goal {draft.Title}, due {due:d MMM}"
+            : $"New goal {draft.Title}, due end of iteration";
         _empty = _searching = _moving = false;
     }
 
@@ -135,7 +137,7 @@
                     Goals="@openGoals" CurrentGoal="@current" Busy="@writing" Error="@error"
                     OnAttach="AttachAsync" OnCreate="CreateAndAttachAsync" />
 
-        new GoalOption(goal.Id, goal.Title, Done: 3, Total: 8, goal.DueDate)   // "3/8 · due 14 Nov"
+        new GoalOption(goal.Id, goal.Title, Done: 3, Total: 8, goal.DueDate)   // "3/8 · due 14 Nov", or "3/8 · due end of iteration" without one
         """;
 
     private const string MoveCode = """

@@ -22,16 +22,16 @@ every reading.
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/progress/domain.invariants.md#goal, .devbook/domain/progress/features.md#setting-a-goal, .devbook/domain/progress/features.md#attaching-work-to-a-goal]
+related: [.devbook/domain/progress/domain.invariants.md#goal, .devbook/domain/progress/features.md#setting-a-goal, .devbook/domain/progress/features.md#attaching-work-to-a-goal, .devbook/domain/progress/domain.md#iteration]
 aliases: [goal, goals]
 ```
 
-Something a person is working towards, with a date it should be reached by. A goal
+Something a person is working towards, and when it should be reached by. A goal
 holds:
 
 - its `title`, such as "Customers get paid faster";
 - an optional `outcome`, one line saying what is true once it is reached;
-- its `due date`;
+- an optional `due date`;
 - its [Goal Attachments](#goal-attachment): the plans, tasks and pull requests whose
   work reaches it;
 - the moment it was last changed, which travels with it to every device.
@@ -40,6 +40,10 @@ How far it has come is its [Goal Progress](#goal-progress), and whether it lands
 time is its [Goal Forecast](#goal-forecast). Neither is stored: both are read afresh
 from the attached work on every reading, so a task finished elsewhere moves the goal
 at once.
+
+A goal without a due date is due on the last day of [next](#iteration), in the
+person's chosen iteration length. That day is worked out afresh on every reading and
+never stored, so the goal moves with the iteration until the person gives it a date.
 
 The goal is the consistency boundary for its own attachments: one item is attached
 once, and the counting rules see the whole set. That one item belongs to at most one
@@ -112,7 +116,8 @@ iterations of the person's chosen [Iteration](#iteration) length, averaged. The 
 items at that rate give how many more iterations it needs, and the landing date is
 the last day of the last of them.
 
-A goal is **At risk** when its landing date falls after its due date, or when an open
+A goal is **At risk** when its landing date falls after its due date, or, for a goal
+without one, after the last day of [next](#iteration). It is also At risk when an open
 [Impediment](#impediment) holds back one of its items. Otherwise it is **On track**.
 A goal with no open item is On track. A goal that did no item in the last four
 iterations has no landing date, and is At risk while it has open items.

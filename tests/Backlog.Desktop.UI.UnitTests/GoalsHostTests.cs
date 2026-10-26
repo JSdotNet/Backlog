@@ -229,11 +229,11 @@ public sealed class GoalsHostTests : IDisposable
         host.Find("[data-testid='goals-board-new-goal']").Click();
         host.WaitForAssertion(() => host.Find("[data-testid='goal-create-dialog-title'] input"));
         host.Find("[data-testid='goal-create-dialog-title'] input").Input("Phone capture in daily use");
-        _goals.CreateFailure = Error.Validation("progress.goal_without_due_date", "A goal needs a due date.");
+        _goals.CreateFailure = Error.Validation("progress.goal_without_title", "A goal needs a title.");
         host.Find("[data-testid='goal-create-dialog-save']").Click();
 
         host.WaitForAssertion(() =>
-            Assert.Equal("A goal needs a due date.", host.Find("[data-testid='goal-create-dialog-error']").TextContent.Trim()));
+            Assert.Equal("A goal needs a title.", host.Find("[data-testid='goal-create-dialog-error']").TextContent.Trim()));
 
         _goals.CreateFailure = null;
         host.Find("[data-testid='goal-create-dialog-due'] input").Input("2026-11-30");
@@ -676,7 +676,7 @@ public sealed class GoalsHostTests : IDisposable
             Created.Add(request);
             return Task.FromResult(CreateFailure is { } error
                 ? Result.Failure<GoalDto>(error)
-                : Result.Success(new GoalDto(Guid.NewGuid(), request.Title, request.Outcome, request.DueDate ?? Oct(30), [])));
+                : Result.Success(new GoalDto(Guid.NewGuid(), request.Title, request.Outcome, request.DueDate, [])));
         }
 
         public Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)
@@ -708,7 +708,7 @@ public sealed class GoalsHostTests : IDisposable
             Edited.Add((goalId, request));
             return Task.FromResult(EditFailure is { } error
                 ? Result.Failure<GoalDto>(error)
-                : Result.Success(new GoalDto(goalId, request.Title, request.Outcome, request.DueDate ?? Oct(30), [])));
+                : Result.Success(new GoalDto(goalId, request.Title, request.Outcome, request.DueDate, [])));
         }
 
         public Task<Result> DeleteAsync(Guid goalId, CancellationToken cancellationToken = default)

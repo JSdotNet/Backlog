@@ -29,19 +29,6 @@ A goal's title is not blank (`progress.goal_without_title`).
 
 Enforced at: constructor, `Rename()`
 
-### Invariant: A goal has a due date
-
-```meta
-status: draft
-type: invariant
-tests: unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalInvariantTests.A_goal_without_a_due_date_is_refused
-```
-
-Every goal carries a due date (`progress.goal_without_due_date`).
-A goal with no date has nothing to be at risk against.
-
-Enforced at: constructor, `ChangeDueDate()`
-
 ### Invariant: An outcome is one line
 
 ```meta

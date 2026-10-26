@@ -19,7 +19,7 @@ classDiagram
         +GoalId Id
         +string Title
         +string Outcome
-        +DateOnly DueDate
+        +DateOnly? DueDate
         +GoalAttachment[] Attachments
     }
 

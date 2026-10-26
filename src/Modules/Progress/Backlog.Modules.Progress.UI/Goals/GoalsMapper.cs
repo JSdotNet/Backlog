@@ -97,7 +97,8 @@ public static class GoalsMapper
                 [.. goalTasks.Select(task => new GoalTaskModel(task.Id.ToString(), task.Title, task.Status, GoalSubject.ForTask(task.Id)))],
                 pulls,
                 stored?.Outcome,
-                pullSubjects);
+                pullSubjects,
+                goal.DueIsIterationEnd);
         }
 
         StandUpGroup Group(StandUpGroupDto group) => new(

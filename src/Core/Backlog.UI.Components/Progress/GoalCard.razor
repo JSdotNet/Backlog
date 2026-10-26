@@ -1,7 +1,7 @@
 @*
     One goal in the Goals view (.devbook/domain/progress/features.md#the-goals-view).
-    Folded, it is one row: the title, the stacked bar, "5/6 · due 23 Oct" and its
-    forecast badge. Opened, the bar runs under the title and the goal lists what is
+    Folded, it is one row: the title, the stacked bar, "5/6 · due 23 Oct" — or "due 23 Oct
+    (end of iteration)" for a goal without a due date of its own — and its forecast badge. Opened, the bar runs under the title and the goal lists what is
     attached to it in three columns — Plan with each plan's done/total, Tasks with a
     status dot each, Pull requests with a status line each, the merged ones gathered
     on one line as pills and "merged" — and below them the attach search.
@@ -24,10 +24,12 @@
     first one's reading lands carries both. The module owns the rules, so a blank title or
     a second outcome line comes back as the module's refusal in EditError, on the refused
     field, and the field shows what the goal still says — written back onto the same
-    input, so the focus stays (the way ImpedimentRow's picker does it). A date the field
-    cannot read is not handed back: leaving the field puts the goal's date back. The date
-    is handed back on leaving the field or Enter, never per keystroke, since a date field
-    reads 0002, 0020 and 0202 on its way to a typed year.
+    input, so the focus stays (the way ImpedimentRow's picker does it). The Due field holds
+    the goal's own date, empty for a goal without one: the iteration end such a goal is
+    shown due on is read, never handed back as its date. Emptying the field clears the
+    date; a date the field cannot read is not handed back, and leaving the field puts the
+    goal's date back. The date is handed back on leaving the field or Enter, never per
+    keystroke, since a date field reads 0002, 0020 and 0202 on its way to a typed year.
     Delete goal… sits beside them and asks first, through the board's ConfirmDialog.
     Without a listener the outcome is a line of text and nothing is editable.
 
@@ -336,7 +338,8 @@
     {
         GoalField.Title => Goal.Title,
         GoalField.Outcome => Goal.Outcome ?? string.Empty,
-        _ => DueText(Goal.DueDate)
+        // The goal's own date: a derived iteration end is shown, never handed back as one.
+        _ => Goal.OwnDueDate is { } own ? DueText(own) : string.Empty
     };
 
     /// <summary>What the field holds: the value handed back while the goal does not say it
@@ -371,6 +374,10 @@
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
+    /// <summary>Whether the Due field's text is one to hand back: a date, or empty, which
+    /// clears the goal's date.</summary>
+    private static bool SettlesDue(string text) => text.Length == 0 || ReadDue(text) is not null;
+
     private static DateOnly? ReadDue(string? text) =>
         DateOnly.TryParseExact(text?.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out var day) ? day : null;
@@ -389,7 +396,7 @@
             _ => Clean(raw) ?? string.Empty
         };
 
-        if (field == GoalField.Due && ReadDue(value) is null)
+        if (field == GoalField.Due && !SettlesDue(value))
         {
             // Kept as typed, so leaving the field puts the goal's date back.
             _typed[field] = value;
@@ -442,13 +449,13 @@
 
     private Task LeaveAsync(GoalField field) => field == GoalField.Due ? SettleDueAsync() : Task.CompletedTask;
 
-    /// <summary>Hands the held date back, or puts the goal's date back when the field cannot
-    /// read what it holds.</summary>
+    /// <summary>Hands the held date back — an empty field as no date — or puts the goal's
+    /// date back when the field cannot read what it holds.</summary>
     private async Task SettleDueAsync()
     {
         if (!_typed.TryGetValue(GoalField.Due, out var typed)) return;
 
-        if (ReadDue(typed) is not null)
+        if (SettlesDue(typed))
         {
             await CommitAsync(GoalField.Due, typed);
             return;

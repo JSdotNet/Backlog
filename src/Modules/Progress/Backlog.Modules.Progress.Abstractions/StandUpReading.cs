@@ -130,7 +130,14 @@ public static class StandUpReading
             counted.Any(task => heldBack.Contains(task.Id)),
             week);
 
-        return new StandUpGoalDto(goal.Id, goal.Title, goal.DueDate, progress, forecast.Standing, forecast.LandsOn);
+        return new StandUpGoalDto(
+            goal.Id,
+            goal.Title,
+            GoalForecasting.DueOn(goal.DueDate, next),
+            progress,
+            forecast.Standing,
+            forecast.LandsOn,
+            DueIsIterationEnd: goal.DueDate is null);
     }
 
     /// <summary>The tasks read that no goal counts.</summary>
