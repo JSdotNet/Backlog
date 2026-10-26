@@ -93,6 +93,19 @@ public interface INotificationAnswerHandler
 }
 
 /// <summary>
+/// Hands every stored answer no handler has taken yet to its handler now, rather than at the next
+/// start. For a source whose handler could not take an answer for a reason it can see end — a
+/// sign-in that lapsed and came back — so the answer the person gave meanwhile goes on its way.
+/// Registered on an owner instance only.
+/// </summary>
+public interface INotificationAnswerReplay
+{
+    /// <summary>Hands the waiting answers over, and answers how many were taken. One a handler
+    /// still refuses stays waiting.</summary>
+    Task<int> ReplayAsync(CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// Registered by each context that owns subjects, so the owner can catch a subject end it
 /// missed: at startup it asks the probe for <see cref="Context"/> about every open
 /// notification's subject, and closes the ones that are no longer live. Notifications never

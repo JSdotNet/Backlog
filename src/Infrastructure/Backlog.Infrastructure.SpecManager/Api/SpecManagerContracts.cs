@@ -110,3 +110,81 @@ internal sealed record SetStatusRequest(string StatusId);
 /// before that handling is reached. Only what a person is shown is read.
 /// </summary>
 internal sealed record ProblemResponse(string? Message, string? Title, string? Detail);
+
+/// <summary>
+/// One question of <c>GET /api/products/{slug}/backlog-questions</c>, which answers a
+/// JSON array of them, newest first (spec-manager's <c>BacklogQuestionDto</c>). A
+/// question on an OpenSpec change alone has no item, and then the three item fields
+/// are null. Ids are kept as the strings they arrive as, as the backlog's are.
+/// </summary>
+/// <param name="Source"><c>agent-session</c> when an agent session parked it through
+/// MCP, <c>spec-manager</c> when a person typed it in.</param>
+/// <param name="UpdatedAt">When it last changed — asked, answered, reassigned or
+/// edited: what <c>changedSince</c> compares with.</param>
+/// <param name="CanAnswer">Whether the person behind the token may answer it now. A
+/// connected app also needs the product's "Answer questions from a connected app",
+/// which this does not say.</param>
+internal sealed record BacklogQuestionDto(
+    string Id,
+    string? ItemId,
+    int? ItemNumber,
+    string? ItemTitle,
+    string Text,
+    string? Context,
+    IReadOnlyList<BacklogQuestionOptionDto>? Options,
+    BacklogQuestionPersonDto? Assignee,
+    BacklogQuestionPersonDto? AskedBy,
+    DateTimeOffset AskedAt,
+    string? Source,
+    string? OpenSpecChange,
+    BacklogAnswerDto? Answer,
+    DateTimeOffset? UpdatedAt = null,
+    bool CanAnswer = false)
+{
+    /// <summary>The <see cref="Source"/> of a question an agent session parked.</summary>
+    public const string AgentSessionSource = "agent-session";
+
+    /// <summary>Whether an agent session parked it, rather than a person typing it.</summary>
+    public bool FromAgentSession => string.Equals(Source, AgentSessionSource, StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>Someone named on a question: the asker, the assignee or the answerer.</summary>
+internal sealed record BacklogQuestionPersonDto(string Id, string? Name);
+
+/// <summary>One answer option. <paramref name="Position"/> is how an answer names
+/// it.</summary>
+internal sealed record BacklogQuestionOptionDto(int Position, string Label, string? Description);
+
+/// <summary>A question's answer: an option with its label, or "Other" with its own
+/// text — never both — and a note beside either.</summary>
+/// <param name="AnsweredVia"><c>spec-manager</c> in a session, <c>connected-app</c>
+/// through an app's token.</param>
+internal sealed record BacklogAnswerDto(
+    int? Option,
+    string? OptionLabel,
+    string? Other,
+    string? Note,
+    BacklogQuestionPersonDto? AnsweredBy,
+    DateTimeOffset AnsweredAt,
+    string? AnsweredVia = null)
+{
+    /// <summary>What was answered, in words: the option's label, else the "Other"
+    /// text, else the option's number.</summary>
+    public string Said =>
+        !string.IsNullOrWhiteSpace(OptionLabel) ? OptionLabel.Trim()
+        : !string.IsNullOrWhiteSpace(Other) ? Other.Trim()
+        : Option is { } position ? $"option {position}"
+        : string.Empty;
+}
+
+/// <summary>The body of <c>PUT /api/products/{slug}/backlog-questions/{id}/answer</c>:
+/// one option by its position, or "Other" with its own text, and an optional
+/// note.</summary>
+internal sealed record BacklogAnswerRequest(int? Option, string? Other, string? Note);
+
+/// <summary>The two states <c>GET …/backlog-questions</c> narrows to.</summary>
+internal static class BacklogQuestionStates
+{
+    public const string Open = "open";
+    public const string Answered = "answered";
+}

@@ -92,6 +92,18 @@ pairing code is asked about on the desktop that showed the code, and only there:
 Allow keeps it, Refuse revokes it. A remark left on a Devbook chapter on another
 device raises an alert that links to the chapter.
 
+spec-manager reaches the person the same way. While a desktop is signed in to an
+installation, the questions on its connected products that are assigned to the
+person, and the unassigned ones they may answer, arrive as questions: each option a
+choice, "Other" the open answer, and a note beside either. A product's "Only
+questions assigned to me" leaves the unassigned ones out. The desktop follows
+spec-manager's notification stream and pulls on each change, every five minutes
+besides, and every two minutes while the stream is down. The answer goes back to
+spec-manager. If the product does not take answers from a connected app, or someone
+answered first, an alert says so. While the desktop is signed out, the answer
+waits, and the sign-in line asks the person to sign in. A question answered,
+deleted or reassigned away in spec-manager closes here.
+
 ## Closing a notification
 
 ```meta

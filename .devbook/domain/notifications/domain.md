@@ -44,6 +44,13 @@ Its content is meant to be shown on every channel:
 A notification has no deadline and no default answer. A question stays open until
 the owner accepts an answer, the publisher closes it, or its subject ends.
 
+A source that asks about something with an identity of its own may name the
+notification's id, derived from that thing. Publishing an id the owner already
+holds changes nothing, whatever state it reached, so a source can publish on every
+pull. Two desktops that derive the same id both publish it; the replica keeps the
+one that pushed it first, and the other closes its own copy as "Owned by another
+desktop" and stays a viewer.
+
 The rules it holds are `### Invariant:` chapters in
 [`domain.invariants.md`](domain.invariants.md#notification).
 
@@ -97,6 +104,7 @@ The sources inside Backlog fill it:
 | Pairing a device | Backlog | Pairing | |
 | A Devbook remark | Backlog | The chapter, the remark's author as asked by | |
 | MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask |
+| A spec-manager question | spec-manager, with the host for an installation other than the one that ships | The product and `#<number> <title>`, or the product and the OpenSpec change | "Agent session", with the session's title when the item's linked task names exactly one session, or "typed in spec-manager"; the asker as asked by |
 
 ### Subject
 
@@ -123,6 +131,10 @@ The subjects a notification can be about, and when each ends:
 | `tasks` / `task` / task id | Tasks | marked Done or Archived, or deleted | "Task done" |
 | `devbook` / `remark` / remark id | Devbook | resolved or deleted | "Remark resolved" |
 | `sync` / `pairing` / pairing id | Sync | its pairing code expires unredeemed, or the question about the device that redeemed it is answered; a pairing from an earlier run stays live | "Pairing finished" |
+| `spec-manager` / `question` / question id | The spec-manager adapter, for a question whose item is no linked task | answered or deleted in spec-manager | "Answered in spec-manager by &lt;name&gt;: &lt;answer&gt;", or "Withdrawn in spec-manager" |
+
+A spec-manager question whose item is a linked task is about that task instead,
+`tasks` / `task` / the task's id, and closes when the item is finished or archived.
 
 The owning context reports the end where it notices it, and answers a probe
 about each subject at startup for the ends it missed. An end made on another
