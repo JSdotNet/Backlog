@@ -16,7 +16,7 @@ related: [.devbook/domain/devbook/domain.md#knowledge-note]
 ```
 
 > The rules a Knowledge Note holds its area and its links to, the areas its Brain
-> declares, and the planning fields any knowledge chapter carries.
+> declares, and the planning fields any devbook chapter carries.
 
 ### Invariant: A note sits in one area
 

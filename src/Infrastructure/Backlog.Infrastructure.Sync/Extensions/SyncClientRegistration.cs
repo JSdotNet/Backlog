@@ -1,7 +1,9 @@
 using Backlog.Infrastructure.Sync.Annotations;
+using Backlog.Infrastructure.Sync.Notifications;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -9,6 +11,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Logging;
 
 namespace Backlog.Infrastructure.Sync.Extensions;
 
@@ -98,6 +101,19 @@ public static class SyncClientRegistration
         // is exactly what an unpaired device should do.
         services.AddHttpClient<DevicePairingClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddSyncPipeline();
+
+        // The pairings the codes this device issues open. While a code waits, the device
+        // list is read through the pairing client to see the device that redeemed it, and
+        // the person is asked on this desktop whether to keep it; a notification about the
+        // pairing closes when that is answered or the code expires unredeemed. One for the
+        // process, because the pairing client is transient. Notifications and the client
+        // are resolved when they are needed, not here: a host that composed no
+        // notifications asks and closes nothing.
+        services.TryAddSingleton(sp => new PairingSubjects(
+            sp.GetService<INotifications>,
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<PairingSubjects>>(),
+            sp.GetService<DevicePairingClient>));
 
         return services;
     }
@@ -497,6 +513,62 @@ public static class SyncClientRegistration
         services.TryAddTransient<AnnotationSyncSession>();
 
         services.TryAddSingleton<AnnotationSyncWorker>();
+
+        return services;
+    }
+
+    /// <summary>Where <see cref="AddNotificationSyncStore"/> puts this device's
+    /// notification-exchange progress inside the folder it is given.</summary>
+    private const string NotificationSyncStateFileName = "notification-sync-state.json";
+
+    /// <summary>
+    /// The one file the notification exchange keeps, inside <paramref name="folderPath"/> —
+    /// the per-installation folder the other feeds' progress sits in. <c>TryAdd</c>, so a host
+    /// or a test that chose its store keeps it.
+    /// </summary>
+    public static IServiceCollection AddNotificationSyncStore(this IServiceCollection services, string folderPath)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
+
+        services.TryAddSingleton<INotificationSyncStateStore>(
+            _ => new FileNotificationSyncStateStore(Path.Combine(folderPath, NotificationSyncStateFileName)));
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds the notification exchange (local ADR 0039) on top of <see cref="AddSyncClient"/>:
+    /// the client, the exchange and the two-minute loop that runs it on an owner desktop.
+    /// <para>
+    /// Opt-in like the other feeds: the exchange takes the Notifications module's
+    /// <c>INotificationReplication</c> and <c>INotificationReplies</c>, which an owner head
+    /// composes with <c>AddNotificationsModule()</c>, and an <see cref="INotificationSyncStateStore"/>
+    /// from <see cref="AddNotificationSyncStore"/>. The loop is a singleton with a timer inside
+    /// it, so a head that calls this resolves <see cref="NotificationSyncWorker"/> once after
+    /// <c>Build()</c> — and <see cref="NotificationNudgeListener"/>, the realtime nudge's socket,
+    /// the same way.
+    /// </para>
+    /// </summary>
+    public static IServiceCollection AddNotificationSyncClient(this IServiceCollection services, Func<IServiceProvider, Uri> baseAddress)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(baseAddress);
+
+        services.AddHttpClient<NotificationSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
+            .AddSyncPipeline()
+            .WithReplicationPipeline();
+
+        services.TryAddTransient<NotificationSyncSession>();
+        services.TryAddSingleton<NotificationSyncWorker>();
+
+        // The realtime nudge (local ADR 0039 §4): the listener holds the Web PubSub socket and
+        // drives the worker above. Like the worker it is a singleton the head resolves once;
+        // against a sync service with no hub it asks, hears there is none, and the worker's
+        // two-minute poll carries on alone.
+        services.TryAddSingleton<INotificationNudgeTarget>(sp => sp.GetRequiredService<NotificationSyncWorker>());
+        services.TryAddSingleton<INotificationNudgeSocketConnector, ClientWebSocketNudgeConnector>();
+        services.TryAddSingleton<NotificationNudgeListener>();
 
         return services;
     }

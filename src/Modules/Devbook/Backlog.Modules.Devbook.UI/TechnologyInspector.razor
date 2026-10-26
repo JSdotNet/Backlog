@@ -29,7 +29,9 @@
         </header>
 
         <div class="tech-inspector__meta" data-testid="technology-inspector-status">
-            @if (CanEditStatus(node))
+            @* With the devbook status switch off the state is neither offered
+               nor printed, as on every other chapter. *@
+            @if (StatusShown && CanEditStatus(node))
             {
                 <StatusSelector Id="@IdFor(StatusSelectId(node.Id))"
                                 CurrentValue="@node.Status"
@@ -38,7 +40,7 @@
                                 TestId="technology-inspector-state-select"
                                 OnChanged="value => ChangeStatusAsync(node, value)" />
             }
-            else
+            else if (StatusShown)
             {
                 <MetadataStatusBadge Status="@node.Status"
                                      Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"

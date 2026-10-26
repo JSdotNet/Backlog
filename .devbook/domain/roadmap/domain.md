@@ -240,7 +240,7 @@ its own right. Its shape, where it comes from, and what a rename does to it are
 [invariants of the plan](domain.invariants.md#invariant-every-item-has-a-tag).
 
 The tag is load-bearing rather than cosmetic, because it is a word other
-contexts have already written down: a Task filed under it, or a knowledge chapter
+contexts have already written down: a Task filed under it, or a devbook chapter
 naming it in its `roadmap` list. Reslugging it on a rename would make every one of
 those references silently stop matching, with nothing to report it. So the tag
 drifts away from the title on purpose. Staying put while the title moves is the
@@ -252,7 +252,7 @@ on purpose, because the person means to group them. A tag names a grouping, not
 one item, so the plan reports the tags in use and the items sitting under each.
 
 Two other contexts borrow this vocabulary. The [Tasks](../tasks/domain.md#task)
-tag picker offers every roadmap tag, and a knowledge chapter names roadmap tags in
+tag picker offers every roadmap tag, and a devbook chapter names roadmap tags in
 its `roadmap` list. The tag's stability across a rename is therefore a contract
 with them, not an internal detail. On a Task the tag wears the
 [Plan Sigil](#plan-sigil), while the item holds the bare slug.
@@ -273,8 +273,8 @@ status: draft
 aliases: [KnowledgeRef, knowledge_refs, knowledge reference]
 ```
 
-A direct reference from the item to a knowledge chapter that informs it:
-`<path>#<slug>`, naming a chapter in one of the knowledge folders. Equality is by
+A direct reference from the item to a devbook chapter that informs it:
+`<path>#<slug>`, naming a chapter in one of the devbook folders. Equality is by
 value; an item may hold several or none.
 
 It is the knowledge counterpart of the `Task Link`, and it behaves the same way
@@ -373,11 +373,11 @@ and totals the registered story points over the result. It reaches work two ways
   [Knowledge Refs](#knowledge-ref) list. The item wrote these references down
   outright.
 - **By tag**: every Task filed under its [Roadmap Tag](#roadmap-tag), and every
-  knowledge chapter whose own `roadmap` list names that tag. The item reaches
+  devbook chapter whose own `roadmap` list names that tag. The item reaches
   these without naming them.
 
 It is a service because none of this is in the item's own state. The Tasks
-entries filed under its tag live in Tasks, and the knowledge chapters naming its
+entries filed under its tag live in Tasks, and the devbook chapters naming its
 tag live in Devbook. Those contexts register the effort values, not the plan.
 Like [Repository Scope Resolution](#repository-scope-resolution), it reads foreign
 data on the read path and holds none of it. An unreachable supplier therefore
@@ -401,7 +401,7 @@ plan's own four-state reading: planned, ready, in progress, done. A dependency i
 the key of another gathered thing, never a foreign identifier. A supplier's own
 vocabulary is translated once, at the boundary, because the plan has no say in
 another context's states. A thing that registers no progress at all, as a
-knowledge chapter does,
+devbook chapter does,
 [is never read as finished](domain.invariants.md#invariant-unknown-progress-is-never-finished).
 A dependency on work this item did not gather
 [is dropped](domain.invariants.md#invariant-a-wait-on-work-the-item-did-not-gather-is-dropped):
@@ -419,7 +419,7 @@ A gathered backlog entry also carries **when** its work happened, as Tasks
 recorded it: the day it first moved to in progress, the day it was ticked off,
 and the day it was created. When every backlog entry the item gathered is done,
 the item reads two more things from those dates. It is **finished**, and its work
-actually ran from the earliest start to the latest end. A knowledge chapter is not
+actually ran from the earliest start to the latest end. A devbook chapter is not
 asked, because it has no work to finish. Each entry's dates come from the first
 source in this order that has one:
 
@@ -613,7 +613,7 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-tag, .devbook/domain/tasks/d
 
 The `+` a [Roadmap Tag](#roadmap-tag) wears on a Task: `+release-q4`. On a line a
 person reads, it tells a plan tag apart from a `#` general tag and an `@` person.
-The item holds the bare slug, because that is the word a knowledge chapter names
+The item holds the bare slug, because that is the word a devbook chapter names
 in its `roadmap` list and the word this context lists as in use. The gathering
 [matches a task's tag with or without the sigil](domain.invariants.md#invariant-a-plan-tag-matches-with-or-without-its-sigil),
 so a task tagged before the sigil existed still counts. Only the adapters on the two edges
@@ -630,7 +630,7 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/dom
 ```
 
 Size measured in story points. Roadmap Planning never registers effort; Tasks
-and knowledge chapters do. Roadmap **totals** it instead. Over everything a
+and devbook chapters do. Roadmap **totals** it instead. Over everything a
 Roadmap Item gathers, the *total registered effort* is plain arithmetic over the
 points that were actually registered, reported beside the count of gathered
 things that registered none. It is a total, not a measurement of time, and never

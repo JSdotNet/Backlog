@@ -1,4 +1,4 @@
-# Design Knowledge (`.devbook/design`)
+# Design (`.devbook/design`)
 
 ```meta
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]

@@ -1,3 +1,4 @@
+using Backlog.Mobile.UI.Notifications;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Outbox;
 using Backlog.Mobile.UI.Progress;
@@ -79,6 +80,9 @@ internal static class TestOutbox
         services.AddSingleton<ProgressViewProjection>();
         services.AddSingleton<PhoneStandUp>();
         services.AddSingleton<IOutboxKind, ImpedimentEditOutboxKind>();
+        services.TryAddSingleton<INotificationViewStore>(new InMemoryNotificationViewStore());
+        services.AddSingleton<NotificationViewProjection>();
+        services.AddSingleton<IOutboxKind, ReplyOutboxKind>();
         return services;
     }
 }

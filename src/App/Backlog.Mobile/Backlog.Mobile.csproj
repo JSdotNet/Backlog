@@ -46,6 +46,28 @@
         <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>
 
+    <!-- Firebase project backlog-push's Android app config, registered for
+         com.jsdotnet.backlog.mobile (local ADR 0039): identifiers, not secrets.
+         The Firebase messaging package's targets turn it into Android resources.
+         The Razor SDK's default glob also takes every .json as Content copied to
+         the output; the Remove keeps this file to its one build action. -->
+    <ItemGroup>
+        <Content Remove="Platforms\Android\google-services.json" />
+    </ItemGroup>
+    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+        <GoogleServicesJson Include="Platforms\Android\google-services.json" />
+        <!-- The Android push (local ADR 0039 §4): the FCM token this install
+             registers with the sync service, and the data messages Notification
+             Hubs relays to Services/BacklogFirebaseMessagingService. -->
+        <PackageReference Include="Xamarin.Firebase.Messaging" />
+        <!-- Aligned with what Firebase's graph lifts AndroidX to; Directory.Packages.props says why. -->
+        <PackageReference Include="Xamarin.AndroidX.Collection.Ktx" />
+        <PackageReference Include="Xamarin.AndroidX.Fragment.Ktx" />
+        <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData" />
+        <PackageReference Include="Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx" />
+        <PackageReference Include="Xamarin.AndroidX.Lifecycle.Process" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Controls" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" />
@@ -59,6 +81,9 @@
              store over MAUI SecureStorage (Services/SecureStorageDeviceCredentialStore);
              DPAPI is Windows and Android has its own. -->
         <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+        <!-- Notifications as a viewer (local ADR 0039): the phone shows notifications and
+             replies, and never publishes or changes one. -->
+        <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
     </ItemGroup>
 
     <!-- BacklogSyncServiceUrl is the sync service the APK talks to when nothing in

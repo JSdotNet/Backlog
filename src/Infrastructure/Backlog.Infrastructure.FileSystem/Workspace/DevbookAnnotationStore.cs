@@ -70,7 +70,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
     /// pointer.</param>
     /// <param name="time">Stamps the writes a panel makes. Replication's writes
     /// carry their own stamps and never touch it.</param>
-    /// <param name="folders">Where this machine has each knowledge folder
+    /// <param name="folders">Where this machine has each devbook folder
     /// pointed, so a chapter path can be canonicalized — see
     /// <see cref="Canonical"/>. Optional, and absent it degrades to the
     /// conventional folders rather than failing: a harness or a test with no

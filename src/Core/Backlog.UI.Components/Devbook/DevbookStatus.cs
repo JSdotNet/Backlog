@@ -6,7 +6,7 @@ namespace Backlog.UI.Components.Devbook;
 /// <summary>
 /// One visual scale behind six folders' vocabularies.
 ///
-/// <para>Each knowledge folder names its lifecycle in its own words — <c>.tech</c>
+/// <para>Each devbook folder names its lifecycle in its own words — <c>.tech</c>
 /// runs a tech-radar ladder, <c>.backlog</c> tracks task progress, <c>.arc42</c>
 /// describes a standing decision — and none of them should be renamed to suit a
 /// stylesheet. The tone is the shared axis underneath: how far along, and does it
@@ -40,7 +40,7 @@ public enum DevbookStatusTone
 }
 
 /// <summary>
-/// The <c>status</c> vocabulary of each knowledge folder, and its mapping onto
+/// The <c>status</c> vocabulary of each devbook folder, and its mapping onto
 /// <see cref="DevbookStatusTone"/>. Knowing the vocabulary is what lets a view
 /// tell a status apart from a typo.
 /// </summary>
@@ -53,7 +53,7 @@ public static class DevbookStatus
 
     /// <summary>
     /// A folder's vocabulary as the record views take it — the small adapter
-    /// between "which knowledge folder is this" and "which status words are
+    /// between "which devbook folder is this" and "which status words are
     /// allowed, and what does each look like".
     ///
     /// <para><see cref="Metadata.MetadataView"/> used to take the folder itself and

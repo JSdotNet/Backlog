@@ -1,7 +1,7 @@
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// An image written in a knowledge chapter, which is the one inline whose target
+/// An image written in a devbook chapter, which is the one inline whose target
 /// the reader never chose to follow — the <c>src</c> fetches on its own.
 ///
 /// <para>What these pin is that the chapter's images and its links reach the same
@@ -21,7 +21,7 @@ namespace Backlog.UI.Components.UnitTests;
 public sealed class MarkdownViewDevbookImageTests
 {
     [Theory]
-    // The one image the knowledge folders actually hold, written the way
+    // The one image the devbook folders actually hold, written the way
     // `.devbook/domain/tasks/features.md` writes it.
     [InlineData("assets/task-inline-markdown-editing.png")]
     // A sibling, and a picture kept above the chapter's own folder.

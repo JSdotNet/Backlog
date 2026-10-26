@@ -77,7 +77,7 @@ public sealed class SelectorMarkupTests
 
             // The status is a shared control either way: drawn directly by the two
             // panels that still keep a selector of their own, and reached through
-            // the shared file view's knowledge metadata by arc42, which keeps none.
+            // the shared file view's devbook metadata by arc42, which keeps none.
             Assert.True(
                 markup.Contains("<StatusSelector", StringComparison.Ordinal)
                     || markup.Contains("RenderDevbookMetadata=\"true\"", StringComparison.Ordinal),

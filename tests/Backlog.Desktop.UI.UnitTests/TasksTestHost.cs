@@ -159,10 +159,11 @@ internal static class TasksTestHost
         LinkedTaskSources? linkedSources = null,
         ILinkedSessionStates? sessionStates = null,
         IShowArchivedRepositories? showArchived = null,
-        IMyDayPreferences? myDayPreferences = null)
+        IMyDayPreferences? myDayPreferences = null,
+        IPullRequestStateMemory? pullRequestMemory = null)
     {
         var entries = EntriesFor(store);
-        return new(TaskStoreFor(store), storeCalls?.Watch(entries) ?? entries, gitHub, copilot, roadmapTags, toasts, timeProvider: clock, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates, showArchived: showArchived, myDayPreferences: myDayPreferences);
+        return new(TaskStoreFor(store), storeCalls?.Watch(entries) ?? entries, gitHub, copilot, roadmapTags, toasts, timeProvider: clock, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates, showArchived: showArchived, myDayPreferences: myDayPreferences, pullRequestMemory: pullRequestMemory);
     }
 
     /// <summary>Waits on <see cref="TasksDesktopState.Changed"/> for what a moved

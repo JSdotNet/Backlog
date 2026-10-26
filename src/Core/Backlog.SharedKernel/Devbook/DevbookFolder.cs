@@ -1,14 +1,14 @@
 namespace Backlog.SharedKernel.Devbook;
 
 /// <summary>
-/// Which knowledge folder a document belongs to. The folder is not decoration:
+/// Which devbook folder a document belongs to. The folder is not decoration:
 /// it decides which <c>status</c> vocabulary applies and which metadata fields
 /// are meaningful, so a component that knows the folder can flag a typo that a
 /// folder-blind one has to render as if it were fine.
 /// </summary>
 public enum DevbookFolder
 {
-    /// <summary>Not one of the knowledge folders, or not known yet. Everything
+    /// <summary>Not one of the devbook folders, or not known yet. Everything
     /// still renders — only the vocabulary-aware behaviour stands down.</summary>
     Unknown,
     Arc42,

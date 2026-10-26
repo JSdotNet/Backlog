@@ -240,6 +240,11 @@ jobs:
             exit 1
           }
 
+          # An unpublished tag is answered by gh api failing, so $LASTEXITCODE is still 1
+          # here, and the runner's pwsh wrapper ends the step with exit $LASTEXITCODE.
+          # Every failure above has exited already: what reaches this line passed.
+          exit 0
+
       - name: Set up .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:

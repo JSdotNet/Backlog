@@ -21,7 +21,7 @@ internal static class DevbookCorpus
 
     public const string ChapterId = ".domain/inbox/domain.md#inbox";
 
-    /// <summary>A reference target outside the knowledge folders: no folder, no
+    /// <summary>A reference target outside the devbook folders: no folder, no
     /// path beneath the scope, and therefore a boundary node in every projection
     /// that reaches it.</summary>
     public const string ExternalId = "https://learn.microsoft.com/dotnet";

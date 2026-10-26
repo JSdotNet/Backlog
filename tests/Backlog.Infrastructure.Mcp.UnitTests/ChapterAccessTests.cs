@@ -17,7 +17,7 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 /// prefix claims a path. So <c>chapterPath: ".git/config"</c> resolved, stayed
 /// inside the root, was read with no extension filter, and came back as a chapter
 /// — an arbitrary file read over the whole clone, in a tool annotated read-only
-/// and described as serving knowledge chapters.
+/// and described as serving devbook chapters.
 /// <see cref="DevbookToolsTests"/> did not see it because its folder list has no
 /// Instructions folder in it.
 /// </para>

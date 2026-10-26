@@ -3,7 +3,7 @@ using System.Text;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// A knowledge chapter is written back over its own <c>.md</c> file, and what
+/// A devbook chapter is written back over its own <c>.md</c> file, and what
 /// nobody edited comes back exactly as it was.
 /// <para>
 /// Byte identity is the acceptance criterion that dies quietly: a line-ending

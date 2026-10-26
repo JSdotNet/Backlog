@@ -115,6 +115,26 @@ public sealed class GoalsMapperTests
         Assert.False(goals[1].AtRisk);
     }
 
+    /// <summary>A goal without a due date reaches the card with next's last day as its due
+    /// date, marked as the iteration's end; a dated goal's is its own.</summary>
+    [Fact]
+    public void A_goal_without_a_due_date_reaches_the_card_due_at_the_iteration_end()
+    {
+        var reading = StandUp with
+        {
+            Goals =
+            [
+                StandUp.Goals[0] with { DueDate = Oct(23), DueIsIterationEnd = true },
+                StandUp.Goals[1]
+            ]
+        };
+
+        var goals = GoalsMapper.Map(reading, Summaries, Pulls, Candidates).Goals;
+
+        Assert.Equal((Oct(23), true), (goals[0].DueDate, goals[0].DueIsIterationEnd));
+        Assert.Equal((Oct(23), false), (goals[1].DueDate, goals[1].DueIsIterationEnd));
+    }
+
     /// <summary>Open question 6's default: a plan's count is its rows done over its rows,
     /// as the shell's task list has them.</summary>
     [Fact]
@@ -228,6 +248,16 @@ public sealed class GoalsMapperTests
             candidates.Where(item => item.Kind == GoalSubjectKind.Task).Select(item => item.Title));
         var pull = Assert.Single(candidates, item => item.Kind == GoalSubjectKind.PullRequest);
         Assert.Equal((GoalSubject.ForPullRequest("JSdotNet/Backlog", 1341), 1341), (pull.Subject, pull.Number));
+    }
+
+    [Fact]
+    public void The_repositories_a_bare_pull_request_number_is_read_in_are_the_shells()
+    {
+        Assert.Empty(Map().Repositories);
+
+        var board = GoalsMapper.Map(StandUp, Summaries, Pulls, Candidates with { Repositories = ["JSdotNet/Backlog", "JSdotNet/Marketplace"] });
+
+        Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Marketplace"], board.Repositories);
     }
 
     [Fact]

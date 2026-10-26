@@ -409,7 +409,38 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     private static string[] RelatedNames(IRenderedComponent<TechnologyDevbookPanel> component, string list) =>
         [.. component.FindAll($"[data-testid='technology-inspector-{list}'] [data-testid='technology-inspector-related']").Select(button => button.TextContent.Trim())];
 
-    private Harness CreateHarness(bool withTechFolder = true, bool withPackages = false)
+    /// <summary>The inspector's stated status sits behind the devbook status
+    /// switch, like every other chapter status; on, it is drawn as before.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_inspector_status_follows_the_devbook_status_switch(bool shown)
+    {
+        await using var harness = CreateHarness(status: shown);
+        var component = await harness.RenderOverviewAsync();
+
+        Row(component, "Blazor").Click();
+
+        Assert.Equal("Blazor", InspectorTitle(component));
+        Assert.Equal(shown, component.FindAll("[data-testid='technology-inspector-state-select']").Count > 0);
+        Assert.Empty(component.FindAll("[data-testid='technology-inspector-state-badge']"));
+    }
+
+    [Fact]
+    public async Task Switching_status_on_shows_it_without_reopening_the_panel()
+    {
+        await using var harness = CreateHarness(status: false);
+        var component = await harness.RenderOverviewAsync();
+        Assert.Empty(component.FindAll("[data-testid='technology-inspector-state-select']"));
+
+        harness.Context.Services.GetRequiredService<IAppFeatureSettings>().SetEnabled(DevbookFeatures.Status, true);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-inspector-state-select']")));
+    }
+
+    /// <param name="status">The devbook status switch, with a <see cref="DevbookScope"/>
+    /// composed to answer it; null composes none, which shows the status.</param>
+    private Harness CreateHarness(bool withTechFolder = true, bool withPackages = false, bool? status = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-technology-panel-tests", Guid.NewGuid().ToString("n"));
         var repository = Path.Combine(root, "repo");
@@ -441,6 +472,15 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
         context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<DevbookFolderOpenService>();
+
+        if (status is { } shown)
+        {
+            var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
+            Assert.Null(features.SetEnabled(DevbookFeatures.Status, shown));
+            context.Services.AddSingleton<IAppFeatureSettings>(features);
+            context.Services.AddSingleton(gitHubSettings);
+            context.Services.AddSingleton<DevbookScope>();
+        }
 
         return new Harness(context, tech, folders);
     }

@@ -98,6 +98,12 @@ public abstract class TechnologyViewBase : ComponentBase
     [Parameter]
     public string? StatusError { get; set; }
 
+    /// <summary>Whether a technology's stated status is shown where it can be
+    /// changed, as the devbook status switch answers. A status drawn as part of a
+    /// view's picture is a rating, not the chapter's state, and does not ask.</summary>
+    [Parameter]
+    public bool StatusShown { get; set; } = true;
+
     /// <summary>The selected node, or null when nothing is selected or the id is gone.</summary>
     protected TechnologyGraphNode? Selected => SelectedId is null ? null : NodeById(SelectedId);
 

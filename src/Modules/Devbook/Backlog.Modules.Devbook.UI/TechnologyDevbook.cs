@@ -179,7 +179,7 @@ public sealed record TechnologyGraphData(IReadOnlyList<TechnologyGraphNode> Node
 /// <param name="LayerFileName">The layer file this node was read from, empty for a boundary node.</param>
 /// <param name="LayerIndex">Position in the folder's committed reading order; <c>-1</c> for a boundary node.</param>
 /// <param name="OrdinalInLayer">Document order within the layer — the views' tie-break, so the same graph reads the same way twice.</param>
-/// <param name="IsBoundary">Documented in another knowledge folder; the views show it because something here depends on it.</param>
+/// <param name="IsBoundary">Documented in another devbook folder; the views show it because something here depends on it.</param>
 public sealed record TechnologyGraphNode(
     string Id,
     string Label,
@@ -256,7 +256,7 @@ public sealed record DevbookMetadata(
 
 internal static class TechnologyDevbookReader
 {
-    /// <summary>The knowledge folder this reader is about, as the generated
+    /// <summary>The devbook folder this reader is about, as the generated
     /// database spells a scope.</summary>
     private const string TechnologyScope = ".tech";
 
@@ -638,7 +638,7 @@ internal static class TechnologyDevbookReader
 
     /// <summary>The index writes a folder as the bare word (<c>arc42</c>); a
     /// boundary node's layer prints it as the folder's name, so it is titled here rather than in
-    /// the renderer, which has no business knowing what the knowledge folders are
+    /// the renderer, which has no business knowing what the devbook folders are
     /// called.</summary>
     private static string FolderTitle(string? folder) => folder?.ToLowerInvariant() switch
     {

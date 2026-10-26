@@ -5,7 +5,7 @@
 
     The host lists the open goals and the goal that holds the work now; the dialog
     narrows them to a search, marks the current one Attached, and hands back the id of
-    the goal chosen, or the title and due date of a new one. A choice is made, then
+    the goal chosen, or the title and optional due date of a new one. A choice is made, then
     confirmed with Attach, rather than taken on the press: attaching work another goal
     holds moves it out of that goal, and the dialog says so before the move is made.
 
@@ -28,11 +28,11 @@
                            ValueChanged="value => _draftTitle = value"
                            Placeholder="What the goal is for"
                            TestId="goal-picker-new-title" />
-                <TextField Label="Due"
+                <TextField Label="Due date (optional)"
                            Type="date"
                            Value="@_draftDue"
                            ValueChanged="value => _draftDue = value"
-                           HelpText="The day it should be reached by."
+                           HelpText="The day it should be reached by. Left empty, it is due at the end of the iteration."
                            TestId="goal-picker-new-due" />
             </div>
             @if (Goals.Count > 0)
@@ -152,8 +152,8 @@
     [Parameter]
     public EventCallback<Guid> OnAttach { get; set; }
 
-    /// <summary>Attach was pressed with a new goal filled in: its trimmed title and due
-    /// date. The host sets the goal and attaches the work to it.</summary>
+    /// <summary>Attach was pressed with a new goal filled in: its trimmed title and its due
+    /// date, or none. The host sets the goal and attaches the work to it.</summary>
     [Parameter]
     public EventCallback<GoalDraft> OnCreate { get; set; }
 
@@ -208,11 +208,20 @@
         }
     }
 
-    private GoalDraft? Draft =>
-        !string.IsNullOrWhiteSpace(_draftTitle)
-        && DateOnly.TryParseExact(_draftDue, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var due)
-            ? new GoalDraft(_draftTitle.Trim(), due)
-            : null;
+    /// <summary>The new goal as filled in: a title, and a date or none. Null without a title,
+    /// or with a date the field cannot read.</summary>
+    private GoalDraft? Draft
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_draftTitle)) return null;
+            if (string.IsNullOrWhiteSpace(_draftDue)) return new GoalDraft(_draftTitle.Trim(), null);
+
+            return DateOnly.TryParseExact(_draftDue.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var due)
+                ? new GoalDraft(_draftTitle.Trim(), due)
+                : null;
+        }
+    }
 
     private bool CanAttach => _creating
         ? Draft is not null

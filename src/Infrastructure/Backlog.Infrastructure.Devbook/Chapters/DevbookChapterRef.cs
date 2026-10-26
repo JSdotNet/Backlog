@@ -1,7 +1,7 @@
 namespace Backlog.Infrastructure.Devbook.Chapters;
 
 /// <summary>
-/// Which knowledge chapter is being edited: the area it belongs to, the folder
+/// Which devbook chapter is being edited: the area it belongs to, the folder
 /// that bounds it, and where it sits beneath that folder.
 /// <para>
 /// The bounding folder travels with the path rather than being looked up again

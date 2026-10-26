@@ -10,7 +10,7 @@ namespace Backlog.UI.Components.Devbook;
 /// answer the whole product shares.
 ///
 /// <para>It lives here rather than inside <c>MarkdownView</c> because that view is
-/// not the only thing rendering a knowledge chapter. The arc42 fallback and the
+/// not the only thing rendering a devbook chapter. The arc42 fallback and the
 /// design sections render their own block trees straight through
 /// <see cref="MarkdownRender"/>, and while they passed no hook at all their links
 /// were browser anchors on repository paths — the same bug, in two places the fix

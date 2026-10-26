@@ -161,7 +161,7 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-tag]
 ```
 
 Give every planned item a short [tag](domain.md#roadmap-tag) other work can be
-filed against. A Task or a knowledge chapter can then say "this belongs to that
+filed against. A Task or a devbook chapter can then say "this belongs to that
 plan item" without the plan having to name it first. The tag is derived from the
 item's title when the item is created, so a person does not invent it, and is
 then editable on its own.
@@ -181,6 +181,13 @@ tag the plan's slug. [Laying out imported plans](#laying-out-imported-plans)
 rests on that, and
 `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`
 settles the two spellings.
+
+A saved item's dialog offers a copy button beside the Tag field. It copies the tag
+with its plan sigil, `+release-q4`: the spelling a Task is filed under, which the
+Tasks filter bar's plan chip copies too. The copy button is there whether or not the
+[`session-requests`](../sessions/context.md#session-requests) flag is on; with it on, the plan's
+[queue icon](../sessions/features.md#start-a-session-from-an-entry) sits beside it.
+A new item, or one without a tag, has no copy button.
 
 ## Gathering work under an item and totalling its effort
 

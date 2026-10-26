@@ -208,7 +208,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-body']")));
 
-        // Where the knowledge folder is on this machine is a fact about the
+        // Where the devbook folder is on this machine is a fact about the
         // workspace, not about the chapter on screen. What the reader does need —
         // which file this is — the file view's header says, and it says it as the
         // file's own path.

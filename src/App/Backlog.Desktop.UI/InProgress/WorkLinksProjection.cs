@@ -26,7 +26,7 @@ public sealed class WorkLinksProjection
     private readonly IReadOnlyList<GitHubOpenPullRequest> _pulls;
     private readonly Func<string?, string?> _alias;
     private readonly Func<string?, int?> _colour;
-    private readonly Func<string, LinkedSessionState?> _linkedState;
+    private readonly Func<string, LinkedSession?> _linkedState;
     private readonly DateTimeOffset _now;
     private readonly bool _sessionsRead;
     private readonly Dictionary<string, AgentSession> _sessionsById;
@@ -42,8 +42,9 @@ public sealed class WorkLinksProjection
     /// <param name="alias">The configured alias of a repository named <c>owner/name</c>,
     /// or null.</param>
     /// <param name="colour">The repository identity hue, null while colours are hidden.</param>
-    /// <param name="linkedState">What the task list last read about a linked session's
-    /// state, for a session the record no longer lists.</param>
+    /// <param name="linkedState">What the task list last read about a linked session —
+    /// its state, and whether the desktop app archived it — for a session the record
+    /// no longer lists.</param>
     /// <param name="now">The moment the sentences are measured against, local.</param>
     /// <param name="sessionsRead">Whether the session record has been read yet. Until
     /// it has, a linked session it does not list is not said to be missing from it.</param>
@@ -56,7 +57,7 @@ public sealed class WorkLinksProjection
         IReadOnlyList<GitHubOpenPullRequest> pulls,
         Func<string?, string?> alias,
         Func<string?, int?> colour,
-        Func<string, LinkedSessionState?> linkedState,
+        Func<string, LinkedSession?> linkedState,
         DateTimeOffset now,
         bool sessionsRead = true,
         IReadOnlyList<GitHubLinkedPullRequest>? linkedPulls = null)
@@ -93,11 +94,18 @@ public sealed class WorkLinksProjection
     public IReadOnlyList<WorkSession> SessionsOf(EntryRow row) =>
         [.. row.SessionLinks.Select(link => _sessionsById.TryGetValue(link.SessionId, out var session)
             ? Session(session, withRepository: false)
-            : new WorkSession(
-                link.SessionId,
-                $"Session {link.ShortId}",
-                _linkedState(link.SessionId) is { } state ? Map(state) : IntegrationSessionState.Unknown,
-                _sessionsRead ? "Not in the session record on this machine" : null))];
+            : _linkedState(link.SessionId) is { } linked
+                ? new WorkSession(
+                    link.SessionId,
+                    $"Session {link.ShortId}",
+                    Map(linked.State),
+                    _sessionsRead ? "Not in the session record on this machine" : null,
+                    Presence: PresenceOf(linked.Archived))
+                : new WorkSession(
+                    link.SessionId,
+                    $"Session {link.ShortId}",
+                    IntegrationSessionState.Unknown,
+                    _sessionsRead ? "Not in the session record on this machine" : null))];
 
     /// <summary>
     /// The pull requests an entry links. One no longer open is drawn from what the task
@@ -205,8 +213,19 @@ public sealed class WorkLinksProjection
             string.IsNullOrWhiteSpace(session.Title) ? $"Session {Short(session.Id)}" : session.Title,
             Map(session.State),
             string.Join(" · ", parts),
-            session.Kind is AgentSessionKind.Copilot ? IntegrationProvider.Copilot : IntegrationProvider.Claude);
+            session.Kind is AgentSessionKind.Copilot ? IntegrationProvider.Copilot : IntegrationProvider.Claude,
+            PresenceOf(session.Archived));
     }
+
+    /// <summary>Whether the desktop app holds a session open, in the library's words.
+    /// No desktop record — a CLI or Copilot session, another machine — is unknown,
+    /// never open. The card draws it on a finished session only.</summary>
+    private static IntegrationSessionPresence PresenceOf(bool? archived) => archived switch
+    {
+        true => IntegrationSessionPresence.Archived,
+        false => IntegrationSessionPresence.Open,
+        null => IntegrationSessionPresence.Unknown
+    };
 
     private static WorkPullRequest PullRequest(GitHubOpenPullRequest pull) =>
         new(

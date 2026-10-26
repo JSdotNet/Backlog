@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Devbook.Abstractions;
 
 /// <summary>
-/// The two places a repository can keep its knowledge folders, and the one
+/// The two places a repository can keep its devbook folders, and the one
 /// question every reader has to ask of a path because of it.
 /// <para>
 /// The devbook layout nests every folder under one parent without its dot —
@@ -49,7 +49,7 @@ public static class DevbookLayout
     }
 
     /// <summary>
-    /// A repository-relative path relative to the knowledge folder it is in:
+    /// A repository-relative path relative to the devbook folder it is in:
     /// <c>inbox/domain.md</c> for both <c>.domain/inbox/domain.md</c> and
     /// <c>.devbook/domain/inbox/domain.md</c>. A path with no folder segment comes
     /// back as it is.
@@ -79,7 +79,7 @@ public static class DevbookLayout
 
     /// <summary>
     /// Whether the repository at <paramref name="repositoryRoot"/> keeps any of its
-    /// knowledge folders under <c>.devbook/</c>. A <c>.devbook/</c> holding only
+    /// devbook folders under <c>.devbook/</c>. A <c>.devbook/</c> holding only
     /// configuration does not count: that is a repository wired for the devbook
     /// tooling whose chapters have not moved yet.
     /// </summary>

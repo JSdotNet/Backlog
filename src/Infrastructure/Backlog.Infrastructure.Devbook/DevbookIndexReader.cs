@@ -5,7 +5,7 @@ using Backlog.Modules.Devbook.Abstractions;
 namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
-/// The ordered reading outline of a knowledge folder — path, title, status,
+/// The ordered reading outline of a devbook folder — path, title, status,
 /// reading order, and the directories that group them — read without opening a
 /// single Markdown file.
 /// <para>
@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.Devbook;
 /// where it is one <c>WHERE scope = ?</c> rather than one file per folder, and
 /// this reads it from there. The committed <c>_meta/index.json</c> stays as a
 /// fallback rung, for a repository that has the old artifacts and no database yet
-/// — a clone that has never run the generator, or one whose knowledge folders were
+/// — a clone that has never run the generator, or one whose devbook folders were
 /// configured somewhere with no repository root above them. What a caller gets
 /// back is the same shape either way, which is the point: the rest of Devbook
 /// does not know which rung answered.
@@ -49,7 +49,7 @@ public sealed class DevbookIndexDocument
         _fileStates = fileStates;
     }
 
-    /// <summary>The knowledge folder this index describes, e.g. the absolute path of <c>.domain</c>.</summary>
+    /// <summary>The devbook folder this index describes, e.g. the absolute path of <c>.domain</c>.</summary>
     public string FolderPath { get; }
 
     /// <summary>When the index was last written. Anything newer on disk is not
@@ -67,7 +67,7 @@ public sealed class DevbookIndexDocument
     public IEnumerable<DevbookIndexEntry> Directories => Entries.Where(entry => entry.IsDirectory);
 
     /// <summary>
-    /// Reads the index for a knowledge folder, or returns <c>null</c> when the
+    /// Reads the index for a devbook folder, or returns <c>null</c> when the
     /// folder has none — a repository that never adopted the generator, or a
     /// checkout where it has not been run yet. Callers fall back to scanning the
     /// directory, which is what they did before the index existed.
@@ -126,7 +126,7 @@ public sealed class DevbookIndexDocument
     ///
     /// <para>The scope is the folder's own name — <c>.domain</c> — because that is
     /// what the writer files its rows under. A folder configured somewhere that is
-    /// not a knowledge folder of the repository above it therefore matches no rows,
+    /// not a devbook folder of the repository above it therefore matches no rows,
     /// and gets the same answer as no database: this returns null and the JSON rung
     /// is tried next.</para>
     /// </summary>
@@ -290,7 +290,7 @@ public sealed class DevbookIndexDocument
 
     /// <summary>
     /// The absolute path of an entry. Index paths are repository-relative and
-    /// always <c>/</c>-separated, and they lead with the knowledge folder
+    /// always <c>/</c>-separated, and they lead with the devbook folder
     /// (<c>.domain/inbox/domain.md</c>, or <c>.devbook/domain/inbox/domain.md</c>
     /// in the devbook layout), so the folder is dropped before combining with the
     /// folder path this index was read from — which is where the folder actually
@@ -298,7 +298,7 @@ public sealed class DevbookIndexDocument
     /// </summary>
     public string FullPath(DevbookIndexEntry entry) => Path.Combine(FolderPath, RelativeToFolder(entry.Path));
 
-    /// <summary>The entry's path relative to the knowledge folder, in the platform's separator.</summary>
+    /// <summary>The entry's path relative to the devbook folder, in the platform's separator.</summary>
     public static string RelativeToFolder(string indexPath) =>
         DevbookLayout.WithinFolder(indexPath).Replace('/', Path.DirectorySeparatorChar);
 

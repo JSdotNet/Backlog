@@ -11,7 +11,7 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// <summary>
 /// Answers Roadmap Planning's <see cref="IRoadmapItemRollup"/> by reading the two
 /// contexts a roadmap item gathers from: the backlog, through
-/// <see cref="ITaskItems"/>, and the knowledge chapters, through the generated
+/// <see cref="ITaskItems"/>, and the devbook chapters, through the generated
 /// knowledge index beside the plan - the devbook database, or the committed
 /// <c>_meta/graph.json</c> where no database has been built.
 /// <para>

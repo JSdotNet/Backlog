@@ -159,7 +159,7 @@ Rating: ✔ strong · ◑ partial/with work · ✘ weak/absent · — n/a.
 | **Monaco** | Raw-MD hatch | ✔ | ◑ (editor themes) | ◑ (source, not WYSIWYG) | — | ◑ | ✔ MIT |
 | **dnd-kit (+ sortable/tree)** | Reorder (web) | — | — | — | ✔ (keyboard + live regions) | ✔ | ✔ MIT |
 | **SortableJS** | Reorder (web) | — | — | — | ◑ (weak built-in keyboard a11y) | ◑ | ✔ MIT |
-| **Mermaid** | Knowledge Markdown diagrams | ✔ | ◑ (theme variables and CSS) | — | — | ◑ (SVG semantics need labels) | ✔ MIT / active |
+| **Mermaid** | Devbook Markdown diagrams | ✔ | ◑ (theme variables and CSS) | — | — | ◑ (SVG semantics need labels) | ✔ MIT / active |
 | **AntV G6** | (evaluated, not adopted — see `#diagram-and-graph-strategy`) | ✔ | ✔ (CSS/container styling + node palettes) | — | ◑ (canvas interactions; keyboard companion list required) | ◑ | ✔ MIT / active |
 | **AntV X6** | Future editable flow editor | ✔ | ✔ | — | ◑ | ◑ | ✔ MIT / active |
 | **Apache ECharts** | Charts and dashboards | ✔ | ✔ | — | — | ◑ | ✔ Apache-2.0 / active |
@@ -179,7 +179,7 @@ Rating: ✔ strong · ◑ partial/with work · ✘ weak/absent · — n/a.
 | Visual Studio | **WPF + shared tokens**, editor via WebView2. | Reuses the shared web editor; avoids a second editor. |
 | Markdown WYSIWYG editor (shared) | **TipTap or Milkdown** (WYSIWYG) + **Monaco** for the raw hatch, hosted in the desktop's and VS's WebView2, in VS Code's webview, and in mobile MAUI's `BlazorWebView`. | The single highest-value reuse; Markdown-canonical, round-trip-friendly, one implementation. |
 | Drag-and-drop reorder (IDE webview channels) | **dnd-kit** (`sortable` + tree). | Best accessible DnD: built-in keyboard support and live-region announcements — satisfies EC4/`interaction-guidelines`. Native channels add explicit keyboard Move commands. Not the desktop, which cannot run a drag-event library at all — see the reorder row in `#desktop--net-maui-blazor-hybrid-razor-in-webview2`. |
-| Knowledge Markdown diagrams | **Mermaid** for rendered Flow, C4, sequence, state, class/domain-model style diagrams from fenced Markdown. | Text-as-code keeps Markdown canonical and supports the checked-in knowledge folders without a binary diagram format. |
+| Devbook Markdown diagrams | **Mermaid** for rendered Flow, C4, sequence, state, class/domain-model style diagrams from fenced Markdown. | Text-as-code keeps Markdown canonical and supports the checked-in devbook folders without a binary diagram format. |
 | Technology graph | **Blazor components positioned with CSS**, drawing the `.devbook/tech` graph as the views of the Technology area. | Every technology is a real `button`, so the picture is in the accessibility tree as well as in its list companion. A stack is tens of nodes; CSS places that many without a layout engine. |
 | Knowledge graphs | **A first-party canvas renderer** in `Backlog.UI.Components`, drawing a 3D-projected, area-clustered atlas over the Brain and over a repository's devbook. | Both graphs are local Markdown on a local-first desktop. A general-purpose graph library is sized for data this product does not have, and the only way it was ever going to arrive here was over a CDN — which `#risks-and-gaps` forbids in production. Writing the projection is smaller than vendoring the alternative. |
 | Future editable diagramming | **AntV X6** for node/edge flow editors; **diagrams.net/draw.io** only if a full general-purpose GUI editor is needed. | Still true, and still future. Both are editing tools, and nothing in the product edits a diagram yet — the atlas only reads, and the Technology area writes back one field of a chapter, not a diagram. Either would arrive vendored, not from a CDN. |
@@ -196,7 +196,7 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 
 | Need | Choice | Guidance |
 |---|---|---|
-| Flow, C4, sequence, state, class/domain-model diagrams in knowledge Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside knowledge-folder Markdown. Keep Markdown as the canonical source and show the source fallback when rendering fails or assets are unavailable. |
+| Flow, C4, sequence, state, class/domain-model diagrams in devbook Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside devbook-folder Markdown. Keep Markdown as the canonical source and show the source fallback when rendering fails or assets are unavailable. |
 | A considered picture for the diagrams that earn one | **Archify** (generated artifact) | An optional second rendering of a fence somebody has authored a specification for. Never a replacement for Mermaid and never automatic: a fence with no artifact, or whose text has moved on, is drawn by Mermaid. See `#archify-artifacts` below. |
 | A C4 model of the system, authored beside the chapters and drawn inside them | **c4hero** (authoring) + **a first-party renderer** (drawing) | One Structurizr workspace, `.devbook/arc42/workspace.dsl`, edited in c4hero and drawn by the app from the DSL wherever a chapter embeds a view as `![…](c4:<view key>)`. Mermaid cannot be themed into the shape a C4 view wants: it sizes its own boxes, draws no glyph and writes every colour inline. See `#c4-workspaces` below. |
 | Technology graph exploration | **Blazor components positioned with CSS** | Draw the `.devbook/tech` graph as the five views of the [Technology view](../domain/devbook/features.md#technology-view). The Clusters map and the Complexity scatter place each technology with CSS, and every technology is a real `button`, so the picture is in the accessibility tree and nothing is drawn on a canvas. Colour marks the type family; status is fill, hollow until `adopted`, so it never rests on colour. Each pointer view keeps the list or table companion below. |
@@ -210,7 +210,7 @@ All diagram and graph rendering must follow the product defaults:
 - dark mode only;
 - local, offline asset bundling for production;
 - no save buttons;
-- Markdown stays canonical for knowledge documents;
+- Markdown stays canonical for devbook documents;
 - every pointer interaction has a keyboard-accessible companion surface with
   announced state changes.
 

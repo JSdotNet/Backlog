@@ -17,7 +17,7 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
 ```
 
 The language a task's content is written in, and the format of this repository's
-own knowledge folders.
+own devbook folders.
 
 - **Used for** — the text of an entry, held as a column in the SQLite store; the
   documents in the five `.devbook/` folders; and the knowledge notes the product
@@ -53,7 +53,7 @@ type: format
 
 The structured-metadata format embedded in Markdown documents.
 
-- **Used for** — the fenced `meta` blocks that make the knowledge folders
+- **Used for** — the fenced `meta` blocks that make the devbook folders
   machine-readable, GitHub workflow and issue-template configuration, and
   `SKILL.md` front matter.
 - **Why** — human-writable inside Markdown and trivially parseable by tooling.

@@ -42,7 +42,8 @@ public static class GoalSubjects
     /// <summary>
     /// The goals the picker offers: every goal not yet reached — one with nothing in it
     /// counts as open — by due date, and the goal that holds the work now whether or not
-    /// it is reached, so the picker can mark it Attached.
+    /// it is reached, so the picker can mark it Attached. A goal without a due date follows
+    /// the dated ones: the picker reads no iteration, so it has no day to sort by.
     /// </summary>
     public static IReadOnlyList<GoalOption> OpenGoals(IReadOnlyList<GoalSummaryDto> goals, Guid? current)
     {
@@ -54,7 +55,8 @@ public static class GoalSubjects
                 .Where(summary => summary.Progress.Total == 0
                                   || summary.Progress.Done < summary.Progress.Total
                                   || summary.Goal.Id == current)
-                .OrderBy(summary => summary.Goal.DueDate)
+                .OrderBy(summary => summary.Goal.DueDate is null)
+                .ThenBy(summary => summary.Goal.DueDate)
                 .ThenBy(summary => summary.Goal.Title, StringComparer.CurrentCultureIgnoreCase)
                 .Select(Option)
         ];

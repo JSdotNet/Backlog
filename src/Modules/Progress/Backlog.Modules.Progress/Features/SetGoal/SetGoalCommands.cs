@@ -43,7 +43,7 @@ public sealed class SetGoalCommandHandler(GoalChanges changes, TimeProvider cloc
         ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(command.Request);
 
-        // Checked whole on a copy first, so a refused due date never leaves a renamed goal.
+        // Checked whole on a copy first, so a refused outcome never leaves a renamed goal.
         var check = Goal.Create(command.GoalId, command.Request.Title, command.Request.Outcome, command.Request.DueDate);
         if (check.IsFailure) return Task.FromResult(Result.Failure<GoalDto>(check.Error));
 
