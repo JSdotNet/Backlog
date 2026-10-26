@@ -26,6 +26,17 @@
         </div>
     </Story>
 
+    <Story Name="Goal card without a due date"
+           Description="A goal set without a due date is due at the end of the iteration: the card names the last day of the next window and says it is the iteration's end. The stand-up reads that day afresh on every reading; nothing stores it."
+           Code="@DatelessCode">
+        <div class="sb-phone">
+            <StandupGoalCard Title="Quotes go out the same day" Standing="StandupStanding.AtRisk"
+                             Done="2" Doing="1" ToDo="3" DoneInWindow="1"
+                             DueDate="new DateOnly(2026, 10, 23)" DueIsIterationEnd="true" Href="#goal-card-without-a-due-date"
+                             TestId="story-goal-card-dateless" />
+        </div>
+    </Story>
+
     <Story Name="Goal bar"
            Description="Done, doing, blocked and to do as one bar, each part as wide as its share. It is an image whose words say the counts, so a screen reader hears &quot;9 of 15 done, 3 in progress, 1 blocked, 2 not started&quot;. The card draws it 8px tall, the goal page 10px and a plan 6px."
            Code="@BarCode">
@@ -190,6 +201,12 @@
     private const string OnTrackCode = """
         <StandupGoalCard Title="Devbook search ships" Standing="StandupStanding.OnTrack"
                          Done="5" ToDo="1" DueDate="goal.DueDate" Href="standup/goals/{id}" />
+        """;
+
+    private const string DatelessCode = """
+        <StandupGoalCard Title="Quotes go out the same day" Standing="StandupStanding.AtRisk"
+                         Done="2" Doing="1" ToDo="3" DoneInWindow="1"
+                         DueDate="goal.DueDate" DueIsIterationEnd="goal.DueIsIterationEnd" Href="standup/goals/{id}" />
         """;
 
     private const string BarCode = """

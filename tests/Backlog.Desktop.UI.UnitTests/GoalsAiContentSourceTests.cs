@@ -75,6 +75,17 @@ public sealed class GoalsAiContentSourceTests
         Assert.Contains("Finished: Wire the webhook retries", content.Body, StringComparison.Ordinal);
     }
 
+    /// <summary>A goal without a due date is due at the end of next, and its line says so.</summary>
+    [Fact]
+    public void A_goal_without_a_due_date_reads_as_due_at_the_iteration_end()
+    {
+        var goal = new StandUpGoalDto(PaidId, "Customers get paid faster", new DateOnly(2026, 10, 23), new GoalProgressDto(9, 15, 3, 1, 2, 3), GoalStanding.OnTrack, new DateOnly(2026, 10, 23), DueIsIterationEnd: true);
+
+        Assert.Equal(
+            "Goal: Customers get paid faster, due 2026-10-23 (end of iteration), 9 of 15 done, 3 in last, 3 doing, 1 blocked, 2 to do, on track, lands 2026-10-23",
+            GoalsAiContentSource.Text(goal));
+    }
+
     /// <summary>A stand-up that cannot be read says so in the body, so the reader knows the
     /// answer has nothing behind it before they send the question.</summary>
     [Fact]

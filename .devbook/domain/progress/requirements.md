@@ -69,6 +69,28 @@ The system SHALL show a goal as At risk when its landing date falls after its du
 - **When** the Goals view is read
 - **Then** the goal reads "On track"
 
+### Requirement: A goal without a due date is At risk when it lands after the current iteration
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_landing_after_next_is_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_landing_inside_next_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_is_due_on_the_last_day_of_next_at_every_length, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_without_a_due_date_reads_as_due_at_the_end_of_next, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.A_goal_without_a_due_date_reaches_the_card_due_at_the_iteration_end]
+```
+
+The system SHALL show a goal without a due date as At risk when its landing date falls after the last day of [next](domain.md#iteration).
+
+#### Scenario: A dateless goal landing a week late
+
+- **Given** the goal "Devbook search ships" has no due date and lands 30 October, and no open impediment holds it back
+- **When** the Goals view is read
+- **Then** the goal reads "due 23 Oct (end of iteration)", "At risk" and "lands ~30 Oct"
+
+#### Scenario: A dateless goal landing in the iteration
+
+- **Given** the goal "Devbook search ships" has no due date and lands 23 October, and no open impediment holds it back
+- **When** the Goals view is read
+- **Then** the goal reads "due 23 Oct (end of iteration)" and "On track"
+
 ### Requirement: An open impediment puts its goal at risk
 
 ```meta
@@ -131,20 +153,21 @@ status: draft
 related: [.devbook/domain/progress/features.md#setting-a-goal]
 ```
 
-### Requirement: A goal needs a title and a due date
+### Requirement: A goal needs a title
 
 ```meta
 type: requirement
 status: draft
+tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalsTests.A_goal_without_a_due_date_is_saved_without_one, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalsTests.A_goal_without_a_title_is_not_saved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalPickerTests.New_goal_with_a_title_and_no_due_date_hands_back_no_date]
 ```
 
-The system SHALL refuse to save a goal without a title or without a due date.
+The system SHALL refuse to save a goal only when it has no title.
 
 #### Scenario: No due date
 
 - **Given** the person opened New goal
 - **When** they give the title "Customers get paid faster" and no due date, and save
-- **Then** the goal is not saved and the due date field says it is needed
+- **Then** the goal is saved and reads "due 23 Oct (end of iteration)"
 
 ### Requirement: Deleting a goal leaves its work unchanged
 

@@ -57,7 +57,7 @@ else if (Goal is { } view)
                 {
                     <StandupStandingBadge Standing="StandupText.Standing(reading.Standing)" TestId="goal-standing" />
                 }
-                <span>due @StandupWords.Day(goal.DueDate)@(reading?.LandsOn is { } lands ? $" · lands ~{StandupWords.Day(lands)}" : null)</span>
+                <span>@Due(goal, reading)@(reading?.LandsOn is { } lands ? $" · lands ~{StandupWords.Day(lands)}" : null)</span>
             </span>
         </div>
 
@@ -253,6 +253,15 @@ else if (_looked)
                 .Select(start => items.Count(item => item.DoneOn is { } on && on >= start && on <= start.AddDays(6)))
         ];
     }
+
+    /// <summary>The goal's due day as the stand-up read it — for a goal without one, next's
+    /// last day — or its own date without a reading, and "no due date" without either.</summary>
+    private static string Due(GoalDto goal, StandUpGoalDto? reading) => reading switch
+    {
+        { DueIsIterationEnd: true } => $"due {StandupWords.Day(reading.DueDate)} (end of iteration)",
+        not null => $"due {StandupWords.Day(reading.DueDate)}",
+        _ => goal.DueDate is { } due ? $"due {StandupWords.Day(due)}" : "no due date",
+    };
 
     /// <summary>The goal's plans, by tag, in the order they were attached.</summary>
     private static List<string> Plans(GoalDto goal) =>

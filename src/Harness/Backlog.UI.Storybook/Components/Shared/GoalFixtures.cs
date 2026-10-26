@@ -15,6 +15,11 @@ internal static class GoalFixtures
 
     public static readonly GoalOption Sync = new(Guid.Parse("c95b0e3a-8f21-4d7c-b6e4-3a7d1f0c9e82"), "Sync between devices", 0, 0, new DateOnly(2026, 12, 19));
 
-    /// <summary>The open goals, by due date — the order a host offers them in.</summary>
-    public static readonly IReadOnlyList<GoalOption> Open = [Launch, Beta, Sync];
+    /// <summary>A goal set without a due date: due at the end of the iteration, which the
+    /// picker names without a day.</summary>
+    public static readonly GoalOption Quotes = new(Guid.Parse("e41a7c2b-9d3f-4b6e-a058-7f2c1b4d8e90"), "Quotes go out the same day", 2, 6, null);
+
+    /// <summary>The open goals, by due date and then those without one — the order a host
+    /// offers them in.</summary>
+    public static readonly IReadOnlyList<GoalOption> Open = [Launch, Beta, Sync, Quotes];
 }

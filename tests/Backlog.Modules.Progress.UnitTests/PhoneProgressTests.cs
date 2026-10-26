@@ -249,6 +249,20 @@ public sealed class ProgressDocumentsTests
         Assert.Equal([GoalItemDto.ForTask(TaskId)], read!.Goal.Attachments.Select(attachment => attachment.Item));
     }
 
+    /// <summary>A document with no <c>dueDate</c> is a goal without one; so is
+    /// <c>0001-01-01</c>, which an older build writes back for the date it could not read.</summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData(""","dueDate":"0001-01-01" """)]
+    [InlineData(""","dueDate":null""")]
+    public void A_goal_document_without_a_due_date_reads_as_a_goal_without_one(string due)
+    {
+        var read = ProgressDocuments.ReadGoal($$"""{"id":"{{GoalId}}","title":"Goal"{{due}}}""", GoalId);
+
+        Assert.NotNull(read);
+        Assert.Null(read.Goal.DueDate);
+    }
+
     [Fact]
     public void A_tombstone_reads_as_deleted_and_text_that_is_not_a_goal_reads_as_nothing()
     {
