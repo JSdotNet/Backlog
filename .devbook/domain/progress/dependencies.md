@@ -35,6 +35,8 @@ a transport too: the sync client routes a document to Progress by kind and never
 inside, and which copy wins is decided per document by its own stamp. The phone's
 impediment changes reach the feed through the device outbox.
 
+| [Sessions](../sessions/domain.md#agent-session) | Customer/Supplier (Progress = customer) | In-process read of the Session Log by session identity | `.devbook/domain/sessions/domain.md#session-identity`, `.devbook/domain/sessions/domain.md#session-state`, `.devbook/domain/sessions/domain.md#working-location` | A goal attaches a session (local [ADR 0037](../../arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)). Progress reads its title, its state and its branch and resolved repository, to find the pull request on its branch and say whether it is doing. Its linked tasks come from Tasks, by the `session` Projection Refs. A session no record answers for reads as to do. With the Sessions area off, no session is read. **Not built.** |
+
 ## Inbound dependents (known)
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
