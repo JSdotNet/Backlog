@@ -122,7 +122,12 @@ public sealed class AiDevbookViewTests : IDisposable
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-section")));
 
         var sections = component.FindAll(".folder-section");
-        var contextEngineering = Assert.Single(sections, section => section.TextContent.Contains("Context engineering", StringComparison.Ordinal));
+        // The concept lists `specify`, so the map's section draws it in the
+        // picture too; the chapter's own section is the one without the picture.
+        var contextEngineering = Assert.Single(
+            sections,
+            section => section.TextContent.Contains("Context engineering", StringComparison.Ordinal)
+                && section.QuerySelector("[data-testid='ai-loop']") is null);
         Assert.Empty(contextEngineering.QuerySelectorAll(".devbook-record select"));
         Assert.Contains("draft", contextEngineering.TextContent, StringComparison.Ordinal);
     }
@@ -138,15 +143,18 @@ public sealed class AiDevbookViewTests : IDisposable
 
         // The picture replaced the hand-drawn form rather than sitting beside it.
         Assert.DoesNotContain("flowchart LR", component.Markup, StringComparison.Ordinal);
-        Assert.Equal(8, component.FindAll("[data-testid^='ai-loop-stage-']").Count);
+        Assert.Equal(
+            ["decide", "specify", "code", "verify", "integrate", "release", "operate"],
+            component.FindAll("[data-testid^='ai-loop-stage-']").Select(stage => stage.GetAttribute("data-testid")!["ai-loop-stage-".Length..]));
+        Assert.Equal(3, component.FindAll("[data-testid^='ai-loop-layer-']").Count);
 
-        // The skill lists `plan`, so it is drawn there, shaded by its rating, and
-        // an unused stage is drawn empty rather than dropped.
-        var plan = component.Find("[data-testid='ai-loop-stage-plan']");
+        // The skill lists `specify`, so it is drawn there, shaded by its rating,
+        // and an unused stage is drawn empty rather than dropped.
+        var plan = component.Find("[data-testid='ai-loop-stage-specify']");
         Assert.Contains("ai-loop__stage--trial", plan.ClassList);
         Assert.Contains("Devbook skills", plan.TextContent, StringComparison.Ordinal);
         Assert.Contains("claude code", plan.TextContent, StringComparison.Ordinal);
-        Assert.Contains("No AI usage", component.Find("[data-testid='ai-loop-stage-deploy']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("No AI usage", component.Find("[data-testid='ai-loop-stage-release']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -160,7 +168,7 @@ public sealed class AiDevbookViewTests : IDisposable
             .Add(view => view.OnNavigateToChapter, link => opened = link));
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-loop-usage']")));
-        component.Find("[data-testid='ai-loop-stage-plan'] [data-testid='ai-loop-usage']").Click();
+        component.Find("[data-testid='ai-loop-stage-specify'] [data-testid='ai-loop-usage']").Click();
 
         // The callback is raised through the renderer and can land after Click
         // returns, so the link is waited for rather than read straight away.
@@ -262,7 +270,7 @@ public sealed class AiDevbookViewTests : IDisposable
         ```meta
         status: trial
         type: skill
-        stage: [plan]
+        stage: [specify]
         depends-on: [".tech/tooling.md#claude-code"]
         ```
 
