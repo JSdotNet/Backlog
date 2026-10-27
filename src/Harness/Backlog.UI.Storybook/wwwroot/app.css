@@ -1004,6 +1004,13 @@ html, body {
     margin-bottom: var(--spacing-sm);
 }
 
+/* A sample that points at the page drawing its subject rather than drawing it
+   twice. The link takes the library's link colour; the browser's default blue
+   does not read on the dark ground. */
+.sb-pointer a {
+    color: var(--color-text-link);
+}
+
 /* The way out of a missing page. A link, not a button: the host's own class
    rather than the library's, because an anchor wearing .btn would be a second
    implementation of AppButton that nobody reviews. */

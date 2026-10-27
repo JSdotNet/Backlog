@@ -108,6 +108,17 @@ public class DevbookBuilderParityTests : IDisposable
         Assert.Contains(edges, row => row.StartsWith("id=TEXT:c4-touches:.devbook/domain/zeta/c4.md->c4:pay |", StringComparison.Ordinal));
         Assert.Equal(2, edges.Count(row => row.Contains("type=TEXT:c4 |", StringComparison.Ordinal)));
 
+        // An `ai/` chapter's `feeds` (contract 35): the labelled entries draw an
+        // edge to the reference before the colon, one outside the folders an
+        // external node too; an entry with no label, an empty label (a BOM is
+        // JavaScript whitespace), whitespace in the reference, or no reference
+        // draws nothing. U+0085 is no JavaScript whitespace, so that one draws.
+        Assert.Contains(edges, row => row.StartsWith("id=TEXT:feeds:.devbook/ai/01-verify.md#review->.devbook/ai/01-verify.md#merge |", StringComparison.Ordinal));
+        Assert.Contains(edges, row => row.StartsWith("id=TEXT:feeds:.devbook/ai/01-verify.md#review->docs/runbook.md#ship |", StringComparison.Ordinal));
+        Assert.Contains(edges, row => row.StartsWith("id=TEXT:feeds:.devbook/ai/01-verify.md#review->docs/nel.md#a\u0085b |", StringComparison.Ordinal));
+        Assert.Equal(3, edges.Count(row => row.Contains("type=TEXT:feeds", StringComparison.Ordinal)));
+        Assert.Contains(nodes, row => row.StartsWith("id=TEXT:docs/runbook.md#ship |", StringComparison.Ordinal));
+
         var demos = Rows(app, "demo", "path");
         Assert.Equal(4, demos.Count);
         Assert.Contains(demos, row => row.Contains("page_path=TEXT:.devbook/domain/zeta/context.md", StringComparison.Ordinal));
@@ -275,6 +286,11 @@ public class DevbookBuilderParityTests : IDisposable
             """),
         ("loose/not-an-area.md", "# Loose\n\n[out](repo:loose/x.md)\n")
     ];
+
+    /// <summary>Whitespace to .NET and not to JavaScript, and the reverse: the
+    /// two runtimes' trim sets differ on exactly these.</summary>
+    private const string NextLine = "\u0085";
+    private const string ByteOrderMark = "﻿";
 
     private static readonly (string Path, string Text)[] EdgeCases =
     [
@@ -466,7 +482,35 @@ public class DevbookBuilderParityTests : IDisposable
 
             ![Context](c4:CONTEXT)
             """),
-        (".devbook/domain/zeta/c4.md", "# Zeta\n\n```meta\nc4-touches: [shopper, pay]\n```\n")
+        (".devbook/domain/zeta/c4.md", "# Zeta\n\n```meta\nc4-touches: [shopper, pay]\n```\n"),
+        (".devbook/ai/01-verify.md", $"""
+            # Verify
+
+            ```meta
+            status: adopted
+            type: stage
+            ```
+
+            ## Review
+
+            ```meta
+            status: adopted
+            type: agent
+            stage: [verify]
+            substage: [verify/review]
+            layer: [harness]
+            evidence: recorded
+            feeds: [".devbook/ai/01-verify.md#merge: hands the verdict on", ".devbook/ai/01-verify.md#merge", "docs/runbook.md#ship: pages the owner", "docs/empty.md#label: ", "docs/two words.md#x: spaced", ": no reference", "docs/nel.md#a{NextLine}b: next line", "docs/bom.md#x: {ByteOrderMark}"]
+            ```
+
+            ## Merge
+
+            ```meta
+            status: adopted
+            type: agent
+            stage: [integrate]
+            ```
+            """)
     ];
 
     private static List<string> CompareDatabases(string fromNode, string fromApp)

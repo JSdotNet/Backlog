@@ -422,6 +422,26 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         });
     }
 
+    /// <summary>The AI section's Devbook tab names adopted folders, not chapters:
+    /// following one opens that section's tab, as pressing it in the strip would,
+    /// and a folder this repository has turned off changes nothing.</summary>
+    [Fact]
+    public async Task Following_a_folder_opens_its_section()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        var follow = component.FindComponent<DomainDevbookPanel>().Instance.OnNavigateToChapter;
+
+        await component.InvokeAsync(() => follow.InvokeAsync(DevbookChapterLink.ForFolder("design")!));
+        Assert.Equal("true", component.Find("#tab-domain").GetAttribute("aria-selected"));
+
+        await component.InvokeAsync(() => follow.InvokeAsync(DevbookChapterLink.ForFolder("arc42")!));
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
+        WaitForChapter(component, ".arc42/03-context-and-scope.md", "The system in its surroundings");
+    }
+
     private static Task ClickMenuItemAsync(IRenderedComponent<DevbookPane> component, string label) =>
         component.InvokeAsync(() => component.FindAll(".devbook-menu__item")
             .Single(item => string.Equals(item.QuerySelector(".devbook-menu__label")?.TextContent.Trim(), label, StringComparison.Ordinal))

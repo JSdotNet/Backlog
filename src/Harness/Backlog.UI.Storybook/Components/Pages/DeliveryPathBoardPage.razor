@@ -1,0 +1,115 @@
+@page "/devbook/delivery-path"
+
+<PageTitle>Delivery path — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Delivery path"
+           Summary="DeliveryPathBoard: the board the AI section's Model tab draws — the stages of the delivery path with their where-labels and the pull-request marker, each stage's sub-stages as cards of usages, the feedback arrow back to the first stage, and the layers beneath. Every stage, card and usage is handed in; the samples below are a cut of the `.devbook/ai/` record written out by hand."
+           Guidelines="@Rules">
+
+    <Story Name="At rest"
+           Description="Nothing picked. Each stage's sub-stages are cards holding the usages that name them; a stage whose usages name none shares one unnamed card, and an empty stage draws a dashed card saying no AI. Pick a usage to light every card it sits in — here Code gate via flow-code sits at Code › Start, Code › Implement, Verify › Build test and Verify › Review."
+           Code="@BoardCode">
+        <DeliveryPathBoard Stages="@Stages"
+                           Layers="@Layers"
+                           OnOpenUsage="_ => { }"
+                           TestId="delivery-path-rest" />
+    </Story>
+
+    <Story Name="A usage picked"
+           Description="SelectedId handed in: the cards that hold the picked usage are lit, the rest dim, and the detail line names it, its rung, how many places it sits in, and offers its chapter. Picking it again, or Clear, puts the board back at rest."
+           Code="@PickedCode">
+        <DeliveryPathBoard Stages="@Stages"
+                           Layers="@Layers"
+                           SelectedId="02-code.md#code-gate"
+                           OnOpenUsage="_ => { }"
+                           TestId="delivery-path-picked" />
+    </Story>
+
+    <Story Name="Nothing on the path yet"
+           Description="A record with no usage placed anywhere: every stage and every layer is one empty card."
+           Code="@EmptyCode">
+        <DeliveryPathBoard Stages="@EmptyStages"
+                           Layers="@EmptyLayers"
+                           TestId="delivery-path-empty" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#badge-and-chip-tones", "What each rung's badge on a usage looks like."),
+        new("interaction-guidelines.md#focus-and-selection", "What a picked usage and the cards it lights look like."),
+        new("interaction-guidelines.md#empty-states", "Why an empty stage still draws a card.")
+    ];
+
+    private static DeliveryPathUsage U(string id, string name, string status) => new(id, name, status);
+
+    private static readonly DeliveryPathUsage Tracker = U("01-plan.md#backlog-as-tracker", "Backlog as tracker", "adopted");
+    private static readonly DeliveryPathUsage Spec = U("01-plan.md#devbook-chapters", "Devbook chapters via flow-spec", "adopted");
+    private static readonly DeliveryPathUsage Import = U("01-plan.md#import-plans", "Import plans", "adopted");
+    private static readonly DeliveryPathUsage Estimate = U("01-plan.md#estimate", "Estimate against landed work", "trial");
+    private static readonly DeliveryPathUsage Gate = U("02-code.md#code-gate", "Code gate via flow-code", "adopted");
+    private static readonly DeliveryPathUsage Paste = U("02-code.md#plan-items-pasted-in", "Plan items pasted in", "adopted");
+    private static readonly DeliveryPathUsage Qa = U("03-test.md#qa-agent", "QA agent on the running app", "adopted");
+    private static readonly DeliveryPathUsage Checks = U("03-test.md#devbook-checks", "Devbook checks around a flow", "trial");
+    private static readonly DeliveryPathUsage Pv = U("03-test.md#personal-validation", "Personal Validation gate", "adopted");
+    private static readonly DeliveryPathUsage MergeReady = U("04-release-operate.md#merge-ready", "Merge-ready and CI repair", "trial");
+    private static readonly DeliveryPathUsage MergeReview = U("05-unattended-runs.md#merge-review", "Scheduled merge review", "trial");
+    private static readonly DeliveryPathUsage Alerts = U("04-release-operate.md#alerts", "Alerts to work items", "candidate");
+    private static readonly DeliveryPathUsage Worktree = U("02-code.md#worktree", "Worktree per change", "adopted");
+    private static readonly DeliveryPathUsage Upkeep = U("05-unattended-runs.md#upkeep", "Scheduled devbook upkeep", "trial");
+
+    private static readonly IReadOnlyList<DeliveryPathStage> Stages =
+    [
+        new("decide", "Decide", "outer loop", true, [new(null, [Tracker])], "adopted"),
+        new("specify", "Specify & plan", "attended", true, [new("Specify", [Spec]), new("Break down", [Import, Estimate])], "adopted"),
+        new("code", "Code", "your session", true, [new("Start", [Paste, Gate]), new("Implement", [Gate])], "adopted"),
+        new("verify", "Verify", "your session", true,
+            [new("Build test", [Gate]), new("Review", [Gate]), new("Functional qa", [Qa]), new("Spec conformance", [Checks]), new("Acceptance", [Pv])], "adopted"),
+        new("integrate", "Integrate", "on the PR", false, [new("Readiness", [MergeReady]), new("Review", [MergeReview])], "trial"),
+        new("release", "Release & deploy", "on main", false, [new(null, [])]),
+        new("operate", "Operate & feedback", "production", false, [new("Alerting", [Alerts])], "candidate")
+    ];
+
+    private static readonly IReadOnlyList<DeliveryPathLayer> Layers =
+    [
+        new("thread", "Spec ↔ code thread", [Spec, Checks]),
+        new("upkeep", "Upkeep loop", [Upkeep]),
+        new("harness", "Agent harness", [Worktree])
+    ];
+
+    private static readonly IReadOnlyList<DeliveryPathStage> EmptyStages =
+        [.. Stages.Select(stage => stage with { Cards = [new DeliveryPathCard(null, [])], Status = null })];
+
+    private static readonly IReadOnlyList<DeliveryPathLayer> EmptyLayers =
+        [.. Layers.Select(layer => layer with { Usages = [] })];
+
+    private const string BoardCode = """
+        <DeliveryPathBoard Stages="@stages"
+                           Layers="@layers"
+                           OnOpenUsage="OpenUsage" />
+
+        // One stage: its where-label, whether it sits before the pull request,
+        // and its cards — named sub-stages, or one unnamed card (null name).
+        new DeliveryPathStage("code", "Code", "your session", BeforePullRequest: true,
+            [new("Start", [paste, gate]), new("Implement", [gate])]);
+
+        // A usage is one chip, matched across cards by its id.
+        new DeliveryPathUsage("02-code.md#code-gate", "Code gate via flow-code", "adopted");
+        """;
+
+    private const string PickedCode = """
+        <DeliveryPathBoard Stages="@stages"
+                           Layers="@layers"
+                           SelectedId="02-code.md#code-gate"
+                           OnOpenUsage="OpenUsage" />
+        """;
+
+    private const string EmptyCode = """
+        <DeliveryPathBoard Stages="@stages" Layers="@layers" />
+
+        // Every stage one empty card, every layer no usages.
+        new DeliveryPathStage("release", "Release & deploy", "on main", false, [new(null, [])]);
+        new DeliveryPathLayer("upkeep", "Upkeep loop", []);
+        """;
+}
