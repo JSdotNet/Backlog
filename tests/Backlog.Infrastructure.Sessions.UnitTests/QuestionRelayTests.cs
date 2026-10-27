@@ -364,6 +364,97 @@ public sealed class QuestionRelayTests : IDisposable
         Assert.False(await _relay.HandleAnswerAsync(validation, Ct));
     }
 
+    [Fact]
+    public async Task A_held_wait_is_released_the_moment_the_last_answer_is_accepted()
+    {
+        _presence.IsAway = true;
+        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick, Tags], Ct)).Value;
+
+        var held = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(55), Ct);
+        Assert.False(held.IsCompleted, "The wait holds while the question is open.");
+
+        await _relay.HandleAnswerAsync(Answer(asked, 1, ["option-2"]), Ct);
+        Assert.False(held.IsCompleted, "One of two answers leaves the dialog open.");
+
+        await _relay.HandleAnswerAsync(Answer(asked, 0, ["option-1"]), Ct);
+        var released = await held;
+
+        Assert.Equal(WaitingQuestionState.Answered, released!.State);
+        Assert.Null(released.Delivery);
+    }
+
+    [Fact]
+    public async Task A_held_wait_is_released_by_a_close()
+    {
+        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value;
+
+        var held = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(55), Ct);
+        Assert.False(held.IsCompleted);
+
+        await _relay.CloseAsync(asked.Id, WaitingQuestionCloseReason.TimedOut, cancellationToken: Ct);
+
+        Assert.Equal(WaitingQuestionState.Closed, (await held)!.State);
+    }
+
+    [Fact]
+    public async Task A_held_wait_answers_the_open_question_once_it_runs_out_and_records_the_poll()
+    {
+        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value;
+
+        var held = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(30), Ct);
+
+        _clock.Advance(TimeSpan.FromSeconds(29));
+        Assert.False(held.IsCompleted);
+
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        var open = await held;
+
+        Assert.True(open!.IsOpen);
+        Assert.Equal(Noon, open.HookPolledAt);
+    }
+
+    [Fact]
+    public async Task A_wait_on_a_question_already_ended_or_unknown_answers_at_once()
+    {
+        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value;
+        await _relay.CloseAsync(asked.Id, WaitingQuestionCloseReason.SessionEnded, cancellationToken: Ct);
+
+        var ended = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(55), Ct);
+        var unknown = _relay.WaitAsync(Guid.NewGuid(), TimeSpan.FromSeconds(55), Ct);
+
+        Assert.True(ended.IsCompleted && unknown.IsCompleted, "Neither waits on a question that cannot change.");
+        Assert.Equal(WaitingQuestionState.Closed, (await ended)!.State);
+        Assert.Null(await unknown);
+    }
+
+    [Fact]
+    public async Task A_cancelled_wait_leaves_the_next_wait_to_be_released()
+    {
+        var asked = (await _relay.AskAsync("session-1", "toolu_1", [Pick], Ct)).Value;
+        using var cancel = new CancellationTokenSource();
+
+        var cancelled = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(55), cancel.Token);
+        await cancel.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
+
+        var held = _relay.WaitAsync(asked.Id, TimeSpan.FromSeconds(55), Ct);
+        await _relay.CloseAsync(asked.Id, WaitingQuestionCloseReason.TimedOut, cancellationToken: Ct);
+
+        Assert.Equal(WaitingQuestionState.Closed, (await held)!.State);
+    }
+
+    [Fact]
+    public async Task The_port_answers_a_refusal_with_its_code()
+    {
+        IQuestionRelay port = _relay;
+
+        var refused = await port.AskAsync("session-1", null, [Pick], Ct);
+
+        Assert.False(refused.Succeeded);
+        Assert.Equal("relay.questions_invalid", refused.Code);
+        Assert.Null(await port.FindAsync(Guid.NewGuid(), Ct));
+    }
+
     private NotificationAnswer Answer(WaitingQuestion question, int index, IReadOnlyList<string> choices, string? text = null) =>
         new(question.NotificationIds[index], new NotificationSource("sessions", question.Id.ToString("D")), Guid.NewGuid(), Guid.NewGuid(), choices, text, _clock.GetUtcNow());
 

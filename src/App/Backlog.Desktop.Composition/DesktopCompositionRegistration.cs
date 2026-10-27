@@ -366,6 +366,8 @@ public static class DesktopCompositionRegistration
                 sp.GetService<ILogger<QuestionRelay>>(),
                 () => sp.GetService<IAppFeatureSettings>()?.IsEnabled(NotificationsFeatures.Notifications) ?? true);
         });
+        // The same relay as the port the MCP ask, get_answer and close tools reach it through.
+        services.AddSingleton<IQuestionRelay>(sp => sp.GetRequiredService<QuestionRelay>());
         services.AddSingleton(sp => new QuestionRelayEscalation(
             sp.GetRequiredService<QuestionRelay>(),
             sp.GetService<TimeProvider>(),
