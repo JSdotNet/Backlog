@@ -343,6 +343,13 @@ public static class DesktopCompositionRegistration
         // The Notifications page: send a test alert or question and follow it. Offered
         // behind the notifications switch.
         services.AddNotificationsSettings();
+        // Its question relay timings (local ADR 0041), kept in the workspace settings file
+        // beside the rest of this desktop's settings.
+        services.AddSingleton<INotificationTimingSettings>(sp =>
+            new WorkspaceNotificationTimingSettings(sp.GetRequiredService<WorkspaceSettingsStore>()));
+        // The last prompt per Claude session, which the hook telemetry route feeds and the
+        // head's presence reads (local ADR 0041). Read on this desktop only.
+        services.AddSingleton(_ => new SessionPrompts());
         // "Attach to goal" on tasks, plans and pull requests, cascaded to every screen.
         services.AddGoalControls();
         // The band under every route reads the backlog's save state through the
