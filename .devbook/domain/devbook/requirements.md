@@ -1333,3 +1333,524 @@ The system SHALL say in the review when GitHub listed only part of a change's co
 - **Given** `feature/x` holds more commits than GitHub lists in one comparison
 - **When** the reader opens its review
 - **Then** the review says how many of the commits are shown
+
+## Technology view
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/devbook/features.md#technology-view]
+```
+
+> The requirements of the Technology area of the Devbook pane: its five views,
+> the measures they compute from `depends-on`, and how they are operated.
+
+### Requirement: Five views replace the Atlas and Layers tabs
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show the Technology area as five views, Overview, Dependencies, Complexity, Clusters and Type lenses, switched from one tab bar, with no Atlas or Layers tab.
+
+#### Scenario: Opening the Technology area
+
+- **Given** a repository whose devbook has a technology folder
+- **When** the reader opens the Technology area
+- **Then** one tab bar offers Overview, Dependencies, Complexity, Clusters and Type lenses
+- **And** neither an Atlas nor a Layers tab is offered
+
+### Requirement: The selection is shared across the views
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL keep the technology selected in one Technology view selected when the reader switches to another.
+
+#### Scenario: From Overview to Dependencies
+
+- **Given** ASP.NET Core is selected in Overview
+- **When** the reader switches to Dependencies
+- **Then** Dependencies shows ASP.NET Core in focus
+
+#### Scenario: From Clusters back to Overview
+
+- **Given** the reader picked Playwright in Clusters
+- **When** the reader switches to Overview
+- **Then** the inspector shows Playwright
+
+### Requirement: Used by counts the direct users
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show as a technology's Used by the number of technologies whose `depends-on` names it.
+
+#### Scenario: A technology three others sit on
+
+- **Given** Razor Components, Blazor Server and ASP.NET Core are the only technologies whose `depends-on` names C# Language
+- **When** the reader selects C# Language
+- **Then** Used by reads 3
+
+#### Scenario: A leaf
+
+- **Given** no technology's `depends-on` names Playwright
+- **When** the reader selects Playwright
+- **Then** Used by reads 0 and the inspector says nothing depends on it
+
+### Requirement: Breaks if it changes counts the users transitively
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show as a technology's Breaks if it changes the number of technologies that reach it through `depends-on` at any distance, each counted once.
+
+#### Scenario: A user reached two ways
+
+- **Given** Blazor Server depends on Razor Components and on ASP.NET Core, and Razor Components depends on ASP.NET Core
+- **And** nothing else depends on any of them
+- **When** the reader selects ASP.NET Core
+- **Then** Breaks if it changes reads 2
+
+### Requirement: Rests on counts the depends-on transitively
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show as a technology's Rests on the number of technologies it reaches through `depends-on` at any distance, each counted once.
+
+#### Scenario: A framework three deep
+
+- **Given** Razor Components depends on ASP.NET Core and C# Language, ASP.NET Core on .NET Runtime and C# Language, and C# Language on .NET Runtime
+- **When** the reader selects Razor Components
+- **Then** Rests on reads 3
+
+#### Scenario: A foundation
+
+- **Given** .NET Runtime declares no `depends-on`
+- **When** the reader selects .NET Runtime
+- **Then** Rests on reads 0 and the inspector says it sits on nothing
+
+### Requirement: Depth is the longest chain to a foundation
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show as a technology's Depth the number of hops in the longest `depends-on` chain from it to a technology with no `depends-on`.
+
+#### Scenario: The longest of two paths
+
+- **Given** ASP.NET Core depends on .NET Runtime directly and through C# Language
+- **When** the reader selects ASP.NET Core
+- **Then** Depth reads 2
+
+### Requirement: Complexity is rests on plus depth, banded
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show as a technology's Complexity its Rests on plus its Depth, banded Low below 6, Medium from 6 to 9 and High from 10.
+
+#### Scenario: Low
+
+- **Given** ASP.NET Core rests on 2 technologies at a depth of 2
+- **When** the reader selects ASP.NET Core
+- **Then** Complexity reads 4, Low
+
+#### Scenario: Medium at the lower edge
+
+- **Given** Razor Components rests on 3 technologies at a depth of 3
+- **When** the reader selects Razor Components
+- **Then** Complexity reads 6, Medium
+
+#### Scenario: High at the lower edge
+
+- **Given** a technology rests on 6 technologies at a depth of 4
+- **When** the reader selects it
+- **Then** Complexity reads 10, High
+
+### Requirement: Colour follows the type family
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL colour each technology in the Technology views by its type's family: framework; platform; runtime; language and package; library, tool and plugin; skill; agent, service and format; protocol.
+
+#### Scenario: Two types of one family
+
+- **Given** a technology of type `tool` and one of type `plugin`
+- **When** the reader opens Clusters
+- **Then** both are drawn in the colour of the library, tool and plugin family
+
+#### Scenario: Two families
+
+- **Given** a technology of type `skill` and one of type `agent`
+- **When** the reader opens Clusters
+- **Then** they are drawn in two different colours
+
+### Requirement: A technology not yet adopted is drawn hollow
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL draw a technology whose status is not `adopted` hollow in every Technology view that draws it, and an `adopted` one filled.
+
+#### Scenario: A candidate beside an adopted choice
+
+- **Given** Background Workers is `candidate` and .NET Runtime is `adopted`
+- **When** the reader opens Clusters
+- **Then** Background Workers is drawn hollow and .NET Runtime filled
+
+### Requirement: The inspector opens on status, sits on and used by
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open the inspector of every selected technology, whatever its type, on its status, what it sits on and what uses it, with the section its type chooses below them.
+
+#### Scenario: A package
+
+- **Given** the reader selects a technology of type `package`
+- **When** the inspector opens
+- **Then** it shows status, sits on and used by first, and the package section below them
+
+#### Scenario: A type with no section of its own
+
+- **Given** the reader selects a technology of type `protocol`
+- **When** the inspector opens
+- **Then** it shows status, sits on and used by
+
+### Requirement: A lens shows only what the chapter and the graph record
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL fill a type lens only from the technology chapter's metadata and the graph, and leave out each fact the chapter does not record.
+
+#### Scenario: A package with a version
+
+- **Given** a package chapter declares `version: "2.2.0"`
+- **When** the reader opens its lens
+- **Then** the lens shows version 2.2.0
+
+#### Scenario: A package with no version
+
+- **Given** a package chapter declares no `version`
+- **When** the reader opens its lens
+- **Then** the lens shows no version line, neither empty nor a placeholder
+
+#### Scenario: Alternatives
+
+- **Given** the GitHub CLI chapter declares `alternatives: ["Octokit.NET", "raw REST calls"]`
+- **When** the reader opens its lens
+- **Then** the lens names Octokit.NET and raw REST calls as the alternatives
+
+### Requirement: Status is changed from the inspector
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL let the reader change a technology's status from the inspector and write the new status into that technology's chapter in its layer file.
+
+#### Scenario: Adopting a trial
+
+- **Given** Azure Cosmos DB is `trial` in `.devbook/tech/cloud.md`
+- **When** the reader sets its status to `adopted` in the inspector
+- **Then** the Azure Cosmos DB chapter in `cloud.md` reads `status: adopted`
+- **And** the views draw it filled
+
+#### Scenario: A source that cannot be written
+
+- **Given** the pane reads a branch snapshot
+- **When** the reader opens the inspector
+- **Then** the status is shown and cannot be changed
+
+### Requirement: Every drawn technology is a button
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL draw each technology on the Clusters map and the Complexity scatter as a button that selects it.
+
+#### Scenario: Pressing a point
+
+- **Given** the reader opens Complexity
+- **When** the reader presses the point for .NET Runtime
+- **Then** .NET Runtime is selected
+
+#### Scenario: Tabbing to a technology
+
+- **Given** the reader opens a layer in Clusters
+- **When** the reader tabs to one of its technologies and presses Enter
+- **Then** that technology is selected
+
+### Requirement: Every pointer view has a list companion
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL pair each Technology view a pointer operates with a list or table on screen that selects the same technologies and shares its selection.
+
+#### Scenario: Selecting from the companion
+
+- **Given** the reader opens Complexity
+- **When** the reader picks .NET Runtime from its list with the keyboard
+- **Then** the point for .NET Runtime is shown selected
+
+#### Scenario: Selecting from the picture
+
+- **Given** the reader opens Clusters
+- **When** the reader presses SQLite on the map
+- **Then** SQLite is the selected row of the companion list
+
+### Requirement: A technology naming itself is not its own user
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL leave a technology out of its own Used by, Breaks if it changes and Rests on when its `depends-on` names itself.
+
+#### Scenario: A self-reference
+
+- **Given** Playwright's `depends-on` names Playwright and .NET Runtime, .NET Runtime declares no `depends-on`, and no other technology names Playwright
+- **When** the reader selects Playwright
+- **Then** Used by reads 0 and Rests on reads 1
+
+### Requirement: The members of a cycle share one depth
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL give every member of a `depends-on` cycle the depth of the longest chain that leaves the cycle, count no hop between two members, and end every walk at a technology it has already visited.
+
+#### Scenario: Two technologies naming each other
+
+- **Given** Razor Components depends on Blazor Server, Blazor Server on Razor Components and on .NET Runtime, and .NET Runtime on nothing
+- **When** the reader selects Razor Components and then Blazor Server
+- **Then** each reads Depth 1 and Rests on 2
+- **And** the Technology area stays responsive
+
+### Requirement: A technology from another folder is measured, not counted
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL count a chapter of another devbook folder that a technology's `depends-on` names in the measures, and leave it out of the folder's per-type, per-family and per-status counts, the Complexity scatter and the Clusters map.
+
+#### Scenario: A depends-on into another folder
+
+- **Given** Blazor Server's `depends-on` names .NET Runtime and a chapter of `.devbook/arc42/`, and .NET Runtime declares no `depends-on`
+- **When** the reader selects Blazor Server
+- **Then** Rests on reads 2
+- **And** the Overview's type and status counts leave the `arc42/` chapter out
+- **And** neither the Complexity scatter nor the Clusters map draws it
+
+### Requirement: The Complexity quadrants split at 3.5 and 4.5
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL place a technology on the Complexity scatter in Hubs at used by 4 or more and rests on 5 or more, in Foundations at used by 4 or more and rests on 4 or fewer, in Deep leaves at used by 3 or fewer and rests on 5 or more, and in Leaves otherwise, and show each quadrant's name with its one line.
+
+#### Scenario: Each side of each split
+
+- **Given** .NET Runtime is used by 4 and rests on 0, Razor Components is used by 3 and rests on 5, Blazor Server is used by 4 and rests on 5, and Playwright is used by 3 and rests on 4
+- **When** the reader opens Complexity
+- **Then** .NET Runtime is in Foundations, Razor Components in Deep leaves, Blazor Server in Hubs and Playwright in Leaves
+
+#### Scenario: The quadrant lines
+
+- **Given** every quadrant holds a technology
+- **When** the reader opens Complexity
+- **Then** Foundations reads "Load-bearing. Upgrade on purpose, never in passing." and Leaves reads "Cheap to change or replace."
+
+#### Scenario: An empty quadrant
+
+- **Given** no technology is used by 4 or more and rests on 5 or more
+- **When** the reader opens Complexity
+- **Then** the Hubs line ends "None today."
+
+### Requirement: The used-by axis is square-root scaled
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL place a technology across the Complexity scatter at the square root of its used by over the square root of the axis's end, the end being the largest used by and never less than 4.
+
+#### Scenario: Half way across
+
+- **Given** the most-used technology is used by 4
+- **When** the reader opens Complexity
+- **Then** a technology used by 1 is drawn half way across the plot
+
+### Requirement: Technologies at one place are one point
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL draw the technologies with the same used by and rests on as one point labelled with every name, and select the next of them each time the point is pressed again.
+
+#### Scenario: Pressing a merged point twice
+
+- **Given** Playwright and SQLite, in that reading order, are each used by 0 and rest on 1
+- **When** the reader opens Complexity
+- **Then** one point reads "Playwright · SQLite"
+- **When** the reader presses it
+- **Then** Playwright is selected
+- **When** the reader presses it again
+- **Then** SQLite is selected
+
+### Requirement: Dependencies shows a technology at its nearest hop
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show each technology the Dependencies view reaches once, at its nearest hop, marked with every further hop it is also reached at, and from 2 hops with the technology one hop nearer that it is reached through.
+
+#### Scenario: Reached at one and two hops
+
+- **Given** ASP.NET Core depends on .NET Runtime directly and through C# Language
+- **When** the reader selects ASP.NET Core in Dependencies
+- **Then** .NET Runtime shows once, in the 1 hop column, marked "also 2 hops"
+
+#### Scenario: Via
+
+- **Given** Razor Components depends only on ASP.NET Core, and ASP.NET Core on .NET Runtime
+- **When** the reader selects Razor Components in Dependencies
+- **Then** .NET Runtime shows at 2 hops marked "via ASP.NET Core"
+
+### Requirement: Dependencies groups by hop or by layer
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL let the reader group the Dependencies cards by hop or by layer.
+
+#### Scenario: Grouping by layer
+
+- **Given** the reader selects ASP.NET Core in Dependencies
+- **When** the reader sets Group by to Layer
+- **Then** the cards stand in one column per layer, and each card names its hop
+
+### Requirement: At most ten paths to a foundation
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL list at most 10 paths from the selected technology down to a foundation, say when more exist, and show the longest path running through it.
+
+#### Scenario: More paths than the list holds
+
+- **Given** more than 10 paths lead down from Blazor Server to a foundation
+- **When** the reader selects Blazor Server in Dependencies
+- **Then** 10 paths are listed with a note that more lead down
+- **And** the longest path through Blazor Server is shown below them
+
+### Requirement: Clusters opens on the selection's layer
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL open Clusters on the selected technology's layer, with that technology in focus, and on All layers when nothing is selected.
+
+#### Scenario: Arriving with a selection
+
+- **Given** SQLite is selected in Overview
+- **When** the reader switches to Clusters
+- **Then** SQLite's layer is open with SQLite in focus
+- **And** the breadcrumb reads All layers, the layer and SQLite
+
+### Requirement: The Clusters trail keeps the last six
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL keep the last 6 technologies the reader followed in Clusters as a trail, and step back along it with Back.
+
+#### Scenario: A seventh step
+
+- **Given** the reader has followed six technologies in Clusters
+- **When** the reader follows a seventh
+- **Then** the trail shows the last six, without the first
+
+#### Scenario: Back
+
+- **Given** the trail ends Razor Components, then ASP.NET Core
+- **When** the reader presses Back
+- **Then** Razor Components is in focus and ends the trail
+
+### Requirement: Type lenses shows one card per type in use
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL show on the Type lenses board one card per type in use, each with its type's lens for the selected technology when that technology is of its type and otherwise for the type's most-used technology, and a Lens per type table below the cards.
+
+#### Scenario: The most-used technology of a type
+
+- **Given** no framework is selected, and ASP.NET Core is the framework the most others use
+- **When** the reader opens Type lenses
+- **Then** the framework card shows ASP.NET Core's lens
+
+#### Scenario: The selected technology's own card
+
+- **Given** Razor Components, a framework, is selected
+- **When** the reader opens Type lenses
+- **Then** the framework card shows Razor Components' lens
+
+#### Scenario: The lens table
+
+- **Given** the reader opens Type lenses
+- **When** the board is drawn
+- **Then** a Lens per type table names, for each lens, the types it serves, what it shows and what it reads

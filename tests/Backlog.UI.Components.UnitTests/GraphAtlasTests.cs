@@ -49,9 +49,9 @@ public sealed class GraphAtlasTests
 
         context.Render<GraphAtlas>(parameters => parameters
             .Add(a => a.Data, data)
-            .Add(a => a.JsFunction, "backlogDiagrams.renderTechnologyAtlas"));
+            .Add(a => a.JsFunction, "backlogDiagrams.renderDevbookAtlas"));
 
-        var invocation = Assert.Single(context.JSInterop.Invocations["backlogDiagrams.renderTechnologyAtlas"]);
+        var invocation = Assert.Single(context.JSInterop.Invocations["backlogDiagrams.renderDevbookAtlas"]);
 
         Assert.Same(data, invocation.Arguments[2]);
         Assert.Empty(context.JSInterop.Invocations["backlogGraphAtlas.render"]);

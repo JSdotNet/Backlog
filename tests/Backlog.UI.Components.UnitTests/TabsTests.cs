@@ -212,6 +212,125 @@ public sealed class TabsTests
             ((ElementReference)focused[1].Arguments[0]!).Id);
     }
 
+    /// <summary>
+    /// Two arrows faster than a round trip move two tabs.
+    /// <para>
+    /// The focus follows a move only once the strip has rendered and the browser has
+    /// run the focus call. A second arrow pressed before then is still dispatched
+    /// from the tab the reader started on — it has the focus in the DOM — so a strip
+    /// that moved from the tab the event came from landed on the first move's target
+    /// a second time: History, ArrowLeft, ArrowLeft read Edit, not Read. The focus
+    /// call is left unanswered here, which is that window held open.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_second_arrow_moves_from_the_tab_focus_was_sent_to_while_that_move_is_out()
+    {
+        using var context = new BunitContext();
+        var focus = context.JSInterop.SetupVoid("Blazor._internal.domWrapper.focus", _ => true);
+
+        var tabs = context.Render<TabsHarness>(parameters => parameters.Add(harness => harness.ActiveId, "three"));
+
+        // Both presses land on Three: the focus is still there.
+        tabs.FindAll("[role='tab']")[2].KeyDown(new KeyboardEventArgs { Key = "ArrowLeft" });
+        tabs.FindAll("[role='tab']")[2].KeyDown(new KeyboardEventArgs { Key = "ArrowLeft" });
+
+        Assert.Equal("one", tabs.Instance.LastActiveId);
+
+        focus.SetVoidResult();
+    }
+
+    /// <summary>Once the focus has landed, the tab the key was pressed on is where
+    /// the next move starts again: a move that already finished leads nowhere.
+    /// Three, ArrowLeft lands on Two; a later ArrowRight pressed on Three wraps to
+    /// One, where a target left in flight would have taken it to Three.</summary>
+    [Fact]
+    public void An_arrow_after_the_focus_landed_moves_from_the_tab_it_was_pressed_on()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.SetupVoid("Blazor._internal.domWrapper.focus", _ => true).SetVoidResult();
+
+        var tabs = context.Render<TabsHarness>(parameters => parameters.Add(harness => harness.ActiveId, "three"));
+
+        tabs.FindAll("[role='tab']")[2].KeyDown(new KeyboardEventArgs { Key = "ArrowLeft" });
+        Assert.Equal("two", tabs.Instance.LastActiveId);
+
+        tabs.FindAll("[role='tab']")[2].KeyDown(new KeyboardEventArgs { Key = "ArrowRight" });
+        Assert.Equal("one", tabs.Instance.LastActiveId);
+    }
+
+    /// <summary>A click puts the focus on the tab it pressed, so an arrow after it
+    /// moves from there even while an earlier move's focus is still out.</summary>
+    [Fact]
+    public void A_click_ends_the_move_in_flight()
+    {
+        using var context = new BunitContext();
+        var focus = context.JSInterop.SetupVoid("Blazor._internal.domWrapper.focus", _ => true);
+
+        var tabs = context.Render<TabsHarness>();
+
+        tabs.FindAll("[role='tab']")[0].KeyDown(new KeyboardEventArgs { Key = "ArrowRight" });
+        tabs.FindAll("[role='tab']")[2].Click();
+        tabs.FindAll("[role='tab']")[2].KeyDown(new KeyboardEventArgs { Key = "ArrowLeft" });
+
+        Assert.Equal("two", tabs.Instance.LastActiveId);
+        Assert.Contains("Second body", tabs.Markup, StringComparison.Ordinal);
+
+        focus.SetVoidResult();
+    }
+
+    /// <summary>A host's FocusTab is a focus move like an arrow's: a key pressed
+    /// before it lands moves from the tab it named.</summary>
+    [Fact]
+    public void An_arrow_while_a_FocusTab_is_out_moves_from_the_tab_it_named()
+    {
+        using var context = new BunitContext();
+        var focus = context.JSInterop.SetupVoid("Blazor._internal.domWrapper.focus", _ => true);
+
+        var tabs = context.Render<TabsHarness>();
+        var strip = tabs.FindComponent<Tabs>();
+
+        tabs.InvokeAsync(() => strip.Instance.FocusTab("three"));
+        tabs.FindAll("[role='tab']")[0].KeyDown(new KeyboardEventArgs { Key = "ArrowLeft" });
+
+        Assert.Equal("two", tabs.Instance.LastActiveId);
+
+        focus.SetVoidResult();
+    }
+
+    /// <summary>Alt+ArrowLeft is the browser's Back, not the strip's: it moves no
+    /// tab, as components.js leaves its default alone.</summary>
+    [Fact]
+    public void An_arrow_held_with_a_modifier_moves_nothing()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<TabsHarness>();
+
+        tabs.FindAll("[role='tab']")[0].KeyDown(new KeyboardEventArgs { Key = "ArrowRight", AltKey = true });
+        tabs.FindAll("[role='tab']")[0].KeyDown(new KeyboardEventArgs { Key = "ArrowRight", ShiftKey = true });
+        tabs.FindAll("[role='tab']")[0].KeyDown(new KeyboardEventArgs { Key = "End", CtrlKey = true });
+
+        Assert.Null(tabs.Instance.LastActiveId);
+        Assert.Contains("First body", tabs.Markup, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The strip carries the marker components.js keys on: it refuses the arrows'
+    /// and Home's and End's own default — scrolling a strip that overflows 40 px a
+    /// press — and brings a tab that takes the focus wholly into view. A state-bound
+    /// <c>@onkeydown:preventDefault</c> could not refuse it: it is one key late.
+    /// </summary>
+    [Fact]
+    public void The_tablist_carries_the_marker_its_script_keys_on()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<TabsHarness>();
+
+        Assert.True(tabs.Find("[role='tablist']").HasAttribute("data-roving-tabs"));
+    }
+
     /// <summary>Pressing the tab that is already active moves nothing, so it takes
     /// no focus with it either: the reader is already there.</summary>
     [Fact]

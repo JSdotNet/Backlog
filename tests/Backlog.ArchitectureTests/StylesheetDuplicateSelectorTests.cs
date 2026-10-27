@@ -75,11 +75,6 @@ public class StylesheetDuplicateSelectorTests
             new(".devbook-item", 2, SharedWithSiblings),
             new(".devbook-stack__nav", 2, SharedWithSiblings),
             new(".tech-devbook-pane", 2, SharedWithSiblings),
-            new(".tech-layer-tab--active", 2, SharedWithSiblings),
-            new(".tech-node-grid", 2, SharedWithSiblings),
-            new(".tech-layer__header", 2, SharedWithSiblings),
-            new(".tech-node__header", 2, SharedWithSiblings),
-            new(".tech-node__meta", 2, SharedWithSiblings),
             new(".devbook-stack__header", 2, SharedWithSiblings),
             new(".devbook-stack__section > .devbook-pane", 2, SharedWithSiblings),
             new(".devbook-stack__section > .folder-devbook", 2, SharedWithSiblings),
@@ -87,7 +82,6 @@ public class StylesheetDuplicateSelectorTests
             new(".folder-document", 2, SharedWithSiblings),
             new(".folder-section", 4, SharedWithSiblings),
             new(".domain-document", 2, SharedWithSiblings),
-            new(".tech-atlas-note", 2, SharedWithSiblings),
         ],
         [Components] =
         [
@@ -295,7 +289,6 @@ public class StylesheetDuplicateSelectorTests
     [InlineData(DevPc, ".tools-panel__eyebrow", "color: var(--color-primary); font-size: var(--font-size-xs); font-weight: 700; letter-spacing: 0.08em; margin: 0; overflow-wrap: anywhere; text-transform: uppercase")]
     [InlineData(DevPc, ".tools-panel__subtitle", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; overflow-wrap: anywhere")]
     [InlineData(DevPc, ".tools-panel__message", "color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0; overflow-wrap: anywhere")]
-    [InlineData(App, ".tech-node", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-left: 4px solid var(--color-border-strong); border-radius: var(--border-radius-md); display: grid; gap: var(--spacing-sm); padding: var(--spacing-md)")]
     [InlineData(App, ".design-token", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); padding: var(--spacing-md)")]
     [InlineData(App, ".folder-section", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); display: grid; gap: var(--spacing-md); grid-template-columns: minmax(0, 1fr); overflow-x: auto; padding: var(--spacing-md)")]
     [InlineData(App, ".domain-document", "background: var(--color-background); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); display: grid; gap: var(--spacing-md); padding: var(--spacing-md)")]
