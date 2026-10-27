@@ -594,6 +594,10 @@ public sealed class McpServerWorker : IDisposable
             if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
         });
 
+        // And the question relay's hook script (local ADR 0041), the bytes this app embeds
+        // and writes to <app data>\hooks on start, behind the same guard.
+        app.MapGet(AskBacklogHook.RoutePath, () => Results.Bytes(AskBacklogHook.Bytes, AskBacklogHook.ContentType));
+
         // And the long poll a dispatcher waits on for session requests (local ADR 0038
         // §4), behind the same guard: the bearer token is the one /mcp takes. It
         // answers 404 while the session-requests flag is off.

@@ -307,7 +307,9 @@ app.UseWhen(
         // And Claude Code's OTLP logs (local ADR 0024), on the same terms.
         || context.Request.Path.StartsWithSegments(ClaudeCodeLogsEndpoint.RoutePath)
         // And the session-request long poll a dispatcher waits on (local ADR 0038).
-        || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath),
+        || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath)
+        // And the question relay's hook script (local ADR 0041).
+        || context.Request.Path.StartsWithSegments(AskBacklogHook.RoutePath),
     branch => branch.Use(async (context, next) =>
     {
         // The same predicate the desktop listener refuses on, and the same
@@ -334,6 +336,10 @@ app.MapRazorComponents<App>()
 // endpoint in this repository, so this harness's port is whatever this run was
 // given — read it off the Aspire dashboard, never from a previous session.
 app.MapMcp(BacklogMcpServerRegistration.EndpointPath);
+
+// And the question relay's hook script the desktop app serves beside /mcp (local ADR
+// 0041). Served only: the harness is not the installed app, so it writes no hooks folder.
+app.MapGet(AskBacklogHook.RoutePath, () => Results.Bytes(AskBacklogHook.Bytes, AskBacklogHook.ContentType));
 
 // And the hook telemetry a session forwards, attributed to the run it is driving —
 // into this harness's profile folders, which are the real ones.

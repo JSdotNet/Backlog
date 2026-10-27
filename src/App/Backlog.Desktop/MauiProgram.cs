@@ -1,6 +1,7 @@
 using Backlog.Desktop.Composition;
 using Backlog.Desktop.Mcp;
 using Backlog.Desktop.Services;
+using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
@@ -284,6 +285,24 @@ public static class MauiProgram
         // There is no switch in front of it: the MCP server is always on while
         // the app runs.
         _ = app.Services.GetRequiredService<McpServerWorker>();
+
+        // And the question relay's hook script (local ADR 0041), written to <app data>\hooks
+        // on every start so the installed hook is always this app's own. On the thread pool,
+        // never ahead of the first window; a failure is logged and the app carries on.
+        var hookLog = app.Services.GetService<ILoggerFactory>()?.CreateLogger(typeof(AskBacklogHook));
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                AskBacklogHook.Install(WorkspaceSettingsStore.DefaultAppDataDirectory);
+            }
+            catch (Exception ex)
+            {
+                // Whatever it was - a locked file, a missing resource - the app runs without
+                // an up-to-date hook rather than not at all; the served route still answers.
+                hookLog?.LogError(ex, "The question hook script could not be written to the app data folder.");
+            }
+        });
 
         // And the devbook database refresher, which is nothing until something
         // reads a devbook: resolving it configures where every reader looks for a

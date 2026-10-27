@@ -1261,6 +1261,17 @@ dispatch wait route of the [Session Request Queue](#session-request-queue).
 | `close` with the question's id | Closes the question with a reason: `answered-in-session`, with the answers in the same shape; `timed-out`; or `session-ended`. |
 | `GET /session-requests/wait` | Hands a waiting Manager a delivery before any session request. |
 | `claim_delivery`, `mark_delivery` | Claim a delivery under a two-minute lease, then mark it `delivered`, or `released` when the session is gone. |
+| `GET /hooks/ask-backlog.mjs` | Serves the hook script the desktop app embeds, behind the listener's guard. |
+
+The hooks are one script, `ask-backlog.mjs`. The desktop app embeds it, serves it on
+the MCP listener and writes the same bytes to `hooks\ask-backlog.mjs` under its app
+data folder on every start, so the installed hook is always the running app's. Its
+first argument names the hook: `pre` and `post` for `AskUserQuestion`, `stop`,
+`prompt` for `UserPromptSubmit`, and `end` for `SessionEnd`. `pre` holds a `backlog`
+dialog on `get_answer`, asking again every 15 seconds while Backlog does not answer,
+and stops at once when Backlog refuses. No call lists a session's questions, so the
+script keeps the ids it was given in a file per session beside it. On any error it
+exits 0 without output, so the session never waits on Backlog being up.
 
 ### Waiting Question
 
