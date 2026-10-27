@@ -248,8 +248,9 @@ public sealed class CompositeAgentSessionSourceTests
 
         Assert.Equal(3, contributors.Count);
         Assert.Contains(contributors, source => source is ReplicatedAgentSessionSource);
-        // The composite, behind the watcher that notices a session end on every reading.
-        Assert.IsType<SessionEndWatchingSource>(provider.GetRequiredService<IAgentSessionSource>());
+        // The composite, behind the watcher that notices a session end on every reading,
+        // and the question relay read in last.
+        Assert.IsType<WaitingSessionSource>(provider.GetRequiredService<IAgentSessionSource>());
     }
 
     private static AgentSession Session(string id) =>

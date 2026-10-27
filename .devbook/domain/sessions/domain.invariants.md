@@ -94,12 +94,13 @@ Enforced at: `AgentSessionState` (Running, Stalled, Finished)
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.An_open_waiting_question_makes_a_live_session_waiting, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.An_open_question_makes_a_live_session_waiting, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.A_finished_idle_session_keeps_its_question_open]
 ```
 
 A session that would read Running or Stalled reads Waiting while it holds a Waiting Question in InSession or Notified, and a Finished session never reads Waiting.
 The relay registers every question a session asks, so the waiting state is derived from that record rather than claimed (local ADR 0041).
 
-Enforced at: open, not yet built: the state derivation that reads the [Question Relay](domain.md#question-relay)
+Enforced at: `WaitingQuestions.StateWith()`, `WaitingSessionSource` (the session list reads the relay last)
 
 ### Invariant: The log never fills a gap
 
@@ -915,65 +916,70 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#question-relay]
 ```
 
-> The rules the relay holds every waiting question and every delivery to (local ADR 0041). None of it is built yet: the plan `question-relay` builds presence, the waiting question, the MCP changes and the deliveries in its later items, so `Enforced at:` names where each rule will sit.
+> The rules the relay holds every waiting question and every delivery to (local ADR 0041). The waiting question and its routing are built: `WaitingQuestions` holds the transitions, `QuestionRelay` the route, the publishing and the answers, and `SqliteWaitingQuestionStore` the record. The MCP changes and the Manager's deliveries come in the plan's later items, so their `Enforced at:` still names where each rule will sit.
 
 ### Invariant: Presence picks the route once
 
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Asked_at_the_keyboard_it_stays_in_the_session_until_the_notify_delay_passes, unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Asked_while_away_it_is_routed_to_backlog_and_due_at_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.A_held_question_is_published_by_the_escalation_timer_once_the_delay_passes]
 ```
 
 A Waiting Question's route is set from the person's Presence when it is asked, and never changes: an InSession question becomes Notified only when its escalate at passes.
 The caller passes the question and never a route, because only the desktop knows where the person is.
 
-Enforced at: open, not yet built: the relay's `ask` (ADR 0041 §1)
+Enforced at: `WaitingQuestions.Ask()` (the route, set once), `QuestionRelay.AskAsync()` (presence read when asked), `QuestionRelay.EscalateDueAsync()`
 
 ### Invariant: Presence never takes a question back
 
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Publishing_takes_one_notification_per_question_and_never_goes_back]
 ```
 
 A Notified question never returns to InSession; only an answer, the session's end or the hook's timeout ends it.
 Opening Backlog to answer is input too, so a question taken back on input would close as the person reached for it.
 
-Enforced at: open, not yet built: the Waiting Question's transitions (ADR 0041 §2)
+Enforced at: `WaitingQuestions.Notify()`, `Postpone()` (InSession only); nothing moves a Notified question back
 
 ### Invariant: One Waiting Question per tool use
 
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Registering_the_same_session_and_tool_use_finds_the_first_question, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.Registering_the_same_session_and_tool_use_twice_returns_the_existing_question, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteWaitingQuestionStoreTests.Registering_the_same_session_and_tool_use_twice_returns_the_first]
 ```
 
 A second `ask` for the same session and tool use answers the question already registered and publishes nothing new.
 Hooks installed at two scopes both fire for one dialog.
 
-Enforced at: open, not yet built: the relay's `ask` (ADR 0041 §4)
+Enforced at: `WaitingQuestions.DuplicateOf()`, `SqliteWaitingQuestionStore.RegisterAsync()` (one immediate transaction)
 
 ### Invariant: Answered and Closed are final
 
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Answered_and_Closed_are_final, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.A_replayed_answer_changes_nothing]
 ```
 
 An Answered or Closed question changes no further; an answer that arrives after it closed is not delivered.
 
-Enforced at: open, not yet built: the Waiting Question's transitions (ADR 0041 §3)
+Enforced at: `WaitingQuestions.Answer()`, `Close()`, `Notify()`
 
 ### Invariant: An answer in the session closes the question everywhere
 
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Answered_in_the_session_it_is_answered_with_the_answers_and_gets_no_delivery, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.Answered_in_the_session_closes_its_notifications_with_the_answers]
 ```
 
 A question answered in the session moves to Answered, closes each of its notifications with the answers, and gets no delivery.
 
-Enforced at: open, not yet built: `close` with the reason answered in the session (ADR 0041 §2)
+Enforced at: `WaitingQuestions.Close()`, `QuestionRelay.CloseAsync()` (each notification closed with its answer)
 
 ### Invariant: A delivery carries only the stored question and the accepted answer
 
