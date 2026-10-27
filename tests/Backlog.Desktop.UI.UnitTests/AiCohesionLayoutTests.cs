@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.Devbook.Documents;
 using Backlog.Desktop.UI.Devbook;
 using Backlog.SharedKernel.Devbook;
 using Backlog.SharedKernel.Metadata;
@@ -154,7 +155,7 @@ public sealed class AiCohesionLayoutTests
     }
 
     [Fact]
-    public void An_edge_runs_from_the_edge_of_one_box_to_the_edge_of_the_other_with_its_label_on_its_longest_segment()
+    public void An_edge_runs_from_the_edge_of_one_box_to_the_edge_of_the_other()
     {
         var layout = Layout(
             Usage("from", stage: ["decide"], feeds: ["to: a long way"]),
@@ -166,9 +167,6 @@ public sealed class AiCohesionLayoutTests
         var to = Node(layout, "to");
         Assert.True(OnBoundary(edge.Points[0], from));
         Assert.True(OnBoundary(edge.Points[^1], to));
-
-        var longest = Segments(edge).OrderByDescending(segment => Length(segment)).First();
-        Assert.Equal(new AiCohesionPoint((longest.A.X + longest.B.X) / 2, (longest.A.Y + longest.B.Y) / 2), edge.LabelAt);
     }
 
     [Fact]
@@ -206,7 +204,98 @@ public sealed class AiCohesionLayoutTests
 
         Assert.All(layout.Nodes, node => Assert.InRange(node.Right, 0, layout.Width));
         Assert.All(layout.Nodes, node => Assert.InRange(node.Bottom, 0, layout.Height));
-        Assert.Equal(2, layout.Edges.Count(edge => edge.Kind == AiCohesionEdgeKind.OpenLoop));
+        var openLoop = Assert.Single(layout.Edges, edge => edge.Kind == AiCohesionEdgeKind.OpenLoop);
+        Assert.Equal("alerts → tracker", Name(openLoop));
+    }
+
+    [Fact]
+    public void The_open_loop_is_a_feed_out_of_a_candidate_at_operate_into_an_adopted_usage()
+    {
+        var layout = Layout(
+            Usage("tracker", "adopted", stage: ["decide"]),
+            Usage("sweep", "trial", stage: ["decide"]),
+            Usage("idea", "candidate", stage: ["decide"]),
+            Usage("alerts", "candidate", stage: ["operate"], feeds: ["tracker: would enter Decide", "sweep: would open issues", "idea: would suggest"]),
+            Usage("reports", "trial", stage: ["operate"], feeds: ["tracker: findings"]),
+            Usage("draft", "candidate", stage: ["specify"], feeds: ["tracker: would plan"]));
+
+        Assert.True(Edge(layout, "alerts", "tracker", AiCohesionEdgeKind.OpenLoop).IsDashed);
+
+        // Into a usage not yet adopted, or out of one that is not a candidate in
+        // production, a feed stays a feed — dashed where a candidate is an end.
+        Assert.True(Edge(layout, "alerts", "sweep", AiCohesionEdgeKind.Feed).IsDashed);
+        Assert.True(Edge(layout, "alerts", "idea", AiCohesionEdgeKind.Feed).IsDashed);
+        Assert.False(Edge(layout, "reports", "tracker", AiCohesionEdgeKind.Feed).IsDashed);
+        Assert.True(Edge(layout, "draft", "tracker", AiCohesionEdgeKind.Feed).IsDashed);
+        Assert.Single(layout.Edges, edge => edge.Kind == AiCohesionEdgeKind.OpenLoop);
+    }
+
+    [Fact]
+    public void On_the_full_board_no_lit_label_covers_a_box_or_another_lit_label_in_any_view()
+    {
+        var drawn = AssertLitLabelsAreClear(Layout(FullBoard()));
+
+        Assert.True(drawn >= 15, $"only {drawn} labels drawn across the views");
+    }
+
+    [Fact]
+    public void On_this_repository_s_own_record_no_lit_label_covers_a_box_or_another_lit_label_in_any_view()
+    {
+        // Four runs share the gutter between Specify and Code here, and two
+        // labels can only sit in the one row gap their runs both cross: they
+        // slide apart across their lines rather than stack.
+        var folder = Path.Combine(RepositoryRoot(), ".devbook", "ai");
+        var files = Directory.EnumerateFiles(folder, "*.md")
+            .Order(StringComparer.Ordinal)
+            .Select(path => DocumentDevbookParser.ParseFile(folder, path, DocumentDevbookFolder.Ai.AreaKey))
+            .ToList();
+        var layout = AiCohesionLayout.From(AiModel.From(files));
+
+        var drawn = AssertLitLabelsAreClear(layout);
+
+        Assert.True(drawn >= 10, $"only {drawn} labels drawn across the views");
+        var openLoop = Assert.Single(layout.Edges, edge => edge.Kind == AiCohesionEdgeKind.OpenLoop);
+        Assert.Equal("Alerts to work items → Backlog as the delivery tracker", Name(openLoop));
+    }
+
+    private static string RepositoryRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "Backlog.sln"))) return directory.FullName;
+        }
+
+        throw new InvalidOperationException("Backlog.sln was not found above the test's output folder.");
+    }
+
+    [Fact]
+    public void A_label_sits_on_its_own_edge_inside_the_board()
+    {
+        var layout = Layout(FullBoard());
+
+        Assert.All(layout.Edges.Where(AiCohesionLayout.IsLabelled), edge =>
+        {
+            var box = AiCohesionLayout.LabelBox(edge.Label!, edge.LabelAt);
+            Assert.True(Segments(edge).Any(segment => Covers(box, segment)), $"\"{edge.Label}\" is off {Name(edge)}");
+            Assert.InRange(box.X, 0, layout.Width);
+            Assert.InRange(box.Right, 0, layout.Width);
+        });
+    }
+
+    [Fact]
+    public void A_label_takes_the_longest_horizontal_run_wide_enough_for_it()
+    {
+        var layout = Layout(
+            Usage("from", stage: ["decide"], feeds: ["to: a long way"]),
+            Usage("to", stage: ["operate"]));
+
+        var edge = Assert.Single(layout.Edges);
+        var run = Segments(edge).Where(segment => segment.A.Y == segment.B.Y).OrderByDescending(Length).First();
+        Assert.True(Length(run) >= AiCohesionLayout.LabelBox(edge.Label!, default).Width);
+        var box = AiCohesionLayout.LabelBox(edge.Label!, edge.LabelAt);
+        Assert.Equal(run.A.Y, edge.LabelAt.Y);
+        Assert.InRange(box.X, Math.Min(run.A.X, run.B.X), Math.Max(run.A.X, run.B.X));
+        Assert.InRange(box.Right, Math.Min(run.A.X, run.B.X), Math.Max(run.A.X, run.B.X));
     }
 
     [Fact]
@@ -380,6 +469,65 @@ public sealed class AiCohesionLayoutTests
         }
 
         return false;
+    }
+
+    /// <summary>In every view — Forward, What feeds back, and each usage
+    /// picked — no label the board draws covers a box or another drawn label.
+    /// Answers how many labels were drawn across the views.</summary>
+    private static int AssertLitLabelsAreClear(AiCohesionLayout layout)
+    {
+        var views = new List<(string View, List<AiCohesionEdge> Lit)>
+        {
+            ("Forward", [.. layout.Edges.Where(edge => IsForward(layout, edge))]),
+            ("What feeds back", [.. layout.Edges.Where(edge => FeedsBack(layout, edge))])
+        };
+        views.AddRange(layout.Nodes.Select(node =>
+            ($"{node.Usage.Heading} picked", layout.Edges.Where(edge => ReferenceEquals(edge.From, node.Usage) || ReferenceEquals(edge.To, node.Usage)).ToList())));
+
+        var drawn = 0;
+        foreach (var (view, lit) in views)
+        {
+            var labels = lit.Where(AiCohesionLayout.IsLabelled).Select(edge => (edge, box: AiCohesionLayout.LabelBox(edge.Label!, edge.LabelAt))).ToList();
+            drawn += labels.Count;
+            foreach (var (edge, box) in labels)
+            {
+                foreach (var node in layout.Nodes)
+                {
+                    Assert.False(box.Intersects(node.Box), $"{view}: \"{edge.Label}\" covers {node.Usage.Heading}");
+                }
+
+                foreach (var (other, otherBox) in labels.Where(label => !ReferenceEquals(label.edge, edge)))
+                {
+                    Assert.False(box.Intersects(otherBox), $"{view}: \"{edge.Label}\" covers \"{other.Label}\"");
+                }
+            }
+        }
+
+        return drawn;
+    }
+
+    /// <summary>Whether the label's box covers some stretch of the segment.</summary>
+    private static bool Covers(AiCohesionBox box, Segment segment)
+    {
+        var (x1, x2) = (Math.Min(segment.A.X, segment.B.X), Math.Max(segment.A.X, segment.B.X));
+        var (y1, y2) = (Math.Min(segment.A.Y, segment.B.Y), Math.Max(segment.A.Y, segment.B.Y));
+        return x1 <= box.Right && box.X <= x2 && y1 <= box.Bottom && box.Y <= y2;
+    }
+
+    /// <summary>The board's Forward: both ends on the path, to a later stage.</summary>
+    private static bool IsForward(AiCohesionLayout layout, AiCohesionEdge edge)
+    {
+        if (edge.Kind == AiCohesionEdgeKind.Support) return false;
+        var (from, to) = (Node(layout, edge.From.Heading), Node(layout, edge.To.Heading));
+        return from.Layer is null && to.Layer is null && to.Column > from.Column;
+    }
+
+    /// <summary>The board's What feeds back: out of a layer, or to an earlier stage.</summary>
+    private static bool FeedsBack(AiCohesionLayout layout, AiCohesionEdge edge)
+    {
+        if (edge.Kind == AiCohesionEdgeKind.Support) return false;
+        var (from, to) = (Node(layout, edge.From.Heading), Node(layout, edge.To.Heading));
+        return from.Layer is not null || (to.Layer is null && to.Column < from.Column);
     }
 
     private static bool OnBoundary(AiCohesionPoint point, AiCohesionNode node) =>
