@@ -89,6 +89,18 @@ type: invariant
 
 Enforced at: `AgentSessionState` (Running, Stalled, Finished)
 
+### Invariant: An open Waiting Question makes a live session Waiting
+
+```meta
+status: draft
+type: invariant
+```
+
+A session that would read Running or Stalled reads Waiting while it holds a Waiting Question in InSession or Notified, and a Finished session never reads Waiting.
+The relay registers every question a session asks, so the waiting state is derived from that record rather than claimed (local ADR 0041).
+
+Enforced at: open, not yet built: the state derivation that reads the [Question Relay](domain.md#question-relay)
+
 ### Invariant: The log never fills a gap
 
 ```meta
@@ -894,3 +906,94 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_St
 A Linked or Cancelled request changes no further: it cannot be claimed, reported, linked again or cancelled.
 
 Enforced at: `SessionRequests.Claim()`, `Report()`, `Link()` and `Cancel()` (ADR 0038 §3)
+
+## Question Relay
+
+```meta
+status: draft
+type: invariants
+related: [.devbook/domain/sessions/domain.md#question-relay]
+```
+
+> The rules the relay holds every waiting question and every delivery to (local ADR 0041). None of it is built yet: the plan `question-relay` builds presence, the waiting question, the MCP changes and the deliveries in its later items, so `Enforced at:` names where each rule will sit.
+
+### Invariant: Presence picks the route once
+
+```meta
+status: draft
+type: invariant
+```
+
+A Waiting Question's route is set from the person's Presence when it is asked, and never changes: an InSession question becomes Notified only when its escalate at passes.
+The caller passes the question and never a route, because only the desktop knows where the person is.
+
+Enforced at: open, not yet built: the relay's `ask` (ADR 0041 §1)
+
+### Invariant: Presence never takes a question back
+
+```meta
+status: draft
+type: invariant
+```
+
+A Notified question never returns to InSession; only an answer, the session's end or the hook's timeout ends it.
+Opening Backlog to answer is input too, so a question taken back on input would close as the person reached for it.
+
+Enforced at: open, not yet built: the Waiting Question's transitions (ADR 0041 §2)
+
+### Invariant: One Waiting Question per tool use
+
+```meta
+status: draft
+type: invariant
+```
+
+A second `ask` for the same session and tool use answers the question already registered and publishes nothing new.
+Hooks installed at two scopes both fire for one dialog.
+
+Enforced at: open, not yet built: the relay's `ask` (ADR 0041 §4)
+
+### Invariant: Answered and Closed are final
+
+```meta
+status: draft
+type: invariant
+```
+
+An Answered or Closed question changes no further; an answer that arrives after it closed is not delivered.
+
+Enforced at: open, not yet built: the Waiting Question's transitions (ADR 0041 §3)
+
+### Invariant: An answer in the session closes the question everywhere
+
+```meta
+status: draft
+type: invariant
+```
+
+A question answered in the session moves to Answered, closes each of its notifications with the answers, and gets no delivery.
+
+Enforced at: open, not yet built: `close` with the reason answered in the session (ADR 0041 §2)
+
+### Invariant: A delivery carries only the stored question and the accepted answer
+
+```meta
+status: draft
+type: invariant
+```
+
+A delivery holds the session id, the question as the session asked it and the answer the owner accepted, and nothing else the Manager could act on.
+The Manager never answers a question itself, and writes its message from these alone.
+
+Enforced at: open, not yet built: the delivery record and the wait route (ADR 0041 §3)
+
+### Invariant: Only one Manager holds a delivery
+
+```meta
+status: draft
+type: invariant
+```
+
+A delivery is claimed only while Pending, under a two-minute lease; a lease that runs out reads as Pending again, and Delivered is final.
+
+Enforced at: open, not yet built: `claim_delivery` and `mark_delivery` (ADR 0041, Amends)
