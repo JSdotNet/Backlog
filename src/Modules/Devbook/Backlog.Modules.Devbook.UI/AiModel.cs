@@ -213,7 +213,7 @@ public sealed record AiModel(
     /// <summary>GitHub's anchor rule, as the devbook generator spells it: lower-case,
     /// trim, keep letters, digits, underscores, whitespace and hyphens, and turn
     /// each whitespace character into a hyphen without collapsing runs.</summary>
-    private static string GitHubSlug(string heading)
+    internal static string GitHubSlug(string heading)
     {
         var kept = heading.Trim().ToLowerInvariant()
             .Where(ch => char.IsLetterOrDigit(ch) || ch == '_' || ch == '-' || char.IsWhiteSpace(ch))

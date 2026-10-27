@@ -76,6 +76,55 @@
         attempt(focusFrames);
     };
 
+    // A chapter opened from a link that named one of its headings — a usage picked
+    // on an AI tab — has to open at that heading, not at the top of its file. The
+    // heading is found inside `scope` by its text: a rendered heading carries no id,
+    // and the caller has already resolved the anchor to the heading it names; a
+    // heading's type mark is an image with no text, so the text matches exactly.
+    // The nearest container that actually scrolls is scrolled until the heading
+    // sits at its top, for the reason backlogRevealRow gives — a file view that
+    // does not fill the pane keeps its body's overflow but grows instead, and the
+    // section around it is what scrolls. Focus then moves to the heading without
+    // scrolling again, so a keyboard
+    // or screen reader user lands where the reader's eye does. Waited for a few
+    // frames, because the chapter's body arrives with its read.
+    window.backlogRevealHeading = (scope, text) => {
+        const normalise = value => (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const wanted = normalise(text);
+        if (!wanted) return;
+
+        const find = () => {
+            const root = document.querySelector(scope);
+            if (!root) return null;
+            const headings = [...root.querySelectorAll('[role="heading"], h1, h2, h3, h4, h5, h6')];
+            return headings.find(heading => normalise(heading.textContent) === wanted) ?? null;
+        };
+
+        const attempt = framesLeft => {
+            const heading = find();
+            if (!heading) {
+                if (framesLeft > 0) requestAnimationFrame(() => attempt(framesLeft - 1));
+                return;
+            }
+
+            let container = heading.parentElement;
+            while (container && container !== document.body) {
+                const overflowY = getComputedStyle(container).overflowY;
+                if ((overflowY === 'auto' || overflowY === 'scroll') && container.scrollHeight > container.clientHeight) break;
+                container = container.parentElement;
+            }
+            if (container && container !== document.body) {
+                const inset = parseFloat(getComputedStyle(container).paddingTop) || 0;
+                container.scrollTop += heading.getBoundingClientRect().top - container.getBoundingClientRect().top - inset;
+            }
+
+            if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+            heading.focus({ preventScroll: true });
+        };
+
+        attempt(focusFrames);
+    };
+
     // A card the settings search found, brought into view when its link is
     // followed. The link names the card by its title, so the card's heading is
     // looked for on the page on screen — the settings page that is not hidden —
