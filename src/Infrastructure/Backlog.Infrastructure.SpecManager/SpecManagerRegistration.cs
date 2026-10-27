@@ -21,8 +21,10 @@ namespace Backlog.Infrastructure.SpecManager;
 /// <para>
 /// And the product's questions as notifications: the <see cref="SpecManagerQuestionSource"/>
 /// a head resolves once to start it, the answer handler for the <c>spec-manager</c> source
-/// and the probe for its subjects. They use the Notifications context's ports when the host
-/// composes them, and stay idle when it does not.
+/// and the probe for its subjects; and the person's other spec-manager notifications as
+/// alerts, pulled by the same source, with the listener that marks one read once its alert is
+/// acknowledged. They use the Notifications context's ports when the host composes them, and
+/// stay idle when it does not.
 /// </para>
 /// </summary>
 public static class SpecManagerRegistration
@@ -90,7 +92,8 @@ public static class SpecManagerRegistration
         return services;
     }
 
-    /// <summary>The questions: the source, the answer handler and the subject probe.</summary>
+    /// <summary>The questions and the other notifications: the source, the answer handler, the
+    /// subject probe, and the notifications' pull and read listener the source owns.</summary>
     private static void AddQuestions(IServiceCollection services)
     {
         services.TryAddSingleton<ISpecManagerLinkedWorkLookup>(sp => new SpecManagerLinkedWorkLookup(sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<TimeProvider>()));
@@ -106,6 +109,22 @@ public static class SpecManagerRegistration
             IsDefaultInstallation(sp),
             sp.GetService<ILogger<SpecManagerQuestionSync>>()));
 
+        services.TryAddSingleton(sp => new SpecManagerNotificationSync(
+            sp.GetRequiredService<SpecManagerClient>(),
+            sp.GetRequiredService<SpecManagerSignIn>(),
+            sp.GetRequiredService<INotifications>(),
+            sp.GetService<INotificationReplication>(),
+            IsDefaultInstallation(sp),
+            sp.GetService<ILogger<SpecManagerNotificationSync>>()));
+
+        // The centre is the owner's alone; on any other host the listener hears nothing and
+        // the pull's reconcile is what marks an acknowledged alert's notification read.
+        services.TryAddSingleton(sp => new SpecManagerNotificationReads(
+            sp.GetRequiredService<SpecManagerClient>(),
+            sp.GetRequiredService<SpecManagerSignIn>(),
+            sp.GetService<INotificationCentre>(),
+            sp.GetService<ILogger<SpecManagerNotificationReads>>()));
+
         services.TryAddSingleton(sp => new SpecManagerQuestionSource(
             sp.GetRequiredService<SpecManagerQuestionSync>(),
             new SpecManagerEventStreamConnector(sp.GetRequiredService<SpecManagerClient>()),
@@ -113,7 +132,9 @@ public static class SpecManagerRegistration
             sp.GetService<IConnectedTargets>(),
             sp.GetService<INotificationAnswerReplay>(),
             sp.GetRequiredService<TimeProvider>(),
-            sp.GetService<ILogger<SpecManagerQuestionSource>>()));
+            sp.GetService<ILogger<SpecManagerQuestionSource>>(),
+            sp.GetRequiredService<SpecManagerNotificationSync>(),
+            sp.GetRequiredService<SpecManagerNotificationReads>()));
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<INotificationAnswerHandler, SpecManagerAnswers>(sp => new SpecManagerAnswers(
             sp.GetRequiredService<SpecManagerClient>(),

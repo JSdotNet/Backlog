@@ -10,8 +10,9 @@ namespace Backlog.Infrastructure.SpecManager.Api;
 /// <summary>
 /// The REST calls the connector and the question source make, and nothing else: the
 /// reads — the products, a product's backlog, its statuses, its labels, its members and
-/// its questions — the writes — an item's status and a question's answer — and the
-/// notification stream that says when to read the questions again.
+/// its questions, and the person's unread notifications — the writes — an item's status,
+/// a question's answer and a notification marked read — and the notification stream that
+/// says when to read the questions and notifications again.
 /// Thin on purpose — what an answer means is the connector's business.
 /// <para>
 /// Every call carries the bearer <see cref="SpecManagerSignIn"/> hands out. A 401 is
@@ -154,6 +155,47 @@ internal sealed class SpecManagerClient
         }
 
         return response;
+    }
+
+    /// <summary>
+    /// The person's unread notifications, newest first —
+    /// <c>GET /api/notifications?unread=true&amp;count=N</c>, <paramref name="count"/> clamped
+    /// to 1..200 by the server — with how many unread there are in all. Read like every other
+    /// path: a 401 refreshed once and asked again, a refusal thrown as
+    /// <see cref="HttpRequestException"/> with its status, nobody signed in as
+    /// <see cref="SpecManagerSignInRequiredException"/>.
+    /// </summary>
+    public async Task<NotificationsResponse?> GetUnreadNotificationsAsync(int count, CancellationToken cancellationToken) =>
+        await GetAsync<NotificationsResponse>(
+            "/api/notifications?unread=true&count=" + count.ToString(CultureInfo.InvariantCulture),
+            cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Marks <paramref name="notificationId"/> read in the person's notification centre —
+    /// <c>POST /api/notifications/{id}/read</c>. A 204 is done, and so is a 404: spec-manager
+    /// answers it for an id it no longer has, or that is not the person's, and sending it
+    /// again would only be answered the same. A token refused again after the refresh is
+    /// <see cref="SpecManagerSignInRequiredException"/>; any other failure an
+    /// <see cref="HttpRequestException"/> with its status, and the read is sent again later.
+    /// </summary>
+    public async Task MarkNotificationReadAsync(Guid notificationId, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(
+            HttpMethod.Post,
+            $"/api/notifications/{notificationId:D}/read",
+            body: null,
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode == HttpStatusCode.NotFound) return;
+        if (response.StatusCode == HttpStatusCode.Unauthorized) throw new SpecManagerSignInRequiredException();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"spec-manager answered {(int)response.StatusCode} to marking a notification read.",
+                null,
+                response.StatusCode);
+        }
     }
 
     /// <summary>

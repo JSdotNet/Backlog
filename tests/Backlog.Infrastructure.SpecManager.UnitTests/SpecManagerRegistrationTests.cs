@@ -155,6 +155,24 @@ public sealed class SpecManagerRegistrationTests
         Assert.False(source.IsOpen);
     }
 
+    [Fact]
+    public void On_the_owner_the_question_source_also_pulls_the_other_notifications_and_hears_acknowledgements()
+    {
+        var services = new ServiceCollection();
+        services.AddSpecManager(_ => new InMemorySpecManagerTokenStore());
+        var ledger = new NotificationLedger();
+        services.AddSingleton<Backlog.Modules.Notifications.Abstractions.INotifications>(ledger);
+        services.AddSingleton<Backlog.Modules.Notifications.Abstractions.INotificationReplication>(ledger);
+        services.AddSingleton<Backlog.Modules.Notifications.Abstractions.INotificationCentre>(new FakeNotificationCentre());
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        var source = provider.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
+
+        Assert.False(source.IsOpen);
+        Assert.NotNull(provider.GetService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerNotificationSync>());
+        Assert.NotNull(provider.GetService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerNotificationReads>());
+    }
+
     private static (HttpClient Client, CountingHandler Handler) PipelineClient()
     {
         var handler = new CountingHandler();

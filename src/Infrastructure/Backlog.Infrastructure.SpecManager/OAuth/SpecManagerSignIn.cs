@@ -107,6 +107,11 @@ internal sealed class SpecManagerSignIn : IDisposable
                 credential.SignedInAt ?? DateTimeOffset.MinValue)
             : null;
 
+    /// <summary>When this machine first signed in to the installation, kept through sign-outs
+    /// (<see cref="SpecManagerCredential.FirstSignIn"/>); null when it never did. Only the
+    /// spec-manager notifications created at or after it come in as alerts.</summary>
+    public DateTimeOffset? FirstSignedInAt => Current()?.FirstSignIn;
+
     /// <summary>
     /// Signs a person in through their browser. Null on success, otherwise what
     /// went wrong, for the person. Cancelling <paramref name="cancellationToken"/>
@@ -341,6 +346,7 @@ internal sealed class SpecManagerSignIn : IDisposable
                 RefreshToken = answer.RefreshToken,
                 AccountName = FallbackAccountName,
                 SignedInAt = now,
+                FirstSignedInAt = registration.FirstSignIn ?? now,
             });
         }
         catch (Exception ex) when (IsNotKept(ex))

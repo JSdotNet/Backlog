@@ -41,6 +41,13 @@ internal static class SpecManagerQuestionIds
     public static Guid RefusalFor(string root, string questionId) =>
         Version5(For(root, questionId), "refused");
 
+    /// <summary>The notification id of the alert that says spec-manager notification
+    /// <paramref name="notificationId"/> on the installation at <paramref name="root"/>: the
+    /// name <c>notification:{id}</c> in the installation's namespace, which no question id
+    /// shares.</summary>
+    public static Guid ForNotification(string root, Guid notificationId) =>
+        For(root, "notification:" + notificationId.ToString("D"));
+
     /// <summary>RFC 9562 §5.5: SHA-1 over the namespace's bytes and the name's UTF-8,
     /// the first sixteen bytes of the digest with the version and variant set.</summary>
     internal static Guid Version5(Guid @namespace, string name)
