@@ -6,17 +6,23 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Backlog.Infrastructure.Sessions;
 
 /// <summary>
-/// The <see cref="INotificationAnswerHandler"/> for the <c>sessions</c> source: the answer to
-/// "Approve the validation of &lt;run&gt;?" is recorded on the run as its Personal Validation
-/// decision (<see cref="ValidationQuestions"/>). Nothing else happens: the flow reads the
-/// decision back from the run, and the pull request is opened at the desktop.
+/// The <see cref="INotificationAnswerHandler"/> for the <c>sessions</c> source. An answer
+/// whose source key is a waiting question's id goes to the <see cref="QuestionRelay"/>
+/// (local ADR 0041), which records it and routes it to the waiting hook or into a delivery.
+/// Otherwise it is the answer to "Approve the validation of &lt;run&gt;?", recorded on the run
+/// as its Personal Validation decision (<see cref="ValidationQuestions"/>). Nothing else
+/// happens: the flow reads the decision back from the run, and the pull request is opened at
+/// the desktop.
 /// <para>
 /// Idempotent, as the contract asks: the run and its worktree are read from the answer's
 /// source key, and the run file records which question it was answered through, so a
 /// replayed answer changes nothing. A run that no longer exists has nothing to record on.
 /// </para>
 /// </summary>
-public sealed class SessionValidationAnswers(IDeliverySurfaceLifecycle lifecycle, ILogger<SessionValidationAnswers>? logger = null)
+public sealed class SessionValidationAnswers(
+    IDeliverySurfaceLifecycle lifecycle,
+    ILogger<SessionValidationAnswers>? logger = null,
+    QuestionRelay? relay = null)
     : INotificationAnswerHandler
 {
     private readonly IDeliverySurfaceLifecycle _lifecycle = lifecycle ?? throw new ArgumentNullException(nameof(lifecycle));
@@ -27,6 +33,8 @@ public sealed class SessionValidationAnswers(IDeliverySurfaceLifecycle lifecycle
     public async Task HandleAnswerAsync(NotificationAnswer answer, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(answer);
+
+        if (relay is not null && await relay.HandleAnswerAsync(answer, cancellationToken).ConfigureAwait(false)) return;
 
         if (SessionNotificationSubjects.ParseValidationSourceKey(answer.Source.Key) is not { } named)
         {

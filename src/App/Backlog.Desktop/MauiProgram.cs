@@ -257,6 +257,9 @@ public static class MauiProgram
         // And the blocked-task watcher, on the same terms: it raises an impediment for a
         // task marked blocked (local ADR 0035), and a watcher nobody resolves hears nothing.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
+        // The question relay's escalation timer (local ADR 0041): it publishes a waiting
+        // question still open in its session once the notify delay passes.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 
         // And the Windows notifications, before the notifications startup pass below: listening
         // first, so a notification that pass closes takes its Windows notification down with it.
