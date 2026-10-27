@@ -916,7 +916,7 @@ type: invariants
 related: [.devbook/domain/sessions/domain.md#question-relay]
 ```
 
-> The rules the relay holds every waiting question and every delivery to (local ADR 0041). The waiting question and its routing are built: `WaitingQuestions` holds the transitions, `QuestionRelay` the route, the publishing and the answers, and `SqliteWaitingQuestionStore` the record. The MCP changes and the Manager's deliveries come in the plan's later items, so their `Enforced at:` still names where each rule will sit.
+> The rules the relay holds every waiting question and every delivery to (local ADR 0041). `WaitingQuestions` holds the transitions, the delivery's claim among them, `QuestionRelay` the route, the publishing and the answers, `SqliteWaitingQuestionStore` the record, and the session-request tools and the dispatch wait route hand the deliveries to the Manager.
 
 ### Invariant: Presence picks the route once
 
@@ -986,20 +986,36 @@ Enforced at: `WaitingQuestions.Close()`, `QuestionRelay.CloseAsync()` (each noti
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_delivery_carries_the_stored_question_and_the_accepted_answer, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_dialog_of_several_questions_is_delivered_numbered_one_per_line, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_delivery_is_handed_out_before_an_older_session_request]
 ```
 
 A delivery holds the session id, the question as the session asked it and the answer the owner accepted, and nothing else the Manager could act on.
 The Manager never answers a question itself, and writes its message from these alone.
 
-Enforced at: open, not yet built: the delivery record and the wait route (ADR 0041 §3)
+Enforced at: `WaitingQuestions.DeliveryText()`, `AnswerDeliveryPayload.From()` (ADR 0041 §3)
 
 ### Invariant: Only one Manager holds a delivery
 
 ```meta
 status: draft
 type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_second_dispatcher_cannot_claim_a_held_delivery, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_lapsed_claim_reads_as_pending_again_and_can_be_claimed_by_another, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.Delivered_is_final, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.Only_the_holder_marks_a_delivery, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_lapsed_claim_nobody_took_since_is_still_marked_delivered_by_its_claimant, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_released_delivery_is_pending_and_held_back_from_the_route_for_one_lease, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DeliveryToolsTests.A_lapsed_claim_reads_as_pending_and_its_holder_can_no_longer_release_it]
 ```
 
 A delivery is claimed only while Pending, under a two-minute lease; a lease that runs out reads as Pending again, and Delivered is final.
+Only the dispatcher holding the claim marks it, but its `delivered` still counts after its lease ran out while nobody else claimed it, because the answer was sent; a release holds the delivery back from the wait route and from a new claim for one lease.
 
-Enforced at: open, not yet built: `claim_delivery` and `mark_delivery` (ADR 0041, Amends)
+Enforced at: `WaitingQuestions.ClaimDelivery()`, `MarkDelivered()`, `ReleaseDelivery()`, applied in one write by `SqliteWaitingQuestionStore.ChangeAsync()` (ADR 0041, Amends)
+
+### Invariant: Deliveries come before session requests, and only for a session the desktop app holds open
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_delivery_is_handed_out_before_an_older_session_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.Deliveries_are_handed_out_oldest_answer_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_delivery_whose_session_the_desktop_app_does_not_hold_open_is_not_handed_out, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_released_delivery_is_held_back_for_one_lease]
+```
+
+The dispatch wait route hands out a due delivery, oldest answer first, before any session request, because its session already holds a worktree.
+A delivery whose session the Claude desktop app holds no open record of is never handed out: a CLI session gets its answer only through the hook or in the session, and an ended one has nobody to send it to.
+
+Enforced at: `SessionRequestWaitEndpoint.WaitAsync()`, `WaitingQuestions.DueDeliveries()`, `DesktopSessionIds` (ADR 0041, Amends)

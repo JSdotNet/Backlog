@@ -106,6 +106,30 @@ public sealed class SqliteWaitingQuestionStoreTests : IDisposable
         Assert.Null((await store.ChangeAsync(Guid.NewGuid(), held => WaitingQuestionOutcome.Done(held), Ct)).Question);
     }
 
+    [Fact]
+    public async Task A_delivery_claim_survives_a_round_trip_and_only_undelivered_ones_are_listed_as_such()
+    {
+        var store = Store();
+        var question = await store.RegisterAsync(Dialog(away: true), Ct);
+        var notified = WaitingQuestions.Notify(question, [Guid.NewGuid(), Guid.NewGuid()]).Question!;
+        var answered = WaitingQuestions.Answer(notified, notified.NotificationIds[0], RelayAnswer.Open("MySQL"), Noon.AddMinutes(5)).Question!;
+        answered = WaitingQuestions.Answer(answered, answered.NotificationIds[1], new RelayAnswer(["a"]), Noon.AddMinutes(5)).Question!;
+        await store.ChangeAsync(question.Id, _ => WaitingQuestionOutcome.Done(answered), Ct);
+        await store.RegisterAsync(Dialog("toolu_2"), Ct);
+
+        var claimed = await store.ChangeAsync(question.Id, held => WaitingQuestions.ClaimDelivery(held, "manager-1", Noon.AddMinutes(6)), Ct);
+
+        var read = (await store.GetAsync(question.Id, Ct))!;
+        Assert.Equal(claimed.Question, read);
+        Assert.Equal("manager-1", read.DeliveryClaimedBy);
+        Assert.Equal(Noon.AddMinutes(8), read.DeliveryLeaseEndsAt);
+        Assert.Equal([question.Id], (await store.ListUndeliveredAsync(Ct)).Select(held => held.Id));
+
+        await store.ChangeAsync(question.Id, held => WaitingQuestions.MarkDelivered(held, "manager-1", Noon.AddMinutes(7)), Ct);
+
+        Assert.Empty(await store.ListUndeliveredAsync(Ct));
+    }
+
     public void Dispose()
     {
         SqliteConnection.ClearAllPools();

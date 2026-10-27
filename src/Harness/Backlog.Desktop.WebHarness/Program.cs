@@ -380,7 +380,9 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
             context.RequestServices.GetRequiredService<ISessionRequestStore>(),
             context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
             TimeProvider.System,
-            context.RequestAborted);
+            context.RequestAborted,
+            questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
+            sessions: context.RequestServices.GetService<IAgentSessionSource>());
     }
     catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
     {

@@ -129,7 +129,8 @@ internal static class Projections
         session.LastActivityAt,
         session.State.ToString(),
         session.TurnCount,
-        session.Origin.ToString());
+        session.Origin.ToString(),
+        session.DesktopSessionId);
 
     internal static SurfaceOpenedPayload SurfaceOpened(DeliverySurfaceOpened opened) => new(
         // The member name, never the ordinal: DeliverySurfaceActivation's own
