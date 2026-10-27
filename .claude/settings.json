@@ -6,5 +6,64 @@
         "repo": "JSdotNet/devbook"
       }
     }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs\" pre",
+            "timeout": 28800
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs\" post",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs\" stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs\" prompt",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs\" end",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }
