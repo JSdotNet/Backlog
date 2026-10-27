@@ -314,6 +314,15 @@ public sealed record AiModelUsage(
     public IReadOnlyList<string> Technologies =>
         [.. DependsOn.Select(reference => reference.Label).Distinct(StringComparer.OrdinalIgnoreCase)];
 
+    /// <summary>The <c>.tech</c> chapter a scheduled usage depends on.</summary>
+    internal const string ScheduleSlug = "delivery-schedule";
+
+    /// <summary>Whether a schedule runs the usage: it depends on the delivery
+    /// schedule — the one platform every scheduled usage is built on. The
+    /// Cohesion and Adoption tabs both draw it as a clock.</summary>
+    public bool IsScheduled =>
+        DependsOn.Any(reference => string.Equals(reference.Slug, ScheduleSlug, StringComparison.OrdinalIgnoreCase));
+
     internal static AiModelUsage From(
         DocumentDevbookFile file,
         DocumentDevbookSection section,

@@ -4333,6 +4333,26 @@ button.devbook-chip__label:focus-visible {
 .adoption-card--settled:hover,
 .adoption-card--settled:focus-visible { opacity: 1; }
 
+.adoption-card__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+/* The scheduled clock, the Cohesion board's glyph: stroke only, in the
+   secondary ink, so it never reads as a rung's colour. */
+.adoption-scheduled {
+    flex: none;
+    fill: none;
+    stroke: var(--color-text-secondary);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.adoption-card__head .adoption-scheduled { margin-top: 2px; }
+
 .adoption-card__title {
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);

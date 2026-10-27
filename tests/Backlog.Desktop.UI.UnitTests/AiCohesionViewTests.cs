@@ -72,6 +72,26 @@ public sealed class AiCohesionViewTests
     }
 
     [Fact]
+    public void A_platform_is_named_by_its_tech_chapter_s_heading_when_the_host_read_one()
+    {
+        var names = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [DevbookChapterHeadings.KeyOf(DevbookReference.Parse(Schedule)!)] = "Delivery Schedule"
+        };
+
+        var (graph, _) = AiCohesionView.Graph(Model, names);
+
+        // The schedule's heading is the chapter's; the engine's, unread, falls back to its slug.
+        Assert.Equal(["Delivery engine", "Delivery Schedule"], graph.Platforms.Select(platform => platform.Name));
+    }
+
+    [Fact]
+    public void The_scheduled_predicate_is_the_usage_s_own_so_every_tab_reads_it_alike()
+    {
+        Assert.Equal(["Upkeep"], Model.Usages.Where(usage => usage.IsScheduled).Select(usage => usage.Heading));
+    }
+
+    [Fact]
     public void The_layout_s_edges_carry_over_with_their_kind_dash_label_and_route()
     {
         var (graph, _) = AiCohesionView.Graph(Model);

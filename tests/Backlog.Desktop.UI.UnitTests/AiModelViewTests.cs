@@ -37,6 +37,18 @@ public sealed class AiModelViewTests
         Assert.Equal(["QA agent"], verify.Cards[1].Usages.Select(usage => usage.Name));
     }
 
+    [Theory]
+    [InlineData("functional-qa", "Functional QA")]
+    [InlineData("build-test", "Build test")]
+    [InlineData("break-down", "Break down")]
+    [InlineData("ci-repair", "CI repair")]
+    [InlineData("open-pr", "Open PR")]
+    [InlineData("mcp-servers", "MCP servers")]
+    [InlineData("ai-review", "AI review")]
+    [InlineData("qaish", "Qaish")]
+    public void A_sub_stage_name_is_its_slug_with_known_acronyms_in_capitals(string word, string expected) =>
+        Assert.Equal(expected, AiModelView.SubstageName(word));
+
     [Fact]
     public void An_empty_stage_is_one_empty_unnamed_card()
     {

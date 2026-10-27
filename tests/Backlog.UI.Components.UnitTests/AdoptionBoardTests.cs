@@ -140,6 +140,31 @@ public sealed class AdoptionBoardTests
     }
 
     [Fact]
+    public void A_scheduled_card_carries_the_clock_and_the_legend_keys_it()
+    {
+        using var context = Context();
+        var model = new AdoptionBoardModel(Homes,
+        [
+            new("s", "decide", "Scheduled sweep", AdoptionRung.Trial, AdoptionEvidence.None, Scheduled: true),
+            new("t", "decide", "Tracker", AdoptionRung.Adopted, AdoptionEvidence.Recorded)
+        ]);
+
+        var board = context.Render<AdoptionBoard>(parameters => parameters.Add(p => p.Model, model));
+
+        var cards = board.FindAll("[data-testid='adoption-card']");
+        var scheduled = cards.Single(card => card.TextContent.Contains("Scheduled sweep", StringComparison.Ordinal));
+        var clock = scheduled.QuerySelector("[data-testid='adoption-card-scheduled']");
+        Assert.NotNull(clock);
+        Assert.Equal("img", clock.GetAttribute("role"));
+        Assert.Equal("scheduled", clock.GetAttribute("aria-label"));
+        Assert.Null(cards.Single(card => card.TextContent.Contains("Tracker", StringComparison.Ordinal)).QuerySelector("[data-testid='adoption-card-scheduled']"));
+
+        var legend = board.Find("[data-testid='adoption-legend-scheduled']");
+        Assert.Contains("scheduled", legend.TextContent);
+        Assert.Equal("true", legend.QuerySelector("svg")!.GetAttribute("aria-hidden"));
+    }
+
+    [Fact]
     public void The_toggle_steps_back_what_has_its_record_and_what_is_off_the_ladder()
     {
         using var context = Context();

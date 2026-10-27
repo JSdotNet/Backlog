@@ -25,18 +25,22 @@
 </div>
 
 @code {
-    /// <summary>The <c>.tech</c> chapter a scheduled usage depends on.</summary>
-    internal const string ScheduleSlug = "delivery-schedule";
-
     /// <summary>The model the tab draws, read from the folder by <see cref="AiModel.From"/>.</summary>
     [Parameter, EditorRequired]
     public AiModel Model { get; set; } = default!;
+
+    /// <summary>The <c>##</c> heading of each <c>.tech</c> chapter a usage
+    /// depends on, keyed by <see cref="DevbookChapterHeadings.KeyOf"/> — a
+    /// platform's name. One the host could not read is named from its slug.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? PlatformNames { get; set; }
 
     /// <summary>Raised when a reader opens a usage's chapter; the host owns the selection.</summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
     private AiModel? _drawn;
+    private IReadOnlyDictionary<string, string>? _named;
     private CohesionGraph _graph = CohesionGraph.Empty;
     private Dictionary<string, AiModelUsage> _byId = new(StringComparer.Ordinal);
     private CohesionView _view;
@@ -45,10 +49,11 @@
 
     protected override void OnParametersSet()
     {
-        if (ReferenceEquals(Model, _drawn)) return;
+        if (ReferenceEquals(Model, _drawn) && ReferenceEquals(PlatformNames, _named)) return;
 
         _drawn = Model;
-        (_graph, _byId) = Graph(Model);
+        _named = PlatformNames;
+        (_graph, _byId) = Graph(Model, PlatformNames);
     }
 
     private Task OpenUsage(string id) =>
@@ -56,7 +61,7 @@
 
     /// <summary>The model laid out and turned into the board's graph, with the
     /// usage each node id stands for.</summary>
-    internal static (CohesionGraph Graph, Dictionary<string, AiModelUsage> ById) Graph(AiModel model)
+    internal static (CohesionGraph Graph, Dictionary<string, AiModelUsage> ById) Graph(AiModel model, IReadOnlyDictionary<string, string>? platformNames = null)
     {
         var layout = AiCohesionLayout.From(model);
 
@@ -83,7 +88,7 @@
                 var id = PlatformId(reference);
                 if (built.Contains(id, StringComparer.Ordinal)) continue;
                 built.Add(id);
-                if (platformIds.Add(id)) platforms.Add(new CohesionPlatform(id, PlatformName(reference)));
+                if (platformIds.Add(id)) platforms.Add(new CohesionPlatform(id, PlatformName(reference, platformNames)));
             }
 
             var where = node.Layer is { } layer
@@ -94,7 +99,7 @@
                 ids[usage],
                 usage.Heading,
                 usage.Status,
-                IsScheduled(usage),
+                usage.IsScheduled,
                 node.Column + 1,
                 where,
                 node.Layer is null,
@@ -148,17 +153,15 @@
 
     /// <summary>A platform is the chapter a <c>depends-on</c> addresses, so two
     /// usages naming it in different spellings count once.</summary>
-    private static string PlatformId(DevbookReference reference) =>
-        reference.Slug is null ? reference.Path.ToLowerInvariant() : $"{reference.Path.ToLowerInvariant()}#{reference.Slug.ToLowerInvariant()}";
+    private static string PlatformId(DevbookReference reference) => DevbookChapterHeadings.KeyOf(reference);
 
-    private static string PlatformName(DevbookReference reference)
+    /// <summary>A platform's name is its <c>.tech</c> chapter's heading, as the
+    /// chapter writes it; without one, the slug read back as words.</summary>
+    private static string PlatformName(DevbookReference reference, IReadOnlyDictionary<string, string>? names)
     {
+        if (names is not null && names.TryGetValue(PlatformId(reference), out var heading)) return heading;
+
         var label = reference.Label;
         return label.Length == 0 ? reference.Raw : char.ToUpperInvariant(label[0]) + label[1..];
     }
-
-    /// <summary>A schedule runs the usage when it depends on the delivery
-    /// schedule — the one platform every scheduled usage is built on.</summary>
-    internal static bool IsScheduled(AiModelUsage usage) =>
-        usage.DependsOn.Any(reference => string.Equals(reference.Slug, ScheduleSlug, StringComparison.OrdinalIgnoreCase));
 }

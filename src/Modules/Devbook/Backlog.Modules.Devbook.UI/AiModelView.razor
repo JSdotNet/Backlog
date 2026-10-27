@@ -87,13 +87,27 @@
             stage.Status);
     }
 
+    /// <summary>The short words a sub-stage name spells in capitals wherever it
+    /// uses them — the whole display rule beyond the slug; no name is mapped.</summary>
+    internal static readonly IReadOnlySet<string> Acronyms =
+        new HashSet<string>(["qa", "ci", "pr", "mcp", "ai"], StringComparer.OrdinalIgnoreCase);
+
     /// <summary>The repository's word after the slash, read as a name: hyphens
-    /// become spaces and the first letter is capitalised — <c>break-down</c> is
-    /// "Break down".</summary>
+    /// become spaces, the first letter is capitalised and a known acronym is
+    /// upper-cased — <c>break-down</c> is "Break down", <c>functional-qa</c> is
+    /// "Functional QA".</summary>
     internal static string SubstageName(string word)
     {
-        var spaced = word.Replace('-', ' ').Trim();
-        return spaced.Length == 0 ? word : char.ToUpperInvariant(spaced[0]) + spaced[1..];
+        var words = word.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (words.Length == 0) return word;
+
+        for (var index = 0; index < words.Length; index++)
+        {
+            if (Acronyms.Contains(words[index])) words[index] = words[index].ToUpperInvariant();
+        }
+
+        words[0] = char.ToUpperInvariant(words[0][0]) + words[0][1..];
+        return string.Join(' ', words);
     }
 
     private static DeliveryPathUsage Usage(AiModelUsage usage) => new(Id(usage), usage.Heading, usage.Status);

@@ -1,3 +1,5 @@
+using Backlog.UI.Components.Devbook;
+
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
@@ -16,7 +18,8 @@ namespace Backlog.Desktop.UI.Devbook;
 /// Every node sits on one grid, so the gutters between columns and between rows
 /// are free of nodes: an edge leaves a node's side, runs through those gutters
 /// and enters the other node's side. Parallel runs in one gutter get distinct
-/// offsets, and no segment crosses a node's box.
+/// offsets, and no segment crosses a node's box. Each label the board draws sits
+/// on its edge, clear of every box and of the labels lit beside it.
 /// </para>
 /// </summary>
 /// <param name="Width">The whole graph's width.</param>
@@ -63,8 +66,57 @@ public sealed record AiCohesionLayout(
     private const double PortInset = 10;
     private const string OperateStage = "operate";
     private const string Candidate = "candidate";
+    private const string Adopted = "adopted";
+
+    /// <summary>The width of one character of a label: Fira Code's advance —
+    /// and Courier New's, its fallback — at the board's 10px label size.</summary>
+    public const double LabelCharWidth = 6;
+
+    /// <summary>What a label adds to its text across: 7px of padding and a
+    /// 1px border on each side.</summary>
+    public const double LabelPaddingX = 16;
+
+    /// <summary>A label's height: one 15px line of 10px text, 2px of padding
+    /// and a 1px border above and below. It fits the 22px gap between rows.</summary>
+    public const double LabelHeight = 21;
+
+    /// <summary>The space kept round a label: half the pixel a row gap has to
+    /// spare over a label's height.</summary>
+    private const double LabelClearance = 0.5;
+
+    /// <summary>How many times the labels still overlapping are moved again.</summary>
+    private const int RepairRounds = 4;
+
+    /// <summary>How far a label is nudged at a time while it looks for a clear place.</summary>
+    private const double LabelStep = 4;
+
+    /// <summary>How much of a label stays over its line however far it stands
+    /// off it, so it still reads as that edge's.</summary>
+    private const double LabelGrip = 2;
 
     public static double ColumnX(int column) => Margin + column * (NodeWidth + ColumnGap);
+
+    /// <summary>The box <paramref name="label"/> covers centred on
+    /// <paramref name="at"/>, as the board draws it.</summary>
+    public static AiCohesionBox LabelBox(string label, AiCohesionPoint at)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+        var width = label.Length * LabelCharWidth + LabelPaddingX;
+        return new AiCohesionBox(at.X - width / 2, at.Y - LabelHeight / 2, width, LabelHeight);
+    }
+
+    /// <summary>Whether the board draws the edge's label when the edge is lit:
+    /// it has one, and a run at least <see cref="CohesionBoard.MinLabelledRun"/> long.</summary>
+    public static bool IsLabelled(AiCohesionEdge edge)
+    {
+        ArgumentNullException.ThrowIfNull(edge);
+        return edge.Label is not null && LongestRun(edge.Points) >= CohesionBoard.MinLabelledRun;
+    }
+
+    private static double LongestRun(IReadOnlyList<AiCohesionPoint> points) =>
+        points.Count < 2 ? 0 : Enumerable.Range(1, points.Count - 1).Max(i => Length(points[i - 1], points[i]));
+
+    private static double Length(AiCohesionPoint a, AiCohesionPoint b) => Math.Abs(b.X - a.X) + Math.Abs(b.Y - a.Y);
 
     public static AiCohesionLayout From(AiModel model)
     {
@@ -139,7 +191,9 @@ public sealed record AiCohesionLayout(
                 if (feed.To is not { } to || ReferenceEquals(feed.From, to) || !placed.Contains(feed.From) || !placed.Contains(to)) continue;
 
                 var dashed = IsCandidate(feed.From) || IsCandidate(to);
-                var openLoop = IsCandidate(feed.From) && feed.From.Stages.Contains(OperateStage, StringComparer.Ordinal);
+                var openLoop = IsCandidate(feed.From)
+                    && feed.From.Stages.Contains(OperateStage, StringComparer.Ordinal)
+                    && IsStatus(to, Adopted);
                 links.Add(new Link(openLoop ? AiCohesionEdgeKind.OpenLoop : AiCohesionEdgeKind.Feed, feed.From, to, feed.Label, dashed));
             }
 
@@ -156,8 +210,10 @@ public sealed record AiCohesionLayout(
         /// make — a stage puts it on the path, a layer alone in a band.</summary>
         private static bool IsPlaced(AiModelUsage usage) => usage.Stages.Count > 0 || usage.Layers.Count > 0;
 
-        private static bool IsCandidate(AiModelUsage usage) =>
-            string.Equals(usage.Status, Candidate, StringComparison.OrdinalIgnoreCase);
+        private static bool IsCandidate(AiModelUsage usage) => IsStatus(usage, Candidate);
+
+        private static bool IsStatus(AiModelUsage usage, string status) =>
+            string.Equals(usage.Status, status, StringComparison.OrdinalIgnoreCase);
 
         private static Dictionary<AiModelUsage, List<AiModelUsage>> Neighbours(IEnumerable<Link> links)
         {
@@ -336,7 +392,7 @@ public sealed record AiCohesionLayout(
             AssignChannelTracks(plans);
             AssignGutterTracks(plans);
 
-            return [.. plans.Select(Edge)];
+            return LabelPlacer.Place([.. plans.Select(Edge)], nodes, ColumnX(columns - 1) + NodeWidth + Margin);
         }
 
         private Plan Plan(int index, Link link, Dictionary<(int, int), AiCohesionNode> occupied)
@@ -601,18 +657,202 @@ public sealed record AiCohesionLayout(
             return result;
         }
 
-        /// <summary>The middle of the longest segment: where the label reads best.</summary>
+        /// <summary>The middle of the longest segment: where a label the board
+        /// never draws is put, and where <see cref="LabelPlacer"/> starts from
+        /// when an edge has no horizontal run wide enough.</summary>
         private static AiCohesionPoint LabelPoint(List<AiCohesionPoint> points)
         {
             var best = (Length: -1.0, Point: points[0]);
             for (var i = 1; i < points.Count; i++)
             {
-                var length = Math.Abs(points[i].X - points[i - 1].X) + Math.Abs(points[i].Y - points[i - 1].Y);
+                var length = Length(points[i - 1], points[i]);
                 if (length > best.Length) best = (length, new AiCohesionPoint((points[i].X + points[i - 1].X) / 2, (points[i].Y + points[i - 1].Y) / 2));
             }
 
             return best.Point;
         }
+    }
+
+    /// <summary>
+    /// Puts each drawn label where it covers no box and no other label lit with
+    /// it. A label sits on its own edge: on the longest horizontal run wide
+    /// enough to hold it, else on its segments longest first, nudged along the
+    /// run — and across it, never off the line — until its box is
+    /// clear, and inside the board's width. The label with the fewest clear
+    /// places goes first; each clears the ones placed before it, and a few
+    /// rounds then move any label still overlapping to its least crowded place.
+    /// <para>
+    /// Clear is judged in tiers: of every box first, then of the labels lit in
+    /// the same view — Forward or What feeds back — then of every other label,
+    /// which a picked usage may light beside it. Where no place clears all
+    /// three the one that overlaps least, tier by tier, wins.
+    /// </para>
+    /// </summary>
+    private static class LabelPlacer
+    {
+        public static List<AiCohesionEdge> Place(List<AiCohesionEdge> edges, Dictionary<AiModelUsage, AiCohesionNode> nodes, double width)
+        {
+            var boxes = nodes.Values.Select(node => node.Box).ToList();
+            var placed = new Dictionary<int, (AiCohesionBox Box, LabelView View, Score Score)>();
+
+            // The label with the fewest clear places goes first, so a long run
+            // that could hold its label anywhere does not take a short run's one spot.
+            var order = Enumerable.Range(0, edges.Count)
+                .Where(index => IsLabelled(edges[index]))
+                .OrderBy(index => Candidates(edges[index].Points, edges[index].Label!, boxes)
+                    .Count(at => !boxes.Any(RoomFor(edges[index].Label!, at).Intersects)))
+                .ThenBy(index => index)
+                .ToList();
+
+            foreach (var index in order)
+            {
+                placed[index] = Best(index);
+            }
+
+            // A label placed early may hold the one spot a later one needed: each
+            // label still overlapping moves to its least crowded place against all
+            // the others, and they settle within a few rounds.
+            for (var round = 0; round < RepairRounds; round++)
+            {
+                var moved = false;
+                foreach (var index in order)
+                {
+                    var current = Rescore(index, placed[index].Box, placed[index].View);
+                    placed[index] = placed[index] with { Score = current };
+                    if (current.IsClear) continue;
+
+                    var better = Best(index);
+                    if (better.Score.CompareTo(current) >= 0) continue;
+                    placed[index] = better;
+                    moved = true;
+                }
+
+                if (!moved) break;
+            }
+
+            return [.. edges.Select((edge, index) => placed.TryGetValue(index, out var label)
+                ? edge with { LabelAt = new AiCohesionPoint(label.Box.X + label.Box.Width / 2, label.Box.Y + label.Box.Height / 2) }
+                : edge)];
+
+            (AiCohesionBox Box, LabelView View, Score Score) Best(int index)
+            {
+                var edge = edges[index];
+                var view = ViewOf(nodes[edge.From], nodes[edge.To]);
+                var obstacles = boxes.Concat(placed.Where(label => label.Key != index).Select(label => label.Value.Box)).ToList();
+                var best = (Box: RoomFor(edge.Label!, edge.LabelAt), Score: Score.Worst);
+                foreach (var at in Candidates(edge.Points, edge.Label!, obstacles))
+                {
+                    var box = RoomFor(edge.Label!, at);
+                    var score = Rescore(index, box, view);
+                    if (score.CompareTo(best.Score) < 0) best = (box, score);
+                    if (score.IsClear) break;
+                }
+
+                return (best.Box, view, best.Score);
+            }
+
+            Score Rescore(int index, AiCohesionBox box, LabelView view)
+            {
+                var others = placed.Where(label => label.Key != index).Select(label => label.Value).ToList();
+                return new Score(
+                    boxes.Sum(other => box.Overlap(other)) + (Math.Max(0, -box.X) + Math.Max(0, box.Right - width)) * box.Height,
+                    others.Where(label => view != LabelView.None && label.View == view).Sum(label => box.Overlap(label.Box)),
+                    others.Sum(label => box.Overlap(label.Box)));
+            }
+        }
+
+        /// <summary>How badly a label's box overlaps, tier by tier: the boxes
+        /// and the board's edge, the labels lit in its view, every other label.</summary>
+        private readonly record struct Score(double Boxes, double SameView, double Others) : IComparable<Score>
+        {
+            public static Score Worst => new(double.MaxValue, double.MaxValue, double.MaxValue);
+
+            public bool IsClear => Boxes == 0 && SameView == 0 && Others == 0;
+
+            public int CompareTo(Score other) => (Boxes, SameView, Others).CompareTo((other.Boxes, other.SameView, other.Others));
+        }
+
+        /// <summary>The room a label needs: its box and <see cref="LabelClearance"/>
+        /// round it, so a label the browser draws a fraction of a pixel off never
+        /// touches a box or another label.</summary>
+        private static AiCohesionBox RoomFor(string label, AiCohesionPoint at)
+        {
+            var box = LabelBox(label, at);
+            return new AiCohesionBox(box.X - LabelClearance, box.Y - LabelClearance, box.Width + 2 * LabelClearance, box.Height + 2 * LabelClearance);
+        }
+
+        /// <summary>The board's two focused views, read the way it reads them: a
+        /// hand-off is Forward when both ends are on the path and it moves to a
+        /// later stage, and feeds back when it leaves a layer or returns to an
+        /// earlier stage.</summary>
+        private static LabelView ViewOf(AiCohesionNode from, AiCohesionNode to)
+        {
+            if (from.Layer is null && to.Layer is null && to.Column > from.Column) return LabelView.Forward;
+            if (from.Layer is not null || (to.Layer is null && to.Column < from.Column)) return LabelView.FeedsBack;
+            return LabelView.None;
+        }
+
+        /// <summary>Where the label's centre may go, best first: along the wide
+        /// horizontal runs longest first, then along every other segment longest
+        /// first. On each, from the run's middle outwards — in steps, and at every
+        /// spot where the label's side meets an obstacle's — and centred on the
+        /// line before slid across it.</summary>
+        private static IEnumerable<AiCohesionPoint> Candidates(IReadOnlyList<AiCohesionPoint> points, string label, IReadOnlyList<AiCohesionBox> obstacles)
+        {
+            var size = RoomFor(label, default);
+            var segments = Enumerable.Range(1, points.Count - 1)
+                .Select(i => (A: points[i - 1], B: points[i]))
+                .Select(segment => (segment.A, segment.B, Horizontal: segment.A.Y == segment.B.Y, Length: Length(segment.A, segment.B)))
+                .ToList();
+            var wide = segments.Where(segment => segment.Horizontal && segment.Length >= size.Width).OrderByDescending(segment => segment.Length).ToList();
+            var rest = segments.Except(wide).OrderByDescending(segment => segment.Length);
+
+            // Where a label's side would meet an obstacle's: a clear spot an even
+            // step can miss, as a row gap only a pixel taller than the label.
+            var xs = obstacles.SelectMany(box => new[] { box.X - size.Width / 2, box.Right + size.Width / 2 }).ToList();
+            var ys = obstacles.SelectMany(box => new[] { box.Y - size.Height / 2, box.Bottom + size.Height / 2 }).ToList();
+
+            foreach (var segment in wide.Concat(rest))
+            {
+                // On a wide run the whole label stays over the run; elsewhere only its centre does.
+                var inset = segment.Horizontal && segment.Length >= size.Width ? size.Width / 2 : 0;
+                var (low, high) = segment.Horizontal
+                    ? (Math.Min(segment.A.X, segment.B.X) + inset, Math.Max(segment.A.X, segment.B.X) - inset)
+                    : (Math.Min(segment.A.Y, segment.B.Y), Math.Max(segment.A.Y, segment.B.Y));
+                var across = segment.Horizontal ? segment.A.Y : segment.A.X;
+                var (alongSnaps, acrossSnaps) = segment.Horizontal ? (xs, ys) : (ys, xs);
+
+                foreach (var along in Outwards((low + high) / 2, low, high, LabelStep, alongSnaps))
+                {
+                    // Across the run the label may slide until only its grip covers the line.
+                    var standOff = (segment.Horizontal ? size.Height : size.Width) / 2 - LabelGrip;
+                    foreach (var off in Outwards(across, across - standOff, across + standOff, LabelStep / 2, acrossSnaps))
+                    {
+                        yield return segment.Horizontal ? new AiCohesionPoint(along, off) : new AiCohesionPoint(off, along);
+                    }
+                }
+            }
+        }
+
+        /// <summary><paramref name="start"/>, then the steps either side of it and
+        /// the <paramref name="snaps"/> within <paramref name="low"/>–<paramref name="high"/>,
+        /// nearest first.</summary>
+        private static IEnumerable<double> Outwards(double start, double low, double high, double step, IEnumerable<double> snaps)
+        {
+            var steps = new List<double> { start };
+            for (var distance = step; start + distance <= high || start - distance >= low; distance += step)
+            {
+                if (start + distance <= high) steps.Add(start + distance);
+                if (start - distance >= low) steps.Add(start - distance);
+            }
+
+            return steps
+                .Concat(snaps.Where(snap => snap >= low && snap <= high))
+                .Distinct()
+                .OrderBy(value => Math.Abs(value - start));
+        }
+
+        private enum LabelView { None, Forward, FeedsBack }
     }
 
     private enum Shape { Straight, Jog, Channel }
@@ -648,7 +888,9 @@ public enum AiCohesionEdgeKind
     Feed,
 
     /// <summary>A <c>feeds</c> hand-off out of a candidate in production — at
-    /// the Operate stage — back into the loop: the loop that is still open.</summary>
+    /// the Operate stage — into an adopted usage: the loop that is still open.
+    /// A candidate's feed into anything not yet adopted is a dashed
+    /// <see cref="Feed"/>.</summary>
     OpenLoop,
 
     /// <summary>A <c>related</c> link: one usage supporting or steering another.</summary>
@@ -656,6 +898,21 @@ public enum AiCohesionEdgeKind
 }
 
 public readonly record struct AiCohesionPoint(double X, double Y);
+
+/// <summary>An axis-aligned box: a node's, or the one a label covers.</summary>
+public readonly record struct AiCohesionBox(double X, double Y, double Width, double Height)
+{
+    public double Right => X + Width;
+
+    public double Bottom => Y + Height;
+
+    /// <summary>The area the two boxes share; touching edges share none.</summary>
+    public double Overlap(AiCohesionBox other) =>
+        Math.Max(0, Math.Min(Right, other.Right) - Math.Max(X, other.X))
+        * Math.Max(0, Math.Min(Bottom, other.Bottom) - Math.Max(Y, other.Y));
+
+    public bool Intersects(AiCohesionBox other) => Overlap(other) > 0;
+}
 
 /// <param name="Stage">The stage the lane stands for.</param>
 /// <param name="X">The lane's left edge: half a gutter left of its nodes.</param>
@@ -680,6 +937,8 @@ public sealed record AiCohesionNode(AiModelUsage Usage, int Column, string? Laye
     public double Right => X + Width;
 
     public double Bottom => Y + Height;
+
+    public AiCohesionBox Box => new(X, Y, Width, Height);
 }
 
 /// <param name="Kind">A feed, the open loop, or a support edge.</param>
@@ -690,7 +949,8 @@ public sealed record AiCohesionNode(AiModelUsage Usage, int Column, string? Laye
 /// would hand on, it does not yet. A support edge's dash is its kind's.</param>
 /// <param name="Points">The orthogonal polyline, from the edge of
 /// <paramref name="From"/>'s box to the edge of <paramref name="To"/>'s.</param>
-/// <param name="LabelAt">Where the label sits: the middle of the longest segment.</param>
+/// <param name="LabelAt">Where the label's centre sits: on the edge, clear of
+/// every box and of the labels lit with it where the board has room.</param>
 public sealed record AiCohesionEdge(
     AiCohesionEdgeKind Kind,
     AiModelUsage From,
