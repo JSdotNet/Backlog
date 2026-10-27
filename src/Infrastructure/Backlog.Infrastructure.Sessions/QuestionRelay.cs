@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 using Backlog.Modules.Notifications.Abstractions;
@@ -21,7 +22,7 @@ namespace Backlog.Infrastructure.Sessions;
 /// notification, its replies and which reply became the answer stay Notifications'.
 /// </para>
 /// </summary>
-public sealed class QuestionRelay
+public sealed class QuestionRelay : IQuestionRelay
 {
     private readonly IWaitingQuestionStore _store;
     private readonly IPresence? _presence;
@@ -34,6 +35,10 @@ public sealed class QuestionRelay
     // One publish at a time, so the escalation timer and an away ask never publish the
     // same question twice: each re-reads the question under the gate before it publishes.
     private readonly SemaphoreSlim _publishing = new(1, 1);
+
+    // What a held get_answer awaits: one completion source per question somebody is
+    // waiting on, completed and dropped the moment the question is answered or closed.
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource> _ended = new();
 
     /// <param name="store">This machine's waiting questions.</param>
     /// <param name="presence">Where the person is; null reads as at the keyboard, so a head
@@ -133,6 +138,41 @@ public sealed class QuestionRelay
     }
 
     /// <summary>
+    /// Records the hook's poll (<see cref="RecordPollAsync"/>), then holds until the question
+    /// is answered or closed, or <paramref name="wait"/> passes, by awaiting the completion
+    /// source an answer or a close completes — never a loop. Answers the question as it then
+    /// stands, or null for an unknown id.
+    /// </summary>
+    public async Task<WaitingQuestion?> WaitAsync(Guid id, TimeSpan wait, CancellationToken cancellationToken = default)
+    {
+        if (wait <= TimeSpan.Zero) return await RecordPollAsync(id, cancellationToken).ConfigureAwait(false);
+
+        // Taken before the state is read, so an answer that lands in between completes it.
+        var ended = _ended.GetOrAdd(id, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+
+        var polled = await RecordPollAsync(id, cancellationToken).ConfigureAwait(false);
+
+        if (polled is null || !polled.IsOpen)
+        {
+            if (polled is null) _ended.TryRemove(new KeyValuePair<Guid, TaskCompletionSource>(id, ended));
+            else Release(id);
+
+            return polled;
+        }
+
+        try
+        {
+            await ended.Task.WaitAsync(wait, _clock, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            // The wait ran out with the question still open: the caller asks again.
+        }
+
+        return await _store.GetAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Closes an open question with <paramref name="reason"/> — answered in the session with
     /// <paramref name="answers"/>, one per question; timed out; or session ended — and closes
     /// each of its notifications through <see cref="INotifications.CloseAsync"/>, with the
@@ -159,6 +199,8 @@ public sealed class QuestionRelay
                 ? Error.Validation("relay.answers_invalid", outcome.Refusal!)
                 : Error.Conflict("relay.already_ended", outcome.Refusal!);
         }
+
+        Release(id);
 
         await CloseNotificationsAsync(outcome.Question, cancellationToken).ConfigureAwait(false);
 
@@ -262,6 +304,8 @@ public sealed class QuestionRelay
 
         if (outcome.Question.State == WaitingQuestionState.Answered)
         {
+            Release(id);
+
             _logger.LogDebug(
                 outcome.Question.Delivery is null
                     ? "Waiting question {Question} is answered; its hook takes the answer."
@@ -359,6 +403,34 @@ public sealed class QuestionRelay
             WaitingQuestionCloseReason.SessionEnded => SessionNotificationSubjects.SessionEndedReason,
             _ => "Not published"
         };
+    }
+
+    async Task<QuestionRelayResult> IQuestionRelay.AskAsync(
+        string sessionId,
+        string? toolUseId,
+        IReadOnlyList<RelayQuestion> questions,
+        CancellationToken cancellationToken) =>
+        ToPort(await AskAsync(sessionId, toolUseId, questions, cancellationToken).ConfigureAwait(false));
+
+    Task<WaitingQuestion?> IQuestionRelay.FindAsync(Guid id, CancellationToken cancellationToken) =>
+        _store.GetAsync(id, cancellationToken);
+
+    async Task<QuestionRelayResult> IQuestionRelay.CloseAsync(
+        Guid id,
+        WaitingQuestionCloseReason reason,
+        IReadOnlyList<RelayAnswer>? answers,
+        CancellationToken cancellationToken) =>
+        ToPort(await CloseAsync(id, reason, answers, cancellationToken).ConfigureAwait(false));
+
+    private static QuestionRelayResult ToPort(Result<WaitingQuestion> result) =>
+        result.IsSuccess
+            ? QuestionRelayResult.Of(result.Value)
+            : QuestionRelayResult.Refused(result.Error.Code, result.Error.Message);
+
+    /// <summary>Completes and drops the completion source a held wait on <paramref name="id"/> awaits.</summary>
+    private void Release(Guid id)
+    {
+        if (_ended.TryRemove(id, out var ended)) ended.TrySetResult();
     }
 
     private static Error NotAvailable() =>
