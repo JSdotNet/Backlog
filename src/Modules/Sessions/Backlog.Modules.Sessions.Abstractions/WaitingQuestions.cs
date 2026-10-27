@@ -170,6 +170,27 @@ public sealed record WaitingQuestion(
     WaitingQuestionCloseReason? CloseReason,
     DateTimeOffset? EndedAt)
 {
+    /// <summary>The dispatcher that last claimed its delivery — the holder while Claimed,
+    /// the sender once Delivered; null while none has, and after a release.</summary>
+    public string? DeliveryClaimedBy { get; init; }
+
+    /// <summary>When the claim on its delivery runs out, while Claimed. On a Pending
+    /// delivery a dispatcher released, when the wait route offers it again; null otherwise.</summary>
+    public DateTimeOffset? DeliveryLeaseEndsAt { get; init; }
+
+    /// <summary>Its delivery's state at <paramref name="now"/>: a Claimed delivery whose
+    /// lease has run out reads as Pending again.</summary>
+    public AnswerDeliveryState? DeliveryAt(DateTimeOffset now) =>
+        Delivery == AnswerDeliveryState.Claimed && (DeliveryLeaseEndsAt is not { } end || end <= now)
+            ? AnswerDeliveryState.Pending
+            : Delivery;
+
+    /// <summary>Whether the wait route offers its delivery at <paramref name="now"/>: it
+    /// reads as Pending and no release holds it back.</summary>
+    public bool DeliveryIsDueAt(DateTimeOffset now) =>
+        DeliveryAt(now) == AnswerDeliveryState.Pending
+        && (Delivery == AnswerDeliveryState.Claimed || DeliveryLeaseEndsAt is not { } heldUntil || heldUntil <= now);
+
     /// <summary>Whether it is still waiting: InSession or Notified.</summary>
     public bool IsOpen => State is WaitingQuestionState.InSession or WaitingQuestionState.Notified;
 
@@ -198,6 +219,8 @@ public sealed record WaitingQuestion(
         && EscalateAt == other.EscalateAt
         && HookPolledAt == other.HookPolledAt
         && Delivery == other.Delivery
+        && string.Equals(DeliveryClaimedBy, other.DeliveryClaimedBy, StringComparison.Ordinal)
+        && DeliveryLeaseEndsAt == other.DeliveryLeaseEndsAt
         && CloseReason == other.CloseReason
         && EndedAt == other.EndedAt;
 
@@ -465,6 +488,137 @@ public static class WaitingQuestions
         return question with { HookPolledAt = now };
     }
 
+    /// <summary>How long a claim holds a delivery before it reads as Pending again, and how
+    /// long a released delivery is held back from the wait route.</summary>
+    public static readonly TimeSpan DeliveryLease = TimeSpan.FromMinutes(2);
+
+    /// <summary>Pending → Claimed by <paramref name="dispatcher"/> until
+    /// <see cref="DeliveryLease"/> from <paramref name="now"/>. Refused unless the delivery
+    /// reads as Pending, so two dispatchers never both hold one delivery, and while a
+    /// release still holds it back, so a session that could not be reached is not tried
+    /// again on every turn.</summary>
+    public static WaitingQuestionOutcome ClaimDelivery(WaitingQuestion question, string dispatcher, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(question);
+
+        var who = Required(dispatcher, nameof(dispatcher));
+        var state = question.DeliveryAt(now);
+
+        if (state != AnswerDeliveryState.Pending)
+        {
+            return WaitingQuestionOutcome.Refused(question, state is null
+                ? "The question has no delivery."
+                : $"The delivery is {state}, and only a Pending delivery can be claimed.");
+        }
+
+        if (!question.DeliveryIsDueAt(now))
+        {
+            return WaitingQuestionOutcome.Refused(question,
+                $"The delivery was released and is held back until {question.DeliveryLeaseEndsAt:O}.");
+        }
+
+        return WaitingQuestionOutcome.Done(question with
+        {
+            Delivery = AnswerDeliveryState.Claimed,
+            DeliveryClaimedBy = who,
+            DeliveryLeaseEndsAt = now + DeliveryLease
+        });
+    }
+
+    /// <summary>Claimed → Delivered, reported by the dispatcher that claimed it once it sent
+    /// the answer to the session. Delivered is final. Taken from that dispatcher after its
+    /// lease ran out too, as long as no other claimed it since: the answer was sent, and
+    /// refusing the report would only have the route offer it again and send it twice.</summary>
+    public static WaitingQuestionOutcome MarkDelivered(WaitingQuestion question, string dispatcher, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(question);
+
+        var who = Required(dispatcher, nameof(dispatcher));
+        var lapsedButStillTheirs = question.Delivery == AnswerDeliveryState.Claimed
+            && string.Equals(question.DeliveryClaimedBy, who, StringComparison.Ordinal);
+
+        if (!lapsedButStillTheirs && DeliveryHeldBy(question, who, now) is { } refusal)
+            return WaitingQuestionOutcome.Refused(question, refusal);
+
+        return WaitingQuestionOutcome.Done(question with
+        {
+            Delivery = AnswerDeliveryState.Delivered,
+            DeliveryLeaseEndsAt = null
+        });
+    }
+
+    /// <summary>Claimed → Pending, given back by the dispatcher holding the claim: the
+    /// session could not be reached, or the dispatcher restarted. The wait route offers it
+    /// again once <see cref="DeliveryLease"/> has passed, so a session that cannot be
+    /// reached is not offered on every call.</summary>
+    public static WaitingQuestionOutcome ReleaseDelivery(WaitingQuestion question, string dispatcher, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(question);
+
+        if (DeliveryHeldBy(question, Required(dispatcher, nameof(dispatcher)), now) is { } refusal)
+            return WaitingQuestionOutcome.Refused(question, refusal);
+
+        return WaitingQuestionOutcome.Done(question with
+        {
+            Delivery = AnswerDeliveryState.Pending,
+            DeliveryClaimedBy = null,
+            DeliveryLeaseEndsAt = now + DeliveryLease
+        });
+    }
+
+    /// <summary>The deliveries among <paramref name="held"/> the wait route offers at
+    /// <paramref name="now"/>, a lapsed claim included, oldest answer first.</summary>
+    public static IReadOnlyList<WaitingQuestion> DueDeliveries(IEnumerable<WaitingQuestion> held, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(held);
+
+        return
+        [
+            .. held
+                .Where(question => question.DeliveryIsDueAt(now))
+                .OrderBy(question => question.EndedAt ?? question.AskedAt)
+                .ThenBy(question => question.Id)
+        ];
+    }
+
+    /// <summary>The question and the answer a delivery carries, as the Manager's message
+    /// quotes them: one question and its answer as they are, several numbered one per line.</summary>
+    public static (string Question, string Answer) DeliveryText(WaitingQuestion question)
+    {
+        ArgumentNullException.ThrowIfNull(question);
+
+        if (question.Questions.Count == 1)
+            return (question.Questions[0].Question.Trim(), question.Answers.FirstOrDefault()?.Display ?? string.Empty);
+
+        var asked = new List<string>(question.Questions.Count);
+        var answered = new List<string>(question.Questions.Count);
+
+        for (var i = 0; i < question.Questions.Count; i++)
+        {
+            var n = (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            asked.Add($"{n}. {question.Questions[i].Question.Trim()}");
+            answered.Add($"{n}. {(i < question.Answers.Count ? question.Answers[i]?.Display : null) ?? string.Empty}");
+        }
+
+        return (string.Join('\n', asked), string.Join('\n', answered));
+    }
+
+    private static string? DeliveryHeldBy(WaitingQuestion question, string dispatcher, DateTimeOffset now)
+    {
+        var state = question.DeliveryAt(now);
+
+        if (state != AnswerDeliveryState.Claimed)
+        {
+            return question.Delivery == AnswerDeliveryState.Claimed
+                ? "The claim's lease has run out, so the delivery is Pending again."
+                : state is null ? "The question has no delivery." : $"The delivery is {state}, not Claimed.";
+        }
+
+        return string.Equals(question.DeliveryClaimedBy, dispatcher, StringComparison.Ordinal)
+            ? null
+            : "Another dispatcher holds the claim.";
+    }
+
     /// <summary>The index of the question <paramref name="notificationId"/> was published
     /// for, or -1.</summary>
     public static int IndexOf(WaitingQuestion question, Guid notificationId)
@@ -533,6 +687,12 @@ public interface IWaitingQuestionStore
 
     /// <summary>Every question, or only the open ones, oldest first.</summary>
     Task<IReadOnlyList<WaitingQuestion>> ListAsync(bool openOnly = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Every question whose delivery is Pending or Claimed, oldest first: what the
+    /// wait route and <c>list_deliveries</c> read, a lapsed claim included.</summary>
+    async Task<IReadOnlyList<WaitingQuestion>> ListUndeliveredAsync(CancellationToken cancellationToken = default) =>
+        [.. (await ListAsync(false, cancellationToken).ConfigureAwait(false))
+            .Where(question => question.Delivery is AnswerDeliveryState.Pending or AnswerDeliveryState.Claimed)];
 
     /// <summary>Applies <paramref name="transition"/> to the question with
     /// <paramref name="id"/> in one write, keeping the result when it succeeded.</summary>

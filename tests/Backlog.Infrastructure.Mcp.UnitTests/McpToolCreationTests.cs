@@ -57,6 +57,7 @@ public class McpToolCreationTests
         SurfaceTools.GetRun,
         GoalTools.ListGoals,
         SessionRequestTools.ListSessionRequests,
+        SessionRequestTools.ListDeliveries,
         NotificationTools.GetAnswer
     ];
 
@@ -139,6 +140,7 @@ public class McpToolCreationTests
                 NotificationTools.Ask,
                 GoalTools.AttachToGoal,
                 DevbookTools.CaptureNote,
+                SessionRequestTools.ClaimDelivery,
                 SessionRequestTools.ClaimSessionRequest,
                 NotificationTools.Close,
                 TrackerTools.Comment,
@@ -149,6 +151,7 @@ public class McpToolCreationTests
                 SurfaceTools.FinishRun,
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
+                SessionRequestTools.MarkDelivery,
                 SessionRequestTools.MarkSessionRequest,
                 NotificationTools.Notify,
                 SurfaceTools.OpenDashboard,
@@ -267,6 +270,12 @@ public class McpToolCreationTests
         Assert.Equal(["id", "outcome", "dispatcher"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "mark_session_request")));
         Assert.Equal(["state"], schemas["list_session_requests"]);
         Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_session_requests")));
+
+        // The delivery tools take a delivery id and a dispatcher, never a message (local ADR 0041).
+        Assert.Equal(["id", "dispatcher"], schemas["claim_delivery"]);
+        Assert.Equal(["id", "outcome", "dispatcher"], schemas["mark_delivery"]);
+        Assert.Equal(["state"], schemas["list_deliveries"]);
+        Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_deliveries")));
     }
 
     /// <summary>
