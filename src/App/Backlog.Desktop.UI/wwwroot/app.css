@@ -8698,6 +8698,18 @@ a.pull-request-detail-checks__name:hover {
 .devbook-stack__update-status--available { color: var(--color-primary); }
 .devbook-stack__update-status--blocked { color: var(--color-error-text); }
 
+/* The AI section's tab strip: four tabs that outgrow a phone-width pane. The
+   strip wraps onto a second row rather than clipping, and no tab squeezes or
+   breaks its word, so every tab stays whole, readable and reachable at once. */
+.ai-tabs { min-width: 0; }
+
+.ai-tabs > .tabs__list { flex-wrap: wrap; }
+
+.ai-tabs > .tabs__list > .tabs__tab {
+    flex: none;
+    white-space: nowrap;
+}
+
 /* The AI section's Devbook tab: one card per stack component, read from the
    stamps in .devbook/config.json. The cards wrap rather than squeeze, so a
    narrow pane stacks them. */

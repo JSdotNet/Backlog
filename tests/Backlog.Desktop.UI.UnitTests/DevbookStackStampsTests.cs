@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
 using Backlog.Desktop.UI.Devbook;
 using Backlog.SharedKernel.Devbook;
 using Backlog.SharedKernel.Metadata;
@@ -16,33 +19,66 @@ public sealed class DevbookStackStampsTests : IDisposable
     private readonly List<string> _roots = [];
 
     /// <summary>
-    /// The expected values are re-derived from the file itself with
-    /// <c>node -e "const c=require('./.devbook/config.json').components;for(const [k,v] of Object.entries(c))console.log(k,v.pluginVersion)"</c>;
-    /// a re-stamp updates them here in the same change.
+    /// The expected values are read from the repository's own
+    /// <c>.devbook/config.json</c> here, independently of the reader, so a
+    /// re-stamp keeps the test green while a reader that misreads the file
+    /// still turns it red.
     /// </summary>
     [Fact]
     public void The_repository_s_own_configuration_reads_as_its_stamps()
     {
+        var path = Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "config.json");
+        var components = JsonNode.Parse(System.IO.File.ReadAllText(path))!["components"]!;
+        var delivery = components["delivery"]!;
+        var devbookJson = components["devbook"]!;
+        var schedule = components["schedule"]!;
+
         var stamps = DevbookStackStamps.Read(RepositoryRoot.Root.FullName);
 
         Assert.NotNull(stamps);
-        Assert.Equal("1.28.0", stamps.Delivery?.PluginVersion);
-        Assert.Equal("1.30.1", stamps.Devbook?.PluginVersion);
-        Assert.Equal("1.26.0", stamps.Schedule?.PluginVersion);
+        Assert.Equal(Scalar(delivery["pluginVersion"]), stamps.Delivery?.PluginVersion);
+        Assert.Equal(Scalar(devbookJson["pluginVersion"]), stamps.Devbook?.PluginVersion);
+        Assert.Equal(Scalar(schedule["pluginVersion"]), stamps.Schedule?.PluginVersion);
 
         var devbook = stamps.Devbook!;
-        Assert.Equal("36", devbook.ContractVersion);
-        Assert.Equal(["arc42", "domain", "tech", "design", "ai"], devbook.Adopted);
-        Assert.Equal(["run", "capture", "diagnose", "estimate"], devbook.Procedures);
-        Assert.Equal(44, devbook.MaterializedFiles);
-        Assert.Equal(39, devbook.ManagedFiles);
-        Assert.Equal(5, devbook.UnmanagedFiles);
-        Assert.Equal(18, devbook.Migrations.Count);
-        Assert.Equal(new DevbookMigrationStamp("035-delivery-path-stages", "2026-10-26"), devbook.Migrations[^1]);
+        Assert.Equal(Scalar(devbookJson["contractVersion"]), devbook.ContractVersion);
+        Assert.Equal(Strings(devbookJson["adopted"]), devbook.Adopted);
+        Assert.Equal(Strings(devbookJson["procedures"]?["adopted"]), devbook.Procedures);
 
-        Assert.Equal(11, stamps.Schedule!.Enabled.Count);
-        Assert.Contains("issue-sweep", stamps.Schedule.Enabled);
+        var materialized = devbookJson["materialized"]!.AsObject();
+        var managed = materialized.Count(entry => entry.Value?["managed"]?.GetValueKind() == JsonValueKind.True);
+        Assert.Equal(materialized.Count, devbook.MaterializedFiles);
+        Assert.Equal(managed, devbook.ManagedFiles);
+        Assert.Equal(materialized.Count - managed, devbook.UnmanagedFiles);
+
+        var migrations = devbookJson["migrations"]!.AsArray()
+            .Select(migration => migration!.GetValueKind() == JsonValueKind.String
+                ? new DevbookMigrationStamp(migration.GetValue<string>(), null)
+                : new DevbookMigrationStamp(Scalar(migration["id"])!, Scalar(migration["applied"])))
+            .ToList();
+        Assert.Equal(migrations, devbook.Migrations);
+
+        Assert.Equal(Strings(schedule["enabled"]), stamps.Schedule!.Enabled);
+
+        // The file is this repository's real one: a test that read an empty
+        // configuration as agreeing with an empty reader would prove nothing.
+        Assert.NotNull(stamps.Delivery?.PluginVersion);
+        Assert.NotEmpty(devbook.Adopted);
+        Assert.NotEmpty(devbook.Migrations);
+        Assert.NotEmpty(stamps.Schedule.Enabled);
     }
+
+    private static string? Scalar(JsonNode? node) => node?.GetValueKind() switch
+    {
+        JsonValueKind.String => node.GetValue<string>().Trim(),
+        JsonValueKind.Number => node.ToJsonString(),
+        _ => null
+    };
+
+    private static List<string> Strings(JsonNode? node) =>
+        node is JsonArray array
+            ? [.. array.Where(item => item?.GetValueKind() == JsonValueKind.String).Select(item => item!.GetValue<string>().Trim()).Where(item => item.Length > 0)]
+            : [];
 
     [Fact]
     public void A_missing_component_is_not_adopted_and_the_rest_still_read()
