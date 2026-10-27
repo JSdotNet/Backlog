@@ -1148,7 +1148,7 @@ by waiting on the listener's long poll.
 
 | Dispatcher call | What it does |
 | --- | --- |
-| `GET /session-requests/wait` | Answers the oldest Requested request at once, or holds the call up to 50 seconds and answers `204`. It hands the request out without claiming it. |
+| `GET /session-requests/wait` | Answers one item at once — an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`) — or holds the call up to 50 seconds and answers `204`. It hands the item out without claiming it. |
 | `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. The holder asking again is told it holds it; the lease is not renewed. |
 | `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. Only the dispatcher holding the claim may mark it. |
 | `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
@@ -1259,8 +1259,9 @@ dispatch wait route of the [Session Request Queue](#session-request-queue).
 | `ask` with a session id and `toolUseId`, `questions` or `kind` | Registers a Waiting Question — a `dialog` of one to four questions in `AskUserQuestion`'s shape with its tool use id, or one `prose` question — or answers the one already registered for that tool use. Answers the `route` (`session` or `backlog`), the question's id and `waitSeconds`, the dialog wait. |
 | `get_answer` with the question's id | Marks the hook as still waiting, then holds the call for `waitSeconds`, at most 55 seconds, on a completion source the relay completes when the question is answered or closed. Answers `open`; `answered`, with the answers keyed by question text and a multi-select's labels comma-joined, as the dialog takes them; or `closed` with its reason. |
 | `close` with the question's id | Closes the question with a reason: `answered-in-session`, with the answers in the same shape; `timed-out`; or `session-ended`. |
-| `GET /session-requests/wait` | Hands a waiting Manager a delivery before any session request. |
-| `claim_delivery`, `mark_delivery` | Claim a delivery under a two-minute lease, then mark it `delivered`, or `released` when the session is gone. |
+| `GET /session-requests/wait` | Hands a waiting Manager a due delivery before any session request, oldest answer first, with the session id, the Claude desktop app's id for it, the question and the answer. Only a session the desktop app holds open gets one. |
+| `claim_delivery`, `mark_delivery` | Claim a delivery under a two-minute lease, then mark it `delivered`, or `released` when the session is gone. Only the dispatcher holding the claim may mark it. |
+| `list_deliveries` | Lists the deliveries not yet delivered, or those Pending or Claimed, for a Manager that restarts. |
 
 ### Waiting Question
 
@@ -1320,8 +1321,13 @@ relay records the answer as one for the Manager to send to the session.
 **Delivery state.** A delivery is Pending until the Manager claims it, then Claimed
 under a two-minute lease, then Delivered once the Manager sent the message, or
 Released back to Pending when the session could not be reached. A lease that runs out
-reads as Pending again. A question answered in the session, or through the hook,
-never gets a delivery.
+reads as Pending again. A released delivery is held back from the wait route for one
+lease, so a session that cannot be reached does not wake the Manager on every call. A
+question answered in the session, or through the hook, never gets a delivery.
+
+The Manager's capacity rule counts a dispatched session that holds an open Waiting
+Question as waiting, not working: the session list reads it [Waiting](#session-state)
+and names the desktop app's id for it, which is the id the Manager started it under.
 
 [A session has at most one open question per tool
 use](domain.invariants.md#invariant-one-waiting-question-per-tool-use): hooks installed

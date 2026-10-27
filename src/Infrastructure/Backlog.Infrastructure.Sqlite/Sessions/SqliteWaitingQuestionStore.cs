@@ -28,7 +28,7 @@ public sealed class SqliteWaitingQuestionStore : IWaitingQuestionStore
 {
     private const string Columns =
         "id, session_id, tool_use_id, kind, route, state, questions, notification_ids, answers, " +
-        "asked_at, escalate_at, hook_polled_at, delivery, close_reason, ended_at";
+        "asked_at, escalate_at, hook_polled_at, delivery, close_reason, ended_at, delivery_claimed_by, delivery_lease_ends_at";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -94,6 +94,18 @@ public sealed class SqliteWaitingQuestionStore : IWaitingQuestionStore
             connection,
             null,
             openOnly ? $"WHERE state IN ('{nameof(WaitingQuestionState.InSession)}', '{nameof(WaitingQuestionState.Notified)}')" : string.Empty,
+            null,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<WaitingQuestion>> ListUndeliveredAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        return await ReadAsync(
+            connection,
+            null,
+            $"WHERE delivery IN ('{nameof(AnswerDeliveryState.Pending)}', '{nameof(AnswerDeliveryState.Claimed)}')",
             null,
             cancellationToken).ConfigureAwait(false);
     }
@@ -207,7 +219,11 @@ public sealed class SqliteWaitingQuestionStore : IWaitingQuestionStore
                 Instant(Text(reader, 11)),
                 delivery,
                 reason,
-                Instant(Text(reader, 14))));
+                Instant(Text(reader, 14)))
+            {
+                DeliveryClaimedBy = Text(reader, 15),
+                DeliveryLeaseEndsAt = Instant(Text(reader, 16))
+            });
         }
 
         return questions;
@@ -225,7 +241,8 @@ public sealed class SqliteWaitingQuestionStore : IWaitingQuestionStore
             $"""
             INSERT OR REPLACE INTO waiting_questions ({Columns})
             VALUES ($id, $session_id, $tool_use_id, $kind, $route, $state, $questions, $notification_ids, $answers,
-                    $asked_at, $escalate_at, $hook_polled_at, $delivery, $close_reason, $ended_at);
+                    $asked_at, $escalate_at, $hook_polled_at, $delivery, $close_reason, $ended_at,
+                    $delivery_claimed_by, $delivery_lease_ends_at);
             """;
 
         command.Parameters.AddWithValue("$id", question.Id.ToString("D"));
@@ -243,6 +260,8 @@ public sealed class SqliteWaitingQuestionStore : IWaitingQuestionStore
         command.Parameters.AddWithValue("$delivery", (object?)question.Delivery?.ToString() ?? DBNull.Value);
         command.Parameters.AddWithValue("$close_reason", (object?)question.CloseReason?.ToString() ?? DBNull.Value);
         command.Parameters.AddWithValue("$ended_at", (object?)Text(question.EndedAt) ?? DBNull.Value);
+        command.Parameters.AddWithValue("$delivery_claimed_by", (object?)question.DeliveryClaimedBy ?? DBNull.Value);
+        command.Parameters.AddWithValue("$delivery_lease_ends_at", (object?)Text(question.DeliveryLeaseEndsAt) ?? DBNull.Value);
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -284,7 +303,14 @@ public sealed class SqliteWaitingQuestionStore : IWaitingQuestionStore
             );
             CREATE INDEX IF NOT EXISTS ix_waiting_questions_tool_use ON waiting_questions (session_id, tool_use_id);
             CREATE INDEX IF NOT EXISTS ix_waiting_questions_state ON waiting_questions (state, escalate_at);
-            """);
+            CREATE INDEX IF NOT EXISTS ix_waiting_questions_delivery ON waiting_questions (delivery);
+            """,
+        columns:
+        [
+            // The delivery's claim (local ADR 0041, Amends), added after the table shipped.
+            new("waiting_questions", "delivery_claimed_by", "TEXT NULL"),
+            new("waiting_questions", "delivery_lease_ends_at", "TEXT NULL")
+        ]);
 
     private sealed record StoredOption(string Label, string? Description);
 
@@ -350,6 +376,9 @@ public sealed class RootedSqliteWaitingQuestionStore(Func<string> currentRootDir
 
     public Task<IReadOnlyList<WaitingQuestion>> ListAsync(bool openOnly = false, CancellationToken cancellationToken = default) =>
         Current.ListAsync(openOnly, cancellationToken);
+
+    public Task<IReadOnlyList<WaitingQuestion>> ListUndeliveredAsync(CancellationToken cancellationToken = default) =>
+        Current.ListUndeliveredAsync(cancellationToken);
 
     public Task<WaitingQuestionOutcome> ChangeAsync(
         Guid id,

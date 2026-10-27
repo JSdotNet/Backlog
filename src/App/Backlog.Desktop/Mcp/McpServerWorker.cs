@@ -607,7 +607,9 @@ public sealed class McpServerWorker : IDisposable
                     context.RequestServices.GetRequiredService<ISessionRequestStore>(),
                     context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
                     TimeProvider.System,
-                    context.RequestAborted).ConfigureAwait(false);
+                    context.RequestAborted,
+                    questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
+                    sessions: context.RequestServices.GetService<IAgentSessionSource>()).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
             {
@@ -798,7 +800,9 @@ public sealed class McpServerWorker : IDisposable
     /// <see cref="SessionPrompts"/> beside it, which the same route feeds; and
     /// <see cref="IClaudeApiRequestStore"/> for the OTLP logs route beside it, and
     /// <see cref="ISessionRequestStore"/> for the session-request wait route, which the
-    /// dispatcher tools would carry across anyway but the route must not depend on.
+    /// dispatcher tools would carry across anyway but the route must not depend on, and
+    /// <see cref="IWaitingQuestionStore"/> and <see cref="IAgentSessionSource"/> beside it
+    /// for the answer deliveries the same route hands out, on the same grounds.
     /// </para>
     /// <para>
     /// The probe is <see cref="IServiceProviderIsService"/>, which every
@@ -819,6 +823,8 @@ public sealed class McpServerWorker : IDisposable
             .Append(typeof(SessionPrompts))
             .Append(typeof(IClaudeApiRequestStore))
             .Append(typeof(ISessionRequestStore))
+            .Append(typeof(IWaitingQuestionStore))
+            .Append(typeof(IAgentSessionSource))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)

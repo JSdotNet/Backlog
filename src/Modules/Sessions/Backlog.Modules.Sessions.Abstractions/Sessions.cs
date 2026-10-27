@@ -339,6 +339,14 @@ public sealed record AgentSession(
     /// </para>
     /// </summary>
     public string? DesktopTitle { get; init; }
+
+    /// <summary>
+    /// The Claude desktop app's own id for the session — <c>local_&lt;guid&gt;</c>, the id its
+    /// session tools take — where its session store holds a record, else null. What the
+    /// Manager sends an answer delivery to (local ADR 0041 §3); local-only on the same
+    /// terms as <see cref="Archived"/>.
+    /// </summary>
+    public string? DesktopSessionId { get; init; }
 }
 
 /// <summary>
