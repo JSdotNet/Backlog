@@ -104,6 +104,14 @@ answered first, an alert says so. While the desktop is signed out, the answer
 waits, and the sign-in line asks the person to sign in. A question answered,
 deleted or reassigned away in spec-manager closes here.
 
+The person's other spec-manager notifications arrive as alerts on the same pulls:
+a mention, a reply, a change proposal's or an input item's fate, review work, and
+administration. Only the unread ones come in, and only those created after the
+person first signed in to that installation from this desktop; older ones stay in
+spec-manager. A mention is a warning, the rest are info, and each opens where
+spec-manager points. Acknowledging the alert here, on any device, marks it read in
+spec-manager. One read in spec-manager closes here as "Read in spec-manager".
+
 ## Closing a notification
 
 ```meta

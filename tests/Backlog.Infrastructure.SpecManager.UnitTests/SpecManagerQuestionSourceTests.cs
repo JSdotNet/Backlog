@@ -222,7 +222,72 @@ public sealed class SpecManagerQuestionSourceTests
         await Eventually(() => scenario.Ledger.Replays >= 1);
     }
 
-    private static SpecManagerQuestionSource Start(QuestionScenario scenario, FakeStreams connector, out Delays delays)
+    [Fact]
+    public async Task A_notification_pull_that_fails_stops_neither_the_question_pull_the_answer_replay_nor_the_next_pull()
+    {
+        using var scenario = new QuestionScenario();
+        scenario.Connector.SignIn.SetAnswersWaiting(true);
+        var asked = 0;
+        scenario.Connector.Server.Route(HttpMethod.Get, NotificationScenario.NotificationsPath, (_, _) =>
+        {
+            Interlocked.Increment(ref asked);
+            throw new InvalidOperationException("Something nobody expected.");
+        });
+        var connector = new FakeStreams();
+        var stream = connector.Open();
+        using var source = Start(scenario, connector, out var delays, Notifications(scenario));
+        await Idle(source, delays, open: true);
+        Assert.Equal(2, scenario.Ledger.Published.Count);
+        await Eventually(() => scenario.Ledger.Replays >= 1);
+        var before = Volatile.Read(ref asked);
+
+        await stream.Send("changed");
+
+        await Eventually(() => Volatile.Read(ref asked) > before);
+    }
+
+    [Fact]
+    public async Task A_question_pull_that_fails_leaves_the_notifications_to_be_pulled()
+    {
+        using var scenario = new QuestionScenario();
+        scenario.Connector.Server.Route(HttpMethod.Get, QuestionScenario.QuestionsPath, (_, _) => throw new InvalidOperationException("Something nobody expected."));
+        scenario.Connector.Server.Json(HttpMethod.Get, NotificationScenario.NotificationsPath, "notifications-unread.json");
+        var connector = new FakeStreams();
+        connector.Open();
+        using var source = Start(scenario, connector, out var delays, Notifications(scenario));
+
+        await Idle(source, delays, open: true);
+
+        await Eventually(() => scenario.Ledger.Published.Any(entry => entry.Draft.Source.Key.StartsWith("notification/", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task The_source_listens_for_acknowledgements_until_it_is_disposed()
+    {
+        using var scenario = new QuestionScenario();
+        var centre = new FakeNotificationCentre();
+        var reads = new SpecManagerNotificationReads(scenario.Connector.Client, scenario.Connector.SignIn, centre);
+        var acknowledged = SpecManagerNotificationReadsTests.ViewOf(scenario.Root, NotificationScenario.Mention, Backlog.Modules.Notifications.Abstractions.NotificationState.Acknowledged);
+        var source = Start(scenario, new FakeStreams(), out _, Notifications(scenario), reads);
+
+        centre.Raise(acknowledged);
+        await reads.Sends.WaitAsync(TestContext.Current.CancellationToken);
+        source.Dispose();
+        centre.Raise(acknowledged);
+        await reads.Sends.WaitAsync(TestContext.Current.CancellationToken);
+
+        Assert.Single(scenario.Connector.Server.To(NotificationScenario.ReadPath(NotificationScenario.Mention)));
+    }
+
+    private static SpecManagerNotificationSync Notifications(QuestionScenario scenario) =>
+        new(scenario.Connector.Client, scenario.Connector.SignIn, scenario.Ledger, scenario.Ledger, defaultInstallation: false);
+
+    private static SpecManagerQuestionSource Start(
+        QuestionScenario scenario,
+        FakeStreams connector,
+        out Delays delays,
+        SpecManagerNotificationSync? notifications = null,
+        SpecManagerNotificationReads? reads = null)
     {
         delays = new Delays();
         var source = new SpecManagerQuestionSource(
@@ -233,7 +298,9 @@ public sealed class SpecManagerQuestionSourceTests
             scenario.Ledger,
             scenario.Connector.Time,
             log: null,
-            start: false);
+            start: false,
+            notifications,
+            reads);
 
         source.Delay = delays.Wait;
         source.Start();

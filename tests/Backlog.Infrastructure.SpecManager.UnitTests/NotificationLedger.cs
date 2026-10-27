@@ -65,6 +65,13 @@ internal sealed class NotificationLedger : INotifications, INotificationReplicat
         lock (_gate) _entries[id] = _entries[id] with { State = NotificationState.Answered };
     }
 
+    /// <summary>Settles an alert as acknowledged, the way the owner does on any channel's
+    /// acknowledgement — the phone's included.</summary>
+    public void Acknowledge(Guid id)
+    {
+        lock (_gate) _entries[id] = _entries[id] with { State = NotificationState.Acknowledged };
+    }
+
     public Task<Result<int>> CloseForSubjectAsync(NotificationSubject subject, string reason, CancellationToken cancellationToken = default) =>
         Task.FromResult(Result.Success(0));
 

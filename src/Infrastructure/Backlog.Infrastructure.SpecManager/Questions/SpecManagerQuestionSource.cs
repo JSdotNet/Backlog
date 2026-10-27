@@ -12,8 +12,10 @@ namespace Backlog.Infrastructure.SpecManager.Questions;
 /// <summary>
 /// What brings spec-manager's questions into Backlog on the desktop, while it is signed in
 /// to an installation and a spec-manager product is connected: it holds the installation's
-/// notification stream and pulls the questions (<see cref="SpecManagerQuestionSync"/>)
-/// whenever there may be news.
+/// notification stream and pulls the questions (<see cref="SpecManagerQuestionSync"/>), and
+/// after them the person's other notifications as alerts
+/// (<see cref="SpecManagerNotificationSync"/>), whenever there may be news. Each of the two
+/// pulls fails on its own: one that throws is logged and the other still runs.
 /// <list type="bullet">
 /// <item>A pull on every <c>changed</c> event, a whole pull each time the stream (re)opens,
 /// and one every <see cref="BackupInterval"/> while it is open, in case an event was
@@ -31,6 +33,11 @@ namespace Backlog.Infrastructure.SpecManager.Questions;
 /// After a pull, while an answer waits on a sign-in (<see cref="SpecManagerSignIn.Notice"/>),
 /// the waiting answers are handed over again (<see cref="INotificationAnswerReplay"/>), so
 /// an answer given while signed out reaches spec-manager once the person signs back in.
+/// </para>
+/// <para>
+/// It owns the listener that marks a notification read in spec-manager once its alert is
+/// acknowledged here (<see cref="SpecManagerNotificationReads"/>): started with it, stopped
+/// when it is disposed.
 /// </para>
 /// <para>
 /// A plain singleton the heads resolve once, like the sync workers: the MAUI head has no
@@ -65,6 +72,8 @@ public sealed class SpecManagerQuestionSource : IDisposable
 
     private readonly Lock _gate = new();
     private readonly SpecManagerQuestionSync _sync;
+    private readonly SpecManagerNotificationSync? _notifications;
+    private readonly SpecManagerNotificationReads? _reads;
     private readonly ISpecManagerEventStreamConnector _connector;
     private readonly SpecManagerSignIn _signIn;
     private readonly IConnectedTargets? _targets;
@@ -88,13 +97,19 @@ public sealed class SpecManagerQuestionSource : IDisposable
         IConnectedTargets? targets,
         INotificationAnswerReplay? replay,
         TimeProvider time,
-        ILogger<SpecManagerQuestionSource>? log = null)
-        : this(sync, connector, signIn, targets, replay, time, log, start: true)
+        ILogger<SpecManagerQuestionSource>? log = null,
+        SpecManagerNotificationSync? notifications = null,
+        SpecManagerNotificationReads? reads = null)
+        : this(sync, connector, signIn, targets, replay, time, log, start: true, notifications, reads)
     {
     }
 
     /// <param name="start">False for a test that sets <see cref="Delay"/> first and then
     /// calls <see cref="Start"/>.</param>
+    /// <param name="notifications">The pull of the other notifications, run after each
+    /// question pull; none when null.</param>
+    /// <param name="reads">The listener that marks an acknowledged alert's notification read,
+    /// started and stopped with this source; none when null.</param>
     internal SpecManagerQuestionSource(
         SpecManagerQuestionSync sync,
         ISpecManagerEventStreamConnector connector,
@@ -103,7 +118,9 @@ public sealed class SpecManagerQuestionSource : IDisposable
         INotificationAnswerReplay? replay,
         TimeProvider time,
         ILogger? log,
-        bool start)
+        bool start,
+        SpecManagerNotificationSync? notifications = null,
+        SpecManagerNotificationReads? reads = null)
     {
         ArgumentNullException.ThrowIfNull(sync);
         ArgumentNullException.ThrowIfNull(connector);
@@ -111,6 +128,8 @@ public sealed class SpecManagerQuestionSource : IDisposable
         ArgumentNullException.ThrowIfNull(time);
 
         _sync = sync;
+        _notifications = notifications;
+        _reads = reads;
         _connector = connector;
         _signIn = signIn;
         _targets = targets;
@@ -145,6 +164,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
     /// <summary>Starts following the sign-in and the connected targets.</summary>
     internal void Start()
     {
+        _reads?.Start();
         _signIn.AccountChanged += OnGateChanged;
         if (_targets is not null) _targets.Changed += OnGateChanged;
 
@@ -172,6 +192,7 @@ public sealed class SpecManagerQuestionSource : IDisposable
 
         _signIn.AccountChanged -= OnGateChanged;
         if (_targets is not null) _targets.Changed -= OnGateChanged;
+        _reads?.Dispose();
     }
 
     private bool ShouldRun => _signIn.Account is not null && _sync.Products().Count > 0;
@@ -304,6 +325,11 @@ public sealed class SpecManagerQuestionSource : IDisposable
         {
             pulled = await _sync.PullAsync(whole, cancellationToken).ConfigureAwait(false);
         }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            // Never the notifications' pull's business: it runs all the same.
+            _log.LogError(ex, "Pulling the spec-manager questions failed unexpectedly.");
+        }
         finally
         {
             // A whole pull that did not get through is still owed: only a whole list shows
@@ -312,9 +338,27 @@ public sealed class SpecManagerQuestionSource : IDisposable
             if (whole && pulled) Interlocked.Exchange(ref _lastWholeTicks, _time.GetUtcNow().UtcTicks);
         }
 
+        await PullNotificationsAsync(cancellationToken).ConfigureAwait(false);
+
         if (_signIn.Notice is not null && _signIn.Account is not null && _replay is not null)
         {
             await _replay.ReplayAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Pulls the other notifications; a failure is logged and never reaches the
+    /// question pull or the loop.</summary>
+    private async Task PullNotificationsAsync(CancellationToken cancellationToken)
+    {
+        if (_notifications is null) return;
+
+        try
+        {
+            await _notifications.PullAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            _log.LogError(ex, "Pulling the spec-manager notifications failed unexpectedly.");
         }
     }
 

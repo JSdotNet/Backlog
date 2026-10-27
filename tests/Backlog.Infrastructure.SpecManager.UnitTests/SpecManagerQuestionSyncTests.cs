@@ -201,6 +201,22 @@ public sealed class SpecManagerQuestionSyncTests
         Assert.Empty(scenario.Ledger.Published);
     }
 
+    /// <summary>A product slugged <c>notification</c> keys its questions as the other
+    /// notifications' alerts are keyed; a whole pull of it still closes none of them.</summary>
+    [Fact]
+    public async Task A_whole_pull_never_closes_the_alert_of_another_spec_manager_notification()
+    {
+        using var scenario = new QuestionScenario();
+        scenario.Connector.Targets.Save(new Backlog.Modules.Tasks.Abstractions.Connectors.ConnectedTarget(SpecManagerConnector.ConnectorId, "notification"));
+        scenario.Connector.Server.Route(HttpMethod.Get, "/api/products/notification/backlog-questions", (_, _) => StubSpecManager.Respond(System.Net.HttpStatusCode.OK, "[]"));
+        var alert = SpecManagerNotificationMapper.ToDraft(NotificationScenario.Fixture(NotificationScenario.Reply), scenario.Root, false, null);
+        var id = (await scenario.Ledger.PublishAsync(alert, Token)).Value;
+
+        Assert.True(await scenario.Sync.PullAsync(whole: true, Token));
+
+        Assert.Equal(NotificationState.Open, scenario.Ledger.StateOf(id));
+    }
+
     private static NotificationDraft Question(QuestionScenario scenario, string questionId) => new(
         new NotificationSource("spec-manager", $"{StubSpecManager.Product}/{questionId}"),
         new NotificationSubject("spec-manager", "question", questionId),

@@ -14,13 +14,56 @@ internal static class SpecManagerJson
 
 /// <summary>
 /// One product of <c>GET /api/products</c>, which answers the products the account
-/// is a member of, archived ones left out by the server. Only the two fields the
-/// settings page shows and stores are read; the rest are ignored.
+/// is a member of, archived ones left out by the server. Only the fields the settings
+/// page shows and stores, and the id a notification names its product by, are read; the
+/// rest are ignored.
 /// </summary>
 /// <param name="Slug">What every other path names the product by, and what a
 /// connected target stores.</param>
 /// <param name="Name">The product's name, which the person knows it by.</param>
-internal sealed record ProductDto(string? Slug, string? Name);
+/// <param name="Id">The product's id, which a notification's <c>productId</c> names.</param>
+internal sealed record ProductDto(string? Slug, string? Name, Guid? Id = null);
+
+/// <summary>
+/// <c>GET /api/notifications?unread=true&amp;count=N</c>: the person's notification centre,
+/// newest first, <paramref name="Notifications"/> at most <c>count</c> of them (clamped to
+/// 1..200 by the server) and <paramref name="Unread"/> how many unread there are in all — so
+/// the list is complete only when it holds that many. Notifications about a product with MCP
+/// off are left out.
+/// </summary>
+internal sealed record NotificationsResponse(int Unread, IReadOnlyList<SpecManagerNotificationDto>? Notifications);
+
+/// <summary>
+/// One notification of the person's notification centre in spec-manager (its
+/// <c>NotificationDto</c>).
+/// </summary>
+/// <param name="Category">The enum's name: <c>Mention</c>, <c>Reply</c>,
+/// <c>ChangeProposal</c>, <c>Input</c>, <c>ReviewWork</c>, <c>Administration</c> or
+/// <c>BacklogQuestion</c>; another may be added.</param>
+/// <param name="Link">An application path relative to the installation's root.</param>
+/// <param name="ProductId">The product it is about, or null.</param>
+/// <param name="CreatedAt">When spec-manager created it, on the server's clock.</param>
+internal sealed record SpecManagerNotificationDto(
+    Guid Id,
+    string? Category,
+    string? Subject,
+    string? Text,
+    string? Link,
+    Guid? ProductId,
+    DateTimeOffset CreatedAt,
+    bool IsRead);
+
+/// <summary>The categories of <see cref="SpecManagerNotificationDto.Category"/> a rule here
+/// names.</summary>
+internal static class SpecManagerNotificationCategories
+{
+    /// <summary>Someone mentioned the person: the one category that warns.</summary>
+    public const string Mention = "Mention";
+
+    /// <summary>A question asked of the person, which comes in as a question through the
+    /// question source, never as an alert.</summary>
+    public const string BacklogQuestion = "BacklogQuestion";
+}
 
 /// <summary><c>GET /api/products/{slug}/backlog</c>. Not paged.</summary>
 internal sealed record BacklogResponse(IReadOnlyList<BacklogItemDto>? Items);

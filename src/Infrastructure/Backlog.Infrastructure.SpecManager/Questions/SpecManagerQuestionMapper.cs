@@ -212,7 +212,7 @@ internal static class SpecManagerQuestionMapper
 
     /// <summary>Text cut to at most <paramref name="bytes"/> bytes of UTF-8, on a character
     /// boundary, an ellipsis marking the cut.</summary>
-    private static string CutBytes(string text, int bytes)
+    internal static string CutBytes(string text, int bytes)
     {
         if (Encoding.UTF8.GetByteCount(text) <= bytes) return text;
 
