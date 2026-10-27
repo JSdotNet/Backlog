@@ -48,9 +48,8 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
 
         // The reference named a heading, so the file opens at it rather than at its
         // top: the file view is the scope the heading is looked for in.
-        component.WaitForAssertion(() => Assert.Equal<object?>(
-            ["[data-testid='design-chapter-file']", "Materialization"],
-            Assert.Single(Reveals(harness)).Arguments));
+        var reveal = Assert.Single(await WaitForRevealsAsync(component, harness, 1));
+        Assert.Equal<object?>(["[data-testid='design-chapter-file']", "Materialization"], reveal.Arguments);
     }
 
     /// <summary>
@@ -58,8 +57,9 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
     /// included, and the pane opens the usage's file at that chapter's heading:
     /// the file view is asked to scroll to it and move focus to it. bUnit applies
     /// the navigation synchronously, so the assertion waits for the chapter's own
-    /// text — the reveal is asked for only once the file read lands, never for the
-    /// chapter the reader is leaving.
+    /// file — the reveal is asked for only once the file read lands, never for the
+    /// chapter the reader is leaving — and then for the reveal itself, which is a
+    /// script call made after that render rather than a render of its own.
     /// </summary>
     [Fact]
     public async Task A_usage_picked_on_an_ai_tab_opens_its_file_at_the_chapter()
@@ -75,11 +75,9 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
             .Single(card => card.QuerySelector(".adoption-card__title")?.TextContent.Trim() == "Coding agent")
             .Click());
 
-        component.WaitForAssertion(() =>
-        {
-            Assert.Equal("01-build.md", component.Find("[data-testid='ai-chapter-file'] .file-view__path").TextContent);
-            Assert.Equal<object?>(["[data-testid='ai-chapter-file']", "Coding agent"], Assert.Single(Reveals(harness)).Arguments);
-        });
+        component.WaitForAssertion(() => Assert.Equal("01-build.md", component.Find("[data-testid='ai-chapter-file'] .file-view__path").TextContent));
+        var reveal = Assert.Single(await WaitForRevealsAsync(component, harness, 1));
+        Assert.Equal<object?>(["[data-testid='ai-chapter-file']", "Coding agent"], reveal.Arguments);
 
         // A re-render of the document view itself does not pull the reader back to
         // the heading after they scrolled away. Counted, so the render is known to
@@ -88,13 +86,13 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         var renders = view.RenderCount;
         component.Render(parameters => parameters.Add(pane => pane.RepositoryAlias, harness.RepositoryAlias));
         component.WaitForAssertion(() => Assert.True(view.RenderCount > renders));
-        Assert.Single(Reveals(harness));
+        Assert.Single(await RevealsAfterPendingRendersAsync(component, harness));
 
         // The same usage followed again is a new request, so it is revealed again.
         var link = DevbookChapterLink.From(".ai/01-build.md#coding-agent")!;
         var follow = component.FindComponent<AiDevbookView>().Instance.OnNavigateToChapter;
         await component.InvokeAsync(() => follow.InvokeAsync(link));
-        component.WaitForAssertion(() => Assert.Equal(2, Reveals(harness).Count));
+        Assert.Equal(2, (await WaitForRevealsAsync(component, harness, 2)).Count);
     }
 
     /// <summary>A link that names no heading opens its file at the top, as it always
@@ -116,13 +114,35 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
             Assert.Equal("01-build.md", component.Find("[data-testid='ai-chapter-file'] .file-view__path").TextContent);
             Assert.Contains("Hands the implementation to the agent", component.Find("[data-testid='ai-chapter-file'] .file-view__body").TextContent, StringComparison.Ordinal);
         });
-        Assert.Empty(Reveals(harness));
+        Assert.Empty(await RevealsAfterPendingRendersAsync(component, harness));
     }
 
     /// <summary>Every request the pane made to scroll a document's file view to a
-    /// heading, in order.</summary>
-    private static IReadOnlyList<JSRuntimeInvocation> Reveals(Harness harness) =>
-        [.. harness.Context.JSInterop.Invocations["backlogRevealHeading"]];
+    /// heading, in order — read on the renderer's dispatcher, which records them.</summary>
+    private static Task<IReadOnlyList<JSRuntimeInvocation>> RevealsAfterPendingRendersAsync(IRenderedComponent<DevbookPane> component, Harness harness) =>
+        component.InvokeAsync(() => (IReadOnlyList<JSRuntimeInvocation>)[.. harness.Context.JSInterop.Invocations["backlogRevealHeading"]]);
+
+    /// <summary>
+    /// The reveals, once there are at least <paramref name="count"/> of them.
+    /// <para>
+    /// Polled rather than asked of <c>WaitForAssertion</c>, which checks again only
+    /// when something renders. The view asks for the reveal from
+    /// <c>OnAfterRenderAsync</c>, after the render that put the chapter on screen,
+    /// and nothing renders after it: under load the check for that render ran
+    /// before the call was made, and no later check ever came.
+    /// </para>
+    /// </summary>
+    private static async Task<IReadOnlyList<JSRuntimeInvocation>> WaitForRevealsAsync(IRenderedComponent<DevbookPane> component, Harness harness, int count)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (true)
+        {
+            var reveals = await RevealsAfterPendingRendersAsync(component, harness);
+            if (reveals.Count >= count) return reveals;
+            if (DateTime.UtcNow > deadline) Assert.Fail($"Expected {count} reveal(s) of a heading, saw {reveals.Count}.");
+            await Task.Delay(20);
+        }
+    }
 
     [Fact]
     public async Task A_reference_in_an_instruction_file_reaches_the_section_it_names()
