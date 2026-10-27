@@ -1359,6 +1359,20 @@ Three desktop settings shape the relay, each with its default:
 asked](domain.invariants.md#invariant-presence-picks-the-route-once). Equality is by
 its parts.
 
+The context reads it through the `IPresence` port: `IsAway`, `LastInputAt` and
+`LastPromptAt(sessionId)`. The rule itself is platform-free and takes the platform's
+reading of the input; the Windows desktop head answers that reading from
+`GetLastInputInfo`, sampled when asked, and from the session-switch events Windows
+raises on lock and unlock. An input the platform cannot read counts as at the
+keyboard, so the notify delay still publishes a question nobody answers. The last
+prompt per session comes from the `UserPromptSubmit` events the hook telemetry
+endpoint receives, is kept in memory, and is forgotten on `SessionEnd` or a restart.
+
+The settings are kept in the desktop's workspace settings file and edited on the
+Notifications settings page, in whole minutes for away after and notify after (1 to
+480) and whole hours for dialog wait (1 to 24). A value outside those bounds is
+refused with the setting named.
+
 ## Session Activity Publishing
 
 ```meta

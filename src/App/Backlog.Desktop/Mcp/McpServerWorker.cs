@@ -570,6 +570,7 @@ public sealed class McpServerWorker : IDisposable
                 context.Request.Body,
                 context.Request.ContentLength,
                 context.RequestServices.GetRequiredService<IDeliveryRunTelemetry>(),
+                context.RequestServices.GetService<SessionPrompts>(),
                 context.RequestAborted).ConfigureAwait(false);
         });
 
@@ -793,7 +794,8 @@ public sealed class McpServerWorker : IDisposable
     /// filters resolve it from the request, so it appears in no tool's
     /// constructor and would be missed by the reflection below.
     /// <see cref="IDeliveryRunTelemetry"/> is named for the same reason: the
-    /// telemetry route beside <c>/mcp</c> resolves it, and no tool does; and
+    /// telemetry route beside <c>/mcp</c> resolves it, and no tool does, and
+    /// <see cref="SessionPrompts"/> beside it, which the same route feeds; and
     /// <see cref="IClaudeApiRequestStore"/> for the OTLP logs route beside it, and
     /// <see cref="ISessionRequestStore"/> for the session-request wait route, which the
     /// dispatcher tools would carry across anyway but the route must not depend on.
@@ -814,6 +816,7 @@ public sealed class McpServerWorker : IDisposable
             .Select(parameter => parameter.ParameterType)
             .Append(typeof(IAppFeatureSettings))
             .Append(typeof(IDeliveryRunTelemetry))
+            .Append(typeof(SessionPrompts))
             .Append(typeof(IClaudeApiRequestStore))
             .Append(typeof(ISessionRequestStore))
             .Distinct();

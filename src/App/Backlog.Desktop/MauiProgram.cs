@@ -170,6 +170,19 @@ public static class MauiProgram
         // plan entry), and the channel a press in one opens the shell's centre through.
         builder.Services.TryAddSingleton<Backlog.Modules.Notifications.UI.NotificationCentreRequests>();
         builder.Services.TryAddSingleton<WindowsAppNotifications>();
+        // Whether the person is at this keyboard (local ADR 0041): idle time and the screen
+        // lock from Windows, the last prompt per session from the hook telemetry route, and
+        // "away after" read from the workspace settings on every question. This head's
+        // own, because only it can read Windows input; presence never leaves the desktop.
+        builder.Services.TryAddSingleton<IInputActivity, WindowsInputActivity>();
+        builder.Services.TryAddSingleton<IPresence>(sp =>
+        {
+            var settings = sp.GetRequiredService<WorkspaceSettingsStore>();
+            return new Presence(
+                sp.GetRequiredService<IInputActivity>(),
+                sp.GetRequiredService<SessionPrompts>(),
+                () => settings.Presence.AwayAfter);
+        });
         // What the tools pane asks about that server: the port, the address it
         // makes, and whether the socket was taken. Beside the worker
         // because it reads it — and through a Func, so that resolving the tool
@@ -251,6 +264,10 @@ public static class MauiProgram
         // delivered once it is up, and raising one for every alert or question published from
         // here on.
         app.Services.GetRequiredService<WindowsAppNotifications>().Start();
+
+        // Presence's input reading subscribes to the screen lock on construction, so it is
+        // built now rather than at the first question: a lock before then would be missed.
+        _ = app.Services.GetRequiredService<IInputActivity>();
 
         // And the notifications startup pass (local ADR 0039): it closes the open notifications
         // whose subject ended while the app was closed, and hands every stored answer no handler

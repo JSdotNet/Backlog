@@ -341,6 +341,7 @@ app.MapPost(BacklogTelemetryEndpoint.RoutePath, async context =>
         context.Request.Body,
         context.Request.ContentLength,
         context.RequestServices.GetRequiredService<IDeliveryRunTelemetry>(),
+        context.RequestServices.GetService<SessionPrompts>(),
         context.RequestAborted);
 });
 
