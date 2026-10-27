@@ -394,8 +394,8 @@ public static class C4SvgWriter
             : $"[{C4LayoutEngine.KindLabel(node.Node.Kind)}: {Truncate(node.Node.Technology, 22)}]";
 
     /// <summary>A glyph per level, because shape has to carry what one hue's ramp
-    /// cannot — the rule `color-scheme.md#chart-roles` states and the technology atlas
-    /// already follows. Characters rather than an icon set: nothing should pull a font
+    /// cannot — the rule `color-scheme.md#chart-roles` states and the graph atlas's
+    /// status marks already follow. Characters rather than an icon set: nothing should pull a font
     /// or a sprite sheet in for six marks.</summary>
     private static string Glyph(C4Node node) => node.Kind switch
     {

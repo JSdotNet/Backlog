@@ -1,11 +1,11 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or devbook tooling. Seven skills: one for each direction of a plan,
-one for running a whole plan, one for closing the entries whose pull request merged, one for
-bringing another tool's items into the Inbox, one for the remarks a person leaves while
-reading, and one that dispatches the session requests the app queues — and a pane that follows
-a running plan.
+general-purpose or devbook tooling. Eight skills: one for each direction of a plan,
+one for running a whole plan, one for checking it once it has run, one for closing the entries
+whose pull request merged, one for bringing another tool's items into the Inbox, one for the
+remarks a person leaves while reading, and one that dispatches the session requests the app
+queues — and a pane that follows a running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -84,6 +84,17 @@ a running plan.
   in that repository's checkout running the same plan, per
   `skills/execute-plan/assets/handoff.md`. User-invoked only. The `UserPromptSubmit` hook
   stays quiet on a prompt that names this skill, so a pasted plan is not mistaken for one item.
+- **`final-check`** — the one check at the end of a plan, run in the session that wrote it
+  with `import-plan`, since that session still holds the specification. It brings the checkout
+  up to the plan's landed tip — the base branch, or `origin/plan/<slug>` while its closing
+  pull request is open, or the top of a stack not yet merged — by fast-forward, or in a detached scratch worktree when the
+  checkout has work of its own. Then it reviews each `prompt` entry against its instructions,
+  checks and `Read first:` sections at that tip, with `file:line` for every verdict
+  (*implemented*, *partial*, *missing*, *not landed*), looks across entries for duplicated
+  work, leftovers and specification nobody covered, and runs the repository's build, tests and
+  checks and reads the base branch's CI. It reports one table and offers the fixes, which go
+  through the gate as their own change. User-invoked only; it edits, commits and transitions
+  nothing.
 - **`close-merged`** — moves to Done every entry whose pull request has merged into the
   default branch or a `plan/<slug>` branch: the merges `run-plan-item` and `execute-plan` did
   not see, made on GitHub's own page or after the session ended. It lists the repository's

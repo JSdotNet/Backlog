@@ -220,10 +220,12 @@ const SIGNATURE = /^[0-9a-f]{8}$/;
  * `demo-model`, read in the one shape the template reads — the authoring
  * reference in the comment opening its managed region — into the sets an
  * address resolves against. `screens` is `[{ id, anchors? }]`, each panel
- * switch `[{ key }]`, `walkthroughs` `[{ id, part?, signature?, steps:
- * [{ screen, anchor?, step?, text }] }]`; `linked` maps each linked
- * walkthrough's id to its `{ part, signature }`. `shape` collects every place
- * the model departs from that; `repeated` every id it lists twice in one place.
+ * switch `[{ key }]`, `walkthroughs` `[{ id, part? | journey?, signature?,
+ * steps: [{ screen, anchor?, part?, step?, text }] }]`; `linked` maps each
+ * linked walkthrough's id to its `{ part, signature }`, `playthroughs` each
+ * playthrough's id to its `{ journey, signature }`. `shape` collects every
+ * place the model departs from that; `repeated` every id it lists twice in one
+ * place.
  */
 export function normalizeModel(raw) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("the model is not a JSON object");
@@ -276,11 +278,16 @@ export function normalizeModel(raw) {
         return into;
     };
 
-    // A walkthrough is free, with its own `text` per step, or linked: `part`
-    // names the journey part it shows, `signature` the journey signature
-    // its text was copied at, and each step's `step` the part step it shows.
+    // A walkthrough is free, with its own `text` per step; linked: `part`
+    // names the journey part it shows, `signature` the journey signature its
+    // text was copied at, and each step's `step` the part step it shows; or a
+    // playthrough: `journey` names the whole journey it plays end to end, and
+    // each step's `part` and `step` the part step it shows. The order of a
+    // playthrough's steps is the journey's, checked against it by
+    // `linkedWalkthroughs`.
     const walkthroughs = new Map();
     const linked = new Map();
+    const playthroughs = new Map();
     entries("walkthroughs", "`{ id, steps }` objects").forEach((entry, index) => {
         if (!entry || typeof entry !== "object" || !isText(entry.id) || !Array.isArray(entry.steps)) {
             shape.push(`\`walkthroughs\` entry ${index + 1} is not \`{ id, steps: [...] }\``);
@@ -289,17 +296,24 @@ export function normalizeModel(raw) {
         if (walkthroughs.has(entry.id)) repeated.push(`walkthrough "${entry.id}"`);
         const name = `walkthrough "${entry.id}"`;
         const isLinked = entry.part !== undefined;
+        const isPlaythrough = entry.journey !== undefined;
+        if (isLinked && isPlaythrough) {
+            shape.push(`${name} has both \`part\` and \`journey\` — a linked walkthrough shows one part, a playthrough plays the whole journey`);
+        }
         if (isLinked && !(isText(entry.part) && LINKED_PART.test(entry.part))) {
             shape.push(`${name} has \`part\` ${JSON.stringify(entry.part)} — a linked walkthrough's \`part\` is \`<scenarios file>.md#<part>\``);
+        }
+        if (isPlaythrough && !(isText(entry.journey) && LINKED_PART.test(entry.journey))) {
+            shape.push(`${name} has \`journey\` ${JSON.stringify(entry.journey)} — a playthrough's \`journey\` is \`<scenarios file>.md#<journey>\``);
         }
         if (entry.signature !== undefined && !(typeof entry.signature === "string" && SIGNATURE.test(entry.signature))) {
             shape.push(`${name} has \`signature\` ${JSON.stringify(entry.signature)} — a journey signature is 8 lowercase hex`);
         }
-        if (isLinked && entry.signature === undefined) {
-            shape.push(`${name} is linked by its \`part\` but has no \`signature\` — the journey signature its text was copied at`);
+        if ((isLinked || isPlaythrough) && entry.signature === undefined) {
+            shape.push(`${name} is linked by its \`${isLinked ? "part" : "journey"}\` but has no \`signature\` — the journey signature its text was copied at`);
         }
-        if (!isLinked && entry.signature !== undefined) {
-            shape.push(`${name} has a \`signature\` but no \`part\` — only a linked walkthrough carries one`);
+        if (!isLinked && !isPlaythrough && entry.signature !== undefined) {
+            shape.push(`${name} has a \`signature\` but no \`part\` or \`journey\` — only a linked walkthrough or a playthrough carries one`);
         }
         const steps = [];
         let previous = 0;
@@ -314,28 +328,40 @@ export function normalizeModel(raw) {
                 shape.push(`${where} has \`flags\` that is not a list of keys`);
             }
             const index = step && typeof step === "object" ? step.step : undefined;
+            const part = step && typeof step === "object" ? step.part : undefined;
             if (isLinked) {
                 if (!Number.isInteger(index) || index < 1) {
                     shape.push(`${where} has no \`step\` — a linked walkthrough's step names the 1-based index of the part step it shows`);
                 } else if (index <= previous) {
                     shape.push(`${where} has \`step\` ${index} after \`step\` ${previous} — a linked walkthrough's \`step\` indexes ascend`);
                 } else previous = index;
+            } else if (isPlaythrough) {
+                if (!isText(part) || part.includes("#")) {
+                    shape.push(`${where} has no \`part\` — a playthrough's step names the anchor of the journey part it shows`);
+                }
+                if (!Number.isInteger(index) || index < 1) {
+                    shape.push(`${where} has no \`step\` — a playthrough's step names the 1-based index of the part step it shows`);
+                }
             } else if (index !== undefined) {
-                shape.push(`${where} has \`step\` but its walkthrough has no \`part\` — only a linked walkthrough's steps index a part`);
+                shape.push(`${where} has \`step\` but its walkthrough has no \`part\` or \`journey\` — only a linked walkthrough's or a playthrough's steps index a part`);
+            }
+            if (!isPlaythrough && part !== undefined) {
+                shape.push(`${where} has \`part\` but its walkthrough is no playthrough — only a playthrough's steps name a part`);
             }
             steps.push({
                 screen: step?.screen ?? null,
                 anchor: step?.anchor ?? null,
                 role: step?.role ?? null,
                 flags: Array.isArray(step?.flags) ? step.flags : [],
+                part: isPlaythrough && isText(part) ? part : null,
                 step: Number.isInteger(index) ? index : null,
                 text: isText(step?.text) ? step.text : null,
             });
         });
         walkthroughs.set(entry.id, steps);
-        if (isLinked && isText(entry.part)) {
-            linked.set(entry.id, { part: entry.part, signature: typeof entry.signature === "string" ? entry.signature : null });
-        }
+        const signature = typeof entry.signature === "string" ? entry.signature : null;
+        if (isLinked && !isPlaythrough && isText(entry.part)) linked.set(entry.id, { part: entry.part, signature });
+        if (isPlaythrough && !isLinked && isText(entry.journey)) playthroughs.set(entry.id, { journey: entry.journey, signature });
     });
 
     if (raw.app !== undefined && (!raw.app || typeof raw.app !== "object" || Array.isArray(raw.app))) {
@@ -347,6 +373,7 @@ export function normalizeModel(raw) {
         screens,
         walkthroughs,
         linked,
+        playthroughs,
         home,
         variants: keyed("variants"),
         roles: keyed("roles"),
@@ -594,8 +621,10 @@ export function requirementScenarios(relPath, markdown) {
  * demo without its page, a demo nothing names, and every `demo` address — on
  * a chapter, a proposal, or a change's `solution.md` — that does not resolve.
  *
- * `holders` is every block that carries a `demo` field, as
- * `{ id, path, refs, scenarios, provedBy }`: `scenarios` is the set of inline
+ * `holders` is every block that carries a `demo` or a `playthrough` field, as
+ * `{ id, path, field?, refs, scenarios, provedBy }`: `field` is `playthrough`
+ * for that field's entries, each of which must name a playthrough whole, and
+ * `demo` when absent; `scenarios` is the set of inline
  * `#### Scenario:` slugs under it when it is a requirement, and null
  * otherwise; `provedBy` the slugs of its `Proved by:` cases. A holder
  * inside a change resolves a path to the change's own copy of the demo first,
@@ -638,12 +667,13 @@ export async function demoProblems(repoRoot, folders, holders) {
 
     const named = new Set();
     for (const holder of holders) {
+        const field = holder.field ?? "demo";
         for (const ref of holder.refs) {
             const raw = String(ref);
             const hash = raw.indexOf("#");
             const target = hash === -1 ? raw : raw.slice(0, hash);
             const fragment = hash === -1 ? "" : raw.slice(hash + 1);
-            const at = `${holder.id} has \`demo\` "${raw}"`;
+            const at = `${holder.id} has \`${field}\` "${raw}"`;
             if (!isDemoPath(target)) {
                 problems.push({ severity: "error", path: holder.path, message: `${at}, which does not name a demo — the path ends in \`.demo.html\`, or is a context's \`demo.html\`.` });
                 continue;
@@ -657,6 +687,24 @@ export async function demoProblems(repoRoot, folders, holders) {
             if (file !== target) named.add(target);
             const demo = parseDemo(read(file));
             if (!demo.model) continue; // the file's own lint reports the missing model
+            // A `playthrough` entry names one whole playthrough, from its
+            // first step and in the panel's default state: the host that shows
+            // it on the page starts it there.
+            if (field === "playthrough") {
+                const id = /^walkthrough\/([^/?]+)$/.exec(fragment)?.[1];
+                if (!id) {
+                    problems.push({ severity: "error", path: holder.path, message: `${at}, which is no playthrough address — write \`<demo>#walkthrough/<id>\`, with no step and no query.` });
+                } else if (!demo.model.playthroughs.has(id)) {
+                    problems.push({
+                        severity: "error",
+                        path: holder.path,
+                        message: demo.model.walkthroughs.has(id)
+                            ? `${at}, whose walkthrough "${id}" in ${file} plays no journey — a playthrough names its journey with \`journey\`; a single screen or part belongs in \`demo\`.`
+                            : `${at}, which does not resolve in ${file}: \`demo-model\` lists no walkthrough "${id}".`,
+                    });
+                }
+                continue;
+            }
             const why = addressProblem(fragment, demo.model);
             if (why) {
                 problems.push({ severity: "error", path: holder.path, message: `${at}, which does not resolve in ${file}: the address ${why}.` });
@@ -761,6 +809,64 @@ export function resolveLinkedPart(demoPath, filePart, anchor, files) {
     return { path: target, journey };
 }
 
+/**
+ * The journey a playthrough's `journey` names, resolved as `resolveLinkedPart`
+ * resolves a part: `filePart` the scenarios file, `anchor` the journey's own.
+ * Returns `{ path, journey }`, or `{ error }`.
+ */
+export function resolveLinkedJourney(demoPath, filePart, anchor, files) {
+    let target = filePart;
+    if (!filePart.startsWith(DEVBOOK_PREFIX)) {
+        const from = changePathParts(demoPath)?.target ?? demoPath;
+        target = path.posix.join(path.posix.dirname(from), filePart);
+    }
+    const journeys = files.get(target);
+    if (!journeys) return { error: `${target} is not a scenarios file` };
+    const journey = journeys.find((candidate) => candidate.id === `${target}#${anchor}`);
+    if (!journey) {
+        const anchors = journeys.map((candidate) => candidate.id.slice(candidate.id.indexOf("#") + 1)).join(", ") || "none";
+        return { error: `${target} has no journey "#${anchor}" — journeys: ${anchors}` };
+    }
+    return { path: target, journey };
+}
+
+/**
+ * Where each step of a playthrough departs from the journey it plays, given
+ * `parts`, the parsed journey's parts in order, each `{ anchor, steps }`:
+ * a step naming no part of the journey or no step of its part, a step out of
+ * the journey's order, or text that is not its part step's. Returns
+ * `[{ at, step, kind, message, target? }]` — `kind` `shape`, `order`, or
+ * `text` — and `unplayed`, the anchors of the parts no step shows.
+ */
+export function playthroughDepartures(steps, parts, collapse) {
+    const departures = [];
+    const played = new Set();
+    let previous = [-1, 0];
+    steps.forEach((step, index) => {
+        if (step.part === null || step.step === null) return; // the model's shape check reports it
+        const at = index + 1;
+        const partIndex = parts.findIndex((p) => p.anchor === step.part);
+        if (partIndex === -1) {
+            departures.push({ at, kind: "shape", message: `names part "#${step.part}", which the journey does not have — parts: ${parts.map((p) => p.anchor).join(", ") || "none"}` });
+            return;
+        }
+        const target = parts[partIndex].steps[step.step - 1];
+        if (!target) {
+            departures.push({ at, kind: "shape", message: `names step ${step.step} of part "#${step.part}", which has ${parts[partIndex].steps.length} step(s) counted from 1` });
+            return;
+        }
+        played.add(step.part);
+        const [lastPart, lastStep] = previous;
+        if (partIndex < lastPart || (partIndex === lastPart && step.step <= lastStep)) {
+            departures.push({ at, kind: "order", message: `plays part "#${step.part}" step ${step.step} after part "#${parts[lastPart].anchor}" step ${lastStep} — a playthrough plays the journey in its own order` });
+        } else previous = [partIndex, step.step];
+        if (step.text !== null && !stepTextMatches(step.text, target, collapse)) {
+            departures.push({ at, kind: "text", target, message: "" });
+        }
+    });
+    return { departures, unplayed: parts.map((p) => p.anchor).filter((anchor) => !played.has(anchor)) };
+}
+
 /** Whether a linked step's embedded text is its part step's, with or without the keyword. */
 export function stepTextMatches(text, target, collapse) {
     const shown = collapse(text).replace(/^\*\*(Given|When|Then|And)\*\*/, "$1");
@@ -776,23 +882,98 @@ export function stepTextMatches(text, target, collapse) {
  *
  * `register` is the journey register the graph build writes `scenarios.json`
  * from, `[{ id, path, anchor, parts: [{ anchor }] }]`. Returns `{ problems,
- * links }`, `links` every linked walkthrough of a demo under `domain/` outside
- * a change as `{ demo, id, part }`, `part` the resolved `<file path>#<anchor>`
- * — what a `Proved by:` requirement's `demo` entries are derived from.
+ * links, plays }`, `links` every linked walkthrough of a demo under `domain/`
+ * outside a change as `{ demo, id, part }`, `part` the resolved `<file
+ * path>#<anchor>` — what a `Proved by:` requirement's `demo` entries are
+ * derived from — and `plays` every playthrough there as `{ demo, id, journey
+ * }`, `journey` the resolved journey address a feature's `playthrough` is
+ * held to.
+ *
+ * A playthrough is checked the same way against its whole journey: it
+ * resolves, each step names a part and a step of it, the steps follow the
+ * journey's order, the text is the part step's, the signature is current, and
+ * a part no step shows is warned, since a playthrough plays end to end.
  */
 export async function linkedWalkthroughs(repoRoot, folders, register = []) {
     const problems = [];
     const links = [];
+    const plays = [];
     const read = demoReader(repoRoot);
     const files = new Map();
     for (const journey of register) files.set(journey.path, [...(files.get(journey.path) ?? []), journey]);
     const parsed = new Map();
+    const parseJourney = async (tools, resolved) => {
+        if (!parsed.has(resolved.journey.id)) {
+            let found = null;
+            try {
+                const file = tools.parse.parseScenariosFile(await readFile(path.join(repoRoot, resolved.path), "utf8"), resolved.path);
+                const journey = file.journeys.find((candidate) => candidate.id === resolved.journey.id);
+                found = journey ? { journey, signature: await tools.signature.journeySignature(journey, repoRoot, tools.parse.SCENARIO_FOLDER) } : null;
+            } catch {
+                found = null;
+            }
+            parsed.set(resolved.journey.id, found);
+        }
+        return parsed.get(resolved.journey.id);
+    };
 
     for (const relPath of await collectDemos(repoRoot, folders)) {
         const demo = parseDemo(read(relPath) ?? "");
-        if (!demo.model?.linked.size) continue;
+        if (!demo.model?.linked.size && !demo.model?.playthroughs.size) continue;
         const derivable = !changePathParts(relPath) && landsInDomain(relPath);
         let unchecked = false;
+
+        for (const [id, { journey: address, signature }] of demo.model.playthroughs) {
+            if (!LINKED_PART.test(address)) continue; // the model's shape check reports it
+            const at = `${relPath} has playthrough "${id}" with \`journey\` "${address}"`;
+            const hash = address.indexOf("#");
+            const resolved = resolveLinkedJourney(relPath, address.slice(0, hash), address.slice(hash + 1), files);
+            if (resolved.error) {
+                problems.push({ severity: "error", path: relPath, message: `${at}, which names no journey: ${resolved.error}.` });
+                continue;
+            }
+            if (derivable) plays.push({ demo: relPath, id, journey: resolved.journey.id });
+            const tools = await loadScenarioTools();
+            if (!tools) {
+                unchecked = true;
+                continue;
+            }
+            const found = await parseJourney(tools, resolved);
+            if (!found) continue;
+            const stale = signature !== null && signature !== found.signature;
+            if (stale) {
+                problems.push({
+                    severity: "warning",
+                    path: relPath,
+                    message: `${relPath} has playthrough "${id}" at signature ${signature}, but ${resolved.journey.id} is at ${found.signature} — it is stale until \`/prototype\` re-copies its text from the journey.`,
+                });
+            }
+            const { departures, unplayed } = playthroughDepartures(demo.model.walkthroughs.get(id), found.journey.parts, tools.parse.collapse);
+            for (const departure of departures) {
+                const where = `${relPath} has playthrough "${id}" step ${departure.at}`;
+                if (departure.kind !== "text") {
+                    problems.push({ severity: "error", path: relPath, message: `${where}, which ${departure.message}.` });
+                    continue;
+                }
+                const step = demo.model.walkthroughs.get(id)[departure.at - 1];
+                const says = departure.target.keyword ? `${departure.target.keyword} ${departure.target.text}` : departure.target.text;
+                problems.push({
+                    severity: stale ? "warning" : "error",
+                    path: relPath,
+                    message:
+                        `${where} drifted from part "#${step.part}" step ${step.step}: it shows ${JSON.stringify(step.text)}, the part says ${JSON.stringify(says)} — ` +
+                        (stale ? "re-copy the text with the signature." : "the embedded text is a copy of the part step and is never edited in the demo."),
+                });
+            }
+            if (unplayed.length) {
+                problems.push({
+                    severity: "warning",
+                    path: relPath,
+                    message: `${relPath} has playthrough "${id}", which shows no step of part(s) ${unplayed.map((a) => `"#${a}"`).join(", ")} of ${resolved.journey.id} — a playthrough plays its journey end to end.`,
+                });
+            }
+        }
+
         for (const [id, { part, signature }] of demo.model.linked) {
             if (!LINKED_PART.test(part)) continue; // the model's shape check reports it
             const at = `${relPath} has walkthrough "${id}" with \`part\` "${part}"`;
@@ -810,18 +991,7 @@ export async function linkedWalkthroughs(repoRoot, folders, register = []) {
                 unchecked = true;
                 continue;
             }
-            if (!parsed.has(resolved.journey.id)) {
-                let found = null;
-                try {
-                    const file = tools.parse.parseScenariosFile(await readFile(path.join(repoRoot, resolved.path), "utf8"), resolved.path);
-                    const journey = file.journeys.find((candidate) => candidate.id === resolved.journey.id);
-                    found = journey ? { journey, signature: await tools.signature.journeySignature(journey, repoRoot, tools.parse.SCENARIO_FOLDER) } : null;
-                } catch {
-                    found = null;
-                }
-                parsed.set(resolved.journey.id, found);
-            }
-            const found = parsed.get(resolved.journey.id);
+            const found = await parseJourney(tools, resolved);
             const partSteps = found?.journey.parts.find((p) => p.anchor === anchor)?.steps;
             if (!partSteps) continue;
 
@@ -858,9 +1028,9 @@ export async function linkedWalkthroughs(repoRoot, folders, register = []) {
             problems.push({
                 severity: "warning",
                 path: relPath,
-                message: `${relPath} links walkthroughs to journey parts, but the scenario tools are not installed beside devbook-meta, so their steps, signatures, and text go unchecked — run devbook:update.`,
+                message: `${relPath} links walkthroughs to journeys, but the scenario tools are not installed beside devbook-meta, so their steps, signatures, and text go unchecked — run devbook:update.`,
             });
         }
     }
-    return { problems, links };
+    return { problems, links, plays };
 }

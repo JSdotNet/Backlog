@@ -1,0 +1,377 @@
+@inherits TechnologyViewBase
+
+@*
+    Dependencies — one technology in context: what it sits on and what sits on it,
+    hop by hop, and how far a breaking change reaches
+    (.devbook/domain/devbook/features.md#technology-view), laid out as the design's
+    Dependencies board.
+
+    The focus is the panel's shared selection: the picker and every card change it,
+    so switching views keeps it. The columns, the impact and the paths are read off
+    TechnologyDependencyMap, which walks the edges the measures already resolved;
+    nothing here counts the stack a second time.
+*@
+
+<div class="tech-deps" data-testid="technology-dependencies">
+    <section class="tech-deps__controls" aria-label="View controls">
+        <SelectField Form="true"
+                     Label="Focus"
+                     CurrentValue="@Map?.Focus.Id"
+                     Options="@FocusOptions"
+                     IncludeEmptyOption="@(Map is null)"
+                     EmptyLabel="Pick a technology"
+                     CssClass="tech-deps__focus"
+                     TestId="technology-dependencies-focus"
+                     OnChanged="id => SelectAsync(string.IsNullOrEmpty(id) ? null : id)" />
+
+        <div class="tech-deps__control">
+            <span class="tech-deps__control-label" id="tech-deps-direction">Direction</span>
+            <ButtonGroup Radio="true" aria-labelledby="tech-deps-direction" TestId="technology-dependencies-direction">
+                @foreach (var (direction, label) in Directions)
+                {
+                    <ToggleButton Pressed="@(_direction == direction)"
+                                  PressedChanged="_ => _direction = direction"
+                                  TestId="technology-dependencies-direction-option"
+                                  data-direction="@direction">@label</ToggleButton>
+                }
+            </ButtonGroup>
+        </div>
+
+        <div class="tech-deps__control">
+            <span class="tech-deps__control-label" id="tech-deps-hops">Hops</span>
+            <ButtonGroup Radio="true" aria-labelledby="tech-deps-hops" TestId="technology-dependencies-hops">
+                @foreach (var (limit, label) in HopLimits)
+                {
+                    <ToggleButton Pressed="@(_hopLimit == limit)"
+                                  PressedChanged="_ => _hopLimit = limit"
+                                  TestId="technology-dependencies-hops-option"
+                                  data-hops="@label">@label</ToggleButton>
+                }
+            </ButtonGroup>
+        </div>
+
+        <div class="tech-deps__control">
+            <span class="tech-deps__control-label" id="tech-deps-group">Group by</span>
+            <ButtonGroup Radio="true" aria-labelledby="tech-deps-group" TestId="technology-dependencies-group">
+                <ToggleButton Pressed="@(!_byLayer)"
+                              PressedChanged="_ => _byLayer = false"
+                              TestId="technology-dependencies-group-option"
+                              data-group="hops">Hops</ToggleButton>
+                <ToggleButton Pressed="@_byLayer"
+                              PressedChanged="_ => _byLayer = true"
+                              TestId="technology-dependencies-group-option"
+                              data-group="layer">Layer</ToggleButton>
+            </ButtonGroup>
+        </div>
+
+        <div class="tech-deps__links">
+            <AppButton Variant="ButtonVariant.Secondary"
+                       TestId="technology-dependencies-back"
+                       OnClick="() => OnOpenView.InvokeAsync(TechnologyViews.Overview)">Back to list</AppButton>
+            @if (Map is { } open && DevbookChapterLink.From(open.Focus.Id) is { } chapter)
+            {
+                <AppButton Variant="ButtonVariant.Primary"
+                           TestId="technology-dependencies-open-chapter"
+                           OnClick="() => OnNavigateToChapter.InvokeAsync(chapter)">Open chapter</AppButton>
+            }
+        </div>
+    </section>
+
+    @if (Map is not { } map)
+    {
+        <EmptyState Title="No technology in focus"
+                    Description="Pick a technology to see what it sits on and what sits on it."
+                    TestId="technology-dependencies-empty"
+                    role="status" />
+    }
+    else
+    {
+        var focus = map.Focus;
+
+        <section class="tech-deps__lanes-section" aria-labelledby="tech-deps-lanes">
+            <h3 id="tech-deps-lanes" class="tech-deps__heading">What @focus.Label sits on, and what sits on it</h3>
+            <div class="tech-deps__lanes" data-testid="technology-dependencies-lanes">
+                @foreach (var column in SitsOnColumns(map))
+                {
+                    @RenderColumn(column)
+                }
+
+                <section class="tech-deps__column tech-deps__column--selected" aria-label="Selected" data-testid="technology-dependencies-selected">
+                    <h4 class="tech-deps__column-head"><span>Selected</span></h4>
+                    <div class="tech-deps__focus-card">
+                        <div class="tech-deps__card-title">
+                            <span class="tech-deps__focus-name">@focus.Label</span>
+                            <span class="tech-deps__code" title="@TechnologyTypeCodes.Label(focus.Kind)">@TechnologyTypeCodes.Code(focus.Kind)</span>
+                        </div>
+                        <div class="tech-deps__focus-meta">
+                            <MetadataStatusBadge Status="@focus.Status" Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)" />
+                            <span class="tech-deps__card-detail">@FocusSource(focus)</span>
+                        </div>
+                        <dl class="tech-deps__figures" data-testid="technology-dependencies-figures">
+                            <div><dt>direct users</dt><dd>@focus.UsedBy</dd></div>
+                            <div><dt>in reach</dt><dd>@focus.BreaksIfItChanges</dd></div>
+                            <div><dt>depth</dt><dd>@focus.Depth</dd></div>
+                        </dl>
+                    </div>
+                </section>
+
+                @foreach (var column in UsedByColumns(map))
+                {
+                    @RenderColumn(column)
+                }
+            </div>
+        </section>
+
+        <div class="tech-deps__panels">
+            <section class="tech-deps__panel" aria-labelledby="tech-deps-impact" data-testid="technology-dependencies-impact">
+                <h3 id="tech-deps-impact" class="tech-deps__heading">Change impact</h3>
+                @if (map.ImpactTotal == 0)
+                {
+                    <p class="tech-deps__lede" data-testid="technology-dependencies-impact-total">Nothing uses @focus.Label, so a breaking change to it reaches no other technology.</p>
+                }
+                else
+                {
+                    <p class="tech-deps__lede" data-testid="technology-dependencies-impact-total">
+                        A breaking change to @focus.Label reaches <strong>@Plural(map.ImpactTotal, "technology", "technologies")</strong>
+                        in @Plural(map.Impact.Count, "layer", "layers").
+                    </p>
+                    <MetricRanking Items="@ImpactItems(map)"
+                                   Label="By layer"
+                                   CssClass="tech-deps__impact"
+                                   TestId="technology-dependencies-impact-layers" />
+                }
+            </section>
+
+            <section class="tech-deps__panel" aria-labelledby="tech-deps-paths" data-testid="technology-dependencies-paths">
+                <h3 id="tech-deps-paths" class="tech-deps__heading">Paths to a foundation</h3>
+                @if (map.SitsOn.Count == 0)
+                {
+                    <p class="tech-deps__lede">@focus.Label sits on nothing — it is a foundation.</p>
+                }
+                else if (map.PathsToFoundation.Count == 0)
+                {
+                    <p class="tech-deps__lede">No path down from @focus.Label ends at a foundation: what it sits on loops back.</p>
+                }
+                else
+                {
+                    <ol class="tech-deps__paths">
+                        @foreach (var path in map.PathsToFoundation)
+                        {
+                            <li data-testid="technology-dependencies-path">@string.Join(" → ", path.Select(node => node.Label))</li>
+                        }
+                    </ol>
+                    @if (map.HasMorePaths)
+                    {
+                        <p class="tech-deps__lede" data-testid="technology-dependencies-more-paths">The first @TechnologyDependencyMap.MaxPaths paths are shown; more lead down from @focus.Label.</p>
+                    }
+                }
+
+                @if (map.LongestPathThrough.Count > 1)
+                {
+                    <h4 class="tech-deps__subheading">Longest path through it</h4>
+                    <p class="tech-deps__path" data-testid="technology-dependencies-longest">
+                        @for (var index = 0; index < map.LongestPathThrough.Count; index++)
+                        {
+                            var node = map.LongestPathThrough[index];
+                            if (index > 0)
+                            {
+                                <span> → </span>
+                            }
+                            <span class="@(ReferenceEquals(node, focus) ? "tech-deps__path-focus" : null)">@node.Label</span>
+                        }
+                    </p>
+                }
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>A column of the board: one hop or one layer of one side.</summary>
+    private sealed record Column(TechnologyDirection Side, string Title, IReadOnlyList<TechnologyReach> Items, string? EmptyText = null)
+    {
+        public string SideLabel => Side == TechnologyDirection.SitsOn ? "Sits on" : "Used by";
+    }
+
+    private static readonly IReadOnlyList<(TechnologyDirection Direction, string Label)> Directions =
+    [
+        (TechnologyDirection.Both, "Both"),
+        (TechnologyDirection.SitsOn, "Sits on"),
+        (TechnologyDirection.UsedBy, "Used by"),
+    ];
+
+    private static readonly IReadOnlyList<(int Limit, string Label)> HopLimits =
+    [
+        (1, "1"),
+        (2, "2"),
+        (int.MaxValue, "All"),
+    ];
+
+    private TechnologyDirection _direction = TechnologyDirection.Both;
+    private int _hopLimit = 2;
+    private bool _byLayer;
+
+    private TechnologyDependencyMap? _map;
+    private TechnologyGraphData? _mapGraph;
+    private string? _mapFocus;
+
+    /// <summary>The map around the focus, walked again only when the graph or the
+    /// focus changes — not on every control press.</summary>
+    private TechnologyDependencyMap? Map
+    {
+        get
+        {
+            if (!ReferenceEquals(_mapGraph, View.Graph) || !string.Equals(_mapFocus, SelectedId, StringComparison.Ordinal))
+            {
+                _mapGraph = View.Graph;
+                _mapFocus = SelectedId;
+                _map = TechnologyDependencyMap.For(View.Graph, SelectedId);
+            }
+
+            return _map;
+        }
+    }
+
+    /// <summary>Every technology of the folder, by layer in reading order. A focus
+    /// documented in another folder — reached by pressing its card — is offered too,
+    /// so the picker always names what is in focus.</summary>
+    private IReadOnlyList<SelectorOption> FocusOptions
+    {
+        get
+        {
+            var options = Technologies
+                .OrderBy(LayerOrder)
+                .ThenBy(node => node.OrdinalInLayer)
+                .Select(node => new SelectorOption(node.Id, node.Label, Group: TechnologyViews.LayerLabel(node.Layer)))
+                .ToList();
+
+            if (Map is { Focus.IsBoundary: true } map)
+            {
+                options.Add(new SelectorOption(map.Focus.Id, map.Focus.Label, Group: TechnologyViews.LayerLabel(map.Focus.Layer)));
+            }
+
+            return options;
+        }
+    }
+
+    private bool Shows(TechnologyDirection side) => _direction == TechnologyDirection.Both || _direction == side;
+
+    /// <summary>What it sits on, the furthest column leftmost so the board reads
+    /// down the stack from left to the focus.</summary>
+    private IEnumerable<Column> SitsOnColumns(TechnologyDependencyMap map)
+    {
+        if (!Shows(TechnologyDirection.SitsOn)) return [];
+        if (map.SitsOn.Count == 0) return [new Column(TechnologyDirection.SitsOn, "Nothing", [], "Nothing — a foundation")];
+
+        var columns = Columns(TechnologyDirection.SitsOn, map.SitsOn).ToList();
+        if (!_byLayer) columns.Reverse();
+        return columns;
+    }
+
+    private IEnumerable<Column> UsedByColumns(TechnologyDependencyMap map)
+    {
+        if (!Shows(TechnologyDirection.UsedBy)) return [];
+        if (map.UsedBy.Count == 0) return [new Column(TechnologyDirection.UsedBy, "Nothing", [], "Nothing depends on it — a leaf")];
+
+        return Columns(TechnologyDirection.UsedBy, map.UsedBy);
+    }
+
+    /// <summary>One side's reaches within the hop limit, as one column per hop or
+    /// one per layer in reading order.</summary>
+    private IEnumerable<Column> Columns(TechnologyDirection side, IReadOnlyList<TechnologyReach> reaches)
+    {
+        var shown = reaches.Where(reach => reach.Hop <= _hopLimit).ToList();
+
+        return _byLayer
+            ? shown
+                .GroupBy(reach => reach.Node.Layer, StringComparer.Ordinal)
+                .OrderBy(layer => layer.Min(reach => LayerOrder(reach.Node)))
+                .Select(layer => new Column(side, TechnologyViews.LayerLabel(layer.Key), [.. layer]))
+            : shown
+                .GroupBy(reach => reach.Hop)
+                .OrderBy(hop => hop.Key)
+                .Select(hop => new Column(side, HopText(hop.Key), [.. hop]));
+    }
+
+    private RenderFragment RenderColumn(Column column) => __builder =>
+    {
+        <section class="tech-deps__column"
+                 aria-label="@($"{column.SideLabel} · {column.Title}")"
+                 data-testid="technology-dependencies-column"
+                 data-side="@(column.Side == TechnologyDirection.SitsOn ? "sits-on" : "used-by")">
+            <h4 class="tech-deps__column-head">
+                <span>@column.SideLabel · @column.Title</span>
+                @if (column.Items.Count > 0)
+                {
+                    <span class="tech-deps__tally">@column.Items.Count</span>
+                }
+            </h4>
+            @if (column.Items.Count == 0)
+            {
+                <p class="tech-deps__lede">@column.EmptyText</p>
+            }
+            else
+            {
+                <ul class="tech-deps__cards">
+                    @foreach (var reach in column.Items)
+                    {
+                        <li>
+                            <AppButton BaseClass="tech-deps__card"
+                                       Variant="ButtonVariant.None"
+                                       CssClass="@CardClass(reach)"
+                                       TestId="technology-dependencies-card"
+                                       OnClick="() => SelectAsync(reach.Node.Id)"
+                                       data-id="@reach.Node.Id">
+                                <span class="tech-deps__card-title">
+                                    <span class="tech-deps__card-name">@reach.Node.Label</span>
+                                    <span class="tech-deps__code" title="@TechnologyTypeCodes.Label(reach.Node.Kind)">@TechnologyTypeCodes.Code(reach.Node.Kind)</span>
+                                </span>
+                                <span class="tech-deps__card-detail" data-testid="technology-dependencies-card-detail">@CardDetail(reach)</span>
+                            </AppButton>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    };
+
+    /// <summary>A card two hops or more away reads quieter, as the design draws
+    /// it; one not yet adopted is drawn hollow, in any family.</summary>
+    private static string? CardClass(TechnologyReach reach) =>
+        string.Join(' ', new[]
+        {
+            reach.Hop >= 2 ? "tech-deps__card--far" : null,
+            reach.Node.IsAdopted ? null : "tech-deps__card--hollow",
+        }.Where(part => part is not null)) is { Length: > 0 } classes ? classes : null;
+
+    /// <summary>The line under a card's name: its layer, then what the board says
+    /// about how it is reached — the hop when grouped by layer, "via" from two
+    /// hops, and every further hop it is also reached at.</summary>
+    private string CardDetail(TechnologyReach reach)
+    {
+        var parts = new List<string> { TechnologyViews.LayerLabel(reach.Node.Layer) };
+        if (_byLayer) parts.Add(HopText(reach.Hop).ToLowerInvariant());
+        if (reach.Node.DependencyIds.Count == 0) parts.Add("foundation");
+        if (!reach.Node.IsAdopted) parts.Add(reach.Node.Status);
+        if (reach.Via is { } via) parts.Add($"via {via.Label}");
+        if (reach.OtherHops.Count > 0) parts.Add(AlsoText(reach.OtherHops));
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>A further hop is always two or more, so it always reads "hops".</summary>
+    private static string AlsoText(IReadOnlyList<int> hops) => $"also {string.Join(", ", hops)} hops";
+
+    private static string HopText(int hop) => hop == 1 ? "1 hop" : $"{hop} hops";
+
+    private static string FocusSource(TechnologyGraphNode node) =>
+        string.IsNullOrEmpty(node.LayerFileName)
+            ? TechnologyViews.LayerLabel(node.Layer)
+            : $"{node.LayerFileName} · {TechnologyViews.LayerLabel(node.Layer)} layer";
+
+    private static IReadOnlyList<MetricRankItem> ImpactItems(TechnologyDependencyMap map) =>
+        [.. map.Impact.Select(layer => new MetricRankItem(TechnologyViews.LayerLabel(layer.Layer), layer.Count))];
+
+    private static string Plural(int count, string one, string many) => $"{count} {(count == 1 ? one : many)}";
+
+    private static int LayerOrder(TechnologyGraphNode node) => node.LayerIndex < 0 ? int.MaxValue : node.LayerIndex;
+}

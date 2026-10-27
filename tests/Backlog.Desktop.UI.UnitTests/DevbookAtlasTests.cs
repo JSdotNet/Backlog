@@ -223,6 +223,61 @@ public sealed class DevbookAtlasReaderTests
         Assert.NotNull(graph.Message);
     }
 
+    /// <summary>The canvas atlas no longer draws the technology stack: the
+    /// Technology section has views of its own. So no repository reading carries a
+    /// <c>.tech</c> node — not the whole devbook, and not a folder scope's boundary
+    /// node — nor an edge to one.</summary>
+    [Theory]
+    [InlineData("all")]
+    [InlineData("domain")]
+    public void No_repository_reading_draws_a_technology(string scopeKey)
+    {
+        var json = Json(new
+        {
+            elements = new
+            {
+                nodes = new object[]
+                {
+                    Node(".domain/context-map.md", "Context Map", "domain", "file", "active", ".domain/context-map.md"),
+                    Node(".devbook/tech/shared.md#net", ".NET", "tech", "chapter", "adopted", ".devbook/tech/shared.md", outOfScope: scopeKey == "domain"),
+                    Node(".tech/desktop.md", "Desktop Stack", "tech", "file", "adopted", ".tech/desktop.md", outOfScope: scopeKey == "domain")
+                },
+                edges = new object[]
+                {
+                    Edge("depends-on", ".domain/context-map.md", ".devbook/tech/shared.md#net"),
+                    Edge("related", ".tech/desktop.md", ".domain/context-map.md")
+                }
+            }
+        });
+
+        var graph = DevbookAtlasReader.Read(scopeKey == "all" ? DevbookAtlasScope.All : DomainScope, json);
+
+        var only = Assert.Single(graph.Nodes);
+        Assert.Equal(".domain/context-map.md", only.Id);
+        Assert.Empty(graph.Edges);
+        Assert.Equal(0, only.InDegree);
+        Assert.Equal(0, only.OutDegree);
+    }
+
+    /// <summary>A repository holding nothing but its technology stack has nothing
+    /// for the atlas to draw, and says so rather than drawing it.</summary>
+    [Fact]
+    public void A_devbook_of_technologies_alone_has_nothing_to_map()
+    {
+        var graph = DevbookAtlasReader.Read(DevbookAtlasScope.All, Json(new
+        {
+            elements = new
+            {
+                nodes = new object[] { Node(".tech/shared.md", "Shared Technologies", "tech", "file", "adopted", ".tech/shared.md") },
+                edges = Array.Empty<object>()
+            }
+        }));
+
+        Assert.False(graph.Available);
+        Assert.Equal(DevbookAtlasReader.TechnologyOnly, graph.Message);
+        Assert.Empty(graph.Nodes);
+    }
+
     private static DevbookAtlasNode NodeFor(DevbookAtlasGraph graph, string id) =>
         Assert.Single(graph.Nodes, node => node.Id == id);
 }

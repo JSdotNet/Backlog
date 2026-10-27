@@ -18,7 +18,7 @@ to `.devbook/_tools/scenarios/` where `domain/` is adopted. Edit the plugin, nev
 | `package.json` | `"type": "module"`, so Playwright loads the two `.ts` files and the `.mjs` they import as ES modules |
 | `report.mjs` | The Playwright reporter that writes `run.json` version 2 and the PNGs |
 | `check.mjs` | The coverage check |
-| `demo-sync.mjs` | Re-copies each linked walkthrough's step `text` and `signature` from its journey into a demo |
+| `demo-sync.mjs` | Re-copies each linked walkthrough's and playthrough's step `text` and `signature` from its journey into a demo |
 
 Everything ending in `.mjs` is plain Node with no dependencies; `demo-sync.mjs` also imports
 `../devbook-meta/demo.mjs`, the checker installed beside this folder. The two `.ts` files use
@@ -165,7 +165,9 @@ node .devbook/_tools/scenarios/demo-sync.mjs [<demo.html>…] [--root <dir>] [--
 Without a file it takes every `*.demo.html` under `.devbook/domain/`. For each linked
 walkthrough — one whose `part` names a journey's part — it replaces each step's `text` with
 the text of the part step its `step` names, keeping a leading keyword when the copy had one,
-and `signature` with the journey's current one. Nothing else in the file changes. `--check`
+and `signature` with the journey's current one. A playthrough — one whose `journey` names a
+whole journey — is synced the same way, each step from the part its `part` names. Nothing
+else in the file changes. `--check`
 writes nothing and exits `1` while any linked walkthrough is stale or drifted; both forms exit
 `1` on a `part` that does not resolve or a `step` past the part, which they report and leave
 alone. The journey is the source here too: the demo takes its words, never the reverse.

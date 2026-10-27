@@ -67,10 +67,61 @@
             }
             if (!container || container === document.body) return;
 
+            // A row taller than the container — a Type lenses card — shows its
+            // start, where its name is, rather than its end.
             const bounds = container.getBoundingClientRect();
             const box = row.getBoundingClientRect();
-            if (box.top < bounds.top) container.scrollTop -= bounds.top - box.top;
+            if (box.top < bounds.top || box.height > bounds.height) container.scrollTop -= bounds.top - box.top;
             else if (box.bottom > bounds.bottom) container.scrollTop += box.bottom - bounds.bottom;
+        };
+
+        attempt(focusFrames);
+    };
+
+    // A chapter opened from a link that named one of its headings — a usage picked
+    // on an AI tab — has to open at that heading, not at the top of its file. The
+    // heading is found inside `scope` by its text: a rendered heading carries no id,
+    // and the caller has already resolved the anchor to the heading it names; a
+    // heading's type mark is an image with no text, so the text matches exactly.
+    // The nearest container that actually scrolls is scrolled until the heading
+    // sits at its top, for the reason backlogRevealRow gives — a file view that
+    // does not fill the pane keeps its body's overflow but grows instead, and the
+    // section around it is what scrolls. Focus then moves to the heading without
+    // scrolling again, so a keyboard
+    // or screen reader user lands where the reader's eye does. Waited for a few
+    // frames, because the chapter's body arrives with its read.
+    window.backlogRevealHeading = (scope, text) => {
+        const normalise = value => (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const wanted = normalise(text);
+        if (!wanted) return;
+
+        const find = () => {
+            const root = document.querySelector(scope);
+            if (!root) return null;
+            const headings = [...root.querySelectorAll('[role="heading"], h1, h2, h3, h4, h5, h6')];
+            return headings.find(heading => normalise(heading.textContent) === wanted) ?? null;
+        };
+
+        const attempt = framesLeft => {
+            const heading = find();
+            if (!heading) {
+                if (framesLeft > 0) requestAnimationFrame(() => attempt(framesLeft - 1));
+                return;
+            }
+
+            let container = heading.parentElement;
+            while (container && container !== document.body) {
+                const overflowY = getComputedStyle(container).overflowY;
+                if ((overflowY === 'auto' || overflowY === 'scroll') && container.scrollHeight > container.clientHeight) break;
+                container = container.parentElement;
+            }
+            if (container && container !== document.body) {
+                const inset = parseFloat(getComputedStyle(container).paddingTop) || 0;
+                container.scrollTop += heading.getBoundingClientRect().top - container.getBoundingClientRect().top - inset;
+            }
+
+            if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+            heading.focus({ preventScroll: true });
         };
 
         attempt(focusFrames);
@@ -2003,6 +2054,61 @@
         if (!target || !target.matches('[data-arrow-pad] > button')) return;
 
         event.preventDefault();
+    });
+
+    // The keys a Tabs strip moves between its tabs with. A strip narrower than its
+    // tabs scrolls, and left alone each arrow would also scroll it 40 px — not as
+    // far as the tab it moved to, so the last tab stayed cut off — and End would
+    // throw it to its end. The same reasoning and contract as the radio keys above:
+    // refused at the keydown because a state-bound `@onkeydown:preventDefault` is
+    // one key late, only the default, the event keeps bubbling to Tabs' handler.
+    // Matched on the strip's marker, because a host replaces its classes. A key
+    // held with a modifier is not the strip's: Alt+Left is the browser's Back.
+    const TABS_SWALLOWED_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'Home', 'End']);
+    const ROVING_TAB = '[data-roving-tabs] > [role="tab"]';
+
+    document.addEventListener('keydown', (event) => {
+        if (!TABS_SWALLOWED_KEYS.has(event.key)) return;
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches(ROVING_TAB)) return;
+
+        event.preventDefault();
+    });
+
+    // A tab that takes the focus is shown whole in a strip that scrolls. The
+    // browser's own reveal on focus leaves a tab that is already partly in view
+    // where it is, which at phone width cut the last tab off by most of its width.
+    // Only the strip is scrolled — never scrollIntoView, which would also move
+    // every scrolling ancestor up to the workspace — and only as far as the tab
+    // needs. The strip is the nearest ancestor that scrolls sideways: the tablist
+    // itself on the Technology page, the row around it where a host puts a link
+    // beside the tabs and scrolls the row (the dashboard, the tools pane).
+    // Focusin rather than the arrow keys, so Tab back into the strip and a host's
+    // FocusTab are covered too.
+    const scrollsSideways = (element) => {
+        if (element.scrollWidth <= element.clientWidth) return false;
+
+        const overflow = getComputedStyle(element).overflowX;
+        return overflow === 'auto' || overflow === 'scroll';
+    };
+
+    document.addEventListener('focusin', (event) => {
+        const tab = event.target instanceof Element ? event.target : null;
+        if (!tab || !tab.matches(ROVING_TAB)) return;
+
+        let strip = tab.parentElement;
+        while (strip && strip !== document.body && !scrollsSideways(strip)) strip = strip.parentElement;
+        if (!strip || strip === document.body) return;
+
+        const view = strip.getBoundingClientRect();
+        const box = tab.getBoundingClientRect();
+        const left = view.left + strip.clientLeft;
+        const right = left + strip.clientWidth;
+
+        if (box.left < left) strip.scrollLeft -= left - box.left;
+        else if (box.right > right) strip.scrollLeft += box.right - right;
     });
 
     // Where a menu opened from a button sits: under the button's left edge, as
