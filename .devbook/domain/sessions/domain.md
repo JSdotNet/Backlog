@@ -1262,6 +1262,17 @@ dispatch wait route of the [Session Request Queue](#session-request-queue).
 | `GET /session-requests/wait` | Hands a waiting Manager a due delivery before any session request, oldest answer first, with the session id, the Claude desktop app's id for it, the question and the answer. Only a session the desktop app holds open gets one. |
 | `claim_delivery`, `mark_delivery` | Claim a delivery under a two-minute lease, then mark it `delivered`, or `released` when the session is gone. Only the dispatcher holding the claim may mark it. |
 | `list_deliveries` | Lists the deliveries not yet delivered, or those Pending or Claimed, for a Manager that restarts. |
+| `GET /hooks/ask-backlog.mjs` | Serves the hook script the desktop app embeds, behind the listener's guard. |
+
+The hooks are one script, `ask-backlog.mjs`. The desktop app embeds it, serves it on
+the MCP listener and writes the same bytes to `hooks\ask-backlog.mjs` under its app
+data folder on every start, so the installed hook is always the running app's. Its
+first argument names the hook: `pre` and `post` for `AskUserQuestion`, `stop`,
+`prompt` for `UserPromptSubmit`, and `end` for `SessionEnd`. `pre` holds a `backlog`
+dialog on `get_answer`, asking again every 15 seconds while Backlog does not answer,
+and stops at once when Backlog refuses. No call lists a session's questions, so the
+script keeps the ids it was given in a file per session beside it. On any error it
+exits 0 without output, so the session never waits on Backlog being up.
 
 ### Waiting Question
 
