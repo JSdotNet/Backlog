@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="Hand-offs"
-           Description="The board at rest: every hand-off between usages, solid when the work is handed on, dashed when a candidate would hand it on, red for the loop from production that is still open. Support links stay hidden until a usage is picked.
+           Description="The board at rest: every hand-off between usages, solid when the work is handed on, dashed when a candidate would hand it on, red for the loop from production that is still open — a candidate at Operate feeding an adopted usage, as the alerts would feed the tracker. The security review is a candidate too, but the sweep it would open issues for is still on trial, so its arrow is a grey dash. Support links stay hidden until a usage is picked.
 
 The boxes are real buttons named by usage, rung, schedule and place — Scheduled merge review reads as trial, scheduled, Integrate."
            Code="@HandOffsCode">
@@ -21,7 +21,7 @@ The boxes are real buttons named by usage, rung, schedule and place — Schedule
     </Story>
 
     <Story Name="What feeds back"
-           Description="The hand-offs that come back: to an earlier stage — the alerts that would enter Decide, the security review that would open issues — or out of a layer, as the upkeep schedule's pull requests do when they land at the Personal Validation gate."
+           Description="The hand-offs that come back: to an earlier stage — the alerts that would enter Decide, in red, and the security review that would open issues for the sweep, a grey dash — or out of a layer, as the upkeep schedule's pull requests do when they land at the Personal Validation gate."
            Code="@FeedsBackCode">
         <CohesionBoard Graph="@Graph" View="CohesionView.FeedsBack" OnOpenUsage="_ => { }" TestId="cohesion-feeds-back" />
     </Story>
@@ -89,6 +89,7 @@ The boxes are real buttons named by usage, rung, schedule and place — Schedule
         Nodes:
         [
             N("tracker", "Backlog as tracker", "adopted", 1, "Decide", 100, false, "mcp"),
+            N("sweep", "Scheduled issue sweep", "trial", 1, "Decide", 188, true, "schedule", "engine"),
             N("spec", "Devbook chapters via flow-spec", "adopted", 2, "Specify & plan", 100, false, "engine", "devbook"),
             N("import", "Import plans", "adopted", 2, "Specify & plan", 188, false, "btools"),
             N("gate", "Code gate via flow-code", "adopted", 3, "Code", 100, false, "engine", "instr"),
@@ -106,12 +107,12 @@ The boxes are real buttons named by usage, rung, schedule and place — Schedule
             E("tracker", "spec", "what you pick", 251, 133, CohesionEdgeKind.Feed, false, (236, 133), (266, 133)),
             E("spec", "import", "agreed spec", 364, 177, CohesionEdgeKind.Feed, false, (364, 166), (364, 188)),
             E("spec", "gate", "apply-change", 477, 127, CohesionEdgeKind.Feed, false, (462, 127), (492, 127)),
-            E("import", "gate", "prompt entries", 483, 183, CohesionEdgeKind.Feed, false, (462, 221), (483, 221), (483, 145), (492, 145)),
+            E("import", "gate", "prompt entries", 483, 177, CohesionEdgeKind.Feed, false, (462, 221), (483, 221), (483, 145), (492, 145)),
             E("gate", "qa", "verify", 703, 133, CohesionEdgeKind.Feed, false, (688, 133), (718, 133)),
             E("qa", "pv", "evidence", 816, 177, CohesionEdgeKind.Feed, false, (816, 166), (816, 188)),
             E("pv", "mreview", "pull request", 923, 177, CohesionEdgeKind.Feed, false, (914, 221), (923, 221), (923, 133), (944, 133)),
             E("alerts", "tracker", "would enter Decide", 817, 62, CohesionEdgeKind.OpenLoop, true, (1592, 127), (1612, 127), (1612, 62), (22, 62), (22, 127), (40, 127)),
-            E("security", "tracker", "would open issues", 871, 52, CohesionEdgeKind.Feed, true, (1592, 221), (1604, 221), (1604, 52), (138, 52), (138, 100)),
+            E("security", "sweep", "would open issues", 1300, 52, CohesionEdgeKind.Feed, true, (1592, 221), (1604, 221), (1604, 52), (30, 52), (30, 221), (40, 221)),
             E("upkeep", "pv", "pull requests", 935, 347, CohesionEdgeKind.Feed, false, (944, 449), (935, 449), (935, 245), (914, 245)),
             E("worktree", "gate", null, 590, 348, CohesionEdgeKind.Support, false, (590, 530), (590, 166)),
             E("guidance", "worktree", null, 364, 563, CohesionEdgeKind.Support, false, (236, 563), (492, 563))

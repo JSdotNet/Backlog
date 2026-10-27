@@ -234,8 +234,9 @@
 
     /// <summary>The shortest run a label is drawn on. A hand-off between two
     /// neighbouring boxes crosses one 30px gutter, and a label there would cover
-    /// both boxes' names; the panel names what it hands on instead.</summary>
-    private const double MinLabelledRun = 60;
+    /// both boxes' names; the panel names what it hands on instead. A layout
+    /// reads it to know which labels it must find room for.</summary>
+    public const double MinLabelledRun = 60;
 
     /// <summary>The graph, laid out.</summary>
     [Parameter, EditorRequired]
