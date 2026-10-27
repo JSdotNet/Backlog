@@ -108,6 +108,13 @@ one of four shapes:
 | Open | Plain text, with an optional placeholder and length limit. Markdown is not allowed in an answer. |
 | Choices with open | One of the set choices, or an open answer instead. |
 
+A set choice may also take text. A reply that picks it carries the person's words
+with it, as plain text within the open answer's length limit, and a reply that
+picks it with no text does not fit. This is how one question offers two answers
+that each need words, such as Revise and Approve + follow-up on the Personal
+Validation question. The open answer stays separate: it is text instead of a
+choice, where a choice that takes text is text with one.
+
 An answer spec may also say `answerOn: owner`. Only a reply made on the owner
 instance is then accepted. Without it, any paired viewer may answer, critical
 questions included.
@@ -186,7 +193,8 @@ answer spec. The viewer can then reply again. The owner deletes a reply once it
 has processed it.
 
 A reply names the notification, its owner instance, the device it came from, the
-chosen choice ids and the open text.
+chosen choice ids and the open text. The open text also carries the words of a
+choice that takes text.
 
 ## Answer
 

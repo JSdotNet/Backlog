@@ -119,7 +119,18 @@ type: invariant
 tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_single_choice_reply_picks_exactly_one_offered_choice, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_multiple_choice_reply_picks_offered_choices_within_the_limits, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.An_open_reply_is_plain_text_within_the_length_limit, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.Choices_with_open_take_one_choice_or_the_open_answer_but_not_both]
 ```
 
-A reply holds only choice ids the answer spec offers, within its count limits, and open text only where the spec allows it and within its length (`reply.invalid`).
+A reply holds only choice ids the answer spec offers, within its count limits, and text only where the spec allows it, as the open answer or with a choice that takes text, and within its length (`reply.invalid`).
+
+Enforced at: `Accept()` on the Notification
+
+### Invariant: A choice that takes text comes with text
+
+```meta
+status: proposed
+type: invariant
+```
+
+A reply that picks a choice which takes text carries non-empty plain text with it (`reply.invalid`). Without it, Approve + follow-up would file an entry with nothing to do.
 
 Enforced at: `Accept()` on the Notification
 

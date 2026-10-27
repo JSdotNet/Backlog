@@ -962,6 +962,65 @@ The system SHALL refuse to save entry text of the plan [Entry Kind](domain.md#en
 - **When** the person saves it as a task
 - **Then** no task is stored, and the refusal names Import
 
+## Filing a follow-up after an entry
+
+```meta
+type: requirements
+status: proposed
+related: [.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved]
+```
+
+> What a follow-up entry is born with, when the person approves a run with a
+> follow-up.
+
+### Requirement: A follow-up is filed once, after the gated entry
+
+```meta
+type: requirement
+status: proposed
+```
+
+The system SHALL file exactly one task per accepted Approve + follow-up answer, of type `prompt` and status `ready`, waiting on the gated entry, carrying the gated entry's plan tag and repository and no `import_plan_id`, with the person's words as its body and the answer's notification id as its provenance.
+
+#### Scenario: A follow-up in a plan
+
+- **Given** the gated entry T-41 is a prompt in the plan `+notifications` for `owner/backlog`
+- **When** the person answers Approve + follow-up with "Add the empty-state screenshot to the docs", and the owner accepts it
+- **Then** one `ready` prompt exists `after:T-41`, tagged `+notifications`, for `owner/backlog`, with those words as its body
+
+#### Scenario: The same answer handed over again
+
+- **Given** a follow-up already filed for notification N-7
+- **When** the answer of N-7 is handed to Sessions again
+- **Then** no second task is filed
+
+#### Scenario: A gated entry outside any plan
+
+- **Given** the gated entry T-52 carries no plan tag
+- **When** the person answers Approve + follow-up with "Rename the setting"
+- **Then** one `ready` prompt exists `after:T-52`, with no plan tag
+
+#### Scenario: The plan is imported again
+
+- **Given** a follow-up filed under `+notifications`, not yet started
+- **When** the person re-imports an updated `+notifications` plan
+- **Then** the follow-up is kept, and the plan still lists it
+
+### Requirement: The person's words stay body text
+
+```meta
+type: requirement
+status: proposed
+```
+
+The system SHALL write the words of a follow-up answer into the follow-up's body as plain text, so that no line of them becomes a sub-item, a heading or a fence.
+
+#### Scenario: Words that look like a step
+
+- **Given** a follow-up answer reading "- [ ] delete the old table"
+- **When** the follow-up is filed
+- **Then** its body holds that line as text, and the task has no sub-items
+
 ## Archive and lifecycle
 
 ```meta

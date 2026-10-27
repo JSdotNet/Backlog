@@ -65,7 +65,11 @@ none. What the tray offers depends on the question:
 | Single choice, up to three choices | one action per choice |
 | Open answer only | an inline reply |
 | Choices with an open answer, up to two choices | the choices, then the inline reply |
-| Anything else: multiple choice, more choices than fit, `answerOn: owner`, an alert, a reply already on its way | no actions |
+| Anything else: multiple choice, more choices than fit, a choice that takes text, `answerOn: owner`, an alert, a reply already on its way | no actions |
+
+The Personal Validation question offers four choices, Approve, Approve + follow-up,
+Revise and Reject, so the tray shows it with no actions. The person taps through to
+the app to answer it.
 
 An action or an inline reply leaves through the same `notification-reply` outbox
 entry as a reply made in the app. A tap opens the notification in the app. A
@@ -82,7 +86,7 @@ whether a phone showed it.
 ```meta
 status: proposed
 type: feature
-related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts]
+related: [.devbook/domain/notifications/requirements.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
 ```
 
 Three contexts reach the person through notifications. A delivery run that
@@ -91,6 +95,29 @@ run; the pull request is still opened at the desktop. A device that redeems a
 pairing code is asked about on the desktop that showed the code, and only there:
 Allow keeps it, Refuse revokes it. A remark left on a Devbook chapter on another
 device raises an alert that links to the chapter.
+
+The Personal Validation question carries the gate's handoff as its body, so the
+person can review the run from the phone. The handoff is what the stage reports
+for the person: its review links, what to check, the acceptance criteria and the
+paths of the evidence. It travels as text, and no image is attached. The question
+is asked on the first report of the stage that carries links or handoff text,
+because a gate that has only gone in progress has nothing to show yet.
+
+| Answer | Recorded on the run | What follows |
+| --- | --- | --- |
+| Approve | an approval | The flow goes on to the pull request. |
+| Approve + follow-up, with text | an approval, with the person's words as its note and the id of the follow-up entry | Tasks files one [follow-up entry](../tasks/features.md#filing-a-follow-up-after-an-entry) after the gated entry, in the same plan. |
+| Revise, with text | a rejection in the person's words | The flow starts a [revise round](../sessions/domain.md#revise-round). |
+| Reject | a rejection with no words | `execute-plan` blocks the entry instead of revising it. |
+
+Approve + follow-up is offered only when the run names the entry it works, by its
+id or by its plan and item. The follow-up is a task, never a session request:
+[only a click in the app requests a session](../sessions/requirements.md#requirement-only-a-click-in-the-app-requests-a-session),
+as §1 of local
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
+decides.
+An attended `execute-plan` reads the decision from the run, and runs the follow-up
+as a ready entry once the gated entry lands.
 
 ## Closing a notification
 

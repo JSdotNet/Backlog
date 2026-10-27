@@ -144,6 +144,14 @@ A plan written under a general `#slug` before the sigil existed is therefore a
 different plan from one written under `+slug`
 (`.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
 
+A task filed as a
+[follow-up after an entry](features.md#filing-a-follow-up-after-an-entry) carries
+`source_notification_id`, naming the notification whose answer asked for it. It is
+provenance in the same spirit as `source_inbox_id`, and carries no invariant of its
+own. It is also the key that keeps a second delivery of the same answer from filing
+a second task. Such a task carries its plan's tag but no `import_plan_id`, so a
+re-import of the plan leaves it alone.
+
 The task also carries an optional `effort`, its [Effort](#effort), within
 [the bounds the task enforces](domain.invariants.md#invariant-effort-is-never-negative).
 Deriving the estimate is not built here. This is the
@@ -371,7 +379,9 @@ aliases: [TaskType]
 ```
 
 Classification of the task: `prompt`, `task`, `idea`, `test`. A follow-up is a
-`Dependency` on the task it comes after rather than a type of its own.
+`Dependency` on the task it comes after rather than a type of its own. One
+[filed from a gate answer](features.md#filing-a-follow-up-after-an-entry) is a
+`prompt`.
 
 ### Task Status
 
