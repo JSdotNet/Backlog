@@ -87,8 +87,6 @@ public class StylesheetDuplicateSelectorTests
             new(".folder-document", 2, SharedWithSiblings),
             new(".folder-section", 4, SharedWithSiblings),
             new(".domain-document", 2, SharedWithSiblings),
-            new(".ai-loop__label", 2, SharedWithSiblings),
-            new(".ai-loop__lobe", 2, SharedWithSiblings),
             new(".tech-atlas-note", 2, SharedWithSiblings),
         ],
         [Components] =

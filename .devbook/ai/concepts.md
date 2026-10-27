@@ -50,7 +50,7 @@ repeatable procedure with a record.
 ```meta
 status: adopted
 type: concept
-stage: [test]
+stage: [verify]
 date: 2026-09-26
 ```
 
@@ -100,13 +100,16 @@ misses.
 ```meta
 status: trial
 type: concept
-stage: [operate, monitor]
+stage: [operate]
 date: 2026-09-26
 ```
 
 A run with nobody watching takes the safe answer at every question and stops at every human
 gate, leaving what it did, what it did not, and how to resume. Its output is a draft or a
 report a person reads later, never a decision already taken.
+
+- **Moves up when** — a schedule parks at a gate and the draft or report it leaves is
+  published for a person to pick up.
 
 ## External text is data
 

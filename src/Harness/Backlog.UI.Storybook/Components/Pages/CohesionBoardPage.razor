@@ -1,0 +1,159 @@
+@page "/devbook/cohesion"
+
+<PageTitle>Cohesion board — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Cohesion board"
+           Summary="CohesionBoard: the board the AI section's Cohesion tab draws — how the usages form a whole. The stages are lanes with the pull-request marker between Verify and Integrate, the layers bands beneath; every usage is a box styled by its rung, with a clock when a schedule runs it, and the hand-offs between them are arrows. Four ways to read it, a panel saying what feeds a picked usage, and the platforms the usages are built on. The graph is handed in laid out; the samples below are a cut of the `.devbook/ai/` record placed by hand on the Cohesion layout's grid."
+           Guidelines="@Rules">
+
+    <Story Name="Hand-offs"
+           Description="The board at rest: every hand-off between usages, solid when the work is handed on, dashed when a candidate would hand it on, red for the loop from production that is still open — a candidate at Operate feeding an adopted usage, as the alerts would feed the tracker. The security review is a candidate too, but the sweep it would open issues for is still on trial, so its arrow is a grey dash. Support links stay hidden until a usage is picked.
+
+The boxes are real buttons named by usage, rung, schedule and place — Scheduled merge review reads as trial, scheduled, Integrate."
+           Code="@HandOffsCode">
+        <CohesionBoard Graph="@Graph" View="CohesionView.HandOffs" OnOpenUsage="_ => { }" TestId="cohesion-hand-offs" />
+    </Story>
+
+    <Story Name="Forward"
+           Description="Only the hand-offs that move the work to a later stage are lit, with their labels, and each usage they join is numbered by its stage. A hand-off within one stage — the agreed spec becoming import plans — is neither forward nor back, so it dims."
+           Code="@ForwardCode">
+        <CohesionBoard Graph="@Graph" View="CohesionView.Forward" OnOpenUsage="_ => { }" TestId="cohesion-forward" />
+    </Story>
+
+    <Story Name="What feeds back"
+           Description="The hand-offs that come back: to an earlier stage — the alerts that would enter Decide, in red, and the security review that would open issues for the sweep, a grey dash — or out of a layer, as the upkeep schedule's pull requests do when they land at the Personal Validation gate."
+           Code="@FeedsBackCode">
+        <CohesionBoard Graph="@Graph" View="CohesionView.FeedsBack" OnOpenUsage="_ => { }" TestId="cohesion-feeds-back" />
+    </Story>
+
+    <Story Name="Everything"
+           Description="Every hand-off plus the support links, dotted: here the worktree every session runs in, under the code gate."
+           Code="@EverythingCode">
+        <CohesionBoard Graph="@Graph" View="CohesionView.Everything" OnOpenUsage="_ => { }" TestId="cohesion-everything" />
+    </Story>
+
+    <Story Name="A usage picked"
+           Description="SelectedId handed in: the usage and its neighbours stay lit, its links carry their labels — a support link included — and the panel lists what feeds it, what it hands on to and what it is built on, with its chapter one click away. Picking it again, or Clear, puts the board back at rest."
+           Code="@PickedCode">
+        <CohesionBoard Graph="@Graph" SelectedId="gate" OnOpenUsage="_ => { }" TestId="cohesion-picked" />
+    </Story>
+
+    <Story Name="A platform picked"
+           Description="SelectedPlatformId handed in: the usages built on the platform are lit and the panel names them. The number on each platform is how many usages depend on it."
+           Code="@PlatformCode">
+        <CohesionBoard Graph="@Graph" SelectedPlatformId="schedule" TestId="cohesion-platform" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#badge-and-chip-tones", "What each rung's colour on a usage's box means."),
+        new("interaction-guidelines.md#focus-and-selection", "What a picked usage and the links it lights look like."),
+        new("accessibility.md#contrast", "Why a dimmed box keeps its words at full contrast and only its surface goes quiet.")
+    ];
+
+    private const double W = 196;
+    private const double H = 66;
+
+    private static double Col(int column) => 40 + 226 * column;
+
+    private static CohesionNode N(string id, string name, string status, int stage, string where, double y, bool scheduled, params string[] platforms) =>
+        new(id, name, status, scheduled, stage, where, y < 264, Col(stage - 1), y, W, H, platforms);
+
+    private static CohesionEdge E(string from, string to, string? label, double labelX, double labelY, CohesionEdgeKind kind, bool dashed, params (double X, double Y)[] points) =>
+        new(from, to, kind, dashed, label, [.. points.Select(point => new CohesionPoint(point.X, point.Y))], new CohesionPoint(labelX, labelY));
+
+    private static readonly CohesionGraph Graph = new(
+        Width: 1632,
+        Height: 606,
+        LaneHeight: 264,
+        LaneHeaderHeight: 46,
+        PullRequestX: 929,
+        Lanes:
+        [
+            new("decide", "Decide", Col(0) - 15, 226, true),
+            new("specify", "Specify & plan", Col(1) - 15, 226, true),
+            new("code", "Code", Col(2) - 15, 226, true),
+            new("verify", "Verify", Col(3) - 15, 226, true),
+            new("integrate", "Integrate", Col(4) - 15, 226, false),
+            new("release", "Release & deploy", Col(5) - 15, 226, false),
+            new("operate", "Operate & feedback", Col(6) - 15, 226, false)
+        ],
+        Bands:
+        [
+            new("thread", "Spec ↔ code thread", 276, 102),
+            new("upkeep", "Upkeep loop", 390, 102),
+            new("harness", "Agent harness", 504, 102)
+        ],
+        Nodes:
+        [
+            N("tracker", "Backlog as tracker", "adopted", 1, "Decide", 100, false, "mcp"),
+            N("sweep", "Scheduled issue sweep", "trial", 1, "Decide", 188, true, "schedule", "engine"),
+            N("spec", "Devbook chapters via flow-spec", "adopted", 2, "Specify & plan", 100, false, "engine", "devbook"),
+            N("import", "Import plans", "adopted", 2, "Specify & plan", 188, false, "btools"),
+            N("gate", "Code gate via flow-code", "adopted", 3, "Code", 100, false, "engine", "instr"),
+            N("qa", "QA agent on the running app", "adopted", 4, "Verify", 100, false, "subagents", "mcp"),
+            N("pv", "Personal Validation gate", "adopted", 4, "Verify", 188, false, "engine"),
+            N("mreview", "Scheduled merge review", "trial", 5, "Integrate", 100, true, "schedule"),
+            N("alerts", "Alerts to work items", "candidate", 7, "Operate & feedback", 100, false, "engine"),
+            N("security", "Scheduled security review", "candidate", 7, "Operate & feedback", 188, true, "schedule"),
+            N("upkeep", "Scheduled devbook upkeep", "trial", 5, "Upkeep loop", 416, true, "schedule", "devbook"),
+            N("guidance", "Guidance from MCP servers", "retired", 1, "Agent harness", 530, false, "mcp"),
+            N("worktree", "Worktree per change", "adopted", 3, "Agent harness", 530, false, "claude")
+        ],
+        Edges:
+        [
+            E("tracker", "spec", "what you pick", 251, 133, CohesionEdgeKind.Feed, false, (236, 133), (266, 133)),
+            E("spec", "import", "agreed spec", 364, 177, CohesionEdgeKind.Feed, false, (364, 166), (364, 188)),
+            E("spec", "gate", "apply-change", 477, 127, CohesionEdgeKind.Feed, false, (462, 127), (492, 127)),
+            E("import", "gate", "prompt entries", 483, 177, CohesionEdgeKind.Feed, false, (462, 221), (483, 221), (483, 145), (492, 145)),
+            E("gate", "qa", "verify", 703, 133, CohesionEdgeKind.Feed, false, (688, 133), (718, 133)),
+            E("qa", "pv", "evidence", 816, 177, CohesionEdgeKind.Feed, false, (816, 166), (816, 188)),
+            E("pv", "mreview", "pull request", 923, 177, CohesionEdgeKind.Feed, false, (914, 221), (923, 221), (923, 133), (944, 133)),
+            E("alerts", "tracker", "would enter Decide", 817, 62, CohesionEdgeKind.OpenLoop, true, (1592, 127), (1612, 127), (1612, 62), (22, 62), (22, 127), (40, 127)),
+            E("security", "sweep", "would open issues", 1300, 52, CohesionEdgeKind.Feed, true, (1592, 221), (1604, 221), (1604, 52), (30, 52), (30, 221), (40, 221)),
+            E("upkeep", "pv", "pull requests", 935, 347, CohesionEdgeKind.Feed, false, (944, 449), (935, 449), (935, 245), (914, 245)),
+            E("worktree", "gate", null, 590, 348, CohesionEdgeKind.Support, false, (590, 530), (590, 166)),
+            E("guidance", "worktree", null, 364, 563, CohesionEdgeKind.Support, false, (236, 563), (492, 563))
+        ],
+        Platforms:
+        [
+            new("engine", "Delivery engine"),
+            new("schedule", "Delivery schedule"),
+            new("devbook", "Devbook plugin"),
+            new("btools", "Backlog tools plugin"),
+            new("mcp", "Model context protocol servers"),
+            new("subagents", "Subagents"),
+            new("instr", "Repository instruction files"),
+            new("claude", "Claude code")
+        ]);
+
+    private const string HandOffsCode = """
+        <CohesionBoard Graph="@graph"
+                       @bind-View="_view"
+                       @bind-SelectedId="_selected"
+                       @bind-SelectedPlatformId="_platform"
+                       OnOpenUsage="OpenUsage" />
+        """;
+
+    private const string ForwardCode = """
+        <CohesionBoard Graph="@graph" View="CohesionView.Forward" OnOpenUsage="OpenUsage" />
+        """;
+
+    private const string FeedsBackCode = """
+        <CohesionBoard Graph="@graph" View="CohesionView.FeedsBack" OnOpenUsage="OpenUsage" />
+        """;
+
+    private const string EverythingCode = """
+        <CohesionBoard Graph="@graph" View="CohesionView.Everything" OnOpenUsage="OpenUsage" />
+        """;
+
+    private const string PickedCode = """
+        <CohesionBoard Graph="@graph" SelectedId="gate" OnOpenUsage="OpenUsage" />
+        """;
+
+    private const string PlatformCode = """
+        <CohesionBoard Graph="@graph" SelectedPlatformId="schedule" />
+        """;
+}

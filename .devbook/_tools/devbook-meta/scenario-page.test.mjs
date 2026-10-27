@@ -495,5 +495,80 @@ const walkthroughProblems = (graph) => graph.problems.filter((p) => p.path === D
     check(entry.length === 1 && entry[0].severity === "warning" && entry[0].message.includes("only an inline case's is written by hand"), "a hand-written walkthrough on a Proved by requirement warns", dump(graph.problems));
 }
 
+// ── Playthroughs: a demo walkthrough playing a whole journey ──────────────
+
+const playthrough = (over = {}) => ({
+    id: "set-up-and-fill",
+    title: "Set up and fill the backlog",
+    journey: "scenarios.md#set-up-and-fill-the-backlog",
+    signature: SIGNATURE,
+    steps: [
+        { screen: "statuses", part: "statuses-are-set-up", step: 1, text: "Given a product with no statuses" },
+        { screen: "statuses", part: "statuses-are-set-up", step: 2, text: 'When I create "New", "Doing" and "Done"' },
+        { screen: "board", part: "an-item-is-moved", step: 2, text: 'When I drag it to "Doing"' },
+        { screen: "board", part: "an-item-is-moved", step: 4, text: 'Then it stays in "Doing"' },
+    ],
+    ...over,
+});
+const FEATURE = ".devbook/domain/work/features.md#backlog-board";
+const playCorpus = (walkthroughs, { field = `playthrough: [${DEMO}#walkthrough/set-up-and-fill]\n`, journeyMeta = `type: scenario\nrelated: [${FEATURE}]\n` } = {}) =>
+    base(journeyMeta, {
+        ".devbook/domain/work/features.md": FEATURES().replace("type: feature\n", `type: feature\nrelated: [${JOURNEY}]\n${field}`),
+        [DEMO]: demoHtml(walkthroughs),
+    });
+const playProblems = (graph) => graph.problems.filter((p) => /playthrough/i.test(p.message));
+{
+    const graph = await graphOf(playCorpus([playthrough()]));
+    check(playProblems(graph).length === 0, "a playthrough of every part, in order, at the journey's signature, named by its feature, is clean", dump(playProblems(graph)));
+    const feature = graph.nodes.find((n) => n.id === FEATURE);
+    check(JSON.stringify(feature?.playthrough) === JSON.stringify([`${DEMO}#walkthrough/set-up-and-fill`]), "the feature node carries its playthrough for the host that shows the page", JSON.stringify(feature));
+}
+{
+    const graph = await graphOf(playCorpus([playthrough({ steps: playthrough().steps.slice(0, 2) })]));
+    check(problemsAbout(graph, 'shows no step of part(s) "#an-item-is-moved"').some((p) => p.severity === "warning"), "a playthrough that skips a part warns", dump(graph.problems));
+}
+{
+    const [a, b, c, d] = playthrough().steps;
+    const graph = await graphOf(playCorpus([playthrough({ steps: [a, c, b, d] })]));
+    check(problemsAbout(graph, "a playthrough plays the journey in its own order").some((p) => p.severity === "error"), "a step out of the journey's order is an error", dump(graph.problems));
+}
+{
+    const steps = [...playthrough().steps.slice(0, 3), { screen: "board", part: "no-such-part", step: 1, text: "x" }];
+    const graph = await graphOf(playCorpus([playthrough({ steps })]));
+    check(problemsAbout(graph, 'names part "#no-such-part"').some((p) => p.severity === "error"), "a step naming a part the journey lacks is an error", dump(graph.problems));
+}
+{
+    const steps = [...playthrough().steps.slice(0, 3), { screen: "board", part: "an-item-is-moved", step: 4, text: "Then it vanishes" }];
+    const graph = await graphOf(playCorpus([playthrough({ steps })]));
+    check(problemsAbout(graph, 'drifted from part "#an-item-is-moved" step 4').some((p) => p.severity === "error"), "edited text at the current signature is an error", dump(graph.problems));
+    const stale = await graphOf(playCorpus([playthrough({ steps, signature: "00000000" })]));
+    check(problemsAbout(stale, "at signature 00000000").some((p) => p.severity === "warning"), "a playthrough at an older signature is stale", dump(stale.problems));
+}
+{
+    const graph = await graphOf(playCorpus([playthrough({ journey: "scenarios.md#no-such-journey" })]));
+    check(problemsAbout(graph, 'has no journey "#no-such-journey"').some((p) => p.severity === "error" && p.path === DEMO), "a journey the file does not have is an error", dump(graph.problems));
+}
+{
+    const graph = await graphOf(playCorpus([playthrough()], { journeyMeta: "type: scenario\n" }));
+    check(problemsAbout(graph, "a journey whose `related` does not name this feature").some((p) => p.severity === "warning"), "a playthrough of a journey that does not name the feature warns", dump(graph.problems));
+}
+{
+    const graph = await graphOf(playCorpus([linkedWalkthrough(), playthrough()], { field: `playthrough: [${DEMO}#walkthrough/set-up-statuses]\n` }));
+    check(problemsAbout(graph, 'walkthrough "set-up-statuses"').some((p) => p.severity === "error" && p.message.includes("plays no journey")), "a playthrough field naming a walkthrough that plays no journey is an error", dump(graph.problems));
+}
+{
+    const graph = await graphOf(playCorpus([playthrough()], { field: `playthrough: [${DEMO}#walkthrough/set-up-and-fill/2]\n` }));
+    check(problemsAbout(graph, "is no playthrough address").some((p) => p.severity === "error"), "a playthrough field naming a step is an error", dump(graph.problems));
+}
+{
+    const issues = validateDocument(REQUIREMENTS, requirements("Proved by: scenarios.md#statuses-are-set-up\n").replace("type: requirement\n", `type: requirement\nplaythrough: [${DEMO}#walkthrough/set-up-and-fill]\n`));
+    check(has(errors(issues), "scopes the field to `feature`, `sub-feature`"), "a playthrough field off a feature is an error", dump(issues));
+}
+{
+    const both = playthrough({ part: "scenarios.md#statuses-are-set-up" });
+    const graph = await graphOf(playCorpus([both]));
+    check(problemsAbout(graph, "has both `part` and `journey`").length === 1, "a walkthrough with both part and journey is refused", dump(graph.problems));
+}
+
 console.log(`\n${failed ? `${failed} failed` : "all passed"}`);
 process.exit(failed ? 1 : 0);

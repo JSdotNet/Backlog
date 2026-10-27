@@ -148,11 +148,13 @@ export async function runSetup({ hook, config, open, dataFolder = () => null, en
 /**
  * The spec file a test or hook belongs to. Not `info.file`: that is where the
  * test or hook is declared, which for a spec built by `scenario()` is setup.ts.
- * The first entry of `titlePath` is the spec, relative to the project's testDir.
+ * The first entry of `titlePath` is the spec, relative to `config.rootDir` — the
+ * top-level testDir, else the config's folder — never to the project's testDir,
+ * which may lie below it.
  */
-export function specFile({ titlePath, project }) {
+export function specFile({ titlePath, config }) {
     if (!titlePath?.[0]) throw new Error("the test has no title path to find its spec file by");
-    return path.resolve(project.testDir, titlePath[0]);
+    return path.resolve(config.rootDir, titlePath[0]);
 }
 
 /** The repository root: the nearest folder from `start` upward that holds `.devbook/`. */
