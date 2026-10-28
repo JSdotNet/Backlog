@@ -207,6 +207,46 @@ The Dashboard's longest sessions name a session the same way; every other surfac
 
 Enforced at: `SessionRow.Title`, `AgentSessionAssistantSessionSource` (the longest sessions), `ClaudeDesktopSessionReader` (a blank or absent `title` reads null), `ClaudeSessionReader.Stamped()`
 
+### Invariant: A row shows its title less its prefix
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_session_the_desktop_app_names_is_called_by_its_sidebar_name, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_standing_prefix_is_the_purpose_and_leaves_the_title, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.Anything_else_is_other_and_shown_whole]
+```
+
+A row on the session list shows its title less the prefix the `Session Title Reading` recognised, and shows that prefix as a purpose badge.
+The row's tooltip, its detail panel and every other surface keep the whole title, so the title the desktop app calls a session is never lost.
+A title with no prefix it recognises is shown whole.
+
+Enforced at: `SessionTitles.Read()` (`Shown` and `Raw`), `SessionsPane.RowButton()` (the shown title, with `SessionRow.Title` as its tooltip)
+
+### Invariant: A scheduled row is Scheduled whatever its title says
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_scheduled_task_run_is_scheduled_whatever_its_title_says, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_schedule_row_is_scheduled]
+```
+
+A row whose session is a desktop scheduled task's run, and a schedule's row, read as Scheduled before their title is read.
+So a routine is never standing and never part of a plan.
+
+Enforced at: `SessionTitles.Of()`
+
+### Invariant: Plan tags match ignoring case and the leading plus
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.Tags_compare_case_blind_with_the_plus_lifted, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_plan_narrows_to_its_rows_case_blind_and_none_is_the_same_list]
+```
+
+Two plan tags name one plan when they match ignoring case, with one leading `+` lifted from either.
+An entry's title writes the bare tag and a plan run's keeps the `+`, and both belong to one plan.
+
+Enforced at: `SessionTitles.SameTag()`, `SessionPlans.On()`, `AgentSessionGroups.Of()` (the Plan grouping keys on `plan/` and the bare tag lower-cased)
+
 ### Invariant: A session record is added to and never taken from
 
 ```meta
@@ -731,12 +771,26 @@ related: [.devbook/domain/sessions/domain.md#session-view]
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.Filtering_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_a_narrowed_lists_rows_and_removes_none]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionViewTests.Filtering_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionEnvironmentTests.Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_a_narrowed_lists_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_purpose_narrows_the_list_and_each_option_counts_its_rows, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_plan_tag_beside_the_row_narrows_the_list_to_its_plan]
 ```
 
 Every narrowing of the session list is applied before the list is grouped, never after, so an environment with nothing left in it loses its section rather than keeping an empty one.
+The narrowings that read the title, by plan, plan state and purpose, are bound by it as the others are.
 
-Enforced at: the Sessions pane's derived view (`SessionsPane.View`), which hands `AgentSessionGroups.Of()` only what the narrowings kept
+Enforced at: the Sessions pane's derived view (`SessionsPane.View`), which hands `AgentSessionGroups.Of()` only what the narrowings kept, `SessionPlans.On()`, `SessionPlans.InState()` and `SessionPurposes.On()` included
+
+### Invariant: A plan's state is read off the whole reading
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.Every_tag_present_is_offered_with_its_plans_state, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_plan_state_keeps_every_row_of_a_plan_in_that_state, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.A_plan_state_reads_the_plans_off_the_whole_list_not_the_narrowed_one]
+```
+
+A plan is Imported when any of its sessions is a `+PLAN` session or a plan run, Draft when it has only `PLAN:` sessions, and of unknown state otherwise.
+The state comes from every row of the reading, so a narrowing applied first never changes it, and Plan State keeps every row of a plan in that state.
+
+Enforced at: `SessionPlans.Of()`, `SessionPlans.InState()` (its `plans` parameter); the Sessions pane, which passes the plans of its whole reading
 
 ### Invariant: Open admits on the desktop record, never on state
 
@@ -778,12 +832,25 @@ related: [.devbook/domain/sessions/domain.md#session-grouping]
 ```meta
 status: draft
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Every_grouping_carries_every_session, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionListTests.The_new_groupings_carry_every_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Scheduled_rows_close_the_list_in_one_section_of_their_own]
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Every_grouping_carries_every_session, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionListTests.The_new_groupings_carry_every_row, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.Grouping_moves_rows_and_removes_none, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AgentSessionGroupTests.Scheduled_rows_close_the_list_in_one_section_of_their_own, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.The_new_groupings_carry_every_row_exactly_once, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.By_plan_is_a_section_per_tag_with_the_plan_then_its_runs_then_its_entries_by_step]
 ```
 
 Every row handed to a grouping comes out in exactly one of its sections, so a count taken before grouping is still correct after it.
 
-Enforced at: `AgentSessionGroups.Of()`, which closes the Repository grouping with a "No repository" section rather than leave those rows out; `AgentSessionGroups.ScheduledApart()`, which moves the scheduled rows into one section and drops none
+Enforced at: `AgentSessionGroups.Of()`, which closes the Repository grouping with a "No repository" section and the Plan grouping with a "Not part of a plan" section rather than leave those rows out, and puts each row in one When bucket, Standing included; `AgentSessionGroups.ScheduledApart()`, which moves the scheduled rows into one section and drops none
+
+### Invariant: A standing session leaves Standing only while it runs
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.Under_when_the_standing_sessions_open_the_list_above_live_now
+```
+
+Under When, a standing session that is not live sits in Standing, above Live now, whatever day it was last active.
+While it runs it sits in Live now, and a Scheduled row is never standing.
+
+Enforced at: `AgentSessionGroups.Of()` (the When grouping), `SessionTitles.IsStanding()`
 
 ### Invariant: An environment is told apart by its id
 

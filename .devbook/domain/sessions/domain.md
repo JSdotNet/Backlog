@@ -821,6 +821,79 @@ whichever side recorded it, and never from a default:
   totals.
 - **Duration**: from its start to its last activity, where the start is dated.
 
+The row's title is also read for what the session is for. That reading is the
+[Session Title Reading](#session-title-reading), and the list shows it beside the title.
+
+### Session Title Reading
+
+```meta
+type: value-object
+related: [.devbook/domain/sessions/domain.md#session-row, .devbook/domain/sessions/domain.md#session-grouping, .devbook/domain/sessions/features.md#a-filter-bar-over-the-list, .devbook/domain/sessions/domain.invariants.md#invariant-a-row-shows-its-title-less-its-prefix]
+aliases: [SessionTitleReading, SessionTitles, Session Purpose, SessionPurpose, purpose, Plan State, PlanState, standing session]
+```
+
+What a `Session Row`'s title says about the session. It has four parts:
+
+- the **Session Purpose**, what the session is for;
+- the **plan tag**, the plan the session belongs to, without its `+`;
+- the **Plan State**, on a plan's own session only: Draft or Imported;
+- the **shown title**, the title less its prefix.
+
+People write the prefixes by hand in the Claude desktop app's sidebar. The backlog-tools
+skills write the plan run and entry titles. Those formats belong to
+[execute-plan's handoff](../../../plugins/backlog-tools/skills/execute-plan/assets/handoff.md)
+and to [import-plan's step numbers](../../../plugins/backlog-tools/skills/import-plan/assets/backlog-import-grammar.md#step-numbers),
+and this chapter only reads them.
+
+| The title starts with | Session Purpose | Plan tag | Plan State | Shown title |
+| --- | --- | --- | --- | --- |
+| `ARTIFACT: X` | Artifact | none | none | X |
+| `DESIGN: X` | Design | none | none | X |
+| `PLAN: +tag — X` or `PLAN: X` | Plan | tag, where written | Draft | X |
+| `+PLAN: +tag — X` or `+PLAN: X` | Plan | tag, where written | Imported | X |
+| `RESEARCH: X` | Research | none | none | X |
+| `HOLD: X` | Hold | none | none | X |
+| `+tag:execute-plan [@repo]` | Plan run | tag | none | `execute-plan [@repo]` |
+| `tag:n - X` | Entry, step n | tag | none | `n - X` |
+| anything else | Other | none | none | the whole title |
+
+A row whose session is a desktop scheduled task's run, or a schedule's row, is
+**Scheduled** whatever its title says. The declared order of the purposes is the order
+in the table, with Scheduled before Other. The Purpose grouping and the Purpose filter
+both follow it.
+
+The reading follows these rules:
+
+- Prefixes are uppercase only, so a sentence that opens "Plan: …" stays Other.
+- The separator after a plan's tag is an em dash, an en dash, or a hyphen with a space
+  on each side.
+- A tag is a letter, then letters, digits, `_` or `-`, as a session request's plan tag
+  is. A malformed tag leaves a Plan session without one.
+- An unnumbered `tag - X` stays Other, because nothing tells it apart from an ordinary
+  title.
+- Two tags name one plan when they match ignoring case, with one leading `+` lifted.
+  An entry writes the bare tag and a plan run keeps the `+`, so both land under one plan.
+
+**A plan's state is read off all its sessions.** A plan is Imported when it has a
+`+PLAN` session or any plan run, because execute-plan only runs imported plans. It is
+Draft when it has only `PLAN:` sessions. With neither, its state is unknown. This
+reading uses the `+` in the title, which is what the person who wrote it means. The
+Backlog app's own plans are not asked: that lookup would make Sessions a customer of
+Tasks.
+
+Artifact, Design, Plan, Research and Hold are **standing** purposes: a session with one
+is kept until it is archived, and When draws it above the days.
+
+The reading has two limits:
+
+- A row from another machine carries no desktop title, so its hand-written prefix is not
+  seen. Such a row reads Other unless its transcript's own title carries the prefix.
+- A prefix a delivery surface puts in a session's title reads Other unless it matches
+  this grammar.
+
+The reading is pure and is worked out once per row of a reading. Equality is by all six
+parts: the four above, the step and the whole title.
+
 ### Delivery Run Catalog
 
 ```meta
@@ -1002,7 +1075,9 @@ flowchart LR
     A[Session rows] --> B[The shell's<br/>repository scope]
     B --> C[Environment]
     C --> D[With delivery runs]
-    D --> E[View: Live, Open or All]
+    D --> G[Plan, then Plan State]
+    G --> H[Purpose]
+    H --> E[View: Live, Open or All]
     E --> F[Session Grouping]
 ```
 
@@ -1012,7 +1087,8 @@ left into groups, so an environment with nothing live on it loses its section. T
 repository scope is the shell's, not this context's; the surface applies it first. Each
 narrowing only removes rows, so their order does not change which rows remain. It does
 decide what Live's and Open's tallies count: the live or open rows among what the other
-narrowings kept.
+narrowings kept. The Purpose filter's counts are the rows each purpose would keep under
+every other narrowing, the view included.
 No narrowing reorders. Ordering is the grouping's answer to give, and a narrowing that
 sorted would be a second answer to what "most recently active first" means.
 
@@ -1046,9 +1122,17 @@ fourth view, because a view answers a question about a session's standing, its
 liveness or the desktop sidebar, and the environment answers one about place. Folded together, "Live" would mean "live here" on some presses
 and "live anywhere" on others.
 
+**Three narrowings read the title.** `SessionPlans` narrows to one plan tag and to one
+`Plan State`, and `SessionPurposes` to one `Session Purpose`, each from the
+[Session Title Reading](#session-title-reading). Plan State keeps every row of a plan
+in that state, its runs and entries included. It takes each plan's state from the whole
+reading, so a narrowing applied before it never changes a plan's state. A row with no
+plan has no state and matches neither Draft nor Imported. Each hands back the list it
+was given when nothing is named.
+
 **Grouping is the one operation that
 [never removes rows](domain.invariants.md#invariant-grouping-never-removes-a-row).** The narrowings are the ones
-that do: the environment, the view, and the surface's own
+that do: the environment, the view, the three that read the title, and the surface's own
 [with delivery runs](features.md#only-the-rows-with-a-run) toggle. Because only the
 narrowings shorten the list, the surface can say what they left out.
 
@@ -1064,7 +1148,8 @@ opened.
 
 One thing besides the reader changes the view. When a surface is asked to focus one
 session and the current narrowings hide that session's row, the surface switches to
-`All`, turns the "with runs" toggle off and clears the environment. A request to show a
+`All` and clears every other narrowing: the "with runs" toggle, the environment, the
+plan, the plan state and the purpose. A request to show a
 session that then shows an empty list would answer a question nobody asked.
 
 ## Session Grouping
@@ -1077,11 +1162,13 @@ aliases: [AgentSessionGrouping, ScheduledApart]
 
 Carves a set of `Session Row`s, run-only rows included, into sections. Each section is
 ordered most recently active first, and the sections sit in a stable order. There are
-five groupings:
+seven groupings:
 
 | Grouping | Section key | Sections, in order | Heading | On the session list |
 | --- | --- | --- | --- | --- |
-| When | Live state, then the day last active on the reader's clock | Live now (Running or Stalled, whatever day they started), Earlier today, Yesterday, Past week, Older | The bucket's name | Yes, and the list opens on it |
+| When | Live state, then standing, then the day last active on the reader's clock | Standing (the standing sessions that are not live), Live now (Running or Stalled, whatever day they started), Earlier today, Yesterday, Past week, Older | The bucket's name | Yes, and the list opens on it |
+| Plan | `plan/` and the bare plan tag, lower-cased, so no tag can share the Scheduled section's key | By tag; the rows of no plan close the list under "Not part of a plan" | `+tag`, with the plan's `Plan State` where it has one | Yes |
+| Purpose | The `Session Purpose`'s name | The order `Session Purpose` declares | The purpose's name | Yes |
 | Repository | The repository the row shows, ignoring case | By name; the rows that name no repository close the list under "No repository" | The spelling its most recent row carries | Yes |
 | Environment | The environment's id | By name, ignoring case, then by id | The name its most recent row carries | Yes, as Machine |
 | None | None | One section, holding every row | None | No |
@@ -1094,6 +1181,11 @@ two sections.
 
 Each section carries the key that made it one, so a surface can tell apart two
 sections whose headings match.
+
+Under Plan, a section lists the plan's own session first, then its plan runs, then its
+entries by step. Each part keeps most recently active first. Under When, a standing
+session sits in Live now while it runs and returns to Standing after. A Scheduled row is
+never standing, so it keeps its day.
 
 **In the Open view, the scheduled runs close the list.** After any grouping,
 `ScheduledApart` takes every row whose session is a run of a desktop scheduled task
@@ -1109,14 +1201,16 @@ it.
 A service because grouping spans sessions rather than belonging to any one of them,
 and a pure one: no I/O and no state.
 [Only When reads a clock and a time zone](domain.invariants.md#invariant-a-rows-day-is-read-against-the-moment-the-list-was-read),
-and both are handed in. It guarantees two properties that a reader relies on without
+and both are handed in. Plan, Purpose and When's Standing bucket read the
+[Session Title Reading](#session-title-reading). It guarantees two properties that a reader relies on without
 being told:
 
 - **Grouping rearranges and
   [never filters](domain.invariants.md#invariant-grouping-never-removes-a-row).** A
   count taken before grouping is still correct after it.
 - **Group order does not depend on group size.** When's buckets keep their own order,
-  repositories and environments sort by name, and agents follow the `Agent` enum. So a
+  repositories, environments and plans sort by name, and agents and purposes follow
+  their enums. So a
   section does not move under the reader as sessions come and go.
 
 Invocation semantics: query/composition-oriented; invoked per view, never stored.

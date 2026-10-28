@@ -52,7 +52,8 @@
     routine runs into one Scheduled section at the end.
 
     The filter bar holds every control that removes a row — Show, With delivery runs,
-    Machine — so a reader who wonders why a session is missing finds every reason in
+    Machine, and the three that read a session's title: Purpose, Plan, Plan state —
+    so a reader who wonders why a session is missing finds every reason in
     one place, and Group by beside them moves rows and removes none, which is why the
     count badge does not move when the grouping does. Every filter comes back to its
     first option on every open: a filter that remembered itself would open the pane
@@ -183,7 +184,67 @@ else
                          OnChanged="ChooseEnvironment" />
         </div>
 
-        @* A select over a closed set of three, as the agreed canvas draws it. When
+        @* What the session is for, as its title says (SessionTitles). A one-of-many
+           strip like Show, each option carrying how many rows it would keep under
+           every other filter, so the press is never a guess. *@
+        <div class="sessions-filter">
+            <span class="sessions-filter__label">Purpose</span>
+            <ButtonGroup AriaLabel="Which kind of session to show" CssClass="sessions-filter__options" TestId="sessions-purpose-filter">
+                <ToggleButton Pressed="_purpose is null"
+                              PressedChanged="_ => _purpose = null"
+                              TestId="sessions-purpose-all">
+                    All
+                    <span class="sessions-filter__tally" data-testid="sessions-purpose-tally">@View.PurposeTotal</span>
+                </ToggleButton>
+                @foreach (var purpose in Purposes)
+                {
+                    <ToggleButton Pressed="_purpose == purpose"
+                                  PressedChanged="_ => _purpose = purpose"
+                                  TestId="@($"sessions-purpose-{Slug(purpose)}")">
+                        @SessionTitles.Label(purpose)
+                        <span class="sessions-filter__tally" data-testid="sessions-purpose-tally">@View.PurposeCounts[purpose]</span>
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+        </div>
+
+        @* Every plan tag the reading names, off the whole catalog like Machine, so an
+           option is offered exactly when there are rows behind it. A row's tag chip
+           sets the same filter. *@
+        <div class="sessions-filter">
+            <span class="sessions-filter__label">Plan</span>
+            <SelectField CurrentValue="@_planTag"
+                         Options="@PlanOptions"
+                         Label="Plan to focus on"
+                         IncludeEmptyOption="true"
+                         EmptyLabel="All plans"
+                         CssClass="badge badge--area"
+                         TestId="sessions-plan-filter"
+                         OnChanged="ChoosePlan" />
+        </div>
+
+        @* Draft or imported, by the plan's own PLAN session: every row of a plan in
+           that state stays, its runs and entries included. *@
+        <div class="sessions-filter">
+            <span class="sessions-filter__label">Plan state</span>
+            <ButtonGroup AriaLabel="Draft or imported plans" CssClass="sessions-filter__options" TestId="sessions-plan-state-filter">
+                <ToggleButton Pressed="_planState is null"
+                              PressedChanged="_ => _planState = null"
+                              TestId="sessions-plan-state-any">
+                    Any
+                </ToggleButton>
+                @foreach (var state in PlanStates)
+                {
+                    <ToggleButton Pressed="_planState == state"
+                                  PressedChanged="_ => _planState = state"
+                                  TestId="@($"sessions-plan-state-{Slug(state)}")">
+                        @SessionTitles.Label(state)
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+        </div>
+
+        @* A select over a closed set, as the agreed canvas draws it. When
            first: it is the shape that puts the live rows on top and the rest under
            the day they were last active. *@
         <div class="sessions-filter">
@@ -195,6 +256,17 @@ else
                          TestId="sessions-grouping-filter"
                          OnChanged="ChooseGrouping" />
         </div>
+
+        @if (Filtered)
+        {
+            @* Every row-removing filter but Show back to its first option at once:
+               Show is where the reader is looking, not a narrowing of it. *@
+            <AppButton Variant="ButtonVariant.Ghost"
+                       TestId="sessions-clear-filters"
+                       OnClick="ClearFilters">
+                Clear filters
+            </AppButton>
+        }
 
         <div class="sessions-filter sessions-filter--end">
             @if (_keeper is not null)
@@ -307,9 +379,7 @@ else
                                         <ul class="sessions-group__rows">
                                             @foreach (var row in section.Rows)
                                             {
-                                                <li @key="row.Key">
-                                                    @RowButton(row)
-                                                </li>
+                                                @RowItem(row)
                                             }
                                         </ul>
                                     </ChildContent>
@@ -322,16 +392,23 @@ else
                             @if (section.Name is not null)
                             {
                                 <h3 class="sessions-group__heading">
-                                    <span class="sessions-group__name" data-testid="sessions-group-name">@SectionName(section)</span>
+                                    <span class="@SectionNameClass" data-testid="sessions-group-name">@SectionName(section)</span>
+                                    @if (SectionPlanState(section) is { } planState)
+                                    {
+                                        @* The plan's own state, from its PLAN session; none
+                                           where the plan has no PLAN session or run. *@
+                                        <Badge BaseClass="sessions-plan-badge"
+                                               Kind=""
+                                               Slug="@Slug(planState)"
+                                               TestId="sessions-group-plan-state">@SessionTitles.Label(planState)</Badge>
+                                    }
                                     <span class="sessions-group__size" title="@SessionCount(section.Rows.Count)" data-testid="sessions-group-size">@section.Rows.Count</span>
                                 </h3>
                             }
                             <ul class="sessions-group__rows">
                                 @foreach (var row in section.Rows)
                                 {
-                                    <li @key="row.Key">
-                                        @RowButton(row)
-                                    </li>
+                                    @RowItem(row)
                                 }
                             </ul>
                         </div>
@@ -355,9 +432,32 @@ else
     /// far its run got — each of which a reader scanning the list is looking for,
     /// and nothing that is a way into something else: the pull requests and the task
     /// are in the panel, because a link inside a button is markup no browser agrees
-    /// on.
+    /// on. The plan tag chip, the one control a row carries, is the button's sibling
+    /// (<see cref="RowItem"/>). The first line shows the title less its prefix, the
+    /// prefix as a badge, and the whole title in the tooltip.
     /// </summary>
-    private RenderFragment RowButton(SessionRow row) => __builder =>
+    private RenderFragment RowItem(SessionRow row) => __builder =>
+    {
+        var reading = SessionTitles.Of(row);
+
+        @* The plan tag is a control of its own — it sets the Plan filter — so it is the
+           row button's sibling and never inside it: a control inside a button is
+           markup no browser agrees on. It is stacked over the row's first line, where
+           the row keeps a slot of the same width for it. *@
+        <li @key="row.Key" class="@(reading.PlanTag is null ? null : "sessions-group__item sessions-group__item--tagged")">
+            @RowButton(row, reading)
+            @if (reading.PlanTag is { } tag)
+            {
+                <TagChip Text="@($"+{tag}")"
+                         Label="@($"Show only plan +{tag}")"
+                         CssClass="sessions-row__tag"
+                         TestId="sessions-plan-tag"
+                         OnClick="() => ChoosePlan(tag)" />
+            }
+        </li>
+    };
+
+    private RenderFragment RowButton(SessionRow row, SessionTitleReading reading) => __builder =>
     {
         <ToggleButton BaseClass="sessions-row"
                       PressedCssClass="sessions-row--selected"
@@ -374,7 +474,23 @@ else
                     <ProviderMark Provider="@Provider(row.Kind)" Size="20" CssClass="sessions-row__mark" />
                     <span class="sr-only">@AgentSessionGroups.Label(row.Kind)</span>
                 </span>
-                <span class="@TitleClass(row)" title="@row.Title">@row.Title</span>
+                @if (reading.Purpose is not SessionPurpose.Other)
+                {
+                    @* What the title's prefix said, as a badge; the prefix itself is
+                       gone from the title and kept whole in its tooltip. *@
+                    <Badge BaseClass="sessions-purpose"
+                           Kind=""
+                           Slug="@Slug(reading.Purpose)"
+                           TestId="sessions-purpose">@SessionTitles.Label(reading.Purpose)</Badge>
+                }
+                <span class="@TitleClass(row)" title="@row.Title" data-testid="sessions-title">@reading.Shown</span>
+                @if (reading is { Purpose: SessionPurpose.Plan, State: { } planState })
+                {
+                    <Badge BaseClass="sessions-plan-badge"
+                           Kind=""
+                           Slug="@Slug(planState)"
+                           TestId="sessions-plan-state">@SessionTitles.Label(planState)</Badge>
+                }
                 @if (IsIdle(row))
                 {
                     @* Not a state: a note on the desktop record, in the quiet tone, where
@@ -390,6 +506,12 @@ else
                 else
                 {
                     <IntegrationStateChip Session="@State(row.State)" />
+                }
+                @if (reading.PlanTag is { } slotTag)
+                {
+                    @* Room for the tag chip stacked over this line: the same text, unseen
+                       and unannounced, so the chip never covers the state beside it. *@
+                    <span class="sessions-row__tag-slot" aria-hidden="true">+@slotTag</span>
                 }
             </span>
             <span class="sessions-row__line sessions-row__facts">
@@ -668,9 +790,27 @@ else
     private static readonly AgentSessionGrouping[] Groupings =
     [
         AgentSessionGrouping.When,
+        AgentSessionGrouping.Plan,
+        AgentSessionGrouping.Purpose,
         AgentSessionGrouping.Repository,
         AgentSessionGrouping.Environment
     ];
+
+    /// <summary>The purposes the Purpose filter offers, in the order they are declared.</summary>
+    private static readonly SessionPurpose[] Purposes = Enum.GetValues<SessionPurpose>();
+
+    private static readonly PlanState[] PlanStates = Enum.GetValues<PlanState>();
+
+    /// <summary>The purpose the list is narrowed to, or null for all. Back to all on
+    /// every open, like every filter here.</summary>
+    private SessionPurpose? _purpose;
+
+    /// <summary>The plan the list is narrowed to, by its bare tag lower-cased, or null
+    /// for all plans.</summary>
+    private string? _planTag;
+
+    /// <summary>The plan state the list is narrowed to, or null for any.</summary>
+    private PlanState? _planState;
 
     private static readonly IReadOnlyList<SelectorOption> GroupingOptions =
         [.. Groupings.Select(grouping => new SelectorOption(Slug(grouping), GroupingLabel(grouping)))];
@@ -1630,6 +1770,12 @@ else
             _environmentId = null;
         }
 
+        // The same for a plan the new reading no longer names.
+        if (_planTag is not null && !Plans.Any(plan => SessionTitles.SameTag(plan.Tag, _planTag)))
+        {
+            _planTag = null;
+        }
+
         // A fresh reading may hold newer verdicts too, newer requests, and prices
         // somebody changed in Settings since.
         _statuses.Clear();
@@ -1696,8 +1842,7 @@ else
         if (!Visible.Any(IsFocused))
         {
             _view = AgentSessionView.All;
-            _withRuns = false;
-            _environmentId = null;
+            ClearFilters();
         }
 
         // A focused row behind the Scheduled fold is unfolded to: the panel never
@@ -1780,6 +1925,26 @@ else
 
     private void ChooseEnvironment(string? id) => _environmentId = string.IsNullOrWhiteSpace(id) ? null : id;
 
+    private void ChoosePlan(string? tag) =>
+        _planTag = string.IsNullOrWhiteSpace(tag) ? null : SessionTitles.Bare(tag).ToLowerInvariant();
+
+    /// <summary>Whether a filter other than Show is narrowing the list.</summary>
+    private bool Filtered =>
+        _purpose is not null || _planTag is not null || _planState is not null || _environmentId is not null || _withRuns;
+
+    /// <summary>Whether a filter that reads the title is narrowing the list.</summary>
+    private bool TitleFiltered => _purpose is not null || _planTag is not null || _planState is not null;
+
+    /// <summary>Every row-removing filter but Show back to its first option.</summary>
+    private void ClearFilters()
+    {
+        _purpose = null;
+        _planTag = null;
+        _planState = null;
+        _environmentId = null;
+        _withRuns = false;
+    }
+
     private void Select(SessionRow row) => _selectedKey = row.Key;
 
     /// <summary>
@@ -1837,6 +2002,40 @@ else
     private IReadOnlyList<SelectorOption> EnvironmentOptions =>
         [.. Environments.Select(environment => new SelectorOption(environment.Id, environment.Name))];
 
+    /// <summary>Every plan the reading names with its state, off the whole catalog and
+    /// not off the view — a plan's state is its PLAN session's, whatever the filters
+    /// hide — and kept for the reading it was worked out from.</summary>
+    private IReadOnlyList<SessionPlan> Plans
+    {
+        get
+        {
+            if (!ReferenceEquals(_plansFor, _rows))
+            {
+                _plans = SessionPlans.Of(_rows);
+                _plansFor = _rows;
+            }
+
+            return _plans;
+        }
+    }
+
+    private IReadOnlyList<SessionPlan> _plans = [];
+    private IReadOnlyList<SessionRow>? _plansFor;
+
+    private IReadOnlyList<SelectorOption> PlanOptions =>
+        [.. Plans.Select(plan => new SelectorOption(plan.Tag.ToLowerInvariant(), $"+{plan.Tag}"))];
+
+    /// <summary>The state on a Plan section's heading, where the plan has one.</summary>
+    private PlanState? SectionPlanState(AgentSessionGroup section) =>
+        _grouping is AgentSessionGrouping.Plan && AgentSessionGroups.PlanTagOf(section.Key) is { } tag
+            ? Plans.FirstOrDefault(plan => SessionTitles.SameTag(plan.Tag, tag))?.State
+            : null;
+
+    /// <summary>A plan tag is a name, so its heading keeps its case.</summary>
+    private string SectionNameClass => _grouping is AgentSessionGrouping.Plan
+        ? "sessions-group__name sessions-group__name--tag"
+        : "sessions-group__name";
+
     private string? EnvironmentName =>
         _environmentId is null ? null : Environments.FirstOrDefault(environment => environment.Id == _environmentId)?.Name;
 
@@ -1871,6 +2070,9 @@ else
         IReadOnlyList<SessionRow> Rows,
         string? EnvironmentId,
         bool WithRuns,
+        SessionPurpose? Purpose,
+        string? PlanTag,
+        PlanState? PlanState,
         AgentSessionView Choice,
         AgentSessionGrouping Grouping,
         DateTimeOffset ReadAt,
@@ -1880,13 +2082,27 @@ else
         IReadOnlyList<SessionRow> Visible,
         int LiveTally,
         int OpenTally,
+        IReadOnlyDictionary<SessionPurpose, int> PurposeCounts,
+        int PurposeTotal,
         IReadOnlyList<AgentSessionGroup> Sections,
         AgentSessionGroup? Scheduled)
     {
-        public bool IsFor(IReadOnlyList<SessionRow> rows, string? environmentId, bool withRuns, AgentSessionView choice, AgentSessionGrouping grouping, DateTimeOffset readAt) =>
+        public bool IsFor(
+            IReadOnlyList<SessionRow> rows,
+            string? environmentId,
+            bool withRuns,
+            SessionPurpose? purpose,
+            string? planTag,
+            PlanState? planState,
+            AgentSessionView choice,
+            AgentSessionGrouping grouping,
+            DateTimeOffset readAt) =>
             ReferenceEquals(Rows, rows)
             && string.Equals(EnvironmentId, environmentId, StringComparison.Ordinal)
             && WithRuns == withRuns
+            && Purpose == purpose
+            && string.Equals(PlanTag, planTag, StringComparison.Ordinal)
+            && PlanState == planState
             && Choice == choice
             && Grouping == grouping
             && ReadAt == readAt;
@@ -1905,14 +2121,24 @@ else
     {
         get
         {
-            if (_derived is { } derived && derived.IsFor(_rows, _environmentId, _withRuns, _view, _grouping, _readAt)) return derived;
+            if (_derived is { } derived
+                && derived.IsFor(_rows, _environmentId, _withRuns, _purpose, _planTag, _planState, _view, _grouping, _readAt))
+            {
+                return derived;
+            }
 
             ViewBuilds++;
 
             IReadOnlyList<SessionRow> scoped = Scoped ? [.. _rows.Where(InScope)] : _rows;
             var onEnvironment = AgentSessionEnvironments.On(scoped, _environmentId);
-            IReadOnlyList<SessionRow> narrowed = _withRuns ? [.. onEnvironment.Where(row => row.Runs.Count > 0)] : onEnvironment;
+            IReadOnlyList<SessionRow> withRuns = _withRuns ? [.. onEnvironment.Where(row => row.Runs.Count > 0)] : onEnvironment;
+
+            // Plan and plan state before purpose, so the purpose tallies count what every
+            // other filter kept; the plan's state is read off the whole reading.
+            var onPlan = SessionPlans.InState(SessionPlans.On(withRuns, _planTag), _planState, Plans);
+            var narrowed = SessionPurposes.On(onPlan, _purpose);
             var visible = AgentSessionViews.Of(narrowed, _view);
+            var purposeBase = AgentSessionViews.Of(onPlan, _view);
             var grouped = AgentSessionGroups.Of(visible, _grouping, _readAt, TimeZoneInfo.Local);
 
             // The scheduled runs go apart in Open only: Live and All are the lists they
@@ -1926,6 +2152,9 @@ else
                 _rows,
                 _environmentId,
                 _withRuns,
+                _purpose,
+                _planTag,
+                _planState,
                 _view,
                 _grouping,
                 _readAt,
@@ -1935,6 +2164,8 @@ else
                 visible,
                 AgentSessionViews.Of(narrowed, AgentSessionView.Live).Count,
                 AgentSessionViews.Of(narrowed, AgentSessionView.Open).Count,
+                SessionPurposes.Counts(purposeBase),
+                purposeBase.Count,
                 sections,
                 scheduled);
         }
@@ -2033,6 +2264,8 @@ else
     /// facts.</summary>
     private string EmptyMessage => Total == 0
         ? "No sessions on this PC."
+        : TitleFiltered && Shown == 0
+            ? "No session matches these filters."
         : _withRuns && Shown == 0
             ? "No delivery runs here."
         : Scoped && ScopedSessions.Count == 0
@@ -2049,6 +2282,8 @@ else
     /// and the way back out.</summary>
     private string EmptyDescription => Total == 0
         ? "Neither Claude nor Copilot has left a session record in this profile yet."
+        : TitleFiltered && Shown == 0
+            ? "Purpose, Plan and Plan state read each session's title, and none of the rows this view admits matches all three. Choose Clear filters to see them."
         : _withRuns && Shown == 0
             ? "None of the rows this view admits carries a run an orchestration dashboard recorded. Turn off With delivery runs to see them all."
         : Scoped && ScopedSessions.Count == 0
@@ -2089,8 +2324,18 @@ else
     {
         AgentSessionGrouping.Repository => "Repository",
         AgentSessionGrouping.Environment => "Machine",
+        AgentSessionGrouping.Plan => "Plan",
+        AgentSessionGrouping.Purpose => "Purpose",
         _ => "When"
     };
+
+    private static string Slug(SessionPurpose purpose) => purpose switch
+    {
+        SessionPurpose.PlanRun => "plan-run",
+        _ => purpose.ToString().ToLowerInvariant()
+    };
+
+    private static string Slug(PlanState state) => state.ToString().ToLowerInvariant();
 
     private static string Slug(AgentSessionView view) => view switch
     {
@@ -2103,6 +2348,8 @@ else
     {
         AgentSessionGrouping.Repository => "repository",
         AgentSessionGrouping.Environment => "machine",
+        AgentSessionGrouping.Plan => "plan",
+        AgentSessionGrouping.Purpose => "purpose",
         _ => "when"
     };
 
