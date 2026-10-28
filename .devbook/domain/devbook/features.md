@@ -307,7 +307,7 @@ type: feature
 status: draft
 depends-on: [.devbook/domain/devbook/features.md#atlas-edges]
 feature-flag: .devbook/domain/devbook/context.md#lobes-atlas
-related: [.devbook/domain/devbook/requirements.md#lobes-atlas, .devbook/domain/devbook/features.md#para-organization, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/design/color-scheme.md#the-brains-accent]
+related: [.devbook/domain/devbook/requirements.md#lobes-atlas, .devbook/domain/devbook/features.md#para-organization, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/design/color-scheme.md#the-brains-accent, .devbook/design/interaction-guidelines.md#motion-and-reduced-motion]
 ```
 
 See the Brain and every devbook on this machine in one picture. One atlas maps
@@ -321,7 +321,10 @@ return to the main view instead, and the tooltip names the main view.
 
 **Scopes.** A switch in the atlas's header picks what the atlas shows: **All**,
 **Brain**, then each registered devbook by alias, then each ghost devbook in a
-dashed button. Switching scope resets the camera to its default view.
+dashed button. Switching scope brings the camera home. The new scope's brains
+turn from where the last view left them to the default view in about half a
+second, easing in and out. Under reduced motion the new scope starts at the
+default view.
 
 | Scope | The atlas shows |
 | --- | --- |
@@ -339,6 +342,21 @@ keyboard meets them: the title, the scope switch, the controls, the chips, one
 disclosure that folds the panel and the scope card away, the map with its list
 under it, and the foot. The scope switch and the chips each keep one row and
 scroll sideways.
+
+**The camera.** The brains move like a globe in the hand. A drag carries the
+near face of a brain with the pointer, across as well as up and down. A brisk
+drag carries on after release and comes to rest within about a second. A press
+on brains still turning only stops them, and selects nothing. A press on a mark
+that does not move selects the mark and leaves the camera where it is. A scroll
+zooms toward the point under the pointer, easing to each step, between half and
+2.4 times.
+
+After four seconds without input the brains turn slowly on their own, about
+once in a hundred seconds. The turn lasts until the person presses, scrolls or
+rests the pointer on a mark. Showing or hiding a region, or turning Labels on or
+off, keeps the camera where it was and moving as it was. Under reduced motion
+nothing moves on its own. A drag turns the brains only while it lasts, and a
+scroll and a scope switch land at once.
 
 A repository alias the Brain links to that is not registered on this machine
 is a **ghost devbook**. It has a scope of its own and is drawn dashed: its

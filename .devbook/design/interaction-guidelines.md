@@ -341,7 +341,7 @@ related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 ## Motion and Reduced Motion
 
 ```meta
-related: [".devbook/design/typography-and-layout.md#shadows-and-elevation", ".devbook/design/accessibility.md#reduced-motion"]
+related: [".devbook/design/typography-and-layout.md#shadows-and-elevation", ".devbook/design/accessibility.md#reduced-motion", ".devbook/domain/devbook/features.md#lobes-atlas"]
 ```
 
 Motion serves purpose only — to communicate a state change, direct attention, or
@@ -372,6 +372,26 @@ with `ease-bounce`. The product uses a smooth `ease-out` instead, by explicit
 decision — a bounce on every auto-save is a lot of movement for something that
 happens continuously and unprompted. The desktop declares this as
 `--ease-saved-flash` in `app.css`.
+
+**Recorded deviation:** the [Lobes atlas](../domain/devbook/features.md#lobes-atlas)
+turns its brains slowly on their own after four seconds without input, about one
+turn in a hundred seconds. The turn ramps in over `transition-slow` on
+`ease-in-out`. It serves none of the three purposes the opening rule names. The
+product keeps it by explicit decision, so the map reads as three-dimensional at
+rest: the brains show their depth without anyone dragging them.
+
+- A press or a scroll on the map stops the turn, and so does resting the pointer
+  on a mark. The turn restarts after four more seconds without input.
+- The turn never runs under `prefers-reduced-motion: reduce`, nor while the
+  document is hidden. A page whose picture must be still turns it off. That is a
+  page-level switch, not a reader control.
+- The turn does not meet WCAG 2.2.2 (Pause, Stop, Hide). No control pauses it
+  until the reader resumes it, and a keyboard-only reader cannot stop it at all.
+  The reduced-motion setting removes the turn, but it is not a pause control.
+- The follow-up is a pause control among the atlas's controls that a keyboard
+  and a pointer both reach. Until it lands, the atlas falls short of the target
+  in [`accessibility.md#target-and-scope`](accessibility.md#target-and-scope).
+  The atlas stays behind its `atlas-lobes` feature flag, which ships off.
 
 Rules:
 
