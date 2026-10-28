@@ -1,11 +1,11 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or devbook tooling. Eight skills: one for each direction of a plan,
+general-purpose or devbook tooling. Nine skills: one for each direction of a plan,
 one for running a whole plan, one for checking it once it has run, one for closing the entries
 whose pull request merged, one for bringing another tool's items into the Inbox, one for the
-remarks a person leaves while reading, and one that dispatches the session requests the app
-queues — and a pane that follows a running plan.
+remarks a person leaves while reading, one that dispatches the session requests the app
+queues, and one that tends a person's Brain — and a pane that follows a running plan.
 
 - **`import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -158,6 +158,31 @@ queues — and a pane that follows a running plan.
   script's decisions under `claude plugin test`; the two processes themselves run under
   `node --test plugins/backlog-tools/tests/dispatch-sessions-assets.test.mjs`, since that
   sandbox spawns nothing.
+- **`tend-brain`** — tends a person's Brain, the personal notes folder of local ADR 0026
+  (`.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md`). Run
+  from that folder as `/loop /backlog-tools:tend-brain` (or pass its path). It brings no
+  layout of its own: every tick it reads the Brain's root rules — `AGENTS.md`, else
+  `CLAUDE.md`, plus `CONVENTIONS.md` and the templates they point at. The person's words are
+  never changed: each new input in the inbox gets a structured copy, filed where the rules
+  put it with their metadata and a `source:` link back to the original, the words kept
+  verbatim. The original is then stamped with the date — `filed: <ISO date>` in its metadata,
+  unless the rules name a field or a filename form — and moved out of the inbox to the folder the
+  rules keep for processed input, else `archive/processed/`. The folders and the `source:` links
+  are its only state, so a tick over an unchanged folder changes nothing — and costs little: it
+  re-reads the rules only when one changed, and stops after one line when the inbox is empty and
+  no follow-up is open. A remark the person routes to the rules' Backlog follow-up heading, with
+  no reference yet, becomes a `task` entry through the `backlog` MCP server — `find_item` by
+  its title first, so a second tick files no duplicate — and the new id is reported for the
+  person to fill in; the line itself is never edited. An input with more than one possible home, or whose filing needs a fact it does not
+  hold (a customer, a date), is listed for the person, as is every OneDrive conflict copy or
+  ` copy` duplicate. A copy, once written, is the person's too and is never rewritten,
+  and a status such as a meeting's `processed` is reported
+  as due rather than set. For continuous improvement it suggests, at most three a tick, the
+  rules the inputs show a need for — as checkboxes in `AGENTS.suggestions.md`, unless the rules
+  name another file. The person ticks one to adopt it into `AGENTS.md`, or strikes it through to
+  reject it; neither comes back. It never edits the rule files, and writes no state file, index
+  or log into the folder. Model-invoked as well — "tend my second brain" runs one tick — and no
+  flow.
 
 The plan-item marker exists because a plan is written before the app has given its entries
 an id, so it restates the `id:`, `+tag`, `repo:` and `after:` the metadata line carries. The
