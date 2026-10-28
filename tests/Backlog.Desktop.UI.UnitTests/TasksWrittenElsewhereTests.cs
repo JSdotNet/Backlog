@@ -7,12 +7,13 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The list hearing task writes it did not make — and only those.
 /// <para>
-/// Composed the way the hosts compose it: one repository raising one
-/// <see cref="ITaskChangeSignal"/>, and one set of use cases that both the list
-/// and the out-of-band writer hold, since the MCP server's tools and the pane
-/// share the singleton. A write from a second use-case graph would pass whether
-/// or not the list could tell its own writes apart, because the question only
-/// exists when both go through the same object.
+/// One repository raising one <see cref="ITaskChangeSignal"/>, and for most cases
+/// one set of use cases that both the list and the out-of-band writer hold. A
+/// write from a second use-case graph would pass whether or not the list could
+/// tell its own writes apart, because the question only exists when both go
+/// through the same object. The two-window case is the other arrangement: a
+/// use-case graph per window, as the hosts' scoped window state composes it
+/// (that composition itself is <c>MauiDesktopCompositionTests</c>).
 /// </para>
 /// <para>
 /// The shell's half — reloading on the dispatcher — is
@@ -95,7 +96,78 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
         Assert.Equal(0, announced);
     }
 
+    /// <summary>
+    /// Two windows, each with its own list (local ADR 0040, §5): window state is
+    /// scoped, so each window composes its own <see cref="TasksDesktopState"/> over
+    /// its own use cases, and the one process-wide <see cref="ITaskChangeSignal"/>
+    /// is what carries a write from one to the other. A save in either list is
+    /// announced to the other one only, and the other's reload shows it.
+    /// </summary>
+    [Fact]
+    public async Task Two_windows_lists_reload_for_each_others_writes_through_the_task_signal()
+    {
+        var (first, second) = await BuildTwoWindowsAsync();
+
+        var firstAnnounced = 0;
+        var secondAnnounced = 0;
+        first.WrittenElsewhere += () => Interlocked.Increment(ref firstAnnounced);
+        second.WrittenElsewhere += () => Interlocked.Increment(ref secondAnnounced);
+
+        var row = await WriteEntryAsync(first, "# Written in the first window\n`task` `!ready`\n");
+
+        Assert.True(Volatile.Read(ref secondAnnounced) >= 1, "The second window never heard the first window's write.");
+        Assert.Equal(0, Volatile.Read(ref firstAnnounced));
+
+        await second.ReloadFromStoreAsync();
+        var seen = Assert.Single(second.Rows);
+        Assert.Equal(row.Id, seen.Id);
+        Assert.StartsWith("# Written in the first window", seen.RawText, StringComparison.Ordinal);
+
+        var secondBefore = Volatile.Read(ref secondAnnounced);
+        await second.ChangeStatusAsync(seen, EntryStatus.Done);
+
+        Assert.True(Volatile.Read(ref firstAnnounced) >= 1, "The first window never heard the second window's write.");
+        Assert.Equal(secondBefore, Volatile.Read(ref secondAnnounced));
+
+        await first.ReloadFromStoreAsync();
+        Assert.Equal(EntryStatus.Done, Assert.Single(first.Rows).Status);
+    }
+
     // --- Composition --------------------------------------------------------
+
+    /// <summary>Two windows' lists in the shape a head with scoped window state gives
+    /// them, built by hand: one workspace, one repository and one change signal for the
+    /// process, and a list and use cases per window.</summary>
+    private async Task<(TasksDesktopState First, TasksDesktopState Second)> BuildTwoWindowsAsync()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-written-elsewhere", Guid.NewGuid().ToString("n"));
+        _tempDirs.Add(root);
+
+        var store = new WorkspaceSettingsStore(Path.Combine(root, "settings"));
+        Assert.Null(store.TryUseRoot(root));
+
+        var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
+        var integration = new GitHubIntegration(settings, new UnusedGitHubClient(), new UnusedProbe());
+
+        var signal = new TaskChangeSignal();
+        var repository = TasksTestHost.RepositoryFor(store, signal);
+        var taskStore = TasksTestHost.TaskStoreFor(store);
+
+        TasksDesktopState Window() => new(
+            taskStore,
+            TasksTestHost.EntriesFor(repository),
+            integration,
+            taskWrites: signal);
+
+        var first = Window();
+        var second = Window();
+        _states.Add(first);
+        _states.Add(second);
+        await first.InitializeAsync();
+        await second.InitializeAsync();
+
+        return (first, second);
+    }
 
     private async Task<(TasksDesktopState State, ITaskItems Entries, TaskChangeSignal Signal)> BuildAsync()
     {

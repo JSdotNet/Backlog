@@ -140,20 +140,21 @@ public static class MauiProgram
             AppUpdateService = sp => ActivatorUtilities.CreateInstance<MsixAppUpdateService>(sp),
             CopilotCliLauncher = _ => new ProcessCopilotCliLauncher(),
             SessionRepositoryResolver = sp => new SettingsSessionRepositoryResolver(sp.GetRequiredService<GitHubSettingsStore>()),
-            // One window, one user: the panes' state, the save-state band, the toast
-            // channel, the Report issue channel and the Inbox's plan drafter are each
-            // one object that outlives the page it is drawn on. The drafter is a
-            // singleton because that is the lifetime the chain above it actually has
-            // in this host: InboxDesktopState is a singleton, and everything it
-            // reaches through IInboxItems is resolved once from the root and kept for
-            // the window's life whatever its registration says.
-            WindowStateLifetime = ServiceLifetime.Singleton
+            // One set per window (local ADR 0040, §5): the panes' state, the save-state
+            // band, the toast channel, the Report issue channel, the update window's
+            // requests, the Inbox's drafter and advisor and the Devbook's domain store
+            // live in the scope each window's BlazorWebView opens, the way the harness
+            // keeps one per circuit. Data and change signals stay singletons, so a task
+            // saved in one window reaches the others through ITaskChangeSignal. Nothing
+            // resolved from the root may hold one of these; a Debug build validates
+            // scopes below so a captive dependency fails at start.
+            WindowStateLifetime = ServiceLifetime.Scoped
         });
 
         // The Devbook - its adapters and AddDevbookModule - is in the composition
-        // above since issue #738: one window, so its domain store is a singleton
-        // like the rest of the window's state, and its Copilot offers start the CLI
-        // through the launcher handed in there.
+        // above since issue #738: its domain store is scoped to a window like the
+        // rest of the window's state, and its Copilot offers start the CLI through
+        // the launcher handed in there.
 
         // The loopback MCP listener local ADR 0012 decided. TryAdd rather than
         // Add, the way AddTaskSyncClient registers its own worker: this head
@@ -193,6 +194,17 @@ public static class MauiProgram
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Logging.AddDebug();
+
+        // Window state is scoped (above), so a singleton or a root resolution that
+        // reaches it would hold one window's state for every window. Validated here,
+        // where the provider is built, so a captive dependency fails at start in a
+        // Debug build rather than leaking one window's toasts into another. Release
+        // keeps MauiAppBuilder's own provider, unvalidated, as before.
+        builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions
+        {
+            ValidateScopes = true,
+            ValidateOnBuild = true
+        }));
 
         // Which worktree this window came from, for the header. Debug builds are
         // the ones run out of a checkout, often several at once; an installed

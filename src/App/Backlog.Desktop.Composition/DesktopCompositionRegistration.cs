@@ -303,7 +303,7 @@ public static class DesktopCompositionRegistration
 
         services.AddSingleton<FeedbackReporter>();
         // One per window: the error screen asks the footer's dialog to open through
-        // it, and in the harness a request belongs to the circuit that raised it.
+        // it, and a request belongs to the window (or circuit) that raised it.
         services.Add(new ServiceDescriptor(typeof(FeedbackReportChannel), typeof(FeedbackReportChannel), options.WindowStateLifetime));
         services.AddCopilot(options.CopilotCliLauncher);
         services.AddSingleton<TasksCopilotCli>();
@@ -318,8 +318,8 @@ public static class DesktopCompositionRegistration
         services.AddDevbookAiContentSource();
 
         // One window's state, and what reads it. The panes' state captures the
-        // modules' scoped services; see WindowStateLifetime for why that makes it a
-        // singleton in one head and scoped in the other.
+        // modules' scoped services; see WindowStateLifetime for why that makes it
+        // scoped, one per window, in both heads.
         services.Add(new ServiceDescriptor(typeof(TasksDesktopState), typeof(TasksDesktopState), options.WindowStateLifetime));
         services.AddTasksAiContentSource();
         services.Add(new ServiceDescriptor(typeof(InboxDesktopState), typeof(InboxDesktopState), options.WindowStateLifetime));
