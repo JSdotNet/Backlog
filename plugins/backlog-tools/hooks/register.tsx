@@ -1,53 +1,47 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Worker } from '../types'
+import type { Worker, WorkerState } from '../types'
 import {
-  asId,
-  asIndex,
+  isEvents,
   isPlanItems,
+  isRuns,
+  isSessionRows,
+  isStartSession,
   isTransition,
+  messageTarget,
   newWorker,
   normStatus,
   parseBrief,
+  parseEventsReturn,
   parsePlan,
-  parseReturn,
-  parseRunId,
-  parseStages,
-  surfaceOp,
+  parseRuns,
+  parseSessionId,
+  parseSessionRows,
+  sameWorktree,
   tally,
 } from './parse'
 import { GLYPH, KIND, abbrev, alsoLine, bandRows, cellsOf, columnsOf, currentStage, matrixLayout, matrixSvg, rowsOf, stageStatesOf } from './view'
 
 // The execute-plan view: a band above the prompt with the entries still in flow, and a pane —
-// the band's details — with the whole plan as a matrix of entries by delivery-flow stage. Both
-// are read from the calls execute-plan and its sub-agents already make; nothing here writes.
+// the band's details — with the whole plan as a matrix of entries by delivery-flow stage. Each
+// entry runs in a session of its own, whose calls never pass this session's hooks: both are
+// read from the calls execute-plan makes about those sessions. Nothing here writes.
 const PANE = 'plan-progress'
 const plan = atom({ plugin: 'backlog-tools', key: 'plan' } as const, null)
 const workers = atom({ plugin: 'backlog-tools', key: 'workers' } as const, [])
-const parents = atom({ plugin: 'backlog-tools', key: 'parents' } as const, {})
-
-const patchWorker = (list: Worker[], agentId: string, fn: (w: Worker) => Worker) =>
-  list.map(w => (w.agentId === agentId ? fn(w) : w))
 
 /**
- * The run ids a worker holds. The session's state outlives a reload of this code, so a worker
- * 0.17.0 stored has a single `runId` and no list: it counts as a run no surface confirmed.
+ * A worker's session id and worktree. The session's state outlives a reload of this code, so a
+ * worker an older release stored keys on `agentId` and has neither: it matches no session.
  */
-const idsOf = (w: Worker): string[] => (w as Partial<Worker>).runIds ?? []
+const sessionOf = (w: Worker) => (w as Partial<Worker>).sessionId ?? ''
+const worktreeOf = (w: Worker) => (w as Partial<Worker>).worktree ?? ''
 
-/** The execute-plan worker a loop belongs to, walking nested spawns up. */
-async function rootOf($: EngineInterface, agentId: string | undefined) {
-  if (!agentId) return undefined
-  const list = await read($, workers)
-  const map = await read($, parents)
-  let id: string | undefined = agentId
-  for (let hop = 0; id && hop < 8; hop++) {
-    if (list.some(w => w.agentId === id)) return id
-    id = map[id]
-  }
-  return undefined
-}
+const patchWorker = (list: Worker[], sessionId: string, fn: (w: Worker) => Worker) =>
+  list.map(w => (sessionId !== '' && sessionOf(w) === sessionId ? fn(w) : w))
+
+const textOf = (ran: object): string | undefined => ('text' in ran && typeof ran.text === 'string' ? ran.text : undefined)
 
 async function refreshStatus($: EngineInterface) {
   const c = tally(await read($, plan), await read($, workers))
@@ -57,6 +51,13 @@ async function refreshStatus($: EngineInterface) {
   if (c.gate) parts.push(`${c.gate} at gate`)
   if (c.blocked) parts.push(`${c.blocked} blocked`)
   $.ui.status(parts.join(' · '))
+}
+
+/** A worker that newly reached a state needing the person says so once. */
+function toastOn($: EngineInterface, w: Worker | undefined, was: WorkerState | undefined) {
+  if (!w || w.state === was) return
+  if (w.state === 'gate') $.ui.toast(`${w.n} - ${w.title}: waiting at the gate`)
+  if (w.state === 'blocked') $.ui.toast(`${w.n} - ${w.title}: blocked ${w.note}`)
 }
 
 export const register: Register = on => {
@@ -101,99 +102,96 @@ export const register: Register = on => {
       return ran
     }
 
-    const op = surfaceOp(tool)
-    const owner = op ? await rootOf($, e.agentId) : undefined
-    if (!op || !owner) return next(e)
-
-    const ran = await next(e)
-    // The pane mirrors what the worker said, not what a surface stored: a call the surface
-    // rejected still counts. A call the host denied never ran, and the worker retries it.
-    if (ran.deny !== undefined) return ran
-    // Any report from the worker's loop means it is working again, after a gate answered too.
-    const resume = (w: Worker): Worker => (w.state === 'gate' ? { ...w, state: 'running', note: '' } : w)
-    // Until a surface confirms the run, the latest declared run is the worker's current one; after,
-    // a report under another id is another run's (a second flow), not this one's.
-    const ours = (w: Worker) => idsOf(w).length === 0 || idsOf(w).includes(asId(args.runId))
-    if (op === 'start_run') {
-      const stages = parseStages(args.stages)
-      const flow = String(args.skillId ?? '')
-      const runId = ran.isError ? '' : parseRunId(ran.text)
-      if (stages.length > 0) {
-        await update($, workers, list =>
-          patchWorker(list, owner, w => {
-            // The fan-out to a second surface, a retry and a reattach all declare the same run.
-            const same =
-              w.runStatus === 'in_progress' && w.flow === flow &&
-              w.stages.length === stages.length && w.stages.every((s, i) => s === stages[i])
-            if (same) {
-              const ids = idsOf(w)
-              return { ...resume(w), runIds: runId && !ids.includes(runId) ? [...ids, runId] : ids }
-            }
-            return {
-              ...resume(w),
-              flow,
-              runIds: runId ? [runId] : [],
-              stages,
-              stageStatus: stages.map(() => 'pending'),
-              runStatus: 'in_progress',
-            }
-          }),
-        )
-      }
-    } else if (op === 'update_stage') {
-      const i = asIndex(args.stageIndex)
-      const status = String(args.status ?? '')
-      await update($, workers, list =>
-        patchWorker(list, owner, w => {
-          if (!ours(w) || !(i >= 0 && i < w.stages.length)) return w
-          const stageStatus = [...w.stageStatus]
-          stageStatus[i] = status
-          return { ...resume(w), stageStatus }
-        }),
-      )
-    } else {
-      await update($, workers, list =>
-        patchWorker(list, owner, w => (ours(w) ? { ...w, runStatus: String(args.status ?? '') } : w)),
-      )
-    }
-    return ran
-  }).catch(($, e, next) => next(e))
-
-  on('agent.spawn', async ($, e, next) => {
-    const ran = await next(e)
-    const agentId = ran.agentId
-    if (!agentId) return ran
-
-    const brief = parseBrief(e.prompt)
+    // An entry session starts: the brief names the entry, the answer the session's id.
+    const brief = isStartSession(tool) ? parseBrief(String(args.prompt ?? '')) : null
     if (brief) {
+      const ran = await next(e)
+      if (ran.deny !== undefined || ran.isError) return ran
+      const sessionId = parseSessionId(textOf(ran))
+      if (sessionId === '') return ran
       // A brief for another plan starts the pane over: the previous run's plan and workers go.
       const isNewPlan = (await read($, plan))?.tag !== brief.tag
       await update($, workers, list => [
         ...(isNewPlan ? [] : list.filter(w => w.entryId !== brief.entryId)),
-        newWorker(agentId, brief),
+        newWorker(sessionId, brief),
       ])
-      if (isNewPlan) await update($, parents, () => ({}))
       await update($, plan, p => (p && p.tag === brief.tag ? p : { tag: brief.tag, entries: [] }))
       await refreshStatus($)
-    } else if (e.parentAgentId && (await rootOf($, e.parentAgentId))) {
-      const parent = e.parentAgentId
-      await update($, parents, map => ({ ...map, [agentId]: parent }))
+      return ran
     }
-    return ran
-  }).catch(($, e, next) => next(e))
 
-  on('turn.complete', async ($, e, next) => {
-    const agentId = e.agentId
-    if (agentId && (await read($, workers)).some(w => w.agentId === agentId)) {
-      const back = e.isAborted ? { state: 'stopped' as const, note: 'aborted' } : parseReturn(e.answer)
-      await update($, workers, list => patchWorker(list, agentId, w => ({ ...w, ...back })))
-      await refreshStatus($)
-      const w = (await read($, workers)).find(x => x.agentId === agentId)
-      if (w && back.state === 'gate') $.ui.toast(`${w.n} - ${w.title}: waiting at the gate`)
-      if (w && back.state === 'blocked') $.ui.toast(`${w.n} - ${w.title}: blocked ${back.note}`)
+    // The session rows say where each entry session works: its worktree.
+    if (isSessionRows(tool)) {
+      const ran = await next(e)
+      if (ran.deny !== undefined || ran.isError) return ran
+      const rows = parseSessionRows(textOf(ran)).filter(r => r.worktree !== '')
+      if (rows.length > 0 && (await read($, workers)).some(w => rows.some(r => r.sessionId === sessionOf(w)))) {
+        await update($, workers, list =>
+          list.map(w => {
+            const row = rows.find(r => r.sessionId === sessionOf(w))
+            return row ? { ...w, worktree: row.worktree } : w
+          }),
+        )
+      }
+      return ran
     }
+
+    // A surface's runs for an entry session's worktree are that entry's flow, as it stands.
+    const worktree = isRuns(tool) ? String(args.worktree ?? '') : ''
+    if (worktree !== '' && (await read($, workers)).some(w => sameWorktree(worktreeOf(w), worktree))) {
+      const ran = await next(e)
+      if (ran.deny !== undefined || ran.isError) return ran
+      const run = parseRuns(textOf(ran))
+      if (run && run.stages.length > 0) {
+        await update($, workers, list =>
+          list.map(w =>
+            sameWorktree(worktreeOf(w), worktree)
+              ? {
+                  ...w,
+                  flow: run.flow,
+                  runIds: run.id ? [run.id] : [],
+                  stages: run.stages,
+                  stageStatus: run.stageStatus,
+                  runStatus: run.status,
+                }
+              : w,
+          ),
+        )
+        await refreshStatus($)
+      }
+      return ran
+    }
+
+    // A session's events end with its return line once its turn is over.
+    const eventsOf = isEvents(tool) ? String(args.session_id ?? '') : ''
+    if (eventsOf !== '' && (await read($, workers)).some(w => sessionOf(w) === eventsOf)) {
+      const ran = await next(e)
+      if (ran.deny !== undefined || ran.isError) return ran
+      const back = parseEventsReturn(textOf(ran))
+      if (back) {
+        const was = (await read($, workers)).find(w => sessionOf(w) === eventsOf)?.state
+        await update($, workers, list => patchWorker(list, eventsOf, w => ({ ...w, ...back })))
+        await refreshStatus($)
+        toastOn($, (await read($, workers)).find(w => sessionOf(w) === eventsOf), was)
+      }
+      return ran
+    }
+
+    // A message to an entry session that stopped — the person's answer at its gate, a fix
+    // pass — sets it working again. A call with no message only subscribes to the session.
+    const said = typeof args.message === 'string' && args.message.trim() !== ''
+    const to = said ? messageTarget(tool, args) : ''
+    if (to !== '' && (await read($, workers)).some(w => sessionOf(w) === to)) {
+      const ran = await next(e)
+      if (ran.deny !== undefined || ran.isError) return ran
+      const waiting = (w: Worker) => w.state === 'gate' || w.state === 'blocked' || w.state === 'stopped'
+      await update($, workers, list => patchWorker(list, to, w => (waiting(w) ? { ...w, state: 'running', note: '' } : w)))
+      await refreshStatus($)
+      return ran
+    }
+
     return next(e)
-  })
+  }).catch(($, e, next) => next(e))
 
   // The details: every entry of the plan, one row each, one block per stage of its flow. Every
   // column is a Box of a set width, so the matrix holds on the desktop's proportional text too.
