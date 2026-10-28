@@ -23,8 +23,10 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { validateDocument } from '../../.devbook/_tools/devbook-meta/metadata.mjs';
+import * as installedChecker from '../../.devbook/_tools/devbook-meta/metadata.mjs';
 import { DEVBOOK_FOLDERS } from '../../.devbook/_tools/devbook-meta/graph.mjs';
+
+const { validateDocument } = installedChecker;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -49,6 +51,37 @@ const SKIPPED_DIRECTORIES = new Set(['_meta', '_archify', 'node_modules', '.git'
  *  as a value the schema does not know, and issue #241 is about that whole class
  *  passing silently, not about `status` alone. */
 const UNRECOGNIZED_FIELD = /has unrecognized field `([^`]+)`/;
+
+/** The fields that place an `ai/` chapter on the delivery path (devbook
+ *  contract 35): `stage` and `layer` from fixed vocabularies, `substage` as
+ *  `<stage>/<word>` under a stage the chapter lists, `feeds` as
+ *  `"<path>#<anchor>: <label>"`, and `evidence` as one word.
+ *
+ *  The checks themselves are the installed checker's `aiChapterIssues`, reached
+ *  through `validateDocument`, and they keep its severities: a word outside a
+ *  vocabulary, a malformed `substage`, an unlabelled `feeds` entry, a list or
+ *  unknown `evidence`, and any of the five on a file-level block are errors and
+ *  block here; a chapter placed nowhere and a missing **Moves up when** bullet
+ *  are warnings and stay advisory, as they do in `build.mjs --check`. None of
+ *  the five reaches `UNRECOGNIZED_FIELD`, because the `ai` schema lists them. */
+export const AI_PLACEMENT_FIELDS = ['stage', 'substage', 'layer', 'feeds', 'evidence'];
+
+/** The installed checker's placement vocabularies, or a thrown error naming
+ *  `devbook:update` when `.devbook/_tools/devbook-meta/` predates contract 35.
+ *  A stale checker would report `substage`, `layer`, `feeds` and `evidence` as
+ *  unrecognized fields — blocking here — and still accept a DevOps loop word in
+ *  `stage`, which is the wrong verdict both ways rather than a missing one. */
+export function placementVocabulary(checker = installedChecker) {
+    const { AI_STAGES, AI_LAYERS, AI_EVIDENCE, aiChapterIssues } = checker;
+    if (!Array.isArray(AI_STAGES) || !Array.isArray(AI_LAYERS) || !Array.isArray(AI_EVIDENCE)
+        || typeof aiChapterIssues !== 'function') {
+        throw new Error(
+            'The installed devbook checker at .devbook/_tools/devbook-meta/ predates contract 35 '
+            + `and cannot check ${AI_PLACEMENT_FIELDS.join(', ')}. Run devbook:update.`
+        );
+    }
+    return { stages: AI_STAGES, layers: AI_LAYERS, evidence: AI_EVIDENCE };
+}
 
 /** Whether a finding blocks the build or is only worth printing. */
 export function classify(issue) {
@@ -104,6 +137,7 @@ async function markdownUnder(directory, found = []) {
  */
 export async function checkRepository(root = DEFAULT_ROOT) {
     const repoRoot = resolve(root);
+    placementVocabulary();
     const result = { root: repoRoot, files: 0, blocking: [], advisory: 0, folders: [] };
 
     for (const folder of DEVBOOK_FOLDERS) {
@@ -171,7 +205,22 @@ function optionValue(name) {
 
 // Only when run as the command; importing this file from a test must not check
 // anything or exit.
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+const runAsCommand = process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
+
+/** The stale-checker refusal as the command's own exit 2 rather than an
+ *  unhandled rejection: like an empty root, it is a gate that cannot check. */
+function installedCheckerIsCurrent() {
+    try {
+        placementVocabulary();
+        return true;
+    } catch (error) {
+        console.error(error.message);
+        process.exitCode = 2;
+        return false;
+    }
+}
+
+if (runAsCommand && installedCheckerIsCurrent()) {
     const result = await checkRepository(optionValue('--root') ?? DEFAULT_ROOT);
     console.log(formatReport(result));
 

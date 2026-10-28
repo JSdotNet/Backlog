@@ -137,7 +137,10 @@ because it is the interesting one.
 
 What kind of technology the chapter describes. Required on every technology
 chapter. One of: `language`, `runtime`, `framework`, `library`, `package`,
-`tool`, `service`, `platform`, `protocol`, `format`.
+`tool`, `service`, `platform`, `protocol`, `format`, `plugin`, `skill`, `agent`.
+The last three are the `ai/` words and mean the same thing: a technology that is
+a Claude Code plugin, skill, or agent. `tech/` registers and rates it; `ai/`
+records how it is used.
 
 This field was previously called `kind`. The old name still parses, so an
 existing `tech/` folder keeps working after a generator sync, but it reports a

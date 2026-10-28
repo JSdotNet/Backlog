@@ -28,6 +28,7 @@ import {
     changeHash,
     syncLevel,
     syncSources,
+    parseFeed,
     SYNC_DIRECTIONS,
     DEVBOOK_FOLDER_NAMES,
     DEVBOOK_ROOT,
@@ -271,7 +272,31 @@ export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT, CHANGES_ROOT };
 // a view no chapter embeds and a debt record without `severity` are warnings.
 // A corpus with no workspace and none of the fields validates as under 32, so
 // no migration is owed.
-export const CONTRACT_VERSION = 33;
+//
+// Version 34 lets a `.tech` chapter be typed `plugin`, `skill`, or `agent`,
+// the `.ai` words meaning the same thing: a technology that is a Claude Code
+// plugin, skill, or agent. Each is an added value, so a corpus written under
+// 33 validates unchanged and no migration is owed.
+//
+// Version 35 places an `.ai` chapter on the seven-stage delivery path —
+// decide, specify, code, verify, integrate, release, operate — or on the
+// thread, upkeep, or harness layer beneath it, with `substage`, `feeds`,
+// `evidence`, and a **Moves up when** bullet on a trial or candidate chapter.
+// The DevOps loop's eight stage words are errors, so it ships
+// `035-delivery-path-stages`, which maps each onto the path and adds none of
+// the new fields: placing a chapter on a layer is the repository's to do.
+//
+// Version 36 lets a demo play a journey end to end. A walkthrough in
+// `demo-model` may be a playthrough: `journey` names a whole journey, its
+// `signature` the journey's, and each step `part` and `step` the part step it
+// shows, in the journey's order, with that step's text embedded. A `feature`
+// or `sub-feature` chapter names the playthrough its page shows with
+// `playthrough`, a list of `<demo>#walkthrough/<id>`, each a playthrough whole,
+// carried on the node for the host that shows the page and folded into its
+// fingerprint. A playthrough that skips a part, or whose journey does not name
+// the feature, is warned. Both are added fields with a safe default, so a
+// corpus written under 35 validates unchanged and no migration is owed.
+export const CONTRACT_VERSION = 36;
 
 // The oldest contract a reconcile still carries forward. A migration lives
 // for the major version it ships in: a major release raises this to the
@@ -328,7 +353,21 @@ const REFERENCE_FIELDS = {
     "feature-flag": "gated-by",
     setting: "configured-by",
     related: "related",
+    // `.ai`'s hand-off: each entry is `<path>#<anchor>: <label>`, and only the
+    // part before the colon is a reference — the label rides on the edge.
+    feeds: "feeds",
 };
+
+/**
+ * The references one field of a node holds, each with the label its edge
+ * carries. Only `feeds` has labels; an entry `parseFeed` rejects is the lint's
+ * to report and draws no edge.
+ */
+function fieldReferences(node, field) {
+    const entries = asList(node[field]);
+    if (field !== "feeds") return entries.map((ref) => ({ ref, label: null }));
+    return entries.map(parseFeed).filter(Boolean);
+}
 
 // The chapter `kind` each switch field must resolve to.
 const SWITCH_TARGET_KIND = { "feature-flag": "feature-flag", setting: "setting" };
@@ -377,6 +416,8 @@ const ATTRIBUTE_FIELDS = [
     // effective direction of a unit is resolved from `syncSources`.
     "sync",
     "date",
+    // `.ai`: how much the chapter's rating rests on.
+    "evidence",
     "approved-by",
     "approved-at",
     // Carried so a consumer can tell "approved, and the content has not moved"
@@ -406,11 +447,13 @@ const ATTRIBUTE_FIELDS = [
 //
 // `demo` is here for the same reason: it names a place in a click demo, which
 // is HTML and no node. demo.mjs resolves each address against the demo itself.
+// So is `playthrough`, which names a demo walkthrough playing a whole journey:
+// a host that shows a feature's page reads it here to offer the playthrough.
 //
 // `code` names a building block's folders, which are no nodes; `c4` and
 // `c4-touches` are carried as written too, beside the edges c4-graph.mjs draws
 // from them to the workspace's elements.
-const LIST_ATTRIBUTE_FIELDS = ["role", "roadmap", "stage", "tests", "demo", "code", "c4", "c4-touches"];
+const LIST_ATTRIBUTE_FIELDS = ["role", "roadmap", "stage", "substage", "layer", "tests", "demo", "playthrough", "code", "c4", "c4-touches"];
 
 // Fields authored as an integer scalar. The parser hands back the raw string,
 // so they are coerced here and a viewer can sum or threshold them directly.
@@ -532,7 +575,7 @@ function composeFileLabel(title, type) {
     return `${title} (${type})`;
 }
 
-/** Every block in one file that carries a `demo` field, for `demoProblems`. */
+/** Every block in one file that carries a `demo` or a `playthrough` field, for `demoProblems`. */
 function demoHoldersOf(relPath, raw, chapters) {
     const holders = [];
     const scenarios = requirementScenarios(relPath, raw);
@@ -542,6 +585,12 @@ function demoHoldersOf(relPath, raw, chapters) {
         const refs = Array.isArray(chapter.meta.demo) ? chapter.meta.demo : [chapter.meta.demo];
         const cases = scenarios.get(id);
         holders.push({ id, path: relPath, refs, scenarios: cases?.inline ?? null, provedBy: cases?.proved ?? null });
+    }
+    for (const chapter of chapters) {
+        if (chapter.meta?.playthrough == null) continue;
+        const id = chapter.level === 1 ? relPath : `${relPath}#${chapter.slug}`;
+        const refs = Array.isArray(chapter.meta.playthrough) ? chapter.meta.playthrough : [chapter.meta.playthrough];
+        holders.push({ id, path: relPath, field: "playthrough", refs, scenarios: null, provedBy: null });
     }
     return holders;
 }
@@ -801,12 +850,28 @@ export async function buildGraph(repoRoot, folders = null) {
             }
         }
     }
+    // A feature's playthrough plays a journey that walks the feature: the
+    // journey's `related` names it, per devbook-domain.md. One that does not
+    // is shown on a page the journey never claims to walk through.
+    const playedJourney = new Map(linked.plays.map((play) => [`${play.demo}#walkthrough/${play.id}`, play.journey]));
+    for (const node of nodes.values()) {
+        for (const entry of asList(node.playthrough)) {
+            const journeyId = playedJourney.get(String(entry));
+            const journey = journeyId && nodes.get(journeyId);
+            if (!journey || asList(journey.related).includes(node.id)) continue;
+            problems.push({
+                severity: "warning",
+                path: node.path,
+                message: `${node.id} has \`playthrough\` "${entry}", which plays ${journeyId} — a journey whose \`related\` does not name this feature. Name the feature from the journey, or show a playthrough of a journey that walks it.`,
+            });
+        }
+    }
 
     // Reference edges are resolved only after every node exists, so forward
     // references across files are valid.
     for (const node of nodes.values()) {
         for (const [field, edgeType] of Object.entries(REFERENCE_FIELDS)) {
-            for (const ref of asList(node[field])) {
+            for (const { ref, label } of fieldReferences(node, field)) {
                 const targetPath = ref.split("#")[0];
                 // A change points at the devbook, never the reverse: what a
                 // change holds is not agreed yet, and it moves to `archive/`
@@ -874,6 +939,7 @@ export async function buildGraph(repoRoot, folders = null) {
                     source: node.id,
                     target: ref,
                     type: edgeType,
+                    ...(label ? { label } : {}),
                 });
             }
         }

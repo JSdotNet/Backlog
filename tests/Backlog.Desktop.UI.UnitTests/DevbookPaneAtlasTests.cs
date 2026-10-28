@@ -69,6 +69,40 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         Assert.Equal("Hide atlas", component.Find("[data-testid='devbook-atlas-toggle']").TextContent.Trim());
     }
 
+    /// <summary>
+    /// The Technology section has views of its own, and the canvas atlas no longer
+    /// draws the stack (<c>.devbook/domain/devbook/features.md#technology-view</c>).
+    /// With the atlas open, pressing Technology used to move the map onto a
+    /// <c>.tech</c> scope; it now closes the map and shows the section.
+    /// </summary>
+    [Fact]
+    public async Task Pressing_Technology_with_the_atlas_open_closes_the_atlas()
+    {
+        await using var harness = CreateHarness(withTechnology: true);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.NotNull(component.Find("[data-testid='devbook-atlas-toggle']")));
+        component.Find("[data-testid='devbook-atlas-toggle']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("Domain", component.Find(".devbook-atlas__heading h3").TextContent.Trim()));
+
+        await component.InvokeAsync(() => component.Find("#tab-tech").Click());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("#tab-tech").GetAttribute("aria-selected"));
+            Assert.Empty(component.FindAll(".devbook-atlas"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-atlas-toggle']"));
+        });
+
+        // Back on a section the atlas draws, the map stays closed until asked for
+        // again.
+        await component.InvokeAsync(() => component.Find("#tab-domain").Click());
+        component.WaitForAssertion(() =>
+            Assert.Equal("Atlas", component.Find("[data-testid='devbook-atlas-toggle']").TextContent.Trim()));
+        Assert.Empty(component.FindAll(".devbook-atlas"));
+    }
+
     private const string ContextMap = """
         # Context Map
 
@@ -77,6 +111,26 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         ```
 
         The context map.
+        """;
+
+    private const string SharedTechnologies = """
+        # Shared Technologies
+
+        ```meta
+        status: accepted
+        kind: layer
+        ```
+
+        Shared platform choices.
+
+        ## .NET
+
+        ```meta
+        status: accepted
+        kind: runtime
+        ```
+
+        The runtime everything is built on.
         """;
 
     private const string Graph = """
@@ -90,7 +144,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         }
         """;
 
-    private Harness CreateHarness()
+    private Harness CreateHarness(bool withTechnology = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-atlas", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".domain", "_meta"));
@@ -100,6 +154,12 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), ContextMap);
         File.WriteAllText(Path.Combine(root, ".domain", "_meta", "graph.json"), Graph);
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");
+
+        if (withTechnology)
+        {
+            Directory.CreateDirectory(Path.Combine(root, ".tech"));
+            File.WriteAllText(Path.Combine(root, ".tech", "shared.md"), SharedTechnologies);
+        }
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
@@ -114,7 +174,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         var repository = Assert.Single(repositories) with
         {
             CloneDirectory = root,
-            DevbookFolders = [.. DevbookFolderSetting.Defaults().Select(folder => folder with { Enabled = folder.Key is ".domain" or ".arc42" })]
+            DevbookFolders = [.. DevbookFolderSetting.Defaults().Select(folder => folder with { Enabled = folder.Key is ".domain" or ".arc42" || (withTechnology && folder.Key is ".tech") })]
         };
         Assert.Null(gitHub.SetRepositories([repository]));
 
@@ -127,6 +187,7 @@ public sealed class DevbookPaneAtlasTests : IDisposable
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHub, settings));
         context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddSingleton<Arc42DevbookStore>();
+        context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<DevbookChapterWriter>();
         context.Services.AddSingleton<DevbookMenu>();

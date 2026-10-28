@@ -1675,6 +1675,15 @@
     {
         if (!_atlasOpen) return;
 
+        // Technology is not drawn on the atlas, and its section hides the atlas
+        // toggle, so the map closes rather than following there with no way to
+        // hide it again.
+        if (string.Equals(key, "tech", StringComparison.Ordinal) && !BrainMode)
+        {
+            CloseAtlas();
+            return;
+        }
+
         _atlasScopeKey = AtlasScopes.Any(scope => string.Equals(scope.Key, key, StringComparison.Ordinal))
             ? key
             : DevbookAtlasScope.All.Key;
@@ -1736,13 +1745,15 @@
     /// <summary>The scopes the atlas offers: whichever sections this repository
     /// has turned on, and all of them together. Built from the same list the
     /// section strip is built from, so a folder switched off disappears from both
-    /// at once.</summary>
+    /// at once. Technology is never among them: its section has views of its own,
+    /// and <see cref="DevbookAtlasScope.ForArea"/> gives it no scope.</summary>
     private IReadOnlyList<DevbookAtlasScope> AtlasScopes =>
     [
         DevbookAtlasScope.All,
         .. VisibleAreas
             .Where(area => !string.Equals(area.Key, "instructions", StringComparison.Ordinal))
             .Select(DevbookAtlasScope.ForArea)
+            .OfType<DevbookAtlasScope>()
     ];
 
     private DevbookAtlasScope AtlasScope =>
@@ -1895,6 +1906,15 @@
         _selectedC4View = null;
 
         var root = _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, target.AreaKey, StringComparison.Ordinal));
+
+        // A folder rather than a chapter — the Devbook tab's adopted folders: the
+        // reader gets that section's tab, as pressing it in the strip would.
+        if (target.IsFolder)
+        {
+            if (root is { Available: true }) SelectSection(target.AreaKey);
+            return;
+        }
+
         if (root is null || !root.Available || !ContainsPath(root, target.RelativePath)) return;
 
         _selectedSection = target.AreaKey;
@@ -2359,8 +2379,8 @@
                is being told the two kinds of chapter are different things, and they
                are not: the target is a repository path either way and the selection
                this pane holds is the same selection. *@
-            "design" => @<DesignDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
-            "ai" => @<AiDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
+            "design" => @<DesignDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("design", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
+            "ai" => @<AiDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("ai", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
             "arc42" => @<Arc42DevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" SelectedC4View="@_selectedC4View" OnNavigateToChapter="SelectChapter" />,
             "domain" => @<DomainDevbookPanel Compact="true" ShowContextTabs="false" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("domain", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,

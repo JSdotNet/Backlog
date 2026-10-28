@@ -1,0 +1,186 @@
+@page "/technology"
+
+<PageTitle>Technology page — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Technology page"
+           Summary="The library parts the Devbook pane's Technology page draws on its Overview view: summary tiles over the stack, a chip per type, a name search and a sort, the table of technologies, and the inspector on the one selected technology. The page and its four other views live in the Devbook module and are not rendered here; every figure below is handed in, the way the page hands in what the reader computed from the stack's depends-on."
+           Guidelines="@Rules">
+
+    <Story Name="Summary tiles"
+           Description="Four MetricTiles and a fifth whose Trend slot holds a MetricBreakdownBar with its legend off. The page hands the ladder's counts in as that tile's footnote, one status after another."
+           Code="@TilesCode">
+        <div class="sb-stack" data-testid="technology-page-tiles">
+            <MetricTile Label="Technologies" Value="106" Footnote="across 8 layers" />
+            <MetricTile Label="Types" Value="13" Footnote="in use" />
+            <MetricTile Label="Deepest chain" Value="5" Unit="hops" Footnote="Playwright → .NET Runtime" />
+            <MetricTile Label="Most depended on" Value="20" Footnote="sit directly on .NET Runtime" />
+            <MetricTile Label="Status ladder" Value="85%" Unit="adopted" Footnote="@LadderText">
+                <Trend>
+                    <MetricBreakdownBar Parts="@Ladder" ShowLegend="false" />
+                </Trend>
+            </MetricTile>
+        </div>
+    </Story>
+
+    <Story Name="Type chips"
+           Description="A ToggleButton per type in use, and All, inside a group named for what it filters. Each says aria-pressed; pressing one narrows the table to that type and presses it, and All widens it again. The code, the word and the count are all text."
+           Code="@ChipsCode">
+        <div role="group" aria-label="Filter by type" data-testid="technology-page-chips">
+            @foreach (var (type, mark, total) in Types)
+            {
+                <ToggleButton Pressed="@(_type == type)" PressedChanged="_ => _type = type">
+                    @mark @type @total
+                </ToggleButton>
+            }
+        </div>
+    </Story>
+
+    <Story Name="Search and sort"
+           Description="A SearchBox narrows the table by name as the reader types — no debounce, because the list is already in memory. Beside it, a ButtonGroup of ToggleButtons picks the order: Most used, Most complex, Deepest or A–Z."
+           Code="@SortCode">
+        <SearchBox Value="@_query" ValueChanged="value => _query = value" AriaLabel="Find a technology" Placeholder="Name" DebounceMilliseconds="0" />
+        <ButtonGroup AriaLabel="Sort by" TestId="technology-page-sorts">
+            @foreach (var sort in Sorts)
+            {
+                <ToggleButton Pressed="@(_sort == sort)" PressedChanged="_ => _sort = sort">@sort</ToggleButton>
+            }
+        </ButtonGroup>
+    </Story>
+
+    <Story Name="The table"
+           Description="A DataTable whose first cell is a ToggleButton naming the technology with its type code, pressed on the selected row. Layer, status as a MetadataStatusBadge on the folder's ladder, Used by, Rests on and Depth as figures, and the complexity band as its word beside the score."
+           Code="@TableCode">
+        <DataTable TItem="Row"
+                   Columns="@Columns"
+                   Items="@Rows"
+                   RowKey="row => row.Name"
+                   AriaLabel="Technologies"
+                   TestId="technology-page-table">
+            <Row Context="row">
+                <td>
+                    <ToggleButton Pressed="@(_selected == row.Name)" PressedChanged="_ => _selected = row.Name">@row.Code @row.Name</ToggleButton>
+                </td>
+                <td>@row.Layer</td>
+                <td><MetadataStatusBadge Status="@row.Status" Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)" /></td>
+                <td>@row.UsedBy</td>
+                <td>@row.RestsOn</td>
+                <td>@row.Depth</td>
+                <td>@row.Band @row.Complexity</td>
+            </Row>
+        </DataTable>
+    </Story>
+
+    <Story Name="The inspector"
+           Description="The selected technology's common facts, then what it sits on and what uses it — a technology of the folder as a button that moves the selection, a chapter in another folder as a DevbookReferenceLink the pane follows — then the status as the shared StatusSelector, which writes back to the chapter. A branch snapshot shows the MetadataStatusBadge instead. Open chapter, Show dependencies and the type's lens are AppButtons."
+           Code="@InspectorCode">
+        <div class="sb-stack" data-testid="technology-page-inspector">
+            <StatusSelector CurrentValue="@_status"
+                            Options="@StatusOptions"
+                            Label="State for ASP.NET Core"
+                            OnChanged="value => _status = value" />
+            <MetadataStatusBadge Status="adopted" Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)" />
+            <div>
+                <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small">.NET Runtime</AppButton>
+                <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small">C# Language</AppButton>
+                <DevbookReferenceLink Reference="@Boundary" Text="Context and scope" OnNavigate="_ => { }" />
+            </div>
+            <div>
+                <AppButton Variant="ButtonVariant.Secondary">Open chapter</AppButton>
+                <AppButton Variant="ButtonVariant.Ghost">Show dependencies</AppButton>
+                <AppButton Variant="ButtonVariant.Ghost">Open framework lens</AppButton>
+            </div>
+        </div>
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#badge-and-chip-tones", "Which tone each status on the ladder wears, and why the word always goes with it."),
+        new("color-scheme.md#chart-roles", "Why the status ladder is one hue in ramp steps."),
+        new("accessibility.md#target-sizes-and-text", "Why the ladder's counts are printed beside its bar."),
+        new("interaction-guidelines.md#group-shape-says-cardinality", "Why the type chips and the sort are toggles that say aria-pressed.")
+    ];
+
+    private sealed record Row(string Code, string Name, string Layer, string Status, int UsedBy, int RestsOn, int Depth, int Complexity, string Band);
+
+    private static readonly IReadOnlyList<DataTableColumn> Columns =
+    [
+        new("Technology"), new("Layer"), new("Status"), new("Used by"), new("Rests on"), new("Depth"), new("Complexity"),
+    ];
+
+    private static readonly IReadOnlyList<Row> Rows =
+    [
+        new("RT", ".NET Runtime", "Shared", "adopted", 20, 0, 0, 0, "Low"),
+        new("FWK", "ASP.NET Core", "Shared", "adopted", 8, 2, 2, 4, "Low"),
+        new("TOOL", "Playwright", "Testing", "adopted", 0, 8, 5, 13, "High"),
+        new("SVC", "Azure Cosmos DB", "Cloud", "trial", 0, 0, 0, 0, "Low"),
+    ];
+
+    private static readonly IReadOnlyList<MetricPart> Ladder =
+    [
+        new("adopted", 90), new("trial", 7), new("candidate", 7), new("hold", 1), new("retired", 1),
+    ];
+
+    private static readonly string LadderText = string.Join(" · ", Ladder.Select(part => $"{part.Value} {part.Label}"));
+
+    private static readonly IReadOnlyList<(string Type, string Mark, int Total)> Types =
+    [
+        ("All", "ALL", 106), ("Tool", "TOOL", 22), ("Package", "PKG", 22), ("Framework", "FWK", 17),
+    ];
+
+    private static readonly string[] Sorts = ["Most used", "Most complex", "Deepest", "A–Z"];
+
+    private static readonly IReadOnlyList<SelectorOption> StatusOptions =
+        [.. DevbookStatus.Values(DevbookFolder.Tech).Select(value => new SelectorOption(value, value))];
+
+    private static readonly DevbookReference Boundary = DevbookReference.Parse(".devbook/arc42/03-context-and-scope.md")!;
+
+    private string _type = "All";
+    private string _query = string.Empty;
+    private string _sort = "Most used";
+    private string _selected = "ASP.NET Core";
+    private string _status = "adopted";
+
+    private const string TilesCode = """
+        <MetricTile Label="Deepest chain" Value="@hops" Unit="hops" Footnote="@($"{first} → {last}")" />
+        <MetricTile Label="Status ladder" Value="@adoptedShare" Unit="adopted" Footnote="@ladderText">
+            <Trend>
+                <MetricBreakdownBar Parts="@ladder" ShowLegend="false" />
+            </Trend>
+        </MetricTile>
+        """;
+
+    private const string ChipsCode = """
+        <div role="group" aria-label="Filter by type">
+            <ToggleButton CssClass="tech-chip" Pressed="@IsType(type)" PressedChanged="_ => _type = type">
+                <span>@code</span> <span>@label</span> <span>@count</span>
+            </ToggleButton>
+        </div>
+        """;
+
+    private const string SortCode = """
+        <SearchBox Value="@_query" ValueChanged="value => _query = value" AriaLabel="Find a technology" DebounceMilliseconds="0" />
+        <ButtonGroup AriaLabel="Sort by">
+            <ToggleButton Pressed="@(_sort == sort)" PressedChanged="_ => _sort = sort">@label</ToggleButton>
+        </ButtonGroup>
+        """;
+
+    private const string TableCode = """
+        <DataTable TItem="TechnologyGraphNode" Columns="@Columns" Items="@Rows" RowKey="node => node.Id" RowCssClass="@RowClass">
+            <Row Context="node">
+                <td><ToggleButton Pressed="@IsSelected(node)" PressedChanged="_ => SelectAsync(node.Id)">…</ToggleButton></td>
+                <td>@layer</td>
+                <td><MetadataStatusBadge Status="@node.Status" Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)" /></td>
+                …
+            </Row>
+        </DataTable>
+        """;
+
+    private const string InspectorCode = """
+        <StatusSelector CurrentValue="@node.Status" Options="@StatusOptions(node.Status)"
+                        Label="@($"State for {node.Label}")" OnChanged="value => ChangeStatusAsync(node, value)" />
+        <DevbookReferenceLink Reference="@reference" Text="@related.Label" OnNavigate="NavigateAsync" />
+        <AppButton Variant="ButtonVariant.Secondary" OnClick="() => OnNavigateToChapter.InvokeAsync(chapter)">Open chapter</AppButton>
+        """;
+}

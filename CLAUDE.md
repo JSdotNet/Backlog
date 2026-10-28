@@ -50,7 +50,7 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its seven skills, nor its hooks,
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its eight skills, nor its hooks,
 changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
 calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
@@ -61,6 +61,8 @@ the gate — the matching flow — rather than adding an execution path beside i
 entry of a plan to a sub-agent that runs it through `run-plan-item`, so every entry
 still passes the gate and its own Personal Validation — relayed to the person when attended,
 moved onto a draft pull request when unattended.
+`final-check` is user-invoked and changes nothing: run once a plan has landed, it reviews what
+each entry implemented and runs the build and tests, and a fix it finds goes through the gate.
 `close-merged` is model-invoked when asked to close the merged items; it only moves the entries
 whose pull request merged into the default branch or a `plan/` branch to Done, so it is no flow.
 `handle-remarks` is model-invoked when asked to handle or answer the Devbook remarks; it writes
@@ -172,6 +174,8 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   plan pasted back out of the Backlog app, after checking it is still outstanding.
 - `plugins/backlog-tools/skills/execute-plan/SKILL.md` — runs a whole plan by
   delegating its prompt entries to sub-agents, one worktree and pull request each; user-invoked only.
+- `plugins/backlog-tools/skills/final-check/SKILL.md` — checks a finished plan once, in the
+  session that wrote it: what each entry implemented, and that it all builds; user-invoked only.
 - `plugins/backlog-tools/skills/import-inbox/SKILL.md` — turns an export from another
   to-do tool into an inbox import manifest (ADR 0017); user-invoked only.
 - `plugins/backlog-tools/skills/handle-remarks/SKILL.md` — handles the reading notes left
