@@ -275,9 +275,46 @@ related: [.devbook/domain/sessions/domain.md#session-grouping]
 ```
 
 Carve the same list up by the things that separate sessions from each other in
-practice, without removing any of them: when they ran, which repository they were in,
-and which machine ran them. The list opens grouped by When, which puts the live
-sessions on top and the rest under the day they were last active.
+practice, without removing any of them: when they ran, which plan they belong to, what
+they are for, which repository they were in, and which machine ran them. The list
+opens grouped by When, which puts the standing sessions on top, then the live ones, and
+the rest under the day they were last active.
+
+### Standing under When
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#session-title-reading, .devbook/domain/sessions/domain.invariants.md#invariant-a-standing-session-leaves-standing-only-while-it-runs]
+```
+
+A session titled as an artifact, a design, a plan, research or a hold is one the reader
+keeps until it is archived. When opens with a Standing section that holds them, above
+Live now, so they do not sink under the days. A standing session that is running sits in
+Live now and returns to Standing when it stops. A scheduled run never stands.
+
+### Group by plan
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#session-title-reading, .devbook/domain/sessions/domain.md#session-grouping]
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.By_plan_is_a_section_per_tag_with_the_plan_then_its_runs_then_its_entries_by_step
+```
+
+A section per plan tag, headed `+tag` with the plan's state, Draft or Imported, where
+the plan has one. A section lists the session the plan was agreed in first, then the
+execute-plan runs, then the entries by step. So a plan reads top to bottom in the order
+it was worked. The sessions of no plan close the list under "Not part of a plan".
+
+### Group by purpose
+
+```meta
+type: sub-feature
+related: [.devbook/domain/sessions/domain.md#session-title-reading]
+tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionTitlesTests.By_purpose_is_a_section_per_purpose_in_declared_order
+```
+
+A section per purpose, in the order the purposes are declared: Artifact, Design, Plan,
+Research, Hold, Plan run, Entry, Scheduled, Other.
 
 ### Group by environment
 
@@ -312,8 +349,8 @@ status: deprecated
 
 A section per agent, so Claude's sessions and Copilot's could be read separately
 without the two being separate lists. The session list does not offer it: every row
-wears its agent's mark, and When, Repository and Machine are the three ways the list
-is read. The grouping itself remains in the domain.
+wears its agent's mark, and When, Plan, Purpose, Repository and Machine are the ways
+the list is read. The grouping itself remains in the domain.
 
 ### Grouping never hides a session
 
@@ -331,8 +368,8 @@ it does not move while `Group by` moves the same rows around. When the filters l
 some rows out, the count names both numbers, kept and total. The total is then still
 there to be checked against, with the reader's own subtraction stated beside it rather
 than folded into it. One number where two are owed would let the controls that remove
-rows (Show, Machine, and With delivery runs) borrow the innocence of the one that
-does not.
+rows (Show, With delivery runs, Machine, Purpose, Plan and Plan state) borrow the
+innocence of the one that does not.
 
 ## Honest partial answers
 
@@ -729,18 +766,29 @@ shown that the agent or the dashboard did not record.
 ```meta
 type: sub-feature
 related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/features.md#narrow-to-one-machine, .devbook/domain/sessions/features.md#only-the-rows-with-a-run]
-tests: unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_show_strip_offers_open_between_live_and_all_with_its_own_tally
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.The_show_strip_offers_open_between_live_and_all_with_its_own_tally, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_purpose_narrows_the_list_and_each_option_counts_its_rows, unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionsPaneTests.A_plan_tag_beside_the_row_narrows_the_list_to_its_plan]
 ```
 
 The controls that narrow the list sit together in one filter bar above it. From left to
-right the bar shows Show (Live, Open or All), With delivery runs, and Machine. Group by sits
-beside them, and Update records and Refresh at the end. One bar, because a reader who
+right the bar shows:
+
+1. Show: Live, Open or All.
+2. With delivery runs.
+3. Machine.
+4. Purpose: All, then each purpose.
+5. Plan: All plans, then each plan tag the reading names.
+6. Plan state: Any, Draft or Imported.
+
+Group by sits beside them, then Clear filters while any of them narrows the list, and
+Update records and Refresh at the end. Purpose, Plan and Plan state read the session's
+title (see [Session Title Reading](domain.md#session-title-reading)). Clear filters
+returns every filter but Show to its first option. One bar, because a reader who
 wonders why a session is missing should find every reason in one place. Each filter
 only removes rows, so the order on screen does not change what the list shows. The
 order the surface applies them in is the [Session View](domain.md#session-view)'s.
 
-Live and Open each carry how many rows they would show under the other filters, so
-pressing one is never a guess. Every filter comes back to its first option on every opening, and Group
+Live, Open and each Purpose option carry how many rows they would show under the other
+filters, so pressing one is never a guess. Every filter comes back to its first option on every opening, and Group
 by comes back to When.
 
 The count beside the title keeps its promise from
@@ -764,10 +812,11 @@ session costs and how well it does. A reader comparing two sessions should not h
 open both to learn that one ran on a smaller model. A session whose agent recorded no
 effort shows none, rather than a default that would claim a choice nobody made.
 
-The list is grouped by When, Repository or Machine (see
+The list is grouped by When, Plan, Purpose, Repository or Machine (see
 [Session Grouping](domain.md#session-grouping)), and each row reads in three lines:
 
-- the agent's mark, the session's title and its state chip;
+- the agent's mark, the purpose badge, the title less its prefix, Draft or Imported on
+  a plan's own session, its state chip, and on a plan's sessions the plan tag;
 - the repository with its [identity edge](../../design/color-scheme.md#the-identity-edge),
   the machine, when it was last active, how long it went on, the model with its effort
   chip, and its output tokens;
@@ -778,6 +827,15 @@ The list is grouped by When, Repository or Machine (see
 The row is one control: pressing it shows the session in the detail panel. The pull
 requests and the task it led to are in the panel rather than on the row, because a
 link inside a control is markup no browser agrees on.
+
+The plan tag is the one exception, and it sits beside the row rather than inside it.
+It is a control of its own: pressing it narrows the list to that plan. The row keeps
+room for it on its first line, so the tag never covers the state chip.
+
+A row shows its title less its prefix, and the prefix as a badge. The row's tooltip and
+the detail panel keep the whole title
+([A row shows its title less its prefix](domain.invariants.md#invariant-a-row-shows-its-title-less-its-prefix)).
+A row with no prefix the reading recognises shows its title whole and no badge.
 
 ### The detail of one session
 

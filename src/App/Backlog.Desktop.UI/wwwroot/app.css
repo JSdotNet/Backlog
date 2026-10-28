@@ -4335,11 +4335,32 @@ h1, h2, h3 {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
+/* A filter wraps its control under its label on a narrow pane, and no control is
+   wider than the bar, so a phone never scrolls the panel sideways. */
 .sessions-filter {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-sm);
     align-items: center;
     min-width: 0;
+    max-width: 100%;
+}
+
+.sessions-filter > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* A strip with more options than a phone's width (Purpose, Plan state) wraps its
+   buttons onto further rows. Each wrapped button keeps its own rounded edge, since
+   the joined edges of one strip only read as one control on a single row. */
+.btn-group.sessions-filter__options {
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.btn-group.sessions-filter__options > .btn {
+    border-radius: var(--border-radius-md);
 }
 
 /* Pushed to the trailing edge on a wide window, and simply next in line once the
@@ -4543,6 +4564,88 @@ h1, h2, h3 {
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 500;
+}
+
+/* A row with a plan tag: the row button and the tag chip, its sibling, stacked in
+   one cell. The chip sits at the end of the row's first line, over the slot the row
+   keeps for it, so it never covers the state beside it. */
+.sessions-group__item--tagged {
+    display: grid;
+}
+
+.sessions-group__item--tagged > * {
+    grid-area: 1 / 1;
+}
+
+.sessions-group__item--tagged > .sessions-row__tag {
+    align-self: start;
+    justify-self: end;
+    margin: var(--spacing-sm) var(--spacing-md) 0 0;
+}
+
+.sessions-row__tag-slot {
+    flex: 0 0 auto;
+    visibility: hidden;
+    padding: 0 var(--spacing-sm);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* What the title's prefix said, as a small pill before the title. Each purpose wears
+   its own edge; the word is always drawn, so the hue is never the only carrier. A
+   skill-written title (a plan run, an entry) is outlined dashed: nobody typed it. */
+.sessions-purpose,
+.sessions-plan-badge {
+    flex: 0 0 auto;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+.sessions-purpose--plan {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.sessions-purpose--plan-run,
+.sessions-purpose--entry {
+    border-color: var(--color-primary);
+    border-style: dashed;
+    color: var(--color-primary);
+}
+
+.sessions-purpose--artifact,
+.sessions-purpose--design,
+.sessions-purpose--research,
+.sessions-purpose--hold {
+    color: var(--color-text-primary);
+}
+
+.sessions-purpose--scheduled {
+    border-style: dotted;
+}
+
+.sessions-plan-badge--draft {
+    font-weight: 500;
+}
+
+.sessions-plan-badge--imported {
+    border-color: var(--color-success-text);
+    color: var(--color-success-text);
+    font-weight: 500;
+}
+
+/* A plan tag is a name, so the Plan section's heading keeps its case. */
+.sessions-group__name--tag {
+    font-family: var(--font-family-mono);
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 .sessions-row__facts {
