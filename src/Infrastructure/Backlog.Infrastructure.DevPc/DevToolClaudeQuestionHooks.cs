@@ -9,11 +9,11 @@ namespace Backlog.Infrastructure.DevPc;
 /// <c>backlog</c> MCP server registration in Claude's <c>settings.json</c>.
 ///
 /// <para>The hooks go wherever the server is registered and nowhere else, so a session
-/// that cannot reach Backlog never runs a hook that asks it. At user scope that is this
-/// class, driven by the Dev PC catalog's <c>backlog</c> row; this repository lists the same
-/// entries in its own <c>.claude/settings.json</c> beside the server in <c>.mcp.json</c>.
-/// Where both apply both fire, and <c>ask</c> is idempotent on the session and tool use id,
-/// so both get the same answer.</para>
+/// that cannot reach Backlog never runs a hook that asks it. They are installed at user
+/// scope only, by this class, driven by the Dev PC catalog's <c>backlog</c> row. This
+/// repository's <c>.mcp.json</c> registration installs none: user-scope hooks already fire
+/// in it, and repository entries would fire for every contributor, CI run and sub-agent,
+/// failing wherever no release Backlog is installed.</para>
 ///
 /// <para>The file is the person's whole Claude configuration — permissions, plugins, their
 /// own hooks — so, like <see cref="DevToolClaudeDesktopConfig"/>, everything here edits the

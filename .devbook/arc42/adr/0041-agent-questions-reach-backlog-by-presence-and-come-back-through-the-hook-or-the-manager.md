@@ -154,18 +154,23 @@ anything but the stored question and the accepted answer. A session the Manager
 cannot reach, such as a CLI session, gets its answer only through the hook or in the
 session.
 
-### 4. The desktop app ships the hook script and installs it beside the `backlog` server
+### 4. The desktop app ships the hook script and installs it beside the user-scope `backlog` server
 
 ```meta
 ```
 
 The hook script is shipped and served by the Backlog desktop app, which writes it to
-its own folder on every start, so it updates with the app. It is installed at the
-same scope as the `backlog` MCP server registration of ADR 0012 §3: the user-scope
-registration gets user-scope hooks, and a repository that registers the server in
-its project settings lists the hooks there. The `backlog-tools` plugin does not ship
-it. A session with no `backlog` server registered gets no hooks, and `ask` is
-idempotent per session and tool use, so hooks installed at two scopes do no harm.
+its own folder on every start, so it updates with the app. The hooks are installed
+only at the user scope of the `backlog` MCP server registration of ADR 0012 §3, by
+the Dev PC catalog's `backlog` row. A repository that registers the server in its
+own `.mcp.json`, as this one does, lists no hooks in its project settings. User-scope
+hooks already fire in every repository on the machine, so repository entries only
+run each hook twice. They would also fire for every contributor, CI run and
+sub-agent that checks the repository out, and fail with a hook error wherever no
+release Backlog is installed. The `backlog-tools` plugin does not ship the script. A
+person with no user-scope `backlog` registration gets no hooks; `ask` stays
+idempotent per session and tool use, so hooks a person adds at a second scope do no
+harm.
 
 ### 5. The relay sits behind the `notifications` flag
 

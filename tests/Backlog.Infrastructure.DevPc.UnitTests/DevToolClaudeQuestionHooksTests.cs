@@ -187,16 +187,20 @@ public sealed class DevToolClaudeQuestionHooksTests : IDisposable
         Assert.Equal(expected, DevToolClaudeQuestionHooks.IsBacklogServer(name));
 
     [Fact]
-    public async Task This_repository_lists_the_same_five_hooks_beside_its_mcp_registration()
+    public async Task This_repository_lists_none_of_the_hooks_beside_its_mcp_registration()
     {
         var root = RepositoryRoot();
         var mcp = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(root, ".mcp.json"), TestContext.Current.CancellationToken))!;
         Assert.NotNull(mcp["mcpServers"]![DevToolClaudeQuestionHooks.ServerName]);
 
-        var settings = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(root, ".claude", "settings.json"), TestContext.Current.CancellationToken))!.AsObject();
+        // The hooks live at user scope only: repository entries would run each hook twice
+        // and fire for every contributor, CI run and sub-agent, with or without Backlog.
+        var text = await File.ReadAllTextAsync(Path.Combine(root, ".claude", "settings.json"), TestContext.Current.CancellationToken);
+        Assert.DoesNotContain("ask-backlog.mjs", text);
 
-        // Already there means the repository's file is exactly what a merge would produce.
-        Assert.False(DevToolClaudeQuestionHooks.Merge(settings));
+        // Removing ours from the file finds nothing to remove.
+        var settings = JsonNode.Parse(text)!.AsObject();
+        Assert.False(DevToolClaudeQuestionHooks.Remove(settings));
     }
 
     public void Dispose()

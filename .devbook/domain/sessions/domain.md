@@ -1274,16 +1274,19 @@ and stops at once when Backlog refuses. No call lists a session's questions, so 
 script keeps the ids it was given in a file per session beside it. On any error it
 exits 0 without output, so the session never waits on Backlog being up.
 
-The five hooks are installed wherever the `backlog` server is registered, each running
-`node "$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs" <mode>`: `PreToolUse` and
-`PostToolUse` matching `AskUserQuestion` (`pre` with a 28800-second timeout, `post`),
-`Stop`, `UserPromptSubmit` and `SessionEnd`, the four short ones at 10 seconds. At user
-scope the Dev PC catalog's `backlog` row merges them into Claude's `settings.json` when
-it registers the server there and takes exactly those entries out when it unregisters
-it, keeping every other hook; a rerun changes nothing. This repository lists the same
-entries in `.claude/settings.json` beside the server in `.mcp.json`. The path is the
-release app's folder: a debug build writes the script under `Backlog.Debug`, so its
-hooks find no script and Claude reports a non-blocking hook error.
+The five hooks are installed only at the user scope of the `backlog` server
+registration, each running `node "$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs" <mode>`:
+`PreToolUse` and `PostToolUse` matching `AskUserQuestion` (`pre` with a 28800-second
+timeout, `post`), `Stop`, `UserPromptSubmit` and `SessionEnd`, the four short ones at
+10 seconds. The Dev PC catalog's `backlog` row merges them into Claude's user
+`settings.json` when it registers the server there and takes exactly those entries out
+when it unregisters it, keeping every other hook; a rerun changes nothing. This
+repository's `.mcp.json` registration installs none, and its `.claude/settings.json`
+lists none: user-scope hooks already fire in it, and repository entries would run each
+hook twice and fire for every contributor, CI run and sub-agent, failing wherever no
+release Backlog is installed. The path is the release app's folder: a debug build
+writes the script under `Backlog.Debug`, so its hooks find no script and Claude
+reports a non-blocking hook error.
 
 ### Waiting Question
 
