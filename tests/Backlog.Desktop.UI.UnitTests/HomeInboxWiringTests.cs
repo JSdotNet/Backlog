@@ -448,6 +448,7 @@ public sealed class HomeInboxWiringTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
+        context.Services.AddShellSurfaces();
         context.Services.AddSingleton(shellNavigation);
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);

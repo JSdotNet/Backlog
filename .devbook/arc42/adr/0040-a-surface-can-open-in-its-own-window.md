@@ -265,5 +265,6 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-10-29 | §1 and §3 built for the first surface: `ShellSurface`, `ISurfaceCatalog` and `ISurfaceNavigator` are in `Backlog.SharedKernel`, and the Devbook registers through `AddDevbookSurface()`. `Home` draws the Devbook's header option from the catalog and renders it through `DynamicComponent`, and the Devbook's jumps go through the navigator. Besides `chapter` and `scope`, the Devbook accepts `switch` and `request`, which the main window's shell sets. The other surfaces keep their `Home` branches, and the enums of §2 remain, until steps 6 and 7. | Step 3 of the plan, `surface-catalog`. |
 | 2026-10-28 | Proposed: modules register `ShellSurface`s in one catalog, any surface pops out into its own windows, and the loopback listener, `open_window` and `backlog://` open them. | A person wants two surfaces at once without side-by-side panes, and the bots need links that open a surface. |
 | 2026-10-28 | §5's window state built: `WindowStateLifetime` is `Scoped` in the MAUI head, and a Debug build validates scopes at start. The audit found no root-resolved worker holding window state, so no new seam was needed. | Step 2 of the plan, `scoped-window-state`. |

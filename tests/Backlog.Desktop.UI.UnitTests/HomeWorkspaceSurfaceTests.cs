@@ -3067,6 +3067,72 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// The Devbook is a registered surface (local ADR 0040 §1): the shell draws it
+    /// through its catalog entry, and a task followed out of a Brain note reaches the
+    /// task list through the window's navigator (§3) rather than a callback the shell
+    /// handed the pane — leaving the Devbook for the list, that task selected.
+    /// </summary>
+    [Fact]
+    public void A_task_followed_out_of_the_devbook_goes_through_the_navigator_to_the_task_list()
+    {
+        using var harness = CreateHarness(seed: PlanEntryText);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
+        var row = state.Rows.First(candidate => candidate.PreviewTitle.Contains("Read delivery run files", StringComparison.Ordinal));
+        var requests = new List<SurfaceRequest>();
+        harness.Context.Services.GetRequiredService<ISurfaceNavigator>().ShowRequested += requests.Add;
+
+        OpenTheDevbook(component);
+
+        var pane = component.FindComponent<DevbookPane>().Instance;
+        var titleFor = Assert.IsType<Func<string, string?>>(pane.TaskTitleFor);
+        Assert.Equal(row.PreviewTitle, titleFor(row.Id!.Value.ToString()));
+        Assert.Null(titleFor(Guid.NewGuid().ToString()));
+
+        component.InvokeAsync(() => pane.OnOpenTask.InvokeAsync(row.Id!.Value.ToString()));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+            var selected = Assert.Single(component.FindAll(".task-item--selected"));
+            Assert.Contains("Read delivery run files", selected.TextContent);
+        });
+        var request = Assert.Single(requests);
+        Assert.Equal("tasks", request.SurfaceId);
+        Assert.Equal(row.Id!.Value.ToString(), request.Value("entry"));
+    }
+
+    /// <summary>
+    /// A Devbook the reader pressed open is the catalog's: switching its flag off
+    /// takes it out of the catalog, the header loses its option, and the surface
+    /// leaves the screen for the workspace.
+    /// </summary>
+    [Fact]
+    public void The_devbook_option_and_surface_follow_its_catalog_entry()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var catalog = harness.Context.Services.GetRequiredService<ISurfaceCatalog>();
+        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
+
+        Assert.True(catalog.TryGet("devbook", out var devbook));
+        Assert.Equal(ShellSurfaceGroup.Takeover, devbook.Group);
+
+        OpenTheDevbook(component);
+        Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+
+        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.False(catalog.TryGet("devbook", out _));
+            Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+        });
+    }
+
+    /// <summary>
     /// A run started from an entry copied out of the app names it by its stored id and
     /// nothing else, and that id is what the shell opens it by.
     /// </summary>
@@ -3227,6 +3293,7 @@ public sealed class HomeWorkspaceSurfaceTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
+        context.Services.AddShellSurfaces();
         context.Services.AddSingleton(shellNavigation);
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);
