@@ -59,8 +59,9 @@ queues — and a pane that follows a running plan.
   `implement-spec`. It reads the plan from the `backlog` MCP server by its `+tag`
   (`get_plan_items`) or from a file `import-plan` wrote, builds the graph its `after:`
   tokens draw, and changes nothing itself: each `prompt` entry whose prerequisites are done
-  goes to its own sub-agent, briefed by `skills/execute-plan/assets/item-brief.md`,
-  which makes its own worktree and runs the entry through `run-plan-item` — so every
+  goes to its own nested session, started with `start_session` in a worktree the host makes and
+  briefed by `skills/execute-plan/assets/item-brief.md`, which switches it to the entry's
+  branch and runs the entry through `run-plan-item` — so every
   entry passes the repository's gate and its own Personal Validation. Entries that wait on
   nothing run in parallel. Before it starts anything — attended or unattended — it opens every entry's `Read first:`
   references and linked Devbook chapters, and warns about each one it cannot reach, asking
@@ -74,12 +75,13 @@ queues — and a pane that follows a running plan.
   pull request to the base branch; *branch*, each into one `plan/<tag without its +>` branch that the
   orchestrator merges into, ending in a single pull request to the base branch; and
   *stacked*, each cut from and targeting its predecessor's branch, so a chain runs before
-  anything merges and the person merges bottom-up. *Attended*, the orchestrator relays each
-  Personal Validation to the person; *unattended* (branch or stacked), each entry parks at
+  anything merges and the person merges bottom-up. *Attended*, the entry session ends its turn
+  at each Personal Validation, and the orchestrator relays it to the person and sends the
+  decision back to that session (`SendMessage`); *unattended* (branch or stacked), each entry parks at
   its gate and lands as a draft pull request whose body is the review handoff, so the whole
   plan runs without anyone present and Personal Validation happens on the drafts — in branch
   mode on the closing draft to the base branch. A failed entry blocks only what depends on
-  it. It titles its own session `<tag>:execute-plan` and labels each sub-agent
+  it. It titles its own session `<tag>:execute-plan` and each entry session
   `<tag>:<n> - <Title>`, and a ready entry in another repository is handed to a new session
   in that repository's checkout running the same plan, per
   `skills/execute-plan/assets/handoff.md`. User-invoked only. The `UserPromptSubmit` hook
@@ -206,14 +208,17 @@ hooks, beside the command hooks above. It draws an `execute-plan` run in two pla
 
 The status line carries the counts, and a toast says when an entry reaches its gate or blocks.
 
-It writes nothing and calls nothing: it reads the calls the run already makes.
+It writes nothing and calls nothing: it reads the calls the run already makes, so an entry
+session resumed by message, with no `start_session` in this session, has no row until
+`execute-plan` starts a new one for it.
 
 | What it shows | Read from |
 | --- | --- |
 | The entries and their statuses | `get_plan_items` and `transition`, on any MCP server |
-| Which sub-agent runs which entry | The first line of `skills/execute-plan/assets/item-brief.md`, in the `Agent` call's prompt — change it and `parseBrief` in `hooks/parse.ts` with it |
-| Each entry's stages | `start_run`, `update_stage` and `finish_run` on any delivery surface, from the sub-agent's loop or one it spawned. A call the surface answered with an error still counts, since the pane mirrors what the worker said; a call a function hook refused with `deny` never ran and does not |
-| How the entry ended | The sub-agent's one-line return: `gate`, `pr <url>`, `blocked <stage>: …`, `done-before` |
+| Which session runs which entry | The first line of `skills/execute-plan/assets/item-brief.md`, in the `start_session` call's `prompt`, and the `local_…` session id its answer carries — change that line and `parseBrief` in `hooks/parse.ts` with it |
+| Each entry session's worktree | The session's `cwd` in a `list_sessions` or `get_session` answer |
+| Each entry's stages | `list_runs` and `get_run` answers on any delivery surface, matched to the entry session by its worktree |
+| How the entry ended | The first line of the session's final message, in a `list_events` answer: `gate`, `pr <url>`, `blocked <stage>: …`, `done-before`. A `SendMessage` to the session puts it back to running |
 
 The module's state is declared in `types/index.d.ts`. `claude plugin validate plugins/backlog-tools`
 checks the module against it, and `claude plugin test plugins/backlog-tools` runs `tests/`,

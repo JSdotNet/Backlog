@@ -58,7 +58,7 @@ app, so neither is a flow and neither goes through the gate. `run-plan-item` is
 model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
 the gate — the matching flow — rather than adding an execution path beside it.
 `execute-plan` is user-invoked and changes nothing itself: it hands each prompt
-entry of a plan to a sub-agent that runs it through `run-plan-item`, so every entry
+entry of a plan to a nested session that runs it through `run-plan-item`, so every entry
 still passes the gate and its own Personal Validation — relayed to the person when attended,
 moved onto a draft pull request when unattended.
 `final-check` is user-invoked and changes nothing: run once a plan has landed, it reviews what
@@ -173,7 +173,7 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
 - `plugins/backlog-tools/skills/run-plan-item/SKILL.md` — runs one item of such a
   plan pasted back out of the Backlog app, after checking it is still outstanding.
 - `plugins/backlog-tools/skills/execute-plan/SKILL.md` — runs a whole plan by
-  delegating its prompt entries to sub-agents, one worktree and pull request each; user-invoked only.
+  running its prompt entries in nested sessions, one worktree and pull request each; user-invoked only.
 - `plugins/backlog-tools/skills/final-check/SKILL.md` — checks a finished plan once, in the
   session that wrote it: what each entry implemented, and that it all builds; user-invoked only.
 - `plugins/backlog-tools/skills/import-inbox/SKILL.md` — turns an export from another
