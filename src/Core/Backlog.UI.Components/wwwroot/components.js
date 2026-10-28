@@ -4358,6 +4358,132 @@
         return seats;
     }
 
+    // How the Lobes camera moves, in one place. The design draws a still mock,
+    // so these are chosen here: the durations mirror the motion tokens
+    // (interaction-guidelines.md#motion-and-reduced-motion) because a canvas
+    // cannot read a CSS transition, and every rate is per 16.67 ms frame so the
+    // feel does not change with the display's refresh rate.
+    const BACKLOG_LOBES_MOTION = {
+        frameMs: 1000 / 60,
+        // The longest step one frame integrates: a frame after a stall moves the
+        // camera as far as a short one would, not a jump.
+        maxStepMs: 64,
+        // The share of the remaining distance yaw and pitch close per frame — the
+        // other atlas's settle rate — and zoom and pan, which settle in about
+        // transition-base (250 ms) so a wheel notch lands before the next.
+        turnLerp: 0.14,
+        zoomLerp: 0.32,
+        turnEpsilon: 1e-4,
+        zoomEpsilon: 1e-4,
+        panEpsilon: 0.1,
+        // Drag: radians per CSS pixel, and the tilt stopped short of the poles.
+        dragGain: 0.008,
+        pitchLimit: 1.3,
+        // Inertia: the moves of the last 80 ms make the fling, its speed kept by
+        // this much each frame (a time constant near 200 ms) until it is below
+        // the stop speed. A press on a spin faster than the catch speed only
+        // stops it.
+        flingWindowMs: 80,
+        flingMaxSpeed: 0.006,
+        damping: 0.92,
+        stopSpeed: 0.0005,
+        catchSpeed: 0.002,
+        // Idle: about a turn in 100 s, starting after four quiet seconds and
+        // ramping in over transition-slow (350 ms) so it never starts with a jerk.
+        idleSpeed: 0.06,
+        idleDelayMs: 4000,
+        idleRampMs: 350,
+        // A new layout eases from the last view to its default over
+        // transition-page (500 ms), on the ease-in-out curve.
+        scopeMs: 500,
+        easeInOut: [0.4, 0, 0.2, 1],
+        zoomMin: 0.5,
+        zoomMax: 2.4,
+        home: { yaw: -0.7, pitch: -0.2, zoom: 1, panX: 0, panY: 0 }
+    };
+
+    // One frame's step of `current` toward `target`, the same distance in total
+    // whether it is taken in one long frame or two short ones; close enough is
+    // there, so an easing ends rather than creeping.
+    function backlogLobesEase(current, target, dtMs, lerp, epsilon) {
+        const kept = Math.pow(1 - lerp, dtMs / BACKLOG_LOBES_MOTION.frameMs);
+        const next = target + (current - target) * kept;
+        return Math.abs(target - next) < epsilon ? target : next;
+    }
+
+    // A fling's speed (radians per ms) after `dtMs` more of damping; zero once
+    // it is slower than the stop speed.
+    function backlogLobesDamp(speed, dtMs) {
+        const frame = BACKLOG_LOBES_MOTION.frameMs;
+        const next = speed * Math.pow(BACKLOG_LOBES_MOTION.damping, dtMs / frame);
+        return Math.abs(next) * frame < BACKLOG_LOBES_MOTION.stopSpeed ? 0 : next;
+    }
+
+    // A CSS cubic-bezier(x1, y1, x2, y2) timing function, solved for x by a few
+    // Newton steps and a bisection fallback: the canvas mirrors the token's
+    // numbers rather than reading its curve.
+    function backlogLobesBezier(x1, y1, x2, y2) {
+        const axis = (a, b, t) => ((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t * t + 3 * a * t;
+        const slope = (a, b, t) => 3 * (1 - 3 * b + 3 * a) * t * t + 2 * (3 * b - 6 * a) * t + 3 * a;
+
+        return (x) => {
+            if (x <= 0) return 0;
+            if (x >= 1) return 1;
+
+            let t = x;
+            for (let i = 0; i < 8; i++) {
+                const error = axis(x1, x2, t) - x;
+                if (Math.abs(error) < 1e-6) return axis(y1, y2, t);
+                const d = slope(x1, x2, t);
+                if (Math.abs(d) < 1e-6) break;
+                t -= error / d;
+            }
+
+            let low = 0;
+            let high = 1;
+            t = x;
+            for (let i = 0; i < 30; i++) {
+                const value = axis(x1, x2, t);
+                if (Math.abs(value - x) < 1e-6) break;
+                if (value < x) low = t;
+                else high = t;
+                t = (low + high) / 2;
+            }
+
+            return axis(y1, y2, t);
+        };
+    }
+
+    const backlogLobesEaseInOut = backlogLobesBezier(...BACKLOG_LOBES_MOTION.easeInOut);
+
+    // How much of the idle speed applies `sinceInputMs` after the last input:
+    // none before the delay, then up to all of it over the ramp.
+    function backlogLobesIdleRamp(sinceInputMs) {
+        const motion = BACKLOG_LOBES_MOTION;
+        if (!(sinceInputMs >= motion.idleDelayMs)) return 0;
+        return backlogLobesEaseInOut(Math.min(1, (sinceInputMs - motion.idleDelayMs) / motion.idleRampMs));
+    }
+
+    // `angle` moved by whole turns to the one nearest `toward`, so easing to a
+    // view never spins the long way round after an idle rotation wound it up.
+    function backlogLobesNearestTurn(angle, toward) {
+        const turn = Math.PI * 2;
+        return angle - Math.round((angle - toward) / turn) * turn;
+    }
+
+    // The pan that keeps the point `cursor` pixels from the canvas centre under
+    // the cursor when the zoom is multiplied by `ratio`.
+    function backlogLobesAnchorPan(pan, cursor, ratio) {
+        return cursor - (cursor - pan) * ratio;
+    }
+
+    // How far the scene centre may be panned from the canvas centre: nowhere at
+    // zoom 1 or less, out to the canvas edge from zoom 2 — the most a zoom
+    // anchored anywhere on the canvas needs, so the centre never leaves it.
+    function backlogLobesPanLimit(half, zoom) {
+        return half * Math.min(1, Math.max(0, zoom - 1));
+    }
+
     // The shortest gap between two camera reports to the host.
     const BACKLOG_LOBES_CAMERA_REPORT_MS = 60;
 
@@ -4457,10 +4583,56 @@
             }
         }
 
+        const motion = BACKLOG_LOBES_MOTION;
+        const home = motion.home;
+        const idleMotion = model.idleMotion !== false;
+        const motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+        // Read live: the rule is that the decoration goes, not the function —
+        // drag still turns the brain, and zoom and scope still arrive, at once.
+        const reduced = () => !!(motionQuery && motionQuery.matches);
+
+        const cameraOf = (from) => ({
+            yaw: from?.yaw ?? home.yaw,
+            pitch: from?.pitch ?? home.pitch,
+            zoom: from?.zoom ?? home.zoom,
+            panX: from?.panX ?? 0,
+            panY: from?.panY ?? 0
+        });
+
+        // The camera has where it is (view) and where it is going (target); each
+        // frame closes the gap. A fling carries velocity in radians per ms, and
+        // the idle turn waits on the time of the last input.
         const saved = backlogLobesCameras.get(id);
-        const view = saved && saved.layout === layoutKey
-            ? { ...saved }
-            : { layout: layoutKey, yaw: -0.7, pitch: -0.2, zoom: 1 };
+        const now0 = performance.now();
+        let view;
+        let target;
+        let velocity = { yaw: 0, pitch: 0 };
+        let lastInput = now0;
+        let tween = null;
+
+        if (saved && saved.layout === layoutKey) {
+            // The same layout handed over again — a region or Labels toggle — so
+            // the camera carries on as it was, mid-spin included.
+            view = cameraOf(saved);
+            target = cameraOf(saved.target ?? saved);
+            velocity = { yaw: saved.velocity?.yaw ?? 0, pitch: saved.velocity?.pitch ?? 0 };
+            lastInput = saved.lastInput ?? now0;
+            if (reduced()) {
+                velocity = { yaw: 0, pitch: 0 };
+                view = { ...target };
+            }
+        } else if (saved && !reduced()) {
+            // A new layout: from the view the last one was left at, eased home.
+            const from = cameraOf(saved);
+            from.yaw = backlogLobesNearestTurn(from.yaw, home.yaw);
+            view = { ...from };
+            target = { ...home };
+            tween = { from, to: { ...home }, start: now0, duration: motion.scopeMs };
+        } else {
+            view = { ...home };
+            target = { ...home };
+        }
+
         view.width = 0;
         view.height = 0;
         view.fit = 1;
@@ -4468,6 +4640,11 @@
         let selectedId = null;
         let hoveredId = null;
         let frame = 0;
+        let frames = 0;
+        let lastTick = 0;
+        let shown = false;
+        let destroyed = false;
+        let idleTimer = 0;
         let painted = [];
 
         function project(seat, x, y, z) {
@@ -4483,7 +4660,7 @@
             const y2 = wy * cp - z1 * sp;
             const z2 = wy * sp + z1 * cp;
             const s = BACKLOG_LOBES_PERSPECTIVE / (BACKLOG_LOBES_PERSPECTIVE + z2) * view.zoom * view.fit;
-            return { x: view.width / 2 + x1 * s, y: view.height / 2 + y2 * s, z: z2, s };
+            return { x: view.width / 2 + view.panX + x1 * s, y: view.height / 2 + view.panY + y2 * s, z: z2, s };
         }
 
         const world = { offset: [0, 0, 0], scale: 1 };
@@ -4491,6 +4668,15 @@
         function resize() {
             const ratio = window.devicePixelRatio || 1;
             const box = canvas.getBoundingClientRect();
+
+            // A canvas with no size — hidden by display:none, or not laid out yet —
+            // draws nothing and runs no frames until it has one again.
+            shown = box.width > 0 && box.height > 0;
+            if (!shown) {
+                stopFrames();
+                return;
+            }
+
             const width = Math.max(1, Math.round(box.width));
             const height = Math.max(1, Math.round(box.height));
 
@@ -4503,15 +4689,167 @@
             // The anatomy is tuned on a 1200 by 800 stage; a smaller one draws the
             // same picture smaller rather than cropping it.
             view.fit = Math.min(width / 1200, height / 800);
+            clampPan();
             schedule();
         }
 
+        // Frames run only while something moves — an easing, a fling, the idle
+        // turn — on a canvas that is shown, connected and in a visible document;
+        // a still camera draws one frame per change and stops.
+        function canRun() {
+            return !destroyed && shown && canvas.isConnected && !document.hidden;
+        }
+
         function schedule() {
-            if (frame) return;
-            frame = requestAnimationFrame(() => {
-                frame = 0;
-                draw();
-            });
+            if (frame || !canRun()) return;
+            frame = requestAnimationFrame(tick);
+        }
+
+        function stopFrames() {
+            if (frame) cancelAnimationFrame(frame);
+            frame = 0;
+            lastTick = 0;
+        }
+
+        function tick(now) {
+            frame = 0;
+            if (!canRun()) {
+                lastTick = 0;
+                return;
+            }
+
+            const dt = lastTick ? Math.min(Math.max(now - lastTick, 0), motion.maxStepMs) : motion.frameMs;
+            lastTick = now;
+
+            if (step(now, dt)) {
+                // Marks moving under a still pointer change what it is over.
+                if (pointer.inside && !dragging) hover(pointer.x, pointer.y);
+                remember();
+            }
+
+            draw();
+            frames++;
+
+            if (moving(now)) {
+                schedule();
+            } else {
+                lastTick = 0;
+                armIdle(now);
+            }
+        }
+
+        // The share of the idle speed that applies now; none while anything else
+        // holds the camera or the reader is pointing at a mark.
+        function idleShare(now) {
+            if (!idleMotion || reduced() || dragging || hoveredId !== null || tween) return 0;
+            if (velocity.yaw || velocity.pitch) return 0;
+            return backlogLobesIdleRamp(now - lastInput);
+        }
+
+        function settled() {
+            return view.yaw === target.yaw && view.pitch === target.pitch && view.zoom === target.zoom
+                && view.panX === target.panX && view.panY === target.panY;
+        }
+
+        function moving(now) {
+            return !!tween || (!dragging && (velocity.yaw !== 0 || velocity.pitch !== 0)) || !settled() || idleShare(now) > 0;
+        }
+
+        // When the idle turn is due but nothing else moves, a timer wakes the
+        // frames at its start rather than a loop waiting for it.
+        function armIdle(now) {
+            if (idleTimer) clearTimeout(idleTimer);
+            idleTimer = 0;
+            if (!idleMotion || reduced() || dragging || hoveredId !== null) return;
+            const wait = motion.idleDelayMs - (now - lastInput);
+            if (wait > 0) idleTimer = setTimeout(() => { idleTimer = 0; schedule(); }, wait + 5);
+        }
+
+        // Input: the idle turn stops on this frame and waits its delay again.
+        function touched() {
+            lastInput = performance.now();
+            if (idleTimer) clearTimeout(idleTimer);
+            idleTimer = 0;
+        }
+
+        // An easing in progress stops where it is, so input takes over from the
+        // picture on screen rather than from where it was heading.
+        function holdTween() {
+            if (!tween) return;
+            tween = null;
+            target = { yaw: view.yaw, pitch: view.pitch, zoom: view.zoom, panX: view.panX, panY: view.panY };
+        }
+
+        function clampPan() {
+            const limitX = backlogLobesPanLimit(view.width / 2, target.zoom);
+            const limitY = backlogLobesPanLimit(view.height / 2, target.zoom);
+            target.panX = Math.max(-limitX, Math.min(limitX, target.panX));
+            target.panY = Math.max(-limitY, Math.min(limitY, target.panY));
+            if (reduced()) {
+                view.panX = target.panX;
+                view.panY = target.panY;
+            }
+        }
+
+        // One frame of camera motion; whether anything moved.
+        function step(now, dt) {
+            let moved = false;
+
+            if (tween) {
+                const t = Math.min(1, (now - tween.start) / tween.duration);
+                const e = backlogLobesEaseInOut(t);
+                for (const key of ['yaw', 'pitch', 'zoom', 'panX', 'panY']) {
+                    view[key] = tween.from[key] + (tween.to[key] - tween.from[key]) * e;
+                    target[key] = view[key];
+                }
+
+                if (t >= 1) {
+                    tween = null;
+                    for (const key of ['yaw', 'pitch', 'zoom', 'panX', 'panY']) view[key] = target[key] = home[key];
+                }
+
+                moved = true;
+            } else {
+                if (!dragging && (velocity.yaw || velocity.pitch)) {
+                    view.yaw += velocity.yaw * dt;
+                    target.yaw = view.yaw;
+
+                    const pitch = view.pitch + velocity.pitch * dt;
+                    const clamped = Math.max(-motion.pitchLimit, Math.min(motion.pitchLimit, pitch));
+                    // A fling dies against the pole rather than pressing on it.
+                    if (clamped !== pitch) velocity.pitch = 0;
+                    view.pitch = clamped;
+                    target.pitch = clamped;
+
+                    velocity.yaw = backlogLobesDamp(velocity.yaw, dt);
+                    velocity.pitch = backlogLobesDamp(velocity.pitch, dt);
+                    moved = true;
+                }
+
+                const instant = reduced();
+                const channels = [
+                    ['yaw', motion.turnLerp, motion.turnEpsilon],
+                    ['pitch', motion.turnLerp, motion.turnEpsilon],
+                    ['zoom', motion.zoomLerp, motion.zoomEpsilon],
+                    ['panX', motion.zoomLerp, motion.panEpsilon],
+                    ['panY', motion.zoomLerp, motion.panEpsilon]
+                ];
+                for (const [key, lerp, epsilon] of channels) {
+                    if (view[key] === target[key]) continue;
+                    view[key] = instant ? target[key] : backlogLobesEase(view[key], target[key], dt, lerp, epsilon);
+                    moved = true;
+                }
+            }
+
+            const share = idleShare(now);
+            if (share > 0) {
+                const turn = (motion.idleSpeed / 1000) * dt * share;
+                view.yaw += turn;
+                target.yaw += turn;
+                moved = true;
+            }
+
+            return moved;
         }
 
         function colourOf(mark) {
@@ -4831,7 +5169,19 @@
 
         function remember() {
             backlogLobesCameras.delete(id);
-            backlogLobesCameras.set(id, { layout: layoutKey, yaw: view.yaw, pitch: view.pitch, zoom: view.zoom });
+            // The motion goes with the position, so a toggle mid-spin keeps
+            // spinning; an easing home in progress is kept as where it is going.
+            backlogLobesCameras.set(id, {
+                layout: layoutKey,
+                yaw: view.yaw,
+                pitch: view.pitch,
+                zoom: view.zoom,
+                panX: view.panX,
+                panY: view.panY,
+                target: { ...(tween ? tween.to : target) },
+                velocity: { ...velocity },
+                lastInput
+            });
             // Every mounted atlas has an id of its own, so the oldest are let go
             // rather than kept for atlases long since closed.
             while (backlogLobesCameras.size > 16) backlogLobesCameras.delete(backlogLobesCameras.keys().next().value);
@@ -4862,45 +5212,111 @@
 
         let dragging = false;
         let dragged = false;
+        let caught = false;
         let lastX = 0;
         let lastY = 0;
+        let lastMoveAt = 0;
+        // The drag's recent moves — how far each turned the camera and over how
+        // long — from which a release makes its fling.
+        let flingSamples = [];
+        // Where the pointer is over the canvas, so a frame that moves the marks
+        // can re-pick what it is over.
+        const pointer = { inside: false, x: 0, y: 0 };
+
+        function hover(clientX, clientY) {
+            const hit = pick(clientX, clientY);
+            const next = hit ? hit.mark.id : null;
+            if (next === hoveredId) return;
+
+            // Pointing at a mark holds the idle turn; leaving it starts the wait.
+            if (hoveredId !== null && next === null) touched();
+            hoveredId = next;
+            canvas.style.cursor = next ? 'pointer' : '';
+            schedule();
+        }
 
         on(canvas, 'pointerdown', (event) => {
             if (event.button !== 0) return;
+            const now = performance.now();
+            touched();
+            holdTween();
+
+            // A press on a spin stops it; a press on a fast one does only that.
+            caught = Math.max(Math.abs(velocity.yaw), Math.abs(velocity.pitch)) > motion.catchSpeed / motion.frameMs;
+            velocity = { yaw: 0, pitch: 0 };
+            target.yaw = view.yaw;
+            target.pitch = view.pitch;
+
             dragging = true;
             dragged = false;
             lastX = event.clientX;
             lastY = event.clientY;
+            lastMoveAt = now;
+            flingSamples = [];
             canvas.setPointerCapture(event.pointerId);
             canvas.classList.add('graph-atlas__surface--dragging');
+            remember();
+            schedule();
         });
 
         on(canvas, 'pointermove', (event) => {
-            if (!dragging) {
-                const hit = pick(event.clientX, event.clientY);
-                const next = hit ? hit.mark.id : null;
-                if (next !== hoveredId) {
-                    hoveredId = next;
-                    canvas.style.cursor = next ? 'pointer' : '';
-                    schedule();
-                }
+            pointer.inside = true;
+            pointer.x = event.clientX;
+            pointer.y = event.clientY;
 
+            if (!dragging) {
+                hover(event.clientX, event.clientY);
                 return;
+            }
+
+            const now = performance.now();
+            touched();
+
+            // A press is a click until the pointer has travelled more than 3 px
+            // from where it went down, however slowly. Until then the camera
+            // holds still, and lastX/lastY stay at the press point, so the first
+            // turn applies the whole travel once: none lost, none doubled.
+            if (!dragged) {
+                if (Math.abs(event.clientX - lastX) + Math.abs(event.clientY - lastY) <= 3) return;
+                dragged = true;
             }
 
             const dx = event.clientX - lastX;
             const dy = event.clientY - lastY;
-            if (Math.abs(dx) + Math.abs(dy) > 3) dragged = true;
             lastX = event.clientX;
             lastY = event.clientY;
 
-            // Drag rotates: across turns the brain, up and down tilts it, stopped
-            // short of the poles.
-            view.yaw += dx * 0.008;
-            view.pitch = Math.max(-1.3, Math.min(1.3, view.pitch + dy * 0.008));
+            // Drag rotates the brain as if held: the near face follows the pointer
+            // across and up and down alike, tilted short of the poles. It moves
+            // one to one, under reduced motion too.
+            const yaw = -dx * motion.dragGain;
+            const pitch = Math.max(-motion.pitchLimit, Math.min(motion.pitchLimit, view.pitch + dy * motion.dragGain));
+            const turned = { yaw, pitch: pitch - view.pitch, ms: Math.max(1, now - lastMoveAt), at: now };
+            lastMoveAt = now;
+
+            view.yaw += yaw;
+            view.pitch = pitch;
+            target.yaw = view.yaw;
+            target.pitch = view.pitch;
+
+            flingSamples.push(turned);
+            while (flingSamples.length && now - flingSamples[0].at > motion.flingWindowMs) flingSamples.shift();
+
             remember();
             schedule();
         });
+
+        // The speed the drag was turning at as it let go: the moves of the last
+        // window, none at all when the pointer had stopped before it lifted.
+        function flingAt(now) {
+            const recent = flingSamples.filter((sample) => now - sample.at <= motion.flingWindowMs);
+            if (recent.length === 0) return { yaw: 0, pitch: 0 };
+
+            const ms = recent.reduce((sum, sample) => sum + sample.ms, 0);
+            const limit = motion.flingMaxSpeed;
+            const speed = (key) => Math.max(-limit, Math.min(limit, recent.reduce((sum, sample) => sum + sample[key], 0) / ms));
+            return { yaw: speed('yaw'), pitch: speed('pitch') };
+        }
 
         function endDrag(event) {
             if (!dragging) return;
@@ -4909,35 +5325,77 @@
             if (canvas.hasPointerCapture && canvas.hasPointerCapture(event.pointerId)) {
                 canvas.releasePointerCapture(event.pointerId);
             }
+
+            touched();
+            schedule();
         }
 
         on(canvas, 'pointerup', (event) => {
             const wasDragging = dragging;
             const moved = dragged;
+            const stopped = caught;
+            caught = false;
             endDrag(event);
-            if (!wasDragging || moved) return;
+            if (!wasDragging) return;
+
+            if (moved) {
+                // Let go while moving, the brain keeps turning and slows; under
+                // reduced motion it stays where the drag left it.
+                velocity = reduced() ? { yaw: 0, pitch: 0 } : flingAt(performance.now());
+                flingSamples = [];
+                remember();
+                schedule();
+                return;
+            }
+
+            if (stopped) return;
 
             const hit = pick(event.clientX, event.clientY);
             const next = hit ? (hit.mark.id === selectedId ? null : hit.mark.id) : null;
             if (dotnet && dotnet.invokeMethodAsync) dotnet.invokeMethodAsync('NodePicked', next);
         });
 
-        on(canvas, 'pointercancel', endDrag);
+        on(canvas, 'pointercancel', (event) => {
+            caught = false;
+            flingSamples = [];
+            endDrag(event);
+        });
 
         on(canvas, 'pointerleave', () => {
+            pointer.inside = false;
             if (dragging || hoveredId === null) return;
             hoveredId = null;
             canvas.style.cursor = '';
+            touched();
             schedule();
         });
 
         // The wheel zooms by a ratio per notch, the delta normalised across the
-        // three units a wheel reports in, as the atlas above does.
+        // three units a wheel reports in, as the atlas above does. It moves the
+        // zoom the camera is heading for, with the pan that keeps the point under
+        // the cursor where it is; the frames carry the camera there.
         on(canvas, 'wheel', (event) => {
             event.preventDefault();
+            touched();
+            holdTween();
+
             const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? view.height : 1;
             const notches = Math.max(-4, Math.min(4, (event.deltaY * unit) / 100));
-            view.zoom = Math.max(0.5, Math.min(2.4, view.zoom * Math.pow(1 / 1.08, notches)));
+            const zoom = Math.max(motion.zoomMin, Math.min(motion.zoomMax, target.zoom * Math.pow(1 / 1.08, notches)));
+            const ratio = zoom / target.zoom;
+
+            const box = canvas.getBoundingClientRect();
+            target.panX = backlogLobesAnchorPan(target.panX, event.clientX - box.left - view.width / 2, ratio);
+            target.panY = backlogLobesAnchorPan(target.panY, event.clientY - box.top - view.height / 2, ratio);
+            target.zoom = zoom;
+            clampPan();
+
+            if (reduced()) {
+                view.zoom = target.zoom;
+                view.panX = target.panX;
+                view.panY = target.panY;
+            }
+
             remember();
             schedule();
         }, { passive: false });
@@ -4956,29 +5414,86 @@
             schedule();
         });
 
+        // A hidden document runs no frames; shown again, it picks up where the
+        // camera is without integrating the time it was away.
+        on(document, 'visibilitychange', () => {
+            if (document.hidden) stopFrames();
+            else schedule();
+        });
+
+        if (motionQuery) {
+            const changed = () => {
+                if (reduced()) {
+                    // Turned on mid-motion: everything arrives now.
+                    velocity = { yaw: 0, pitch: 0 };
+                    if (tween) {
+                        target = { ...tween.to };
+                        tween = null;
+                    }
+
+                    for (const key of ['yaw', 'pitch', 'zoom', 'panX', 'panY']) view[key] = target[key];
+                    if (idleTimer) clearTimeout(idleTimer);
+                    idleTimer = 0;
+                } else {
+                    touched();
+                }
+
+                remember();
+                schedule();
+            };
+
+            if (motionQuery.addEventListener) on(motionQuery, 'change', changed);
+            else if (motionQuery.addListener) {
+                motionQuery.addListener(changed);
+                listeners.push(() => motionQuery.removeListener(changed));
+            }
+        }
+
         backlogDiagramInstances.set(id, {
             select(markId) {
                 selectedId = markId || null;
                 schedule();
             },
-            // For a test or a trace: what the camera is at and what is on the map.
+            // For a test or a trace: what the camera is at, where it is heading,
+            // whether frames are running, and what is on the map — with the mark
+            // nearest the eye, so a test can see which way a drag carries it.
             describe() {
+                const now = performance.now();
+                const nearest = painted.length ? painted[painted.length - 1] : null;
                 return {
                     layout: layoutKey,
                     yaw: view.yaw,
                     pitch: view.pitch,
                     zoom: view.zoom,
+                    pan: { x: view.panX, y: view.panY },
+                    target: { yaw: target.yaw, pitch: target.pitch, zoom: target.zoom, pan: { x: target.panX, y: target.panY } },
+                    velocity: { yaw: velocity.yaw, pitch: velocity.pitch },
+                    animating: frame !== 0,
+                    frames,
+                    idle: idleShare(now) > 0,
+                    idleMotion,
+                    reducedMotion: reduced(),
+                    nearest: nearest && nearest.projected
+                        ? { id: nearest.mark.id, x: nearest.projected.x, y: nearest.projected.y, z: nearest.projected.z }
+                        : null,
                     marks: points.length,
                     links: links.length + satelliteLinks.length,
                     satellite: !!satellite,
                     selected: selectedId
                 };
             },
+            // Where a mark is drawn now, in CSS pixels from the canvas's corner.
+            locate(markId) {
+                const point = byId.get(markId);
+                return point && point.projected ? { x: point.projected.x, y: point.projected.y, z: point.projected.z } : null;
+            },
             destroy() {
-                if (frame) cancelAnimationFrame(frame);
-                frame = 0;
+                destroyed = true;
+                stopFrames();
                 if (reportTimer) clearTimeout(reportTimer);
                 reportTimer = 0;
+                if (idleTimer) clearTimeout(idleTimer);
+                idleTimer = 0;
                 for (const remove of listeners) remove();
                 listeners.length = 0;
             }
