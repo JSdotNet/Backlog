@@ -11,16 +11,19 @@ export type Plan = { tag: string; entries: PlanEntry[] }
 
 export type WorkerState = 'running' | 'gate' | 'pr' | 'blocked' | 'done-before' | 'stopped'
 
-/** One execute-plan sub-agent and the delivery-flow run it reported. */
+/** One execute-plan entry session and the delivery-flow run its worktree shows. */
 export type Worker = {
-  agentId: string
+  /** The session's `local_…` id, as start_session answered it. */
+  sessionId: string
+  /** The session's worktree, as list_sessions answered it; '' until known. */
+  worktree: string
   entryId: string
   n: number
   title: string
   state: WorkerState
   note: string
   flow: string
-  /** The ids the surfaces answered for the run in hand, one per surface; none when no surface confirmed it. */
+  /** The id of the run in hand, as list_runs answered it; none until a surface answered. */
   runIds: string[]
   stages: string[]
   stageStatus: string[]
@@ -32,8 +35,6 @@ declare module 'claude-code' {
     'backlog-tools': {
       plan: Plan | null
       workers: Worker[]
-      /** A nested agent (a flow-runner, a phase runner) → the agent that spawned it. */
-      parents: Record<string, string>
     }
   }
 }

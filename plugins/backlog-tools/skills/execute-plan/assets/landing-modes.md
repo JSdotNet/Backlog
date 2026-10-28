@@ -11,14 +11,22 @@ the tag.
 | --- | --- |
 | Entry branch | `<slug>/<id>`, `<id>` the entry's Backlog id |
 | Integration branch (branch mode) | `plan/<slug>` |
-| Worktree | A short root the orchestrator picks, `<drive>:/<slug-initials>/<first 8 of id>`, confirmed absent — long paths break the MAUI heads and test executables |
+| Entry worktree | The entry session's own, made by the host when `start_session` starts it |
+| App worktree (**Manual entries**) | A short root the orchestrator picks, `<drive>:/<slug-initials>/<first 8 of id>`, confirmed absent — long paths break the MAUI heads and test executables |
 
 Before the first dispatch, `git ls-remote --heads origin <slug> plan/<slug> '<slug>/*'`: a
 branch named exactly `<slug>` blocks every `<slug>/<id>`, and a plan tagged `+plan` collides
-with `plan/<slug>`, so stop and say so. An existing `<slug>/<id>` is that entry's earlier work:
-when `git worktree list --porcelain` shows a worktree on it, brief that path with no
-`worktree add` — the sub-agent fetches and checks it is clean before continuing; otherwise
-brief `git worktree add <path> <slug>/<id>` (no `-b`).
+with `plan/<slug>`, so stop and say so. A `<slug>/<id>` that `ls-remote` or
+`git branch --list <slug>/<id>` finds is that entry's earlier work, and its brief switches
+without `-c`. When `git worktree list --porcelain` shows a worktree on it, an earlier entry
+session holds it — resume that session rather than start a new one, finding it as the
+`list_sessions` row whose `branch` is `<slug>/<id>`, else whose `cwd` is that worktree; none
+found → report the entry waiting on the person.
+
+An entry's later passes — `delivery:update-pr-branch`, `delivery:fix-pr-checks` — are messages
+to its own session, per **Talking to an entry session** in `item-brief.md`. Refresh and Restack
+run git in an entry's worktree, its session's `cwd`, and only while that session is idle — it
+has returned its line and has had no message since.
 
 ## Landing
 
@@ -48,8 +56,8 @@ the full build (`pull-request.yml`); into a stack parent they get none until res
   reported yet is not red: retry for 10 minutes before reading it as failed. Then
   `gh pr ready <n>`; the workflow merges it, and `gh pr merge <n>` with the method
   `gh repo view --json mergeCommitAllowed,squashMergeAllowed` allows covers a slow workflow —
-  "already merged" is success. Not mergeable → one `delivery:update-pr-branch` pass by a
-  sub-agent in the entry's worktree, then block.
+  "already merged" is success. Not mergeable → one `delivery:update-pr-branch` pass, then
+  block.
 - **The closing pull request** `plan/<slug>` → `<base>` opens at Stop whenever `plan/<slug>`
   is ahead of `<base>`, even with entries still blocked or waiting — its body lists them. One
   already open (`gh pr list --head plan/<slug> --base <base> --state open`) gets its body
@@ -92,10 +100,12 @@ Suits a chain.
 
 ## Attendance
 
-**Attended** (default): each sub-agent returns at every gate the repository declares —
-Personal Validation, and `create-pr` when `.devbook/config.json` lists it — with its review
-handoff and its application running, and the person decides each. A spawned worker counts as
-unattended to the engine; this brief overrides that, because the orchestrator answers it.
+**Attended** (default): each entry session ends its turn at every gate the repository
+declares — Personal Validation, and `create-pr` when `.devbook/config.json` lists it — with its
+review handoff and its application running, and the person decides each — those and every
+other question it would ask, per `item-brief.md`. A session started by another counts as
+unattended to the engine, which would park it; the brief overrides that, because the
+orchestrator answers it.
 
 **Unattended**: nobody answers a gate, so every entry *parks* at its first one with
 `approval: pending`, never self-approved, and lands as a draft pull request whose body is the
@@ -109,7 +119,7 @@ review handoff — the draft stands in for every gate, as the delivery engine's 
 - **Stacked**: nothing merges; dependents stack on open drafts, so the chain runs end to end.
   The person validates and merges bottom-up; invoking this skill again restacks.
 - **A failure stops only its dependents.** An entry that returns `blocked`, or whose checks are
-  red after one `delivery:fix-pr-checks` pass by a sub-agent in its worktree, gets
+  red after one `delivery:fix-pr-checks` pass, gets
   `set_blocked` with the reason and a `comment`; nothing outside its downstream waits on it. A
   resumed run re-checks every blocked entry and clears the block when the cause is gone.
 
