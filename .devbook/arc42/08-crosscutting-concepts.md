@@ -376,7 +376,8 @@ stateDiagram-v2
 - **The Brain is built the same way, under its own convention** (local ADR
   0026). Its database sits under `_databases/`, keyed by the Brain folder's
   absolute path. Nothing derived is written into the folder, which is often
-  synced. Its folders are the areas its `CONVENTIONS.md` declares.
+  synced. Its folders are the areas its `CONVENTIONS.md` declares, then every
+  other top folder holding a note, minus the folders it lists under `Ignore`.
 - **A OneDrive placeholder is indexed by its name.** While its content is still in
   the cloud it is not opened, since opening it would download it. Once the sync
   client hydrates it, the changed attributes make the database stale, and the next

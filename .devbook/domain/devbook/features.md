@@ -28,10 +28,13 @@ depends-on: [.devbook/domain/devbook/features.md#knowledge-capture]
 related: [.devbook/domain/devbook/domain.md#para-category, .devbook/domain/devbook/features.md#brain-folder-setup]
 ```
 
-Organize notes into the areas the Brain's `CONVENTIONS.md` declares, one top
-folder each, shown as one tab each. A Brain that declares none uses the PARA set:
-an inbox for what is not filed yet, Projects (active, deadline), Areas
-(ongoing), Resources (reference), People, a Journal, and Archive (inactive).
+Organize notes into areas, one top folder each, shown as one tab each. The
+areas the Brain's `CONVENTIONS.md` declares come first. A Brain that declares
+none uses the PARA set: an inbox for what is not filed yet, Projects (active,
+deadline), Areas (ongoing), Resources (reference), People, a Journal, and
+Archive (inactive). Every other top folder that holds a note follows as an area
+named after its folder, so a note filed into a new folder shows at once. A
+folder `CONVENTIONS.md` lists under `## Ignore` never becomes a tab.
 A dated area lists newest first: the `journal` folder, or any area whose
 `Holds` line in `CONVENTIONS.md` says *dated*. Its entries are named by date, so
 the name descending is the date descending, at every level of the folder; every
@@ -148,7 +151,9 @@ second machine that reads the synced folder sees the same areas.
 
 The shipped `CONVENTIONS.md` declares its areas as a table under an `## Areas`
 heading. It has one row per area in tab order, with the area's name, its folder
-and what it holds. With no rows, the PARA set applies. Create conventions makes the
+and what it holds. With no rows, the PARA set applies. Its `## Ignore` section
+lists `_templates`, the folder note templates usually live in, so templates never
+become a tab. Create conventions makes the
 area folders the folder's own `CONVENTIONS.md` declares, so a person who wrote
 theirs first gets their areas, not the template's.
 
@@ -167,8 +172,15 @@ Read and write the Brain in the same pane that reads a repository's devbook.
 Which scope shows the Brain is in
 [Area selection and scope](#area-selection-and-scope). On the Brain, the pane
 carries a teal **Brain** badge after its title. The folder's path sits where a
-repository's branch picker would be, and there is one tab per area the Brain
-declares.
+repository's branch picker would be, and there is one tab per area of the Brain:
+the declared areas, then the discovered ones.
+
+**Show hidden** in the menu brings back what the Brain hides: every folder
+`CONVENTIONS.md` lists under `## Ignore` and every dot-folder gets a tab after the
+rest, marked hidden, and an area's menu lists its dot-entries too. It is off by
+default, and the app remembers it per device in its own settings, never in the
+folder. It changes only what the pane shows: search, the atlas and the Brain
+database still leave hidden folders out.
 
 The tree, the rendered chapter and the editor are the ones a repository devbook
 uses, and a Brain note is always editable. The reader leaves a remark on a

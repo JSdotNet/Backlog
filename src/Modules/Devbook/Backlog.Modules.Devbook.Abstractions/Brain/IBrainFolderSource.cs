@@ -3,7 +3,8 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// <summary>
 /// The Brain as the Devbook pane reads it (local ADR 0026): one local folder,
 /// resolved under <see cref="BrainConventions.FolderKey"/> for the unscoped
-/// question, with the areas its <c>CONVENTIONS.md</c> declares.
+/// question, with the areas its <c>CONVENTIONS.md</c> declares and the top folders
+/// that hold a note (<see cref="BrainConventions"/>).
 ///
 /// <para>A port of its own rather than a second <see cref="IDevbookFolderSource"/>
 /// registration: the repository source is the one every search, reference,
@@ -30,8 +31,19 @@ public interface IBrainFolderSource : IDevbookFolderSource
     bool BrainFolderPresent();
 
     /// <summary>The areas the Brain shows, in order: what its
-    /// <c>CONVENTIONS.md</c> declares, or the PARA set.</summary>
+    /// <c>CONVENTIONS.md</c> declares, or the PARA set, then every other top
+    /// folder holding a note, minus the ignored ones
+    /// (<see cref="BrainConventions.Read"/>). Walks the folder's names, so a
+    /// screen asks it off its render thread.</summary>
     IReadOnlyList<BrainArea> Areas();
+
+    /// <summary>The folders <b>Show hidden</b> brings back as tabs, after every
+    /// area: the ones <c>CONVENTIONS.md</c> lists under <c>Ignore</c> and the
+    /// dot-folders, there now, by folder name
+    /// (<see cref="BrainConventions.Hidden(string?)"/>). Never areas: search and
+    /// the database leave them out. Empty while no folder is set or the folder is
+    /// missing.</summary>
+    IReadOnlyList<BrainArea> HiddenAreas();
 
     /// <summary>The OneDrive conflict pairs in the Brain
     /// (<see cref="BrainConflictCopies"/>), read only — neither file is ever

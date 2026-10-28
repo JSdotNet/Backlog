@@ -133,6 +133,7 @@ public sealed class ShellNavigationStore
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
         C4ZoomHintDismissed = dto?.C4ZoomHintDismissed ?? false;
+        BrainHiddenShown = dto?.BrainHiddenShown ?? false;
         GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
         GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
             ? start
@@ -219,6 +220,12 @@ public sealed class ShellNavigationStore
     /// hidden — show archived (local ADR 0029, §3): off until turned on on this device.
     /// Read through the shared kernel's <c>IShowArchivedRepositories</c>.</summary>
     public bool ShowArchivedRepositories { get; private set; }
+
+    /// <summary>Whether the Brain's hidden folders — the ignored ones and the
+    /// dot-folders — show as tabs in the Devbook pane, Show hidden (local ADR 0026
+    /// §2): off until turned on on this device. Read through the Devbook module's
+    /// <c>IBrainShowHidden</c>.</summary>
+    public bool BrainHiddenShown { get; private set; }
 
     /// <summary>The iteration length an earlier build kept per device, as the setting's
     /// value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until one was
@@ -402,6 +409,14 @@ public sealed class ShellNavigationStore
         if (shown == ShowArchivedRepositories) return;
 
         ShowArchivedRepositories = shown;
+        Save();
+    }
+
+    public void SetBrainHiddenShown(bool shown)
+    {
+        if (shown == BrainHiddenShown) return;
+
+        BrainHiddenShown = shown;
         Save();
     }
 
@@ -668,6 +683,8 @@ public sealed class ShellNavigationStore
                 // Left out until dismissed. The key is a stored name: never rename it
                 // without reading the old one.
                 C4ZoomHintDismissed = C4ZoomHintDismissed ? true : null,
+                // Likewise left out while off, and likewise a stored name.
+                BrainHiddenShown = BrainHiddenShown ? true : null,
                 // Left out until chosen. Both keys are stored names: never rename them
                 // without reading the old ones.
                 GoalsIterationLength = GoalsIterationLength,
@@ -744,6 +761,9 @@ public sealed class ShellNavigationStore
         /// <summary>Written as <c>c4ZoomHintDismissed</c>, and only once dismissed.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? C4ZoomHintDismissed { get; init; }
+        /// <summary>Written as <c>brainHiddenShown</c>, and only while on.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? BrainHiddenShown { get; init; }
 
         /// <summary>Written as <c>goalsIterationLength</c>: <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

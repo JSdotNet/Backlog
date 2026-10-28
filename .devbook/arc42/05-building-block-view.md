@@ -281,7 +281,7 @@ flowchart LR
   Settings["IBrainSettings\n(BrainFolder)"]
   Watch["BrainFolderWatch\n(Infrastructure.FileSystem)"]
   Refresher["DevbookDatabaseRefresher\n.WatchBrain"]
-  Conventions["BrainConventions\n(CONVENTIONS.md areas, or PARA)"]
+  Conventions["BrainConventions\n(declared areas + top folders\nholding a note, minus Ignore)"]
   Builder["Devbook builder\n(DevbookCorpusKind.Brain)"]
   Db[("Brain database\n(app storage)")]
   Source["BrainFolderSource\n(IBrainFolderSource, key brain)"]
@@ -298,8 +298,10 @@ flowchart LR
 ```
 
 - **Areas, not devbook folders.** The builder indexes the areas `BrainConventions`
-  (Devbook Abstractions) reads from the Brain's `CONVENTIONS.md`, or the PARA set.
-  No devbook folder convention applies to them. `para`, `repos` and `tasks` become
+  (Devbook Abstractions) resolves: the areas the Brain's `CONVENTIONS.md`
+  declares, or the PARA set, then every other top folder that holds a note, minus
+  the folders its `Ignore` section lists (local ADR 0026 §2). No devbook folder
+  convention applies to them. `para`, `repos` and `tasks` become
   node attributes, and a `repo:` link in `related` or in prose is stored as an
   edge whose target is no node.
 - **A port of its own.** `BrainFolderSource` resolves the Brain as one local,
