@@ -951,6 +951,11 @@
         // simply is not asked, which is the correct behaviour rather than a gap.
         _surfaceAttachment = Services.GetService<SessionsSurfaceActivator>()?.Attach(DescribeSessionsAsync);
 
+        // A popped-out window's Show in main window (local ADR 0040 §4), on the same
+        // optional terms: this window is the main one, so the windows beside it reach
+        // its surfaces through here.
+        _mainWindowAttachment = Services.GetService<MainWindowSurfaces>()?.Attach(ShowFromAnotherWindowAsync);
+
         // The notification centre on the same optional terms: an owner desktop composes it, a
         // test rendering this page or a host without the module does not, and then the option
         // is simply not offered. The requests are a Windows notification asking for the centre.
@@ -2236,7 +2241,21 @@
 
     /// <summary>A surface asked for through this window's navigator (local ADR 0040
     /// §3): answered on this page's dispatcher, then drawn.</summary>
-    private void HandleSurfaceRequested(SurfaceRequest request) => _ = InvokeAsync(async () =>
+    private void HandleSurfaceRequested(SurfaceRequest request) => _ = InvokeAsync(() => ShowRequestedSurfaceAsync(request));
+
+    /// <summary>A surface asked of this main window by a popped-out one — its Show in
+    /// main window, or a jump it cannot show itself (<see cref="MainWindowSurfaces"/>).
+    /// Answers whether this window shows it now.</summary>
+    private async Task<bool> ShowFromAnotherWindowAsync(SurfaceRequest request)
+    {
+        var shown = false;
+        await InvokeAsync(async () => shown = await ShowRequestedSurfaceAsync(request));
+        return shown;
+    }
+
+    /// <summary>Shows the surface <paramref name="request"/> names, then draws;
+    /// false for a surface this shell cannot show.</summary>
+    private async Task<bool> ShowRequestedSurfaceAsync(SurfaceRequest request)
     {
         switch (request.SurfaceId)
         {
@@ -2250,11 +2269,12 @@
                 ShowView(ShellView.Tasks);
                 break;
             default:
-                return;
+                return false;
         }
 
         StateHasChanged();
-    });
+        return true;
+    }
 
     /// <summary>
     /// Whether the pane has the Brain to offer (local ADR 0027 §4): it reads the
@@ -2465,6 +2485,10 @@
     /// <summary>This window's registration with <see cref="SessionsSurfaceActivator"/>,
     /// held only so it can be given up. Null where the host composed no activator.</summary>
     private IDisposable? _surfaceAttachment;
+
+    /// <summary>This window's registration with <see cref="MainWindowSurfaces"/>, held
+    /// so it can be given up. Null where the host composed none.</summary>
+    private IDisposable? _mainWindowAttachment;
 
     private TaskSyncWorker? ResolveTaskSync()
     {
@@ -3117,6 +3141,8 @@
         // open_dashboard tries to render into.
         _surfaceAttachment?.Dispose();
         _surfaceAttachment = null;
+        _mainWindowAttachment?.Dispose();
+        _mainWindowAttachment = null;
 
         // Unregistered before the reference is disposed, so the map can never hold
         // one that is already dead. The other order leaves a window between the two

@@ -163,6 +163,11 @@ public static class MauiProgram
         // the listener it builds has a container of its own and forwards every
         // port into this one rather than composing a second ITaskItems.
         builder.Services.TryAddSingleton<McpServerWorker>();
+        // The head's windows (local ADR 0040 §4): the main one App asks for, and every
+        // surface popped out beside it. Twice over, so App reaches the concrete type
+        // that makes the main window while every caller sees the port.
+        builder.Services.TryAddSingleton<ShellWindows>();
+        builder.Services.TryAddSingleton<IShellWindows>(sp => sp.GetRequiredService<ShellWindows>());
         // The Brain card's Browse: this head has a window to open the Windows
         // folder picker over, so it is the one host that registers one.
         builder.Services.TryAddSingleton<IBrainFolderPicker, WindowsBrainFolderPicker>();

@@ -120,6 +120,9 @@ public static class DesktopCompositionRegistration
         // resolve the concrete type it attaches to while every caller sees the port.
         services.AddSingleton<SessionsSurfaceActivator>();
         services.AddSingleton<ISessionsSurfaceActivator>(sp => sp.GetRequiredService<SessionsSurfaceActivator>());
+        // How a popped-out window reaches the main window's shell (local ADR 0040 §4):
+        // process-wide, because each window has a scope of its own.
+        services.AddSingleton<MainWindowSurfaces>();
         // Which machine this installation is. Sessions stamps every record with it
         // and the Dashboard filters by it, and neither owns the answer.
         services.AddSingleton(options.DeviceIdentity);

@@ -10329,3 +10329,23 @@ a.pull-request-detail-checks__name:hover {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--border-width);
 }
+
+/*
+  A popped-out window (local ADR 0040 §4): the slim header — the surface's title,
+  the repository scope chips, Show in main window — over one surface. The title
+  takes the room that is left, so Show in main window sits at the far edge where
+  the main window keeps its utilities.
+*/
+.surface-window__title {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--font-size-lg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.surface-window__unavailable {
+    padding: var(--spacing-lg);
+}

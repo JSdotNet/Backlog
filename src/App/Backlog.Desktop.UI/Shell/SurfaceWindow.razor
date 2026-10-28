@@ -1,0 +1,273 @@
+@attribute [Route(SurfaceWindowRoute.Template)]
+@implements IDisposable
+@using Backlog.Infrastructure.FileSystem
+@using Backlog.Desktop.UI.Tasks
+@inject ISurfaceCatalog Catalog
+@inject ISurfaceNavigator Navigator
+@inject NavigationManager Navigation
+@inject IServiceProvider Services
+
+@*
+    A popped-out window (local ADR 0040 §4, §6): one registered surface, under the
+    slim header — the surface's title, the repository scope chips and Show in main
+    window. No view switch, and no Ask AI: Ask AI stays in the main window only. The
+    OS close button is the window's own.
+
+    The surface comes from the catalog and renders through DynamicComponent, handed
+    only the query keys it registered. A jump inside it goes through this window's
+    ISurfaceNavigator and switches what this window shows, its title with it. An id
+    the catalog does not know — the reserved `proposals` among them, until its pane
+    registers — opens nothing and says so.
+*@
+
+<div class="shell surface-window" data-testid="surface-window" data-surface-id="@_surface?.Id">
+    <header class="app-header surface-window__header" data-testid="surface-window-header">
+        <h1 class="surface-window__title" tabindex="-1" data-testid="surface-window-title">@Title</h1>
+
+        @if (_state is { } state)
+        {
+            @* The window's own repository scope. A plain press scopes one, and a press
+               on the only one in scope clears it, as the main window's chips do
+               without Ctrl. It narrows what this window shows and never the main
+               window's scope: each window has its own view state (§5). *@
+            <ButtonGroup CssClass="header-group app-header__repository-scope surface-window__scope" AriaLabel="Repository scope">
+                <ToggleButton BaseClass="chip chip--scope"
+                              CssClass="repo-mark repo-mark--2 app-header__brain-chip"
+                              PressedCssClass="chip--active"
+                              Pressed="state.BrainInScope"
+                              TestId="surface-window-brain-scope-option"
+                              Title="@BrainScope.Name"
+                              OnClick="ScopeBrain">
+                    <BrainIcon CssClass="chip__icon" />@BrainScope.Name
+                </ToggleButton>
+                @foreach (var repository in state.Repositories)
+                {
+                    var alias = repository.Alias;
+                    <ToggleButton BaseClass="chip chip--scope"
+                                  PressedCssClass="chip--active"
+                                  Pressed="state.SelectedRepositoryAliases.Contains(alias, StringComparer.Ordinal)"
+                                  TestId="surface-window-scope-option"
+                                  Title="@repository.FullName"
+                                  OnClick="() => ScopeRepository(alias)">
+                        @alias
+                    </ToggleButton>
+                }
+            </ButtonGroup>
+        }
+
+        @if (_surface is not null && CanShowInMainWindow)
+        {
+            <AppButton CssClass="surface-window__main"
+                       TestId="surface-window-show-in-main"
+                       Title="Show this in the main window and close this window"
+                       OnClick="ShowInMainWindowAsync">
+                Show in main window
+            </AppButton>
+        }
+    </header>
+
+    @if (_surface is { } shown)
+    {
+        <main class="workspace-surface surface-window__surface"
+              id="@($"{shown.Id}-surface")"
+              data-testid="@($"{shown.Id}-surface")"
+              aria-label="@shown.Title">
+            <DynamicComponent @key="shown.Id" Type="shown.Component" Parameters="Parameters(shown)" />
+        </main>
+    }
+    else
+    {
+        <main class="surface-window__unavailable">
+            <EmptyState Description="This surface is not available." TestId="surface-window-unavailable" />
+        </main>
+    }
+</div>
+
+@code {
+    /// <summary>The query key a surface reads its repository scope from (local ADR
+    /// 0040 §6), and the value that names the Brain in it.</summary>
+    private const string ScopeKey = "scope";
+    private const string BrainScopeValue = "brain";
+
+    /// <summary>The surface id in the route.</summary>
+    [Parameter]
+    public string SurfaceId { get; set; } = string.Empty;
+
+    /// <summary>Which window this is, handed down from the root component its head
+    /// created; null where no head names its windows, as in the web harness.</summary>
+    [CascadingParameter(Name = SurfaceWindowRoute.WindowKeyCascade)]
+    public string? WindowKey { get; set; }
+
+    private ShellSurface? _surface;
+    private Dictionary<string, string> _query = new(StringComparer.Ordinal);
+    private TasksDesktopState? _state;
+    private IShellWindows? _windows;
+    private MainWindowSurfaces? _mainWindow;
+    private string? _routedId;
+
+    private string Title => _surface?.Title ?? "Not available";
+
+    private bool CanShowInMainWindow => _mainWindow is not null;
+
+    protected override void OnInitialized()
+    {
+        _state = Services.GetService<TasksDesktopState>();
+        _windows = Services.GetService<IShellWindows>();
+        _mainWindow = Services.GetService<MainWindowSurfaces>();
+        Navigator.ShowRequested += HandleShowRequested;
+        if (_state is not null) _state.Changed += HandleStateChanged;
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Read once per route: a jump inside the window switches the surface in
+        // place and leaves the address as it was, so a later parameter pass of the
+        // same route must not put back the surface the window opened on.
+        if (string.Equals(_routedId, SurfaceId, StringComparison.Ordinal)) return;
+
+        _routedId = SurfaceId;
+        Switch(SurfaceId, SurfaceWindowRoute.QueryOf(Navigation.Uri));
+        RestoreScope();
+    }
+
+    /// <summary>
+    /// What this window shows now: <paramref name="surfaceId"/>, with only the keys of
+    /// <paramref name="query"/> the surface registered, or nothing — and the "not
+    /// available" message — for an id the catalog does not offer.
+    /// </summary>
+    private void Switch(string surfaceId, IReadOnlyDictionary<string, string> query)
+    {
+        if (!Catalog.TryGet(surfaceId, out var surface))
+        {
+            _surface = null;
+            _query = new Dictionary<string, string>(StringComparer.Ordinal);
+            WriteTitle();
+            return;
+        }
+
+        var keys = surface.QueryKeys ?? [];
+        _surface = surface;
+        _query = query
+            .Where(pair => keys.Contains(pair.Key, StringComparer.Ordinal))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        WriteTitle();
+    }
+
+    /// <summary>The OS window's title follows the surface it shows.</summary>
+    private void WriteTitle()
+    {
+        if (WindowKey is { } key) _windows?.SetTitle(key, Title);
+    }
+
+    /// <summary>
+    /// The window's scope at open: the one the query names, when the surface reads a
+    /// scope and was opened on one; else the scope the main window last remembered.
+    /// The window never writes it back, so its chips leave the main window's alone.
+    /// </summary>
+    private void RestoreScope()
+    {
+        if (_state is null) return;
+
+        if (_query.TryGetValue(ScopeKey, out var scope))
+        {
+            if (string.Equals(scope, BrainScopeValue, StringComparison.Ordinal)) _state.SetBrainFilter();
+            else _state.SetRepositoryFilter(scope);
+            return;
+        }
+
+        if (Services.GetService<ShellNavigationStore>() is { } remembered)
+            _state.RestoreRepositoryScope(remembered.RepositoryScope);
+
+        // A surface that reads a scope reads the window's, when it was opened on none.
+        FollowScope(keepChapter: true);
+    }
+
+    private void ScopeRepository(string alias)
+    {
+        if (_state is null) return;
+
+        var alone = _state.SelectedRepositoryAliases is [var only] && string.Equals(only, alias, StringComparison.Ordinal);
+        _state.SetRepositoryFilter(alone ? string.Empty : alias);
+        FollowScope(keepChapter: false);
+    }
+
+    private void ScopeBrain()
+    {
+        if (_state is null) return;
+
+        if (_state.SelectedRepositoryAliases is [var only] && BrainScope.Is(only)) _state.SetRepositoryFilter(null);
+        else _state.SetBrainFilter();
+        FollowScope(keepChapter: false);
+    }
+
+    /// <summary>
+    /// Hands the scope the chips hold to a surface that reads one: its anchor, as the
+    /// main window hands it the Devbook. A chip pressed is a new place to read, so the
+    /// chapter it was reading — which belonged to the scope before — is let go.
+    /// </summary>
+    private void FollowScope(bool keepChapter)
+    {
+        if (_state is null || _surface?.QueryKeys is not { } keys || !keys.Contains(ScopeKey, StringComparer.Ordinal)) return;
+
+        var query = keepChapter
+            ? new Dictionary<string, string>(_query, StringComparer.Ordinal)
+            : new Dictionary<string, string>(StringComparer.Ordinal);
+
+        if (_state.SelectedRepositoryAliases.Count == 0) query.Remove(ScopeKey);
+        else query[ScopeKey] = BrainScope.Is(_state.AnchorRepositoryAlias) ? BrainScopeValue : _state.AnchorRepositoryAlias;
+
+        _query = query;
+    }
+
+    /// <summary>What the surface's component is handed: its query, and the callback
+    /// that closes it — which in a window of its own closes the window.</summary>
+    private Dictionary<string, object?> Parameters(ShellSurface surface) => new(StringComparer.Ordinal)
+    {
+        [ShellSurface.QueryParameter] = (IReadOnlyDictionary<string, string>)_query,
+        [ShellSurface.CloseParameter] = EventCallback.Factory.Create(this, CloseWindow),
+    };
+
+    /// <summary>
+    /// A jump inside this window (local ADR 0040 §3): it switches to the surface asked
+    /// for. A surface the catalog cannot show in a window yet — the views and
+    /// takeovers the main window still draws itself — goes to the main window
+    /// instead, so a jump never leaves this window on "not available".
+    /// </summary>
+    private void HandleShowRequested(SurfaceRequest request) => _ = InvokeAsync(async () =>
+    {
+        if (Catalog.TryGet(request.SurfaceId, out _))
+        {
+            Switch(request.SurfaceId, request.Query);
+            StateHasChanged();
+            return;
+        }
+
+        if (_mainWindow is not null && await _mainWindow.ShowAsync(request))
+            _windows?.ActivateMainWindow();
+    });
+
+    /// <summary>Show in main window: the main window switches to this surface, with
+    /// what this window shows of it, and this window closes.</summary>
+    private async Task ShowInMainWindowAsync()
+    {
+        if (_surface is null || _mainWindow is null) return;
+
+        if (!await _mainWindow.ShowAsync(new SurfaceRequest(_surface.Id, _query))) return;
+
+        _windows?.ActivateMainWindow();
+        CloseWindow();
+    }
+
+    private void CloseWindow()
+    {
+        if (WindowKey is { } key) _windows?.Close(key);
+    }
+
+    private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Navigator.ShowRequested -= HandleShowRequested;
+        if (_state is not null) _state.Changed -= HandleStateChanged;
+    }
+}

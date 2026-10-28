@@ -141,6 +141,35 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// A popped-out window's Show in main window (local ADR 0040 §4) reaches this
+    /// shell through <see cref="MainWindowSurfaces"/>: the main window shows the
+    /// surface it names, and answers that it did. A surface it cannot show is
+    /// answered no, and a shell that is gone is no longer asked.
+    /// </summary>
+    [Fact]
+    public async Task Show_in_main_window_from_a_popped_out_window_shows_that_surface_here()
+    {
+        var mainWindow = new MainWindowSurfaces();
+        using var harness = CreateHarness(configureServices: services => services.AddSingleton(mainWindow));
+        var component = Render(harness);
+
+        OpenTheRoadmap(component);
+        Assert.True(mainWindow.Attached);
+
+        Assert.True(await mainWindow.ShowAsync(new SurfaceRequest("devbook", new Dictionary<string, string>())));
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+        });
+
+        Assert.False(await mainWindow.ShowAsync(new SurfaceRequest("no-such-surface", new Dictionary<string, string>())));
+
+        await harness.Context.DisposeComponentsAsync();
+        Assert.False(mainWindow.Attached);
+    }
+
     /// <summary>The same from the workspace, where the reader spends most of their
     /// time: the task list stays on screen.</summary>
     [Fact]
