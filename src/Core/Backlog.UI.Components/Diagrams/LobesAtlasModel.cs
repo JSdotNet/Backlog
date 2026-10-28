@@ -31,6 +31,10 @@ namespace Backlog.UI.Components.Diagrams;
 /// <param name="ShowLabels">Whether the region, hub and scope names are written
 /// on the picture.</param>
 /// <param name="EmptyMessage">What the canvas says when nothing is left to draw.</param>
+/// <param name="IdleMotion">Whether the brains turn slowly on their own after a
+/// few seconds without input. Drag, its inertia and the eased zoom stay either
+/// way, and reduced motion turns it off regardless. A page whose picture should
+/// be the same on every load, such as a storybook story, sets it false.</param>
 public sealed record LobesAtlasModel(
     string Layout,
     IReadOnlyList<LobesAtlasScope> Scopes,
@@ -39,7 +43,8 @@ public sealed record LobesAtlasModel(
     IReadOnlyList<string> HiddenScopes,
     IReadOnlyList<LobesAtlasRegionKey> HiddenLobes,
     bool ShowLabels = true,
-    string EmptyMessage = "Nothing to draw.")
+    string EmptyMessage = "Nothing to draw.",
+    bool IdleMotion = true)
 {
     /// <summary>The layout that draws every scope at once.</summary>
     public const string AllLayout = "all";
