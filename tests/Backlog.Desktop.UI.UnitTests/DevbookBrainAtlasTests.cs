@@ -375,6 +375,8 @@ public sealed class DevbookBrainAtlasTests : IDisposable
 
         public IReadOnlyList<BrainArea> Areas() => [];
 
+        public IReadOnlyList<BrainArea> HiddenAreas() => [];
+
         public IReadOnlyList<BrainConflictCopy> ConflictCopies() => [];
     }
 }

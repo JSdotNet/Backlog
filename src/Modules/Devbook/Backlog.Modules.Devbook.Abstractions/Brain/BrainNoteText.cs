@@ -193,12 +193,22 @@ public static partial class BrainNoteText
     /// The area a new note lands in: the first area the Brain's conventions name
     /// the inbox — named <c>Inbox</c>, or with the folder <c>_inbox</c> or
     /// <c>inbox</c> — or the PARA inbox, <c>_inbox</c>, when they name none.
+    /// <para>
+    /// The PARA inbox is no fallback while <paramref name="ignored"/> lists it
+    /// (<see cref="BrainConventions.Ignored"/>): an ignored folder has no tab and is
+    /// not indexed, so a capture there would vanish from view. The first area takes
+    /// it then, and with no area at all the PARA inbox still does.
+    /// </para>
     /// </summary>
-    public static BrainArea InboxArea(IReadOnlyList<BrainArea> areas)
+    public static BrainArea InboxArea(IReadOnlyList<BrainArea> areas, IReadOnlyCollection<string>? ignored = null)
     {
         ArgumentNullException.ThrowIfNull(areas);
 
-        return areas.FirstOrDefault(IsInbox) ?? BrainConventions.Para[0];
+        if (areas.FirstOrDefault(IsInbox) is { } inbox) return inbox;
+
+        var fallback = BrainConventions.Para[0];
+        var fallbackIgnored = ignored?.Contains(fallback.Folder, StringComparer.OrdinalIgnoreCase) == true;
+        return fallbackIgnored && areas.Count > 0 ? areas[0] : fallback;
     }
 
     private static bool IsInbox(BrainArea area) =>
