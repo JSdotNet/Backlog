@@ -11,9 +11,9 @@ namespace Backlog.Desktop.UI.Devbook.Extensions;
 /// <para>
 /// Both scoped. <see cref="DevbookOpenChapter"/> is what one reader has on
 /// screen, and in the web harness two circuits are two readers — a singleton
-/// there would pin one visitor's chapter for another. On the desktop there is
-/// one window and the scope is the window, so scoped and singleton are the same
-/// object. <see cref="DevbookScope"/> beside it stays a singleton because it
+/// there would pin one visitor's chapter for another. On the desktop the scope is
+/// the window, and each window pins its own chapter (local ADR 0040, §5).
+/// <see cref="DevbookScope"/> beside it stays a singleton because it
 /// holds nothing; this holds something.
 /// </para>
 /// <para>
