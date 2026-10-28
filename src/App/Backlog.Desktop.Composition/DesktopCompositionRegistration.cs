@@ -317,6 +317,19 @@ public static class DesktopCompositionRegistration
         // pins from it, over the search and folder ports registered just above.
         services.AddDevbookAiContentSource();
 
+        // The shell's surfaces (local ADR 0040 §1): each module's .UI registers its
+        // ShellSurface, one catalog holds them, and each window jumps between them
+        // through a navigator of its own (§3). The Devbook is the first registered;
+        // the shell still draws the other surfaces itself until they move.
+        services.AddDevbookSurface();
+        services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
+        services.Add(new ServiceDescriptor(typeof(ISurfaceNavigator), typeof(SurfaceNavigator), options.WindowStateLifetime));
+        // The titles a Brain note's Tasks section draws, from the window's own task list.
+        services.Add(new ServiceDescriptor(
+            typeof(IBrainTaskTitles),
+            sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()),
+            options.WindowStateLifetime));
+
         // One window's state, and what reads it. The panes' state captures the
         // modules' scoped services; see WindowStateLifetime for why that makes it
         // scoped, one per window, in both heads.

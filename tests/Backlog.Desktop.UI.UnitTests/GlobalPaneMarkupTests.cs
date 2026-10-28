@@ -19,7 +19,9 @@ public sealed class GlobalPaneMarkupTests
         // is no longer a pane: the pane strip, its label and the Tasks option are
         // gone.
         Assert.Contains("TestId=\"inbox-pane-option\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"devbook-pane-option\"", home, StringComparison.Ordinal);
+        // The Devbook's option is drawn from its catalog entry (local ADR 0040 §1),
+        // its test id its surface id's: devbook-pane-option.
+        Assert.Contains("TestId=\"@($\"{surfaceId}-pane-option\")\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("backlog-pane-option", home, StringComparison.Ordinal);
         Assert.DoesNotContain("global-pane-multiselect", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Visible panes", home, StringComparison.Ordinal);
@@ -39,8 +41,9 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("aria-controls=\"roadmap-view\"", home, StringComparison.Ordinal);
         Assert.Contains("aria-controls=\"inbox-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("id=\"inbox-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("aria-controls=\"devbook-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("id=\"devbook-surface\"", home, StringComparison.Ordinal);
+        // The Devbook's, from its surface id: devbook-surface.
+        Assert.Contains("aria-controls=\"@($\"{surfaceId}-surface\")\"", home, StringComparison.Ordinal);
+        Assert.Contains("id=\"@($\"{shown.Id}-surface\")\"", home, StringComparison.Ordinal);
         Assert.Contains("id=\"roadmap-view\"", home, StringComparison.Ordinal);
     }
 
@@ -65,7 +68,7 @@ public sealed class GlobalPaneMarkupTests
             "TestId=\"board-view-option\"",
             "TestId=\"calendar-view-option\"",
             "TestId=\"roadmap-view-option\"",
-            "TestId=\"devbook-pane-option\"",
+            "@foreach (var surface in RegisteredTakeoversOffered)",
             "TestId=\"work-in-progress-switcher\"",
             "TestId=\"sessions-toggle-button\"",
             "TestId=\"pull-requests-toggle-button\"",
@@ -107,7 +110,7 @@ public sealed class GlobalPaneMarkupTests
 
         // During a takeover no view option reads pressed; the Devbook's reads its
         // own surface.
-        Assert.Contains("Pressed=\"DevbookVisible\"", home, StringComparison.Ordinal);
+        Assert.Contains("Pressed=\"@(RegisteredSurfaceOnScreen?.Id == surfaceId)\"", home, StringComparison.Ordinal);
         Assert.Contains(
             "private bool ViewOptionPressed(ShellView view) => WorkspaceVisible && EffectiveView == view;",
             home,
@@ -273,10 +276,13 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("Pressed=\"DevbookVisible\"", home, StringComparison.Ordinal);
-        Assert.Contains("OnClick=\"ToggleDevbook\"", home, StringComparison.Ordinal);
-        Assert.Contains("Title=\"@DevbookOptionTitle\"", home, StringComparison.Ordinal);
-        Assert.Contains("private void ToggleDevbook() => ToggleSurface(WorkspaceSurface.Devbook);", home, StringComparison.Ordinal);
+        // Drawn from the Devbook's catalog entry (local ADR 0040 §1): pressed while
+        // it is the registered surface on screen, toggled through the surface switch.
+        Assert.Contains("Pressed=\"@(RegisteredSurfaceOnScreen?.Id == surfaceId)\"", home, StringComparison.Ordinal);
+        Assert.Contains("OnClick=\"() => ToggleRegisteredSurface(surfaceId)\"", home, StringComparison.Ordinal);
+        Assert.Contains("Title=\"@SurfaceOptionTitle(surface)\"", home, StringComparison.Ordinal);
+        Assert.Contains("if (WorkspaceSurfaceFor(surfaceId) is { } surface) ToggleSurface(surface);", home, StringComparison.Ordinal);
+        Assert.Contains("DevbookSurfaceId => WorkspaceSurface.Devbook,", home, StringComparison.Ordinal);
 
         foreach (var view in new[] { "Tasks", "Roadmap" })
         {
@@ -483,24 +489,26 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("else if (SessionsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("else if (PullRequestsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("else if (InboxVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("else if (DevbookVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("else if (RegisteredSurfaceOnScreen is { } shown)", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"tools-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"dashboard-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"sessions-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"pull-requests-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"inbox-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"devbook-surface\"", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"@($\"{shown.Id}-surface\")\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"workspace\"", home, StringComparison.Ordinal);
 
         // One landmark per branch, and the branches are exclusive, so the page has
         // exactly one. The roadmap gave up its own when it became a view.
         Assert.Equal(8, CountOccurrences(home, "<main class="));
 
-        // The Devbook is rendered once, inside its own surface.
-        Assert.Equal(1, CountOccurrences(home, "<DevbookPane "));
-        var devbookSurface = home.IndexOf("else if (DevbookVisible)", StringComparison.Ordinal);
+        // The Devbook is a registered surface: the shell renders it from the catalog
+        // and never names its pane (local ADR 0040 §1).
+        Assert.Equal(0, CountOccurrences(home, "<DevbookPane "));
+        Assert.Equal(1, CountOccurrences(home, "<DynamicComponent "));
+        var devbookSurface = home.IndexOf("else if (RegisteredSurfaceOnScreen is { } shown)", StringComparison.Ordinal);
         var workspace = home.IndexOf("<main class=\"workspace\"", StringComparison.Ordinal);
-        var devbookPane = home.IndexOf("<DevbookPane ", StringComparison.Ordinal);
+        var devbookPane = home.IndexOf("<DynamicComponent ", StringComparison.Ordinal);
         Assert.True(devbookPane > devbookSurface && devbookPane < workspace);
 
         // The roadmap view is the workspace's main view, directly inside it.
@@ -607,13 +615,13 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        var surfaceStart = home.IndexOf("else if (DevbookVisible)", StringComparison.Ordinal);
-        var devbookPane = home.IndexOf("<DevbookPane ", StringComparison.Ordinal);
+        var surfaceStart = home.IndexOf("else if (RegisteredSurfaceOnScreen is { } shown)", StringComparison.Ordinal);
+        var devbookPane = home.IndexOf("<DynamicComponent ", StringComparison.Ordinal);
         Assert.True(surfaceStart >= 0 && devbookPane > surfaceStart);
 
         var surface = home[surfaceStart..devbookPane];
         Assert.Contains("<main class=\"workspace-surface\"", surface, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"devbook-surface\"", surface, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"@($\"{shown.Id}-surface\")\"", surface, StringComparison.Ordinal);
         Assert.Contains("data-escape-closes\n", surface, StringComparison.Ordinal);
         Assert.Contains("@onkeydown=\"OnSurfaceKeyDown\"", surface, StringComparison.Ordinal);
         Assert.Contains("@ref=\"_surfaceElement\"", surface, StringComparison.Ordinal);
@@ -622,7 +630,7 @@ public sealed class GlobalPaneMarkupTests
             "private bool DevbookVisible => _surface == WorkspaceSurface.Devbook && DevbookPaneOptionVisible;",
             home,
             StringComparison.Ordinal);
-        Assert.Equal(2, CountOccurrences(home, "        ShowDevbook();\n"));
+        Assert.Equal(4, CountOccurrences(home, "        ShowDevbook();\n"));
     }
 
     [Fact]
@@ -889,7 +897,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
         Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" BrainNotesFor=\"@BrainNotesForTask\" DevbookImagesFor=\"@DevbookImagesForEntry\" OnOpenBrainNote=\"OpenBrainNoteAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" CalendarRange=\"@CalendarRange\" CalendarRangeChanged=\"OnCalendarRangeChanged\" LinkedWork=\"LinkedWorkFor\" />", home, StringComparison.Ordinal);
-        Assert.Contains("<DevbookPane OnClose=\"CloseSurface\"", home, StringComparison.Ordinal);
+        Assert.Contains("<DynamicComponent Type=\"shown.Component\" Parameters=\"SurfaceParameters(shown)\" />", home, StringComparison.Ordinal);
 
         // The roadmap and the dashboard are composed on the same terms. Their content
         // belongs to Roadmap and the Dashboard; the shell only decides where it goes.

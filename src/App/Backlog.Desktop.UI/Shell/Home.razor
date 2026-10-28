@@ -19,6 +19,10 @@
    panel is then simply not offered. *@
 @inject IEnumerable<IAiContentSource> AiSources
 @inject DevbookScope Devbook
+@* The surfaces modules register (local ADR 0040 §1), and this window's way of
+   being asked to show one (§3). *@
+@inject ISurfaceCatalog Catalog
+@inject ISurfaceNavigator Navigator
 @inject ShellNavigationStore ShellNavigation
 @* Injected hard rather than resolved: the Inbox's Capture button is on screen
    whenever the Inbox is, and a host that composes the Inbox without the module
@@ -364,25 +368,31 @@
                     }
                 </ButtonGroup>
 
-                @if (DevbookPaneOptionVisible)
+                @* The registered takeovers, from the surface catalog (local ADR 0040
+                   §1): today the Devbook, which follows the switch. Each option's id,
+                   test id and the surface it controls are its surface id's, so the
+                   Devbook keeps the ids selectors and scenarios find it by. Named for
+                   what the Devbook shows, open or not: the Brain's name and its
+                   accent while it reads the Brain, Devbook otherwise. *@
+                @foreach (var surface in RegisteredTakeoversOffered)
                 {
-                    @* Named for what the Devbook shows, open or not: the Brain's name
-                       and its accent while it reads the Brain, Devbook otherwise. The
-                       test id is older than the takeover and is kept: selectors and
-                       scenarios find the option by it. *@
+                    var surfaceId = surface.Id;
                     <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
-                                  CssClass="@(DevbookPaneShowsBrain ? "header-group__option--brain" : null)"
-                                  Pressed="DevbookVisible"
-                                  id="devbook-pane-option"
-                                  TestId="devbook-pane-option"
-                                  aria-controls="devbook-surface"
-                                  Title="@DevbookOptionTitle"
-                                  OnClick="ToggleDevbook">
-                        @DevbookPaneOptionName
-                        <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
-                                            Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
-                                            TestId="devbook-feature-status" />
+                                  CssClass="@SurfaceOptionCssClass(surface)"
+                                  Pressed="@(RegisteredSurfaceOnScreen?.Id == surfaceId)"
+                                  id="@($"{surfaceId}-pane-option")"
+                                  TestId="@($"{surfaceId}-pane-option")"
+                                  aria-controls="@($"{surfaceId}-surface")"
+                                  Title="@SurfaceOptionTitle(surface)"
+                                  OnClick="() => ToggleRegisteredSurface(surfaceId)">
+                        @SurfaceOptionName(surface)
+                        @if (surface.FeatureKey is { } featureKey)
+                        {
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(featureKey)"
+                                                Title="@FeatureStatusTitle(featureKey)"
+                                                TestId="@($"{surfaceId}-feature-status")" />
+                        }
                     </ToggleButton>
                 }
             </div>
@@ -767,35 +777,24 @@
             @InboxPaneContent
         </main>
     }
-    else if (DevbookVisible)
+    else if (RegisteredSurfaceOnScreen is { } shown)
     {
-        @* The Devbook takes the screen as the takeovers above do (local ADR 0022,
-           amendment of 2026-10-15), Escape included. A key a field, a draft's
-           control or a dialog inside it handles stays there: the library's
-           Combobox and Modal end the key's walk up to this handler, so one Escape
-           closes the list or the dialog and leaves the Devbook on screen. *@
+        @* A registered takeover — today the Devbook — takes the screen as the
+           takeovers above do (local ADR 0022, amendment of 2026-10-15), Escape
+           included, rendered from its catalog entry (local ADR 0040 §1) with the
+           query this window shows it with. A key a field, a draft's control or a
+           dialog inside it handles stays there: the library's Combobox and Modal
+           end the key's walk up to this handler, so one Escape closes the list or
+           the dialog and leaves the surface on screen. *@
         <main class="workspace-surface"
-              id="devbook-surface"
-              data-testid="devbook-surface"
+              id="@($"{shown.Id}-surface")"
+              data-testid="@($"{shown.Id}-surface")"
               tabindex="-1"
               @ref="_surfaceElement"
               @onkeydown="OnSurfaceKeyDown"
               data-escape-closes
-              aria-label="@DevbookPaneOptionName">
-            @* The anchor and not the whole scope: the Devbook reads one
-               repository's folders, and the first one taken is the one the reader
-               was already reading — unless an entry's reference asked for another;
-               see DevbookRepositoryAlias. *@
-            <DevbookPane OnClose="CloseSurface"
-                         RepositoryAlias="@DevbookRepositoryAlias"
-                         SwitchRepositoryAlias="@DevbookSwitchRepositoryAlias"
-                         ShowsBrainChanged="OnDevbookShowsBrainChanged"
-                         OpenSearchResultElsewhere="OpenDevbookSearchResult"
-                         OpenReference="@_devbookOpenRequest"
-                         OnOpenReferenceFollowed="OnDevbookReferenceFollowed"
-                         OnOpenRepositoryChapter="OpenBrainRepoLinkAsync"
-                         TaskTitleFor="TaskTitleFor"
-                         OnOpenTask="OpenTaskFromBrainAsync" />
+              aria-label="@SurfaceOptionName(shown)">
+            <DynamicComponent Type="shown.Component" Parameters="SurfaceParameters(shown)" />
         </main>
     }
     else
@@ -939,6 +938,7 @@
         InboxState.BatchRouted += HandleInboxBatchRouted;
         InboxState.RouteUndone += HandleInboxRouteUndone;
         Features.Changed += HandleFeaturesChanged;
+        Navigator.ShowRequested += HandleSurfaceRequested;
         _gitHubIntegrationWasOn = IsFeatureEnabled(TasksFeatures.GitHubIntegration);
 
         // Optional, the way Settings resolves it: a host without task sync
@@ -1362,17 +1362,6 @@
     /// <summary>What the Inbox option's press will do.</summary>
     private string InboxOptionTitle => InboxVisible ? $"Back to {EffectiveView}" : "Open the Inbox";
 
-    /// <summary>The Devbook option: opens the Devbook in place of the main view, or
-    /// returns to that view when the Devbook is already on screen. During another
-    /// takeover the press opens the Devbook in its place, as any takeover option
-    /// does.</summary>
-    private void ToggleDevbook() => ToggleSurface(WorkspaceSurface.Devbook);
-
-    /// <summary>What the Devbook option's press will do, named for what it shows —
-    /// the Brain or the Devbook.</summary>
-    private string DevbookOptionTitle =>
-        DevbookVisible ? $"Back to {EffectiveView}" : $"Open the {DevbookPaneOptionName}";
-
     /// <summary>
     /// The Devbook on screen for something opened from outside it — an entry's
     /// reference, a Brain note's badge — unless it already is. Opened over the
@@ -1605,28 +1594,17 @@
         }
     }
 
-    /// <summary>The reference handed to the Devbook pane and not yet followed,
-    /// numbered so the same one pressed twice is two requests. See
-    /// <see cref="DevbookOpenRequest"/>. Dropped once the pane reports it followed —
-    /// see <see cref="OnDevbookReferenceFollowed"/>.</summary>
-    private DevbookOpenRequest? _devbookOpenRequest;
+    /// <summary>The last reference pressed for the Devbook, handed to the surface as
+    /// its <c>chapter</c> and <c>request</c> query keys. The token makes the same
+    /// reference pressed twice two requests; the surface remembers, per window,
+    /// which token it already followed, so a Devbook hidden and shown again does not
+    /// pull the reader back to the task's chapter.</summary>
+    private DevbookChapterRequest? _devbookOpenRequest;
 
-    /// <summary>
-    /// The pane took the request, so the shell stops handing it on.
-    /// <para>
-    /// The pane remembers what it followed only while it is mounted, and this
-    /// parameter outlives it: hidden and shown again, or remounted for any other
-    /// reason, a fresh pane handed the same request followed it again and pulled
-    /// the reader back to the task's chapter. Only that request is dropped — one
-    /// pressed since carries a newer number and is still owed.
-    /// </para>
-    /// </summary>
-    private void OnDevbookReferenceFollowed(long sequence)
-    {
-        if (_devbookOpenRequest?.Sequence == sequence) _devbookOpenRequest = null;
-    }
+    private sealed record DevbookChapterRequest(string Reference, string Token);
 
-    private long _devbookOpenSequence;
+    private static DevbookChapterRequest DevbookChapter(string reference) =>
+        new(reference, Guid.NewGuid().ToString("N"));
 
     /// <summary>The repository the Devbook pane reads: the one an entry's reference
     /// asked for while the scope it was asked under still stands, else the scope's
@@ -1720,7 +1698,7 @@
         _devbookRepositoryRequest = string.Equals(alias, State.AnchorRepositoryAlias, StringComparison.Ordinal)
             ? null
             : new DevbookRepositoryRequest(DevbookRequestAnchor, alias);
-        _devbookOpenRequest = new DevbookOpenRequest(request.Reference, ++_devbookOpenSequence);
+        _devbookOpenRequest = DevbookChapter(request.Reference);
 
         // The option may only now be on offer: with nothing scoped there was no
         // repository to read until the request named one.
@@ -1732,35 +1710,63 @@
     private const string DevbookUnavailableTestId = "tasks-devbook-unavailable";
 
     /// <summary>
-    /// A Brain note's <c>repo:</c> link, followed (local ADR 0027 §6): that
-    /// repository's devbook in the pane, at the chapter. The same road a task's
-    /// reference takes, so the header scope stays as the reader left it and the
-    /// pane's switch, or the scope, brings the Brain back.
+    /// The Devbook asked for through this window's <see cref="ISurfaceNavigator"/>
+    /// (local ADR 0040 §3) — by the Devbook itself, for a jump out of what it shows.
+    /// <list type="bullet">
+    /// <item>A <c>chapter</c> in a repository — a Brain note's <c>repo:</c> link
+    /// (local ADR 0027 §6) or another repository's search result — takes the road a
+    /// task's reference takes (<see cref="OpenRepositoryChapterAsync"/>), so the
+    /// header scope stays as the reader left it and the pane's switch, or the scope,
+    /// brings the Brain back.</item>
+    /// <item>A <c>chapter</c> in the Brain — a Brain search result — is
+    /// <see cref="OpenBrainChapter"/>.</item>
+    /// <item>No chapter, and the Brain or the switch's repository as <c>scope</c>: a
+    /// side of the pane's <c>Brain | repo</c> switch picked.</item>
+    /// </list>
     /// </summary>
-    private Task OpenBrainRepoLinkAsync(BrainRepoLink link) => OpenRepositoryChapterAsync(link.Alias, link.Reference);
+    private Task ShowDevbookAsync(SurfaceRequest request)
+    {
+        var scope = request.Value(DevbookSurfaceQuery.Scope) is { } given ? DevbookSurfaceQuery.AliasFor(given) : null;
+
+        if (request.Value(DevbookSurfaceQuery.Chapter) is not { Length: > 0 } chapter)
+        {
+            if (scope is not null
+                && DevbookSwitchRepositoryAlias is { } partner
+                && (BrainScope.Is(scope) || string.Equals(scope, partner, StringComparison.Ordinal)))
+            {
+                OnDevbookShowsBrainChanged(BrainScope.Is(scope));
+            }
+
+            ShowDevbook();
+            return Task.CompletedTask;
+        }
+
+        // Without a scope, the window's own: the anchor, which may be the Brain.
+        var target = scope ?? State.AnchorRepositoryAlias;
+        if (BrainScope.Is(target))
+        {
+            OpenBrainChapter(chapter);
+            ShowDevbook();
+            return Task.CompletedTask;
+        }
+
+        return OpenRepositoryChapterAsync(target, chapter);
+    }
 
     /// <summary>
-    /// A search result from a devbook the pane is not showing: the pane reads that
-    /// devbook — another repository, or the Brain — and opens the result there.
-    /// <para>
-    /// A repository's result takes the road a <c>repo:</c> link takes
-    /// (<see cref="OpenRepositoryChapterAsync"/>). The Brain is no repository, so
-    /// a Brain result is asked of the pane directly, the same way: it changes what
-    /// the pane reads and never the header's scope or the task filter, holds only
-    /// while the scope it was asked under stands, and the switch the reader may
-    /// have pressed gives way to it.
-    /// </para>
+    /// A Brain page at <paramref name="reference"/>, in the pane. The Brain is no
+    /// repository, so it is asked of the pane directly: it changes what the pane
+    /// reads and never the header's scope or the task filter, holds only while the
+    /// scope it was asked under stands, and the switch the reader may have pressed
+    /// gives way to it.
     /// </summary>
-    private Task OpenDevbookSearchResult(DevbookSearchOpen result)
+    private void OpenBrainChapter(string reference)
     {
-        if (!result.Source.IsBrain) return OpenRepositoryChapterAsync(result.Source.Key, result.Reference);
-
         _devbookSwitch = null;
         _devbookRepositoryRequest = BrainScope.Is(State.AnchorRepositoryAlias)
             ? null
             : new DevbookRepositoryRequest(DevbookRequestAnchor, BrainScope.Value);
-        _devbookOpenRequest = new DevbookOpenRequest(result.Reference, ++_devbookOpenSequence);
-        return Task.CompletedTask;
+        _devbookOpenRequest = DevbookChapter(reference);
     }
 
     /// <summary>
@@ -2133,11 +2139,122 @@
     /// above: its flag switched off returns the reader to the workspace.</summary>
     private bool InboxVisible => _surface == WorkspaceSurface.Inbox && InboxPaneOptionVisible;
 
-    /// <summary>Whether there is any knowledge to offer. The shell asks Devbook
-    /// rather than working it out from folder settings itself.</summary>
+    /// <summary>Whether there is any knowledge to offer: the Devbook's surface in the
+    /// catalog — registered, its flag on — and something for it to read. The shell
+    /// asks Devbook rather than working it out from folder settings itself.</summary>
     private bool DevbookPaneOptionVisible =>
-        IsFeatureEnabled(DevbookFeatures.RepositoryDevbook)
+        Catalog.TryGet(DevbookSurfaceId, out _)
         && (DevbookBrainOffered || Devbook.VisibleAreas(DevbookRepositoryAlias).Count > 0);
+
+    /// <summary>The Devbook's id in the surface catalog.</summary>
+    private const string DevbookSurfaceId = DevbookSurfaceQuery.SurfaceId;
+
+    /// <summary>The Tasks surface's id, which a jump names before Tasks registers
+    /// its surface; the shell answers it from its own Tasks view until then.</summary>
+    private const string TasksSurfaceId = "tasks";
+
+    /// <summary>
+    /// Where a registered surface sits among the shell's own takeovers, while the
+    /// <see cref="WorkspaceSurface"/> enum still says which one is on screen (local
+    /// ADR 0040 §2 retires it once every surface is registered). A surface the shell
+    /// cannot place yet is not offered.
+    /// </summary>
+    private static WorkspaceSurface? WorkspaceSurfaceFor(string surfaceId) => surfaceId switch
+    {
+        DevbookSurfaceId => WorkspaceSurface.Devbook,
+        _ => null,
+    };
+
+    /// <summary>Whether a registered takeover is on offer in this window: the
+    /// Devbook only while it has something to read.</summary>
+    private bool RegisteredSurfaceOffered(ShellSurface surface) => WorkspaceSurfaceFor(surface.Id) switch
+    {
+        WorkspaceSurface.Devbook => DevbookPaneOptionVisible,
+        null => false,
+        _ => true,
+    };
+
+    /// <summary>The registered takeovers the header offers, in the catalog's order.</summary>
+    private IEnumerable<ShellSurface> RegisteredTakeoversOffered =>
+        Catalog.Surfaces.Where(surface => surface.Group == ShellSurfaceGroup.Takeover && RegisteredSurfaceOffered(surface));
+
+    /// <summary>The registered takeover on screen, or null.</summary>
+    private ShellSurface? RegisteredSurfaceOnScreen =>
+        RegisteredTakeoversOffered.FirstOrDefault(surface => WorkspaceSurfaceFor(surface.Id) == _surface);
+
+    /// <summary>A registered takeover's header option: opens it in place of the main
+    /// view, or returns to that view when it is already on screen.</summary>
+    private void ToggleRegisteredSurface(string surfaceId)
+    {
+        if (WorkspaceSurfaceFor(surfaceId) is { } surface) ToggleSurface(surface);
+    }
+
+    /// <summary>A registered surface's word in the header — the Devbook's names what
+    /// it shows, the Brain or the Devbook.</summary>
+    private string SurfaceOptionName(ShellSurface surface) =>
+        surface.Id == DevbookSurfaceId ? DevbookPaneOptionName : surface.Title;
+
+    /// <summary>What a registered takeover's option press will do.</summary>
+    private string SurfaceOptionTitle(ShellSurface surface) =>
+        RegisteredSurfaceOnScreen?.Id == surface.Id ? $"Back to {EffectiveView}" : $"Open the {SurfaceOptionName(surface)}";
+
+    /// <summary>The Brain's accent on the Devbook's option while it reads the Brain.</summary>
+    private string? SurfaceOptionCssClass(ShellSurface surface) =>
+        surface.Id == DevbookSurfaceId && DevbookPaneShowsBrain ? "header-group__option--brain" : null;
+
+    /// <summary>What a registered surface's component is handed: its query and the
+    /// close callback (<see cref="ShellSurface"/>).</summary>
+    private Dictionary<string, object?> SurfaceParameters(ShellSurface surface) => new(StringComparer.Ordinal)
+    {
+        [ShellSurface.QueryParameter] = SurfaceQuery(surface),
+        [ShellSurface.CloseParameter] = EventCallback.Factory.Create(this, CloseSurface),
+    };
+
+    /// <summary>
+    /// The query this window shows a registered surface with. The Devbook's says
+    /// what this window's scope makes it read — the anchor and not the whole scope:
+    /// the Devbook reads one repository's folders, and the first one taken is the one
+    /// the reader was already reading, unless an entry's reference asked for another
+    /// (see <see cref="DevbookRepositoryAlias"/>) — the partner of its switch, and the
+    /// last chapter pressed for it.
+    /// </summary>
+    private IReadOnlyDictionary<string, string> SurfaceQuery(ShellSurface surface)
+    {
+        var query = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (surface.Id != DevbookSurfaceId) return query;
+
+        query[DevbookSurfaceQuery.Scope] = DevbookSurfaceQuery.ScopeFor(DevbookRepositoryAlias);
+        if (DevbookSwitchRepositoryAlias is { } partner) query[DevbookSurfaceQuery.Switch] = partner;
+        if (_devbookOpenRequest is { } request)
+        {
+            query[DevbookSurfaceQuery.Chapter] = request.Reference;
+            query[DevbookSurfaceQuery.Request] = request.Token;
+        }
+
+        return query;
+    }
+
+    /// <summary>A surface asked for through this window's navigator (local ADR 0040
+    /// §3): answered on this page's dispatcher, then drawn.</summary>
+    private void HandleSurfaceRequested(SurfaceRequest request) => _ = InvokeAsync(async () =>
+    {
+        switch (request.SurfaceId)
+        {
+            case DevbookSurfaceId:
+                await ShowDevbookAsync(request);
+                break;
+            case TasksSurfaceId when request.Value("entry") is { } entry:
+                await OpenTaskFromBrainAsync(entry);
+                break;
+            case TasksSurfaceId:
+                ShowView(ShellView.Tasks);
+                break;
+            default:
+                return;
+        }
+
+        StateHasChanged();
+    });
 
     /// <summary>
     /// Whether the pane has the Brain to offer (local ADR 0027 §4): it reads the
@@ -2855,26 +2972,15 @@
             return Task.CompletedTask;
         }
 
-        _devbookSwitch = null;
-        _devbookRepositoryRequest = BrainScope.Is(State.AnchorRepositoryAlias)
-            ? null
-            : new DevbookRepositoryRequest(DevbookRequestAnchor, BrainScope.Value);
-        _devbookOpenRequest = new DevbookOpenRequest(note.Path, ++_devbookOpenSequence);
-
+        OpenBrainChapter(note.Path);
         ShowDevbook();
 
         return Task.CompletedTask;
     }
 
-    /// <summary>The title of the task with this id in this backlog, or null — a
-    /// Brain note's Tasks section draws that one as "not in this backlog".</summary>
-    private string? TaskTitleFor(string taskId) =>
-        Guid.TryParse(taskId, out var id) && State.Rows.FirstOrDefault(row => row.Id == id) is { } row
-            ? row.PreviewTitle
-            : null;
-
-    /// <summary>A task followed out of a Brain note: the task list on screen, that
-    /// task selected — as a session's entry is opened.</summary>
+    /// <summary>A task followed out of a Brain note — the Devbook asking for the
+    /// Tasks surface at an <c>entry</c>: the task list on screen, that task
+    /// selected, as a session's entry is opened.</summary>
     private async Task OpenTaskFromBrainAsync(string taskId)
     {
         if (!Guid.TryParse(taskId, out var id) || State.Rows.FirstOrDefault(row => row.Id == id) is not { } row) return;
@@ -2996,6 +3102,7 @@
         InboxState.BatchRouted -= HandleInboxBatchRouted;
         InboxState.RouteUndone -= HandleInboxRouteUndone;
         Features.Changed -= HandleFeaturesChanged;
+        Navigator.ShowRequested -= HandleSurfaceRequested;
         if (_taskSync is not null) _taskSync.Changed -= HandleTaskSyncChanged;
         _notificationRequests?.Dispose();
         if (_devbookImages is not null)

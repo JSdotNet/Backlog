@@ -1884,6 +1884,7 @@ public sealed class HomeRepositoryScopeTests
 
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
+        context.Services.AddShellSurfaces();
         context.Services.AddSingleton(new ShellNavigationStore(ShellNavigationPath(root)));
         // Show archived, answered over that file the way the desktop composition does.
         context.Services.AddSingleton<IShowArchivedRepositories>(sp =>
