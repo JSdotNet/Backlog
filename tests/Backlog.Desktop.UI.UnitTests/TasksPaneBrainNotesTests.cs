@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// A task row's Brain badge (local ADR 0026 §3,
-/// <c>.devbook/domain/devbook/requirements.md#bi-directional-linking</c>): the teal
+/// <c>.devbook/domain/brain/requirements.md#bi-directional-linking</c>): the teal
 /// "◆ n note" the host draws for the owner's Brain notes that name the task, which
 /// opens them. The pane asks the host by the row's stored id and draws nothing the
 /// host does not answer — the Brain is personal, so another reader sees no badge.

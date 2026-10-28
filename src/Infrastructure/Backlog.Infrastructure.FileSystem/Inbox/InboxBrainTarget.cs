@@ -11,7 +11,7 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 /// <see cref="IBrainNoteWriter"/>: an item routed To Brain becomes a note in the
 /// Brain's inbox area, through the same writer the Devbook pane's Capture uses,
 /// so the two write the same kind of note under the same guard on the text
-/// (<c>.devbook/domain/devbook/features.md#capture-into-the-brain</c>).
+/// (<c>.devbook/domain/brain/features.md#capture-into-the-brain</c>).
 /// <para>
 /// The note keeps the item's title and body. A capture that came from a link
 /// keeps the link too — as the body's last line, unless the body already holds
