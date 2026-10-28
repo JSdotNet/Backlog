@@ -208,16 +208,17 @@ The system SHALL keep the Brain folder's path in the app's settings and write it
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSetupTests.Create_conventions_scaffolds_an_empty_folder, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSetupTests.Create_conventions_never_overwrites_a_readme_already_there, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Create_conventions_scaffolds_the_folder_and_then_goes_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Create_conventions_leaves_the_persons_readme_unchanged, e2e:dotnet:Backlog.EndToEndTests.BrainTests.First_use_asks_for_a_folder_and_create_conventions_scaffolds_it]
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSetupTests.Create_conventions_scaffolds_an_empty_folder, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSetupTests.Create_conventions_never_overwrites_a_readme_already_there, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Create_conventions_scaffolds_the_folder_and_then_goes_away, unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsBrainFolderTests.Create_conventions_leaves_the_persons_readme_unchanged, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainConventionTemplateTests.The_shipped_conventions_ignore_the_templates_folder, e2e:dotnet:Backlog.EndToEndTests.BrainTests.First_use_asks_for_a_folder_and_create_conventions_scaffolds_it]
 ```
 
-The system SHALL write `README.md` marked `index: root`, `CONVENTIONS.md` and every area folder they declare on **Create conventions**, and leave every file already there unchanged.
+The system SHALL write `README.md` marked `index: root`, `CONVENTIONS.md` with an `## Ignore` section listing `_templates`, and every area folder they declare on **Create conventions**, and leave every file already there unchanged.
 
 #### Scenario: An empty folder
 
 - **Given** an empty Brain folder
 - **When** the reader presses Create conventions
 - **Then** the folder holds `README.md` with `index: root`, `CONVENTIONS.md`, and the folders `_inbox`, `projects`, `areas`, `resources`, `people`, `journal` and `archive`
+- **And** `CONVENTIONS.md` lists `_templates` under `## Ignore`
 
 #### Scenario: A README already there
 
@@ -297,27 +298,98 @@ The system SHALL show the Brain in the Devbook pane when nothing is pressed or t
 - **When** the reader opens the Devbook pane
 - **Then** the pane shows the devbook of `backlog`
 
-### Requirement: The areas are the declared ones
+### Requirement: The areas are the declared ones, then the discovered ones
 
 ```meta
 type: requirement
 status: draft
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Nothing_pressed_shows_the_brain_with_its_badge_path_and_declared_areas, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Declared_areas_are_the_roots_in_their_declared_order, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.With_no_areas_declared_the_seven_para_areas_are_the_tabs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.No_declaration_gives_the_para_roots, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_pane_shows_the_declared_areas_and_the_journal_newest_first]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Nothing_pressed_shows_the_brain_with_its_badge_path_and_declared_areas, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Declared_areas_are_the_roots_in_their_declared_order, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.With_no_areas_declared_the_seven_para_areas_are_the_tabs, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.No_declaration_gives_the_para_roots, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.A_folder_holding_a_note_is_a_tab_after_the_declared_ones, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSourceTests.The_areas_are_the_declared_ones_then_the_folders_holding_a_note, e2e:dotnet:Backlog.EndToEndTests.BrainTests.The_pane_shows_the_declared_areas_and_the_journal_newest_first]
 ```
 
-The system SHALL show one tab per area `CONVENTIONS.md` declares, in its order, and the seven PARA areas when it declares none.
+The system SHALL show one tab per area `CONVENTIONS.md` declares, in its order, or per PARA area when it declares none, followed by one tab per other top folder holding a Markdown note, by folder name.
 
 #### Scenario: Declared areas
 
 - **Given** a `CONVENTIONS.md` declaring the areas *Work* (`work`) and *Home life* (`home`)
+- **And** no other top folder holds a note
 - **When** the pane shows the Brain
 - **Then** it shows the tabs *Work* and *Home life* and no other
 
 #### Scenario: No declaration
 
 - **Given** a `CONVENTIONS.md` declaring no areas
+- **And** no other top folder holds a note
 - **When** the pane shows the Brain
 - **Then** it shows the tabs of the PARA set
+
+#### Scenario: A folder holding a note
+
+- **Given** a `CONVENTIONS.md` declaring the area *Inbox* (`_inbox`)
+- **And** `Meetings/` holds a note
+- **When** the pane shows the Brain
+- **Then** it shows the tabs *Inbox* and *Meetings*, in that order
+
+#### Scenario: A folder holding no note
+
+- **Given** a `CONVENTIONS.md` declaring the area *Inbox* (`_inbox`)
+- **And** `Demo/` holds no Markdown file
+- **When** the pane shows the Brain
+- **Then** it shows the tab *Inbox* and no *Demo* tab
+
+### Requirement: An ignored folder has no tab
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Show_hidden_is_off_by_default_and_hides_the_hidden_folders, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Without_show_hidden_the_hidden_folders_and_dot_entries_are_not_listed, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.An_ignored_folder_is_never_an_area_even_when_declared, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainFolderSourceTests.The_areas_are_the_declared_ones_then_the_folders_holding_a_note, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainDatabaseTests.An_ignored_folder_and_a_dot_folder_are_not_indexed]
+```
+
+The system SHALL show no tab for a folder `CONVENTIONS.md` lists under `## Ignore`, even when it holds a note or `## Areas` declares it.
+
+#### Scenario: An ignored folder holding a note
+
+- **Given** `Product/` holds a note
+- **And** `CONVENTIONS.md` lists `Product` under `## Ignore`
+- **When** the pane shows the Brain
+- **Then** it shows no *Product* tab
+
+#### Scenario: Ignored and declared
+
+- **Given** `CONVENTIONS.md` declares the area *Templates* (`_templates`)
+- **And** it lists `_templates` under `## Ignore`
+- **When** the pane shows the Brain
+- **Then** it shows no *Templates* tab
+
+### Requirement: Show hidden brings hidden folders back
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Show_hidden_is_off_by_default_and_hides_the_hidden_folders, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Show_hidden_adds_the_hidden_folders_as_tabs_after_the_rest_marked_hidden, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.Show_hidden_lists_an_area_s_dot_entries_in_the_menu_and_hides_them_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookPaneBrainModeTests.A_pane_follows_the_device_s_show_hidden_choice, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Without_show_hidden_the_hidden_folders_and_dot_entries_are_not_listed, unit:dotnet:Backlog.Desktop.UI.UnitTests.DevbookMenuBrainTests.Show_hidden_lists_the_hidden_folders_last_and_every_dot_entry, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainShowHiddenTests.Show_hidden_is_off_until_turned_on_and_survives_a_restart, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainShowHiddenTests.The_port_announces_only_a_change_of_its_own_choice, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_brain_s_hidden_folders_are_read_from_disk, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainDatabaseTests.An_ignored_folder_and_a_dot_folder_are_not_indexed]
+```
+
+The system SHALL show, while **Show hidden** is on, one tab marked hidden per ignored folder and per dot-folder of the Brain, after every other tab, and list the dot-entries inside an area's menu, and SHALL leave search and the Brain database unchanged.
+
+#### Scenario: Hidden folders shown
+
+- **Given** `CONVENTIONS.md` declares the area *Inbox* (`_inbox`) and lists `_templates` under `## Ignore`
+- **And** the Brain holds a `.obsidian/` folder
+- **When** the reader turns **Show hidden** on
+- **Then** the pane shows the tabs *Inbox*, *Obsidian* and *Templates*, in that order, the last two marked hidden
+
+#### Scenario: Off by default
+
+- **Given** the reader has never turned **Show hidden** on on this device
+- **When** the pane shows the Brain
+- **Then** it shows no tab for an ignored folder or a dot-folder
+
+#### Scenario: Search stays the same
+
+- **Given** `_templates/` holds the note `meeting.md` and `CONVENTIONS.md` lists `_templates` under `## Ignore`
+- **And** **Show hidden** is on
+- **When** the reader searches the Brain for words in `meeting.md`
+- **Then** the results do not list `_templates/meeting.md`
 
 ### Requirement: A dated area lists newest first
 

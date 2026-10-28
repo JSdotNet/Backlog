@@ -392,9 +392,10 @@ flowchart LR
   `--out <file>` writes where it is told; neither writes into a repository.
   `--brain --root <folder>` builds a Brain (local ADR 0026) under its own
   convention, `tools/devbook/brain.mjs`. That convention takes the areas its
-  `CONVENTIONS.md` declares as the folders, the `para`, `repos` and `tasks`
-  fields as node attributes, and `repo:` links as edges with no node at their
-  target.
+  `CONVENTIONS.md` declares, then every other top folder holding a note, minus
+  the folders its `Ignore` section lists, as the folders. It takes the `para`,
+  `repos` and `tasks` fields as node attributes, and `repo:` links as edges with
+  no node at their target.
 
   One difference between the writers is deliberate and stays. A Brain kept in
   a synced folder, OneDrive's Files On-Demand, is all reparse-point placeholders.

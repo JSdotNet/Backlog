@@ -17,6 +17,7 @@
           TreeAriaLabel="Devbook chapters"
           EmptyMessage="No chapters are available for this area."
           HeadingLabel="@HeadingLabel"
+          HeadingTrailing="@HeadingTrailing"
           RootFolder="@RootTreeNode"
           Nodes="@TreeNodes"
           IsLoading="@IsLoading"
@@ -35,6 +36,12 @@
 
     [Parameter]
     public string HeadingLabel { get; set; } = "Devbook";
+
+    /// <summary>A control at the end of the heading row, handed to the tree's
+    /// own slot — the Brain's Show hidden switch. Null draws the heading as
+    /// before.</summary>
+    [Parameter]
+    public RenderFragment? HeadingTrailing { get; set; }
 
     [Parameter]
     public DevbookMenuNode? RootFolder { get; set; }

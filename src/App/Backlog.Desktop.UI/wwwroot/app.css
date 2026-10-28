@@ -6516,6 +6516,14 @@ a.pull-request-detail-checks__name:hover {
     flex: 0 0 auto;
 }
 
+/* A tab Show hidden brought back — a folder the Brain ignores, or a dot-folder
+   (local ADR 0026 §2). Dimmed below the other tabs, pressed or not, and the
+   hidden badge after its name says the same in words. */
+.devbook-stack__tab-title--hidden {
+    font-style: italic;
+    opacity: 0.7;
+}
+
 /* The pane's title, on the strip and only while there can be two devbooks — on
    the Brain, or beside the Brain | repository switch (local ADR 0027 §4). One
    quiet word, so it names the pane without competing with the tabs. */
@@ -8868,6 +8876,25 @@ a.pull-request-detail-checks__name:hover {
     font-weight: var(--font-weight-semibold);
     letter-spacing: 0.02em;
     text-transform: uppercase;
+}
+
+/* On the Brain, whose heading carries the Show hidden switch, the heading's name
+   takes the room, so the open button and the switch sit together at its end
+   rather than spread across it. Scoped to that heading: a repository's heading
+   keeps its own layout, where a long name pushes the button rather than
+   shrinking under it. */
+.devbook-stack__menu-heading:has(> .devbook-stack__show-hidden) > span:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Show hidden is a small icon toggle at the heading's end: it keeps its size
+   when the name wraps, and sits no taller than the heading's line. */
+.devbook-stack__show-hidden {
+    flex: 0 0 auto;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
 }
 
 

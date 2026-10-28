@@ -151,7 +151,10 @@ public class DevbookBuilderParityTests : IDisposable
     /// The same comparison on a Brain (local ADR 0026), read under its own
     /// convention: the areas its <c>CONVENTIONS.md</c> declares — one called
     /// <c>design</c>, which must get none of the devbook design folder's rules —
-    /// in the order its table numbers them, a folder it does not declare, the
+    /// in the order its table numbers them, then the folders it does not declare
+    /// that hold a note — mixed case, one only deeply nested — by name, but not an
+    /// ignored folder (one also declared), a dot-folder, a folder whose only note
+    /// sits in a dot sub-folder or a folder with no note at all; the
     /// <c>para</c>, <c>repos</c> and <c>tasks</c> fields, <c>repo:</c> links in
     /// <c>related</c> and in prose (one inside a fence, one twice), a reference
     /// into an area that resolves to nothing, one outside every area, a repeated
@@ -196,9 +199,14 @@ public class DevbookBuilderParityTests : IDisposable
         // And the fixture exercised what it is for.
         using var app = Open(fromApp);
         Assert.Equal(
-            ["name=TEXT:_inbox", "name=TEXT:work", "name=TEXT:design", "name=TEXT:projects"],
+            ["name=TEXT:_inbox", "name=TEXT:work", "name=TEXT:design", "name=TEXT:projects", "name=TEXT:alpha", "name=TEXT:kitap", "name=TEXT:loose", "name=TEXT:Meetings", "name=TEXT:_drafts", "name=TEXT:ılık"],
             Rows(app, "outline_entry WHERE scope = '.' AND parent_id IS NULL", "ordinal").Select(row => row.Split(" | ")[5]));
-        Assert.DoesNotContain(Rows(app, "node", "id"), row => row.Contains("path=TEXT:loose/", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node", "id"), row => row.Contains("path=TEXT:loose/not-an-area.md", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "node", "id"), row => row.Contains("path=TEXT:Meetings/2026/10/standup.md", StringComparison.Ordinal));
+        foreach (var hidden in new[] { "_templates/", "attic/", ".obsidian/", "dotted/", "empty/" })
+        {
+            Assert.DoesNotContain(Rows(app, "node", "id"), row => row.Contains("path=TEXT:" + hidden, StringComparison.Ordinal));
+        }
         Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:para | value=TEXT:work", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "node_attribute", "node_id, name, value"), row => row.Contains("name=TEXT:tasks", StringComparison.Ordinal));
         Assert.Contains(Rows(app, "edge", "id"), row => row.Contains("type=TEXT:repo-link", StringComparison.Ordinal));
@@ -230,7 +238,26 @@ public class DevbookBuilderParityTests : IDisposable
             | Design | design | 3 |
             | Work | work | 2 |
             | Missing | missing | 5 |
+            | Templates | `_templates` | 6 |
+
+            ## Ignore
+
+            - `_TEMPLATES`
+
+            | Folder | Why |
+            |---|---|
+            | attic | Old things. |
             """),
+        ("_templates/meeting.md", "# Meeting template\n"),
+        ("attic/old.md", "# Old\n"),
+        (".obsidian/workspace.md", "# Workspace\n"),
+        ("dotted/.trash/gone.md", "# Gone\n"),
+        ("empty/attachment.txt", "not a note"),
+        ("Meetings/2026/10/standup.md", "# Standup\n\nA note only deep down.\n"),
+        ("alpha/first.md", "# Alpha\n"),
+        ("_drafts/later.md", "# Later\n"),
+        ("kitap/okuma.md", "# Okuma\n"),
+        ("ılık/su.md", "# Su\n"),
         ("_inbox/2026-10-13-idea.md", "# An idea\n\nCaptured on the phone.\n"),
         ("work/README.md", "# Work\n\n```meta\nindex: root\n```\n"),
         ("work/standup.md", "# Standup\n\n```meta\npara: journal\n```\n\nDaily notes.\n"),
