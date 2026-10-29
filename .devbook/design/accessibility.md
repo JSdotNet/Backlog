@@ -253,7 +253,7 @@ release, and which assistive technologies are in the supported test matrix.
 ## Materialization
 
 ```meta
-related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/interaction-guidelines.md#materialization"]
+related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/interaction-guidelines.md#materialization", ".devbook/design/interaction-guidelines.md#task-rows"]
 ```
 
 The storybook is the review surface. Every component renders there in isolation
@@ -270,7 +270,7 @@ What holds today:
 | Focus visibility | Every interactive component sets its own `:focus-visible` outline in `color-border-focus` at `border-width-2` with a 2 px offset — `outline`, never a shadow |
 | Non-native focus targets | Scrollable regions that take focus say so and show it (`FileView` body, `CodeView` body) |
 | Reduced motion | Honored per component: the fold chevron and toggle drop their transitions, the spinner stops turning and becomes an opacity-only pulse, the skeleton stops altogether rather than substituting one, graph cards keep colour transitions only, and the copy confirmation keeps its cross-fade but stops scaling |
-| Not by colour alone | Save state carries text, not just a dot; badges carry their label; the inert-link style is a dotted underline as well as a colour |
+| Not by colour alone | Save state carries text, not just a dot; badges carry their label; the inert-link style is a dotted underline as well as a colour; an address in a task title, which a pointer follows though it is no anchor, wears the link colour, the same dotted underline and a pointer cursor, and keeps the underline and cursor on a finished task, whose title colour it takes |
 
 Gaps, tracked rather than assumed:
 
