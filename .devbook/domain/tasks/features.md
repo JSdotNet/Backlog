@@ -506,6 +506,56 @@ Marking a task blocked
 unless an open impediment already holds it back. Progress reacts to the mark. The task
 stores no impediment id, and Tasks never calls Progress.
 
+### Filing a follow-up after an entry
+
+```meta
+type: sub-feature
+status: proposed
+related: [.devbook/domain/tasks/requirements.md#filing-a-follow-up-after-an-entry, .devbook/domain/tasks/domain.md#dependency, .devbook/domain/notifications/features.md#asking-from-the-contexts, .devbook/domain/tasks/features.md#re-importing-an-updated-plan, .devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md]
+```
+
+File one new prompt that waits on an entry, when the person approves that entry's
+delivery run and asks for a follow-up in the same answer. The person answers the
+run's Personal Validation question with Approve + follow-up and a few words, on the
+phone or at the desktop. Sessions records the approval and asks Tasks to file the
+follow-up. The entry the run was working is the **gated entry**.
+
+The follow-up is an ordinary [Task](domain.md#task), born as follows:
+
+| Field | Value |
+| --- | --- |
+| Type | `prompt` |
+| Status | `ready` |
+| Waits on | the gated entry, as `after:<id>` |
+| Tags | the gated entry's plan tag, when it has one: its `import_plan_id`, or else the one plan tag it carries |
+| Repository | the gated entry's |
+| Title | "Follow-up: " and the gated entry's title |
+| Body | the person's words, as body text |
+| Provenance | the id of the notification whose answer asked for it |
+
+It carries the plan's tag and no `import_plan_id`. So the plan still lists it, and
+[re-importing the plan](#re-importing-an-updated-plan) leaves it alone, because
+the re-import clears tasks by `import_plan_id`. A gated entry outside any plan gets
+a follow-up with no plan tag. A follow-up of a follow-up stays in the plan through
+the tag its gated entry carries. Sessions names the gated entry by its id, or by
+its plan and item.
+
+The notification id is the follow-up's provenance and its key. An answer handed
+over twice files one follow-up, never a second. A follow-up the person deleted
+since is not filed again by the same answer.
+
+The person's words stay body text. A line that looks like a sub-item, a heading or
+a fence is kept as plain text, so the words cannot add steps or structure the person
+did not see.
+
+Nothing here creates a session request:
+[only a click in the app requests a session](../sessions/requirements.md#requirement-only-a-click-in-the-app-requests-a-session),
+as §1 of local
+[ADR 0038](../../arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
+decides. An attended `execute-plan` runs the follow-up like any other ready prompt
+of its plan once the gated entry lands, and `run-plan-item` checks it before
+doing anything.
+
 ## Multi-repo targeting
 
 ```meta

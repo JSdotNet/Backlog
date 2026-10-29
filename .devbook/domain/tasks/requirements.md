@@ -985,6 +985,67 @@ The system SHALL refuse to save entry text of the plan [Entry Kind](domain.md#en
 - **When** the person saves it as a task
 - **Then** no task is stored, and the refusal names Import
 
+## Filing a follow-up after an entry
+
+```meta
+type: requirements
+status: proposed
+related: [.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .devbook/domain/notifications/requirements.md#requirement-a-run-at-personal-validation-asks-to-be-approved]
+```
+
+> What a follow-up entry is born with, when the person approves a run with a
+> follow-up.
+
+### Requirement: A follow-up is filed once, after the gated entry
+
+```meta
+type: requirement
+status: proposed
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_in_a_plan_is_a_ready_prompt_after_the_gated_entry_with_its_plan_tag_and_repository, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_named_by_its_plan_and_item_is_found, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_outside_any_plan_gets_a_follow_up_with_no_plan_tag, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_of_a_follow_up_stays_in_the_plan, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_same_answer_handed_over_again_files_no_second_task, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_deleted_since_is_not_filed_again_by_the_same_answer, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_that_is_gone_is_not_found, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_plan_imported_again_keeps_the_follow_up, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskRepositoryTests.The_notification_a_follow_up_was_filed_from_comes_back, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeTests.The_notification_a_follow_up_was_filed_from_crosses_the_wire_and_an_older_document_reads_as_none, unit:dotnet:Backlog.Mobile.UI.UnitTests.TaskEditsTests.A_phone_edit_keeps_the_notification_a_follow_up_was_filed_from]
+```
+
+The system SHALL file exactly one task per accepted Approve + follow-up answer, of type `prompt` and status `ready`, waiting on the gated entry, carrying the gated entry's plan tag and repository and no `import_plan_id`, with the person's words as its body and the answer's notification id as its provenance.
+
+#### Scenario: A follow-up in a plan
+
+- **Given** the gated entry T-41 is a prompt in the plan `+notifications` for `owner/backlog`
+- **When** the person answers Approve + follow-up with "Add the empty-state screenshot to the docs", and the owner accepts it
+- **Then** one `ready` prompt exists `after:T-41`, tagged `+notifications`, for `owner/backlog`, with those words as its body
+
+#### Scenario: The same answer handed over again
+
+- **Given** a follow-up already filed for notification N-7
+- **When** the answer of N-7 is handed to Sessions again
+- **Then** no second task is filed
+
+#### Scenario: A gated entry outside any plan
+
+- **Given** the gated entry T-52 carries no plan tag
+- **When** the person answers Approve + follow-up with "Rename the setting"
+- **Then** one `ready` prompt exists `after:T-52`, with no plan tag
+
+#### Scenario: The plan is imported again
+
+- **Given** a follow-up filed under `+notifications`, not yet started
+- **When** the person re-imports an updated `+notifications` plan
+- **Then** the follow-up is kept, and the plan still lists it
+
+### Requirement: The person's words stay body text
+
+```meta
+type: requirement
+status: proposed
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.Words_that_look_like_a_step_stay_one_line_of_body_text, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_words_never_parse_as_structure_or_tags, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_read_view_shows_the_words_as_typed, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.Ordinary_prose_is_kept_exactly_as_typed, unit:dotnet:Backlog.SharedKernel.UnitTests.MarkdownPreviewEscapeTests]
+```
+
+The system SHALL write the words of a follow-up answer into the follow-up's body as plain text, so that no line of them becomes a sub-item, a heading or a fence.
+
+#### Scenario: Words that look like a step
+
+- **Given** a follow-up answer reading "- [ ] delete the old table"
+- **When** the follow-up is filed
+- **Then** its body holds that line as text, and the task has no sub-items
+
 ## Archive and lifecycle
 
 ```meta

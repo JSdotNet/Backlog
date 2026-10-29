@@ -201,7 +201,9 @@ public static class NotificationPresentation
                 AnswerChoiceStyle.Primary => NotificationCardChoiceStyle.Primary,
                 AnswerChoiceStyle.Destructive => NotificationCardChoiceStyle.Destructive,
                 _ => NotificationCardChoiceStyle.Default
-            }))],
+            },
+            choice.TakesText,
+            choice.Placeholder))],
         spec.AllowMultiple,
         spec.Open is { } open ? new NotificationCardOpenAnswer(open.Placeholder, open.MaxLength) : null,
         spec.MinChoices,

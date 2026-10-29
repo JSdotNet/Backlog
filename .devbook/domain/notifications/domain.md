@@ -160,9 +160,21 @@ one of four shapes:
 | Open | Plain text, with an optional placeholder and length limit. Markdown is not allowed in an answer. |
 | Choices with open | One of the set choices, or an open answer instead. |
 
+A set choice of a single-choice question may also take text, with or without an
+open answer beside it. A reply that picks it carries the person's words with it, as
+plain text within the open answer's length limit, or 2,000 characters when the
+question has no open answer. A reply that picks it with no text does not fit. A
+multiple-choice question has no choice that takes text, because a reply carries
+one text and two picked choices could not each bring their words. This is how one
+question offers two answers that each need words, such as Revise and Approve +
+follow-up on the Personal Validation question. The open answer stays separate: it
+is text instead of a choice, where a choice that takes text is text with one.
+
 Any shape may also take a **note**: plain text with an optional placeholder and
 length limit, which a reply may fill beside its choice or open answer. A note
-never answers on its own, and a question without one takes no note.
+never answers on its own, and a question without one takes no note. A note is not
+the words of a choice that takes text: those travel as the reply's text, the note
+beside them.
 
 An answer spec may also say `answerOn: owner`. Only a reply made on the owner
 instance is then accepted. Without it, any paired viewer may answer, critical
@@ -244,7 +256,8 @@ answer spec. The viewer can then reply again. The owner deletes a reply once it
 has processed it.
 
 A reply names the notification, its owner instance, the device it came from, the
-chosen choice ids, the open text and the note.
+chosen choice ids, the open text and the note. The open text also carries the
+words of a choice that takes text; the note stays apart from them.
 
 ## Answer
 

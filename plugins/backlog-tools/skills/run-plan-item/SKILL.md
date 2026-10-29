@@ -20,20 +20,14 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
 
 1. **Parse.** Invoked as `entry `<id>`:`, the argument is the entry's stored id — the one
    the connector is asked for — and the text under it is the entry. Title is its first line
-   (`# ` optional). The entry's metadata line is only a backtick line directly under the
-   title; one under a `##`/`###` heading is that step's status line, and its `task` word
-   says nothing about the entry — the app's copy drops the entry's line, so an older paste
-   can end on a step's. With no entry metadata line, a body with the marker or session-name
-   line is a prompt. The entry's metadata line, when present, wins for `id:`, the plan tag
+   (`# ` optional). Its kind is read per the grammar's `### Reading a pasted entry's kind`.
+   The entry's metadata line, when present, wins for `id:`, the plan tag
    (`+tag`; a legacy plan may still carry it as `#tag`), `repo:` and `after:`; otherwise
    read them off the plan-item marker; with the connector, `read_item` answers them too. An
    entry carrying only the session-name line yields the tag alone — say so and continue.
    A `Read first:` line (the grammar's `## Read-first line`) names the material the plan
    was written from. The body is the instructions; `## Setup:`, the devbook reminder and `- [ ]`
-   lines are its steps. A `plan` type on the metadata line, or from `read_item`, is a
-   roadmap item, not work: reply in one line that a `plan` entry is brought in by Import
-   and never run — its steps are what to paste — and stop. A `task` or `test` type — or a
-   body with neither marker nor session-name line — is the user's own work, not a prompt:
+   lines are its steps. A `plan` entry: say so in one line and stop. The user's own work:
    say so and stop.
 2. **Session and place.** Title the session `<tag>:<n> - <Title>` where the host allows
    it — the session-name line's value when it has one, else the tag, a colon and the

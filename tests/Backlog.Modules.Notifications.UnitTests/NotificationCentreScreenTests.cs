@@ -181,6 +181,32 @@ public sealed class NotificationCentreScreenTests : IDisposable
     }
 
     [Fact]
+    public async Task A_choice_that_takes_text_is_answered_from_the_pane_with_its_words()
+    {
+        var id = await PublishAsync(Question(new AnswerSpec(
+        [
+            new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+            new AnswerChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?")
+        ])));
+
+        var pane = _context.Render<NotificationCentrePane>();
+        pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='notification-card-choice-revise']")));
+
+        pane.Find("[data-testid='notification-card-choice-revise']").Click();
+        Assert.Equal(NotificationState.Open, (await _inner.GetAsync(id, Ct))!.State);
+
+        pane.Find("[data-testid='notification-card-choice-text'] textarea").Input("The toast overlaps the header");
+        pane.Find("[data-testid='notification-card-choice-send']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Answered from this desktop · Revise, “The toast overlaps the header” · just now",
+            pane.Find("[data-testid='notification-card-outcome']").TextContent));
+        var answer = (await _inner.GetAsync(id, Ct))!.Answer!;
+        Assert.Equal(["revise"], answer.ChoiceIds);
+        Assert.Equal("The toast overlaps the header", answer.Text);
+    }
+
+    [Fact]
     public async Task A_refused_answer_shows_its_reason_and_keeps_the_controls()
     {
         var spec = new AnswerSpec([], Open: new OpenAnswer(MaxLength: 5));

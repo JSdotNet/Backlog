@@ -123,9 +123,25 @@ public static class NotificationOrigins
 /// </summary>
 public sealed record NotificationSubject(string Context, string Type, string Id);
 
-/// <summary>One set answer a question offers: its id, the label a person reads, and how it
-/// is drawn.</summary>
-public sealed record AnswerChoice(string Id, string Label, AnswerChoiceStyle Style = AnswerChoiceStyle.Default);
+/// <summary>One set answer a question offers: its id, the label a person reads, how it is
+/// drawn, and whether picking it also takes the person's words
+/// (<c>.devbook/domain/notifications/domain.md#answer-spec</c>).</summary>
+/// <param name="Id">The choice id a reply names.</param>
+/// <param name="Label">What a person reads on the button.</param>
+/// <param name="Style">How the choice is drawn.</param>
+/// <param name="TakesText">Whether a reply that picks this choice must carry non-empty plain
+/// text, within the open answer's length limit (or <see cref="OpenAnswer.DefaultMaxLength"/>
+/// when the question has no open answer). Allowed in a single-choice question only. A
+/// surface that cannot take text inline — a toast, a tray action — offers no inline
+/// choices for a question that has one.</param>
+/// <param name="Placeholder">The hint shown in the text box of a choice that takes text, or
+/// null.</param>
+public sealed record AnswerChoice(
+    string Id,
+    string Label,
+    AnswerChoiceStyle Style = AnswerChoiceStyle.Default,
+    bool TakesText = false,
+    string? Placeholder = null);
 
 /// <summary>
 /// The plain-text answer a question takes, with an optional placeholder and a length
@@ -143,7 +159,9 @@ public sealed record OpenAnswer(string? Placeholder = null, int MaxLength = Open
 /// single choice (two to eight <see cref="Choices"/>), multiple choice
 /// (<see cref="AllowMultiple"/>, within <see cref="MinChoices"/> and <see cref="MaxChoices"/>),
 /// open (no choices, an <see cref="Open"/> answer), or choices with open (one choice, or
-/// the open answer instead). Any shape may also take a <see cref="Note"/> beside its answer.
+/// the open answer instead). In a single-choice question any choice may
+/// <see cref="AnswerChoice.TakesText"/>; the reply then carries the choice and its words. Any
+/// shape may also take a <see cref="Note"/> beside its answer, separate from a choice's words.
 /// </summary>
 /// <param name="Choices">The set answers; empty for an open question.</param>
 /// <param name="AllowMultiple">Whether a reply may pick several choices.</param>
@@ -208,7 +226,8 @@ public sealed record NotificationDraft(
 /// <param name="OwnerInstanceId">The owner instance the reply is addressed to.</param>
 /// <param name="FromDeviceId">The device the person replied on.</param>
 /// <param name="ChoiceIds">The chosen choice ids; empty for an open answer.</param>
-/// <param name="Text">The open answer's text, or null.</param>
+/// <param name="Text">The open answer's text, or the words of a picked choice that
+/// <see cref="AnswerChoice.TakesText"/>; null otherwise.</param>
 /// <param name="RepliedAt">When the person replied.</param>
 /// <param name="Note">The note written beside the answer, or null; only where the answer spec
 /// takes a <see cref="AnswerSpec.Note"/>.</param>
@@ -232,7 +251,8 @@ public sealed record NotificationReply(
 /// <param name="ReplyId">The reply the owner accepted.</param>
 /// <param name="FromDeviceId">The device the person answered on.</param>
 /// <param name="ChoiceIds">The chosen choice ids; empty for an open answer.</param>
-/// <param name="Text">The open answer's text, or null.</param>
+/// <param name="Text">The open answer's text, or the words of a picked choice that
+/// <see cref="AnswerChoice.TakesText"/>; null otherwise.</param>
 /// <param name="AnsweredAt">When the owner accepted it.</param>
 /// <param name="Note">The note written beside the answer, or null.</param>
 public sealed record NotificationAnswer(
