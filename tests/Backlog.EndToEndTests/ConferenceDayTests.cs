@@ -249,8 +249,8 @@ public sealed class ConferenceDayTests
             await evidence.ScreenshotAsync(desktop.Page, "desktop-shows-done");
 
             await desktop.OpenTaskAsync(nowTask);
-            Assert.True(await DesktopHarness.IsTickedAsync(desktop.Step(stepOne)), $"{stepOne} should be ticked on the desktop.");
-            Assert.False(await DesktopHarness.IsTickedAsync(desktop.Step(stepTwo)), $"{stepTwo} should still be open on the desktop.");
+            Assert.True(await desktop.IsStepDoneAsync(stepOne), $"{stepOne} should be ticked on the desktop.");
+            Assert.False(await desktop.IsStepDoneAsync(stepTwo), $"{stepTwo} should still be open on the desktop.");
             await evidence.ScreenshotAsync(desktop.Page, "desktop-step-ticked");
 
             // 5. Move a task to tomorrow from the phone: it leaves Today, and the

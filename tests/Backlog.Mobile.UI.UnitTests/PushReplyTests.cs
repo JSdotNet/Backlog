@@ -71,10 +71,10 @@ public sealed class PushReplyTests : IDisposable
     {
         var question = await HoldAsync(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-2), TestNotifications.Validation()));
 
-        Assert.Null(await _projection.ReplyAsync(question.Id, ["revise"], "  ", TestContext.Current.CancellationToken));
+        Assert.Null(await _projection.ReplyAsync(question.Id, ["revise"], "  ", cancellationToken: TestContext.Current.CancellationToken));
         Assert.Empty(_outbox.Entries);
 
-        await _projection.ReplyAsync(question.Id, ["revise"], " The toast overlaps the header ", TestContext.Current.CancellationToken);
+        await _projection.ReplyAsync(question.Id, ["revise"], " The toast overlaps the header ", cancellationToken: TestContext.Current.CancellationToken);
 
         var queued = ReplyOutboxKind.Read(Assert.Single(_outbox.Entries));
         Assert.Equal(["revise"], queued.ChoiceIds);

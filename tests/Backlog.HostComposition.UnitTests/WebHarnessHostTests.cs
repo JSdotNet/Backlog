@@ -344,7 +344,7 @@ public class WebHarnessHostTests
 
         var probes = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationSubjectProbe>().ToList();
 
-        Assert.Equal(["devbook", "sessions", "sync", "tasks"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
+        Assert.Equal(["devbook", "sessions", "spec-manager", "sync", "tasks"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
         Assert.IsType<Backlog.Infrastructure.Devbook.RemarkNotificationStore>(
             harness.Services.GetRequiredService<Backlog.Modules.Devbook.Abstractions.IDevbookAnnotationStore>());
         Assert.IsType<Backlog.Desktop.UI.PullRequests.PullRequestSubjects>(
@@ -355,7 +355,8 @@ public class WebHarnessHostTests
     /// <summary>
     /// Every context that asks questions registers an answer handler for its source, and
     /// the port resolves with them: the MCP tools, the Settings page's test question
-    /// (Notifications), a run's Personal Validation (Sessions), and the device that
+    /// (Notifications), a run's Personal Validation (Sessions), a spec-manager question
+    /// (the spec-manager adapter), and the device that
     /// redeemed a pairing code (Sync).
     /// </summary>
     [Fact]
@@ -365,7 +366,7 @@ public class WebHarnessHostTests
 
         var handlers = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationAnswerHandler>().ToList();
 
-        Assert.Equal(["mcp", "notifications", "sessions", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
+        Assert.Equal(["mcp", "notifications", "sessions", "spec-manager", "sync"], handlers.Select(handler => handler.Source).Order(StringComparer.Ordinal));
         Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Notifications.Abstractions.INotifications>());
     }
 

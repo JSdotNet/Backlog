@@ -30,12 +30,15 @@ public sealed class NotificationExchangeTests : IDisposable
     private readonly SyncServiceFactory _service = new();
     private readonly string _root = Path.Combine(Path.GetTempPath(), "notification-sync-" + Guid.NewGuid().ToString("N"));
     private ServiceProvider? _desktop;
+    private ServiceProvider? _secondDesktop;
+    private Guid _ownerId;
 
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
     public void Dispose()
     {
         _desktop?.Dispose();
+        _secondDesktop?.Dispose();
         _service.Dispose();
 
         if (Directory.Exists(_root))
@@ -215,6 +218,74 @@ public sealed class NotificationExchangeTests : IDisposable
         Assert.False(second.Value.PolledReplies);
     }
 
+    /// <summary>
+    /// A source that names its notification by a derived id — one spec-manager question read on
+    /// two signed-in desktops — publishes the same id on both. The replica keeps the desktop that
+    /// put it there first, and the second closes its own copy rather than ask the person a
+    /// question whose answer its owner would never see.
+    /// </summary>
+    [Fact]
+    public async Task A_notification_another_desktop_put_on_the_replica_first_closes_on_the_second()
+    {
+        var owner = await OwnerWithViewersAsync();
+        var shared = Guid.Parse("5a5a0000-0000-5000-8000-000000000001");
+        var draft = new NotificationDraft(
+            new NotificationSource("spec-manager", "billing/q-1"),
+            new NotificationSubject("spec-manager", "question", "q-1"),
+            NotificationKind.Question,
+            NotificationSeverity.Info,
+            "Which rounding rule applies?",
+            "#7 Rounding",
+            string.Empty,
+            new AnswerSpec([new AnswerChoice("1", "Half even"), new AnswerChoice("2", "Half up")]),
+            Id: shared);
+        await owner.Notifications.PublishAsync(draft, Cancellation);
+        Assert.True((await owner.Session.SyncAsync(Cancellation)).IsSuccess);
+
+        var (second, notifications) = SecondDesktop(owner);
+        await notifications.PublishAsync(draft, Cancellation);
+        Assert.True((await second.SyncAsync(Cancellation)).IsSuccess);
+
+        var status = await _secondDesktop!.GetRequiredService<INotificationReplication>().GetAsync(shared, Cancellation);
+        Assert.Equal(NotificationState.Closed, status!.State);
+        Assert.Equal(NotificationSyncSession.OwnedElsewhereReason, status.CloseReason);
+
+        var onTheFeed = await owner.LatestOnTheFeedAsync(shared);
+        Assert.Equal(DesktopInstance, onTheFeed.Notification.OwnerInstanceId);
+        Assert.Equal(NotificationState.Open, onTheFeed.Notification.State);
+
+        // Closed and marked pushed, so the next exchange offers nothing of it again.
+        Assert.Equal(0, (await second.SyncAsync(Cancellation)).Value.Pushed);
+    }
+
+    /// <summary>The laptop as a second desktop of the same owner: its own instance, its own
+    /// notifications, its own exchange.</summary>
+    private (NotificationSyncSession Session, INotifications Notifications) SecondDesktop(Owner owner)
+    {
+        var root = Path.Combine(_root, "laptop");
+        Directory.CreateDirectory(root);
+        var identity = new FixedIdentity(new DeviceIdentity(Guid.Parse("7f3a0000-0000-0000-0000-0000000000d2"), "LAPTOP"));
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IDeviceIdentitySource>(identity);
+        services.AddSingleton<INotificationRepository>(new SqliteNotificationRepository(root));
+        services.AddNotificationsModule();
+        _secondDesktop = services.BuildServiceProvider();
+
+        var notifications = _secondDesktop.GetRequiredService<INotifications>();
+        var session = new NotificationSyncSession(
+            new NotificationSyncClient(owner.Laptop),
+            _secondDesktop.GetRequiredService<INotificationReplication>(),
+            _secondDesktop.GetRequiredService<INotificationReplies>(),
+            new FileNotificationSyncStateStore(Path.Combine(root, "notification-sync-state.json")),
+            new InMemoryDeviceCredentialStore(new DeviceCredential(_ownerId, owner.LaptopDevice, "Laptop", "unused")),
+            identity,
+            TimeProvider.System,
+            owner: notifications);
+
+        return (session, notifications);
+    }
+
     // --- The owner and its viewers ------------------------------------------------------
 
     private async Task<Owner> OwnerWithViewersAsync()
@@ -222,6 +293,7 @@ public sealed class NotificationExchangeTests : IDisposable
         var desktopHttp = _service.CreateClient();
         var registration = await desktopHttp.RegisterDevice("Study desktop");
         desktopHttp.Bearing(await desktopHttp.DeviceToken(registration));
+        _ownerId = registration.OwnerId;
 
         var (phone, phoneDevice) = await PairAsync(desktopHttp, "Phone");
         var (laptop, laptopDevice) = await PairAsync(desktopHttp, "Laptop");

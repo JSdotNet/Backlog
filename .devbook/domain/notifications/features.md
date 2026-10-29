@@ -130,6 +130,33 @@ decides.
 An attended `execute-plan` reads the decision from the run, and runs the follow-up
 as a ready entry once the gated entry lands.
 
+spec-manager reaches the person the same way. While a desktop is signed in to an
+installation, the questions on its connected products that are assigned to the
+person, and the unassigned ones they may answer, arrive as questions: each option a
+choice, "Other" the open answer, and a note beside either. A product's "Only
+questions assigned to me" leaves the unassigned ones out. spec-manager also pushes
+each question to a phone subscribed to it, so that phone gets both pushes; the
+product's card says to switch off "Backlog question" in spec-manager's notification
+preferences on that phone to keep only Backlog's. The desktop follows
+spec-manager's notification stream and pulls on each change, every five minutes
+besides, and every two minutes while the stream is down. The answer goes back to
+spec-manager. If the product does not take answers from a connected app, or someone
+answered first, an alert says so. While the desktop is signed out, the answer
+waits, and the sign-in line asks the person to sign in. A question answered,
+deleted or reassigned away in spec-manager closes here. One that reaches the
+person again, reassigned back or let in again by turning "Only questions assigned
+to me" off, arrives as a new question. The desktop that held it asks it again,
+under an id every desktop that held the same earlier rounds derives alike; one
+answered never comes back.
+
+The person's other spec-manager notifications arrive as alerts on the same pulls:
+a mention, a reply, a change proposal's or an input item's fate, review work, and
+administration. Only the unread ones come in, and only those created after the
+person first signed in to that installation from this desktop; older ones stay in
+spec-manager. A mention is a warning, the rest are info, and each opens where
+spec-manager points. Acknowledging the alert here, on any device, marks it read in
+spec-manager. One read in spec-manager closes here as "Read in spec-manager".
+
 ## Closing a notification
 
 ```meta

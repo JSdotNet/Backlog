@@ -175,6 +175,60 @@ public sealed class ReplyInvariantTests
         Assert.Empty(answer.Value.ChoiceIds);
     }
 
+    [Fact]
+    public void A_note_goes_beside_a_choice_or_an_open_answer_within_its_limit()
+    {
+        var spec = new AnswerSpec(Journeys, Open: new OpenAnswer(), Note: new OpenAnswer("Add a note", MaxLength: 40));
+
+        Assert.True(ReplyValidation.Validate(spec, ["pair"], null, "Only on Wi-Fi").IsSuccess);
+        Assert.True(ReplyValidation.Validate(spec, [], "Signals", "Rename later").IsSuccess);
+        Assert.True(ReplyValidation.Validate(spec, ["pair"], null, new string('n', 40)).IsSuccess);
+
+        var tooLong = ReplyValidation.Validate(spec, ["pair"], null, new string('n', 41));
+        Assert.Equal("reply.invalid", tooLong.Error.Code);
+        Assert.Contains("note", tooLong.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_note_alone_is_no_answer()
+    {
+        var spec = new AnswerSpec(Journeys, Note: new OpenAnswer());
+
+        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, [], null, "Just a note").Error.Code);
+    }
+
+    [Fact]
+    public void A_question_without_a_note_takes_no_note()
+    {
+        var spec = new AnswerSpec(Journeys);
+
+        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["pair"], null, "A note").Error.Code);
+        Assert.True(ReplyValidation.Validate(spec, ["pair"], null, "   ").IsSuccess);
+    }
+
+    [Fact]
+    public void The_owner_keeps_the_note_with_the_accepted_answer()
+    {
+        var notification = Asking(new AnswerSpec(Journeys, Note: new OpenAnswer(MaxLength: 4000)));
+
+        var answer = notification.Accept(Reply(notification, choices: ["pace"], note: "  Only for Q4  "), Owner, Now);
+
+        Assert.True(answer.IsSuccess);
+        Assert.Equal(["pace"], answer.Value.ChoiceIds);
+        Assert.Equal("Only for Q4", answer.Value.Note);
+        Assert.Equal("Only for Q4", notification.Answer!.Note);
+    }
+
+    [Fact]
+    public void A_choices_words_and_a_note_travel_apart()
+    {
+        var spec = Validation() with { Note = new OpenAnswer(MaxLength: 40) };
+
+        Assert.True(ReplyValidation.Validate(spec, ["revise"], "Split the migration in two", "Only on Wi-Fi").IsSuccess);
+        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["revise"], null, "Split the migration in two").Error.Code);
+        Assert.Equal("reply.invalid", ReplyValidation.Validate(spec, ["approve"], "Looks good", "Only on Wi-Fi").Error.Code);
+    }
+
     // --- A reply to a closed question is rejected ---------------------------------------
 
     [Fact]
@@ -243,8 +297,23 @@ public sealed class ReplyInvariantTests
         new AnswerSpec([], Open: new OpenAnswer()),
         new AnswerSpec(Journeys, Open: new OpenAnswer("Or suggest one")),
         new AnswerSpec([new AnswerChoice("approve", "Approve"), new AnswerChoice("revise", "Revise", TakesText: true)]),
-        new AnswerSpec([new AnswerChoice("approve", "Approve"), new AnswerChoice("revise", "Revise", TakesText: true)], Open: new OpenAnswer())
+        new AnswerSpec([new AnswerChoice("approve", "Approve"), new AnswerChoice("revise", "Revise", TakesText: true)], Open: new OpenAnswer()),
+        new AnswerSpec(Choices(8)),
+        new AnswerSpec(Choices(8), Open: new OpenAnswer(MaxLength: 4000), Note: new OpenAnswer("Add a note", MaxLength: 4000)),
+        new AnswerSpec(Journeys, AllowMultiple: true, Note: new OpenAnswer()),
+        new AnswerSpec([], Open: new OpenAnswer(), Note: new OpenAnswer())
     ];
+
+    private static AnswerChoice[] Choices(int count) =>
+        [.. Enumerable.Range(1, count).Select(n => new AnswerChoice($"c{n}", $"Choice {n}"))];
+
+    [Fact]
+    public void A_question_offers_two_to_eight_set_choices()
+    {
+        Assert.Equal(8, AnswerSpecRules.MaximumChoices);
+        Assert.True(AnswerSpecRules.Validate(new AnswerSpec(Choices(8))).IsSuccess);
+        Assert.Equal("notification.invalid_answer_spec", AnswerSpecRules.Validate(new AnswerSpec(Choices(9))).Error.Code);
+    }
 
     [Theory]
     [MemberData(nameof(Allowed))]
@@ -255,7 +324,8 @@ public sealed class ReplyInvariantTests
     [
         new AnswerSpec([]),
         new AnswerSpec([new AnswerChoice("yes", "Yes")]),
-        new AnswerSpec([.. Enumerable.Range(1, 7).Select(n => new AnswerChoice($"c{n}", $"Choice {n}"))]),
+        new AnswerSpec(Choices(9)),
+        new AnswerSpec(Journeys, Note: new OpenAnswer(MaxLength: 0)),
         new AnswerSpec([new AnswerChoice("a", "A"), new AnswerChoice("a", "Again")]),
         new AnswerSpec([new AnswerChoice("a", "A"), new AnswerChoice("b", " ")]),
         new AnswerSpec(Journeys, AllowMultiple: true, Open: new OpenAnswer()),

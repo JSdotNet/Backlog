@@ -19,8 +19,9 @@ namespace Backlog.Modules.Notifications.Toasts;
 /// <item>A question whose answers do not fit — several to pick, more choices than buttons, or a
 /// choice that takes text — offers "Open in Backlog", which opens it in the centre.</item>
 /// <item>An alert offers Acknowledge.</item>
-/// <item>Only the title and the summary leave the app, and a private notification's summary is
-/// replaced by <see cref="PrivateSummary"/>.</item>
+/// <item>Only the title, the summary and the origin's "System · Place" leave the app, and a
+/// private notification's summary is replaced by <see cref="PrivateSummary"/>. The origin is the
+/// attribution line.</item>
 /// </list>
 /// </summary>
 public static class NotificationToast
@@ -100,7 +101,8 @@ public static class NotificationToast
             notification.Severity,
             Arguments(notification.Id, OpenAction),
             buttons,
-            textBox);
+            textBox,
+            notification.Origin?.Line);
     }
 
     /// <summary>
@@ -154,7 +156,8 @@ public static class NotificationToast
 }
 
 /// <summary>One operating-system notification: its text, what a press on its body carries, its
-/// buttons in order, and the text box an open answer is typed in.</summary>
+/// buttons in order, the text box an open answer is typed in, and the attribution line that says
+/// where it came from — "System · Place", or null for a notification that names no origin.</summary>
 public sealed record NotificationToastContent(
     Guid NotificationId,
     string Title,
@@ -162,7 +165,8 @@ public sealed record NotificationToastContent(
     NotificationSeverity Severity,
     IReadOnlyDictionary<string, string> Arguments,
     IReadOnlyList<NotificationToastButton> Buttons,
-    NotificationToastTextBox? TextBox)
+    NotificationToastTextBox? TextBox,
+    string? Attribution = null)
 {
     /// <summary>The tag the platform keeps the notification under, so a settled one can be
     /// taken down again.</summary>

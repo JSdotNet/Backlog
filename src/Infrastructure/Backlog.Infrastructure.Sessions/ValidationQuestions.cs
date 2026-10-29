@@ -262,7 +262,11 @@ internal static class ValidationQuestions
                         : Array.Empty<AnswerChoice>(),
                     new AnswerChoice(SessionNotificationSubjects.ReviseChoice, "Revise", TakesText: true, Placeholder: "What should change?"),
                     new AnswerChoice(SessionNotificationSubjects.RejectChoice, "Reject", AnswerChoiceStyle.Destructive)
-                ]));
+                ]),
+            Origin: NotificationOrigin.Fit(
+                NotificationOrigins.ClaudeCode,
+                string.IsNullOrWhiteSpace(repository) ? title : $"{repository.Trim()}{NotificationOrigin.Separator}{title}",
+                via: NotificationOrigins.AgentSession));
     }
 
     /// <summary>

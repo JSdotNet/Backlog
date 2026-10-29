@@ -72,6 +72,9 @@ public sealed class ValidationQuestionTests : IDisposable
         }
 
         Assert.DoesNotContain(Worktree, draft.BodyMarkdown, StringComparison.Ordinal);
+        Assert.Equal(
+            new NotificationOrigin("Claude Code", "JSdotNet/Backlog · notifications:11 - Raise notifications", Via: "Agent session"),
+            draft.Origin);
 
         foreach (var outside in new[] { draft.Title, draft.Summary ?? string.Empty })
         {

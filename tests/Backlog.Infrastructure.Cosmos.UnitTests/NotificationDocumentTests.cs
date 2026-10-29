@@ -114,6 +114,22 @@ public class NotificationDocumentTests
         Assert.Equal(["yes"], record.Reply.ChoiceIds);
     }
 
+    [Fact]
+    public void A_reply_keeps_the_note_written_beside_its_answer()
+    {
+        var reply = new NotificationReplyPost(Guid.CreateVersion7(), NotificationId, Instance, ["half-even"], null, DateTimeOffset.UtcNow, "Only for invoice totals");
+
+        var document = NotificationDocumentFactory.From(Scope, reply, new CosmosOptions());
+
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options));
+        Assert.Equal("Only for invoice totals", json.RootElement.GetProperty("note").GetString());
+
+        var record = NotificationDocumentFactory.ToRecord(document);
+        Assert.NotNull(record);
+        Assert.Equal(["half-even"], record.Reply.ChoiceIds);
+        Assert.Equal("Only for invoice totals", record.Reply.Note);
+    }
+
     private static NotificationChange Change(string state) =>
         new(NotificationId, Instance, state, DateTimeOffset.UtcNow, JsonSerializer.SerializeToElement(new { title = "Run the migration?" }));
 }

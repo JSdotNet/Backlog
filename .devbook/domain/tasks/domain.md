@@ -1085,10 +1085,12 @@ the person can act on. The reasons are a target that is not there, an account
 that may not read it, a source Backlog's settings do not name, and nobody
 signed in. Any other failure reads as the source not being reached.
 
-Of what a connector declares it can do, only two things change anything yet:
-whether it can complete an item at the source, and whether a target is a code
-repository. Effort, dependencies, setting a status and commenting are declared
-but drive nothing.
+Of what a connector declares it can do, only three things change anything yet:
+whether it can complete an item at the source, whether a target is a code
+repository, and whether it asks the person questions about its items. Effort,
+dependencies, setting a status and commenting are declared but drive nothing. A
+connector a person signs in to may also say what it asks of them beside the
+sign-in, such as signing in again to send answers that wait.
 
 GitHub and spec-manager are the first two. This context never names a
 connector, so the source badge and the Source filter are drawn from the
@@ -1112,6 +1114,9 @@ holds the connector id, whether it is enabled, and these settings:
 - the sync interval, fifteen minutes by default;
 - whether finishing a task here completes its item at the source, off by
   default and offered only when the connector can complete items;
+- whether only the questions assigned to the person reach them, rather than
+  those and the unassigned ones they may answer, off by default and offered
+  only when the connector asks questions;
 - the repository its tasks are filed under, or none to leave it to the
   connector;
 - its status map, from the source's own status names to task statuses, empty

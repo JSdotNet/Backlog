@@ -409,6 +409,10 @@ internal sealed class FakeGoals : IGoals
         return Task.FromResult(Result.Success());
     }
 
+    /// <summary>No tool moves a goal; the port's move is the Goals view's.</summary>
+    public Task<Result> MoveAsync(Guid goalId, int toIndex, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
     public Task<Result<GoalDto>> AttachAsync(Guid goalId, GoalItemDto item, bool moveFromOtherGoal = false, CancellationToken cancellationToken = default)
     {
         Attached = (goalId, item, moveFromOtherGoal);

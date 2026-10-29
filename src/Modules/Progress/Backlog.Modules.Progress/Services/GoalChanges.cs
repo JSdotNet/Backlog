@@ -41,12 +41,40 @@ public sealed class GoalChanges(IGoalRepository repository, ProgressGate gate, G
         return goal.ToDto();
     }
 
-    /// <summary>Saves a new goal under the gate and announces it.</summary>
+    /// <summary>Puts goal <paramref name="goalId"/> at <paramref name="toIndex"/> in the
+    /// person's order (<see cref="GoalOrdering.MoveTo"/>) and saves the goals that took a new
+    /// rank — the one that moved, and its neighbours only when they had no room left. A goal
+    /// moved to the place it holds saves nothing and announces nothing.</summary>
+    public async Task<Result> MoveAsync(Guid goalId, int toIndex, CancellationToken cancellationToken = default)
+    {
+        using var held = await gate.EnterAsync(cancellationToken).ConfigureAwait(false);
+
+        var all = await repository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var goal = all.FirstOrDefault(candidate => candidate.Id == goalId);
+        if (goal is null) return Result.Failure(ProgressErrors.GoalNotFound(goalId));
+
+        var placed = GoalOrdering.MoveTo(all, goal, toIndex);
+        if (placed.Count == 0) return Result.Success();
+
+        foreach (var changed in placed)
+        {
+            await repository.SaveAsync(changed, cancellationToken).ConfigureAwait(false);
+        }
+
+        held.Dispose();
+        saved.Raise();
+        return Result.Success();
+    }
+
+    /// <summary>Saves a new goal under the gate and announces it. It lands last in the
+    /// person's order (<see cref="GoalOrdering.PlaceNew"/>), in the same one write.</summary>
     public async Task<Result<GoalDto>> AddAsync(Goal goal, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(goal);
 
         using var held = await gate.EnterAsync(cancellationToken).ConfigureAwait(false);
+        var all = await repository.ListAsync(cancellationToken).ConfigureAwait(false);
+        GoalOrdering.PlaceNew(all, goal);
         await repository.SaveAsync(goal, cancellationToken).ConfigureAwait(false);
         held.Dispose();
         saved.Raise();

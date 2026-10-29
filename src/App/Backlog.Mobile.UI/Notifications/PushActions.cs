@@ -115,7 +115,7 @@ public static class PushActions
         ArgumentNullException.ThrowIfNull(projection);
 
         return ToReply(key, text) is { } pick
-            ? projection.ReplyAsync(notificationId, pick.ChoiceIds, pick.Text, cancellationToken)
+            ? projection.ReplyAsync(notificationId, pick.ChoiceIds, pick.Text, cancellationToken: cancellationToken)
             : Task.FromResult<NotificationReplyPost?>(null);
     }
 }

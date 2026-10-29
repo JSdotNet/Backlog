@@ -55,10 +55,10 @@ The system SHALL refuse a Question that names no subject.
 ```meta
 status: proposed
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_offers_one_of_four_answer_shapes, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.Any_other_answer_spec_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_accepts_an_open_answer_instead_of_a_choice, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_accepts_a_choice_with_its_words, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_refuses_a_choice_that_takes_text_sent_without_it_and_stays_open, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.A_choice_that_takes_text_is_answered_from_the_pane_with_its_words]
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_offers_one_of_four_answer_shapes, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.Any_other_answer_spec_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_accepts_an_open_answer_instead_of_a_choice, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_accepts_a_choice_with_its_words, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_refuses_a_choice_that_takes_text_sent_without_it_and_stays_open, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.A_choice_that_takes_text_is_answered_from_the_pane_with_its_words, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_offers_two_to_eight_set_choices, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_keeps_the_note_with_the_accepted_answer, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreTests.An_answer_carries_the_note_written_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.NotificationCardTests.Seven_or_eight_choices_lay_out_as_a_wrapping_grid_and_fewer_stay_one_row, unit:dotnet:Backlog.UI.Components.UnitTests.NotificationCardTests.A_question_that_takes_a_note_sends_it_with_the_choice_pressed, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.Eight_choices_wrap_and_a_note_goes_with_the_choice_into_the_outbox]
 ```
 
-The system SHALL accept a Question whose answer is single choice, multiple choice, open plain text, or choices plus an open answer, and nothing else, and SHALL let a set choice of a single-choice question take text.
+The system SHALL accept a Question whose answer is single choice from two to eight set choices, multiple choice, open plain text, or choices plus an open answer, and nothing else; SHALL let a set choice of a single-choice question take text; and SHALL let any of these shapes take an optional plain-text note that a reply carries beside its answer.
 
 #### Scenario: Choices with an open answer
 
@@ -77,6 +77,12 @@ The system SHALL accept a Question whose answer is single choice, multiple choic
 - **Given** a single-choice question whose choice Revise takes text
 - **When** a viewer picks Revise and types nothing
 - **Then** the owner rejects the reply as not fitting the answer spec, and the viewer can reply again
+
+#### Scenario: Eight choices and a note
+
+- **Given** a source asks "Which rounding rule applies to invoice totals?" with eight choices and a note of at most 4,000 characters
+- **When** a viewer picks "Round half even" and writes "Only for invoice totals" in "Add a note (optional)"
+- **Then** the owner accepts "Round half even" as the answer, with "Only for invoice totals" as its note
 
 ### Requirement: A notification has no deadline and no default answer
 

@@ -15,7 +15,7 @@ namespace Backlog.Modules.Progress.Abstractions;
 /// <param name="Length">The iteration length the stand-up is read by.</param>
 /// <param name="TwoWeekStart">The day two-week windows count from, or null for none set.</param>
 /// <param name="Week">The person's working week.</param>
-/// <param name="Goals">Every goal, in the order they were set.</param>
+/// <param name="Goals">Every goal, in the person's order (<see cref="GoalOrder"/>).</param>
 /// <param name="Impediments">Every impediment, open and resolved, in the order they were raised.</param>
 /// <param name="Tasks">The tasks the reading has: at least those
 /// <see cref="StandUpReading.TaskQuery"/> asks for. More are harmless.</param>
