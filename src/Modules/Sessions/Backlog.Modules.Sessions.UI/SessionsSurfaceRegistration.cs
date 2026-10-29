@@ -6,7 +6,7 @@ namespace Backlog.Modules.Sessions.UI;
 
 /// <summary>
 /// Puts the Sessions context's session list in the shell as a takeover-group
-/// <see cref="ShellSurface"/> (local ADR 0042 §1), offered behind
+/// <see cref="ShellSurface"/> (local ADR 0043 §1), offered behind
 /// <see cref="SessionFeatures.Sessions"/>, the flag its header option has always gated
 /// on. It accepts <see cref="SessionKey"/>, the session to open on (§6). On the
 /// precedent of <c>AddDevbookSurface</c>; safe to call twice.

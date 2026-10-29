@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.UnitTests;
 
 /// <summary>
-/// The catalog the shell reads its surfaces from (local ADR 0042 §1): ordered by
+/// The catalog the shell reads its surfaces from (local ADR 0043 §1): ordered by
 /// group then <see cref="ShellSurface.Order"/>, filtered by each surface's feature,
 /// refusing a duplicate id, and answering "not available" for an id it cannot offer.
 /// </summary>

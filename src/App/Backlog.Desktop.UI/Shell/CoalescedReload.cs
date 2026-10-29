@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// starting a second over the first. At most one reload is in flight, and the last
 /// write is always read unless a reload fails: then the next write reads it.
 /// <para>
-/// One per window, because each window has its own list (local ADR 0042 §5): the
+/// One per window, because each window has its own list (local ADR 0043 §5): the
 /// main window's <c>Home</c> holds one, and so does every <see cref="SurfaceWindow"/>.
 /// Not thread-safe by design — the owner calls it only on its renderer's
 /// dispatcher, which is where the reload has to run anyway.

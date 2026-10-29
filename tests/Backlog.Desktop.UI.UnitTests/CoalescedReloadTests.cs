@@ -3,7 +3,7 @@ using Backlog.Desktop.UI.Shell;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// A window's reload for writes it did not make, coalesced (local ADR 0042 §5): a burst
+/// A window's reload for writes it did not make, coalesced (local ADR 0043 §5): a burst
 /// of signals while a reload runs is one more reload, never one per signal and never
 /// two at once, and a failed reload lets go of what it owed so the next signal starts
 /// over.

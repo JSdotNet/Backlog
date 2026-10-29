@@ -148,7 +148,7 @@ public static class MauiProgram
             AppUpdateService = sp => ActivatorUtilities.CreateInstance<MsixAppUpdateService>(sp),
             CopilotCliLauncher = _ => new ProcessCopilotCliLauncher(),
             SessionRepositoryResolver = sp => new SettingsSessionRepositoryResolver(sp.GetRequiredService<GitHubSettingsStore>()),
-            // One set per window (local ADR 0042, §5): the panes' state, the save-state
+            // One set per window (local ADR 0043, §5): the panes' state, the save-state
             // band, the toast channel, the Report issue channel, the update window's
             // requests, the Inbox's drafter and advisor and the Devbook's domain store
             // live in the scope each window's BlazorWebView opens, the way the harness
@@ -172,26 +172,26 @@ public static class MauiProgram
         // port into this one rather than composing a second ITaskItems.
         builder.Services.TryAddSingleton<McpServerWorker>();
         // The link tokens that admit a browser to the listener's pop-out pages
-        // (local ADR 0042 §7): one set for the app's life, so a token minted by an
+        // (local ADR 0043 §7): one set for the app's life, so a token minted by an
         // MCP tool is the one the listener redeems.
         builder.Services.TryAddSingleton<WindowLinkTokens>();
-        // The head's windows (local ADR 0042 §4): the main one App asks for, and every
+        // The head's windows (local ADR 0043 §4): the main one App asks for, and every
         // surface popped out beside it. Twice over, so App reaches the concrete type
         // that makes the main window while every caller sees the port.
         // shell-windows.json in the head's own app-data folder - Backlog.Debug for a
         // debug head - beside shell-navigation.json: where each surface's last
-        // popped-out window stood (local ADR 0042 §5). The head's own, since only its
+        // popped-out window stood (local ADR 0043 §5). The head's own, since only its
         // windows have bounds.
         builder.Services.TryAddSingleton(_ => new ShellWindowStore(Path.Combine(appData, ShellWindowStore.FileName)));
         builder.Services.TryAddSingleton<ShellWindows>();
         builder.Services.TryAddSingleton<IShellWindows>(sp => sp.GetRequiredService<ShellWindows>());
-        // What open_window opens and links to (local ADR 0042 §7): these windows, and a
+        // What open_window opens and links to (local ADR 0043 §7): these windows, and a
         // tokenized link to the listener's page at the port it is listening on now.
         builder.Services.TryAddSingleton<ISurfaceWindowHost>(sp => new DesktopSurfaceWindowHost(
             sp.GetRequiredService<IShellWindows>(),
             sp.GetRequiredService<WindowLinkTokens>(),
             () => sp.GetService<McpServerWorker>()?.Address?.Port));
-        // What a backlog:// link opens (local ADR 0042 §7): BacklogLinkInstance hands it
+        // What a backlog:// link opens (local ADR 0043 §7): BacklogLinkInstance hands it
         // the link the app was launched with and every one redirected here later.
         builder.Services.TryAddSingleton<BacklogLinkActivation>();
         // The Brain card's Browse: this head has a window to open the Windows
@@ -261,7 +261,7 @@ public static class MauiProgram
 #endif
 
         // What this head composed, for the MCP listener's pop-out pages (local ADR
-        // 0042 §7): a page served there renders this head's panes, and the listener
+        // 0043 §7): a page served there renders this head's panes, and the listener
         // forwards whatever they inject into this container rather than composing a
         // second one. Last, so the snapshot holds every registration above.
         builder.Services.AddSingleton(new DesktopServiceRegistrations([.. builder.Services]));
@@ -369,7 +369,7 @@ public static class MauiProgram
         // setting from here on (local ADR 0026 §4).
         app.Services.GetRequiredService<BrainFolderWatch>().Start();
 
-        // And the backlog:// links (local ADR 0042 §7): the one this launch carried and
+        // And the backlog:// links (local ADR 0043 §7): the one this launch carried and
         // any redirected here since the App constructor claimed the instance, held until
         // the main window is up.
         BacklogLinkInstance.Attach(app.Services.GetRequiredService<BacklogLinkActivation>());

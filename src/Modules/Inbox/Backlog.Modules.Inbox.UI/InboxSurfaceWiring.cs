@@ -4,7 +4,7 @@ namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// What the Inbox surface draws that another context answers: the Capture button's run
-/// and the sources panel beside it, both the Capture context's (local ADR 0042 §1).
+/// and the sources panel beside it, both the Capture context's (local ADR 0043 §1).
 /// <para>
 /// One per window, with the window's view state, filled by the host that composes
 /// Capture beside the Inbox; the surface reads it as it draws. A host that fills

@@ -6,7 +6,7 @@ namespace Backlog.Modules.Roadmap.UI;
 
 /// <summary>
 /// Puts the Roadmap in the shell as a view-group <see cref="ShellSurface"/> (local ADR
-/// 0042 §1), offered behind <see cref="RoadmapFeatures.Roadmap"/>, the flag its view
+/// 0043 §1), offered behind <see cref="RoadmapFeatures.Roadmap"/>, the flag its view
 /// option has always gated on. On the precedent of <c>AddDevbookSurface</c>; safe to
 /// call twice.
 /// </summary>

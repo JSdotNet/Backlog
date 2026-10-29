@@ -8,7 +8,7 @@ using Windows.ApplicationModel.Activation;
 namespace Backlog.Desktop.Services;
 
 /// <summary>
-/// Where a <c>backlog://</c> activation of the desktop head goes (local ADR 0042 §7).
+/// Where a <c>backlog://</c> activation of the desktop head goes (local ADR 0043 §7).
 /// The packaged build registers the protocol in <c>Package.appxmanifest</c>; Windows
 /// then starts a new process for every link opened. That process asks, before the app
 /// is built, whether an instance is already running: when one is, the activation is

@@ -56,7 +56,7 @@ namespace Backlog.Desktop.Mcp;
 /// </para>
 /// <para>
 /// <b>Pop-out pages.</b> The listener also serves <c>/window/{surfaceId}</c> as an
-/// interactive server page for Claude Desktop's browser pane (local ADR 0042 §7),
+/// interactive server page for Claude Desktop's browser pane (local ADR 0043 §7),
 /// with the files it loads; see <see cref="SurfaceWindowPages"/>. A page renders this
 /// head's panes, so the bridge forwards everything the head composed, one desktop
 /// scope per circuit. A page carries no bearer token: it is held to the
@@ -607,7 +607,7 @@ public sealed class McpServerWorker : IDisposable
         // dispatch would already have read somebody's backlog.
         app.Use(GuardAsync);
 
-        // The pop-out pages and their files (local ADR 0042 §7), behind the same
+        // The pop-out pages and their files (local ADR 0043 §7), behind the same
         // Use: a page is held to the Origin check, and its bearer token is the link
         // token's cookie, because a browser loading a page has none to send.
         SurfaceWindowPages.Map(app);
@@ -890,7 +890,7 @@ public sealed class McpServerWorker : IDisposable
         }
 
         // And, for the pop-out pages, everything else the head composed (local ADR
-        // 0042 §7): a pane injects whatever it needs, so no list read off a few
+        // 0043 §7): a pane injects whatever it needs, so no list read off a few
         // constructors would do. A Blazor circuit is one scope of this container, so
         // the desktop scope opened above is one per circuit — a page has a window's
         // own view state, as a native window does. A head that registered no

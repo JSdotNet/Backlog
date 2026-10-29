@@ -6,7 +6,7 @@ using Backlog.SharedKernel;
 namespace Backlog.Desktop.Services;
 
 /// <summary>
-/// The desktop head's windows (local ADR 0042 §4, §5): the main window
+/// The desktop head's windows (local ADR 0043 §4, §5): the main window
 /// <see cref="App.CreateWindow"/> asks for, and every popped-out window
 /// <see cref="Open"/> adds beside it, each a <see cref="MainPage"/> on its own start
 /// path with a <c>BlazorWebView</c> — and so a scope — of its own.
@@ -186,7 +186,7 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
     /// <summary>
     /// The main window went: every popped-out window goes with it, and the app quits.
     /// Without the quit the app would live on in the windows beside it, which is not
-    /// what closing the main window means (local ADR 0042 §5).
+    /// what closing the main window means (local ADR 0043 §5).
     /// </summary>
     private void CloseEveryOtherWindowAndQuit()
     {

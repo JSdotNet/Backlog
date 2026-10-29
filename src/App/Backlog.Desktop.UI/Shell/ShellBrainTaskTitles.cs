@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// <summary>
 /// A Brain note's task titles, answered from the window's own task list — what the
 /// shell handed the Devbook pane as <c>TaskTitleFor</c> before the Devbook became a
-/// registered surface (local ADR 0042 §1).
+/// registered surface (local ADR 0043 §1).
 /// </summary>
 public sealed class ShellBrainTaskTitles(TasksDesktopState state) : IBrainTaskTitles
 {

@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
 /// The Backlog entries the Sessions context's two lists name, answered from one
-/// window's own task list (local ADR 0042 §3, §5): the entry that linked a session,
+/// window's own task list (local ADR 0043 §3, §5): the entry that linked a session,
 /// the entry a pull request belongs to, and opening an entry — a jump to the Tasks
 /// surface through the window's navigator, so it lands in the window it was pressed in.
 /// <para>

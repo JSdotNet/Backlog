@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
 /// Opens a registered surface in an OS window of its own, beside the main window
-/// (local ADR 0042 §4). The desktop head answers it with <c>ShellWindows</c>, a
+/// (local ADR 0043 §4). The desktop head answers it with <c>ShellWindows</c>, a
 /// window per call; a host with no windows to open composes none, and a caller
 /// resolves it as optional.
 /// </summary>
@@ -36,7 +36,7 @@ public interface IShellWindows
 }
 
 /// <summary>
-/// The route a popped-out window renders (local ADR 0042 §6), and the name of the
+/// The route a popped-out window renders (local ADR 0043 §6), and the name of the
 /// value that tells one window from another.
 /// </summary>
 public static class SurfaceWindowRoute

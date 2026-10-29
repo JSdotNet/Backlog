@@ -4,7 +4,7 @@ namespace Backlog.Modules.Sessions.UI;
 
 /// <summary>
 /// What the Sessions surface reads from the window it is shown in that only the host
-/// can answer (local ADR 0042 §1, §3): the window's repository scope, what a recorded
+/// can answer (local ADR 0043 §1, §3): the window's repository scope, what a recorded
 /// repository is called and the hue it wears, the Backlog entry that linked a session,
 /// how a pull request stands, and how an entry is opened.
 /// <para>

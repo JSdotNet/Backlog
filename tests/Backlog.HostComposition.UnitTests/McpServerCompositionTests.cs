@@ -56,7 +56,7 @@ public class McpServerCompositionTests
         var host = scope.ServiceProvider.GetRequiredService<ISurfaceWindowHost>();
 
         // A browser has tabs and no OS windows, so open_window's target "desktop"
-        // answers that none is available here (local ADR 0042 §7).
+        // answers that none is available here (local ADR 0043 §7).
         Assert.False(await host.TryOpenWindowAsync("tasks", new Dictionary<string, string>()));
     }
 
@@ -126,7 +126,7 @@ public class McpServerCompositionTests
             BacklogMcpTools.Groups,
             group =>
             {
-                // The one group no flag gates — open_window, local ADR 0042 §7 — has
+                // The one group no flag gates — open_window, local ADR 0043 §7 — has
                 // no key to ask about.
                 if (ReferenceEquals(group, BacklogMcpTools.Windows))
                 {
@@ -177,7 +177,7 @@ public class McpServerCompositionTests
         Assert.All(
             BacklogMcpTools.ToolNames,
             name => Assert.Equal(
-                // An ungated group (open_window, local ADR 0042 §7) is always listed.
+                // An ungated group (open_window, local ADR 0043 §7) is always listed.
                 GroupOf(name).FeatureKey is not { } key || features.IsEnabled(key),
                 BacklogMcpTools.IsExposed(name, features)));
 

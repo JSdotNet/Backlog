@@ -13,7 +13,7 @@ public partial class App : Application
 
     /// <summary>
     /// The main window. <see cref="ShellWindows"/> makes it, as it makes every
-    /// popped-out window beside it (local ADR 0042 §4), so the store flush on close
+    /// popped-out window beside it (local ADR 0043 §4), so the store flush on close
     /// and the rule that closing the main window quits the app are one class's.
     /// </summary>
     protected override Window CreateWindow(IActivationState? activationState)
@@ -24,7 +24,7 @@ public partial class App : Application
         var window = services.GetRequiredService<ShellWindows>().CreateMainWindow();
 
         // The backlog:// link the app was launched with opens once the main window is
-        // up, beside it (local ADR 0042 §7): queued, so the main window finishes
+        // up, beside it (local ADR 0043 §7): queued, so the main window finishes
         // opening before the next one does.
         var links = services.GetRequiredService<BacklogLinkActivation>();
         window.Created += (_, _) => MainThread.BeginInvokeOnMainThread(links.Started);

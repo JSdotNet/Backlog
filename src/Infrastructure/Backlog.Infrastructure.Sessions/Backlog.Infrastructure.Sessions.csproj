@@ -54,6 +54,11 @@
     <!-- The module's published surface: the ports these answer and the DTOs they
          answer with. -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <!-- ITaskFollowUps: an Approve + follow-up answer to a run's Personal Validation files
+         a follow-up entry after the gated entry, which is Tasks' to create
+         (.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry). The
+         published surface only, never the module. -->
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

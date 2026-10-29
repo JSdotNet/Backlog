@@ -1,7 +1,7 @@
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// What the host that serves <c>open_window</c> can do with a surface (local ADR 0042
+/// What the host that serves <c>open_window</c> can do with a surface (local ADR 0043
 /// §7): open it in a native window, and hand out a web link to it.
 /// <para>
 /// A port of this project, answered by each host, because what opens a window and

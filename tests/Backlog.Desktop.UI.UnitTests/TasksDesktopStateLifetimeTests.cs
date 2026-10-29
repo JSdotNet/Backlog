@@ -261,7 +261,7 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
     }
 
     /// <summary>
-    /// A window's state is scoped to the window (local ADR 0042 §5), and closing a
+    /// A window's state is scoped to the window (local ADR 0043 §5), and closing a
     /// popped-out window — or the WebView reloading its page — ends that scope
     /// asynchronously. An edit typed in the last debounce interval is written as the
     /// scope ends rather than dropped with its timer: the next window reads it back.

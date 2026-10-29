@@ -8,7 +8,7 @@
 @inject IServiceProvider Services
 
 @*
-    A popped-out window (local ADR 0042 §4, §6): one registered surface, under the
+    A popped-out window (local ADR 0043 §4, §6): one registered surface, under the
     slim header — the surface's title, the repository scope chips and Show in main
     window. No view switch, and no Ask AI: Ask AI stays in the main window only. The
     OS close button is the window's own.
@@ -89,7 +89,7 @@
 
 @code {
     /// <summary>The query key a surface reads its repository scope from (local ADR
-    /// 0042 §6), and the value that names the Brain in it.</summary>
+    /// 0043 §6), and the value that names the Brain in it.</summary>
     private const string ScopeKey = "scope";
     private const string BrainScopeValue = "brain";
 
@@ -259,7 +259,7 @@
     };
 
     /// <summary>
-    /// A jump inside this window (local ADR 0042 §3): it switches to the surface asked
+    /// A jump inside this window (local ADR 0043 §3): it switches to the surface asked
     /// for. A surface the catalog does not offer — its flag off, or none registered
     /// under the id — goes to the main window instead, so a jump never leaves this
     /// window on "not available".
@@ -299,7 +299,7 @@
     /// <summary>
     /// A task was written outside this window — the main window's list, another
     /// window's, or the MCP server — so this window's own list reloads from the
-    /// store (local ADR 0042 §5). The main window's <c>Home</c> does the same for
+    /// store (local ADR 0043 §5). The main window's <c>Home</c> does the same for
     /// its list: on the renderer's dispatcher, because the state raises this on the
     /// writer's thread, and coalesced, because an agent's burst is one signal per
     /// write. The reload raises <c>Changed</c>, which renders the window again.

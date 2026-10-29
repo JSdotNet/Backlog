@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Devbook surface opened on <c>chapter=&lt;path&gt;</c> (local ADR 0042 §6), as a
+/// The Devbook surface opened on <c>chapter=&lt;path&gt;</c> (local ADR 0043 §6), as a
 /// popped-out window, a <c>backlog://</c> link or the <c>open_window</c> tool opens
 /// it: <c>scope=&lt;owner/name&gt;</c> reads that repository's chapter,
 /// <c>scope=brain</c> the Brain note at that path, and no <c>scope</c> whatever the

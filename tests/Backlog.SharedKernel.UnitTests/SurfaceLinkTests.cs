@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.UnitTests;
 
 /// <summary>
-/// The addresses a surface opens at (local ADR 0042 §6, §7): <c>/window/{surfaceId}</c>
+/// The addresses a surface opens at (local ADR 0043 §6, §7): <c>/window/{surfaceId}</c>
 /// and <c>backlog://window/{surfaceId}?…</c>, each key and value escaped, in the order
 /// given; and a <c>backlog://window/…</c> link read back, the surface it names and the
 /// query it carries, and nothing for any other text. Written and read in one place,
@@ -155,7 +155,7 @@ public class SurfaceLinkTests
         [
             new("plan", "shell-pop-out-windows"),
             new("entry", "8cb393df-7bf7-4573-b1c1-ba09882ca70d"),
-            new("chapter", "arc42/adr/0042 a surface & its window+1.md"),
+            new("chapter", "arc42/adr/0043 a surface & its window+1.md"),
             new("scope", "JSdotNet/Backlog"),
         ];
 

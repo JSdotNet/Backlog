@@ -2,7 +2,7 @@ namespace Backlog.Modules.Roadmap.UI;
 
 /// <summary>
 /// The Roadmap's id in the surface catalog and the query keys it accepts (local ADR
-/// 0042 §1, §6), for the shell to name the view by without naming its component.
+/// 0043 §1, §6), for the shell to name the view by without naming its component.
 /// </summary>
 public static class RoadmapSurfaceQuery
 {

@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.PullRequests;
 
 /// <summary>
 /// Puts the open pull requests in the shell as a takeover-group
-/// <see cref="ShellSurface"/> (local ADR 0042 §1), offered behind
+/// <see cref="ShellSurface"/> (local ADR 0043 §1), offered behind
 /// <see cref="SessionFeatures.PullRequests"/>, the flag its header option has always
 /// gated on. It accepts <see cref="PullRequestsSurface.PullRequestKey"/>, the pull
 /// request to open on (§6).

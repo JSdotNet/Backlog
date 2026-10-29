@@ -70,7 +70,7 @@
        arrives through the desktop harness's references. -->
   <ItemGroup>
     <Compile Include="..\..\src\App\Backlog.Desktop\Mcp\McpServerWorker.cs" Link="Head\McpServerWorker.cs" />
-    <!-- And the pop-out pages it serves (local ADR 0042 §7), which it calls:
+    <!-- And the pop-out pages it serves (local ADR 0043 §7), which it calls:
          SurfaceWindowPagesTests renders /window/{surfaceId} through it. -->
     <Compile Include="..\..\src\App\Backlog.Desktop\Mcp\SurfaceWindowPages.cs" Link="Head\SurfaceWindowPages.cs" />
   </ItemGroup>

@@ -5,7 +5,7 @@ namespace Backlog.Modules.Progress.UI.Goals;
 
 /// <summary>
 /// Puts the Goals view in the shell as a view-group <see cref="ShellSurface"/> (local
-/// ADR 0042 §1), always offered (local ADR 0035 §10). The host registers the
+/// ADR 0043 §1), always offered (local ADR 0035 §10). The host registers the
 /// window's <see cref="IGoalsViewSource"/> beside it. On the precedent of
 /// <c>AddDevbookSurface</c>; safe to call twice.
 /// </summary>

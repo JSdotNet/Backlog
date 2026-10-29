@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
 /// What the takeover surfaces read from the window they are shown in, answered by the
-/// host from that window's own state (local ADR 0042 §1, §3, §5): the repository scope,
+/// host from that window's own state (local ADR 0043 §1, §3, §5): the repository scope,
 /// the hues, the entries a session or a pull request names, a pull request's chip, and
 /// the Inbox's Capture.
 /// <para>

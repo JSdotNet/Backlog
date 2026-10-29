@@ -1,7 +1,7 @@
 namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
-/// Where a popped-out window of a surface last stood (local ADR 0042 §5): its restored
+/// Where a popped-out window of a surface last stood (local ADR 0043 §5): its restored
 /// rectangle in screen pixels, and whether it was maximised over it. A maximised window
 /// keeps the rectangle it restores to, so the next one opens maximised on that monitor
 /// and un-maximises to where the last one would have.

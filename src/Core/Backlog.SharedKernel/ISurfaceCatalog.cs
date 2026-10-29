@@ -4,7 +4,7 @@ namespace Backlog.SharedKernel;
 
 /// <summary>
 /// Every <see cref="ShellSurface"/> registered in the container, as the shell offers
-/// them (local ADR 0042 §1): ordered by group, then by <see cref="ShellSurface.Order"/>,
+/// them (local ADR 0043 §1): ordered by group, then by <see cref="ShellSurface.Order"/>,
 /// and without a surface whose feature is switched off.
 /// </summary>
 public interface ISurfaceCatalog

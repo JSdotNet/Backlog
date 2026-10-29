@@ -89,7 +89,7 @@ public class BacklogMcpToolsTests
                 "get_answer",
                 "close",
 
-                // The surface windows (local ADR 0042 §7).
+                // The surface windows (local ADR 0043 §7).
                 "open_window"
             ],
             BacklogMcpTools.ToolNames);
@@ -116,7 +116,7 @@ public class BacklogMcpToolsTests
         // The dispatcher tools have the queue's own key, off by default (local ADR 0038 §5).
         Assert.Equal(SessionFeatures.SessionRequests, BacklogMcpTools.SessionRequests.FeatureKey);
         Assert.Equal(NotificationsFeatures.Notifications, BacklogMcpTools.Notifications.FeatureKey);
-        // open_window has no flag (local ADR 0042 §7): a surface's own flag hides it in the catalog.
+        // open_window has no flag (local ADR 0043 §7): a surface's own flag hides it in the catalog.
         Assert.Null(BacklogMcpTools.Windows.FeatureKey);
     }
 

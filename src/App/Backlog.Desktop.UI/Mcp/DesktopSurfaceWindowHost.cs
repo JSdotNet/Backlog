@@ -7,7 +7,7 @@ using Backlog.SharedKernel;
 namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
-/// <see cref="ISurfaceWindowHost"/> for the desktop app (local ADR 0042 §7): a native
+/// <see cref="ISurfaceWindowHost"/> for the desktop app (local ADR 0043 §7): a native
 /// window is one more of the head's own windows, and a web link is the loopback
 /// listener's page with a token minted for that link alone.
 /// <para>

@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
 /// Puts the Tasks module's three views in the shell as view-group
-/// <see cref="ShellSurface"/>s (local ADR 0042 §1): Tasks, Board and Calendar, the
+/// <see cref="ShellSurface"/>s (local ADR 0043 §1): Tasks, Board and Calendar, the
 /// one task list read three ways. On the precedent of <c>AddDevbookSurface</c>.
 /// </summary>
 /// <remarks>

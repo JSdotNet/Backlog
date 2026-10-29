@@ -8,7 +8,7 @@ using ModelContextProtocol;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// <c>open_window</c> (local ADR 0042 §7): what it opens, what it links to, and what it
+/// <c>open_window</c> (local ADR 0043 §7): what it opens, what it links to, and what it
 /// refuses before doing either.
 /// </summary>
 public class WindowToolsTests
@@ -51,15 +51,15 @@ public class WindowToolsTests
         var host = new FakeSurfaceWindows();
         var tools = new WindowTools(FakeSurfaceWindows.Catalog(), host);
 
-        var answer = await tools.OpenAsync("devbook", "web", chapter: ".devbook/arc42/adr/0042-a-surface-can-open-in-its-own-window.md", scope: "JSdotNet/Backlog");
+        var answer = await tools.OpenAsync("devbook", "web", chapter: ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", scope: "JSdotNet/Backlog");
 
         Assert.False(answer.Opened);
         Assert.Empty(host.Opened);
         Assert.Equal(
-            "http://localhost:5757/window/devbook?chapter=.devbook%2Farc42%2Fadr%2F0042-a-surface-can-open-in-its-own-window.md&scope=JSdotNet%2FBacklog&t=token",
+            "http://localhost:5757/window/devbook?chapter=.devbook%2Farc42%2Fadr%2F0043-a-surface-can-open-in-its-own-window.md&scope=JSdotNet%2FBacklog&t=token",
             answer.Url);
         Assert.Equal(
-            "backlog://window/devbook?chapter=.devbook%2Farc42%2Fadr%2F0042-a-surface-can-open-in-its-own-window.md&scope=JSdotNet%2FBacklog",
+            "backlog://window/devbook?chapter=.devbook%2Farc42%2Fadr%2F0043-a-surface-can-open-in-its-own-window.md&scope=JSdotNet%2FBacklog",
             answer.BacklogLink);
     }
 
@@ -196,7 +196,7 @@ public class WindowToolsTests
         Assert.Contains("Only with target \"desktop\" does it open a window", description, StringComparison.Ordinal);
     }
 
-    /// <summary>No flag gates the tool (local ADR 0042 §7): it is listed with every
+    /// <summary>No flag gates the tool (local ADR 0043 §7): it is listed with every
     /// feature off.</summary>
     [Fact]
     public void Open_window_is_exposed_with_every_feature_off()

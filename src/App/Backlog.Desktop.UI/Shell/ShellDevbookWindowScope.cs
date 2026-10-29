@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
 /// The window's repository scope for a Devbook opened with no <c>scope</c> (local
-/// ADR 0042 §6), answered from the window's own view state: its anchor, the one
+/// ADR 0043 §6), answered from the window's own view state: its anchor, the one
 /// repository the main window hands the Devbook as well.
 /// </summary>
 public sealed class ShellDevbookWindowScope(TasksDesktopState state) : IDevbookWindowScope

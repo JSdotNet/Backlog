@@ -5,7 +5,7 @@ using Microsoft.JSInterop;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// A surface served as a web page (local ADR 0042 §7): its pop-out opens a new browser
+/// A surface served as a web page (local ADR 0043 §7): its pop-out opens a new browser
 /// tab on <c>/window/{surfaceId}</c>, its window title is its tab's, and the page reads
 /// the surface id off its own address.
 /// </summary>

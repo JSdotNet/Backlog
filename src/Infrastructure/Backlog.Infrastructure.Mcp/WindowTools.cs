@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
 /// <c>open_window</c>, the tool that shows the person a registered surface (local ADR
-/// 0042 §7): in a native window of the desktop app, or as a web link to the page the
+/// 0043 §7): in a native window of the desktop app, or as a web link to the page the
 /// app serves on its loopback listener.
 /// <para>
 /// <b>It opens a window only when asked to.</b> <c>target: "web"</c> opens nothing and
@@ -27,7 +27,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// carried one would open on something other than what was asked.
 /// </para>
 /// <para>
-/// <b>No feature flag</b> (local ADR 0042 §7): its group is ungated, and a surface's own
+/// <b>No feature flag</b> (local ADR 0043 §7): its group is ungated, and a surface's own
 /// flag still hides that surface here as everywhere the catalog is read.
 /// </para>
 /// </summary>
@@ -42,7 +42,7 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
     internal const string Desktop = "desktop";
     internal const string Web = "web";
 
-    /// <summary>The query keys of local ADR 0042 §6 the tool takes, in the order a link
+    /// <summary>The query keys of local ADR 0043 §6 the tool takes, in the order a link
     /// carries them.</summary>
     internal const string PlanKey = "plan";
     internal const string EntryKey = "entry";
@@ -137,7 +137,7 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
             $"target must be \"{Desktop}\" or \"{Web}\"; it was '{target}'."))
     };
 
-    /// <summary>The query a link carries, in local ADR 0042 §6's order, each key one the
+    /// <summary>The query a link carries, in local ADR 0043 §6's order, each key one the
     /// surface registered. A plan tag loses its <c>+</c>, which the surface reads either
     /// way, so one plan has one link.</summary>
     private static Dictionary<string, string> Query(
