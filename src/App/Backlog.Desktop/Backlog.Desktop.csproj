@@ -108,6 +108,8 @@
          which is what McpServerWorker binds its loopback Kestrel listener with.
          It is this package that carries the framework reference above. -->
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
+    <!-- SessionSwitch: the screen lock and unlock WindowsInputActivity reads. -->
+    <PackageReference Include="Microsoft.Win32.SystemEvents" />
   </ItemGroup>
 
   <ItemGroup>

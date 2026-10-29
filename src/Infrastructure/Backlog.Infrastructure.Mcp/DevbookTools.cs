@@ -20,7 +20,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// </para>
 /// <para>
 /// <b>The Brain is a scope, not a second set of tools</b>
-/// (<c>.devbook/domain/devbook/features.md#mcp-brain-scope</c>, local ADR 0027
+/// (<c>.devbook/domain/brain/features.md#mcp-brain-scope</c>, local ADR 0027
 /// §5). Every tool that takes a <c>repository</c> also takes
 /// <see cref="BrainMcpScope.Value"/>, matched before the directory is asked, and
 /// answers for the Brain: its one folder from <see cref="IBrainFolderSource"/>,

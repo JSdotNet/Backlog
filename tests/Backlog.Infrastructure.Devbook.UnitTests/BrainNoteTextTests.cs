@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// <summary>
 /// The text of a note written into the Brain — by the pane's Capture, by Inbox
 /// triage's To Brain, and by the capture tool after them
-/// (<c>.devbook/domain/devbook/requirements.md#capture-into-the-brain</c>). Read
+/// (<c>.devbook/domain/brain/requirements.md#capture-into-the-brain</c>). Read
 /// back through the builder's own parse, because "never becomes structure" is a
 /// claim about what that parse finds.
 /// </summary>
