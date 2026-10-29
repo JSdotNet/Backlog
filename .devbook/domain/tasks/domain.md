@@ -104,18 +104,18 @@ spelling on the metadata line is
 `.devbook/design/content-editing.md#scheduling-and-dependency-tokens`.
 
 The task also carries one attribute that is not a fact about the work at all.
-`view` records which reading of the body the person last asked for: the steps,
-or the Markdown block those steps are written in. It is a display preference
-rather than domain state. Nothing in the lifecycle reads it, no invariant depends
-on it, and a task that has never been looked at has none.
+`view` once recorded which reading of the body a person last asked for: the
+steps, or the Markdown block those steps are written in. The desktop now shows
+the body as one Markdown editor, and it neither reads nor writes `view`. That
+makes `view` a retired display preference, kept because it is stored. Nothing in
+the lifecycle reads it, no invariant depends on it, and a task that never
+carried one has none.
 
 It is named here because it is stored on the task. It is written on the task's
 metadata line, so every save of the text carries it through the aggregate, and
-[it survives that save](requirements.md#requirement-the-chosen-reading-of-the-body-survives-a-save).
-Held on the task, it also travels to the person's other devices
-with the task through the replica. When the attribute is absent, the reader
-derives the view from whether the body contains sub-items. That guess cannot
-record a person disagreeing with it. Its spelling on the metadata line is
+[it survives that save](requirements.md#requirement-a-view-token-on-the-line-survives-a-save).
+Held on the task, it also travels to the person's other devices with the task
+through the replica. Its spelling on the metadata line is
 `.devbook/design/content-editing.md#scheduling-and-dependency-tokens`.
 
 A task spawned as the next occurrence of a repeating one carries

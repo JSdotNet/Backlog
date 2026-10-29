@@ -177,7 +177,7 @@ related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".dev
 | `repo:` | target repository | `` `repo:backlog-desktop` `` — may repeat |
 | `effort:` | size in story points | `` `effort:5` `` — a non-negative whole number; not honoured on a `plan` entry |
 | `files:` | attached folder or archive | `` `files:D:/reviews/panel-review` ``, `` `files:D:/reviews/panel.zip` `` |
-| `view:` | which reading of the body to open in | `` `view:steps` ``, `` `view:notes` `` |
+| `view:` | a retired body-view preference, kept as written | `` `view:steps` ``, `` `view:notes` `` |
 
 A full metadata line mixes both forms, sigils first:
 
@@ -221,9 +221,9 @@ although neither is saved yet and so neither has a real `task_id`:
 | Unknown tokens survive an edit | A `name:value` token the parser does not recognize MUST be preserved when an unrelated field is changed, on the same terms as the backward-compatibility rule for sigils. It is unrecognized, not invalid. |
 | Absent means absent | An unset field carries no token rather than an empty one. `` `due:` `` with nothing after it is malformed, not "no due date". |
 | Canonical rewrite is destructive by design | Saving rewrites the metadata line into canonical form from the entry model, so a token the model cannot represent does not survive the next save. A new token MUST therefore be added to the domain model, the entry DTO, and the canonical rewrite in the same change — adding it to the parser alone loses data silently, with no error. |
-| `view:` is a preference, not a fact about the work | The steps list and the Markdown block are two readings of the same body (`#task-structure`), and `view:` records which one an entry opens in. It is the one token here that says nothing about the task — it is about looking at it. It rides on this line anyway because Markdown is canonical (`#editing-model`): a preference kept in a sidecar would not survive the file being shared, and whoever opened the entry from a clone would get somebody else's default. |
-| A view is chosen, never derived onto the line | An entry nobody has expressed a preference about carries no `view:` token and MUST NOT acquire one by being saved — "absent means absent" applies here too. The surface picks a sensible reading for an entry with no token (an entry with no `##` chapters has no steps to list), and that choice stays in the surface: a default written into the text is a preference nobody made, and it would have to be unwritten from every entry before the default could change. |
-| Neither reading may hide text without saying so | The steps reading lists `##` chapters, so prose an entry opens with has no row. It is read out above them instead. Where a reading omits body text that exists, the surface MUST say so and offer the Markdown block in the same breath. Silently showing less than the entry holds reads as text the app has lost, which is the failure `#round-trip-fidelity` exists to prevent — only on screen rather than on disk. |
+| `view:` is kept, not read | `view:` once recorded which of two readings of the body an entry opened in: the steps list or the Markdown block. The desktop now shows the body as one Markdown editor with no second reading, so nothing reads the token and nothing writes it. The parser still reads it, refuses a value it does not know, and carries it through every save as written. It is persisted, synced text somebody may have typed. Dropping it would be the silent loss `#round-trip-fidelity` forbids. |
+| A view is never derived onto the line | An entry that carries no `view:` token MUST NOT acquire one by being saved. "Absent means absent" applies here too. |
+| No surface may hide body text without saying so | A surface that shows less of the body than the entry holds MUST say so and offer the whole text in the same breath. Silently showing less reads as text the app has lost. That is the failure `#round-trip-fidelity` exists to prevent, only on screen rather than on disk. The desktop detail shows the body whole, in one editor. |
 
 ## Live Parse Confirmation
 
@@ -377,23 +377,28 @@ related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbo
 | Metadata sigils | `MetadataBadge`, `StatusBadge`, `PriorityBadge`, `TagChip` | Storybook → *Badges* |
 | Task lists | `MarkdownView` checkbox, toggling straight back into the source | Storybook → *Entry edit* → **A checkbox writes back to the source** |
 | Scheduling and dependency tokens | Read and written by `EntryTextParser`; `TaskAction` is the shape a control over one takes, over the date, time and repeat fields beside it | Storybook → *Inputs* → **A date, a time and a repeat**, **TaskAction — set it, see it, clear it** |
-| Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as either the steps reading (a read-only `MarkdownView` of the text it opens with, above a `TaskListView` of steps) or one `MarkdownEditor`, the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **SplitPane**, **SplitPane, anchored to the end** |
-| The body's two readings | One region, switched by `view:` and remembered on the entry. The steps reading shows the prose the body opens with, read-only, above the steps, and the Markdown reading is where that prose is written. | Backlog pane → the **Steps** / **Markdown** tabs |
+| Entry list and detail pane | `SplitPane` (anchored to the end, so the open entry is the fixed half and the list flexes) over a `TaskListView` of entries and one open entry: its own row with the title as a field, its body as one `MarkdownEditor` over the whole text with no label above it (a step is a `##` chapter written there), the `TaskAction` rows, the selectors, and the raw hatch | Storybook → *Task list*; *Layout* → **SplitPane**, **SplitPane, anchored to the end** |
+| The body | One `MarkdownEditor` over the prose and the `##` chapters together. A person adds, renames, reorders, ticks and deletes a step as text: `[x]` in its heading or `!done` on its line ticks it. There is no step list and no Steps / Markdown switch. A `view:` token is kept and not read (`#scheduling-and-dependency-tokens`). | Backlog pane → the open entry's body |
 | Raw-Markdown escape hatch | The whole entry's canonical text in a mono `TextArea`, with the live "reads as" hint under it | Backlog pane → Ctrl+Shift+M |
 
 What is true today, and where it differs from the model above:
 
 - **The editing model edits fields, and is not yet WYSIWYG.** The backlog's
-  detail pane edits an entry a field at a time: a title, a note, a step, a date,
-  a dependency. The canonical Markdown is a keyboard shortcut away. That is the
+  detail pane edits an entry a field at a time: a title, the body, a date, a
+  dependency. The canonical Markdown is a keyboard shortcut away. That is the
   escape hatch `#raw-markdown-escape-hatch` asks for, not the primary surface
   `#editing-model` rules out. What `#editing-model` still lacks is the rich-text
-  part. The note is a Markdown editor with a formatting toolbar, not a WYSIWYG
+  part. The body is a Markdown editor with a formatting toolbar, not a WYSIWYG
   view, and there is no slash menu (`#slash-and-inline-commands`) and no inline
   autoformat. Markdown being canonical is therefore trivially satisfied.
   `#round-trip-fidelity` is under pressure only where a field rewrite touches
   text it was not asked about, so each of those rewrites is scoped to one chapter
   and leaves the rest byte-for-byte.
+
+  Steps have no control of their own. A step is a `##` chapter, edited in the
+  body as source. The desktop detail therefore does not draw the sub-item
+  rendering `#task-structure` describes, indented with a strikethrough
+  done-state. A `scenario:` image in the body likewise shows as the text written.
 - **The escape hatch has a shortcut but not yet a command.**
   `#raw-markdown-escape-hatch` asks for the raw view to be reachable "via a
   command and keyboard shortcut". Ctrl+Shift+M opens it and Escape closes it.
@@ -401,16 +406,14 @@ What is true today, and where it differs from the model above:
   list it in. Only a reader who already knows the shortcut can find the hatch.
   The unmet half of the rule is the command, and it stays unmet until there is a
   palette to put it in.
-- **The shortcut does not reach the pane from three fields.** The task fields
-  contain their own keydown (`interaction-guidelines.md#task-rows`, "Escape
-  belongs to the innermost draft"). The boundary they draw stops the whole
-  keydown, not Escape alone, so Ctrl+Shift+M does not reach the pane from inside:
-  - a step's title,
-  - the step composer,
-  - the entry's heading rename.
+- **The shortcut does not reach the pane from one field.** The entry's heading
+  rename contains its own keydown (`interaction-guidelines.md#task-rows`,
+  "Escape belongs to the innermost draft"). The boundary it draws stops the
+  whole keydown, not Escape alone, so Ctrl+Shift+M does not reach the pane from
+  inside the heading rename.
 
   From anywhere else in the pane the shortcut opens and closes the hatch, and
-  from those three fields the way to it is to leave the field first. It is open
+  from that field the way to it is to leave it first. It is open
   whether that price is acceptable, or whether the shortcut should be lifted out
   of the pane's own handler so it is heard everywhere.
   [Issue #366](https://github.com/JSdotNet/Backlog/issues/366) decided that the

@@ -768,23 +768,46 @@ status: draft
 related: [.devbook/domain/tasks/features.md#sub-items-and-steps]
 ```
 
-> The requirements of the task's steps and of the two readings of its body.
+> The requirements of the task's steps, written as `##` chapters of its body,
+> and of the `view:` token that body once switched on.
 
-### Requirement: The chosen reading of the body survives a save
+### Requirement: A step is written in the task's body
 
 ```meta
 type: requirement
 status: draft
-tests: integration:dotnet:Backlog.Desktop.UI.UnitTests.EntryViewPreferenceRoundTripTests.An_entry_that_prefers_the_markdown_block_still_prefers_it_after_a_reload
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.The_markdown_block_writes_the_whole_body_and_leaves_the_metadata_line_alone, integration:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.The_body_is_the_markdown_editor_alone, e2e:dotnet:Backlog.EndToEndTests.ConferenceDayTests]
 ```
 
-The system SHALL keep the reading of a task's body a person last chose, the steps or the Markdown block, through every save of the task's text and every reload.
+On the desktop, the system SHALL read each `##` chapter written in a task's body as one of its steps, so a step is added, renamed, reordered, ticked and removed by editing that text.
 
-#### Scenario: The Markdown block is chosen and the task is saved
+#### Scenario: A step is typed into the body
 
-- **Given** a task with steps whose reader chose the Markdown block
+- **Given** an open task with prose and no steps
+- **When** the person types `## Check the totals` at the end of its body
+- **Then** the task has one pending step titled "Check the totals"
+
+### Requirement: A view token on the line survives a save
+
+```meta
+type: requirement
+status: draft
+tests: [integration:dotnet:Backlog.Desktop.UI.UnitTests.EntryViewPreferenceRoundTripTests.An_entry_that_prefers_the_markdown_block_still_prefers_it_after_a_reload, integration:dotnet:Backlog.Desktop.UI.UnitTests.EntryViewPreferenceRoundTripTests.An_entry_with_no_preference_is_not_given_one_by_being_saved, integration:dotnet:Backlog.Desktop.UI.UnitTests.TasksDetailPaneTests.The_body_is_the_markdown_editor_alone]
+```
+
+The system SHALL keep a `view:` token found on a task's metadata line, as written, through every save of the task's text and every reload, and write none onto a task that carries none.
+
+#### Scenario: A task carrying view:notes is saved
+
+- **Given** a task with steps whose metadata line carries `view:notes`
 - **When** the task's text is saved and the backlog is opened again
-- **Then** the task opens on the Markdown block, and its metadata line still carries `view:notes`
+- **Then** its metadata line still carries `view:notes`, and its body opens in the Markdown editor as every task's does
+
+#### Scenario: A task with no token is saved
+
+- **Given** a task whose metadata line carries no `view:` token
+- **When** the task's text is saved and the backlog is opened again
+- **Then** its metadata line still carries none
 
 ## Recurring tasks
 
