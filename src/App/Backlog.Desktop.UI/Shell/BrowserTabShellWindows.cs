@@ -5,8 +5,10 @@ namespace Backlog.Desktop.UI.Shell;
 /// <summary>
 /// <see cref="IShellWindows"/> for a surface served as a web page (local ADR 0040 §7):
 /// a browser has tabs rather than OS windows, so a pop-out opens
-/// <c>/window/{surfaceId}</c> in a new tab, the way the web harness does, and a
-/// window's own title and close are its tab's.
+/// <c>/window/{surfaceId}</c> in a new tab, and a window's own title and close are
+/// its tab's. Both the desktop app's served pages and the web harness register it;
+/// the harness opens no tab under a window key, so it is never asked to close or
+/// retitle one there.
 /// <para>
 /// Scoped, one per circuit, because it speaks through that circuit's
 /// <see cref="IJSRuntime"/>. Every call is fire and forget, as the interface's are:

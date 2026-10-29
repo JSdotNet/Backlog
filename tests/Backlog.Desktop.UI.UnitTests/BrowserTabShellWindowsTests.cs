@@ -1,5 +1,6 @@
 using Backlog.Desktop.UI.Shell;
 using Bunit;
+using Microsoft.JSInterop;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -41,6 +42,18 @@ public sealed class BrowserTabShellWindowsTests
             ["backlogShellWindow.setTitle", "backlogShellWindow.close"],
             context.JSInterop.Invocations.Select(call => call.Identifier));
         Assert.Equal(["Devbook - Backlog"], Assert.Single(context.JSInterop.Invocations["backlogShellWindow.setTitle"]).Arguments);
+    }
+
+    [Fact]
+    public void A_refused_or_disconnected_open_is_never_thrown_into_the_renderer()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.SetupVoid("open", _ => true).SetException(new JSDisconnectedException("The circuit went."));
+        var windows = new BrowserTabShellWindows(context.JSInterop.JSRuntime);
+
+        windows.Open("devbook");
+
+        Assert.Equal(["/window/devbook", "_blank"], Assert.Single(context.JSInterop.Invocations).Arguments);
     }
 
     [Theory]
