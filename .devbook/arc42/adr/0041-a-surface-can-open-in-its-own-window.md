@@ -2,7 +2,6 @@
 
 ```meta
 date: 2026-10-28
-status: proposed
 related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md#amendment", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md#1-the-server-lives-in-the-desktop-process-over-streamable-http-on-loopback", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md#deviations-and-gaps", ".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/interaction-guidelines.md#workspace-panes"]
 ```
 
@@ -19,11 +18,11 @@ one window.
 ```meta
 ```
 
-Proposed, 2026-10-28, by the flow-spec run `run-mvsnh91g-sidjhi` that drafted it, the
-`adr-pop-out-windows` item (step 1) of the `shell-pop-out-windows` plan, run unattended.
-It awaits acceptance at the Personal Validation gate of that run's draft pull request.
-The decisions were settled with the repository owner before the plan was imported; this
-record writes them down. Not yet built: the plan's later steps build them.
+Accepted, 2026-10-29, at the close of the `shell-pop-out-windows` plan, once every step
+it decided had landed on `plan/shell-pop-out-windows`. Proposed 2026-10-28 by the
+flow-spec run `run-mvsnh91g-sidjhi`, the plan's first step, run unattended; the
+decisions were settled with the repository owner before the plan was imported, and
+this record writes them down. Built: §1 to §7, step by step, as the History records.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below means
 the local one. It keeps ADR 0022's rule of one main view per window and replaces ADR
@@ -256,8 +255,9 @@ Neutral:
   that changed is more often wrong than right. Each surface's last bounds are enough.
 - **Tokens in `backlog://` links.** A 10-minute token is dead in a digest read the next
   morning. The protocol opens only the installed app, so it needs none.
-- **A feature flag for pop-out.** It adds no surface and removes none; a surface's own
-  flag still governs where it shows.
+- **A feature flag for pop-out.** A window shows only a surface the catalog already
+  offers, so the surface's own flag already decides where it appears; a second flag
+  would only hide a way to reach what is on.
 
 ## History
 
@@ -266,6 +266,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-10-29 | Accepted. The Status section says so, and the `meta` block drops `status: proposed`, since a settled record rests at `active` by omitting it, as ADR 0036 does. Under Rejected, the four reasons the first draft inferred were checked against what the plan built: one window per surface, since every ⧉ press and every `open_window` call opens one more window; Shift+click or a context menu, since the ⧉ shows on hover and focus and stays in the tab order; restoring the layout, since nothing reopens at start and a remembered window is clamped to a connected monitor; and a feature flag, since a window shows only what `ISurfaceCatalog` offers. All four hold. The feature flag's reason is reworded to say so. | Step 21 of the plan, `accept-adr-window-header`. |
 | 2026-10-29 | Renumbered from 0040 to 0041: the file, its title, its entries in the ADR index and `09-architecture-decisions.md`, and every citation of it in the code, tests, plugins and devbook. | `main` took local ADR 0040 for the Brain record while this one was in flight on `plan/shell-pop-out-windows`, so the closing merge would have landed two records numbered 0040. |
 | 2026-10-29 | Checked end to end on the Debug desktop build, each window's WebView2 driven over CDP, and on the web harness and Claude Desktop's browser pane. Two gaps fixed on the way. §4's ⧉ now sits on every header item `Home` draws, not on the Devbook alone: the five views and the six placed takeovers wrap their option in the same `header-surface-item` with the same button, drawn once by `PopOutButton`, and the fused groups keep their hairline, corners and flags with the wrappers between their options. §5's reload in the other windows built for a popped-out window: `SurfaceWindow` follows `TasksDesktopState.WrittenElsewhere` as `Home` does, through `CoalescedReload`, which both now share, so a task saved in the main window, another window or through MCP reloads there too. Open: **Show in main window** from a Devbook window shows the main window's own repository when its scope is neither the Brain nor the switch's partner, and `scope=brain` was not checked for want of a Brain in the Debug workspace. | Step 15 of the plan, `qa-pop-out`. |
 | 2026-10-29 | The Consequences' finished plan that links straight to its tasks built: `execute-plan`'s report (step 8) ends with the plan's tasks as the two links `open_window` answers for `surface: "tasks"`, `plan: <tag>`, `target: "web"` — the web link, for Claude Desktop's browser pane, and the `backlog://` link, for a native window. When the backlog MCP server does not answer `open_window`, the report has no links and says nothing of them. The unattended run's push notification is unchanged. `backlog-tools` 0.25.0. | Step 14 of the plan, `execute-plan-links`. |
