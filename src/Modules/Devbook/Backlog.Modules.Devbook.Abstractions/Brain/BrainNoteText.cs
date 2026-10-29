@@ -7,7 +7,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// The text of a new note in the Brain (local ADR 0026), and where it goes: the
 /// one composer behind every writer of one — the Devbook pane's <b>Capture</b>,
 /// Inbox triage's <b>To Brain</b>, and the capture tool an assistant calls
-/// (<c>.devbook/domain/devbook/features.md#capture-into-the-brain</c>).
+/// (<c>.devbook/domain/brain/features.md#capture-into-the-brain</c>).
 ///
 /// <para>A note is a devbook chapter: its title as the <c>#</c> heading, the
 /// <c>meta</c> block under it, then the body. Whatever the person typed is text
@@ -52,7 +52,7 @@ public static partial class BrainNoteText
     };
 
     /// <summary>The note's source as its <c>meta</c> block spells it
-    /// (<c>.devbook/domain/devbook/domain.md#note-source</c>).</summary>
+    /// (<c>.devbook/domain/brain/domain.md#note-source</c>).</summary>
     public static string SourceSlug(BrainNoteSource source) => source switch
     {
         BrainNoteSource.Inbox => "inbox",
@@ -244,7 +244,7 @@ public static partial class BrainNoteText
     private static partial Regex ClosingSequence();
 }
 
-/// <summary>Where a note came from (<c>.devbook/domain/devbook/domain.md#note-source</c>):
+/// <summary>Where a note came from (<c>.devbook/domain/brain/domain.md#note-source</c>):
 /// written in the Brain — the pane's Capture, or an assistant's capture tool —
 /// routed To Brain from Inbox triage, or imported.</summary>
 public enum BrainNoteSource

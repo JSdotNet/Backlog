@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Devbook pane on the Brain (local ADR 0027 §4,
-/// <c>.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane</c>): with
+/// <c>.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane</c>): with
 /// nothing pressed, or the Brain as the anchor — both of which reach the pane as the
 /// empty alias — it shows the person's Brain folder instead of a repository devbook.
 /// A badge says Brain, the folder's path stands where the branch picker would, one tab
