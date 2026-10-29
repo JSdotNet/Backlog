@@ -4335,11 +4335,32 @@ h1, h2, h3 {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
+/* A filter wraps its control under its label on a narrow pane, and no control is
+   wider than the bar, so a phone never scrolls the panel sideways. */
 .sessions-filter {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-sm);
     align-items: center;
     min-width: 0;
+    max-width: 100%;
+}
+
+.sessions-filter > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* A strip with more options than a phone's width (Purpose, Plan state) wraps its
+   buttons onto further rows. Each wrapped button keeps its own rounded edge, since
+   the joined edges of one strip only read as one control on a single row. */
+.btn-group.sessions-filter__options {
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.btn-group.sessions-filter__options > .btn {
+    border-radius: var(--border-radius-md);
 }
 
 /* Pushed to the trailing edge on a wide window, and simply next in line once the
@@ -4543,6 +4564,88 @@ h1, h2, h3 {
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 500;
+}
+
+/* A row with a plan tag: the row button and the tag chip, its sibling, stacked in
+   one cell. The chip sits at the end of the row's first line, over the slot the row
+   keeps for it, so it never covers the state beside it. */
+.sessions-group__item--tagged {
+    display: grid;
+}
+
+.sessions-group__item--tagged > * {
+    grid-area: 1 / 1;
+}
+
+.sessions-group__item--tagged > .sessions-row__tag {
+    align-self: start;
+    justify-self: end;
+    margin: var(--spacing-sm) var(--spacing-md) 0 0;
+}
+
+.sessions-row__tag-slot {
+    flex: 0 0 auto;
+    visibility: hidden;
+    padding: 0 var(--spacing-sm);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* What the title's prefix said, as a small pill before the title. Each purpose wears
+   its own edge; the word is always drawn, so the hue is never the only carrier. A
+   skill-written title (a plan run, an entry) is outlined dashed: nobody typed it. */
+.sessions-purpose,
+.sessions-plan-badge {
+    flex: 0 0 auto;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+.sessions-purpose--plan {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.sessions-purpose--plan-run,
+.sessions-purpose--entry {
+    border-color: var(--color-primary);
+    border-style: dashed;
+    color: var(--color-primary);
+}
+
+.sessions-purpose--artifact,
+.sessions-purpose--design,
+.sessions-purpose--research,
+.sessions-purpose--hold {
+    color: var(--color-text-primary);
+}
+
+.sessions-purpose--scheduled {
+    border-style: dotted;
+}
+
+.sessions-plan-badge--draft {
+    font-weight: 500;
+}
+
+.sessions-plan-badge--imported {
+    border-color: var(--color-success-text);
+    color: var(--color-success-text);
+    font-weight: 500;
+}
+
+/* A plan tag is a name, so the Plan section's heading keeps its case. */
+.sessions-group__name--tag {
+    font-family: var(--font-family-mono);
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 .sessions-row__facts {
@@ -6516,6 +6619,14 @@ a.pull-request-detail-checks__name:hover {
     flex: 0 0 auto;
 }
 
+/* A tab Show hidden brought back — a folder the Brain ignores, or a dot-folder
+   (local ADR 0026 §2). Dimmed below the other tabs, pressed or not, and the
+   hidden badge after its name says the same in words. */
+.devbook-stack__tab-title--hidden {
+    font-style: italic;
+    opacity: 0.7;
+}
+
 /* The pane's title, on the strip and only while there can be two devbooks — on
    the Brain, or beside the Brain | repository switch (local ADR 0027 §4). One
    quiet word, so it names the pane without competing with the tabs. */
@@ -6715,16 +6826,10 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /*
-    The Technology pane holds a map, and a map does not scroll — you look at the
-    whole of it and move about inside it. So the pane itself clips instead of
-    scrolling, the header and the stat tiles keep their own height, and the tab
-    strip takes everything that is left.
-
-    Which tab scrolls is then the tab's own business, and the two want opposite
-    things: the atlas fits its area exactly, and the layer detail is a document
-    that runs past the bottom. The scroll moved off the pane and onto the Layers
-    panel below for exactly that reason — a scrollbar on the pane scrolled the
-    atlas out of the frame it had just been fitted to.
+    The Technology pane clips instead of scrolling: the header keeps its own
+    height, and the tab strip takes everything that is left. Which view scrolls
+    is then the view's own business — a later view may draw a map that fits
+    its area — so the scroll sits on the tab panel, not on the pane.
 */
 .tech-devbook-pane {
     display: flex;
@@ -6749,6 +6854,24 @@ a.pull-request-detail-checks__name:hover {
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
+}
+
+/* Five tabs are wider than a phone. The strip scrolls on its own, so its width
+   never stretches the pane and the whole area does not scroll sideways. */
+.tech-devbook-pane__tabs {
+    flex: none;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+
+.tech-devbook-pane__tabs > [role="tab"] {
+    flex: none;
+    white-space: nowrap;
 }
 
 .tech-devbook-pane .tabs__panels {
@@ -6758,24 +6881,14 @@ a.pull-request-detail-checks__name:hover {
     flex-direction: column;
 }
 
+/* Each view scrolls on its own, under a header and a strip that stay put. */
 .tech-devbook-pane .tabs__panel {
     flex: 1 1 auto;
     min-height: 0;
-}
-
-/* The atlas fits. */
-.tech-devbook-pane [data-testid="technology-graph-panel"] {
-    overflow: hidden;
-}
-
-/* The layer detail scrolls. */
-.tech-devbook-pane [data-testid="technology-layers-panel"] {
-    display: grid;
-    align-content: start;
-    gap: var(--spacing-md);
     overflow-y: auto;
     scrollbar-gutter: stable;
     padding-right: var(--spacing-2xs);
+    container-type: inline-size;
 }
 
 /* The Technology header holds a title and one action and nothing else, so it is
@@ -6793,137 +6906,1146 @@ a.pull-request-detail-checks__name:hover {
     grid-column: 1 / -1;
 }
 
-.tech-devbook-pane > .devbook-pane__header,
-.tech-devbook-pane > .tech-stats {
-    flex: 0 0 auto;
+/* --------------------------------------------------------------------------
+   Technology views: Dependencies
+   --------------------------------------------------------------------------
+   One technology in context: the controls, the columns by hop or by layer on
+   each side of the focus, then the change impact and the paths down.
+   .devbook/domain/devbook/features.md#technology-view
+   -------------------------------------------------------------------------- */
+
+.tech-deps {
+    display: grid;
+    gap: var(--spacing-lg);
+    align-content: start;
+    padding-top: var(--spacing-md);
 }
 
-.tech-stats {
+.tech-deps__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.tech-deps__focus {
+    min-width: 14rem;
+    margin: 0;
+}
+
+.tech-deps__control {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-2xs);
+}
+
+.tech-deps__control-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-deps__links {
+    display: flex;
+    flex: 1 1 12rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+}
+
+.tech-deps__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-deps__lanes-section {
+    display: grid;
     gap: var(--spacing-sm);
 }
 
-.tech-stat {
+/* The columns flow left to right — furthest under it, the focus, furthest
+   above it — and wrap on a narrow pane rather than scrolling sideways. */
+.tech-deps__lanes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: var(--spacing-md);
+    align-items: start;
+}
+
+.tech-deps__column {
     display: grid;
     gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.tech-deps__column-head {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0 var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-deps__column--selected .tech-deps__column-head {
+    color: var(--color-primary);
+}
+
+.tech-deps__tally {
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-deps__cards {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-deps__card {
+    display: grid;
+    gap: var(--spacing-2xs);
+    width: 100%;
     padding: var(--spacing-sm);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-deps__card:hover {
+    border-color: var(--color-border-strong);
+}
+
+.tech-deps__card:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* Two hops or more away reads quieter; not yet adopted is drawn hollow. */
+.tech-deps__card--far {
+    border-style: dashed;
     background: var(--color-background);
 }
 
-.tech-stat__value {
-    color: var(--color-primary);
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-xl);
-    font-weight: 700;
+.tech-deps__card--hollow {
+    background: transparent;
 }
 
-.tech-stat__label,
-.tech-layer__header p,
-.tech-node__header p,
-.tech-node__relations > span {
+.tech-deps__card-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.tech-deps__card-name {
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.tech-deps__code {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+}
+
+.tech-deps__card-detail,
+.tech-deps__lede {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-deps__focus-card {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: 2px solid var(--color-primary);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-raised);
+}
+
+.tech-deps__focus-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+}
+
+.tech-deps__focus-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.tech-deps__figures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--spacing-xs);
+    margin: 0;
+    text-align: center;
+}
+
+/* The figure reads above its caption, as the design prints it; the markup keeps
+   the term first so the list reads term, then value. */
+.tech-deps__figures > div {
+    display: flex;
+    flex-direction: column-reverse;
+    padding: var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+}
+
+.tech-deps__figures dt {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-deps__figures dd {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-deps__panels {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: var(--spacing-md);
+}
+
+.tech-deps__panel {
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.tech-deps__lede strong {
+    color: var(--color-text-primary);
+}
+
+.tech-deps__paths {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.tech-deps__path {
+    margin: 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.tech-deps__subheading {
+    margin: var(--spacing-xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-deps__path-focus {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Technology views
+   --------------------------------------------------------------------------
+   The Overview board and the inspector beside it.
+   .devbook/domain/devbook/features.md#technology-view
+   -------------------------------------------------------------------------- */
+
+.tech-overview {
+    display: grid;
+    gap: var(--spacing-lg);
+    align-content: start;
+    padding-top: var(--spacing-md);
+}
+
+.tech-overview__summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.tech-overview__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-overview__types {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tech-overview__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.tech-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    border-radius: var(--border-radius-full);
+}
+
+.tech-chip__code,
+.tech-overview__code {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+}
+
+.tech-chip__tally {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The table and the inspector side by side while there is room; the inspector
+   drops under the list on a narrow pane rather than squeezing the columns. */
+.tech-overview__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: var(--spacing-lg);
+    align-items: start;
+}
+
+@container (max-width: 56rem) {
+    .tech-overview__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.tech-overview__list {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.tech-overview__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.tech-overview__toolbar .tech-overview__heading {
+    flex: 1 1 auto;
+}
+
+.tech-overview__search {
+    flex: 0 1 16rem;
+}
+
+.tech-overview__figure {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The selected row: a raised surface and a rule on its leading edge, and the
+   row's button says aria-pressed, so colour is never the only carrier. */
+.tech-overview__row--selected {
+    background: var(--color-background-raised);
+    box-shadow: inset var(--border-width-4) 0 0 var(--color-primary);
+}
+
+.tech-overview__pick {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-overview__pick:hover .tech-overview__name,
+.tech-overview__pick--pressed .tech-overview__name {
+    color: var(--color-text-link);
+}
+
+.tech-overview__pick:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.tech-overview__name {
+    font-weight: 500;
+}
+
+/* The band is printed as its word; the ink only repeats it. */
+.tech-overview__band {
+    font-weight: 600;
+}
+
+.tech-overview__band--high {
+    color: var(--color-error-text);
+}
+
+.tech-overview__band--medium {
+    color: var(--color-primary);
+}
+
+.tech-overview__band--low {
+    color: var(--color-success-text);
+}
+
+.tech-overview__score {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-overview__legend {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The Complexity board: the scatter, the hotspot lists beside it, and the table
+   companion under both. Every point is a button placed with --x and --y, which
+   the view writes as percentages of the plot; every hue below is a var() of a
+   palette, band or semantic token, so the board adds no colour of its own. */
+.tech-complexity {
+    display: grid;
+    gap: var(--spacing-lg);
+    align-content: start;
+    padding-top: var(--spacing-md);
+}
+
+.tech-complexity__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: var(--spacing-lg);
+    align-items: start;
+}
+
+@container (max-width: 56rem) {
+    .tech-complexity__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.tech-complexity__board,
+.tech-complexity__card {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.tech-complexity__side {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.tech-complexity__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.tech-complexity__intro {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.tech-complexity__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-complexity__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.tech-complexity__note--small {
+    font-size: var(--font-size-xs);
+}
+
+/* The plot keeps a floor on its width and scrolls sideways under it, so the
+   labels never fold into each other on a narrow pane. */
+.tech-complexity__frame {
+    display: grid;
+    grid-template-columns: 2rem minmax(32rem, 1fr);
+    grid-template-rows: 28rem 3rem;
+    overflow: auto hidden;
+}
+
+.tech-complexity__axis-title {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.tech-complexity__axis-title--y {
+    align-self: center;
+    justify-self: center;
+    transform: rotate(-90deg);
+}
+
+.tech-complexity__axis-title--x {
+    position: absolute;
+    top: var(--spacing-lg);
+    right: 0;
+}
+
+.tech-complexity__plot {
+    position: relative;
+    margin: var(--spacing-sm) var(--spacing-lg) 0 0;
+    border-left: var(--border-width) solid var(--chart-axis);
+    border-bottom: var(--border-width) solid var(--chart-axis);
+}
+
+.tech-complexity__region {
+    position: absolute;
+}
+
+.tech-complexity__region--deep-leaves {
+    top: 0;
+    left: 0;
+    width: var(--split-x, 50%);
+    bottom: var(--split-y, 50%);
+    background: color-mix(in srgb, var(--color-error) 55%, transparent);
+}
+
+.tech-complexity__region--hubs {
+    top: 0;
+    left: var(--split-x, 50%);
+    right: 0;
+    bottom: var(--split-y, 50%);
+    background: color-mix(in srgb, var(--color-background-raised) 35%, transparent);
+}
+
+.tech-complexity__region--foundations {
+    left: var(--split-x, 50%);
+    right: 0;
+    bottom: 0;
+    height: var(--split-y, 50%);
+    background: color-mix(in srgb, var(--color-warning) 55%, transparent);
+}
+
+.tech-complexity__split {
+    position: absolute;
+    border: 0 dashed var(--chart-axis);
+}
+
+.tech-complexity__split--x {
+    top: 0;
+    bottom: 0;
+    left: var(--split-x, 50%);
+    border-left-width: var(--border-width);
+}
+
+.tech-complexity__split--y {
+    left: 0;
+    right: 0;
+    bottom: var(--split-y, 50%);
+    border-top-width: var(--border-width);
+}
+
+/* The quadrant key: the four corners' names and meanings, two by two as the
+   plot holds them, above it rather than inside it. */
+.tech-complexity__quadrants {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-xs) var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-complexity__quadrant {
+    display: grid;
+    gap: var(--spacing-2xs);
+    padding-left: var(--spacing-sm);
+    border-left: var(--border-width-4) solid var(--point-colour);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.tech-complexity__quadrant-name {
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--point-colour);
+}
+
+.tech-complexity__quadrant--deep-leaves {
+    --point-colour: var(--color-error-text);
+}
+
+.tech-complexity__quadrant--hubs {
+    --point-colour: var(--color-text-secondary);
+}
+
+.tech-complexity__quadrant--foundations {
+    --point-colour: var(--color-primary);
+}
+
+.tech-complexity__quadrant--leaves {
+    --point-colour: var(--color-success-text);
+}
+
+/* A point is the dot and its label in one button. The button sits on the dot's
+   centre; the label hangs to its right, or to its left near the right edge. */
+.tech-complexity__point {
+    position: absolute;
+    left: var(--x, 0%);
+    bottom: var(--y, 0%);
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    max-width: var(--room, none);
+    cursor: pointer;
+    transform: translate(-0.5625rem, 50%);
+}
+
+/* A label longer than the room before the next point is cut short, and read
+   whole while its point is hovered, focused or selected. */
+.tech-complexity__label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tech-complexity__point--label-start {
+    flex-direction: row-reverse;
+    transform: translate(calc(-100% + 0.5625rem), 50%);
+}
+
+.tech-complexity__dot {
+    flex: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--point-colour);
+    border-radius: var(--border-radius-full);
+    background: var(--point-colour);
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-background-alt);
+}
+
+/* Status is never left to colour: a point not yet adopted is a ring. */
+.tech-complexity__point--hollow .tech-complexity__dot {
+    background: var(--color-background-alt);
+}
+
+.tech-complexity__point:hover,
+.tech-complexity__point--selected {
+    z-index: 2;
+    max-width: none;
+}
+
+.tech-complexity__point:focus-visible .tech-complexity__label {
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+}
+
+.tech-complexity__point:hover .tech-complexity__label {
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-link);
+}
+
+.tech-complexity__point--selected .tech-complexity__label {
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-link);
+    font-weight: 600;
+}
+
+.tech-complexity__point--selected .tech-complexity__dot {
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-background-alt), 0 0 0 var(--border-width-4) var(--color-text-primary);
+}
+
+.tech-complexity__point:focus-visible {
+    z-index: 2;
+    max-width: none;
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.tech-complexity__ticks {
+    grid-column: 2;
+    position: relative;
+    margin-right: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-complexity__tick {
+    position: absolute;
+    top: var(--spacing-xs);
+    left: var(--x, 0%);
+    transform: translateX(-50%);
+}
+
+.tech-complexity__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-complexity__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.tech-complexity__swatch {
+    width: 0.75rem;
+    height: 0.75rem;
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--point-colour);
+    border-radius: var(--border-radius-full);
+    background: var(--point-colour);
+}
+
+.tech-complexity__swatch--hollow {
+    --point-colour: var(--color-text-secondary);
+    background: none;
+}
+
+/* The hues. A quadrant takes the design's; a family one of the band, brand or
+   semantic hues; a layer the band hues in reading order, repeating after six. */
+.tech-complexity__point--deep-leaves,
+.tech-complexity__swatch--deep-leaves { --point-colour: var(--color-error-text); }
+.tech-complexity__point--hubs,
+.tech-complexity__swatch--hubs { --point-colour: var(--color-text-secondary); }
+.tech-complexity__point--foundations,
+.tech-complexity__swatch--foundations { --point-colour: var(--color-primary); }
+.tech-complexity__point--leaves,
+.tech-complexity__swatch--leaves { --point-colour: var(--color-success-text); }
+
+.tech-complexity__point--family-framework,
+.tech-complexity__swatch--family-framework { --point-colour: var(--color-band-2); }
+.tech-complexity__point--family-platform,
+.tech-complexity__swatch--family-platform { --point-colour: var(--color-band-5); }
+.tech-complexity__point--family-runtime,
+.tech-complexity__swatch--family-runtime { --point-colour: var(--color-band-4); }
+.tech-complexity__point--family-languageandpackage,
+.tech-complexity__swatch--family-languageandpackage { --point-colour: var(--color-band-3); }
+.tech-complexity__point--family-librarytoolandplugin,
+.tech-complexity__swatch--family-librarytoolandplugin { --point-colour: var(--color-primary); }
+.tech-complexity__point--family-skill,
+.tech-complexity__swatch--family-skill { --point-colour: var(--color-error-text); }
+.tech-complexity__point--family-agentserviceandformat,
+.tech-complexity__swatch--family-agentserviceandformat { --point-colour: var(--color-text-primary); }
+.tech-complexity__point--family-protocol,
+.tech-complexity__swatch--family-protocol { --point-colour: var(--color-primary-light); }
+.tech-complexity__point--family-other,
+.tech-complexity__swatch--family-other { --point-colour: var(--color-text-disabled); }
+
+.tech-complexity__point--layer-1,
+.tech-complexity__swatch--layer-1 { --point-colour: var(--color-band-1); }
+.tech-complexity__point--layer-2,
+.tech-complexity__swatch--layer-2 { --point-colour: var(--color-band-2); }
+.tech-complexity__point--layer-3,
+.tech-complexity__swatch--layer-3 { --point-colour: var(--color-band-3); }
+.tech-complexity__point--layer-4,
+.tech-complexity__swatch--layer-4 { --point-colour: var(--color-band-4); }
+.tech-complexity__point--layer-5,
+.tech-complexity__swatch--layer-5 { --point-colour: var(--color-band-5); }
+.tech-complexity__point--layer-6,
+.tech-complexity__swatch--layer-6 { --point-colour: var(--color-error-text); }
+
+.tech-complexity__hotspots {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-complexity__chain {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+}
+
+.tech-complexity__pick {
+    width: 100%;
+    padding: var(--spacing-2xs) 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-complexity__hotspot {
+    width: 100%;
+    padding: var(--spacing-2xs) 0;
+    border: none;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5rem 1.5rem;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.tech-complexity__hotspot-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tech-complexity__hotspot:hover .tech-complexity__hotspot-name,
+.tech-complexity__pick:hover {
+    color: var(--color-text-link);
+}
+
+.tech-complexity__hotspot--pressed .tech-complexity__hotspot-name,
+.tech-complexity__pick--pressed {
+    color: var(--color-text-link);
+    font-weight: 600;
+}
+
+.tech-complexity__hotspot:focus-visible,
+.tech-complexity__pick:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--spacing-2xs);
+}
+
+.tech-complexity__bar {
+    height: 0.375rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.tech-complexity__bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+}
+
+.tech-complexity__bar-fill--deep-leaves {
+    background: var(--color-error-text);
+}
+
+.tech-complexity__bar-fill--foundations {
+    background: var(--color-primary);
+}
+
+.tech-complexity__hotspot-value {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.tech-complexity__companion {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+/* The inspector: the selected technology beside the list. */
+.tech-inspector {
+    display: grid;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.tech-inspector__head {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.tech-inspector__kicker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.tech-layer-tabs {
+.tech-inspector__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+}
+
+.tech-inspector__lede,
+.tech-inspector__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tech-inspector__meta {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-xs);
-}
-
-.tech-layer-tab {
-    display: inline-flex;
     align-items: center;
-    gap: var(--spacing-xs);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background);
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.tech-inspector__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+}
+
+.tech-inspector__facts > div {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.tech-inspector__facts dt {
     color: var(--color-text-secondary);
-    cursor: pointer;
-    font: inherit;
-    font-size: var(--font-size-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-}
-
-.tech-layer-tab:hover,
-.tech-layer-tab:focus-visible,
-.tech-layer-tab--active {
-    border-color: var(--color-primary);
-    color: var(--color-text-primary);
-}
-
-.tech-layer-tab--active {
-    background: var(--color-warning);
-}
-
-.tech-layer-tab__count {
-    color: var(--color-primary);
     font-size: var(--font-size-xs);
+}
+
+.tech-inspector__facts dd {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
     font-variant-numeric: tabular-nums;
 }
 
-.tech-layer,
-.tech-node-grid {
+.tech-inspector__relations {
     display: grid;
-    gap: var(--spacing-md);
+    gap: var(--spacing-xs);
 }
 
-.tech-layer__header,
-.tech-node__header {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-md);
-    align-items: center;
-}
-
-.tech-layer__header h3,
-.tech-node__header h4 {
-    margin: 0 0 var(--spacing-xs);
-}
-
-.tech-node-grid {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-
-.tech-node--accepted {
-    border-left-color: var(--color-primary);
-}
-
-.tech-node--proposed {
-    border-left-color: var(--color-secondary);
-}
-
-.tech-node--candidate {
-    border-left-color: var(--color-border-focus);
-}
-
-.tech-node__kind {
-    color: var(--color-primary);
+.tech-inspector__relations h4 {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    white-space: nowrap;
 }
 
-.tech-node__meta,
-.tech-node__relations div {
+.tech-inspector__chips,
+.tech-inspector__links {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
 }
 
-/* The status select sets the row's height; the version beside it is a line of
-   text and sits on its centre rather than stretching to match. */
-.tech-node__meta {
-    align-items: center;
-}
-
-.tech-node__relations {
+/* A type lens: the section a technology's type chooses, in the inspector and on
+   each card of the Type lenses board. */
+.tech-lens {
     display: grid;
     gap: var(--spacing-xs);
+}
+
+.tech-lens__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.tech-lens__rows {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.tech-lens__row {
+    display: grid;
+    grid-template-columns: minmax(6rem, auto) minmax(0, 1fr);
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.tech-lens__row dt {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-lens__row dd {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.tech-lens__group {
+    display: grid;
+    grid-template-columns: minmax(4.5rem, max-content) minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.tech-lens__layer {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-lens__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* A long package id wraps inside its card rather than pushing the board sideways. */
+.tech-lens__chips > * {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: start;
+}
+
+/* The Type lenses board: a card per type in use, then the lens-per-type table. */
+.tech-lenses {
+    display: grid;
+    gap: var(--spacing-lg);
+}
+
+.tech-lenses__lede {
+    margin: 0;
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.tech-lenses__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+    gap: var(--spacing-md);
+}
+
+.tech-lens-card {
+    align-content: start;
+}
+
+/* The shared selection's card: the Overview's selected-row treatment — a raised
+   surface and a rule on the leading edge — with "Selected" in its kicker and
+   aria-current on the card, so colour is never the only carrier. */
+.tech-lens-card--selected {
+    background: var(--color-background-raised);
+    box-shadow: inset var(--border-width-4) 0 0 var(--color-primary);
+}
+
+.tech-lens-card__selected {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.tech-lens-card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tech-lens-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+.tech-lens-card__kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tech-lens-card__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-lens-card__facts {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.tech-lenses__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+}
+
+.tech-lenses__table {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.tech-lenses__types,
+.tech-lenses__reads {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
 }
 
 .relation-chip {
@@ -7114,6 +8236,511 @@ a.pull-request-detail-checks__name:hover {
     max-height: 100%;
     min-height: 0;
     overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Technology Clusters
+   --------------------------------------------------------------------------
+   The whole stack by layer, as the design's Clusters board: a map of buttons
+   and lines on a stage beside a side panel.
+   .devbook/domain/devbook/features.md#technology-view
+
+   Every position is set inline, in percent of the stage, by
+   TechnologyClustersLayout; the stage keeps the layout's aspect ratio, so a
+   line's angle holds at any width. A line is a border on a box turned about
+   its left end.
+
+   The eight type families take a hue each, derived from the chart category
+   hues and the neutrals as color-scheme.md#role-tokens requires, and never from
+   a semantic token; a technology not adopted is hollow, so status never rests on
+   colour alone. What it sits on is gold, what uses it the primary ink.
+   -------------------------------------------------------------------------- */
+
+.tech-clusters {
+    --tech-clusters-sits-on: var(--chart-series);
+    --tech-clusters-used-by: var(--chart-ink);
+    --tech-family-framework: var(--chart-category-2);
+    --tech-family-platform: var(--chart-category-3);
+    --tech-family-runtime: var(--chart-category-4);
+    --tech-family-language-package: color-mix(in srgb, var(--chart-category-3) 50%, var(--chart-category-4));
+    --tech-family-library-tool-plugin: var(--chart-category-5);
+    --tech-family-skill: color-mix(in srgb, var(--chart-category-4) 50%, var(--chart-category-5));
+    --tech-family-agent-service-format: color-mix(in srgb, var(--chart-category-2) 50%, var(--chart-category-5));
+    --tech-family-protocol: var(--chart-ink-muted);
+    --tech-family-other: var(--chart-axis);
+    display: grid;
+    gap: var(--spacing-sm);
+    align-content: start;
+    padding-top: var(--spacing-md);
+}
+
+.tech-clusters .tech-family--framework { --tech-family: var(--tech-family-framework); }
+.tech-clusters .tech-family--platform { --tech-family: var(--tech-family-platform); }
+.tech-clusters .tech-family--runtime { --tech-family: var(--tech-family-runtime); }
+.tech-clusters .tech-family--language-package { --tech-family: var(--tech-family-language-package); }
+.tech-clusters .tech-family--library-tool-plugin { --tech-family: var(--tech-family-library-tool-plugin); }
+.tech-clusters .tech-family--skill { --tech-family: var(--tech-family-skill); }
+.tech-clusters .tech-family--agent-service-format { --tech-family: var(--tech-family-agent-service-format); }
+.tech-clusters .tech-family--protocol { --tech-family: var(--tech-family-protocol); }
+.tech-clusters .tech-family--other { --tech-family: var(--tech-family-other); }
+
+/* Where you are: Back, All layers › layer › technology, then the trail. */
+.tech-clusters__crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.tech-clusters__back,
+.tech-clusters__crumb {
+    min-height: 2.25rem;
+    min-width: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.tech-clusters__back:disabled {
+    color: var(--color-border);
+    cursor: default;
+}
+
+.tech-clusters__sep {
+    color: var(--color-border-strong);
+}
+
+.tech-clusters__here {
+    padding: 0 var(--spacing-xs);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.tech-clusters__trail-label {
+    margin-left: var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-clusters__trail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.tech-clusters__trail-step {
+    min-height: 1.75rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-background-raised);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.tech-clusters__trail-step--current {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.tech-clusters__hint {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.tech-clusters__muted {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+}
+
+/* The map beside its companion; the companion goes under the map in a narrow pane. */
+.tech-clusters__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+    gap: var(--spacing-md);
+    align-items: start;
+}
+
+@container (max-width: 60rem) {
+    .tech-clusters__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.tech-clusters__map {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background);
+}
+
+.tech-clusters__stage {
+    position: relative;
+    width: 100%;
+    min-width: 40rem;
+    overflow: hidden;
+    font-size: var(--font-size-xs);
+}
+
+.tech-clusters__stage > * {
+    position: absolute;
+    box-sizing: border-box;
+}
+
+.tech-clusters__line {
+    height: 0;
+    border-top-style: solid;
+    border-top-color: var(--color-background-raised);
+    transform-origin: 0 50%;
+    pointer-events: none;
+}
+
+.tech-clusters__line--link {
+    border-top-color: var(--color-border-strong);
+}
+
+.tech-clusters__line--sits-on {
+    border-top-color: var(--tech-clusters-sits-on);
+}
+
+.tech-clusters__line--used-by {
+    border-top-color: var(--tech-clusters-used-by);
+}
+
+.tech-clusters__line--dashed {
+    border-top-style: dashed;
+}
+
+.tech-clusters__tally {
+    min-width: 1.5rem;
+    padding: 0 var(--spacing-xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-bold);
+    line-height: 1.5rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+.tech-clusters__tally--link {
+    min-width: 2rem;
+    min-height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-normal);
+    line-height: 1;
+}
+
+.tech-clusters__tally--sits-on {
+    background: var(--tech-clusters-sits-on);
+    color: var(--color-text-inverse);
+}
+
+.tech-clusters__tally--used-by {
+    background: var(--tech-clusters-used-by);
+    color: var(--color-text-inverse);
+}
+
+.tech-clusters__cluster {
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    box-shadow: 0 0 4.5rem color-mix(in srgb, var(--color-primary) 10%, transparent);
+    cursor: pointer;
+}
+
+.tech-clusters__cluster:hover,
+.tech-clusters__satellite:hover {
+    border-color: var(--color-border-strong);
+}
+
+.tech-clusters__cluster:focus-visible,
+.tech-clusters__satellite:focus-visible,
+.tech-clusters__pill:focus-visible,
+.tech-clusters__back:focus-visible,
+.tech-clusters__crumb:focus-visible,
+.tech-clusters__trail-step:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 3px;
+}
+
+.tech-clusters__cluster-name {
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tech-clusters__satellite-name {
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tech-clusters__satellite {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    cursor: pointer;
+}
+
+.tech-clusters__satellite--sits-on {
+    border: var(--border-width-2) solid var(--tech-clusters-sits-on);
+}
+
+.tech-clusters__satellite--used-by {
+    border: var(--border-width-2) solid var(--tech-clusters-used-by);
+}
+
+.tech-clusters__satellite--dimmed,
+.tech-clusters__satellite-name--dimmed {
+    opacity: 0.5;
+}
+
+.tech-clusters__halo {
+    border: var(--border-width) solid var(--color-border);
+    border-radius: 1.75rem;
+    background: var(--color-background-alt);
+    box-shadow: 0 0 7.5rem color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.tech-clusters__halo-title {
+    overflow: hidden;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.tech-clusters__pill {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-clusters__pill-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tech-clusters__pill--selected {
+    border: var(--border-width-2) solid var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.tech-clusters__pill--sits-on {
+    border: var(--border-width-2) solid var(--tech-clusters-sits-on);
+}
+
+.tech-clusters__pill--used-by {
+    border: var(--border-width-2) solid var(--tech-clusters-used-by);
+}
+
+/* Dimmed by its edge and its dot, never by its text, which stays readable. */
+.tech-clusters__pill--dimmed {
+    border-color: var(--color-background-raised);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+}
+
+.tech-clusters__pill--dimmed .tech-clusters__dot {
+    opacity: 0.45;
+}
+
+/* A dot: filled in its family's hue when adopted, a ring of it when not. */
+.tech-clusters__dot {
+    display: inline-block;
+    flex: none;
+    width: 0.625rem;
+    height: 0.625rem;
+    box-sizing: border-box;
+    border: var(--border-width-2) solid var(--tech-family, var(--tech-family-other));
+    border-radius: var(--border-radius-full);
+    background: var(--tech-family, var(--tech-family-other));
+    pointer-events: none;
+}
+
+.tech-clusters__dot--hollow {
+    background: transparent;
+}
+
+.tech-clusters__dot--selected {
+    outline: var(--border-width-2) solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* The companion: the layers, or the open layer's technologies, as a list. */
+.tech-clusters__side {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    align-content: start;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+/* The inspector is the side panel's own content here, so the panel's frame is
+   the only one drawn. */
+.tech-clusters__side > .tech-inspector {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    overflow-wrap: anywhere;
+}
+
+.tech-clusters__side > .tech-inspector > * {
+    min-width: 0;
+}
+
+.tech-clusters__side-head {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.tech-clusters__kicker {
+    margin: 0;
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-clusters__kicker code {
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-normal);
+    text-transform: none;
+}
+
+.tech-clusters__side-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+}
+
+.tech-clusters__list-heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tech-clusters__list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tech-clusters__row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tech-clusters__row:hover {
+    border-color: var(--color-border);
+}
+
+.tech-clusters__row--selected {
+    border-color: var(--color-primary);
+}
+
+.tech-clusters__row-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tech-clusters__row-figure {
+    min-width: 1.5rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.tech-clusters__legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0;
+    padding: var(--spacing-sm) 0 0;
+    list-style: none;
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.tech-clusters__legend li {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* The inspector names each related technology's layer in Clusters. */
+.tech-inspector__layer {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
 /* The `folder-*` family is the document-folder view — one view for `.design`
@@ -7354,6 +8981,25 @@ a.pull-request-detail-checks__name:hover {
     text-transform: uppercase;
 }
 
+/* On the Brain, whose heading carries the Show hidden switch, the heading's name
+   takes the room, so the open button and the switch sit together at its end
+   rather than spread across it. Scoped to that heading: a repository's heading
+   keeps its own layout, where a long name pushes the button rather than
+   shrinking under it. */
+.devbook-stack__menu-heading:has(> .devbook-stack__show-hidden) > span:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Show hidden is a small icon toggle at the heading's end: it keeps its size
+   when the name wraps, and sits no taller than the heading's line. */
+.devbook-stack__show-hidden {
+    flex: 0 0 auto;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+}
+
 
 
 
@@ -7511,9 +9157,7 @@ a.pull-request-detail-checks__name:hover {
 .folder-section__header,
 .domain-context__header,
 .domain-document__header,
-.domain-section__header,
-.tech-layer__header,
-.tech-node__header {
+.domain-section__header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -7712,19 +9356,6 @@ a.pull-request-detail-checks__name:hover {
     background: var(--color-background);
 }
 
-/* The `border` after `border-left` resets it, as it did when the two sat in
-   separate rules, so neither this accent nor the status colours above it show.
-   Kept as it was: folding the rules was not meant to change what is drawn. */
-.tech-node {
-    display: grid;
-    gap: var(--spacing-sm);
-    border-left: 4px solid var(--color-border-strong);
-    padding: var(--spacing-md);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
-}
-
 /* The same withdrawal, per document rather than per class: a domain article is a
    card for every file it lists and stops being one for the single file it shows
    through the file view. Padding goes too, not only the edge — a frame's inset
@@ -7757,271 +9388,6 @@ a.pull-request-detail-checks__name:hover {
 .design-token__name,
 .design-token__value {
     font-family: var(--font-family-mono);
-}
-
-/* The AI area's DevOps loop (AiLoopView): the infinity figure across the middle,
-   a card per stage above or below the quarter of the band it names. The ladder is
-   shaded on the chart ramp — one hue, paler for less adopted — because the
-   palette is single-hue by rule (color-scheme.md's chart roles); hold is the
-   border ink, dashed, and an empty stage or a retired one the track. No new
-   colour: every value is a chart role or a palette token. */
-.ai-loop {
-    --ai-loop-adopted: var(--chart-ramp-4);
-    --ai-loop-trial: var(--chart-ramp-3);
-    --ai-loop-candidate: var(--chart-ramp-1);
-    --ai-loop-hold: var(--chart-axis);
-    --ai-loop-retired: var(--chart-track);
-    --ai-loop-empty: var(--chart-track);
-    container: ai-loop / inline-size;
-    display: grid;
-    gap: var(--spacing-md);
-    margin-block: var(--spacing-sm) var(--spacing-md);
-}
-
-.ai-loop__grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-areas:
-        "code plan release deploy"
-        "figure figure figure figure"
-        "build test monitor operate";
-    gap: var(--spacing-sm) var(--spacing-md);
-    align-items: start;
-}
-
-.ai-loop__figure {
-    grid-area: figure;
-    width: 100%;
-    max-height: 15rem;
-}
-
-.ai-loop__segment {
-    fill: none;
-    stroke-width: 22;
-    stroke: var(--ai-loop-empty);
-}
-
-.ai-loop__segment--adopted { stroke: var(--ai-loop-adopted); }
-.ai-loop__segment--trial { stroke: var(--ai-loop-trial); }
-.ai-loop__segment--candidate { stroke: var(--ai-loop-candidate); }
-.ai-loop__segment--hold { stroke: var(--ai-loop-hold); stroke-dasharray: 6 4; }
-.ai-loop__segment--retired { stroke: var(--ai-loop-retired); }
-
-.ai-loop__arrow {
-    fill: none;
-    stroke: var(--chart-surface);
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.ai-loop__label,
-.ai-loop__lobe {
-    text-anchor: middle;
-    dominant-baseline: middle;
-    font-family: var(--font-family-base, inherit);
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.ai-loop__label {
-    font-size: 11px;
-    fill: var(--chart-ink);
-}
-
-/* Dark ink on the two deepest steps, where the light ink would sit on the
-   brand hue at its brightest. */
-.ai-loop__label--adopted,
-.ai-loop__label--trial {
-    fill: var(--color-text-inverse);
-}
-
-.ai-loop__lobe {
-    font-size: 28px;
-    fill: var(--chart-ink-muted);
-}
-
-.ai-loop__stage,
-.ai-loop__concepts {
-    --ai-loop-accent: var(--ai-loop-empty);
-    display: grid;
-    gap: var(--spacing-xs);
-    min-width: 0;
-    padding: var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border);
-    border-top: 4px solid var(--ai-loop-accent);
-    border-radius: var(--border-radius-md);
-    background: var(--color-background);
-}
-
-.ai-loop__stage--adopted { --ai-loop-accent: var(--ai-loop-adopted); }
-.ai-loop__stage--trial { --ai-loop-accent: var(--ai-loop-trial); }
-.ai-loop__stage--candidate { --ai-loop-accent: var(--ai-loop-candidate); }
-.ai-loop__stage--hold { --ai-loop-accent: var(--ai-loop-hold); border-top-style: dashed; }
-.ai-loop__stage--retired { --ai-loop-accent: var(--ai-loop-retired); }
-
-/* The bottom row reads up towards the band, so its accent faces it. */
-.ai-loop__stage--below {
-    border-top: var(--border-width) solid var(--color-border);
-    border-bottom: 4px solid var(--ai-loop-accent);
-}
-
-.ai-loop__stage--below.ai-loop__stage--hold { border-bottom-style: dashed; }
-
-.ai-loop__stage-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-}
-
-.ai-loop__stage-name {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.ai-loop__half {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.ai-loop__empty-text {
-    margin: 0;
-    color: var(--color-text-disabled);
-    font-size: var(--font-size-xs);
-    font-style: italic;
-}
-
-.ai-loop__usages {
-    display: grid;
-    gap: var(--spacing-xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.ai-loop__usages--inline {
-    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-}
-
-.ai-loop__usage {
-    display: grid;
-    gap: 2px;
-    width: 100%;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border: var(--border-width) solid var(--color-border);
-    border-left: 3px solid var(--ai-loop-empty);
-    border-radius: var(--border-radius-sm);
-    background: var(--color-background-alt);
-    color: var(--color-text-primary);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-.ai-loop__usage:hover {
-    border-color: var(--color-border-strong);
-    background: var(--color-background-raised);
-}
-
-.ai-loop__usage:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: 1px;
-}
-
-.ai-loop__usage--adopted { border-left-color: var(--ai-loop-adopted); }
-.ai-loop__usage--trial { border-left-color: var(--ai-loop-trial); }
-.ai-loop__usage--candidate { border-left-color: var(--ai-loop-candidate); }
-.ai-loop__usage--hold { border-left-color: var(--ai-loop-hold); border-left-style: dashed; }
-.ai-loop__usage--retired { border-left-color: var(--ai-loop-retired); }
-
-.ai-loop__usage-name {
-    min-width: 0;
-    font-size: var(--font-size-sm);
-    overflow-wrap: anywhere;
-}
-
-.ai-loop__usage-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px var(--spacing-xs);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-/* The badge keeps its word's width here, not the 7.5rem column it takes in a
-   table of them: on a card it is a qualifier on the line, not a column. */
-.ai-loop__usage-meta > .badge {
-    min-width: 0;
-    width: auto;
-    padding: 0 var(--spacing-xs);
-    font-size: var(--font-size-2xs);
-}
-
-.ai-loop__usage-type {
-    color: var(--color-primary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.ai-loop__usage-tech::before {
-    content: "· ";
-}
-
-.ai-loop__usage-type + .ai-loop__usage-tech::before,
-.ai-loop__usage-meta > .badge + .ai-loop__usage-tech::before {
-    content: none;
-}
-
-.ai-loop__legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-md);
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.ai-loop__key {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.ai-loop__key::before {
-    content: "";
-    width: 1.5rem;
-    height: 0.5rem;
-    border-radius: 999px;
-    background: var(--ai-loop-empty);
-}
-
-.ai-loop__key--adopted::before { background: var(--ai-loop-adopted); }
-.ai-loop__key--trial::before { background: var(--ai-loop-trial); }
-.ai-loop__key--candidate::before { background: var(--ai-loop-candidate); }
-.ai-loop__key--hold::before { background: repeating-linear-gradient(90deg, var(--ai-loop-hold) 0 6px, transparent 6px 10px); }
-.ai-loop__key--retired::before { background: var(--ai-loop-retired); }
-
-/* Too narrow for four cards abreast: the figure goes and the stages read as a
-   list in loop order, which states the same facts without the geometry. */
-@container ai-loop (max-width: 48rem) {
-    .ai-loop__grid {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: "plan" "code" "build" "test" "release" "deploy" "operate" "monitor";
-    }
-
-    .ai-loop__figure {
-        display: none;
-    }
-
-    .ai-loop__stage--below {
-        border-top: 4px solid var(--ai-loop-accent);
-        border-bottom: var(--border-width) solid var(--color-border);
-    }
 }
 
 /* .devbook-pane__summary was here until the architecture panel gave up the
@@ -8491,69 +9857,11 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /* --------------------------------------------------------------------------
-   Technology atlas sheet
-   --------------------------------------------------------------------------
-   The parts of the atlas's detail sheet that are about technologies rather than
-   about sheets: the fact strip, the boundary-node note, and the three reference
-   lists. The sheet itself, its motion and its focus behaviour are the library's.
-   -------------------------------------------------------------------------- */
-
-.tech-atlas-facts {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-2xs) var(--spacing-xs);
-}
-
-.tech-atlas-status {
-    display: grid;
-    gap: var(--spacing-2xs);
-    justify-items: start;
-}
-
-.tech-atlas-prose,
-.tech-atlas-note {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
-}
-
-/* A boundary node is a chapter this folder does not own, and the note saying so
-   is the one piece of prose in the sheet that explains rather than reports. */
-.tech-atlas-note {
-    padding: var(--spacing-sm);
-    border-left: var(--border-width-2) solid var(--color-border-strong);
-    background: var(--color-background-raised);
-    border-radius: var(--border-radius-sm);
-}
-
-.tech-atlas-relations {
-    display: grid;
-    gap: var(--spacing-2xs);
-}
-
-.tech-atlas-relations__label {
-    color: var(--color-text-secondary);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.tech-atlas-relations > div {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-2xs) var(--spacing-sm);
-}
-
-/* --------------------------------------------------------------------------
    Devbook atlas
    --------------------------------------------------------------------------
    The map over a devbook folder, or over all of them. It takes the section
    body when it is open, so it is a column that fills the room and clips: the
-   map fits and the list inside it scrolls, exactly as the technology atlas
-   does.
+   map fits and the list inside it scrolls.
    -------------------------------------------------------------------------- */
 
 .devbook-atlas {
@@ -9642,6 +10950,137 @@ a.pull-request-detail-checks__name:hover {
 .devbook-stack__update-status--ok { color: var(--color-text-secondary); }
 .devbook-stack__update-status--available { color: var(--color-primary); }
 .devbook-stack__update-status--blocked { color: var(--color-error-text); }
+
+/* The AI section's tab strip: four tabs that outgrow a phone-width pane. The
+   strip wraps onto a second row rather than clipping, and no tab squeezes or
+   breaks its word, so every tab stays whole, readable and reachable at once. */
+.ai-tabs { min-width: 0; }
+
+.ai-tabs > .tabs__list { flex-wrap: wrap; }
+
+.ai-tabs > .tabs__list > .tabs__tab {
+    flex: none;
+    white-space: nowrap;
+}
+
+/* The AI section's Devbook tab: one card per stack component, read from the
+   stamps in .devbook/config.json. The cards wrap rather than squeeze, so a
+   narrow pane stacks them. */
+.devbook-adoption {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.devbook-adoption__lead {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.devbook-adoption__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--spacing-sm);
+    align-items: start;
+}
+
+.devbook-adoption__card .card__body {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.devbook-adoption__key,
+.devbook-adoption__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.devbook-adoption__facts {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+}
+
+.devbook-adoption__facts > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.devbook-adoption__facts dt {
+    color: var(--color-text-secondary);
+}
+
+.devbook-adoption__facts dd {
+    margin: 0;
+}
+
+.devbook-adoption__group {
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.devbook-adoption__label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: normal;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.devbook-adoption__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+}
+
+.devbook-adoption__migrations,
+.devbook-adoption__usages {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding-left: var(--spacing-md);
+    font-size: var(--font-size-sm);
+}
+
+/* A long migration record scrolls inside the card rather than lengthening it. */
+.devbook-adoption__card .devbook-adoption__migrations {
+    max-height: 12rem;
+    overflow-y: auto;
+}
+
+.devbook-adoption__date,
+.devbook-adoption__place {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.devbook-adoption__usage-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+}
+
+.devbook-adoption__usage-link:hover {
+    color: var(--color-primary-light);
+}
+
+.devbook-adoption__usage-link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
 
 .devbook-atlas-facts {
     display: flex;

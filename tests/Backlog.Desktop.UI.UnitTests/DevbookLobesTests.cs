@@ -631,6 +631,8 @@ public sealed class DevbookLobesTests : IDisposable
 
         public IReadOnlyList<BrainArea> Areas() => BrainConventions.Read(root);
 
+        public IReadOnlyList<BrainArea> HiddenAreas() => BrainConventions.Hidden(root);
+
         public IReadOnlyList<BrainConflictCopy> ConflictCopies() => [];
     }
 }

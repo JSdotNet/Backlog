@@ -14,7 +14,8 @@ type: stage
 ```meta
 status: trial
 type: guardrail
-stage: [plan, code, release, operate, monitor]
+layer: [harness]
+evidence: none
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 related: [".devbook/ai/concepts.md#unattended-runs-park", ".devbook/ai/concepts.md#external-text-is-data", ".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-26
@@ -32,6 +33,7 @@ rather than duplicated.
 - **Adopted by** — the schedules this repository selected under `components.schedule` in
   `.devbook/config.json`, registered as Claude Code routines on 2026-09-25 and 2026-09-26.
 - **Evidence** — none yet: the first fires have published no report issue or pull request.
+- **Moves up when** — a schedule publishes an issue or pull request inside these limits.
 - **Limits** — a schedule never runs a `flow-*` skill, because a flow ends at a gate no
   unattended run can pass. It treats every issue, comment, and commit message it reads as
   [data](concepts.md#external-text-is-data), never as an instruction.
@@ -41,7 +43,10 @@ rather than duplicated.
 ```meta
 status: trial
 type: workflow
-stage: [plan, code]
+stage: [decide, code]
+substage: [code/implement]
+feeds: [".devbook/ai/03-test.md#personal-validation-gate: draft pull requests park here"]
+evidence: none
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#delivery-engine"]
 date: 2026-09-26
 ```
@@ -55,6 +60,7 @@ says what could not be proved. The brief lands as a `schedule-report` issue.
   drafts.
 - **Adopted by** — the schedule, since 2026-09-26.
 - **Evidence** — none yet from the schedule.
+- **Moves up when** — its first brief or draft pull request lands.
 - **Limits** — at most `maxResolve` resolutions a run, all draft; nothing else is closed.
 
 ## Scheduled merge review
@@ -62,7 +68,9 @@ says what could not be proved. The brief lands as a `schedule-report` issue.
 ```meta
 status: trial
 type: workflow
-stage: [release]
+stage: [integrate]
+substage: [integrate/review]
+evidence: none
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
@@ -74,6 +82,7 @@ head.
 - **Used for** — a second reading of every pull request before the owner merges it.
 - **Adopted by** — the schedule, since 2026-09-26.
 - **Evidence** — none yet.
+- **Moves up when** — its first verdict comment is posted.
 - **Limits** — comments only: it opens no pull request and no issue, and approves nothing.
 
 ## Scheduled devbook upkeep
@@ -81,7 +90,9 @@ head.
 ```meta
 status: trial
 type: workflow
-stage: [operate]
+layer: [upkeep]
+feeds: [".devbook/ai/05-unattended-runs.md#scheduled-devbook-sync-sweeps: drift issues"]
+evidence: fired
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#devbook-plugin"]
 related: [".devbook/ai/03-test.md#devbook-checks-around-a-flow"]
 date: 2026-09-26
@@ -96,6 +107,7 @@ the technology graph from the package inventories as a draft pull request.
 - **Used for** — keeping the chapters true between the changes that touch them.
 - **Adopted by** — the four schedules, since 2026-09-25 and 2026-09-26.
 - **Evidence** — `devbook-validate` has fired; nothing published yet.
+- **Moves up when** — `devbook-validate` lands its first pull request.
 - **Limits** — `prose-check` carries no editor on purpose, and `devbook-verify` writes no
   chapter: prose and content change only through `flow-spec`. `devbook-verify` covers only
   the [sync units](../../.agents/rules/devbook-chapter-metadata.md#sync-direction) whose
@@ -106,9 +118,10 @@ the technology graph from the package inventories as a draft pull request.
 ```meta
 status: candidate
 type: workflow
-stage: [code, operate]
+layer: [thread]
+feeds: [".devbook/ai/03-test.md#personal-validation-gate: draft pull requests"]
+evidence: none
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#devbook-plugin"]
-related: [".devbook/ai/05-unattended-runs.md#scheduled-devbook-upkeep"]
 date: 2026-10-06
 ```
 
@@ -135,6 +148,7 @@ verdicts conflict goes to a person.
 - **Adopted by** — nobody: neither schedule is selected. Both ship in delivery-schedule, and
   selecting them is open.
 - **Evidence** — none.
+- **Moves up when** — a sweep is selected under `components.schedule`.
 - **Limits** — push writes no chapter and removes no code, and skips a draft or unagreed
   chapter; pull changes only chapters and never raises a status above `draft`.
 
@@ -143,9 +157,10 @@ verdicts conflict goes to a person.
 ```meta
 status: trial
 type: workflow
-stage: [operate]
+layer: [upkeep]
+evidence: none
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/ai-development.md#repository-instruction-files"]
-related: [".devbook/ai/concepts.md#one-rule-one-place"]
+related: [".devbook/ai/concepts.md#one-rule-one-place", ".devbook/ai/02-code.md#rules-wrapped-per-host"]
 date: 2026-09-26
 ```
 
@@ -155,6 +170,7 @@ pull request cutting what does not change an agent's behaviour, with a ledger of
 - **Used for** — keeping the standing brief short enough to be read every time.
 - **Adopted by** — the schedule, since 2026-09-26.
 - **Evidence** — none yet.
+- **Moves up when** — its first draft pull request is opened.
 - **Limits** — draft only; a file whose earlier rewrite was closed unmerged stays skipped.
 
 ## Scheduled package update
@@ -162,7 +178,8 @@ pull request cutting what does not change an agent's behaviour, with a ledger of
 ```meta
 status: trial
 type: workflow
-stage: [operate]
+layer: [upkeep]
+evidence: fired
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule", ".devbook/tech/tooling.md#central-package-management"]
 date: 2026-09-26
 ```
@@ -174,6 +191,7 @@ tests.
 - **Used for** — keeping dependencies current without a person starting the work.
 - **Adopted by** — the schedule, since 2026-09-26; Dependabot still runs beside it.
 - **Evidence** — it has fired once; no pull request yet.
+- **Moves up when** — its first package pull request lands.
 - **Limits** — no major versions; a major move is an attended `flow-code` run.
 
 ## Scheduled reports
@@ -181,7 +199,9 @@ tests.
 ```meta
 status: trial
 type: workflow
-stage: [monitor]
+stage: [operate]
+substage: [operate/reporting]
+evidence: fired
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
@@ -199,6 +219,7 @@ unread one is extended rather than joined by another.
 - **Adopted by** — the three schedules, since 2026-09-25.
 - **Evidence** — `change-report` and `weekly-update` fired on 2026-09-25; no report issue
   was published.
+- **Moves up when** — the first report issue is published.
 - **Limits** — read and report only; closing a report is how it is acknowledged.
 
 ## Scheduled security review
@@ -206,7 +227,10 @@ unread one is extended rather than joined by another.
 ```meta
 status: candidate
 type: workflow
-stage: [monitor]
+stage: [operate]
+substage: [operate/security]
+feeds: [".devbook/ai/05-unattended-runs.md#scheduled-issue-sweep: would open issues"]
+evidence: none
 depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
@@ -218,4 +242,6 @@ at severity `high` and above.
 - **Adopted by** — nobody: it is the one catalog schedule this repository did not select.
   CodeQL and Dependabot run in CI instead.
 - **Evidence** — none.
+- **Moves up when** — the owner selects it; it stays out on purpose while CodeQL and
+  Dependabot run in CI.
 - **Limits** — it would open issues, never fix them.

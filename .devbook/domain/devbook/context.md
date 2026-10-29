@@ -11,9 +11,10 @@ related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 Devbook is a personal project knowledge base, not a task queue. It reads two
 kinds of devbook: the folders a repository carries beside its code, and the
 person's own **Brain**, one devbook-shaped folder per user outside every
-repository (local ADR 0026). Brain notes are Knowledge Notes, organized under the
-areas the Brain's `CONVENTIONS.md` declares, with the PARA set (Projects, Areas,
-Resources, Archive and the rest) as the default. Both kinds link with
+repository (local ADR 0026). Brain notes are Knowledge Notes, organized under
+areas. The areas are the ones the Brain's `CONVENTIONS.md` declares, with the PARA
+set (Projects, Areas, Resources, Archive and the rest) as the default, followed by
+every other top folder that holds a note. Both kinds link with
 [Tasks](../tasks/domain.md#task), so related context is easy to find later, and
 a Brain note may link one way into a repository devbook.
 

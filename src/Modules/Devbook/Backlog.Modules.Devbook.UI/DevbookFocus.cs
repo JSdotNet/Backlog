@@ -2,7 +2,8 @@ namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
 /// The heading a followed reference opened a chapter at, and which request asked for
-/// it. On a scenario page the anchor names the part to mark as current and scroll to.
+/// it. On a scenario page the anchor names the part to mark as current and scroll to;
+/// in a document folder's file view, the heading to scroll to and move focus to.
 /// </summary>
 /// <param name="Anchor">The heading slug the reference named.</param>
 /// <param name="Sequence">Which request it was, so the same part asked for again is a

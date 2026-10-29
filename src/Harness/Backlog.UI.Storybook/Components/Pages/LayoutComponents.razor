@@ -29,6 +29,41 @@
         <p class="sb-state" data-testid="tabs-state">Active tab: @_activeTab</p>
     </Story>
 
+    <Story Name="A strip narrower than its tabs"
+           Description="Tabs wider than the space they are given, as the Technology page's are at phone width. The first strip scrolls on its own; the second scrolls the row around the tabs and a link beside them, as the dashboard's and the tools pane's do. Either way a tab the arrows, Home or End move to is scrolled wholly into view — never left cut off at the edge."
+           Code="@ScrollingTabsCode">
+        <div class="sb-scrolling-tabs">
+            <Tabs ActiveId="@_activeScrolling"
+                  ActiveIdChanged="id => _activeScrolling = id"
+                  AriaLabel="Technology views"
+                  ListCssClass="tabs__list sb-scrolling-tabs__list"
+                  TestId="scrolling-tabs">
+                <TabPanel Id="graph" Title="Graph"><p>The graph.</p></TabPanel>
+                <TabPanel Id="ratings" Title="Ratings"><p>The ratings.</p></TabPanel>
+                <TabPanel Id="layers" Title="Layers"><p>The layers.</p></TabPanel>
+                <TabPanel Id="radar" Title="Radar"><p>The radar.</p></TabPanel>
+                <TabPanel Id="lenses" Title="Type lenses"><p>The type lenses.</p></TabPanel>
+            </Tabs>
+            <Tabs ActiveId="@_activeRow"
+                  ActiveIdChanged="id => _activeRow = id"
+                  AriaLabel="Kinds of tool"
+                  StripCssClass="sb-scrolling-tabs__row"
+                  TestId="scrolling-row-tabs">
+                <ListTrailing>
+                    <AppButton Variant="ButtonVariant.Ghost" TestId="scrolling-row-link">Transcript</AppButton>
+                </ListTrailing>
+                <ChildContent>
+                    <TabPanel Id="row-plugins" Title="Plugins"><p>The plugins.</p></TabPanel>
+                    <TabPanel Id="row-skills" Title="Skills"><p>The skills.</p></TabPanel>
+                    <TabPanel Id="row-agents" Title="Agents"><p>The agents.</p></TabPanel>
+                    <TabPanel Id="row-servers" Title="MCP servers"><p>The servers.</p></TabPanel>
+                </ChildContent>
+            </Tabs>
+        </div>
+        <p class="sb-state" data-testid="scrolling-tabs-state">Active tab: @_activeScrolling</p>
+        <p class="sb-state" data-testid="scrolling-row-tabs-state">Active tab: @_activeRow</p>
+    </Story>
+
     <Story Name="Tabs wearing a host's own classes"
            Description="Every class hook replaces ours instead of adding to it, so a host that already ships a pill strip keeps its own names. Bare drops the wrappers as well, for a host whose layout already places the strip and the panels; the arrow keys still work."
            Code="@PillTabsCode">
@@ -388,6 +423,8 @@ Left and Right still describe the separator rather than the number, so here Left
     ];
 
     private string _activeTab = "read";
+    private string _activeScrolling = "graph";
+    private string _activeRow = "row-plugins";
     private string _activePill = "backlog";
     private string _activeKept = "kept";
     private string _activeEager = "first";
@@ -411,6 +448,18 @@ Left and Right still describe the separator rather than the number, so here Left
             <TabPanel Id="read" Title="Read">...</TabPanel>
             <TabPanel Id="edit" Title="Edit">...</TabPanel>
         </Tabs>
+        """;
+
+    private const string ScrollingTabsCode = """
+        <Tabs ActiveId="@_active" ActiveIdChanged="id => _active = id" AriaLabel="Technology views"
+              ListCssClass="tabs__list my-scrolling-strip">
+            <TabPanel Id="graph" Title="Graph">...</TabPanel>
+            ...
+            <TabPanel Id="lenses" Title="Type lenses">...</TabPanel>
+        </Tabs>
+
+        .my-scrolling-strip { flex-wrap: nowrap; overflow-x: auto; }
+        .my-scrolling-strip > [role="tab"] { flex: none; white-space: nowrap; }
         """;
 
     private const string PillTabsCode = """

@@ -141,10 +141,19 @@ related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-re
 ```
 
 The area a note is organized under: one top folder of the [Brain](#brain), shown
-as one tab. The list is open. The Brain's `CONVENTIONS.md` declares the areas,
-each with its name, its folder and its place in the tab order. A note's area is
-the top folder it sits in, unless its `para` field overrides it. Equality is by
-folder name.
+as one tab. The list is open, and it has two parts:
+
+- the **declared areas**: the ones the Brain's `CONVENTIONS.md` declares, each
+  with its name, its folder and its place in the tab order, or the PARA set when
+  it declares none;
+- the **discovered areas**: every other top folder that holds at least one note,
+  anywhere below it. A discovered area is named after its folder and has no
+  `Holds`.
+
+A folder `CONVENTIONS.md` lists under `## Ignore` is never an area, and neither
+is a dot-folder. A note's area is the top folder it sits in, unless its `para`
+field overrides it. Equality is by folder name. Local ADR 0026 records why the
+folders on disk decide the areas and `CONVENTIONS.md` only adds to them.
 
 `CONVENTIONS.md` declares the areas under a heading named `Areas`, at any level.
 It uses either a table with a `Folder` column, plus optional `Area` (or `Name`), `Holds`
@@ -153,9 +162,23 @@ declarations count is
 [An area is one plain folder, declared once](domain.invariants.md#invariant-an-area-is-one-plain-folder-declared-once),
 and their order is
 [Declared areas keep the order written](domain.invariants.md#invariant-declared-areas-keep-the-order-written).
+A declared area keeps its tab while its folder is empty or missing, so a capture
+always has a target.
+
+The discovered areas follow the declared ones, by folder name
+([Discovered areas follow the declared ones](domain.invariants.md#invariant-discovered-areas-follow-the-declared-ones)).
+A top folder with no note in it is not an area until it gets one.
+
+`CONVENTIONS.md` lists the folders that are never areas under a heading named
+`Ignore`, as list items that name the folder in backticks or bare, or as a table
+with a `Folder` column, the shapes `Areas` takes. An ignored
+folder stays out even when `Areas` declares it
+([An ignored folder is never an area](domain.invariants.md#invariant-an-ignored-folder-is-never-an-area)).
+Markdown files at the Brain's root, such as `README.md` and `CONVENTIONS.md`,
+belong to no area.
 
 When `CONVENTIONS.md` declares no areas, the PARA set applies
-([The areas are the declared ones](requirements.md#requirement-the-areas-are-the-declared-ones)).
+([The areas are the declared ones, then the discovered ones](requirements.md#requirement-the-areas-are-the-declared-ones-then-the-discovered-ones)).
 In its order, it is:
 
 - `_inbox` — notes not yet filed; where a capture lands.
@@ -291,7 +314,8 @@ status: draft
 
 No enum is shared between Devbook's aggregates. `PARA Category` and `Note Source`
 belong to the Knowledge Note and are documented under it, `PARA Category` as a
-value object because the Brain's `CONVENTIONS.md` declares its values. This
+value object because its values come from the Brain's `CONVENTIONS.md` and its
+folders. This
 chapter is reserved for future cross-aggregate enums.
 
 ## Ubiquitous Language
@@ -330,8 +354,9 @@ related: [.devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-re
 ```
 
 The person's own notes: one devbook-shaped folder per user, outside every
-repository, whose [Knowledge Notes](#knowledge-note) are organized under the
-areas its `CONVENTIONS.md` declares. The app builds its database into its own
+repository, whose [Knowledge Notes](#knowledge-note) are organized under its
+[areas](#para-category): the ones its `CONVENTIONS.md` declares, then every other
+top folder that holds a note. The app builds its database into its own
 storage, never into the folder. *Second Brain* is an alias: until 2026-09-15 it
 named the whole context, and now it means only the person's own notes.
 

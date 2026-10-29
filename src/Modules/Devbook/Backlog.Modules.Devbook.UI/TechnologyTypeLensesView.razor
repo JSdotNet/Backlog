@@ -1,0 +1,166 @@
+@inherits TechnologyViewBase
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+@*
+    Type lenses — one technology read through the lens its type chooses
+    (.devbook/domain/devbook/features.md#technology-view), laid out as the design's
+    Type lenses board: a card per type in use, each showing that type's lens for
+    its most-used technology, and the "Lens per type" table saying what each lens
+    shows and which metadata it reads.
+
+    The shared selection wins on its own type's card: that card shows the selected
+    technology, says it is the selection, and is brought into view, so "Open <type>
+    lens" in the inspector lands on the technology it was pressed for
+    (.devbook/domain/devbook/requirements.md#the-selection-is-shared-across-the-views).
+
+    The card draws the same TechnologyLens the inspector does, so a card and the
+    inspector never disagree about a technology. A type whose lens has no row the
+    chapter records — or that has no lens of its own — shows the common facts only.
+*@
+
+<div class="tech-lenses" data-testid="technology-type-lenses">
+    <p class="tech-lenses__lede">
+        Every technology opens on the same three facts — status, what it sits on, what uses it.
+        Below that, its type decides the rest of the panel.
+    </p>
+
+    <div class="tech-lenses__cards">
+        @foreach (var (type, node) in Cards)
+        {
+            var selected = IsSelected(node);
+            <Card CssClass="@(selected ? "tech-lens-card tech-lens-card--selected" : "tech-lens-card")"
+                  AriaLabel="@($"{TechnologyTypeCodes.Label(type)} lens")"
+                  TestId="technology-lens-card"
+                  data-type="@type"
+                  aria-current="@(selected ? "true" : null)">
+                <div class="tech-lens-card__body">
+                    <div class="tech-lens-card__head">
+                        <span class="tech-lens-card__kicker">
+                            <Badge Kind="" Title="@TechnologyTypeCodes.Label(type)">@TechnologyTypeCodes.Code(type)</Badge>
+                            <span>@($"{TechnologyTypeCodes.Label(type)} lens")</span>
+                            @if (selected)
+                            {
+                                <span class="tech-lens-card__selected" data-testid="technology-lens-card-selected"><span aria-hidden="true">· </span>Selected</span>
+                            }
+                        </span>
+                        <MetadataStatusBadge Status="@node.Status" Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)" />
+                    </div>
+                    @if (selected)
+                    {
+                        @* The selected card's title takes the focus a link here
+                           leaves behind, as the inspector's title does. *@
+                        <h3 class="tech-lens-card__title" tabindex="-1" @ref="_selectedTitle">@CardName(node)</h3>
+                    }
+                    else
+                    {
+                        <h3 class="tech-lens-card__title">@CardName(node)</h3>
+                    }
+                    <p class="tech-lens-card__facts" data-testid="technology-lens-card-facts">
+                        @($"Sits on {node.DependencyIds.Count} · used by {node.UsedBy}")
+                    </p>
+                    <TechnologyLens View="@View"
+                                    Technology="@node"
+                                    SelectedIdChanged="OpenAsync"
+                                    OnNavigateToChapter="OnNavigateToChapter" />
+                </div>
+            </Card>
+        }
+    </div>
+
+    <section class="tech-lenses__table" aria-labelledby="tech-lenses-table-title">
+        <h3 id="tech-lenses-table-title" class="tech-lenses__heading">Lens per type</h3>
+        <DataTable TItem="TechnologyLens.LensDefinition"
+                   Columns="@Columns"
+                   Items="@TechnologyLens.Lenses.All"
+                   RowKey="lens => lens.Key"
+                   AriaLabel="Lens per type"
+                   RowNoun="lens"
+                   TestId="technology-lens-table">
+            <Row Context="lens">
+                <td class="tech-lenses__types">@string.Join(" · ", lens.Types)</td>
+                <td>@lens.Shows</td>
+                <td class="tech-lenses__reads">@lens.ReadsFrom</td>
+            </Row>
+        </DataTable>
+    </section>
+</div>
+
+@code {
+    private static readonly IReadOnlyList<DataTableColumn> Columns =
+    [
+        new("Type"),
+        new("Lens shows"),
+        new("Read from"),
+    ];
+
+    private ElementReference _selectedTitle;
+
+    /// <summary>
+    /// Set by the panel when this view was opened by a link in another view — the
+    /// inspector's "Open &lt;type&gt; lens" — rather than from the tab strip. The
+    /// button that was pressed went with the view it sat in, so focus moves to the
+    /// selected technology's card instead of falling to the page. From the tab strip
+    /// the focus stays on the tab, where the reader's arrow keys are.
+    /// </summary>
+    [Parameter]
+    public bool FocusSelection { get; set; }
+
+    /// <summary>One card per type in use — the most-used types first, as the
+    /// Overview's chips order them. The selected technology's type shows the
+    /// selected technology; every other type the technology the most others use,
+    /// the first in reading order on a tie.</summary>
+    private IEnumerable<(string Type, TechnologyGraphNode Node)> Cards => View.Graph.CountsByType
+        .Where(pair => !string.IsNullOrWhiteSpace(pair.Key))
+        .OrderByDescending(pair => pair.Value)
+        .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+        .Select(pair => (pair.Key, Node: SelectedOf(pair.Key) ?? Technologies
+            .Where(node => string.Equals(node.Kind, pair.Key, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(node => node.UsedBy)
+            .FirstOrDefault()))
+        .Where(card => card.Node is not null)
+        .Select(card => (card.Key, card.Node!));
+
+    /// <summary>The selection, when it is one of this folder's technologies and of
+    /// this type; a boundary chapter has no card of its own.</summary>
+    private TechnologyGraphNode? SelectedOf(string type) =>
+        Selected is { IsBoundary: false } node && string.Equals(node.Kind, type, StringComparison.OrdinalIgnoreCase) ? node : null;
+
+    private bool IsSelected(TechnologyGraphNode node) => string.Equals(node.Id, SelectedId, StringComparison.Ordinal);
+
+    private RenderFragment CardName(TechnologyGraphNode node) => __builder =>
+    {
+        <AppButton Variant="ButtonVariant.Ghost"
+                   TestId="technology-lens-card-name"
+                   OnClick="() => OpenAsync(node.Id)">@node.Label</AppButton>
+    };
+
+    /// <summary>The board opens with the selected card on screen — the nearest
+    /// scroll container moved, nothing above it — and, when a link opened it, with
+    /// focus on that card's title. The view is drawn afresh on every opening, so
+    /// the first render is the opening.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !Cards.Any(card => IsSelected(card.Node))) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogRevealRow", "[data-testid='technology-lens-card'][aria-current='true']");
+            if (FocusSelection) await _selectedTitle.FocusAsync(preventScroll: true);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    /// <summary>A technology picked on a card — its name, or one its lens names —
+    /// opens in the Overview's inspector, selected, so the pick is seen.</summary>
+    private async Task OpenAsync(string? id)
+    {
+        await SelectAsync(id);
+        await OnOpenView.InvokeAsync(TechnologyViews.Overview);
+    }
+}

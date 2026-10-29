@@ -336,6 +336,7 @@
                    always empty, so it never shows one. *@
                 <div class="devbook-stack__menu-column">
                     <DevbookMenuTreeView HeadingLabel="@(VisibleAreas.FirstOrDefault(area => IsSectionActive(area.Key))?.Label ?? "Devbook")"
+                                           HeadingTrailing="@(BrainMode && _brainShowHidden is not null ? ShowHiddenSwitch : null)"
                                            RootFolder="ActiveMenuRoot"
                                            ShowOpenButton="@CanOpenActiveFolder"
                                            Nodes="ActiveMenuNodes"
@@ -378,7 +379,17 @@
                         @* The section's glyph before its name: the same glyph a
                            branch in the source picker wears for changing it. *@
                         <TitleContent>
-                            <span class="devbook-stack__tab-title"><DevbookAreaIcon Area="@area.Key" CssClass="devbook-stack__tab-icon" TestId="@($"devbook-tab-icon-{area.Key}")" />@area.Label</span>
+                            @if (BrainMode && _hiddenAreaKeys.Contains(area.Key))
+                            {
+                                @* A folder the Brain hides, back while Show hidden is
+                                   on: dimmed, and saying so in words, since a shade
+                                   alone never carries a meaning. *@
+                                <span class="devbook-stack__tab-title devbook-stack__tab-title--hidden"><DevbookAreaIcon Area="@area.Key" CssClass="devbook-stack__tab-icon" TestId="@($"devbook-tab-icon-{area.Key}")" />@area.Label <Badge Kind="tone" Slug="quiet" TestId="@($"devbook-tab-hidden-{area.Key}")">hidden</Badge></span>
+                            }
+                            else
+                            {
+                                <span class="devbook-stack__tab-title"><DevbookAreaIcon Area="@area.Key" CssClass="devbook-stack__tab-icon" TestId="@($"devbook-tab-icon-{area.Key}")" />@area.Label</span>
+                            }
                         </TitleContent>
                         <ChildContent>
                         @if (_reviewOpen)
@@ -533,6 +544,10 @@
     /// read touches the disk.</summary>
     private string? _brainRoot;
     private IReadOnlyList<DevbookArea> _brainAreas = [];
+
+    /// <summary>The keys of the tabs Show hidden added — the ignored folders and
+    /// the dot-folders — drawn marked hidden. Empty while it is off.</summary>
+    private IReadOnlySet<string> _hiddenAreaKeys = new HashSet<string>(StringComparer.Ordinal);
     private string? _brainUnavailable;
     private IReadOnlyList<BrainConflictCopy> _brainConflicts = [];
     private bool _disposed;
@@ -601,6 +616,7 @@
             _brainReading = false;
             _brainRoot = null;
             _brainAreas = [];
+            _hiddenAreaKeys = new HashSet<string>(StringComparer.Ordinal);
             _brainUnavailable = null;
             _brainConflicts = [];
             return true;
@@ -608,17 +624,21 @@
 
         var brain = _brain;
         var root = fingerprint.Root;
+        var showHidden = ShowHidden;
         if (!string.Equals(root, _brainRoot, StringComparison.Ordinal)) _brainConflicts = [];
 
         _brainReading = true;
         DevbookFolderLocation location;
         IReadOnlyList<BrainArea> areas;
+        IReadOnlyList<BrainArea> hidden;
         try
         {
-            (location, areas) = await Task.Run(() =>
+            (location, areas, hidden) = await Task.Run(() =>
             {
                 var resolved = brain.Resolve(BrainConventions.FolderKey);
-                return (resolved, resolved.Available ? brain.Areas() : (IReadOnlyList<BrainArea>)[]);
+                return resolved.Available
+                    ? (resolved, brain.Areas(), showHidden ? brain.HiddenAreas() : (IReadOnlyList<BrainArea>)[])
+                    : (resolved, (IReadOnlyList<BrainArea>)[], (IReadOnlyList<BrainArea>)[]);
             });
         }
         finally
@@ -630,7 +650,9 @@
 
         _brainRoot = root;
         _brainUnavailable = location.Available ? null : location.Message;
-        _brainAreas = [.. areas.Select(area => new DevbookArea(DevbookMenu.BrainAreaKey(area.Folder), area.Name))];
+        // The hidden tabs after every other one, in the order the menu lists them.
+        _brainAreas = [.. areas.Concat(hidden).Select(area => new DevbookArea(DevbookMenu.BrainAreaKey(area.Folder), area.Name))];
+        _hiddenAreaKeys = hidden.Select(area => DevbookMenu.BrainAreaKey(area.Folder)).ToHashSet(StringComparer.Ordinal);
 
         // A render while the read was out cached the areas from before it.
         _visibleAreas = null;
@@ -762,6 +784,59 @@
         }
     }
 
+    /// <summary>Show hidden, when the host composes it; absent, it is off.</summary>
+    private IBrainShowHidden? _brainShowHidden;
+
+    /// <summary>Whether the Brain's hidden folders are shown, read from the
+    /// device's choice on every ask.</summary>
+    private bool ShowHidden => _brainShowHidden?.Shown == true;
+
+    /// <summary>
+    /// Show hidden, at the end of the Brain menu's heading (local ADR 0026 §2).
+    /// Pressing it only records the choice; the port's change notice is what
+    /// reads the tabs and the menu again, so a press in another window lands
+    /// here the same way.
+    /// </summary>
+    private RenderFragment ShowHiddenSwitch => @<ToggleButton Pressed="@ShowHidden"
+                                                              PressedChanged="SetShowHidden"
+                                                              BaseClass="btn btn--icon btn--toggle"
+                                                              CssClass="devbook-stack__show-hidden"
+                                                              TestId="devbook-show-hidden"
+                                                              AriaLabel="Show hidden folders"
+                                                              Title="@(ShowHidden ? "Hide the folders the Brain hides" : "Show the folders the Brain hides")"><EyeIcon /></ToggleButton>;
+
+    private void SetShowHidden(bool shown) => _brainShowHidden?.SetShown(shown);
+
+    /// <summary>Show hidden moved, here or in another window: the tabs and the
+    /// menu are read again, as on a Brain change. Raised on whichever thread
+    /// pressed it, so the work goes onto the dispatcher.</summary>
+    private async void OnShowHiddenChanged()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                if (_disposed) return;
+
+                _visibleAreas = null;
+                if (!BrainMode)
+                {
+                    StateHasChanged();
+                    return;
+                }
+
+                if (!await ReadBrainAsync() || _disposed) return;
+                if (BrainMode) await ReloadMenuAsync();
+                if (!_disposed) StateHasChanged();
+            });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException)
+        {
+        }
+    }
+
     /// <summary>
     /// A page or chapter somebody outside the pane asked to read — a task's
     /// Devbook reference, handed on by the shell. Followed once per
@@ -873,6 +948,8 @@
         _brain = Services.GetService<IBrainFolderSource>();
         if (_brain is not null) _brain.Changed += OnBrainChanged;
         _brainSettings = Services.GetService<IBrainSettings>();
+        _brainShowHidden = Services.GetService<IBrainShowHidden>();
+        if (_brainShowHidden is not null) _brainShowHidden.Changed += OnShowHiddenChanged;
         _brainWriter = Services.GetService<IBrainNoteWriter>();
         _review = Services.GetService<DevbookBranchReview>();
         _overview = Services.GetService<DevbookBranchOverview>();
@@ -897,7 +974,13 @@
     {
         if (_disposed || _brain is null || !BrainMode || written.RelativePath is not { } path) return;
 
-        var areaKey = DevbookMenu.BrainAreaKey(BrainNoteText.InboxArea(_brain.Areas()).Folder);
+        // The inbox the writer filed it in, worked out the way the writer works
+        // it out. On the pool: the areas are a disk walk, the Ignore list a read.
+        var brain = _brain;
+        var inbox = await Task.Run(() => BrainNoteText.InboxArea(brain.Areas(), BrainConventions.ReadIgnored(brain.BrainRoot)));
+        if (_disposed || !BrainMode) return;
+
+        var areaKey = DevbookMenu.BrainAreaKey(inbox.Folder);
         _pendingChapter = null;
 
         // Search reaches the Brain too and takes the panel while it is open, so
@@ -1015,6 +1098,7 @@
         DevbookMenu.Changed -= OnDevbookChanged;
         if (_scenarioStore is not null) _scenarioStore.Changed -= OnScenariosChanged;
         if (_brain is not null) _brain.Changed -= OnBrainChanged;
+        if (_brainShowHidden is not null) _brainShowHidden.Changed -= OnShowHiddenChanged;
         _disposed = true;
         OpenChapter.Clear();
     }
@@ -1119,11 +1203,19 @@
     {
         if (_focus is not { } focus || focus.Focus.Sequence == _revealedFocusSequence) return null;
         if (_menuLoading || _atlasOpen || _searchOpen) return null;
+        if (PanelRevealsItsOwnHeading(EffectiveSection)) return null;
         if (FocusFor(EffectiveSection, SelectedChapterPath) is null) return null;
 
         _revealedFocusSequence = focus.Focus.Sequence;
         return (focus.Focus.Anchor, SelectedChapterPath);
     }
+
+    /// <summary>The AI and Design folders read their chapters through
+    /// <see cref="DocumentDevbookView"/>, which is handed the focus, resolves the
+    /// anchor to the heading of its selected document and asks the same script
+    /// itself once that document's text is on screen; asking again from here would
+    /// reveal the heading twice.</summary>
+    private static bool PanelRevealsItsOwnHeading(string areaKey) => areaKey is "ai" or "design";
 
     private async Task RevealHeadingAsync(string anchor, string? path)
     {
@@ -1749,6 +1841,15 @@
     {
         if (!_atlasOpen) return;
 
+        // Technology is not drawn on the atlas, and its section hides the atlas
+        // toggle, so the map closes rather than following there with no way to
+        // hide it again.
+        if (string.Equals(key, "tech", StringComparison.Ordinal) && !BrainMode)
+        {
+            CloseAtlas();
+            return;
+        }
+
         _atlasScopeKey = AtlasScopes.Any(scope => string.Equals(scope.Key, key, StringComparison.Ordinal))
             ? key
             : DevbookAtlasScope.All.Key;
@@ -1810,13 +1911,15 @@
     /// <summary>The scopes the atlas offers: whichever sections this repository
     /// has turned on, and all of them together. Built from the same list the
     /// section strip is built from, so a folder switched off disappears from both
-    /// at once.</summary>
+    /// at once. Technology is never among them: its section has views of its own,
+    /// and <see cref="DevbookAtlasScope.ForArea"/> gives it no scope.</summary>
     private IReadOnlyList<DevbookAtlasScope> AtlasScopes =>
     [
         DevbookAtlasScope.All,
         .. VisibleAreas
             .Where(area => !string.Equals(area.Key, "instructions", StringComparison.Ordinal))
             .Select(DevbookAtlasScope.ForArea)
+            .OfType<DevbookAtlasScope>()
     ];
 
     private DevbookAtlasScope AtlasScope =>
@@ -1981,6 +2084,15 @@
         _selectedC4View = null;
 
         var root = _menuTree.Roots.FirstOrDefault(node => string.Equals(node.AreaKey, target.AreaKey, StringComparison.Ordinal));
+
+        // A folder rather than a chapter — the Devbook tab's adopted folders: the
+        // reader gets that section's tab, as pressing it in the strip would.
+        if (target.IsFolder)
+        {
+            if (root is { Available: true }) SelectSection(target.AreaKey);
+            return;
+        }
+
         if (root is null || !root.Available || !ContainsPath(root, target.RelativePath)) return;
 
         _selectedSection = target.AreaKey;
@@ -2317,7 +2429,7 @@
         try
         {
             var tree = brain && _brain is not null
-                ? await DevbookMenu.LoadBrainAsync(_brain)
+                ? await DevbookMenu.LoadBrainAsync(_brain, ShowHidden)
                 : await DevbookMenu.LoadAsync(visibleKeys, repositoryAlias);
             if (load != _menuLoadSequence) return;
 
@@ -2445,8 +2557,8 @@
                is being told the two kinds of chapter are different things, and they
                are not: the target is a repository path either way and the selection
                this pane holds is the same selection. *@
-            "design" => @<DesignDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
-            "ai" => @<AiDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
+            "design" => @<DesignDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("design", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
+            "ai" => @<AiDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("ai", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
             "arc42" => @<Arc42DevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" SelectedC4View="@_selectedC4View" OnNavigateToChapter="SelectChapter" />,
             "domain" => @<DomainDevbookPanel Compact="true" ShowContextTabs="false" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" Focus="@FocusFor("domain", SelectedChapterPath)" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,

@@ -262,8 +262,8 @@ one names the invariants subpage, it means `domain.invariants.md` or any
 **A demo is the one HTML file a context holds.** It is the agreed, clickable
 picture of what a person sees, and it is not a chapter: it carries no `meta`
 block, has no reading position, and names no page but the journey part a
-linked walkthrough's `part` plays. Its name says what it
-belongs to:
+linked walkthrough's `part` plays and the journey a playthrough's `journey`
+plays. Its name says what it belongs to:
 
 | Name | Belongs to |
 |---|---|
@@ -449,7 +449,9 @@ Adding a context or a file needs no declaration anywhere; just regenerate
   the setup fields, per `devbook-chapter-metadata.md` under "Journeys". A
   journey's `related` names the features it walks through, and each points
   back. Its `###` parts carry no block; every journey and part anchor is unique
-  in the file. Titled `# Scenarios`, a split by its subject.
+  in the file. Titled `# Scenarios`, a split by its subject. A journey is
+  played end to end in a demo by a playthrough, which a feature it walks
+  names in its `playthrough` field so the page can show it.
 - **domain.invariants.md**, **domain.<name>.invariants.md** — What each
   aggregate on the domain page it is named after enforces, one chapter per
   aggregate. Each `## <AggregateName>` chapter carries `type: invariants` and a

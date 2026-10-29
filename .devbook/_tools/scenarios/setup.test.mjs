@@ -124,7 +124,16 @@ test("runSetup declares dataFolder as taking the data set's name", async () => {
 // Playwright's info.file names setup.ts and the spec header is never found.
 test("the spec file comes from the title path, never from info.file", () => {
     const testDir = path.resolve("repo", "e2e");
-    const info = { file: path.resolve("repo", ".devbook", "_tools", "scenarios", "setup.ts"), titlePath: [path.join("work", "journey.spec.ts"), "journey", "part"], project: { testDir } };
+    const info = { file: path.resolve("repo", ".devbook", "_tools", "scenarios", "setup.ts"), titlePath: [path.join("work", "journey.spec.ts"), "journey", "part"], config: { rootDir: testDir }, project: { testDir } };
     assert.equal(specFile(info), path.join(testDir, "work", "journey.spec.ts"));
-    assert.throws(() => specFile({ titlePath: [], project: { testDir } }), /no title path/);
+    assert.throws(() => specFile({ titlePath: [], config: { rootDir: testDir }, project: { testDir } }), /no title path/);
+});
+
+// Playwright names the file suite relative to config.rootDir. With no top-level
+// testDir that is the config's folder, so a project testDir of ./e2e puts e2e/
+// in titlePath[0]; resolving it against the project's testDir doubles it.
+test("the spec file resolves against config.rootDir when the project testDir lies below it", () => {
+    const rootDir = path.resolve("repo");
+    const info = { titlePath: [path.join("e2e", "journey.spec.ts"), "journey", "part"], config: { rootDir }, project: { testDir: path.join(rootDir, "e2e") } };
+    assert.equal(specFile(info), path.join(rootDir, "e2e", "journey.spec.ts"));
 });

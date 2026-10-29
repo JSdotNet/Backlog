@@ -106,6 +106,32 @@ The declared areas keep the order `CONVENTIONS.md` writes them in, unless a tabl
 
 Enforced at: `BrainConventions.Declared()`
 
+### Invariant: Discovered areas follow the declared ones
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.Discovered_areas_follow_the_declared_ones_by_folder_name, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_top_folder_is_an_area_once_a_note_sits_anywhere_below_it, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.Only_a_plain_undeclared_unignored_folder_is_probed, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.With_nothing_declared_the_para_set_leads_the_discovered_areas, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.A_declared_area_matches_its_folder_whatever_the_case]
+```
+
+Every top folder of the Brain that is one plain segment, holds at least one `.md` note below it outside a dot-folder, is not ignored and is not declared is an area, listed after the declared areas by folder name, ordinal and case-insensitive.
+A note filed into a new top folder is never hidden for want of a line in `CONVENTIONS.md` (local ADR 0026).
+
+Enforced at: `BrainConventions`, in `Backlog.Modules.Devbook.Abstractions`
+
+### Invariant: An ignored folder is never an area
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.An_ignored_folder_is_never_an_area_even_when_declared, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.Ignoring_every_declared_area_does_not_bring_para_back, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.An_ignore_list_names_its_folders_in_backticks_or_bare, unit:dotnet:Backlog.Infrastructure.Devbook.UnitTests.BrainConventionsTests.An_ignore_table_reads_its_folder_column]
+```
+
+A folder `CONVENTIONS.md` lists under `## Ignore`, matched case-insensitively, is never an area, even when `## Areas` declares it.
+Ignore wins over a declaration, so one line keeps a folder of templates or attachments off the tabs.
+
+Enforced at: `BrainConventions`, in `Backlog.Modules.Devbook.Abstractions`
+
 ### Invariant: An unreadable effort is no estimate
 
 ```meta

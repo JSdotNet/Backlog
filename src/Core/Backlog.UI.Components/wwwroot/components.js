@@ -67,9 +67,11 @@
             }
             if (!container || container === document.body) return;
 
+            // A row taller than the container — a Type lenses card — shows its
+            // start, where its name is, rather than its end.
             const bounds = container.getBoundingClientRect();
             const box = row.getBoundingClientRect();
-            if (box.top < bounds.top) container.scrollTop -= bounds.top - box.top;
+            if (box.top < bounds.top || box.height > bounds.height) container.scrollTop -= bounds.top - box.top;
             else if (box.bottom > bounds.bottom) container.scrollTop += box.bottom - bounds.bottom;
         };
 
@@ -88,15 +90,23 @@
     //
     // Looked for in the file the pane opened, where its file view says so —
     // a design or domain reading stacks several files — and anywhere in the
-    // reading otherwise. Only the nearest scroll container moves, for the reason
-    // backlogRevealRow gives. Waited for a few seconds, because the chapter's body
+    // reading otherwise. Only the nearest container that actually scrolls moves,
+    // for the reason backlogRevealRow gives — a file view that does not fill the
+    // pane keeps its body's overflow but grows instead, and the section around it
+    // is what scrolls — and the heading lands below that container's top padding. Waited for a few seconds, because the chapter's body
     // is read off disk after the pane selects it, then kept at the top for a
     // second more: a panel switches its path before the new body lands, so the
     // first match may be a heading of the same name in the file it is leaving,
     // and diagrams drawn above the heading push it down. The reader scrolling,
     // pressing a key or a pointer in the reading ends that at once. A scenario
     // part its page has marked is that page's to reveal, and the heading under
-    // it is left alone.
+    // it is left alone. Once the reading settles, focus moves to the heading
+    // without scrolling again, so a keyboard or screen reader user lands where the
+    // reader's eye does — unless the reader moved first.
+    //
+    // A panel that resolves the heading itself — the AI and Design folders'
+    // document view (DocumentDevbookView) — passes the heading's text as the
+    // anchor and no path; the text slugged finds the same heading.
     const headingFrames = 300;
     const headingSettleFrames = 60;
 
@@ -138,7 +148,7 @@
             let container = heading.parentElement;
             while (container && container !== document.body) {
                 const overflowY = getComputedStyle(container).overflowY;
-                if (overflowY === 'auto' || overflowY === 'scroll') return container;
+                if ((overflowY === 'auto' || overflowY === 'scroll') && container.scrollHeight > container.clientHeight) return container;
                 container = container.parentElement;
             }
             return null;
@@ -163,15 +173,21 @@
             const heading = find(scope);
             const container = heading ? scrollerOf(heading) : null;
             if (container) {
-                const offset = heading.getBoundingClientRect().top - container.getBoundingClientRect().top;
+                const inset = parseFloat(getComputedStyle(container).paddingTop) || 0;
+                const offset = heading.getBoundingClientRect().top - container.getBoundingClientRect().top - inset;
                 if (Math.abs(offset) > 1) container.scrollTop += offset;
             }
 
-            const settling = found || container !== null;
+            // A heading in a reading too short to scroll is already in view.
+            const settling = found || heading !== null;
             if (settling ? settleLeft > 0 : waitLeft > 0) {
                 requestAnimationFrame(() => attempt(waitLeft - 1, settling ? settleLeft - 1 : settleLeft, settling));
             } else {
                 done();
+                if (heading) {
+                    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+                    heading.focus({ preventScroll: true });
+                }
             }
         };
 
@@ -2123,6 +2139,61 @@
         if (!target || !target.matches('[data-arrow-pad] > button')) return;
 
         event.preventDefault();
+    });
+
+    // The keys a Tabs strip moves between its tabs with. A strip narrower than its
+    // tabs scrolls, and left alone each arrow would also scroll it 40 px — not as
+    // far as the tab it moved to, so the last tab stayed cut off — and End would
+    // throw it to its end. The same reasoning and contract as the radio keys above:
+    // refused at the keydown because a state-bound `@onkeydown:preventDefault` is
+    // one key late, only the default, the event keeps bubbling to Tabs' handler.
+    // Matched on the strip's marker, because a host replaces its classes. A key
+    // held with a modifier is not the strip's: Alt+Left is the browser's Back.
+    const TABS_SWALLOWED_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'Home', 'End']);
+    const ROVING_TAB = '[data-roving-tabs] > [role="tab"]';
+
+    document.addEventListener('keydown', (event) => {
+        if (!TABS_SWALLOWED_KEYS.has(event.key)) return;
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches(ROVING_TAB)) return;
+
+        event.preventDefault();
+    });
+
+    // A tab that takes the focus is shown whole in a strip that scrolls. The
+    // browser's own reveal on focus leaves a tab that is already partly in view
+    // where it is, which at phone width cut the last tab off by most of its width.
+    // Only the strip is scrolled — never scrollIntoView, which would also move
+    // every scrolling ancestor up to the workspace — and only as far as the tab
+    // needs. The strip is the nearest ancestor that scrolls sideways: the tablist
+    // itself on the Technology page, the row around it where a host puts a link
+    // beside the tabs and scrolls the row (the dashboard, the tools pane).
+    // Focusin rather than the arrow keys, so Tab back into the strip and a host's
+    // FocusTab are covered too.
+    const scrollsSideways = (element) => {
+        if (element.scrollWidth <= element.clientWidth) return false;
+
+        const overflow = getComputedStyle(element).overflowX;
+        return overflow === 'auto' || overflow === 'scroll';
+    };
+
+    document.addEventListener('focusin', (event) => {
+        const tab = event.target instanceof Element ? event.target : null;
+        if (!tab || !tab.matches(ROVING_TAB)) return;
+
+        let strip = tab.parentElement;
+        while (strip && strip !== document.body && !scrollsSideways(strip)) strip = strip.parentElement;
+        if (!strip || strip === document.body) return;
+
+        const view = strip.getBoundingClientRect();
+        const box = tab.getBoundingClientRect();
+        const left = view.left + strip.clientLeft;
+        const right = left + strip.clientWidth;
+
+        if (box.left < left) strip.scrollLeft -= left - box.left;
+        else if (box.right > right) strip.scrollLeft += box.right - right;
     });
 
     // Where a menu opened from a button sits: under the button's left edge, as

@@ -28,10 +28,13 @@ depends-on: [.devbook/domain/devbook/features.md#knowledge-capture]
 related: [.devbook/domain/devbook/domain.md#para-category, .devbook/domain/devbook/features.md#brain-folder-setup]
 ```
 
-Organize notes into the areas the Brain's `CONVENTIONS.md` declares, one top
-folder each, shown as one tab each. A Brain that declares none uses the PARA set:
-an inbox for what is not filed yet, Projects (active, deadline), Areas
-(ongoing), Resources (reference), People, a Journal, and Archive (inactive).
+Organize notes into areas, one top folder each, shown as one tab each. The
+areas the Brain's `CONVENTIONS.md` declares come first. A Brain that declares
+none uses the PARA set: an inbox for what is not filed yet, Projects (active,
+deadline), Areas (ongoing), Resources (reference), People, a Journal, and
+Archive (inactive). Every other top folder that holds a note follows as an area
+named after its folder, so a note filed into a new folder shows at once. A
+folder `CONVENTIONS.md` lists under `## Ignore` never becomes a tab.
 A dated area lists newest first: the `journal` folder, or any area whose
 `Holds` line in `CONVENTIONS.md` says *dated*. Its entries are named by date, so
 the name descending is the date descending, at every level of the folder; every
@@ -148,7 +151,9 @@ second machine that reads the synced folder sees the same areas.
 
 The shipped `CONVENTIONS.md` declares its areas as a table under an `## Areas`
 heading. It has one row per area in tab order, with the area's name, its folder
-and what it holds. With no rows, the PARA set applies. Create conventions makes the
+and what it holds. With no rows, the PARA set applies. Its `## Ignore` section
+lists `_templates`, the folder note templates usually live in, so templates never
+become a tab. Create conventions makes the
 area folders the folder's own `CONVENTIONS.md` declares, so a person who wrote
 theirs first gets their areas, not the template's.
 
@@ -167,8 +172,15 @@ Read and write the Brain in the same pane that reads a repository's devbook.
 Which scope shows the Brain is in
 [Area selection and scope](#area-selection-and-scope). On the Brain, the pane
 carries a teal **Brain** badge after its title. The folder's path sits where a
-repository's branch picker would be, and there is one tab per area the Brain
-declares.
+repository's branch picker would be, and there is one tab per area of the Brain:
+the declared areas, then the discovered ones.
+
+**Show hidden** in the menu brings back what the Brain hides: every folder
+`CONVENTIONS.md` lists under `## Ignore` and every dot-folder gets a tab after the
+rest, marked hidden, and an area's menu lists its dot-entries too. It is off by
+default, and the app remembers it per device in its own settings, never in the
+folder. It changes only what the pane shows: search, the atlas and the Brain
+database still leave hidden folders out.
 
 The tree, the rendered chapter and the editor are the ones a repository devbook
 uses, and a Brain note is always editable. The reader leaves a remark on a
@@ -968,6 +980,147 @@ Where GitHub answered with only part of the history or the file list, the review
 says so instead of passing a partial answer off as whole. The review is read from
 GitHub and held only for the session. Nothing is cloned, written to disk, or
 prepared, so a review leaves no trace in the repository or the app's storage.
+
+## Technology view
+
+```meta
+type: feature
+status: draft
+feature-flag: .devbook/domain/devbook/context.md#devbook-pane
+depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
+related: [.devbook/domain/devbook/requirements.md#technology-view, .devbook/tech/technology-graph.md#graph, .devbook/design/component-libraries.md#diagram-and-graph-strategy, .devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md#how-a-reader-degrades]
+```
+
+See what a repository's technology stack rests on and what would break if one
+part of it changed, in the Technology area of the Devbook pane. A layer file reads
+one technology at a time; the questions a reader brings to a stack are about the
+links between them: what sits under this, what uses it, and how far a change
+travels. The view answers them from the stack's own `depends-on` metadata, so it
+needs nothing a repository does not already write. The agreed design is the
+artifact <https://claude.ai/artifact/D5xzbYTojBsrWQwaN89QBK>.
+
+The area shows five views, switched from one tab bar, in place of the Atlas and
+Layers tabs it had before:
+
+| View | What it answers |
+| --- | --- |
+| **Overview** | Everything in use: the technologies as a table that sorts by each measure, narrowed by type, with the selected one in an inspector beside it. |
+| **Dependencies** | One technology in context: what it sits on and what sits on it, hop by hop, and how far a breaking change reaches. |
+| **Complexity** | Blast radius against depth: each technology placed by how many use it and how much sits under it. |
+| **Clusters** | The whole stack by layer: open a layer to see its technologies, then follow one's links. |
+| **Type lenses** | One technology read through the lens its type chooses. |
+
+One technology is selected at a time, and the selection is shared: picking one in
+any view and switching views keeps it selected.
+
+**Measures.** Every number the views show is computed from `depends-on`, the edges each
+technology chapter declares to what it sits on:
+
+| Measure | What it counts |
+| --- | --- |
+| **Used by** | The technologies whose `depends-on` names this one. |
+| **Breaks if it changes** | Those users, transitively: everything that sits on this one at any distance. |
+| **Rests on** | Its `depends-on`, transitively: everything under it. |
+| **Depth** | The longest `depends-on` chain from it down to a technology with none. |
+| **Complexity** | Rests on plus depth, banded Low below 6, Medium from 6 to 9, and High from 10. |
+
+A technology with nothing under it is a foundation; one nothing uses is a leaf.
+The measures are read from the layer files' own metadata, so a repository whose
+devbook database has not been built shows the same numbers (local ADR 0004).
+
+**Cycles.** The metadata permits a cycle, though a stack should not have one. Every
+walk ends at a technology it has already visited, so a cycle is found and recorded on
+the graph rather than walked forever. A technology never counts itself: one that names
+itself in `depends-on` is not its own user and does not rest on itself. Depth needs one
+more rule, because inside a cycle the longest chain has no end. The members of a cycle
+share one depth, that of the longest chain that leaves the cycle, and a hop between two
+members is not a hop down the stack.
+
+**Technologies from other folders.** A `depends-on` may name a chapter in another
+devbook folder. The walks run through it: it counts in rests on, used by, breaks if it
+changes and depth, as a foundation of its own. It is not one of the folder's
+technologies, though. It is left out of the per-type, per-family and per-status
+counts, and it is not drawn on the Complexity scatter or the Clusters map. The
+Dependencies view shows it where it is reached, and the inspector links to its chapter.
+
+**Complexity.** The scatter places each technology by used by across and rests on up.
+The used-by axis is square-root scaled, so the long tail of technologies with one or
+two users stays apart. It runs to the largest used by, and never ends short of 4. The
+rests-on axis is linear and runs to one above the largest rests on, never short of 5.
+The quadrants split at used by 3.5 and rests on 4.5:
+
+| Quadrant | Where | Its line |
+| --- | --- | --- |
+| **Deep leaves** | Rests on 5 or more, used by 3 or fewer | Rest on a lot, nothing rests on them. They break when anything under them moves. |
+| **Hubs** | Rests on 5 or more, used by 4 or more | Many users and a deep stack. |
+| **Foundations** | Rests on 4 or fewer, used by 4 or more | Load-bearing. Upgrade on purpose, never in passing. |
+| **Leaves** | Rests on 4 or fewer, used by 3 or fewer | Cheap to change or replace. |
+
+A quadrant with no technology in it adds "None today." to its line. Technologies at the
+same used by and rests on would hide each other, so they are drawn as one point labelled
+with every name. A crowded point prints three names and a count of the rest. Pressing
+the point selects its first technology, and pressing it again selects the next one. The
+point is filled while any of its technologies is adopted. Beside the scatter, Most
+complex lists the six that rest on the most, and Widest blast radius the five used by
+the most.
+
+**Dependencies.** The view walks out from the selected technology hop by hop, on the
+side the reader chooses: what it sits on, what uses it, or both. The reader limits the
+hops to 1, 2 or all, and groups the cards by hop or by layer. A technology reached at
+several hops shows once, at its nearest hop, marked with every further hop it is also
+reached at ("also 3, 4 hops"). From 2 hops, a card names the technology one hop nearer
+that it is reached through ("via ASP.NET Core"). Below the board, the view lists at most
+10 paths down to a foundation, says when more lead down, and shows the longest path
+running through the selected technology.
+
+**Clusters.** The view opens on the selected technology's layer, with that technology
+in focus. With nothing selected, it opens on All layers. Each technology followed from
+the open layer joins a trail of the last 6 visited, and pressing a step goes back to it.
+Back steps to the previous technology on the trail, then out to its layer, then to All
+layers. The breadcrumb reads All layers, the open layer and the technology in focus, and
+its layer step takes the technology out of focus without clearing the shared selection.
+
+**Type lenses.** The board shows one card per type in use, the types with the most
+technologies first. A card shows its type's lens for the selected technology when that
+technology is of its type, and otherwise for the type's most-used technology. Below the
+cards, the Lens per type table says what each lens shows and which metadata it reads.
+
+**Type families and status.** A technology's type decides its colour. The thirteen types fall into eight
+families, so the views stay readable:
+
+1. framework;
+2. platform;
+3. runtime;
+4. language and package;
+5. library, tool and plugin;
+6. skill;
+7. agent, service and format;
+8. protocol.
+
+Status is never left to colour. A technology not yet `adopted` is drawn hollow,
+so a candidate or a trial reads apart from an adopted choice in any family.
+
+**The inspector and its lenses.** The inspector opens on the same three facts for every technology: its status,
+what it sits on, and what uses it. Below them comes a section its type chooses:
+a package's version, a framework's stack above and below it, the alternatives a
+tool was chosen over. A lens shows only what the pane already holds: the
+chapter's metadata (`version`, `alternatives`, `related`, `depends-on`) and the
+graph. A fact the chapter does not record is left out rather than shown empty
+or filled in from somewhere else.
+
+Status stays editable from the inspector. A change is written back to the
+technology's chapter in its layer file under `.devbook/tech`, as the Technology
+area has always done.
+
+**Drawn as buttons, operated from a list.** The Clusters map and the Complexity scatter are drawn as components the app
+positions with CSS, and every technology on them is a real button. The
+first-party canvas atlas no longer draws the stack; it draws the Brain's atlas
+and the repository devbook atlas, which offers no Technology scope and leaves
+`.tech` chapters out.
+
+Every view a pointer operates has a list or table companion, on screen, that
+operates the same selection. A reader without a mouse, or with a screen reader,
+picks a technology from the companion and loses nothing but the picture.
 
 ## Instruction optimization
 

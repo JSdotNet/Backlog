@@ -23,6 +23,23 @@ No open-in-VS-Code button here: a tree of rows is a tree of rows, and this one h
         </p>
     </Story>
 
+    <Story Name="TreeView with a control in its heading"
+           Description="HeadingTrailing puts a host's own control at the end of the heading row, after the open button when there is one. The tree draws it and decides nothing about it: what the control changes is the host's. The Devbook pane's Brain menu puts its Show hidden switch here."
+           Code="@TreeHeadingTrailingCode">
+        <TreeView Nodes="Nodes"
+                  HeadingLabel="Chapters"
+                  HeadingTestId="tree-heading-trailing"
+                  ShowOpenButton="false"
+                  IsNodeExpanded="node => _expanded.Contains(node.Id)">
+            <HeadingTrailing>
+                <ToggleButton Pressed="@_headingToggle"
+                              PressedChanged="pressed => _headingToggle = pressed"
+                              TestId="tree-heading-toggle"
+                              AriaLabel="Show hidden folders">Show hidden</ToggleButton>
+            </HeadingTrailing>
+        </TreeView>
+    </Story>
+
     <Story Name="TreeView while it loads"
            Description="IsLoading draws placeholder rows in the tree's shape rather than a sentence saying it is on its way. They are hidden from assistive technology in one piece, and the nav says aria-busy instead."
            Code="@TreeLoadingCode">
@@ -194,6 +211,7 @@ The icon is `aria-hidden` and the accessible name says which folder. The SVG is 
 
     private readonly HashSet<string> _expanded = ["arc42"];
     private string? _selectedId;
+    private bool _headingToggle;
     private string? _lastAction;
     private bool _contextOpen;
     private double _contextX;
@@ -228,6 +246,14 @@ The icon is `aria-hidden` and the accessible name says which folder. The SVG is 
     private void OnMenuItemSelected(MenuItem item) => _lastAction = $"Menu: {item.Label}";
 
     private void OnContextItemSelected(MenuItem item) => _lastAction = $"Context: {item.Label}";
+
+    private const string TreeHeadingTrailingCode = """
+        <TreeView Nodes="@_nodes" HeadingLabel="Inbox">
+            <HeadingTrailing>
+                <ToggleButton Pressed="@_showHidden" PressedChanged="SetShowHidden">Show hidden</ToggleButton>
+            </HeadingTrailing>
+        </TreeView>
+        """;
 
     private const string TreeLoadingCode = """
         <TreeView Nodes="@_nodes" IsLoading="@_loading" />

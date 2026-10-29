@@ -219,6 +219,8 @@ internal sealed class CountingBrainFolderSource(IBrainFolderSource inner, Func<b
         return inner.Areas();
     }
 
+    public IReadOnlyList<BrainArea> HiddenAreas() => inner.HiddenAreas();
+
     public IReadOnlyList<BrainConflictCopy> ConflictCopies()
     {
         Interlocked.Increment(ref _walks);

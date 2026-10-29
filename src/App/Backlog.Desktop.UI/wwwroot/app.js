@@ -6,72 +6,18 @@
 // component that starts the drag rather than in whichever app happens to render
 // it.
 
-// The technology atlas itself lives in the component library, as
-// `backlogGraphAtlas` in components.js: the projection, the clustering, the
-// camera and the picking are drawing, not knowledge about technologies.
-//
-// What is left here is the only part that is about technologies: which statuses
-// this project's ladder has, and which of them mean the same thing. That is
-// turned into the atlas's model below and handed over.
-//
-// No colours. They used to be here, four raw hex values that matched nothing in
-// the palette and that `DesignTokenTests` could not see because they were in
-// JavaScript. A node's colour now comes from its tone — which C# reads off the
-// same `DevbookStatus` vocabulary the badges use — and the renderer resolves a
-// tone to a token. Neither this file nor that one holds a colour any more.
-
-// `.tech` writes one word and `.arc42` sometimes writes another for the same
-// state. Normalising once, here, is what keeps the renderer from having to know
-// that "accepted" and "adopted" are the same thing.
-function backlogNormalizeTechnologyStatus(status) {
-    const normalized = String(status ?? 'unknown').trim().toLowerCase();
-    if (normalized === 'accepted' || normalized === 'active') return 'adopted';
-    if (normalized === 'proposed' || normalized === 'draft') return 'candidate';
-    if (normalized === 'deprecated') return 'retired';
-    return normalized || 'unknown';
-}
-
-// The graph as `.tech` describes it, in the shape the atlas draws. Everything
-// here is a rename or a pass-through: the degrees, the ordinals and the tone are
-// computed in C#, where they can be tested against the Markdown they came from.
-function backlogTechnologyAtlasModel(graph) {
-    const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
-    const edges = Array.isArray(graph?.edges) ? graph.edges : [];
-
-    return {
-        nodes: nodes.map((node) => ({
-            id: node.id,
-            label: node.label,
-            kind: node.kind || 'technology',
-            status: backlogNormalizeTechnologyStatus(node.status),
-            toneSlug: node.toneSlug || '',
-            group: node.layer || 'Unassigned',
-            groupIndex: typeof node.layerIndex === 'number' ? node.layerIndex : 0,
-            ordinal: typeof node.ordinalInLayer === 'number' ? node.ordinalInLayer : 0,
-            inDegree: node.inDegree || 0,
-            outDegree: node.outDegree || 0,
-            isFoundation: node.isFoundation === true,
-            isBoundary: node.isBoundary === true
-        })),
-        edges: edges.map((edge) => ({ source: edge.source, target: edge.target })),
-        emptyMessage: 'No technology graph nodes are available.'
-    };
-}
-
-// components.js owns the renderers. The technology atlas is this app's own
+// components.js owns the renderers. The Devbook atlas is this app's own
 // reading of the data, so it is attached to the shared object rather than
 // replacing it. The guard means app.js still parses if it is ever loaded alone.
+// The Technology area no longer draws an atlas: its views are Blazor components
+// (.devbook/domain/devbook/features.md#technology-view).
 window.backlogDiagrams = window.backlogDiagrams || {};
-
-window.backlogDiagrams.renderTechnologyAtlas = async (element, id, graph, dotnet) => {
-    window.backlogGraphAtlas.render(element, id, backlogTechnologyAtlasModel(graph), dotnet);
-};
 
 // The Devbook atlas hands over a model that is already in the renderer's shape:
 // the folders' own graphs carry groups, degrees and tones, and C# reads them. So
 // there is nothing for this app to translate — it passes the model through and is
 // here only so the Devbook atlas has a renderer name of its own, which is what
-// lets the two atlases be told apart in a test and in a trace.
+// lets it be found by name in a test and in a trace.
 window.backlogDiagrams.renderDevbookAtlas = async (element, id, graph, dotnet) => {
     window.backlogGraphAtlas.render(element, id, graph, dotnet);
 };

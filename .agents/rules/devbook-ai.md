@@ -1,19 +1,19 @@
 ---
 name: devbook-ai
-description: Structure and authoring rules for the AI devbook folder, recording how this project develops with AI — which practice, agent, skill, or model is applied at which stage of the DevOps loop, the concepts underneath them, and how far adoption has actually got.
+description: Structure and authoring rules for the AI devbook folder, recording how this project develops with AI — which practice, agent, skill, or model is applied at which stage of the seven-stage delivery path or which layer beneath it, what each hands to the next, the concepts underneath them, and how far adoption has actually got.
 ---
 
 # AI adoption (`ai/`)
 
 `ai/` is the durable record of **how this project develops with AI** — which AI
-capability is applied at which stage of the DevOps loop, what concepts it rests
-on, and how far adoption has actually got.
+capability is applied at which stage of the delivery path, what it hands on,
+what concepts it rests on, and how far adoption has actually got.
 
-It is organized by the **loop**, not by the tool. The question `ai/` answers is
+It is organized by the **path**, not by the tool. The question `ai/` answers is
 "at this stage of how we work, what do we use AI for, and is that real yet?".
 The question it does not answer is "what is Claude Code and which version are we
-on" — that is `tech/`. Every chapter says which stages it applies at in its
-metadata, so a tool can draw the answer as the loop — see
+on" — that is `tech/`. Every chapter says in its metadata which stages or layers
+it works at, so a tool can draw the answer — see
 [The loop picture](#the-loop-picture).
 
 > `ai/` describes how **we build the product**. AI shipped **inside** the
@@ -38,7 +38,7 @@ of how we chose to work — and points at the registered technology with
 | Fact | Folder |
 |---|---|
 | "We use Claude Code, version X, `adopted`" | `tech/` |
-| "At `plan` we draft devbook chapters with the devbook skills, `trial`" | `ai/` |
+| "At `specify` we draft devbook chapters with the devbook skills, `trial`" | `ai/` |
 | "The coding agent persona, and when we hand work to it" | `ai/` |
 | "Anthropic's API is a service dependency of the build pipeline" | `tech/` |
 | "Every agent-authored change is reviewed by a human before merge" | `ai/` |
@@ -51,7 +51,7 @@ concepts, and guardrails have no product behind them.
 ## Context-loading policy
 
 - `ai/` is **not** baseline repository context. Load it when the task is about
-  how the team works with AI — adopting a tool into the loop, changing a
+  how the team works with AI — adopting a tool into the path, changing a
   practice, reviewing adoption, onboarding someone into the way of working.
 - When `ai/` is needed as task context, load `adoption-map.md` plus only the
   files in scope, not the whole folder.
@@ -61,19 +61,44 @@ concepts, and guardrails have no product behind them.
 
 ## The stages
 
-The stages are the DevOps loop's own eight, in this order, and not the
-repository's: `plan`, `code`, `build`, `test` on the dev half, `release`,
-`deploy`, `operate`, `monitor` on the ops half, and `monitor` feeds `plan`. A
-fixed vocabulary is what lets a tool draw one loop for every repository and a
-reader compare two; a stage the flow does not use stays empty rather than being
-dropped, and the emptiness is the finding. A chapter says where it sits with
-`stage`, on its own block — never through the file it is in.
+The delivery path has seven stages, in this order, and they are not the
+repository's own:
+
+| # | Word | Display name | Asks |
+|---|---|---|---|
+| 1 | `decide` | Decide | What is worth doing next? |
+| 2 | `specify` | Specify & plan | What must be true, and in which steps? |
+| 3 | `code` | Code | Build the agreed change. |
+| 4 | `verify` | Verify | Does my change work? |
+| 5 | `integrate` | Integrate | Is it safe to merge with everything else? |
+| 6 | `release` | Release & deploy | Get it to the user. |
+| 7 | `operate` | Operate & feedback | What is it telling us? |
+
+Stages 1–4 sit before the pull request, in the author's session; stages 5–7
+sit after it. `operate` feeds `decide`, which closes the path into a loop. A
+fixed vocabulary is what lets a tool draw one path for every repository and a
+reader compare two. A stage the flow does not use stays empty rather than being
+dropped, and the emptiness is the finding.
+
+Underneath the path run three **layers**. They are not stages: they work across
+all of them.
+
+| Word | Layer | Is |
+|---|---|---|
+| `thread` | Spec ↔ code thread | What keeps the spec and the code level — written once, checked at every stage. |
+| `upkeep` | Upkeep loop | What keeps the repository healthy on a cadence, landing its work as pull requests at Integrate. |
+| `harness` | Agent harness | What every session and schedule stands on. |
+
+A stage may split into **sub-stages**, and the repository names its own: split
+a stage only when its parts answer different questions with different tools.
+A chapter says where it sits with `stage`, `layer`, or both, on its own block —
+never through the file it is in.
 
 ## Structure
 
 ```
 .devbook/ai/
-  adoption-map.md       # root: how the loop reads here, the adoption diagram
+  adoption-map.md       # root: how the path reads here, the adoption diagram
   01-<part>.md          # usage files: chapters grouped by the part of the flow they cover
   02-<part>.md
   …
@@ -83,55 +108,85 @@ dropped, and the emptiness is the finding. A chapter says where it sits with
 ```
 
 **A file groups chapters; it places none.** Split usage files by whatever reads
-best — one per stage of the loop, one per part of the repository's own flow, one
+best — one per stage of the path, one per part of the repository's own flow, one
 per theme — and number them so the folder reads in the order the work happens.
 Reading order needs no declaration: `adoption-map.md` is the root document and
 sorts first, the numbered files follow, and `concepts.md` sorts after them. See
-`devbook-chapter-metadata.md`. A chapter's position on the loop is its `stage`
-field, whichever file it is in, so moving a chapter between files changes
+`devbook-chapter-metadata.md`. A chapter's position is its `stage` and `layer`
+fields, whichever file it is in, so moving a chapter between files changes
 nothing in the picture.
 
 ## File responsibilities
 
-- **adoption-map.md** — Root strategic view of AI across the loop.
+- **adoption-map.md** — Root strategic view of AI across the path.
   - Lists the usage files and what part of the flow each covers.
-  - Renders the adoption picture as a Mermaid diagram: the eight stages in loop
-    order, with the chapters that sit at each one. It is the hand-drawn form of
-    [the loop picture](#the-loop-picture), read from the same fields, so the
-    two never disagree.
+  - Renders the adoption picture as one Mermaid `graph LR`: the seven stages
+    as nodes chained in path order, `decide --> specify --> … --> operate`, with
+    `operate --> decide` closing the loop and a `pr` node between `verify` and
+    `integrate`; one `subgraph` beneath them holding the three layers, `thread`,
+    `upkeep`, and `harness`, as nodes, each present even when empty; and each
+    chapter as a node joined to every stage or layer it lists with `---`,
+    shaded by `status` through one `classDef` per rung. A `feeds` entry is a
+    labelled `-->|label|` edge between two chapters. It is the hand-drawn form
+    of the [adoption view](#the-loop-picture), read from the same fields, so
+    the two never disagree.
   - Explains the status ladder and how to read and extend the folder.
   - Its `##` sections do **not** carry per-chapter metadata blocks; the file
     carries a file-level block only — the same rule as `.devbook/domain/context-map.md`
     and `.devbook/tech/technology-graph.md`.
 - **`<nn>-<part>.md`** — One `## <Chapter Name>` chapter per usage. Each chapter
   is an addressable node in the graph, carries a chapter metadata block, and
-  says its stages with `stage`.
+  says where it works with `stage`, `layer`, or both.
 - **concepts.md** — The ideas the practices rest on. A concept carries `stage`
-  where it applies at particular stages and omits it when it applies throughout.
+  or `layer` where it applies at particular ones and omits both when it applies
+  throughout.
 - **`_meta/*.json`** — Derived, generated indexes for this folder. Never
   hand-edited; the rule for them comes with the layered plugin that commits the index.
 
 ## The loop picture
 
-`ai/` is authored so a tool can draw it as the DevOps loop: the eight stages
-around the loop, at each stage the AI usages as boxes, each box shaded by its
-rating and carrying the name of the technology it rests on. Every element of the
-picture is one field on the chapter, and nothing is authored twice.
+`ai/` is authored so a tool can draw it as three views of the same chapters.
+Every element of every view is one field on a chapter, and nothing is authored
+twice.
 
-| In the picture | Read from |
+**Adoption** — how far each usage has got. One row per stage, a pull-request
+divider after `verify`, then one row per layer; the columns are the status
+ladder.
+
+| In the view | Read from |
 |---|---|
-| The eight stages, in order around the loop, four per half | the fixed vocabulary above — authored nowhere |
-| A box at a stage | a chapter whose `stage` lists it, shaded by its `status`, with `type` as its glyph |
-| A box at several stages | the same chapter, listing several |
-| A box in the middle of the loop | a `concept` chapter with no `stage` |
-| The technology named on the box | the `tech/` chapter its `depends-on` points at — never `related` |
-| The stage's own shading | the highest rung among the boxes at it — derived, authored nowhere |
-| When the box got its shade | the chapter's `date` |
+| The rows, in order | the seven stages, then the three layers — authored nowhere |
+| A card in a row | a chapter whose `stage` or `layer` lists it; a chapter listing several sits at its first stage, else its first layer, and names the rest |
+| The card's column | its `status` |
+| The card's evidence mark | its `evidence` |
+| What the card waits on | its **Moves up when** bullet |
+| Since when | its `date` |
 
-A stage with no box renders empty. That is the picture doing its job, so never
-fill a stage with a chapter that names a tool and no usage. Nothing else is in
-the picture: the tools a stage runs on that no AI usage rests on are `tech/`'s,
-and `tech/` is not organized by stage.
+**Cohesion** — how the parts form a whole. The stages as columns with the pull
+request between `verify` and `integrate`, and the layers as bands beneath.
+
+| In the view | Read from |
+|---|---|
+| A node | a chapter, in the column or band the adoption view gives it |
+| A labelled arrow | a `feeds` entry: to the chapter before the colon, labelled with the text after it |
+| A dotted support link | a `related` entry |
+| The platforms row | the `tech/` chapters the `depends-on` entries name, with how many usages rest on each |
+
+**Model** — the path as a model of work.
+
+| In the view | Read from |
+|---|---|
+| The seven stage headers | the fixed vocabulary, with the pull request before `integrate` |
+| A sub-stage card under a stage | a `substage` entry `<stage>/<word>`, holding every chapter that lists it, in order of first appearance |
+| A stage with no sub-stages | one unnamed card holding the chapters at that stage |
+| The layer rows beneath | the chapters whose `layer` lists each one |
+
+In every view a stage with no chapter renders empty. That is the picture doing
+its job, so never fill a stage with a chapter that names a tool and no usage.
+The stage's own shading is the highest rung among the chapters at it — derived,
+authored nowhere. A `concept` with neither `stage` nor `layer` applies
+throughout and sits in no row. The tools a stage runs on that no AI usage rests
+on are `tech/`'s, and `tech/` is not organized by stage.
 
 ## Chapter template
 
@@ -141,7 +196,10 @@ and `tech/` is not organized by stage.
 ```meta
 status: trial
 type: practice
-stage: [code, test]
+stage: [code, verify]
+substage: [verify/review]
+feeds: [".devbook/ai/02-deliver.md#merge-review: the draft pull request"]
+evidence: partial
 depends-on: [".devbook/tech/tooling.md#claude-code"]
 related: [".devbook/ai/concepts.md#context-engineering"]
 date: 2026-09-01
@@ -155,8 +213,14 @@ One or two sentences: what this is, in this project.
 - **Evidence** — what shows it works, or what would have to be true to promote
   it: a merged pull request, a measured cycle, a retro. `none yet` is a
   legitimate value and a useful one.
+- **Moves up when** — the one event that would move the rating up a rung. Only
+  on a `trial` or `candidate` chapter.
 - **Limits** — where it is deliberately not used, and why.
 ````
+
+**Moves up when** is required on a `trial` or `candidate` chapter and absent on
+every other: a rating below `adopted` says what would move it, and one at or
+past it has nothing to wait on. The check warns either way.
 
 Keep chapters short. A chapter is a graph node with enough context to be
 understood and judged, not an essay about AI.
@@ -178,7 +242,7 @@ learns one adoption vocabulary and applies it in both folders:
 |---|---|
 | `candidate` | Identified as worth trying here. Nobody has actually used it. |
 | `trial` | In use in a limited, reversible way — one person, one branch, one project. |
-| `adopted` | The default way this part of the loop is done here. |
+| `adopted` | The default way this part of the path is done here. |
 | `hold` | Kept, but no longer expanded; avoid new usage. |
 | `retired` | No longer used. Kept because knowing what we stopped doing, and why, is the most useful record in this folder. |
 
@@ -221,7 +285,7 @@ What kind of thing the chapter describes. Required on every chapter.
 | `agent` | An agent persona used here, and what it is trusted with. |
 | `skill` | A skill or slash command that carries part of a stage. |
 | `plugin` | A plugin whose contribution to a stage is worth naming as a unit. |
-| `mcp-server` | An MCP surface the loop depends on at a stage. |
+| `mcp-server` | An MCP surface the path depends on at a stage. |
 | `hook` | An automation that fires without anyone asking — the strongest form of adoption, and the one most worth recording. |
 | `workflow` | A multi-agent or multi-step procedure. |
 | `model` | A model choice that is a real decision at a stage, not the default. |
@@ -236,19 +300,61 @@ about how it is used is a `tech/` chapter that wandered into the wrong folder.
 
 ### stage
 
-The stages of the loop this chapter applies at, as a list of one or more of the
-eight words above: `stage: [code, test]`. It is the one field that places a
+The stages of the path this chapter applies at, as a list of one or more of the
+seven words above: `stage: [code, verify]`. With `layer`, it is what places a
 chapter on the picture, and it sits on the chapter — the file says nothing.
 
-Every chapter carries it except a `concept` that applies throughout, which
-omits it and is drawn in the middle of the loop. Any other chapter without it is
-off the loop and is reported. A word outside the eight is an error: the
-vocabulary is fixed so that every repository draws the same loop.
+Every chapter carries `stage`, `layer`, or both, except a `concept` that applies
+throughout, which omits both. Any other chapter with neither is off the picture
+and is reported. A word outside the seven is an error: the vocabulary is fixed
+so that every repository draws the same path.
 
 Entries are **plain words, not `<path>#<heading-slug>` references** — like
 `domain/`'s `aliases` and `roadmap` tags, they stay node attributes and produce
-no graph edges. Never write it on a file-level block: a file groups chapters and
-places none of them.
+no graph edges. Never write `stage`, `substage`, `layer`, `feeds`, or `evidence`
+on a file-level block: a file groups chapters and places none of them.
+
+### substage
+
+The sub-stages this chapter works in, as a list of `<stage>/<word>` entries:
+`substage: [verify/review, verify/functional-qa]`. The word is the repository's
+own, lowercase kebab-case, and not a fixed vocabulary; the stage before the
+slash must be one the chapter lists in `stage`, or the entry is an error. The
+model view groups every chapter naming the same entry into one card. Omit it
+where a stage does not split.
+
+### layer
+
+The layers underneath the path this chapter works in, as a list drawn from
+`thread`, `upkeep`, and `harness`: `layer: [harness]`. A word outside the three
+is an error. A chapter that runs under every stage — a worktree per change, a
+rule wrapped per host — carries `layer` and no `stage`; one that works at a
+stage and also keeps the spec level carries both.
+
+### feeds
+
+The chapters this one hands work to, one entry each, as a list of
+`"<path>#<anchor>: <label>"` strings:
+`feeds: [".devbook/ai/02-deliver.md#code-gate: the agreed plan"]`. The part
+before the colon is a reference, resolved the way `related` is, and a feed that
+does not resolve fails the check; the text after it is the arrow's label and is
+required. Quote each entry: the label may hold a comma. The graph build draws a
+`feeds` edge carrying the label. A hand-off is `feeds`; a chapter that supports
+or steers another without handing it work is `related`.
+
+### evidence
+
+How much the current rating rests on, one of:
+
+| Value | Means |
+|---|---|
+| `recorded` | The way of working has a record: merged pull requests, runs, a retro. |
+| `partial` | Some of it is on record; the rest is still to show. |
+| `fired` | It ran, and nothing it produced was published or kept. |
+| `none` | Nothing yet. |
+
+It summarizes the **Evidence** bullet, which still says what the record is.
+Optional; a chapter without it shows no evidence mark.
 
 ### depends-on
 
@@ -276,7 +382,8 @@ domain chapter beside it.
   guards.
 - **A usage that is the same at several stages lists them; one that differs per
   stage is one chapter per stage.** An idea applied throughout is a `concept`
-  with no `stage`, not a chapter listing all eight.
+  with no `stage`, not a chapter listing all seven; a usage that runs under
+  every stage is a `layer`.
 - **Keep `status` honest, and let it go down.** A demotion — `adopted` back to
   `trial`, or straight to `retired` — is the most informative edit this folder
   ever takes. A folder where nothing was ever demoted is a wish list.
@@ -287,8 +394,10 @@ domain chapter beside it.
   duplicates a fact with a version number attached, which is exactly the kind
   that goes stale.
 - **Update `adoption-map.md`'s file table and diagram in the same change** that
-  adds a chapter or moves one between stages.
-- **Move `date` with `status`.** The rating and the day it was set are one edit.
+  adds a chapter or moves one between stages or layers.
+- **Move `date` with `status`.** The rating and the day it was set are one edit,
+  and **Moves up when** goes with them: write it when a chapter enters `trial`
+  or `candidate`, drop it when it reaches `adopted`.
 
 ## Reference
 

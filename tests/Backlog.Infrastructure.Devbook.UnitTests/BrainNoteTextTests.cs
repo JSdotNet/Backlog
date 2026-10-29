@@ -214,6 +214,19 @@ public sealed class BrainNoteTextTests
         Assert.Equal("_inbox", BrainNoteText.InboxArea(areas).Folder);
     }
 
+    /// <summary>An ignored folder is never an area, so the PARA inbox is no
+    /// fallback while it is ignored: the first area takes the capture, and with no
+    /// area at all the PARA inbox still does.</summary>
+    [Fact]
+    public void An_ignored_para_inbox_is_no_fallback()
+    {
+        IReadOnlyList<BrainArea> areas = [new("Work", "work", 1), new("Home", "home", 2)];
+
+        Assert.Equal("work", BrainNoteText.InboxArea(areas, ["_INBOX"]).Folder);
+        Assert.Equal("_inbox", BrainNoteText.InboxArea(areas, ["archive"]).Folder);
+        Assert.Equal("_inbox", BrainNoteText.InboxArea([], ["_inbox"]).Folder);
+    }
+
     /// <summary>
     /// A title ending in a run of <c>#</c> after a space is, to CommonMark, a heading
     /// with a closing sequence: <c># Ideas for C #</c> renders as <c>Ideas for C</c>.

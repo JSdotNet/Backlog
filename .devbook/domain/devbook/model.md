@@ -76,9 +76,10 @@ classDiagram
   `RoadmapContribution`, and `TaskLink` are owned value objects, and there are no
   separately identified child entities.
 - `Brain` is the folder the person picked, not an aggregate: it holds the notes
-  as Markdown files and declares its areas in `CONVENTIONS.md`, the PARA set when
-  it declares none. A note's `PARACategory` is one of those areas, read from the
-  note's top folder unless its `para` field overrides it.
+  as Markdown files. Its areas are the ones `CONVENTIONS.md` declares, the PARA
+  set when it declares none, then every other top folder holding a note, minus
+  the folders its `## Ignore` lists. A note's `PARACategory` is one of those
+  areas, read from the note's top folder unless its `para` field overrides it.
 - `ProjectRef` is written as the note's `repos` field and `TaskLink` as its
   `tasks` field (local ADR 0026). A `repo:` link to a repository chapter is not a
   `ProjectRef`: it addresses one chapter, and the Brain's database keeps it as an

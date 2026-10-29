@@ -41,7 +41,7 @@ forms.
 
 ```meta
 status: adopted
-type: tool
+type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code"]
 related: [".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#devbook-plugin", ".devbook/tech/ai-development.md#delivery-engine"]
 ```
@@ -74,7 +74,7 @@ repository uses.
 
 ```meta
 status: adopted
-type: format
+type: skill
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/shared.md#markdown", ".devbook/tech/shared.md#yaml"]
 related: [".devbook/tech/ai-development.md#repository-instruction-files"]
 ```
@@ -93,7 +93,7 @@ related: [".devbook/tech/ai-development.md#repository-instruction-files"]
 
 ```meta
 status: adopted
-type: tool
+type: agent
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins"]
 ```
 
@@ -111,7 +111,7 @@ marketplace.
 
 ```meta
 status: adopted
-type: tool
+type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins"]
 related: [".devbook/tech/ai-development.md#delivery-surfaces", ".devbook/tech/ai-development.md#subagents"]
 version: "1.18.0"
@@ -135,7 +135,7 @@ through, and the stack config they read.
 
 ```meta
 status: trial
-type: tool
+type: plugin
 depends-on: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/ai-development.md#claude-code"]
 version: "1.18.0"
 date: 2026-10-06
@@ -154,7 +154,7 @@ skills that register them with the host's scheduler.
 
 ```meta
 status: adopted
-type: tool
+type: plugin
 depends-on: [".devbook/tech/ai-development.md#model-context-protocol-servers", ".devbook/tech/ai-development.md#delivery-engine"]
 version: "1.18.0"
 date: 2026-10-06
@@ -235,7 +235,7 @@ Deterministic commands the harness runs around a session event or a tool call.
 
 ```meta
 status: adopted
-type: tool
+type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/ai-development.md#claude-code-hooks"]
 related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 version: "0.17.0"
@@ -256,7 +256,7 @@ This repository's own plugin, `plugins/backlog-tools`, with a Claude Code manife
 
 ```meta
 status: adopted
-type: tool
+type: plugin
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills", ".devbook/tech/shared.md#nodejs"]
 related: [".devbook/tech/ai-development.md#delivery-engine", ".devbook/tech/shared.md#net-aspire", ".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/tooling.md#devbook-tech-inventory-scripts", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
 version: "1.24.0"
@@ -295,7 +295,7 @@ convention this repository follows and the repository procedures.
 
 ```meta
 status: adopted
-type: tool
+type: plugin
 version: "1.18.0"
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/shared.md#json"]
 related: [".devbook/tech/ai-development.md#devbook-plugin", ".devbook/tech/ai-development.md#delivery-engine"]
@@ -316,7 +316,7 @@ of the personal overlay beside it.
 
 ```meta
 status: retired
-type: tool
+type: skill
 version: "1.13.0"
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/ai-development.md#agent-skills"]
 related: [".devbook/tech/ai-development.md#devbook-plugin"]

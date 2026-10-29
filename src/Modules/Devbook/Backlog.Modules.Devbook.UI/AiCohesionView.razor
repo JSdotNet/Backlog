@@ -1,0 +1,167 @@
+@*
+    The AI section's Cohesion tab: how the usages form a whole — the hand-offs
+    their `feeds` name and the support their `related` links give — read from
+    AiModel, laid out by AiCohesionLayout and drawn by the library's
+    CohesionBoard. This view only translates: a usage becomes a box addressed by
+    its chapter, its `depends-on` the platforms it is built on, and a usage that
+    depends on the delivery schedule is drawn as scheduled. Opening a usage from
+    the board follows its chapter.
+*@
+<div data-testid="ai-cohesion-view">
+    @if (_graph.Nodes.Count == 0)
+    {
+        <EmptyState Title="Nothing to connect yet"
+                    Description="No AI usage names a stage or a layer, so there is nothing on the path to hand work on." />
+    }
+    else
+    {
+        <CohesionBoard Graph="@_graph"
+                       @bind-View="_view"
+                       @bind-SelectedId="_selected"
+                       @bind-SelectedPlatformId="_platform"
+                       OnOpenUsage="@(OnNavigateToChapter.HasDelegate ? EventCallback.Factory.Create<string>(this, OpenUsage) : default)"
+                       TestId="ai-cohesion-board" />
+    }
+</div>
+
+@code {
+    /// <summary>The model the tab draws, read from the folder by <see cref="AiModel.From"/>.</summary>
+    [Parameter, EditorRequired]
+    public AiModel Model { get; set; } = default!;
+
+    /// <summary>The <c>##</c> heading of each <c>.tech</c> chapter a usage
+    /// depends on, keyed by <see cref="DevbookChapterHeadings.KeyOf"/> — a
+    /// platform's name. One the host could not read is named from its slug.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? PlatformNames { get; set; }
+
+    /// <summary>Raised when a reader opens a usage's chapter; the host owns the selection.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    private AiModel? _drawn;
+    private IReadOnlyDictionary<string, string>? _named;
+    private CohesionGraph _graph = CohesionGraph.Empty;
+    private Dictionary<string, AiModelUsage> _byId = new(StringComparer.Ordinal);
+    private CohesionView _view;
+    private string? _selected;
+    private string? _platform;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(Model, _drawn) && ReferenceEquals(PlatformNames, _named)) return;
+
+        _drawn = Model;
+        _named = PlatformNames;
+        (_graph, _byId) = Graph(Model, PlatformNames);
+    }
+
+    private Task OpenUsage(string id) =>
+        _byId.TryGetValue(id, out var usage) ? OnNavigateToChapter.InvokeAsync(usage.Link) : Task.CompletedTask;
+
+    /// <summary>The model laid out and turned into the board's graph, with the
+    /// usage each node id stands for.</summary>
+    internal static (CohesionGraph Graph, Dictionary<string, AiModelUsage> ById) Graph(AiModel model, IReadOnlyDictionary<string, string>? platformNames = null)
+    {
+        var layout = AiCohesionLayout.From(model);
+
+        var ids = new Dictionary<AiModelUsage, string>(ReferenceEqualityComparer.Instance);
+        var byId = new Dictionary<string, AiModelUsage>(StringComparer.Ordinal);
+        foreach (var node in layout.Nodes)
+        {
+            var id = UsageId(node.Usage);
+            for (var suffix = 2; byId.ContainsKey(id); suffix++) id = $"{UsageId(node.Usage)}~{suffix}";
+            ids[node.Usage] = id;
+            byId[id] = node.Usage;
+        }
+
+        var platforms = new List<CohesionPlatform>();
+        var platformIds = new HashSet<string>(StringComparer.Ordinal);
+        var layerNames = model.Layers.ToDictionary(layer => layer.Key, layer => layer.Name, StringComparer.Ordinal);
+
+        var nodes = layout.Nodes.Select(node =>
+        {
+            var usage = node.Usage;
+            var built = new List<string>();
+            foreach (var reference in usage.DependsOn)
+            {
+                var id = PlatformId(reference);
+                if (built.Contains(id, StringComparer.Ordinal)) continue;
+                built.Add(id);
+                if (platformIds.Add(id)) platforms.Add(new CohesionPlatform(id, PlatformName(reference, platformNames)));
+            }
+
+            var where = node.Layer is { } layer
+                ? layerNames.GetValueOrDefault(layer, layer)
+                : model.Stages[node.Column].Name;
+
+            return new CohesionNode(
+                ids[usage],
+                usage.Heading,
+                usage.Status,
+                usage.IsScheduled,
+                node.Column + 1,
+                where,
+                node.Layer is null,
+                node.X,
+                node.Y,
+                node.Width,
+                node.Height,
+                built);
+        }).ToList();
+
+        var edges = layout.Edges
+            .Where(edge => ids.ContainsKey(edge.From) && ids.ContainsKey(edge.To))
+            .Select(edge => new CohesionEdge(
+                ids[edge.From],
+                ids[edge.To],
+                edge.Kind switch
+                {
+                    AiCohesionEdgeKind.OpenLoop => CohesionEdgeKind.OpenLoop,
+                    AiCohesionEdgeKind.Support => CohesionEdgeKind.Support,
+                    _ => CohesionEdgeKind.Feed
+                },
+                edge.IsDashed,
+                edge.Label,
+                [.. edge.Points.Select(point => new CohesionPoint(point.X, point.Y))],
+                new CohesionPoint(edge.LabelAt.X, edge.LabelAt.Y)))
+            .ToList();
+
+        var lanes = layout.Columns
+            .Select(column => new CohesionLane(column.Stage.Key, column.Stage.Name, column.X, column.Width, column.BeforePullRequest))
+            .ToList();
+        var bands = layout.Bands
+            .Select(band => new CohesionBand(band.Layer.Key, band.Layer.Name, band.Y, band.Height))
+            .ToList();
+
+        var graph = new CohesionGraph(
+            layout.Width,
+            layout.Height,
+            layout.LaneHeight,
+            AiCohesionLayout.LaneHeaderHeight,
+            layout.PullRequestX,
+            lanes,
+            bands,
+            nodes,
+            edges,
+            platforms);
+
+        return (graph, byId);
+    }
+
+    private static string UsageId(AiModelUsage usage) => $"{usage.Link.Path}#{usage.Link.Anchor}";
+
+    /// <summary>A platform is the chapter a <c>depends-on</c> addresses, so two
+    /// usages naming it in different spellings count once.</summary>
+    private static string PlatformId(DevbookReference reference) => DevbookChapterHeadings.KeyOf(reference);
+
+    /// <summary>A platform's name is its <c>.tech</c> chapter's heading, as the
+    /// chapter writes it; without one, the slug read back as words.</summary>
+    private static string PlatformName(DevbookReference reference, IReadOnlyDictionary<string, string>? names)
+    {
+        if (names is not null && names.TryGetValue(PlatformId(reference), out var heading)) return heading;
+
+        var label = reference.Label;
+        return label.Length == 0 ? reference.Raw : char.ToUpperInvariant(label[0]) + label[1..];
+    }
+}

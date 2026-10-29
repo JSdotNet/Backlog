@@ -60,6 +60,173 @@ public sealed class DevbookPaneBrainModeTests
             DevbookPaneBrainHarness.Tabs(component)));
     }
 
+    /// <summary>"The areas are the declared ones, then the discovered ones": a
+    /// top folder holding a note follows the declared areas as a tab named after
+    /// it, and one holding no Markdown file gets none.</summary>
+    [Fact]
+    public async Task A_folder_holding_a_note_is_a_tab_after_the_declared_ones()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        harness.WriteNote(BrainConventions.FileName, "## Areas\n\n- Inbox — `_inbox`\n");
+        harness.WriteNote("_inbox/idea.md", "# Idea\n\nAn idea.\n");
+        harness.WriteNote("Meetings/2026/standup.md", "# Standup\n");
+        harness.WriteNote("Demo/attachment.txt", "not a note");
+
+        var component = harness.RenderBrain();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["Inbox", "Meetings"], DevbookPaneBrainHarness.Tabs(component));
+            Assert.Contains("An idea.", component.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>"Show hidden brings hidden folders back", off by default: no tab for
+    /// an ignored folder or a dot-folder, and the switch in the menu's heading
+    /// reads not pressed.</summary>
+    [Fact]
+    public async Task Show_hidden_is_off_by_default_and_hides_the_hidden_folders()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        WriteHiddenBrain(harness);
+
+        var component = harness.RenderBrain();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["Inbox", "Meetings"], DevbookPaneBrainHarness.Tabs(component));
+            Assert.Contains("An idea.", component.Markup, StringComparison.Ordinal);
+        });
+        var toggle = component.Find("[data-testid='devbook-menu-heading'] [data-testid='devbook-show-hidden']");
+        Assert.Equal("false", toggle.GetAttribute("aria-pressed"));
+        Assert.Equal("Show hidden folders", toggle.GetAttribute("aria-label"));
+        Assert.Contains("btn--icon", toggle.ClassList);
+        Assert.NotNull(toggle.QuerySelector("svg.eye-icon"));
+        Assert.Empty(component.FindAll(".devbook-stack__tab-title--hidden"));
+    }
+
+    /// <summary>Pressing Show hidden puts the ignored folder and the dot-folder
+    /// back as tabs after every other one, each dimmed by its modifier and
+    /// marked with a hidden badge, and keeps the choice through the port;
+    /// pressing it again takes them away.</summary>
+    [Fact]
+    public async Task Show_hidden_adds_the_hidden_folders_as_tabs_after_the_rest_marked_hidden()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        WriteHiddenBrain(harness);
+
+        var component = harness.RenderBrain();
+        component.WaitForAssertion(() => Assert.Contains("An idea.", component.Markup, StringComparison.Ordinal));
+
+        component.Find("[data-testid='devbook-show-hidden']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.True(harness.ShowHidden.Shown);
+            Assert.Equal(4, DevbookPaneBrainHarness.Tabs(component).Count);
+            Assert.Equal(["Inbox", "Meetings"], DevbookPaneBrainHarness.Tabs(component).Take(2));
+            var hidden = component.FindAll(".devbook-stack__tab-title--hidden");
+            Assert.Equal(["Obsidian hidden", "Templates hidden"], hidden.Select(title => title.TextContent.Trim()));
+            Assert.All(hidden, title => Assert.Equal("hidden", title.QuerySelector(".badge.badge--tone.badge--tone-quiet")?.TextContent.Trim()));
+            Assert.Equal("true", component.Find("[data-testid='devbook-show-hidden']").GetAttribute("aria-pressed"));
+        });
+
+        // The hidden tabs are the last two in the strip, not merely present.
+        var strip = component.FindAll(".devbook-stack__nav-item");
+        Assert.Empty(strip[0].QuerySelectorAll(".devbook-stack__tab-title--hidden"));
+        Assert.Empty(strip[1].QuerySelectorAll(".devbook-stack__tab-title--hidden"));
+        Assert.Single(strip[2].QuerySelectorAll(".devbook-stack__tab-title--hidden"));
+        Assert.Single(strip[3].QuerySelectorAll(".devbook-stack__tab-title--hidden"));
+
+        component.Find("[data-testid='devbook-show-hidden']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.False(harness.ShowHidden.Shown);
+            Assert.Equal(["Inbox", "Meetings"], DevbookPaneBrainHarness.Tabs(component));
+            Assert.Empty(component.FindAll(".devbook-stack__tab-title--hidden"));
+        });
+    }
+
+    /// <summary>Pressing Show hidden reads the menu again even when the tabs stay
+    /// the same: a Brain with no hidden folder still has dot-entries, which the
+    /// rail lists only while it is on, and stops listing once it is off.</summary>
+    [Fact]
+    public async Task Show_hidden_lists_an_area_s_dot_entries_in_the_menu_and_hides_them_again()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        harness.WriteNote(BrainConventions.FileName, "## Areas\n\n- Inbox — `_inbox`\n");
+        harness.WriteNote("_inbox/idea.md", "# Idea\n\nAn idea.\n");
+        harness.WriteNote("_inbox/.draft.md", "# Draft\n");
+
+        var component = harness.RenderBrain();
+        component.WaitForAssertion(() => Assert.Contains("An idea.", component.Markup, StringComparison.Ordinal));
+        Assert.DoesNotContain(component.FindAll(".devbook-menu__item--file"), item => item.TextContent.Trim() == ".draft");
+
+        component.Find("[data-testid='devbook-show-hidden']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.True(harness.ShowHidden.Shown);
+            Assert.Equal(["Inbox"], DevbookPaneBrainHarness.Tabs(component));
+            Assert.Contains(component.FindAll(".devbook-menu__item--file"), item => item.TextContent.Trim() == ".draft");
+        });
+
+        component.Find("[data-testid='devbook-show-hidden']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.False(harness.ShowHidden.Shown);
+            Assert.DoesNotContain(component.FindAll(".devbook-menu__item--file"), item => item.TextContent.Trim() == ".draft");
+        });
+    }
+
+    /// <summary>The choice is the device's, not the pane's: a pane opened with Show
+    /// hidden already on draws the hidden tabs, and a change made elsewhere — another
+    /// window — reaches a pane already open.</summary>
+    [Fact]
+    public async Task A_pane_follows_the_device_s_show_hidden_choice()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+        WriteHiddenBrain(harness);
+        harness.ShowHidden.SetShown(true);
+
+        var component = harness.RenderBrain();
+
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".devbook-stack__tab-title--hidden").Count));
+
+        harness.ShowHidden.SetShown(false);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(["Inbox", "Meetings"], DevbookPaneBrainHarness.Tabs(component));
+            Assert.Equal("false", component.Find("[data-testid='devbook-show-hidden']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>The switch is the Brain's: a repository's menu heading carries none.</summary>
+    [Fact]
+    public async Task A_repository_menu_has_no_show_hidden_switch()
+    {
+        await using var harness = DevbookPaneBrainHarness.Create();
+
+        var component = harness.Render(harness.RepositoryAlias);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-menu-heading']")));
+        Assert.Empty(component.FindAll("[data-testid='devbook-show-hidden']"));
+    }
+
+    /// <summary>Declares the inbox and ignores <c>_templates</c>, which holds a note;
+    /// a discovered <c>Meetings</c> and a <c>.obsidian</c> dot-folder.</summary>
+    private static void WriteHiddenBrain(DevbookPaneBrainHarness harness)
+    {
+        harness.WriteNote(BrainConventions.FileName, "## Areas\n\n- Inbox — `_inbox`\n\n## Ignore\n\n- `_templates`\n");
+        harness.WriteNote("_inbox/idea.md", "# Idea\n\nAn idea.\n");
+        harness.WriteNote("Meetings/standup.md", "# Standup\n");
+        harness.WriteNote("_templates/meeting.md", "# Meeting\n");
+        harness.WriteNote(".obsidian/workspace.md", "x");
+    }
+
     /// <summary>The menu under a tab lists that area folder's notes, and selecting
     /// one renders it — through the read view the repository chapters use.</summary>
     [Fact]

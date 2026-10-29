@@ -143,6 +143,53 @@ public sealed class BacklogRevealHeadingScriptTests
         Assert.Equal("scrollTop 0", result);
     }
 
+    /// <summary>Once the reading settles, focus lands on the heading without
+    /// scrolling again, so a keyboard or screen reader user is where the eye
+    /// is; the heading is made focusable to take it.</summary>
+    [Fact]
+    public void Focus_lands_on_the_heading_once_the_reading_settles()
+    {
+        var result = Run("""
+            setBody(view('.devbook/arc42/01-introduction-and-goals.md', [heading('Quality Goals', 500)]));
+            reveal('quality-goals', '01-introduction-and-goals.md');
+            report = () => `scrollTop ${container.scrollTop} focus ${focused?.element.textContent} ${focused?.element.attrs.tabindex} ${focused?.preventScroll}`;
+            """);
+
+        Assert.Equal("scrollTop 500 focus Quality Goals -1 true", result);
+    }
+
+    /// <summary>The reader moving first keeps their focus where it is.</summary>
+    [Fact]
+    public void The_reader_moving_first_keeps_focus_where_it_is()
+    {
+        var result = Run("""
+            setBody(view('.devbook/arc42/01-introduction-and-goals.md', [heading('Quality Goals', 500)]));
+            schedule(2, () => section.dispatch('keydown'));
+            reveal('quality-goals', '01-introduction-and-goals.md');
+            report = () => `focus ${focused === null ? 'none' : 'moved'}`;
+            """);
+
+        Assert.Equal("focus none", result);
+    }
+
+    /// <summary>A heading's own text, as the AI and Design folders' document view
+    /// passes it with no path, finds the heading; and a body that keeps its
+    /// overflow but grows rather than scrolls is passed over for the container
+    /// that does scroll, the heading landing below that container's top
+    /// padding.</summary>
+    [Fact]
+    public void A_heading_text_with_no_path_scrolls_the_container_that_actually_scrolls()
+    {
+        var result = Run("""
+            const grown = node({ classes: ['file-view__body'], overflowY: 'auto', scrollHeight: 400, clientHeight: 400, children: [heading('Coding agent', 700)] });
+            container.paddingTop = '20px';
+            setBody(node({ classes: ['file-view'], children: [grown] }));
+            reveal('Coding agent');
+            """);
+
+        Assert.Equal("scrollTop 680", result);
+    }
+
     /// <summary>
     /// A document just large enough for the script: elements with classes,
     /// attributes, text and children; the compound selectors the script uses; one
@@ -159,9 +206,13 @@ public sealed class BacklogRevealHeadingScriptTests
             const schedule = (at, action) => scheduled.push({ at, action });
             const requestAnimationFrame = callback => { queue.push(callback); };
 
-            const node = ({ classes = [], attrs = {}, text = '', children = [], top = 0, overflowY } = {}) => {
+            let focused = null;
+            const node = ({ classes = [], attrs = {}, text = '', children = [], top = 0, overflowY, scrollHeight = 0, clientHeight = 0 } = {}) => {
                 const element = {
-                    classes, attrs, text, children, top, overflowY, parentElement: null, listeners: {},
+                    classes, attrs, text, children, top, overflowY, scrollHeight, clientHeight, parentElement: null, listeners: {},
+                    hasAttribute: name => name in element.attrs,
+                    setAttribute(name, value) { element.attrs[name] = value; },
+                    focus(options) { focused = { element, preventScroll: options?.preventScroll === true }; },
                     get textContent() { return element.text + element.children.map(child => child.textContent).join(''); },
                     matches: selector => matches(element, selector),
                     querySelectorAll: selector => descendants(element).filter(child => matches(child, selector)),
@@ -197,7 +248,7 @@ public sealed class BacklogRevealHeadingScriptTests
             const view = (path, children) => node({ classes: ['file-view'], children: [node({ classes: ['file-view__path'], text: path }), ...children] });
 
             const body = node();
-            const container = node({ classes: ['devbook-document'], overflowY: 'auto' });
+            const container = node({ classes: ['devbook-document'], overflowY: 'auto', scrollHeight: 100000, clientHeight: 500 });
             container.scrollTop = 0;
             const hiddenSection = node({ classes: ['devbook-stack__section'], attrs: { hidden: '' } });
             const section = node({ classes: ['devbook-stack__section'], children: [container] });
@@ -216,11 +267,12 @@ public sealed class BacklogRevealHeadingScriptTests
                     return roots.flatMap(root => descendants(root)).find(element => matches(element, own.join(' '))) ?? null;
                 }
             };
-            const getComputedStyle = element => ({ overflowY: element.overflowY ?? 'visible' });
+            const getComputedStyle = element => ({ overflowY: element.overflowY ?? 'visible', paddingTop: element.paddingTop ?? '0px' });
             {{HeadingFunction()}}
 
             const reveal = (anchor, path) => window.backlogRevealHeading("[data-testid='devbook-stack'] .devbook-stack__section:not([hidden])", anchor, path);
 
+            let report = null;
             {{steps}}
 
             while ((queue.length > 0 || scheduled.some(entry => entry.at > frame)) && frame < 1000) {
@@ -231,7 +283,7 @@ public sealed class BacklogRevealHeadingScriptTests
                 due.forEach(callback => callback());
             }
 
-            console.log(`scrollTop ${container.scrollTop}`);
+            console.log(report ? report() : `scrollTop ${container.scrollTop}`);
             """;
 
         var start = new ProcessStartInfo("node")

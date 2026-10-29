@@ -1,6 +1,6 @@
 // demo-sync.mjs — copies each linked walkthrough's text from the journey part
-// it names, and its signature from that journey, into the demo's
-// `demo-model`.
+// it names, and each playthrough's from the part steps of the journey it plays,
+// and the signature from that journey, into the demo's `demo-model`.
 //
 // A linked walkthrough embeds a copy of its part's step text so the demo plays
 // with nothing fetched; the copy goes stale whenever the journey moves. This
@@ -25,7 +25,7 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { DEMO_MODEL_ID, LINKED_PART, parseDemo, resolveLinkedPart, stepTextMatches } from "../devbook-meta/demo.mjs";
+import { DEMO_MODEL_ID, LINKED_PART, parseDemo, resolveLinkedJourney, resolveLinkedPart, stepTextMatches } from "../devbook-meta/demo.mjs";
 import { DOMAIN_FOLDER, OUTSIDE_ROOT, SCENARIO_FOLDER, STEP_KEYWORDS, collapse, listJourneys, normalizePath, resolveInside } from "./parse.mjs";
 import { journeySignature } from "./signature.mjs";
 
@@ -130,7 +130,7 @@ export function syncDemo(html, relPath, files, { only = null } = {}) {
     const problems = [];
     const demo = parseDemo(html);
     if (demo.modelError) return { html, changes, problems: [`${relPath} ${demo.modelError}`] };
-    if (!demo.model.linked.size) return { html, changes, problems };
+    if (!demo.model.linked.size && !demo.model.playthroughs.size) return { html, changes, problems };
 
     const script = demo.scripts.find((s) => s.id === DEMO_MODEL_ID);
     const bodyAt = html.indexOf(">", script.offset) + 1;
@@ -138,11 +138,54 @@ export function syncDemo(html, relPath, files, { only = null } = {}) {
     const walkthroughs = root.members?.get("walkthroughs")?.items ?? [];
 
     const edits = [];
+    const syncSignature = (node, id, at, signature) => {
+        const signatureNode = node.members.get("signature");
+        if (signatureNode?.kind === "string" && signatureNode.value !== signature) {
+            edits.push({ node: signatureNode, to: scriptString(signature) });
+            changes.push({ id, kind: "signature", from: signatureNode.value, to: signature });
+        } else if (signatureNode === undefined) {
+            problems.push(`${at}: has no \`signature\` to refresh — add \`"signature": "${signature}"\` by hand.`);
+        }
+    };
     for (const node of walkthroughs) {
         const id = node.members?.get("id")?.value;
+        if (only && !only.has(id)) continue;
+
+        // A playthrough: each step's text from the part step its `part` and
+        // `step` name, anywhere in the journey.
+        const journeyNode = node.members?.get("journey");
+        if (journeyNode?.kind === "string" && LINKED_PART.test(journeyNode.value) && !node.members.has("part")) {
+            const address = journeyNode.value;
+            const at = `${relPath} playthrough "${id}" (\`journey\` "${address}")`;
+            const hash = address.indexOf("#");
+            const resolved = resolveLinkedJourney(relPath, address.slice(0, hash), address.slice(hash + 1), files);
+            if (resolved.error) {
+                problems.push(`${at}: names no journey — ${resolved.error}.`);
+                continue;
+            }
+            const entry = resolved.journey;
+            syncSignature(node, id, at, entry.signature);
+            for (const stepNode of node.members.get("steps")?.items ?? []) {
+                const anchor = stepNode.members?.get("part")?.value;
+                const index = stepNode.members?.get("step")?.value;
+                const textNode = stepNode.members?.get("text");
+                if (typeof anchor !== "string" || !Number.isInteger(index) || textNode?.kind !== "string") continue; // the checker reports the shape
+                const partSteps = entry.journey.parts.find((p) => p.anchor === anchor)?.steps;
+                const target = partSteps?.[index - 1];
+                if (!target) {
+                    problems.push(`${at}: a step names part "#${anchor}" step ${index}, which the journey does not have.`);
+                    continue;
+                }
+                if (stepTextMatches(textNode.value, target, collapse)) continue;
+                const to = copiedText(textNode.value, target);
+                edits.push({ node: textNode, to: scriptString(to) });
+                changes.push({ id, kind: "text", part: anchor, step: index, from: textNode.value, to });
+            }
+            continue;
+        }
+
         const partNode = node.members?.get("part");
         if (partNode?.kind !== "string" || !LINKED_PART.test(partNode.value)) continue;
-        if (only && !only.has(id)) continue;
         const part = partNode.value;
         const at = `${relPath} walkthrough "${id}" (\`part\` "${part}")`;
         const hash = part.indexOf("#");
@@ -155,13 +198,7 @@ export function syncDemo(html, relPath, files, { only = null } = {}) {
         const entry = resolved.journey;
         const partSteps = entry.journey.parts.find((p) => p.anchor === anchor).steps;
 
-        const signatureNode = node.members.get("signature");
-        if (signatureNode?.kind === "string" && signatureNode.value !== entry.signature) {
-            edits.push({ node: signatureNode, to: scriptString(entry.signature) });
-            changes.push({ id, kind: "signature", from: signatureNode.value, to: entry.signature });
-        } else if (signatureNode === undefined) {
-            problems.push(`${at}: has no \`signature\` to refresh — add \`"signature": "${entry.signature}"\` by hand.`);
-        }
+        syncSignature(node, id, at, entry.signature);
 
         for (const stepNode of node.members.get("steps")?.items ?? []) {
             const index = stepNode.members?.get("step")?.value;
@@ -273,7 +310,7 @@ async function main(argv) {
         failed ||= problems.length > 0;
         for (const change of changes) {
             changed++;
-            const what = change.kind === "signature" ? "signature" : `step ${change.step} text`;
+            const what = change.kind === "signature" ? "signature" : `${change.part ? `part #${change.part} ` : ""}step ${change.step} text`;
             const verb = options.check ? (change.kind === "signature" ? "stale" : "drifted") : "copied";
             console.log(`${relPath} walkthrough "${change.id}" ${what} ${verb}: ${JSON.stringify(change.from)} → ${JSON.stringify(change.to)}`);
         }

@@ -71,6 +71,15 @@ second failed on step 1 — and removes it again:
 | `A_task_referencing_the_parts_shows_the_acceptance_checklist` | `set_devbook_references` on the parts answers passed and failed with `failedStep` 1; the task's checklist is headed *Acceptance · scenario parts*, counts *1 of 2 passing · not proved*, and each row reads *place-an-order · date*, the failed one ending *· step 1*. |
 | `A_verify_stage_shows_its_scenario_evidence_and_screenshots` | A run whose Verify stage sent `evidence` and `scenarios` counts *1 of 2 passing* on the stage, and its panel lists the parts and, under Screenshots, the scenario as Failed with `cart-filled.png` and `fail.the-order-is-placed.png`, the second marked *Failure screenshot*. |
 
+`TabsKeyboardTests` — the shared Tabs strip under a real keyboard on the storybook's
+Layout page (`ui-storybook`, `/layout`). It needs only `ui-storybook` and writes nothing:
+
+| Test | Proves |
+| --- | --- |
+| `Two_fast_arrows_move_two_tabs` | At 1440 × 900, two ArrowLefts pressed back to back from History land on Read with the focus, five rounds out of five. |
+| `A_tab_the_keyboard_moves_to_is_wholly_in_view` | At 390 × 844, in *A strip narrower than its tabs*, each tab ArrowRight reaches, then Home, End and ArrowLeft, has the focus and sticks out of the strip by less than 1 px. |
+| `A_tab_in_a_row_that_scrolls_around_the_strip_is_wholly_in_view` | The same walk in the story's second strip, where the row around the tabs and a trailing link scrolls rather than the tablist — as the dashboard's and the tools pane's do. |
+
 ## Running
 
 Start this worktree's AppHost and wait for it to be healthy. The Cosmos emulator takes about

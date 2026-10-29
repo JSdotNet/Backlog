@@ -367,6 +367,12 @@ const TYPE_BY_FOLDER = {
             "platform",
             "protocol",
             "format",
+            // The `.ai` words, meaning the same thing: a technology that is a
+            // Claude Code plugin, skill, or agent. `.ai` records how it is
+            // used; `.tech` registers and rates the thing itself.
+            "plugin",
+            "skill",
+            "agent",
         ],
         file: [],
     },
@@ -797,25 +803,181 @@ const FOLDER_EXTRA_FIELDS = {
         "depends-on", "aliases", "feature-flag", "setting", "role", "key", "default", "scope",
         "deployment",
         "sync",
+        // The playthrough a feature's page shows: a demo walkthrough that plays
+        // a whole journey, resolved by demo.mjs. Contract 36.
+        "playthrough",
         ...C4_FIELDS,
         ...DECISION_FIELDS,
     ],
     arc42: ["sync", ...C4_FIELDS, "code", "severity"],
     tech: ["kind", "version", "depends-on", "alternatives"],
     design: ["sync"],
-    ai: ["depends-on", "stage"],
+    ai: ["depends-on", "stage", "substage", "layer", "feeds", "evidence"],
     [CHANGES_FOLDER]: ["category", ...DECISION_FIELDS],
 };
 
+// The DevOps loop's words, retired by contract 35; named only to point at the migration.
+const LOOP_WORDS = ["plan", "build", "test", "deploy", "monitor"];
+
 /**
- * The stages of the DevOps loop, in loop order: the first four are the dev
- * half, the last four the ops half, and `monitor` feeds `plan`. A `.ai` chapter
- * says where it sits with `stage`, a list of these words. The vocabulary is
- * fixed rather than the repository's own so that a tool draws one loop for
- * every repository and a reader can compare two; a stage a flow does not use
- * stays empty. Exported for the consumer that draws the loop.
+ * The seven stages of the delivery path, in path order: the first four sit
+ * before the pull request, the last three after it, and `operate` feeds
+ * `decide`. A `.ai` chapter says where it sits with `stage`, a list of these
+ * words. The vocabulary is fixed rather than the repository's own so that a
+ * tool draws one path for every repository and a reader can compare two; a
+ * stage a flow does not use stays empty. Exported for the consumer that draws
+ * the views, with the display names and the pull request's position beside it.
  */
-export const AI_STAGES = ["plan", "code", "build", "test", "release", "deploy", "operate", "monitor"];
+export const AI_STAGES = ["decide", "specify", "code", "verify", "integrate", "release", "operate"];
+export const AI_STAGE_NAMES = {
+    decide: "Decide",
+    specify: "Specify & plan",
+    code: "Code",
+    verify: "Verify",
+    integrate: "Integrate",
+    release: "Release & deploy",
+    operate: "Operate & feedback",
+};
+/** How many stages sit before the pull request: `decide` through `verify`. */
+export const AI_STAGES_BEFORE_PULL_REQUEST = 4;
+
+/**
+ * The three layers underneath the path — not stages, but what runs under every
+ * one of them: `thread` keeps spec and code level, `upkeep` keeps the
+ * repository healthy on a cadence, `harness` is what every session stands on.
+ */
+export const AI_LAYERS = ["thread", "upkeep", "harness"];
+
+/** How much a chapter's rating rests on, strongest first. */
+export const AI_EVIDENCE = ["recorded", "partial", "fired", "none"];
+
+// A sub-stage is the stage it splits, a slash, and the repository's own word.
+const AI_SUBSTAGE = /^([a-z]+)\/([a-z0-9]+(?:-[a-z0-9]+)*)$/;
+// The body bullet that says what would move a `trial` or `candidate` rating.
+const MOVES_UP_WHEN = /^\s*[-*]\s+\*\*Moves up when\*\*/;
+const AI_UNPROVEN_STATUSES = ["trial", "candidate"];
+
+/**
+ * Split one `feeds` entry, `"<path>#<anchor>: <label>"`, into the reference
+ * the graph resolves and the arrow's label. Returns `null` when the entry has
+ * no `: <label>` part — the label is required.
+ */
+export function parseFeed(entry) {
+    if (typeof entry !== "string") return null;
+    const at = entry.indexOf(": ");
+    if (at <= 0) return null;
+    const ref = entry.slice(0, at).trim();
+    const label = entry.slice(at + 2).trim();
+    if (!ref || !label || /\s/.test(ref)) return null;
+    return { ref, label };
+}
+
+/**
+ * The placement rules of one `.ai` chapter, per devbook-ai.md: `stage` and
+ * `layer` from their fixed vocabularies, each `substage` under a stage the
+ * chapter lists, every `feeds` entry labelled, `evidence` one word, and the
+ * **Moves up when** bullet on exactly the chapters still below `adopted`.
+ * `body` is the chapter's own lines, fences already stepped over. Returns
+ * issues without the chapter label; the caller prefixes it.
+ */
+export function aiChapterIssues(meta, type, body) {
+    const issues = [];
+    const stages = toList(meta.stage);
+    for (const word of stages) {
+        if (!AI_STAGES.includes(word)) {
+            issues.push({
+                severity: "error",
+                message: `has \`stage\` entry "${word}", expected one of: ${AI_STAGES.join(", ")} — the stages are the delivery path's own, so every repository draws the same path.${LOOP_WORDS.includes(word) ? " A DevOps loop word: migration `035-delivery-path-stages` maps it onto the path." : ""}`,
+            });
+        }
+    }
+    for (const word of toList(meta.layer)) {
+        if (!AI_LAYERS.includes(word)) {
+            issues.push({
+                severity: "error",
+                message: `has \`layer\` entry "${word}", expected one of: ${AI_LAYERS.join(", ")} — the layers are the three things underneath the path.`,
+            });
+        }
+    }
+    if (meta.stage == null && meta.layer == null && type !== "concept") {
+        issues.push({
+            severity: "warning",
+            message: "has no `stage` and no `layer` — a usage says which stages of the path or which layer underneath it works at, or it is off the picture. Only a `concept` applied throughout omits both.",
+        });
+    }
+    for (const entry of toList(meta.substage)) {
+        const match = AI_SUBSTAGE.exec(entry);
+        if (!match) {
+            issues.push({
+                severity: "error",
+                message: `has \`substage\` entry "${entry}" — a sub-stage is written \`<stage>/<word>\`, the word lowercase kebab-case, e.g. \`verify/review\`.`,
+            });
+        } else if (!stages.includes(match[1])) {
+            issues.push({
+                severity: "error",
+                message: `has \`substage\` entry "${entry}" under "${match[1]}", which its \`stage\` does not list — a sub-stage splits a stage the chapter sits at.`,
+            });
+        }
+    }
+    for (const entry of toList(meta.feeds)) {
+        if (!parseFeed(entry)) {
+            issues.push({
+                severity: "error",
+                message: `has \`feeds\` entry "${entry}" — each entry is \`"<path>#<anchor>: <label>"\`, the chapter this one hands work to and the arrow's label, which is required.`,
+            });
+        }
+    }
+    if (meta.evidence != null && (Array.isArray(meta.evidence) || !AI_EVIDENCE.includes(meta.evidence))) {
+        issues.push({
+            severity: "error",
+            message: `has \`evidence\` "${toList(meta.evidence).join(", ")}", expected one of: ${AI_EVIDENCE.join(", ")}.`,
+        });
+    }
+    const unproven = AI_UNPROVEN_STATUSES.includes(meta.status);
+    const movesUp = body.some((line) => MOVES_UP_WHEN.test(line));
+    if (unproven && !movesUp) {
+        issues.push({
+            severity: "warning",
+            message: `is \`${meta.status}\` and has no \`- **Moves up when** — …\` bullet — a chapter below \`adopted\` says what would move its rating.`,
+        });
+    } else if (!unproven && movesUp && meta.status != null) {
+        issues.push({
+            severity: "warning",
+            message: `is \`${meta.status}\` and still carries a **Moves up when** bullet — it belongs on a \`trial\` or \`candidate\` chapter only.`,
+        });
+    }
+    return issues;
+}
+
+/**
+ * The lines of the chapter at `index`, up to the next heading at its level or
+ * above, with fenced blocks — its `meta` block among them — stepped over.
+ */
+function chapterBodyLines(lines, chapters, index) {
+    const chapter = chapters[index];
+    let end = lines.length;
+    for (let i = index + 1; i < chapters.length; i++) {
+        if (chapters[i].level <= chapter.level) {
+            end = chapters[i].line - 1;
+            break;
+        }
+    }
+    const body = [];
+    let fence = null;
+    for (let i = chapter.line; i < end; i++) {
+        const marker = /^\s*(`{3,}|~{3,})/.exec(lines[i]);
+        if (fence) {
+            if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+            continue;
+        }
+        if (marker) {
+            fence = marker[1];
+            continue;
+        }
+        body.push(lines[i]);
+    }
+    return body;
+}
 
 // The folder-specific fields that describe a chapter and never a document, per
 // devbook-chapter-metadata.md: "a file's overall relationships are expressed
@@ -837,7 +999,15 @@ const CHAPTER_ONLY_EXTRA_FIELDS = [
     "version",
     "alternatives",
     "stage",
+    "substage",
+    "layer",
+    "feeds",
+    "evidence",
+    "playthrough",
 ];
+
+// `.ai`'s placement fields: a file-level one would place chapters by implication.
+const AI_PLACEMENT_FIELDS = ["stage", "substage", "layer", "feeds", "evidence"];
 
 // Which chapters inside a folder may carry one of that folder's extra fields.
 // `FOLDER_EXTRA_FIELDS` says the field exists in the folder; this says which
@@ -870,6 +1040,9 @@ const FIELD_TYPE_SCOPE = {
         "depends-on": ["feature", "sub-feature"],
         "feature-flag": ["feature", "sub-feature"],
         setting: ["feature", "sub-feature"],
+        // A playthrough plays a journey end to end, and a journey walks
+        // features: the page a person opens to see one is the feature's.
+        playthrough: ["feature", "sub-feature"],
         role: ["user", "organisation", "technical"],
         key: ["feature-flag", "setting"],
         default: ["feature-flag", "setting"],
@@ -1864,8 +2037,8 @@ export function fieldScopeIssues(folder, blockLevel, meta) {
             issues.push({
                 severity: "error",
                 message:
-                    field === "stage"
-                        ? `has \`stage\` on the file-level block — a file groups chapters and places none of them on the loop; each chapter says its own stages. See devbook-ai.md.`
+                    folder === "ai" && AI_PLACEMENT_FIELDS.includes(field)
+                        ? `has \`${field}\` on the file-level block — a file groups chapters and places none of them on the path; each chapter says its own. See devbook-ai.md.`
                         : `has \`${field}\` on the file-level block, where it describes a chapter that is not there — a document states its own relationships through \`related\` only. See devbook-chapter-metadata.md.`,
             });
         }
@@ -2260,6 +2433,7 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
     }
 
     const { fileTitle, fileMeta, chapters } = parseDocument(markdown);
+    const documentLines = markdown.split(/\r?\n/);
     for (const issue of escapeSequenceIssues(markdown)) {
         // graph.mjs prefixes every issue with the path; doing it here too printed it twice.
         issues.push({ severity: issue.severity, message: issue.message });
@@ -2599,29 +2773,18 @@ export function validateDocument(relPath, markdown, { ladder = null, changeHash:
             }
         }
 
-        // A `.ai` chapter says where it sits on the DevOps loop with `stage`,
-        // and the file it is in says nothing about that — so the field is on
-        // every chapter, checked against the fixed vocabulary rather than the
-        // repository's own words. The one chapter that may omit it is a
-        // `concept` that applies throughout, drawn in the middle of the loop;
-        // any other chapter without it is off the picture, which is reported
-        // as a warning rather than an error so an existing folder keeps
-        // validating while its chapters are placed.
+        // A `.ai` chapter says where it sits on the delivery path with `stage`
+        // or `layer`, and the file it is in says nothing about that — so the
+        // fields are on every chapter, checked against the fixed vocabularies
+        // rather than the repository's own words. The one chapter that may omit
+        // both is a `concept` that applies throughout; any other chapter
+        // without either is off the picture, which is reported as a warning
+        // rather than an error so an existing folder keeps validating while its
+        // chapters are placed. The same holds for a missing **Moves up when**.
         if (kind === "ai" && blockLevel === "chapter") {
-            if (chapter.meta.stage != null) {
-                for (const word of toList(chapter.meta.stage)) {
-                    if (!AI_STAGES.includes(word)) {
-                        issues.push({
-                            severity: "error",
-                            message: `${label} has \`stage\` entry "${word}", expected one of: ${AI_STAGES.join(", ")} — the stages are the DevOps loop's own, so every repository draws the same loop.`,
-                        });
-                    }
-                }
-            } else if (resolveType(kind, chapter.meta) !== "concept") {
-                issues.push({
-                    severity: "warning",
-                    message: `${label} has no \`stage\` — a usage says which stages of the loop it applies at, or it is off the picture. Only a \`concept\` applied throughout omits it.`,
-                });
+            const body = chapterBodyLines(documentLines, chapters, index);
+            for (const issue of aiChapterIssues(chapter.meta, resolveType(kind, chapter.meta), body)) {
+                issues.push({ severity: issue.severity, message: `${label} ${issue.message}` });
             }
         }
 
@@ -3218,7 +3381,7 @@ export function chapterFingerprint(relPath, markdown, line = 1, demoText = null)
     }
     for (let i = Math.max(index, 0); i < chapters.length; i++) {
         if (i > index && index !== -1 && chapters[i].level <= level) break;
-        for (const ref of toList(chapters[i].meta?.demo)) {
+        for (const ref of [...toList(chapters[i].meta?.demo), ...toList(chapters[i].meta?.playthrough)]) {
             const target = String(ref).split("#")[0];
             if (isDemoPath(target)) paths.add(target);
         }
