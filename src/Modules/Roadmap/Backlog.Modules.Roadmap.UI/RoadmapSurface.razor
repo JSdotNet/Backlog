@@ -1,0 +1,44 @@
+@inject global::Backlog.SharedKernel.ISurfaceNavigator Navigator
+
+@*
+    The Roadmap as a shell surface (local ADR 0043 §1, §3, §6). A view, so nothing
+    closes it and Escape stays the chart's own: it puts a grabbed bar back and
+    dismisses the planning dialogs. The chart carries its own Planning heading row and
+    no Tasks filter bar. Its "Open in Tasks" is a jump to the Tasks surface through
+    the window's navigator, so it lands in the window it was pressed in; `plan=<tag>`
+    opens the chart with that plan's bar selected.
+*@
+<div class="roadmap-view" id="roadmap-view" data-testid="roadmap-view">
+    <RoadmapBand OnOpenTasks="OpenTasks" SelectedPlan="@Plan" />
+</div>
+
+@code {
+    /// <summary>The Tasks view's id and the key its roadmap-linked task rides under —
+    /// named here as strings, since the Roadmap module references no Tasks project.</summary>
+    private const string TasksSurfaceId = "tasks";
+    private const string LinkedKey = "linked";
+
+    /// <summary>The query the surface was shown with.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Unused: a view is replaced, never closed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private string? Plan => Query is not null && Query.TryGetValue(RoadmapSurfaceQuery.Plan, out var plan) ? plan : null;
+
+    /// <summary>
+    /// A roadmap item's "Open in Tasks": the Tasks view listing every entry the roadmap
+    /// gathers under the item — its linked task and whatever wears its tag — across
+    /// every repository. The request's repositories are the bar's and do not scope the
+    /// list: the roadmap gathers an item's work wherever it is filed.
+    /// </summary>
+    private void OpenTasks(RoadmapTasksRequest request)
+    {
+        var query = new Dictionary<string, string>(StringComparer.Ordinal) { [RoadmapSurfaceQuery.Plan] = request.PlanTag };
+        if (request.LinkedTaskId is { } linked) query[LinkedKey] = linked.ToString();
+
+        Navigator.Show(TasksSurfaceId, query);
+    }
+}

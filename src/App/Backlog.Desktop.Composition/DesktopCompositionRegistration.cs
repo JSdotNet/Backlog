@@ -1,4 +1,5 @@
 using Backlog.Desktop.UI.Devbook.Extensions;
+using Backlog.Desktop.UI.InProgress;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
@@ -37,6 +38,7 @@ using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -120,6 +122,9 @@ public static class DesktopCompositionRegistration
         // resolve the concrete type it attaches to while every caller sees the port.
         services.AddSingleton<SessionsSurfaceActivator>();
         services.AddSingleton<ISessionsSurfaceActivator>(sp => sp.GetRequiredService<SessionsSurfaceActivator>());
+        // How a popped-out window reaches the main window's shell (local ADR 0043 §4):
+        // process-wide, because each window has a scope of its own.
+        services.AddSingleton<MainWindowSurfaces>();
         // Which machine this installation is. Sessions stamps every record with it
         // and the Dashboard filters by it, and neither owns the answer.
         services.AddSingleton(options.DeviceIdentity);
@@ -309,7 +314,7 @@ public static class DesktopCompositionRegistration
 
         services.AddSingleton<FeedbackReporter>();
         // One per window: the error screen asks the footer's dialog to open through
-        // it, and in the harness a request belongs to the circuit that raised it.
+        // it, and a request belongs to the window (or circuit) that raised it.
         services.Add(new ServiceDescriptor(typeof(FeedbackReportChannel), typeof(FeedbackReportChannel), options.WindowStateLifetime));
         services.AddCopilot(options.CopilotCliLauncher);
         services.AddSingleton<TasksCopilotCli>();
@@ -323,9 +328,60 @@ public static class DesktopCompositionRegistration
         // pins from it, over the search and folder ports registered just above.
         services.AddDevbookAiContentSource();
 
+        // The shell's surfaces (local ADR 0043 §1): each module's .UI registers its
+        // ShellSurface, one catalog holds them, and each window jumps between them
+        // through a navigator of its own (§3). The five views — Tasks, Board and
+        // Calendar from Tasks, the Roadmap, Goals — and the takeovers: the Inbox, the
+        // Devbook, Sessions, the Dashboard, the notification centre, Tools and the
+        // Lobes atlas from their modules, and the pull requests from the shell's own project, which
+        // reads GitHub for them.
+        services.AddTasksSurfaces();
+        services.AddRoadmapSurface();
+        services.AddGoalsSurface();
+        services.AddDevbookSurface();
+        services.AddInboxSurface();
+        services.AddSessionsSurface();
+        services.AddPullRequestsSurface();
+        services.AddDashboardSurface();
+        services.AddNotificationsSurface();
+        services.AddToolsSurface();
+        services.AddAtlasSurface();
+        // What those takeovers read from the window they are shown in — its scope,
+        // its entries, the Inbox's Capture — built from the window's own state, so a
+        // takeover draws the same in a window of its own.
+        services.AddShellSurfaceWiring(options.WindowStateLifetime);
+        // Which window a scope belongs to, for a head service that stands over the
+        // window a request came from.
+        services.Add(new ServiceDescriptor(typeof(CurrentShellWindow), typeof(CurrentShellWindow), options.WindowStateLifetime));
+        // What the views read beside the list: the Board's columns and the Calendar's
+        // range from the shell's navigation file, and the Goals view's candidates from
+        // the window's own task list and reader of pull requests.
+        services.AddSingleton<ITasksViewPreferences>(sp =>
+            new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
+        services.Add(new ServiceDescriptor(
+            typeof(ShellGoalsViewSource),
+            sp => new ShellGoalsViewSource(sp),
+            options.WindowStateLifetime));
+        services.Add(new ServiceDescriptor(
+            typeof(IGoalsViewSource),
+            sp => sp.GetRequiredService<ShellGoalsViewSource>(),
+            options.WindowStateLifetime));
+        services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
+        services.Add(new ServiceDescriptor(typeof(ISurfaceNavigator), typeof(SurfaceNavigator), options.WindowStateLifetime));
+        // The titles a Brain note's Tasks section draws, from the window's own task list.
+        services.Add(new ServiceDescriptor(
+            typeof(IBrainTaskTitles),
+            sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()),
+            options.WindowStateLifetime));
+        // The window's repository scope, for a Devbook opened with no scope of its own (§6).
+        services.Add(new ServiceDescriptor(
+            typeof(IDevbookWindowScope),
+            sp => new ShellDevbookWindowScope(sp.GetRequiredService<TasksDesktopState>()),
+            options.WindowStateLifetime));
+
         // One window's state, and what reads it. The panes' state captures the
-        // modules' scoped services; see WindowStateLifetime for why that makes it a
-        // singleton in one head and scoped in the other.
+        // modules' scoped services; see WindowStateLifetime for why that makes it
+        // scoped, one per window, in both heads.
         services.Add(new ServiceDescriptor(typeof(TasksDesktopState), typeof(TasksDesktopState), options.WindowStateLifetime));
         services.AddTasksAiContentSource();
         services.Add(new ServiceDescriptor(typeof(InboxDesktopState), typeof(InboxDesktopState), options.WindowStateLifetime));

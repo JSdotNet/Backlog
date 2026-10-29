@@ -20,6 +20,9 @@
          and the MSIX properties in a release, and each changes the graph, so no
          one committed file could match them all. -->
     <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <!-- Platforms\Windows\Program.cs is the entry point: it hands a backlog:// link to
+         the instance already running before the XAML framework starts (local ADR 0043 §7). -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
 
   <!--
@@ -108,6 +111,11 @@
          which is what McpServerWorker binds its loopback Kestrel listener with.
          It is this package that carries the framework reference above. -->
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
+    <!-- blazor.web.js, for the pop-out pages the MCP listener serves (local ADR 0043
+         §7); the target below copies it out. Private, as a Web SDK project's
+         implicit reference is; why the version is pinned is at its PackageVersion
+         in Directory.Packages.props. -->
+    <PackageReference Include="Microsoft.AspNetCore.App.Internal.Assets" PrivateAssets="all" />
     <!-- SessionSwitch: the screen lock and unlock WindowsInputActivity reads. -->
     <PackageReference Include="Microsoft.Win32.SystemEvents" />
   </ItemGroup>
@@ -159,5 +167,21 @@
          AddDesktopComposition in MauiProgram. -->
     <ProjectReference Include="..\Backlog.Desktop.Composition\Backlog.Desktop.Composition.csproj" />
   </ItemGroup>
+
+  <!--
+    The package above registers blazor.web.js as a static web asset only for a
+    Microsoft.NET.Sdk.Web project, and this head is a Razor SDK one. So the file is
+    copied beside the head's other web files, wwwroot\_framework\, where the MCP
+    listener's static files serve it to a pop-out page (local ADR 0043 §7). The
+    WebView never asks for it: index.html loads blazor.webview.js.
+  -->
+  <Target Name="CopyBlazorWebScript" BeforeTargets="AssignTargetPaths" Condition="'$(BlazorFrameworkStaticWebAssetRoot)' != ''">
+    <ItemGroup>
+      <None Include="$(BlazorFrameworkStaticWebAssetRoot)\blazor.web.js"
+            Link="wwwroot\_framework\blazor.web.js"
+            CopyToOutputDirectory="PreserveNewest"
+            CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
 
 </Project>

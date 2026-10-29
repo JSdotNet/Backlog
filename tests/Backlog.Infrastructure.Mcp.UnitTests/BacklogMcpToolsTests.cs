@@ -87,7 +87,10 @@ public class BacklogMcpToolsTests
                 "notify",
                 "ask",
                 "get_answer",
-                "close"
+                "close",
+
+                // The surface windows (local ADR 0043 §7).
+                "open_window"
             ],
             BacklogMcpTools.ToolNames);
     }
@@ -113,6 +116,8 @@ public class BacklogMcpToolsTests
         // The dispatcher tools have the queue's own key, off by default (local ADR 0038 §5).
         Assert.Equal(SessionFeatures.SessionRequests, BacklogMcpTools.SessionRequests.FeatureKey);
         Assert.Equal(NotificationsFeatures.Notifications, BacklogMcpTools.Notifications.FeatureKey);
+        // open_window has no flag (local ADR 0043 §7): a surface's own flag hides it in the catalog.
+        Assert.Null(BacklogMcpTools.Windows.FeatureKey);
     }
 
     /// <summary>
@@ -147,8 +152,12 @@ public class BacklogMcpToolsTests
     [Fact]
     public void Groups_share_a_key_only_where_they_are_one_area()
     {
+        // The one ungated group has no key to share: open_window is behind no flag.
+        Assert.Equal([BacklogMcpTools.Windows], BacklogMcpTools.Groups.Where(group => group.FeatureKey is null));
+
         var byKey = BacklogMcpTools.Groups
-            .GroupBy(group => group.FeatureKey, StringComparer.Ordinal)
+            .Where(group => group.FeatureKey is not null)
+            .GroupBy(group => group.FeatureKey!, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
 
         Assert.Equal(6, byKey.Count);
@@ -272,7 +281,8 @@ public class BacklogMcpToolsTests
             SessionRequestTools.MarkDelivery,
             NotificationTools.Notify,
             NotificationTools.Ask,
-            NotificationTools.Close
+            NotificationTools.Close,
+            WindowTools.OpenWindow
         ];
 
         string[] destructive = [GoalTools.DeleteGoal];
@@ -494,5 +504,5 @@ public class BacklogMcpToolsTests
     /// new group cannot be added without this knowing about it — the fake throws
     /// for a key it has never heard of, the way the real store does.</summary>
     private static FakeAppFeatureSettings Everything() =>
-        new([.. BacklogMcpTools.Groups.Select(group => group.FeatureKey)]);
+        new([.. BacklogMcpTools.Groups.Select(group => group.FeatureKey).OfType<string>()]);
 }

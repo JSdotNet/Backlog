@@ -781,7 +781,7 @@ public sealed class HomeRepositoryScopeTests
             Assert.Equal("tasks-devbook-unavailable", toast.TestId);
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
-        Assert.NotEqual("Devbook", shellNavigation.LastSurface);
+        Assert.NotEqual("devbook", shellNavigation.LastSurface);
 
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 
@@ -1884,6 +1884,7 @@ public sealed class HomeRepositoryScopeTests
 
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
+        context.Services.AddShellSurfaces();
         context.Services.AddSingleton(new ShellNavigationStore(ShellNavigationPath(root)));
         // Show archived, answered over that file the way the desktop composition does.
         context.Services.AddSingleton<IShowArchivedRepositories>(sp =>

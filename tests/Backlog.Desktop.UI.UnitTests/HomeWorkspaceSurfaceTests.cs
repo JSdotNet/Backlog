@@ -141,6 +141,213 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// A popped-out window's Show in main window (local ADR 0043 §4) reaches this
+    /// shell through <see cref="MainWindowSurfaces"/>: the main window shows the
+    /// surface it names, and answers that it did. A surface it cannot show is
+    /// answered no, and a shell that is gone is no longer asked.
+    /// </summary>
+    [Fact]
+    public async Task Show_in_main_window_from_a_popped_out_window_shows_that_surface_here()
+    {
+        var mainWindow = new MainWindowSurfaces();
+        using var harness = CreateHarness(configureServices: services => services.AddSingleton(mainWindow));
+        var component = Render(harness);
+
+        OpenTheRoadmap(component);
+        Assert.True(mainWindow.Attached);
+
+        Assert.True(await mainWindow.ShowAsync(new SurfaceRequest("devbook", new Dictionary<string, string>())));
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+        });
+
+        Assert.False(await mainWindow.ShowAsync(new SurfaceRequest("no-such-surface", new Dictionary<string, string>())));
+
+        await harness.Context.DisposeComponentsAsync();
+        Assert.False(mainWindow.Attached);
+    }
+
+    /// <summary>
+    /// Show in main window from a popped-out Devbook reading a repository this
+    /// window's scope does not hold — here nothing is scoped, so there is no switch
+    /// and no anchor — reads that repository here, not this window's own anchor, and
+    /// leaves the header's scope alone (step 15's QA, D2).
+    /// </summary>
+    [Fact]
+    public async Task Show_in_main_window_from_a_devbook_window_reads_that_windows_repository_here()
+    {
+        var mainWindow = new MainWindowSurfaces();
+        using var harness = CreateHarness(configureServices: services => services.AddSingleton(mainWindow));
+        var component = Render(harness);
+        var alias = Assert.Single(harness.Context.Services.GetRequiredService<GitHubSettingsStore>().Current.Repositories).Alias;
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForAssertion(() => Assert.True(mainWindow.Attached));
+        Assert.Empty(state.SelectedRepositoryAliases);
+
+        Assert.True(await mainWindow.ShowAsync(new SurfaceRequest(
+            "devbook",
+            new Dictionary<string, string> { [DevbookSurfaceQuery.Scope] = alias })));
+
+        component.WaitForAssertion(() =>
+        {
+            var devbook = component.FindComponent<DevbookSurface>();
+            Assert.Equal(alias, devbook.Instance.Query![DevbookSurfaceQuery.Scope]);
+        });
+        Assert.Empty(state.SelectedRepositoryAliases);
+    }
+
+    /// <summary>
+    /// The Devbook's ⧉ Open in new window button (local ADR 0043 §4) asks the host
+    /// for one more window on every press, and hands that window the one thing of
+    /// this window's the Devbook reads by: its scope. This window stays as it was.
+    /// </summary>
+    [Fact]
+    public void The_devbooks_pop_out_hands_its_scope_over_and_every_press_opens_another_window()
+    {
+        var windows = new OpeningShellWindows();
+        using var harness = CreateHarness(configureServices: services => services.AddSingleton<IShellWindows>(windows));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-pop-out']")));
+
+        var item = component.Find("[data-testid='devbook-header-item']");
+        Assert.Contains("header-surface-item", item.GetAttribute("class"), StringComparison.Ordinal);
+        Assert.NotNull(item.QuerySelector("[data-testid='devbook-pane-option']"));
+
+        var popOut = component.Find("[data-testid='devbook-pop-out']");
+        Assert.Equal("BUTTON", popOut.TagName);
+        Assert.Equal("Open Devbook in a new window", popOut.GetAttribute("aria-label"));
+
+        // Scoped to the one repository, so the Devbook here reads it — and so does
+        // the window the ⧉ opens.
+        var alias = Assert.Single(harness.Context.Services.GetRequiredService<GitHubSettingsStore>().Current.Repositories).Alias;
+        component.Find("[data-testid='repository-filter-option']").Click();
+        popOut = component.Find("[data-testid='devbook-pop-out']");
+        Assert.Equal(popOut.GetAttribute("aria-label"), popOut.GetAttribute("title"));
+        Assert.Equal("⧉", popOut.QuerySelector("[aria-hidden='true']")!.TextContent);
+
+        popOut.Click();
+        component.Find("[data-testid='devbook-pop-out']").Click();
+
+        Assert.Equal(2, windows.Opened.Count);
+        Assert.All(windows.Opened, opened =>
+        {
+            Assert.Equal("devbook", opened.SurfaceId);
+            // The scope this window hands its Devbook, and nothing else of this window's.
+            Assert.Equal([DevbookSurfaceQuery.Scope], opened.Query.Keys);
+            Assert.Equal(alias, opened.Query[DevbookSurfaceQuery.Scope]);
+        });
+
+        // This window is unchanged: the Devbook did not take its screen.
+        Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+        Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+    }
+
+    /// <summary>
+    /// Every header item the window draws for a catalog surface pops out, not the
+    /// Devbook alone (local ADR 0043 §4, "each shell header item"): the Inbox, the
+    /// views, the work in progress and the other takeovers each stand in an item of
+    /// their own beside a ⧉ named as the option is. A press opens a window on that
+    /// surface with no query — only the Devbook hands a scope over — and this window
+    /// keeps its view, with nothing taking its screen.
+    /// </summary>
+    [Fact]
+    public void Every_header_item_pops_out_its_own_surface_and_leaves_this_window_as_it_was()
+    {
+        var windows = new OpeningShellWindows();
+        using var harness = CreateHarness(
+            features => features.SetEnabled(AppFeatures.InboxPane, true),
+            configureServices: services => services.AddSingleton<IShellWindows>(windows));
+        var component = Render(harness);
+
+        (string Surface, string Option, string Name)[] items =
+        [
+            ("inbox", "inbox-pane-option", "Inbox"),
+            ("tasks", "tasks-view-option", "Tasks"),
+            ("board", "board-view-option", "Board"),
+            ("calendar", "calendar-view-option", "Calendar"),
+            ("roadmap", "roadmap-view-option", "Roadmap"),
+            ("devbook", "devbook-pane-option", "Devbook"),
+            ("goals", "goals-view-option", "Goals"),
+            ("sessions", "sessions-toggle-button", "Sessions"),
+            ("pull-requests", "pull-requests-toggle-button", "Pull requests"),
+            ("dashboard", "dashboard-toggle-button", "Dashboard"),
+            ("tools", "tools-toggle-button", "Tools"),
+        ];
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pop-out']")));
+
+        foreach (var (surface, option, name) in items)
+        {
+            var item = component.Find($"[data-testid='{surface}-header-item']");
+            Assert.Contains("header-surface-item", item.ClassList);
+            Assert.Equal(option, item.FirstElementChild?.GetAttribute("data-testid"));
+
+            var popOut = item.QuerySelector($"[data-testid='{surface}-pop-out']");
+            Assert.NotNull(popOut);
+            Assert.Equal("BUTTON", popOut!.TagName);
+            Assert.Equal($"Open {name} in a new window", popOut.GetAttribute("aria-label"));
+            Assert.Equal(popOut.GetAttribute("aria-label"), popOut.GetAttribute("title"));
+        }
+
+        // Nothing the nav draws goes without one: every option stands in an item
+        // that carries its ⧉, and there is one ⧉ per item.
+        var options = component.FindAll(".app-header__nav .header-group__option");
+        Assert.Equal(items.Length, options.Count);
+        Assert.All(options, option =>
+            Assert.NotNull(option.Closest(".header-surface-item")?.QuerySelector(".header-surface-item__pop")));
+        Assert.Equal(items.Length, component.FindAll(".header-surface-item__pop").Count);
+
+        component.Find("[data-testid='roadmap-pop-out']").Click();
+        component.Find("[data-testid='tasks-pop-out']").Click();
+        component.Find("[data-testid='inbox-pop-out']").Click();
+
+        Assert.Equal(["roadmap", "tasks", "inbox"], windows.Opened.Select(opened => opened.SurfaceId));
+        Assert.All(windows.Opened, opened => Assert.Empty(opened.Query));
+
+        // This window is unchanged: Tasks is still its view, and no takeover took it.
+        Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", component.Find("[data-testid='inbox-pane-option']").GetAttribute("aria-pressed"));
+        Assert.Empty(component.FindAll("[data-testid='inbox-surface']"));
+    }
+
+    /// <summary>A host that opens no windows offers no ⧉ at all.</summary>
+    [Fact]
+    public void A_host_with_no_windows_to_open_offers_no_pop_out()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
+        // The items are there all the same, so the header keeps one shape per host.
+        Assert.NotEmpty(component.FindAll("[data-testid='tasks-header-item']"));
+        Assert.Empty(component.FindAll(".header-surface-item__pop"));
+    }
+
+    private sealed class OpeningShellWindows : IShellWindows
+    {
+        public List<(string SurfaceId, IReadOnlyDictionary<string, string> Query)> Opened { get; } = [];
+
+        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
+            Opened.Add((surfaceId, query ?? new Dictionary<string, string>()));
+
+        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
+        {
+            Open(surfaceId, query);
+            return Task.FromResult(true);
+        }
+
+        public void Close(string windowKey) => throw new NotSupportedException("Home closes no window.");
+
+        public void SetTitle(string windowKey, string title) => throw new NotSupportedException("Home titles no window.");
+
+        public void ActivateMainWindow() { }
+    }
+
     /// <summary>The same from the workspace, where the reader spends most of their
     /// time: the task list stays on screen.</summary>
     [Fact]
@@ -407,7 +614,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane']"));
                 Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
                 Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("Workspace", shellNavigation.LastSurface);
+                Assert.Null(shellNavigation.LastSurface);
             });
         }
         finally
@@ -464,17 +671,23 @@ public sealed class HomeWorkspaceSurfaceTests
 
             var workspace = component.Find("[data-testid='workspace-navigation']").Children
                 .Select(child => child.GetAttribute("data-testid")).ToList();
-            Assert.Equal(["inbox-pane-option", "view-switch", "devbook-pane-option"], workspace);
+            // Each option stands in its header item, beside its ⧉ where the host
+            // opens windows (local ADR 0043 §4).
+            Assert.Equal(["inbox-header-item", "view-switch", "devbook-header-item"], workspace);
+            Assert.Equal("inbox-pane-option",
+                component.Find("[data-testid='inbox-header-item']").FirstElementChild?.GetAttribute("data-testid"));
+            Assert.Equal("devbook-pane-option",
+                component.Find("[data-testid='devbook-header-item']").FirstElementChild?.GetAttribute("data-testid"));
 
             Assert.Equal(
                 ["tasks-view-option", "board-view-option", "calendar-view-option", "roadmap-view-option"],
-                OptionIds(component, "view-switch"));
+                GroupOptionIds(component, "view-switch"));
             Assert.Equal(
                 ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
-                OptionIds(component, "work-in-progress-switcher"));
+                GroupOptionIds(component, "work-in-progress-switcher"));
             Assert.Equal(
                 ["dashboard-toggle-button", "tools-toggle-button"],
-                OptionIds(component, "workspace-surface-switcher"));
+                GroupOptionIds(component, "workspace-surface-switcher"));
 
             // Fused where the design fuses, loose where it does not.
             Assert.DoesNotContain("header-group--loose", component.Find("[data-testid='view-switch']").ClassName);
@@ -488,9 +701,6 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='roadmap-toggle-button']"));
             Assert.Empty(component.FindAll("[data-testid='workspace-surface-option']"));
         });
-
-        static List<string?> OptionIds(IRenderedComponent<Home> rendered, string group) =>
-            [.. rendered.Find($"[data-testid='{group}']").Children.Select(option => option.GetAttribute("data-testid"))];
     }
 
     /// <summary>
@@ -757,12 +967,12 @@ public sealed class HomeWorkspaceSurfaceTests
             var component = Render(harness);
 
             component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Dashboard", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Equal("dashboard", shellNavigation.LastSurface));
 
             // The name the sessions list has always been remembered by, so a file
             // written while it was a Dashboard tab reopens on it too.
             component.Find("[data-testid='sessions-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Sessions", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Equal("sessions", shellNavigation.LastSurface));
         }
         finally
         {
@@ -787,11 +997,11 @@ public sealed class HomeWorkspaceSurfaceTests
             var component = Render(harness);
 
             component.Find("[data-testid='tools-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Tools", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Equal("tools", shellNavigation.LastSurface));
 
             component.Find("[data-testid='tools-toggle-button']").Click();
 
-            component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
         }
         finally
         {
@@ -873,7 +1083,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 var component = Render(harness);
                 OpenTheRoadmap(component);
                 OpenTheDevbook(component);
-                component.WaitForAssertion(() => Assert.Equal("Devbook", shellNavigation.LastSurface));
+                component.WaitForAssertion(() => Assert.Equal("devbook", shellNavigation.LastSurface));
             }
 
             Assert.DoesNotContain("lastEnabledPanes", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
@@ -892,7 +1102,7 @@ public sealed class HomeWorkspaceSurfaceTests
             reopened.Find("[data-testid='devbook-pane-option']").Click();
             reopened.WaitForAssertion(() =>
             {
-                Assert.Equal("Workspace", restarted.LastSurface);
+                Assert.Null(restarted.LastSurface);
                 Assert.NotEmpty(reopened.FindAll("[data-testid='workspace'] [data-testid='roadmap-band']"));
             });
         }
@@ -922,7 +1132,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 var component = Render(harness);
                 component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']")));
                 component.Find("[data-testid='inbox-pane-option']").Click();
-                component.WaitForAssertion(() => Assert.Equal("Inbox", shellNavigation.LastSurface));
+                component.WaitForAssertion(() => Assert.Equal("inbox", shellNavigation.LastSurface));
             }
 
             var restarted = new ShellNavigationStore(path);
@@ -935,7 +1145,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.NotEmpty(reopened.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']")));
 
             reopened.Find("[data-testid='inbox-pane-option']").Click();
-            reopened.WaitForAssertion(() => Assert.Equal("Workspace", restarted.LastSurface));
+            reopened.WaitForAssertion(() => Assert.Null(restarted.LastSurface));
         }
         finally
         {
@@ -978,7 +1188,7 @@ public sealed class HomeWorkspaceSurfaceTests
             {
                 Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
                 Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
-                Assert.Equal("Workspace", shellNavigation.LastSurface);
+                Assert.Null(shellNavigation.LastSurface);
             });
         }
         finally
@@ -1063,7 +1273,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
                 Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
                 Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("Workspace", shellNavigation.LastSurface);
+                Assert.Null(shellNavigation.LastSurface);
             });
         }
         finally
@@ -1136,12 +1346,12 @@ public sealed class HomeWorkspaceSurfaceTests
             });
 
             component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Dashboard", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Equal("dashboard", shellNavigation.LastSurface));
             component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
 
             Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
-            Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
+            Assert.Equal("roadmap", new ShellNavigationStore(path).LastView);
         }
         finally
         {
@@ -1163,7 +1373,7 @@ public sealed class HomeWorkspaceSurfaceTests
             {
                 var component = Render(harness);
                 OpenTheRoadmap(component);
-                component.WaitForAssertion(() => Assert.Equal("Roadmap", shellNavigation.LastView));
+                component.WaitForAssertion(() => Assert.Equal("roadmap", shellNavigation.LastView));
             }
 
             using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path));
@@ -1270,7 +1480,7 @@ public sealed class HomeWorkspaceSurfaceTests
                     Assert.Empty(component.FindAll("[data-testid='entry-list']"));
                     Assert.Equal("true", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
                     Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-                    Assert.Equal("Board", shellNavigation.LastView);
+                    Assert.Equal("board", shellNavigation.LastView);
                     Assert.Equal("Status", shellNavigation.BoardColumns);
                 });
 
@@ -1330,7 +1540,7 @@ public sealed class HomeWorkspaceSurfaceTests
                     Assert.Empty(component.FindAll("[data-testid='entry-list']"));
                     Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
                     Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-                    Assert.Equal("Calendar", shellNavigation.LastView);
+                    Assert.Equal("calendar", shellNavigation.LastView);
                 });
 
                 component.Find("[data-testid='tasks-view-option']").Click();
@@ -1612,7 +1822,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
             Assert.Equal(
                 ["tasks-view-option", "board-view-option", "calendar-view-option"],
-                component.Find("[data-testid='view-switch']").Children.Select(option => option.GetAttribute("data-testid")));
+                GroupOptionIds(component, "view-switch"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
     }
@@ -1661,7 +1871,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.Empty(component.FindAll("[data-testid='inbox-pane-option']"));
                 Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
             });
-            Assert.Equal("Inbox", shellNavigation.LastSurface);
+            Assert.Equal("inbox", shellNavigation.LastSurface);
         }
         finally
         {
@@ -1698,7 +1908,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
                 Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='roadmap-band']"));
                 Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("Workspace", shellNavigation.LastSurface);
+                Assert.Null(shellNavigation.LastSurface);
             });
 
             _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
@@ -1834,7 +2044,9 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("Roadmap", LabelWithoutFlag(option));
             Assert.False(option.HasAttribute("disabled"));
 
-            Assert.Equal("view-switch", option.ParentElement?.GetAttribute("data-testid"));
+            // In the switch, in its own header item (local ADR 0043 §4).
+            Assert.Equal("roadmap-header-item", option.ParentElement?.GetAttribute("data-testid"));
+            Assert.Equal("view-switch", option.ParentElement?.ParentElement?.GetAttribute("data-testid"));
             Assert.DoesNotContain("header-group__option--loose", option.ClassList);
 
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
@@ -1906,20 +2118,6 @@ public sealed class HomeWorkspaceSurfaceTests
                 harness.Context.JSInterop.Invocations,
                 invocation => invocation.Identifier == "backlogPaneResizer.initialize" && invocation.Arguments.Count == 1);
         });
-    }
-
-    /// <summary>
-    /// The surfaces are stored by name, so each is appended and none reordered, and
-    /// the Devbook joined after the Inbox (local ADR 0022, amendment of
-    /// 2026-10-15) then the notification centre, then the Lobes atlas last. A tripwire on a later tidy-up rather than a test of behaviour,
-    /// which is why it lists members.
-    /// </summary>
-    [Fact]
-    public void The_notification_centre_then_the_atlas_are_appended_after_the_devbook()
-    {
-        string[] expected = ["Workspace", "Tools", "Dashboard", "Roadmap", "Sessions", "PullRequests", "Inbox", "Devbook", "Notifications", "Atlas"];
-
-        Assert.Equal(expected, Enum.GetNames<WorkspaceSurface>());
     }
 
     /// <summary>
@@ -2135,9 +2333,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("true", component.Find("[data-testid='pull-requests-toggle-button']").GetAttribute("aria-pressed"));
 
             // Next to Sessions in the work in progress, as the same context's second list.
-            var options = component.FindAll("[data-testid='work-in-progress-switcher'] > *")
-                .Select(option => option.GetAttribute("data-testid"))
-                .ToList();
+            var options = GroupOptionIds(component, "work-in-progress-switcher");
             Assert.Equal(options.IndexOf("sessions-toggle-button") + 1, options.IndexOf("pull-requests-toggle-button"));
         });
 
@@ -2201,10 +2397,10 @@ public sealed class HomeWorkspaceSurfaceTests
             });
 
             component.Find("[data-testid='tasks-view-option']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
             component.Find("[data-testid='pull-requests-toggle-button']").Click();
 
-            component.WaitForAssertion(() => Assert.Equal("PullRequests", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Equal("pull-requests", shellNavigation.LastSurface));
         }
         finally
         {
@@ -2720,7 +2916,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
         });
 
-        Assert.Equal("Goals", harness.Context.Services.GetRequiredService<ShellNavigationStore>().LastView);
+        Assert.Equal("goals", harness.Context.Services.GetRequiredService<ShellNavigationStore>().LastView);
     }
 
     /// <summary>The Goals view needs neither list: with Sessions and Pull requests both
@@ -2857,9 +3053,14 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    /// <summary>The test ids of a header group's options, in order.</summary>
+    /// <summary>The test ids of a header group's options, in order. Each member of a group is a header
+    /// item (local ADR 0043 §4), and its option leads it.</summary>
     private static List<string?> GroupOptionIds(IRenderedComponent<Home> rendered, string group) =>
-        [.. rendered.Find($"[data-testid='{group}']").Children.Select(option => option.GetAttribute("data-testid"))];
+        [.. rendered.Find($"[data-testid='{group}']").Children.Select(item =>
+        {
+            Assert.Contains("header-surface-item", item.ClassList);
+            return item.FirstElementChild?.GetAttribute("data-testid");
+        })];
 
     /// <summary>Presses the Pull requests segment and waits for the list to take the
     /// screen.</summary>
@@ -3477,6 +3678,110 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// The Devbook is a registered surface (local ADR 0043 §1): the shell draws it
+    /// through its catalog entry, and a task followed out of a Brain note reaches the
+    /// task list through the window's navigator (§3) rather than a callback the shell
+    /// handed the pane — leaving the Devbook for the list, that task selected.
+    /// </summary>
+    [Fact]
+    public void A_task_followed_out_of_the_devbook_goes_through_the_navigator_to_the_task_list()
+    {
+        using var harness = CreateHarness(seed: PlanEntryText);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
+        var row = state.Rows.First(candidate => candidate.PreviewTitle.Contains("Read delivery run files", StringComparison.Ordinal));
+        var requests = new List<SurfaceRequest>();
+        harness.Context.Services.GetRequiredService<ISurfaceNavigator>().ShowRequested += requests.Add;
+
+        OpenTheDevbook(component);
+
+        var pane = component.FindComponent<DevbookPane>().Instance;
+        var titleFor = Assert.IsType<Func<string, string?>>(pane.TaskTitleFor);
+        Assert.Equal(row.PreviewTitle, titleFor(row.Id!.Value.ToString()));
+        Assert.Null(titleFor(Guid.NewGuid().ToString()));
+
+        component.InvokeAsync(() => pane.OnOpenTask.InvokeAsync(row.Id!.Value.ToString()));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+            var selected = Assert.Single(component.FindAll(".task-item--selected"));
+            Assert.Contains("Read delivery run files", selected.TextContent);
+        });
+        var request = Assert.Single(requests);
+        Assert.Equal("tasks", request.SurfaceId);
+        Assert.Equal(row.Id!.Value.ToString(), request.Value("entry"));
+    }
+
+    /// <summary>
+    /// The main window answers a jump to a view (local ADR 0043 §3, §6): from the
+    /// Roadmap, a request for Tasks with a plan shows the Tasks view, from the catalog,
+    /// with that plan chip pressed; and an entry the backlog does not hold still shows
+    /// Tasks, with a toast saying so.
+    /// </summary>
+    [Fact]
+    public void A_jump_to_a_view_shows_it_from_the_catalog_with_its_query()
+    {
+        using var harness = CreateHarness(seed: "# Wire the importer +plan-a\n`task` `!ready` `repo:backlog`\n");
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        var navigator = harness.Context.Services.GetRequiredService<ISurfaceNavigator>();
+        component.WaitForState(() => state.Rows.Count > 0);
+        OpenTheRoadmap(component);
+
+        component.InvokeAsync(() => navigator.Show("tasks", new Dictionary<string, string> { ["plan"] = "plan-a", ["unregistered"] = "dropped" }));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("+plan-a", state.SelectedPlan);
+        });
+
+        var toasts = harness.Context.Services.GetRequiredService<ToastChannel>();
+        component.InvokeAsync(() => navigator.Show("board", new Dictionary<string, string>()));
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed")));
+
+        component.InvokeAsync(() => navigator.Show("tasks", new Dictionary<string, string> { ["entry"] = Guid.NewGuid().ToString() }));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            Assert.Contains(toasts.Visible, toast => toast.TestId == TasksSurface.EntryMissingTestId);
+        });
+    }
+
+    /// <summary>
+    /// A Devbook the reader pressed open is the catalog's: switching its flag off
+    /// takes it out of the catalog, the header loses its option, and the surface
+    /// leaves the screen for the workspace.
+    /// </summary>
+    [Fact]
+    public void The_devbook_option_and_surface_follow_its_catalog_entry()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var catalog = harness.Context.Services.GetRequiredService<ISurfaceCatalog>();
+        var features = (AppFeatureSettingsStore)harness.Context.Services.GetRequiredService<IAppFeatureSettings>();
+
+        Assert.True(catalog.TryGet("devbook", out var devbook));
+        Assert.Equal(ShellSurfaceGroup.Takeover, devbook.Group);
+
+        OpenTheDevbook(component);
+        Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+
+        _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.False(catalog.TryGet("devbook", out _));
+            Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
+            Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+        });
+    }
+
+    /// <summary>
     /// A run started from an entry copied out of the app names it by its stored id and
     /// nothing else, and that id is what the shell opens it by.
     /// </summary>
@@ -3637,6 +3942,7 @@ public sealed class HomeWorkspaceSurfaceTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
+        context.Services.AddShellSurfaces();
         context.Services.AddSingleton(shellNavigation);
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);

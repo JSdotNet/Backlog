@@ -72,6 +72,9 @@ stable contract, not before.
   web frontend calling module APIs; Backlog renders module screens in-process
   inside the MAUI hosts, so a module publishes Razor components alongside its
   contracts.
+- **A module's `.UI` project also publishes its shell surface.** Besides its Razor
+  components, it registers the `ShellSurface` that puts its screen in the desktop
+  shell and its windows (local ADR 0043).
 - `Devbook`, `DevPc` and `Sessions` have `.UI` and `.Abstractions` projects
   but no module implementation project yet — their logic still sits in the UI
   layer. That is the shape local ADR 0002 corrected for the Tasks module, and

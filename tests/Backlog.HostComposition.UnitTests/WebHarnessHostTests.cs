@@ -495,4 +495,34 @@ public class WebHarnessHostTests
             && section.Title == "Devices"
             && section.FeatureKey == Backlog.Modules.Sync.Abstractions.SyncFeatures.Sync);
     }
+
+    /// <summary>
+    /// The desktop harness opens a popped-out surface in a browser tab of its own
+    /// (local ADR 0043 §7): it composes <see cref="Backlog.Desktop.UI.Shell.IShellWindows"/>
+    /// per circuit, so <c>Home</c> draws the ⧉, and the address a ⧉ opens renders the
+    /// Devbook under the popped-out window's slim header rather than "not available".
+    /// </summary>
+    [Fact]
+    public async Task The_desktop_harness_renders_the_devbook_at_its_popped_out_window_route()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using (var scope = harness.Services.CreateScope())
+        {
+            Assert.IsType<Backlog.Desktop.UI.Shell.BrowserTabShellWindows>(
+                scope.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Shell.IShellWindows>());
+        }
+
+        using var client = harness.CreateClient();
+        using var response = await client.GetAsync(
+            Backlog.Desktop.UI.Shell.SurfaceWindowRoute.PathFor("devbook"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("data-testid=\"surface-window\"", page, StringComparison.Ordinal);
+        Assert.Contains("data-surface-id=\"devbook\"", page, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"devbook-surface\"", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-testid=\"surface-window-unavailable\"", page, StringComparison.Ordinal);
+    }
 }

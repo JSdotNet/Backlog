@@ -60,9 +60,51 @@ public sealed class ShellNavigationStore
 
     private static readonly string[] Empty = [];
 
-    /// <summary>The main view a file with no <c>lastView</c> reopens on: before the
-    /// view switch the workspace's main pane was the task list.</summary>
-    public const string DefaultView = "Tasks";
+    /// <summary>The main view a file with no <c>lastView</c> reopens on, by its surface
+    /// id (local ADR 0043 §2): before the view switch the workspace's main pane was the
+    /// task list.</summary>
+    public const string DefaultView = "tasks";
+
+    /// <summary>The surface id the roadmap's view is stored under (local ADR 0043 §2).</summary>
+    private const string RoadmapViewId = "roadmap";
+
+    /// <summary>
+    /// The view names a file from before local ADR 0043 holds — the members of the
+    /// retired <c>ShellView</c> enum, and <c>InProgress</c>, the Goals view's name before
+    /// its rename — each with the surface id it reads as now (§2). Exact names only: the
+    /// enum's members were written as they were spelled.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> RetiredViewNames { get; } =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Tasks"] = "tasks",
+            ["Roadmap"] = RoadmapViewId,
+            ["Calendar"] = "calendar",
+            ["Board"] = "board",
+            ["Goals"] = "goals",
+            ["InProgress"] = "goals",
+        };
+
+    /// <summary>
+    /// The surface names a file from before local ADR 0043 holds — the members of the
+    /// retired <c>WorkspaceSurface</c> enum — each with the takeover's surface id it reads
+    /// as now (§2), and <c>Workspace</c>, the main view alone, as no takeover at all.
+    /// <c>Roadmap</c> is not here: it was a takeover once and reads as the Roadmap view
+    /// over the workspace. Exact names only: the enum's members were written as spelled.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string?> RetiredSurfaceNames { get; } =
+        new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [WorkspaceSurfaceName] = null,
+            ["Tools"] = "tools",
+            ["Dashboard"] = "dashboard",
+            ["Sessions"] = "sessions",
+            ["PullRequests"] = "pull-requests",
+            [InboxName] = InboxId,
+            [DevbookName] = DevbookId,
+            ["Notifications"] = "notifications",
+            ["Atlas"] = "atlas",
+        };
 
     /// <summary>What the Board's columns are when nothing else was remembered.</summary>
     public const string DefaultBoardColumns = "Status";
@@ -71,18 +113,23 @@ public sealed class ShellNavigationStore
     public const string DefaultCalendarRange = "Month";
 
     /// <summary>The surface name the roadmap was stored under while it was a
-    /// takeover, and the view name it is stored under now.</summary>
+    /// takeover; it reopens as the Roadmap view.</summary>
     private const string RoadmapName = "Roadmap";
 
-    /// <summary>The surface that is no takeover at all: the workspace.</summary>
+    /// <summary>The surface name the retired enum wrote for no takeover at all: the
+    /// workspace. Now nothing is written for it.</summary>
     private const string WorkspaceSurfaceName = "Workspace";
 
+    /// <summary>The Inbox's and the Devbook's surface ids (local ADR 0043 §2).</summary>
+    private const string InboxId = "inbox";
+    private const string DevbookId = "devbook";
+
     /// <summary>The pane name the Inbox was stored under while it was a side pane,
-    /// and the surface name it is stored under now.</summary>
+    /// and the surface name the retired enum stored it under.</summary>
     private const string InboxName = "Inbox";
 
     /// <summary>The pane name the Devbook was stored under while it was a side pane,
-    /// and the surface name it is stored under now.</summary>
+    /// and the surface name the retired enum stored it under.</summary>
     private const string DevbookName = "Devbook";
 
     /// <summary>The pane name the Devbook was stored under before the Knowledge
@@ -92,14 +139,16 @@ public sealed class ShellNavigationStore
     /// <summary>The format <see cref="GoalsTwoWeekStart"/> is stored in.</summary>
     private const string IsoDate = "yyyy-MM-dd";
 
+    /// <summary>The file's name, in the head's own app-data folder.</summary>
+    public const string FileName = "shell-navigation.json";
+
     private readonly string _path;
 
+    /// <summary>The file in <see cref="WorkspaceSettingsStore.DefaultAppDataDirectory"/>:
+    /// <c>Backlog.Debug</c> for a Debug build, <c>Backlog</c> for the installed app, so
+    /// a head started out of a checkout never writes what the installed app restores.</summary>
     public ShellNavigationStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "shell-navigation.json"))
+        : this(Path.Combine(WorkspaceSettingsStore.DefaultAppDataDirectory, FileName))
     {
     }
 
@@ -131,7 +180,7 @@ public sealed class ShellNavigationStore
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
-        AtlasReturnSurface = string.IsNullOrWhiteSpace(dto?.AtlasReturnSurface) ? null : dto.AtlasReturnSurface;
+        AtlasReturnSurface = AtlasReturnId(dto?.AtlasReturnSurface);
         AtlasScope = string.IsNullOrWhiteSpace(dto?.AtlasScope) ? null : dto.AtlasScope;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
         BrainHiddenShown = dto?.BrainHiddenShown ?? false;
@@ -149,9 +198,12 @@ public sealed class ShellNavigationStore
     /// remembered yet — first launch included.</summary>
     public string? LastSurface { get; private set; }
 
-    /// <summary>The main view the workspace was showing when last set — by name,
-    /// <c>Tasks</c>, <c>Board</c>, <c>Calendar</c>, <c>Roadmap</c> or <c>InProgress</c>
-    /// — and <see cref="DefaultView"/> when nothing has been remembered yet.</summary>
+    /// <summary>The main view the workspace was showing when last set — by its surface
+    /// id, <c>tasks</c>, <c>board</c>, <c>calendar</c>, <c>roadmap</c> or <c>goals</c>
+    /// (local ADR 0043 §2) — and <see cref="DefaultView"/> when nothing has been
+    /// remembered yet. A name the retired enum stored reads as its id
+    /// (<see cref="RetiredViewNames"/>); any other value is kept as written, and the
+    /// shell reads one it does not offer as Tasks.</summary>
     public string LastView { get; private set; }
 
     /// <summary>Whether the roadmap's day and week heads carry their hours line: on until
@@ -213,8 +265,10 @@ public sealed class ShellNavigationStore
     /// one was chosen.</summary>
     public string? ToolsHostFilter { get; private set; }
 
-    /// <summary>The surface the Lobes atlas was opened over, which its way back
-    /// returns to, by the shell's own surface name; null until the atlas was opened.
+    /// <summary>The takeover the Lobes atlas was opened over, which its way back
+    /// returns to, by its surface id; null for the workspace, and until the atlas was
+    /// opened. A name the retired enum stored reads as its id, as
+    /// <see cref="LastSurface"/>'s does.
     /// Kept beside <see cref="LastSurface"/> because the Router remounts the shell on
     /// every route change — Register repository's trip to Settings among them — and
     /// a reopened atlas must still know where it came from.</summary>
@@ -263,6 +317,7 @@ public sealed class ShellNavigationStore
     public void SetLastView(string view)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(view);
+        view = ViewId(view);
         if (view == LastView) return;
 
         LastView = view;
@@ -274,17 +329,38 @@ public sealed class ShellNavigationStore
     /// surface. A file from before the view switch names <c>Roadmap</c> as its
     /// surface; it reopens on the Roadmap view over the workspace, and since the
     /// in-memory surface is then the workspace, the next save cannot write the old
-    /// name back. A missing view is <see cref="DefaultView"/>.
+    /// name back. A missing view is <see cref="DefaultView"/>, a view the retired
+    /// <c>ShellView</c> enum named is its surface id, and a surface the retired
+    /// <c>WorkspaceSurface</c> enum named is its takeover's id, or none for the workspace.
     /// </summary>
     private static (string? Surface, string View) Normalize(string? surface, string? view)
     {
         if (string.Equals(surface, RoadmapName, StringComparison.Ordinal))
         {
-            return (WorkspaceSurfaceName, RoadmapName);
+            return (null, RoadmapViewId);
         }
 
-        return (surface, string.IsNullOrWhiteSpace(view) ? DefaultView : view);
+        return (SurfaceId(surface), string.IsNullOrWhiteSpace(view) ? DefaultView : ViewId(view));
     }
+
+    /// <summary>The takeover's surface id <paramref name="surface"/> stands for: a name
+    /// the retired enum stored as its id, the workspace as none, anything else as
+    /// written.</summary>
+    private static string? SurfaceId(string? surface) =>
+        string.IsNullOrWhiteSpace(surface) ? null
+        : RetiredSurfaceNames.TryGetValue(surface, out var id) ? id
+        : surface;
+
+    /// <summary>The atlas's way back as it is kept: a takeover's surface id, or none for
+    /// the workspace — and for <c>Roadmap</c>, which the retired enum could still name
+    /// though it was a view by then.</summary>
+    private static string? AtlasReturnId(string? surface) =>
+        string.Equals(surface, RoadmapName, StringComparison.Ordinal) ? null : SurfaceId(surface);
+
+    /// <summary>The surface id <paramref name="view"/> stands for: a name the retired
+    /// enum stored as its id, anything else as written.</summary>
+    private static string ViewId(string view) =>
+        RetiredViewNames.TryGetValue(view, out var id) ? id : view;
 
     /// <summary>
     /// The Inbox and then the Devbook were side panes beside the main view before
@@ -311,11 +387,11 @@ public sealed class ShellNavigationStore
         var panesWereOnScreen = storedSurface is null || string.Equals(storedSurface, WorkspaceSurfaceName, StringComparison.Ordinal);
         if (!panesWereOnScreen) return surface;
 
-        if (panes.Contains(InboxName, StringComparer.Ordinal)) return InboxName;
+        if (panes.Contains(InboxName, StringComparer.Ordinal)) return InboxId;
 
         if (panes.Contains(DevbookName, StringComparer.Ordinal) || panes.Contains(LegacyDevbookName, StringComparer.Ordinal))
         {
-            return DevbookName;
+            return DevbookId;
         }
 
         return surface;
@@ -384,7 +460,7 @@ public sealed class ShellNavigationStore
     /// <summary>Replaces the atlas's place — its way back and its scope — in one save.</summary>
     public void SetAtlasPlace(string? returnSurface, string? scope)
     {
-        returnSurface = string.IsNullOrWhiteSpace(returnSurface) ? null : returnSurface;
+        returnSurface = AtlasReturnId(returnSurface);
         scope = string.IsNullOrWhiteSpace(scope) ? null : scope;
         if (returnSurface == AtlasReturnSurface && scope == AtlasScope) return;
 
@@ -465,31 +541,11 @@ public sealed class ShellNavigationStore
     /// Waits until every write queued for the file at <paramref name="path"/> —
     /// by any store on it in this process — has landed.
     /// </summary>
-    public static void WaitForPendingWrites(string path)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        Task? writer;
-        lock (WriteGate)
-        {
-            writer = PendingWrites.TryGetValue(KeyOf(path), out var pending) ? pending.Writer : null;
-        }
-
-        try
-        {
-            writer?.Wait();
-        }
-        catch (AggregateException)
-        {
-            // A writer that faulted has already retired its entry and lost only its
-            // own write; waiting for it is over either way, and a reader goes on
-            // to the file as it stands.
-        }
-    }
+    public static void WaitForPendingWrites(string path) => QueuedFileWrites.WaitFor(path);
 
     /// <summary>
     /// Snapshots the choices on the caller's thread and hands the file write to the
-    /// pool.
+    /// pool (<see cref="QueuedFileWrites"/>).
     /// <para>
     /// The setters run on the click path — a view option, a takeover, a toggle — and
     /// on the desktop that is the renderer's UI thread, where a synchronous write
@@ -498,172 +554,11 @@ public sealed class ShellNavigationStore
     /// on the UI thread"). The properties are the truth for this process and change
     /// at once, so nothing that reads them waits; only the file lags.
     /// </para>
-    /// <para>
-    /// The JSON is taken here, in call order, and the writer only ever writes the
-    /// newest snapshot it holds, so the last choice made is the last one written
-    /// however the writes interleave. One writer per file, shared by every store
-    /// on it, so two stores on one path — a shell remounted, a test restarting —
-    /// cannot land their writes out of order, and a store constructed on a path
-    /// waits for the writes still queued for it before it reads.
-    /// </para>
     /// </summary>
     private void Save()
     {
-        Enqueue(_path, Serialize());
+        QueuedFileWrites.Enqueue(_path, Serialize());
         Changed?.Invoke();
-    }
-
-    /// <summary>Guards <see cref="PendingWrites"/>. Writes are rare — one per press
-    /// that changes something — so one gate for every path is enough.</summary>
-    private static readonly Lock WriteGate = new();
-
-    /// <summary>The file writes queued or running, by full path. An entry leaves
-    /// when its writer has nothing left to write.</summary>
-    private static readonly Dictionary<string, PendingWrite> PendingWrites = new(StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>The newest snapshot not yet written, and the pool task writing.</summary>
-    private sealed class PendingWrite
-    {
-        public string? Json { get; set; }
-
-        public Task Writer { get; set; } = Task.CompletedTask;
-    }
-
-    static ShellNavigationStore()
-    {
-        // A choice made in the last moment before the window closed is still in a
-        // writer's hands; the process waits a little for it rather than dropping it.
-        // The write itself is atomic, so a process that does not wait loses that
-        // choice and never the file.
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => WaitForAllPendingWrites(TimeSpan.FromSeconds(2));
-    }
-
-    private static string KeyOf(string path) => Path.GetFullPath(path);
-
-    private static void Enqueue(string path, string json)
-    {
-        var key = KeyOf(path);
-
-        lock (WriteGate)
-        {
-            if (PendingWrites.TryGetValue(key, out var pending))
-            {
-                pending.Json = json;
-                return;
-            }
-
-            pending = new PendingWrite { Json = json };
-            PendingWrites[key] = pending;
-
-            // Assigned under the gate the writer takes first, so it can never look
-            // for its own entry before the entry knows it.
-            pending.Writer = Task.Run(() => DrainWrites(key));
-        }
-    }
-
-    /// <summary>Writes the newest snapshot for <paramref name="key"/> until none is
-    /// left, then retires the entry — under the gate, so a save arriving as it
-    /// finishes either lands in this loop or starts a writer of its own.</summary>
-    private static void DrainWrites(string key)
-    {
-        var retired = false;
-        try
-        {
-            while (true)
-            {
-                string json;
-                lock (WriteGate)
-                {
-                    var pending = PendingWrites[key];
-                    if (pending.Json is null)
-                    {
-                        PendingWrites.Remove(key);
-                        retired = true;
-                        return;
-                    }
-
-                    json = pending.Json;
-                    pending.Json = null;
-                }
-
-                try
-                {
-                    WriteFile(key, json);
-                }
-                catch (Exception ex) when (ex is not OutOfMemoryException)
-                {
-                    // One write lost, and only that one: the loop goes on to the
-                    // next snapshot, so a failure nobody foresaw cannot leave the
-                    // path with an entry and no writer behind it.
-                }
-            }
-        }
-        finally
-        {
-            // Out of the loop without retiring — something above the write
-            // itself threw. The entry goes anyway, so the next save starts a
-            // writer of its own instead of queueing behind a dead one.
-            if (!retired)
-            {
-                lock (WriteGate)
-                {
-                    PendingWrites.Remove(key);
-                }
-            }
-        }
-    }
-
-    private static void WaitForAllPendingWrites(TimeSpan timeout)
-    {
-        Task[] writers;
-        lock (WriteGate)
-        {
-            writers = [.. PendingWrites.Values.Select(pending => pending.Writer)];
-        }
-
-        try
-        {
-            Task.WaitAll(writers, timeout);
-        }
-        catch (AggregateException)
-        {
-            // Every write already swallows its own IO failure; nothing to report
-            // on the way out.
-        }
-    }
-
-    /// <summary>Written beside the file and moved over it, so a process that ends
-    /// mid-write leaves the previous file rather than half of a new one. The name
-    /// beside it is this write's own: several app instances share one debug
-    /// workspace and so this file, and two writers on one temporary name would fail
-    /// each other's writes or move each other's half-written file.</summary>
-    private static void WriteFile(string path, string json)
-    {
-        var temporary = $"{path}.{Guid.NewGuid():n}.tmp";
-        try
-        {
-            File.WriteAllText(temporary, json);
-            File.Move(temporary, path, overwrite: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Losing this write only costs the next launch its restore; what
-            // is on screen right now is unaffected. Its temporary file goes with
-            // it rather than lingering beside the real one.
-            TryDelete(temporary);
-        }
-    }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Left behind; a later write never reads it.
-        }
     }
 
     private string Serialize() =>
@@ -766,7 +661,7 @@ public sealed class ShellNavigationStore
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ToolsHostFilter { get; init; }
 
-        /// <summary>Written as <c>atlasReturnSurface</c>, a surface name.</summary>
+        /// <summary>Written as <c>atlasReturnSurface</c>, a takeover's surface id.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? AtlasReturnSurface { get; init; }
 

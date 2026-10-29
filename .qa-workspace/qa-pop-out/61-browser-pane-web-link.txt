@@ -1,0 +1,14 @@
+Check 8, browser-pane half (owner session, 2026-10-29 07:52 local)
+
+The open_window target "web" link (tasks, plan shell-pop-out-windows), minted at 07:51 and never
+loaded before, was opened in the Claude Desktop browser pane (mcp__Claude_Browser__preview_start).
+
+DOM read over the pane's JS bridge, 3 s after load:
+- location: http://localhost:5761/window/tasks?plan=shell-pop-out-windows   (the t= token is gone: redirected after the cookie was set)
+- document.title: "Tasks - Backlog"; h1: "Tasks"; window.Blazor present (interactive circuit)
+- the slim header: the scope chips (Brain, backlog, ... fincent, ...) and "Show in main window"
+- the plan chip "+shell-pop-out-windows" in the Tasks filters; list text "Nothing matche[s]" (the Debug backlog holds no task in that plan)
+
+A screenshot was attempted and timed out (the pane was not being drawn, Claude's window was behind another),
+so this DOM read is the evidence. The 401 on a second load without the cookie is proved in
+33-web-link-statuses.json (Playwright, fresh context).
