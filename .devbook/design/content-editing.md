@@ -362,13 +362,14 @@ and *Metadata* → **A chapter is a heading, a record, and prose**.
 ## Materialization
 
 ```meta
-related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/typography-and-layout.md#heading-defaults", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/typography-and-layout.md#heading-defaults", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/design/interaction-guidelines.md#undo-and-history"]
 ```
 
 | Piece | Where | Review surface |
 |---|---|---|
 | Parser | `MarkdownPreview` (`src/Core/Backlog.SharedKernel/Markdown/MarkdownPreview.cs`) | Storybook → *Markdown* → **Blocks the parser produces**, which lists what the source in the first story parsed to |
 | Read view | `MarkdownView` | Storybook → *Markdown* for every block and inline; *Markdown document* for a section with copy, remarks and a way into the editor |
+| Live block editing | `MarkdownLiveEditor` over `MarkdownSourceBlocks` — the kernel that cuts the body into verbatim segments along `MdBlock.Source` and splices an edited one back with `Replace` — and `MarkdownLiveState`. Every block is rendered except the one holding the caret, which opens as its own source; lines no block claims show as a labelled raw passthrough. Undo and redo cover the whole document, not the open block: typing is grouped per word, ticks and joins are steps of their own, the newest 500 steps are kept, and the history is cleared when the host sets a new document. They are taken from Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl+Y and the Edit menu. No product screen adopts it | Storybook → *Markdown* → *Live editing* |
 | Document surface | `FileView` — a file's header and its body, the body scrolling under a fixed header. The header also carries what a reader does to the file (copy, edit, compare) and the file's own `meta` record — the status beside the name, where it stays while the body moves (`#knowledge-metadata-blocks`). A Markdown body is read whole: each chapter's `meta` status beside its heading, each diagram where its fence is, a copy button per chapter, and remarks in the margin | Storybook → *File view*; *Markdown document* → **Reading a knowledge chapter** for a chapter's records in the body |
 | What a file says it is for | A file opening with YAML frontmatter can state it above the body instead of through it: the description as prose, `applyTo` and `tools` as badges, and every other key the file wrote as a label and a value in that order. Asked for, never assumed, and the block leaves the read view when it is shown — `---` parses as a divider, so frontmatter otherwise reads as two rules around a run-together paragraph. Keys it does not draw are still drawn, because a view must not hide what it does not show; a buffer being edited keeps the block verbatim, since a save without those lines would drop them | Storybook → *File content* → **What the file says it is for** |
 | Comparison surface | `MarkdownCompare` (a pure function over two texts) and `MarkdownCompareView`, aligned by heading and never by line. `Bare` gives up its frame so `FileView` can show it without a second header or a second scroll region | Storybook → *Section comparison*, and *File view* → **Two versions, aligned by the pane** |
@@ -423,6 +424,13 @@ What is true today, and where it differs from the model above:
 - **Body text renders in `color-text-secondary`.** `design-principles.md#low-chrome-content-first`
   reserves `color-text-primary` for content and `color-text-secondary` for
   chrome. The read view has that the other way round for paragraphs, list items
-  and code blocks. It reads as intended inside a dense card and washed-out in a
+  and code blocks, and the live editor's raw passthrough block draws its author
+  text the same way. It reads as intended inside a dense card and washed-out in a
   document; a document surface SHOULD move to `color-text-primary`.
   `[TODO: clarify]`
+- **The live editor's undo stops at a task checkbox.** Its keys are the editor's
+  only from the open block's source or a focused rendered block. With focus on a
+  task checkbox — where a tick leaves it — Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z and
+  Ctrl+Y are ignored, so the tick just made cannot be undone from the keyboard
+  without moving focus first. That falls short of
+  `interaction-guidelines.md#undo-and-history`, "Undo always available".
