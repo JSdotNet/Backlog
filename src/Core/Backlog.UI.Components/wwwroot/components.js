@@ -1027,9 +1027,21 @@
     // entirely from where the press landed and is fixed for the rest of the drag —
     // the reason for that is on `taskRowFromPoint`, and it is the one thing in here
     // not to redesign without reading it.
+    //
+    // It is the library's one pointer reorder, not the task list's alone. Any list can
+    // take part without a line of script of its own: it registers under its
+    // `data-list-owner` id through `backlogListReorder` — `taskListDrag` is the same
+    // object, the name the task list and the board have always called — marks each
+    // item `data-reorder-item="<id>"` with `data-draggable="true"`, and gives it a
+    // `data-reorder-grip`. Such an item is picked up by its grip alone, by any pointer,
+    // and drives the same four entry points a task row does — PointerDragStart,
+    // PointerDragOver, PointerDragEnd, PointerDragCancel — with the threshold, the
+    // click grace, the edge scroll and Escape it shares with them. The Goals board is
+    // the first. A task row or card never wears these attributes, so nothing about its
+    // gesture changes.
     const taskListRefs = new Map();
 
-    window.taskListDrag = {
+    window.backlogListReorder = {
         register(ownerId, dotNetRef) {
             taskListRefs.set(ownerId, dotNetRef);
         },
@@ -1037,6 +1049,8 @@
             taskListRefs.delete(ownerId);
         }
     };
+
+    window.taskListDrag = window.backlogListReorder;
 
     // How far the pointer travels before a press becomes a drag. Without a
     // threshold every click on a row would open and close a drag, and a click is
@@ -1450,6 +1464,18 @@
         return element instanceof Element ? element.closest('.task-item[data-task-id]') : null;
     }
 
+    // A generic list's answer to the same question: which `data-reorder-item` of the
+    // list the drag started in the pointer is over, or null. A hit test and nothing
+    // more; what a drop there means is the list's.
+    function reorderItemFromPoint(x, y) {
+        const element = document.elementFromPoint(x, y);
+        const item = element instanceof Element ? element.closest('[data-reorder-item]') : null;
+
+        return item && item.closest('[data-list-owner]')?.getAttribute('data-list-owner') === taskDrag.ownerId
+            ? item.getAttribute('data-reorder-item')
+            : null;
+    }
+
     // The board's answer to the same question: which column the pointer is over.
     // A hit test and nothing more, on the same terms as the row's above — what a
     // drop on that column would mean is TaskBoard's to say.
@@ -1701,6 +1727,45 @@
         const target = event.target instanceof Element ? event.target : null;
         if (!target) return;
 
+        // A generic list's item, by its grip — see the note on `backlogListReorder`. Its
+        // own branch, ahead of everything the task rows ask, so a task row's press is
+        // decided exactly as it always was.
+        const reorderGrip = target.closest('[data-reorder-grip]');
+        if (reorderGrip) {
+            const item = reorderGrip.closest('[data-reorder-item][data-draggable="true"]');
+            const itemOwner = item?.closest('[data-list-owner]')?.getAttribute('data-list-owner');
+            const itemRef = itemOwner ? taskListRefs.get(itemOwner) ?? null : null;
+            const itemId = item?.getAttribute('data-reorder-item');
+            if (!item || !itemRef || !itemId) return;
+
+            taskDrag = {
+                ref: itemRef,
+                taskId: itemId,
+                ownerId: itemOwner,
+                row: item,
+                startX: event.clientX,
+                startY: event.clientY,
+                pointerId: event.pointerId,
+                active: false,
+                link: false,
+                board: false,
+                // What it is over is an item of its own list — see `taskReportOver`.
+                item: true,
+                lastOverId: null,
+                x: event.clientX,
+                y: event.clientY,
+                scroller: null,
+                anchor: item,
+                sideways: null,
+                scrollerAt: null,
+                onScrolled: () => {
+                    if (taskDrag) taskReportOver(taskDrag.x, taskDrag.y);
+                },
+                lift: null
+            };
+            return;
+        }
+
         // Which of the two gestures this press is starting, decided here and
         // recorded for the rest of it. The link handle is its own element on the
         // row, so "where did the press land" is the whole of the question.
@@ -1831,9 +1896,11 @@
     // card is TaskBoard's to say, on the same split the link line keeps —
     // geometry here, meaning in C#.
     function taskReportOver(x, y) {
-        const overId = taskDrag.board
-            ? taskBoardColumnFromPoint(x, y)
-            : taskRowFromPoint(x, y)?.getAttribute('data-task-id') ?? null;
+        const overId = taskDrag.item
+            ? reorderItemFromPoint(x, y)
+            : taskDrag.board
+                ? taskBoardColumnFromPoint(x, y)
+                : taskRowFromPoint(x, y)?.getAttribute('data-task-id') ?? null;
         if (overId === taskDrag.lastOverId) return;
 
         taskDrag.lastOverId = overId;
