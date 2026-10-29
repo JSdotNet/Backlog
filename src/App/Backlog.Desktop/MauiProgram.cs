@@ -113,7 +113,10 @@ public static class MauiProgram
             // %LOCALAPPDATA%\Backlog\iteration-settings.json, seeded once from the shell
             // navigation file an earlier build kept the choice in (local ADR 0036).
             IterationSettings = sp => new IterationSettingsStore(sp.GetRequiredService<ShellNavigationStore>()),
-            ShellNavigation = _ => new ShellNavigationStore(),
+            // The head's own app-data folder, like the log and the per-machine files:
+            // a Debug head restoring and writing the installed app's last surface
+            // would move the installed app's windows about.
+            ShellNavigation = _ => new ShellNavigationStore(Path.Combine(appData, ShellNavigationStore.FileName)),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(),
             CaptureRunLog = _ => new CaptureRunLogStore(),
             CaptureTargetLedger = _ => new CaptureTargetLedgerStore(),
@@ -172,10 +175,11 @@ public static class MauiProgram
         // The head's windows (local ADR 0041 §4): the main one App asks for, and every
         // surface popped out beside it. Twice over, so App reaches the concrete type
         // that makes the main window while every caller sees the port.
-        // %LOCALAPPDATA%\Backlog\shell-windows.json, beside shell-navigation.json: where
-        // each surface's last popped-out window stood (local ADR 0041 §5). The head's
-        // own, since only its windows have bounds.
-        builder.Services.TryAddSingleton(_ => new ShellWindowStore());
+        // shell-windows.json in the head's own app-data folder - Backlog.Debug for a
+        // debug head - beside shell-navigation.json: where each surface's last
+        // popped-out window stood (local ADR 0041 §5). The head's own, since only its
+        // windows have bounds.
+        builder.Services.TryAddSingleton(_ => new ShellWindowStore(Path.Combine(appData, ShellWindowStore.FileName)));
         builder.Services.TryAddSingleton<ShellWindows>();
         builder.Services.TryAddSingleton<IShellWindows>(sp => sp.GetRequiredService<ShellWindows>());
         // What open_window opens and links to (local ADR 0041 §7): these windows, and a

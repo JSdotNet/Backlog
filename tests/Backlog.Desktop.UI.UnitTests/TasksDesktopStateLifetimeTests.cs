@@ -260,6 +260,41 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
         Assert.Equal(afterDisposal, changes);
     }
 
+    /// <summary>
+    /// A window's state is scoped to the window (local ADR 0041 §5), and closing a
+    /// popped-out window — or the WebView reloading its page — ends that scope
+    /// asynchronously. An edit typed in the last debounce interval is written as the
+    /// scope ends rather than dropped with its timer: the next window reads it back.
+    /// </summary>
+    [Fact]
+    public async Task Ending_the_window_scope_writes_a_save_still_waiting_on_its_debounce()
+    {
+        var root = TempRoot();
+        var state = State(root);
+        await state.InitializeAsync();
+
+        var services = new ServiceCollection();
+        services.AddScoped(_ => state);
+        await using var provider = services.BuildServiceProvider();
+
+        var scope = provider.CreateAsyncScope();
+        var windowState = scope.ServiceProvider.GetRequiredService<TasksDesktopState>();
+        windowState.NewRow();
+        var row = windowState.Rows[^1];
+        windowState.OnRawTextInput(row, "# Typed as the window closed\n`task` `!draft`\n");
+
+        _clock.Advance(TimeSpan.FromMilliseconds(749));
+        Assert.Null(row.Id);
+
+        await scope.DisposeAsync();
+
+        Assert.NotNull(row.Id);
+
+        var next = State(root);
+        await next.InitializeAsync();
+        Assert.Contains(next.Rows, other => other.Id == row.Id && other.RawText.Contains("Typed as the window closed", StringComparison.Ordinal));
+    }
+
     public void Dispose()
     {
         foreach (var state in _states)

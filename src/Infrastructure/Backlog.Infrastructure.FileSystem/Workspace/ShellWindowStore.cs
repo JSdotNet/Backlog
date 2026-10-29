@@ -34,12 +34,11 @@ public sealed class ShellWindowStore
     private readonly Lock _gate = new();
     private readonly Dictionary<string, ShellWindowBounds> _bounds;
 
+    /// <summary>The file in <see cref="WorkspaceSettingsStore.DefaultAppDataDirectory"/>,
+    /// beside <see cref="ShellNavigationStore.FileName"/>: <c>Backlog.Debug</c> for a
+    /// Debug build, <c>Backlog</c> for the installed app.</summary>
     public ShellWindowStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                FileName))
+        : this(Path.Combine(WorkspaceSettingsStore.DefaultAppDataDirectory, FileName))
     {
     }
 
