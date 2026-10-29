@@ -60,6 +60,7 @@ test('recognises the brief, the surface tools and the returns', () => {
   expect(parseReturn('pr https://github.com/o/r/pull/7')).toEqual({ state: 'pr', note: 'https://github.com/o/r/pull/7' })
   expect(parseReturn('Some notes.\n\nblocked implement: empty diff').state).toBe('blocked')
   expect(parseReturn('gate\nReview at http://localhost:5000').state).toBe('gate')
+  expect(parseReturn('gate run-7 D:/dm/b2\nReview at http://localhost:5000')).toEqual({ state: 'gate', note: 'run-7 D:/dm/b2' })
   expect(parseBrief(BRIEF.replace('`2 - Second', '`2 - 2 - Second'))?.title).toBe('Second prompt')
 })
 

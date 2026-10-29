@@ -8,7 +8,9 @@
 
     The answer controls follow the question's shape, and nothing else decides
     them:
-      single choice      one AppButton per set answer, pressed to answer
+      single choice      one AppButton per set answer, pressed to answer; a choice
+                         that takes text opens a plain-text TextArea with Send
+                         instead, and answers with the choice and its words
       multiple choice    one Checkbox per set answer, and Answer to send the picks
       open               a plain-text TextArea and Send
       choices with open  the buttons, and the box with Send beside them
@@ -105,8 +107,32 @@
                                        BusyLabel="Answering"
                                        Disabled="@(Busy && _pressed != choice.Id)"
                                        TestId="@($"notification-card-choice-{choice.Id}")"
-                                       OnClick="@(() => ChooseAsync(choice.Id))">@choice.Label</AppButton>
+                                       OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
                         }
+                    </div>
+                }
+
+                @if (Composing is { } composing)
+                {
+                    <div class="notification-card__open" data-testid="notification-card-choice-text">
+                        <TextArea Label="@($"{composing.Label}: in your own words")"
+                                  @bind-Value="_choiceText"
+                                  Placeholder="@(composing.Placeholder ?? "Write what you mean…")"
+                                  Disabled="@Busy"
+                                  Rows="2"
+                                  maxlength="@TextLimit" />
+                        <div class="notification-card__actions">
+                            <AppButton Variant="ButtonVariant.Primary"
+                                       Busy="@(Busy && _pressed == composing.Id)"
+                                       BusyLabel="Sending"
+                                       Disabled="@(Busy || string.IsNullOrWhiteSpace(_choiceText))"
+                                       TestId="notification-card-choice-send"
+                                       OnClick="SendChoiceTextAsync">Send</AppButton>
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@Busy"
+                                       TestId="notification-card-choice-cancel"
+                                       OnClick="CancelChoiceText">Cancel</AppButton>
+                        </div>
                     </div>
                 }
 
@@ -153,6 +179,8 @@
     private string? _blocksFor;
     private string? _modelId;
     private string? _text;
+    private string? _composing;
+    private string? _choiceText;
     private string? _pressed;
     private string? _localError;
 
@@ -186,6 +214,13 @@
 
     private string? ShownError => _localError ?? ErrorMessage;
 
+    /// <summary>The choice whose words are being typed, or null.</summary>
+    private NotificationCardChoice? Composing => _composing is null
+        ? null
+        : Model.Answer?.Choices.FirstOrDefault(choice => string.Equals(choice.Id, _composing, StringComparison.Ordinal));
+
+    private int TextLimit => Model.Answer?.Open?.MaxLength ?? NotificationCardOpenAnswer.DefaultMaxLength;
+
     protected override void OnParametersSet()
     {
         ArgumentNullException.ThrowIfNull(Model);
@@ -195,6 +230,8 @@
             _modelId = Model.Id;
             _picked.Clear();
             _text = null;
+            _composing = null;
+            _choiceText = null;
             _pressed = null;
             _localError = null;
         }
@@ -277,10 +314,41 @@
         else _picked.Remove(choiceId);
     }
 
-    private Task ChooseAsync(string choiceId)
+    private Task ChooseAsync(NotificationCardChoice choice)
     {
-        _pressed = choiceId;
-        return AnswerAsync(new NotificationCardReply([choiceId], null));
+        if (choice.TakesText)
+        {
+            // Its words come first: the box opens and nothing is sent until Send.
+            _localError = null;
+            if (!string.Equals(_composing, choice.Id, StringComparison.Ordinal)) _choiceText = null;
+            _composing = choice.Id;
+            return Task.CompletedTask;
+        }
+
+        _composing = null;
+        _pressed = choice.Id;
+        return AnswerAsync(new NotificationCardReply([choice.Id], null));
+    }
+
+    private Task SendChoiceTextAsync()
+    {
+        if (Composing is not { } choice) return Task.CompletedTask;
+
+        if (string.IsNullOrWhiteSpace(_choiceText))
+        {
+            _localError = $"Write your words for {choice.Label} first.";
+            return Task.CompletedTask;
+        }
+
+        _pressed = choice.Id;
+        return AnswerAsync(new NotificationCardReply([choice.Id], _choiceText.Trim()));
+    }
+
+    private void CancelChoiceText()
+    {
+        _composing = null;
+        _choiceText = null;
+        _localError = null;
     }
 
     private Task SubmitPicksAsync()

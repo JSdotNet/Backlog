@@ -1247,6 +1247,101 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Equal(new DateOnly(2026, 10, 5), again!.BlockedSince);
     }
 
+    /// <summary>The notification whose answer filed a follow-up is provenance with a
+    /// column of its own, read and written the way <c>recurrence_source_id</c> is.</summary>
+    [Fact]
+    public async Task The_notification_a_follow_up_was_filed_from_comes_back()
+    {
+        var notification = Guid.NewGuid();
+        var task = new TaskItem(
+            Guid.NewGuid(),
+            "Follow-up: Show the empty state",
+            "Add the screenshot",
+            EntryType.Prompt,
+            EntryStatus.Ready,
+            Priority.Medium,
+            repoIds: null,
+            tags: ["+notifications"],
+            sourceInboxId: null,
+            createdAt: DateTimeOffset.UtcNow,
+            sourceNotificationId: notification);
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(notification, loaded.SourceNotificationId);
+    }
+
+    /// <summary>
+    /// The additive contract for <c>source_notification_id</c>: a file written by the
+    /// build before it — every column up to and including <c>planned_hours</c> — opens,
+    /// reads its rows as filed from no answer, and keeps one written on the next save.
+    /// </summary>
+    [Fact]
+    public async Task A_database_written_before_the_source_notification_id_column_still_opens_and_reads()
+    {
+        var id = Guid.NewGuid();
+        var createdAt = new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero);
+
+        Directory.CreateDirectory(_root);
+
+        await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString()))
+        {
+            await seed.OpenAsync(TestContext.Current.CancellationToken);
+
+            await using var create = seed.CreateCommand();
+            create.CommandText = """
+                CREATE TABLE tasks (
+                    id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, content_md TEXT NOT NULL DEFAULT '',
+                    type TEXT NOT NULL, status TEXT NOT NULL, priority TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL DEFAULT 0, area TEXT NULL, created_at TEXT NOT NULL,
+                    source_inbox_id TEXT NULL, recurrence_source_id TEXT NULL, due_on TEXT NULL,
+                    remind_at TEXT NULL, recurrence TEXT NULL, in_my_day_on TEXT NULL, view TEXT NULL,
+                    tags TEXT NOT NULL DEFAULT '[]', repo_ids TEXT NOT NULL DEFAULT '[]',
+                    depends_on TEXT NOT NULL DEFAULT '[]', sub_items TEXT NOT NULL DEFAULT '[]',
+                    usage_events TEXT NOT NULL DEFAULT '[]', projections TEXT NOT NULL DEFAULT '[]',
+                    effort INTEGER NULL, import_plan_id TEXT NULL, import_item_id TEXT NULL,
+                    updated_at TEXT NULL, deleted_at TEXT NULL, attachment_path TEXT NULL,
+                    completed_on TEXT NULL, started_on TEXT NULL, devbook_refs TEXT NOT NULL DEFAULT '[]',
+                    blocked_since TEXT NULL, source_ref TEXT NULL, agenda_at TEXT NULL,
+                    agenda_minutes INTEGER NULL, planned_hours TEXT NOT NULL DEFAULT '[]'
+                );
+                """;
+            await create.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+
+            await using var insert = seed.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO tasks (id, title, type, status, priority, created_at, updated_at)
+                VALUES ($id, $title, 'prompt', 'ready', 'medium', $created_at, $created_at);
+                """;
+            insert.Parameters.AddWithValue("$id", id.ToString());
+            insert.Parameters.AddWithValue("$title", "Written before follow-ups were filed from answers");
+            insert.Parameters.AddWithValue(
+                "$created_at",
+                createdAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        var loaded = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal("Written before follow-ups were filed from answers", loaded.Title);
+        Assert.Null(loaded.SourceNotificationId);
+
+        var notification = Guid.NewGuid();
+        var filed = new TaskItem(
+            Guid.NewGuid(), "Follow-up", string.Empty, EntryType.Prompt, EntryStatus.Ready, Priority.Medium,
+            repoIds: null, tags: null, sourceInboxId: null, createdAt: DateTimeOffset.UtcNow,
+            sourceNotificationId: notification);
+        await _repository.SaveAsync(filed, TestContext.Current.CancellationToken);
+
+        Assert.Equal(notification, (await _repository.GetAsync(filed.Id, TestContext.Current.CancellationToken))!.SourceNotificationId);
+    }
+
     /// <summary>
     /// A row written when <c>follow_up</c> was still a type reads back as a task
     /// rather than throwing. <c>ParseType</c> no longer knows the word, so a file

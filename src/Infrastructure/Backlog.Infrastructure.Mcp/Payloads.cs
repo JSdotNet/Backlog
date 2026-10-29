@@ -632,6 +632,8 @@ public sealed record RunStagePayload(string Name, string Status, long? DurationM
 /// <param name="RunContext">The run context <c>set_run_context</c> kept, as an
 /// object — authored by the flow, unlike the measured figures this leaves out, so a
 /// flow reading it back reads its own words.</param>
+/// <param name="Approval">The run's Personal Validation decision, or null where none is
+/// recorded yet — how an orchestrator reads a gate answered from a notification.</param>
 public sealed record RunPayload(
     string Id,
     string Worktree,
@@ -647,7 +649,27 @@ public sealed record RunPayload(
     string? Trigger = null,
     string? Schedule = null,
     string? Repo = null,
-    JsonElement? RunContext = null);
+    JsonElement? RunContext = null,
+    RunApprovalPayload? Approval = null);
+
+/// <summary>
+/// A run's Personal Validation decision, as <c>get_run</c> hands it back.
+/// </summary>
+/// <param name="Decision"><c>pending</c>, <c>approved</c> or <c>rejected</c>, or null.</param>
+/// <param name="Note">The note recorded with it: the person's words for Revise and
+/// Approve + follow-up, a fixed note for Approve and Reject.</param>
+/// <param name="DecidedAt">When it was decided.</param>
+/// <param name="Choice">The answer a notification gave — <c>approve</c>,
+/// <c>approve-follow-up</c>, <c>revise</c> or <c>reject</c> — or null for a decision
+/// taken at the desktop. Tells Revise (<c>rejected</c>, revise round) from Reject
+/// (<c>rejected</c>, the entry is blocked) without reading the note.</param>
+/// <param name="FollowUpEntryId">The follow-up entry an Approve + follow-up filed, or null.</param>
+public sealed record RunApprovalPayload(
+    string? Decision,
+    string? Note,
+    DateTimeOffset? DecidedAt,
+    string? Choice,
+    Guid? FollowUpEntryId);
 
 /// <summary>The runs of one worktree.</summary>
 public sealed record RunsPayload(string Worktree, int Count, IReadOnlyList<RunPayload> Runs);

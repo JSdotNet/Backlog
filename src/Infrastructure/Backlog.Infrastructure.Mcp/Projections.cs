@@ -165,7 +165,10 @@ internal static class Projections
         run.Trigger,
         run.Schedule,
         run.Repository,
-        Element(run.RunContext));
+        Element(run.RunContext),
+        run.Approval is { } approval
+            ? new RunApprovalPayload(approval.Decision, approval.Note, approval.DecidedAt, approval.Choice, approval.FollowUpEntryId)
+            : null);
 
     /// <summary>The JSON text a run keeps as the element it serializes as, so it
     /// crosses the wire as the object it was sent rather than as a string of JSON a

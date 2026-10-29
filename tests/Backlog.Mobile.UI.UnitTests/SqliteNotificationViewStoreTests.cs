@@ -51,4 +51,19 @@ public sealed class SqliteNotificationViewStoreTests : IDisposable
         Assert.Null(reopened.ReadCursor());
         Assert.Single(reopened.ReadRows());
     }
+
+    [Fact]
+    public async Task A_choice_that_takes_text_survives_a_new_store_over_the_same_file()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var question = TestNotifications.Question("Approve the validation of run-58?", T0, TestNotifications.Validation());
+        var change = NotificationPayloads.ToChange(question, [], T0);
+
+        await new SqliteNotificationViewStore(_path).SaveAsync([new NotificationChangeRecord(change, Guid.NewGuid(), 3)], "pos:1", ct);
+        var row = Assert.Single(new SqliteNotificationViewStore(_path).ReadRows());
+
+        Assert.Equal(
+            [("approve", false, (string?)null), ("revise", true, "What should change?"), ("reject", false, null)],
+            NotificationPayloads.Read(row.Change)!.Notification.AnswerSpec!.Choices.Select(choice => (choice.Id, choice.TakesText, choice.Placeholder)));
+    }
 }

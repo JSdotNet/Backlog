@@ -88,6 +88,23 @@ public sealed class NotificationToastTests
     }
 
     [Fact]
+    public void A_choice_that_takes_text_offers_no_choice_buttons_and_opens_the_app()
+    {
+        var spec = new AnswerSpec(
+        [
+            new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+            new AnswerChoice("revise", "Revise", TakesText: true)
+        ]);
+
+        var toast = NotificationToast.For(View(spec: spec))!;
+
+        var only = Assert.Single(toast.Buttons);
+        Assert.Equal("Open in Backlog", only.Label);
+        Assert.Equal(NotificationToast.OpenAction, only.Arguments[NotificationToast.ActionArgument]);
+        Assert.Null(toast.TextBox);
+    }
+
+    [Fact]
     public void No_toast_ever_has_more_than_three_buttons()
     {
         foreach (var count in new[] { 2, 3, 4, 5, 6 })

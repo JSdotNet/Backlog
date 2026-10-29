@@ -93,11 +93,11 @@ flowchart LR
     %% built, each through an infrastructure adapter rather than a published
     %% event. The other two below are named and not built: see the strategic
     %% rules below and .devbook/domain/sessions/dependencies.md. Tasks -> Sessions
-    %% is the follow-up a gate answer files, in process and not built yet.
+    %% is the follow-up a gate answer files, in process through ITaskFollowUps; built.
     DevPC -.->|"Customer/Supplier (not built)<br/>Machine identity for an environment"| Sessions
     Sessions -->|Customer/Supplier<br/>Agent session facts| Productivity
     Sessions -->|Customer/Supplier<br/>Linked session state| Tasks
-    Tasks -.->|"Customer/Supplier (not built)<br/>File a follow-up after an entry"| Sessions
+    Tasks -->|Customer/Supplier<br/>File a follow-up after an entry| Sessions
     Sessions -.->|"Customer/Supplier (not built)<br/>Attached session: state, branch"| Progress
     Sessions -.->|"Customer/Supplier (not built)<br/>Stalled-session observation"| Monitor
 

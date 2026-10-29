@@ -978,6 +978,7 @@ related: [.devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry, .
 ```meta
 type: requirement
 status: proposed
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_in_a_plan_is_a_ready_prompt_after_the_gated_entry_with_its_plan_tag_and_repository, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_named_by_its_plan_and_item_is_found, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_outside_any_plan_gets_a_follow_up_with_no_plan_tag, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_of_a_follow_up_stays_in_the_plan, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_same_answer_handed_over_again_files_no_second_task, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_follow_up_deleted_since_is_not_filed_again_by_the_same_answer, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.A_gated_entry_that_is_gone_is_not_found, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_plan_imported_again_keeps_the_follow_up, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteTaskRepositoryTests.The_notification_a_follow_up_was_filed_from_comes_back, unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeTests.The_notification_a_follow_up_was_filed_from_crosses_the_wire_and_an_older_document_reads_as_none, unit:dotnet:Backlog.Mobile.UI.UnitTests.TaskEditsTests.A_phone_edit_keeps_the_notification_a_follow_up_was_filed_from]
 ```
 
 The system SHALL file exactly one task per accepted Approve + follow-up answer, of type `prompt` and status `ready`, waiting on the gated entry, carrying the gated entry's plan tag and repository and no `import_plan_id`, with the person's words as its body and the answer's notification id as its provenance.
@@ -1011,6 +1012,7 @@ The system SHALL file exactly one task per accepted Approve + follow-up answer, 
 ```meta
 type: requirement
 status: proposed
+tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.Words_that_look_like_a_step_stay_one_line_of_body_text, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_words_never_parse_as_structure_or_tags, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.The_read_view_shows_the_words_as_typed, unit:dotnet:Backlog.Modules.Tasks.UnitTests.FileFollowUpTests.Ordinary_prose_is_kept_exactly_as_typed, unit:dotnet:Backlog.SharedKernel.UnitTests.MarkdownPreviewEscapeTests]
 ```
 
 The system SHALL write the words of a follow-up answer into the follow-up's body as plain text, so that no line of them becomes a sub-item, a heading or a fence.

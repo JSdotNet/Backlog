@@ -258,6 +258,49 @@ public sealed class NotificationScreenTests
     }
 
     [Fact]
+    public void A_choice_that_takes_text_asks_for_its_words_before_it_sends()
+    {
+        var (host, service, _) = Phone(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-3), TestNotifications.Validation()));
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-revise']")));
+
+        app.Find("[data-testid='notification-choice-revise']").Click();
+
+        var box = app.Find("[data-testid='notification-choice-text'] textarea");
+        Assert.Equal("What should change?", box.GetAttribute("placeholder"));
+        Assert.Equal("2000", box.GetAttribute("maxlength"));
+        Assert.True(app.Find("[data-testid='notification-choice-send']").HasAttribute("disabled"));
+        Assert.Empty(service.Replies);
+        Assert.Empty(host.Outbox.Entries);
+
+        app.Find("[data-testid='notification-choice-text'] textarea").Input("The toast overlaps the header");
+        app.Find("[data-testid='notification-choice-send']").Click();
+
+        app.WaitForAssertion(() => Assert.Single(service.Replies));
+        Assert.Equal(["revise"], service.Replies[0].ChoiceIds);
+        Assert.Equal("The toast overlaps the header", service.Replies[0].Text);
+    }
+
+    [Fact]
+    public void Cancelling_a_choices_words_leaves_the_plain_choices_answering_at_once()
+    {
+        var (host, service, _) = Phone(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-3), TestNotifications.Validation()));
+        using var disposing = host;
+        var app = host.Open("notifications");
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='notification-choice-revise']")));
+
+        app.Find("[data-testid='notification-choice-revise']").Click();
+        app.Find("[data-testid='notification-choice-cancel']").Click();
+        Assert.Empty(app.FindAll("[data-testid='notification-choice-text']"));
+
+        app.Find("[data-testid='notification-choice-approve']").Click();
+
+        app.WaitForAssertion(() => Assert.Equal(["approve"], Assert.Single(service.Replies).ChoiceIds));
+        Assert.Null(service.Replies[0].Text);
+    }
+
+    [Fact]
     public void An_alert_draws_no_answer_controls()
     {
         var (host, _, _) = Phone(TestNotifications.Alert("Remark left on “Storage and sync”", Now.AddHours(-1)));

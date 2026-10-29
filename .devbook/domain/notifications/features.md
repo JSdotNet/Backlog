@@ -108,7 +108,15 @@ because a gate that has only gone in progress has nothing to show yet.
 | Approve | an approval | The flow goes on to the pull request. |
 | Approve + follow-up, with text | an approval, with the person's words as its note and the id of the follow-up entry | Tasks files one [follow-up entry](../tasks/features.md#filing-a-follow-up-after-an-entry) after the gated entry, in the same plan. |
 | Revise, with text | a rejection in the person's words | The flow starts a [revise round](../sessions/domain.md#revise-round). |
-| Reject | a rejection with no words | `execute-plan` blocks the entry instead of revising it. |
+| Reject | a rejection with a fixed note and none of the person's words | `execute-plan` blocks the entry instead of revising it. |
+
+The run's approval also records which choice answered it, and for Approve +
+follow-up the id of the follow-up entry. `get_run` returns both, so an
+orchestrator tells Reject from Revise by the choice. A decision taken at the
+desktop records no choice. An answer to a question an older build asked, open
+text with no choice, records as Revise. When the gated entry is gone by the time
+the answer arrives, the run records the approval with the person's words and no
+follow-up entry.
 
 Approve + follow-up is offered only when the run names the entry it works, by its
 id or by its plan and item. The follow-up is a task, never a session request:

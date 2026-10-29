@@ -61,14 +61,28 @@ public enum NotificationCardChoiceStyle
     Destructive
 }
 
-/// <summary>One set answer: the id the host gets back, the label a person reads, its style.</summary>
-public sealed record NotificationCardChoice(string Id, string Label, NotificationCardChoiceStyle Style = NotificationCardChoiceStyle.Default);
+/// <summary>One set answer: the id the host gets back, the label a person reads, its style, and
+/// whether picking it also takes the person's words.</summary>
+/// <param name="Id">The choice id the reply carries.</param>
+/// <param name="Label">What the button says.</param>
+/// <param name="Style">How the button is drawn.</param>
+/// <param name="TakesText">Whether pressing it opens a plain-text box first, and the reply carries
+/// the choice with the non-empty text typed there.</param>
+/// <param name="Placeholder">The hint that box shows, or null.</param>
+public sealed record NotificationCardChoice(
+    string Id,
+    string Label,
+    NotificationCardChoiceStyle Style = NotificationCardChoiceStyle.Default,
+    bool TakesText = false,
+    string? Placeholder = null);
 
 /// <summary>
 /// The answers a question takes, in the four shapes a question has: single choice (buttons),
 /// multiple choice (<see cref="AllowMultiple"/>, checkboxes within <see cref="MinChoices"/> and
 /// <see cref="MaxChoices"/>), open (no choices, <see cref="Open"/>: a plain-text box), or choices
-/// with an open answer.
+/// with an open answer. In a single-choice question a choice may
+/// <see cref="NotificationCardChoice.TakesText"/>; its text keeps to <see cref="Open"/>'s limit,
+/// or <see cref="NotificationCardOpenAnswer.DefaultMaxLength"/> without one.
 /// </summary>
 public sealed record NotificationCardAnswerSpec(
     IReadOnlyList<NotificationCardChoice> Choices,
@@ -78,7 +92,11 @@ public sealed record NotificationCardAnswerSpec(
     int? MaxChoices = null);
 
 /// <summary>A plain-text answer: the placeholder its box shows and the most characters it takes.</summary>
-public sealed record NotificationCardOpenAnswer(string? Placeholder = null, int MaxLength = 2000);
+public sealed record NotificationCardOpenAnswer(string? Placeholder = null, int MaxLength = NotificationCardOpenAnswer.DefaultMaxLength)
+{
+    /// <summary>The most characters an answer takes when the question names no limit.</summary>
+    public const int DefaultMaxLength = 2000;
+}
 
 /// <summary>
 /// How a notification was settled: the answer that won and the device it came from, or why it was

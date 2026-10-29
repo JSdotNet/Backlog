@@ -16,8 +16,8 @@ namespace Backlog.Modules.Notifications.Toasts;
 /// <list type="bullet">
 /// <item>Set answers become action buttons, at most <see cref="MaxButtons"/>.</item>
 /// <item>An open answer gets an inline text box and a Send button beside it.</item>
-/// <item>A question whose answers do not fit — several to pick, or more choices than buttons —
-/// offers "Open in Backlog", which opens it in the centre.</item>
+/// <item>A question whose answers do not fit — several to pick, more choices than buttons, or a
+/// choice that takes text — offers "Open in Backlog", which opens it in the centre.</item>
 /// <item>An alert offers Acknowledge.</item>
 /// <item>Only the title and the summary leave the app, and a private notification's summary is
 /// replaced by <see cref="PrivateSummary"/>.</item>
@@ -67,7 +67,10 @@ public static class NotificationToast
             var choices = spec.Choices ?? [];
             var open = spec.Open;
             var room = MaxButtons - (open is null ? 0 : 1);
-            var choicesFit = !spec.AllowMultiple && choices.Count > 0 && choices.Count <= room;
+            // A toast button cannot carry the words a text-taking choice needs, so such a
+            // question is answered in the centre.
+            var choicesFit = !spec.AllowMultiple && choices.Count > 0 && choices.Count <= room
+                && !choices.Any(choice => choice.TakesText);
 
             if (choicesFit)
             {

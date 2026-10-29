@@ -176,9 +176,10 @@ public static class DesktopCompositionRegistration
         // handler only takes it, for the same reason.
         services.AddNotificationAnswerHandler<TestNotificationAnswers>();
         // The questions Sessions and Sync ask: a run's Personal Validation, recorded on the
-        // run file; and the device that redeemed this desktop's pairing code, which Refuse
+        // run file, an Approve + follow-up filing its entry through Tasks' scoped port; and
+        // the device that redeemed this desktop's pairing code, which Refuse
         // revokes.
-        services.AddNotificationAnswerHandler<SessionValidationAnswers>();
+        services.AddSessionValidationAnswers();
         services.AddNotificationAnswerHandler<PairingAnswers>();
         // The stand-up behind the shell's Ask AI port on the Goals view, after the
         // module so the scoped stand-up port it holds exists.

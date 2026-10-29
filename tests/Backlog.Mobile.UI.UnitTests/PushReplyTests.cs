@@ -67,6 +67,21 @@ public sealed class PushReplyTests : IDisposable
     }
 
     [Fact]
+    public async Task A_choice_that_takes_text_is_sent_from_the_app_with_its_words()
+    {
+        var question = await HoldAsync(TestNotifications.Question("Approve the validation of run-58?", Now.AddMinutes(-2), TestNotifications.Validation()));
+
+        Assert.Null(await _projection.ReplyAsync(question.Id, ["revise"], "  ", TestContext.Current.CancellationToken));
+        Assert.Empty(_outbox.Entries);
+
+        await _projection.ReplyAsync(question.Id, ["revise"], " The toast overlaps the header ", TestContext.Current.CancellationToken);
+
+        var queued = ReplyOutboxKind.Read(Assert.Single(_outbox.Entries));
+        Assert.Equal(["revise"], queued.ChoiceIds);
+        Assert.Equal("The toast overlaps the header", queued.Text);
+    }
+
+    [Fact]
     public async Task A_notification_the_phone_does_not_hold_queues_nothing()
     {
         await HoldAsync(TestNotifications.Question("Run the migration against staging?", Now.AddMinutes(-2)));

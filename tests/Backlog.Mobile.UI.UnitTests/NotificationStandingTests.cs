@@ -141,6 +141,30 @@ public sealed class NotificationStandingTests
     public void A_multiple_choice_question_with_no_minimum_takes_an_empty_reply() =>
         Assert.True(NotificationStandings.Fits(TestNotifications.Journeys with { MinChoices = 0 }, [], null));
 
+    // The owner's ReplyValidation, case for case: a choice that takes text comes with
+    // non-empty text within the open answer's limit, or 2000 characters without one; a choice
+    // that takes none comes without text; open text alone still fits where the spec has it.
+    [Theory]
+    [InlineData(new[] { "revise" }, "Split the migration in two", false, true)]
+    [InlineData(new[] { "revise" }, null, false, false)]
+    [InlineData(new[] { "revise" }, "   ", false, false)]
+    [InlineData(new[] { "approve" }, null, false, true)]
+    [InlineData(new[] { "approve" }, "Looks good", false, false)]
+    [InlineData(new string[0], "Looks good", false, false)]
+    [InlineData(new string[0], "Looks good", true, true)]
+    [InlineData(new[] { "approve" }, "Looks good", true, false)]
+    public void A_choice_that_takes_text_fits_only_with_its_text(string[] choices, string? text, bool withOpen, bool fits) =>
+        Assert.Equal(fits, NotificationStandings.Fits(TestNotifications.Validation(withOpen ? new OpenAnswer(MaxLength: 200) : null), choices, text));
+
+    [Fact]
+    public void A_choices_text_keeps_within_the_open_answers_limit_or_2000()
+    {
+        Assert.True(NotificationStandings.Fits(TestNotifications.Validation(), ["revise"], new string('x', 2000)));
+        Assert.False(NotificationStandings.Fits(TestNotifications.Validation(), ["revise"], new string('x', 2001)));
+        Assert.True(NotificationStandings.Fits(TestNotifications.Validation(new OpenAnswer(MaxLength: 200)), ["revise"], new string('x', 200)));
+        Assert.False(NotificationStandings.Fits(TestNotifications.Validation(new OpenAnswer(MaxLength: 200)), ["revise"], new string('x', 201)));
+    }
+
     [Fact]
     public void An_open_reply_fits_up_to_its_limit()
     {

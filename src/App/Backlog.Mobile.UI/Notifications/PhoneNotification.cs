@@ -162,7 +162,9 @@ public static class NotificationStandings
 
     /// <summary>Whether a reply of <paramref name="choiceIds"/> and <paramref name="text"/>
     /// fits <paramref name="spec"/> — what enables the send. The owner checks again; this only
-    /// keeps the phone from sending what it already knows will be rejected.</summary>
+    /// keeps the phone from sending what it already knows will be rejected. It mirrors the
+    /// owner's <c>ReplyValidation</c>: text is the open answer instead of a choice, or the words
+    /// of a picked choice that <see cref="AnswerChoice.TakesText"/>, which then must have them.</summary>
     public static bool Fits(AnswerSpec? spec, IReadOnlyCollection<string> choiceIds, string? text)
     {
         if (spec is null) return false;
@@ -170,13 +172,21 @@ public static class NotificationStandings
         ArgumentNullException.ThrowIfNull(choiceIds);
 
         var choices = spec.Choices ?? [];
+        var words = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
-        if (!string.IsNullOrWhiteSpace(text))
+        if (choiceIds.Count == 0 && words is not null)
         {
-            return spec.Open is { } open && choiceIds.Count == 0 && text.Trim().Length <= open.MaxLength;
+            return spec.Open is { } open && words.Length <= open.MaxLength;
         }
 
         if (choiceIds.Any(id => choices.All(choice => choice.Id != id))) return false;
+
+        if (choiceIds.Count > 0)
+        {
+            var takesText = choices.Any(choice => choice.TakesText && choiceIds.Contains(choice.Id));
+            if (takesText != (words is not null)) return false;
+            if (words is not null && words.Length > (spec.Open?.MaxLength ?? OpenAnswer.DefaultMaxLength)) return false;
+        }
 
         if (!spec.AllowMultiple) return choiceIds.Count == 1;
 

@@ -165,6 +165,89 @@ public sealed class NotificationCardTests
         Assert.NotNull(card.Find("[data-testid='notification-card-open'] textarea"));
     }
 
+    private static readonly NotificationCardAnswerSpec Validation = new(
+    [
+        new NotificationCardChoice("approve", "Approve", NotificationCardChoiceStyle.Primary),
+        new NotificationCardChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
+        new NotificationCardChoice("reject", "Reject", NotificationCardChoiceStyle.Destructive)
+    ]);
+
+    [Fact]
+    public void Picking_a_choice_that_takes_text_asks_for_its_words_and_sends_nothing_yet()
+    {
+        using var context = Context();
+        var answered = false;
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(Validation))
+            .Add(c => c.OnAnswer, _ => answered = true));
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-choice-text']"));
+
+        card.Find("[data-testid='notification-card-choice-revise']").Click();
+
+        Assert.False(answered);
+        var box = card.Find("[data-testid='notification-card-choice-text'] textarea");
+        Assert.Equal("What should change?", box.GetAttribute("placeholder"));
+        Assert.Equal("2000", box.GetAttribute("maxlength"));
+        Assert.True(card.Find("[data-testid='notification-card-choice-send']").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void A_choice_that_takes_text_answers_with_the_choice_and_the_words()
+    {
+        using var context = Context();
+        NotificationCardReply? reply = null;
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(Validation))
+            .Add(c => c.OnAnswer, r => reply = r));
+
+        card.Find("[data-testid='notification-card-choice-revise']").Click();
+        card.Find("[data-testid='notification-card-choice-text'] textarea").Input("   ");
+        Assert.True(card.Find("[data-testid='notification-card-choice-send']").HasAttribute("disabled"));
+
+        card.Find("[data-testid='notification-card-choice-text'] textarea").Input("  The toast overlaps the header  ");
+        card.Find("[data-testid='notification-card-choice-send']").Click();
+
+        Assert.Equal(["revise"], reply!.ChoiceIds);
+        Assert.Equal("The toast overlaps the header", reply.Text);
+    }
+
+    [Fact]
+    public void A_choices_text_box_keeps_to_the_open_answers_limit()
+    {
+        using var context = Context();
+        var spec = Validation with { Open = new NotificationCardOpenAnswer(MaxLength: 300) };
+
+        var card = context.Render<NotificationCard>(p => p.Add(c => c.Model, Question(spec)));
+        card.Find("[data-testid='notification-card-choice-revise']").Click();
+
+        Assert.Equal("300", card.Find("[data-testid='notification-card-choice-text'] textarea").GetAttribute("maxlength"));
+    }
+
+    [Fact]
+    public void Cancelling_a_choices_words_puts_the_box_away_and_the_plain_choices_still_answer_at_once()
+    {
+        using var context = Context();
+        NotificationCardReply? reply = null;
+
+        var card = context.Render<NotificationCard>(p => p
+            .Add(c => c.Model, Question(Validation))
+            .Add(c => c.OnAnswer, r => reply = r));
+
+        card.Find("[data-testid='notification-card-choice-revise']").Click();
+        card.Find("[data-testid='notification-card-choice-cancel']").Click();
+
+        Assert.Empty(card.FindAll("[data-testid='notification-card-choice-text']"));
+        Assert.Null(reply);
+
+        card.Find("[data-testid='notification-card-choice-approve']").Click();
+
+        Assert.Equal(["approve"], reply!.ChoiceIds);
+        Assert.Null(reply.Text);
+    }
+
     [Fact]
     public void An_alert_offers_acknowledge()
     {

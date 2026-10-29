@@ -32,6 +32,12 @@
         <NotificationCard Model="@ChoicesWithOpen" TestId="notification-card-choices-open" OnAnswer="@Answered" />
     </Story>
 
+    <Story Name="A choice that takes text"
+           Description="A set answer that needs the person's words with it, as Revise and Approve + follow-up do on the Personal Validation question. Pressing it sends nothing: it opens a plain-text box under the buttons, and Send stays disabled until the box holds text. The reply then carries the choice and the words. Cancel puts the box away, and a plain choice still answers at once."
+           Code="@TakesTextCode">
+        <NotificationCard Model="@TakesText" TestId="notification-card-takes-text" OnAnswer="@Answered" />
+    </Story>
+
     <Story Name="Alert"
            Description="An alert informs, and nothing waits on it: Acknowledge is the only control. An info alert carries no severity badge; warning and critical do."
            Code="@AlertCode">
@@ -146,6 +152,30 @@
             Open: new NotificationCardOpenAnswer("Another name")),
         NotificationCardState.Open);
 
+    private static readonly NotificationCardModel TakesText = new(
+        "validation",
+        NotificationCardKind.Question,
+        NotificationCardSeverity.Warning,
+        "Approve the validation of run-58?",
+        "Personal Validation of “Capture notifications”.",
+        """
+        **Review links**
+
+        - Storybook, Notification card — the new story
+
+        **What to check:** the toast offers Open in Backlog for this question.
+        """,
+        "Sessions",
+        "just now",
+        new NotificationCardAnswerSpec(
+        [
+            new NotificationCardChoice("approve", "Approve", NotificationCardChoiceStyle.Primary),
+            new NotificationCardChoice("approve-follow-up", "Approve + follow-up", TakesText: true, Placeholder: "What should the follow-up do?"),
+            new NotificationCardChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
+            new NotificationCardChoice("reject", "Reject", NotificationCardChoiceStyle.Destructive)
+        ]),
+        NotificationCardState.Open);
+
     private static readonly NotificationCardModel Alert = new(
         "remark",
         NotificationCardKind.Alert,
@@ -178,7 +208,7 @@
     };
 
     private void Answered(NotificationCardReply reply) =>
-        _last = reply.Text ?? string.Join(", ", reply.ChoiceIds);
+        _last = string.Join(" · ", reply.ChoiceIds.Append(reply.Text).Where(part => !string.IsNullOrEmpty(part)));
 
     private void Acknowledged() => _last = "acknowledged";
 
@@ -205,6 +235,18 @@
         <NotificationCard Model="@question" OnAnswer="AnswerAsync" />
 
         // question.Answer = new NotificationCardAnswerSpec(choices, Open: new NotificationCardOpenAnswer("Another name"));
+        """;
+
+    private const string TakesTextCode = """
+        <NotificationCard Model="@question" OnAnswer="AnswerAsync" />
+
+        // question.Answer = new NotificationCardAnswerSpec(
+        // [
+        //     new("approve", "Approve", NotificationCardChoiceStyle.Primary),
+        //     new("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
+        //     new("reject", "Reject", NotificationCardChoiceStyle.Destructive)
+        // ]);
+        // The reply: ChoiceIds ["revise"], Text "The toast overlaps the header".
         """;
 
     private const string AlertCode = """

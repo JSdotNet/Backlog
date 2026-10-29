@@ -108,12 +108,15 @@ one of four shapes:
 | Open | Plain text, with an optional placeholder and length limit. Markdown is not allowed in an answer. |
 | Choices with open | One of the set choices, or an open answer instead. |
 
-A set choice may also take text. A reply that picks it carries the person's words
-with it, as plain text within the open answer's length limit, and a reply that
-picks it with no text does not fit. This is how one question offers two answers
-that each need words, such as Revise and Approve + follow-up on the Personal
-Validation question. The open answer stays separate: it is text instead of a
-choice, where a choice that takes text is text with one.
+A set choice of a single-choice question may also take text, with or without an
+open answer beside it. A reply that picks it carries the person's words with it, as
+plain text within the open answer's length limit, or 2,000 characters when the
+question has no open answer. A reply that picks it with no text does not fit. A
+multiple-choice question has no choice that takes text, because a reply carries
+one text and two picked choices could not each bring their words. This is how one
+question offers two answers that each need words, such as Revise and Approve +
+follow-up on the Personal Validation question. The open answer stays separate: it
+is text instead of a choice, where a choice that takes text is text with one.
 
 An answer spec may also say `answerOn: owner`. Only a reply made on the owner
 instance is then accepted. Without it, any paired viewer may answer, critical
