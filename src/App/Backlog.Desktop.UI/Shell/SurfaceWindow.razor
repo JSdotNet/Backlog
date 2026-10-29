@@ -116,7 +116,30 @@
         _mainWindow = Services.GetService<MainWindowSurfaces>();
         Navigator.ShowRequested += HandleShowRequested;
         if (_state is not null) _state.Changed += HandleStateChanged;
+
+        // This window's own task list, which no shell here loads: the views read it,
+        // and so do the Goals view's candidates and the scope chips' repositories.
+        if (_state is { HasLoaded: false, IsLoading: false } state) _ = LoadAsync(state);
     }
+
+    /// <summary>Loads the window's task list. A failure is said in a toast rather
+    /// than lost: the window stays open on what it could draw.</summary>
+    private async Task LoadAsync(TasksDesktopState state)
+    {
+        try
+        {
+            await state.InitializeAsync();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Services.GetService<IToastChannel>()?.Publish(ToastMessage.Error(
+                "The task list could not be read in this window.",
+                LoadFailedTestId));
+        }
+    }
+
+    /// <summary>The test id of the toast a failed load of the window's list raises.</summary>
+    private const string LoadFailedTestId = "surface-window-load-failed";
 
     protected override void OnParametersSet()
     {
@@ -229,8 +252,8 @@
 
     /// <summary>
     /// A jump inside this window (local ADR 0040 §3): it switches to the surface asked
-    /// for. A surface the catalog cannot show in a window yet — the views and
-    /// takeovers the main window still draws itself — goes to the main window
+    /// for. A surface the catalog cannot show in a window yet — the takeovers the
+    /// main window still draws itself — goes to the main window
     /// instead, so a jump never leaves this window on "not available".
     /// </summary>
     private void HandleShowRequested(SurfaceRequest request) => _ = InvokeAsync(async () =>

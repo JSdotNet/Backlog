@@ -311,12 +311,12 @@
                              TestId="view-switch">
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
-                                  Pressed="ViewOptionPressed(ShellView.Tasks)"
+                                  Pressed="ViewOptionPressed(TasksViewId)"
                                   id="tasks-view-option"
                                   Title="Tasks"
                                   TestId="tasks-view-option"
                                   aria-controls="backlog-pane"
-                                  OnClick="() => ShowView(ShellView.Tasks)">
+                                  OnClick="() => ShowView(TasksViewId)">
                         <ListIcon />
                         <span class="header-nav-label header-nav-label--tier-4">Tasks</span>
                     </ToggleButton>
@@ -325,12 +325,12 @@
                        right after Tasks because it is the same rows read another way. *@
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
-                                  Pressed="ViewOptionPressed(ShellView.Board)"
+                                  Pressed="ViewOptionPressed(BoardViewId)"
                                   id="board-view-option"
                                   Title="Board"
                                   TestId="board-view-option"
                                   aria-controls="backlog-pane"
-                                  OnClick="() => ShowView(ShellView.Board)">
+                                  OnClick="() => ShowView(BoardViewId)">
                         <Columns3Icon />
                         <span class="header-nav-label header-nav-label--tier-4">Board</span>
                     </ToggleButton>
@@ -339,12 +339,12 @@
                        date. Board sits between it and Tasks. *@
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
-                                  Pressed="ViewOptionPressed(ShellView.Calendar)"
+                                  Pressed="ViewOptionPressed(CalendarViewId)"
                                   id="calendar-view-option"
                                   Title="Calendar"
                                   TestId="calendar-view-option"
                                   aria-controls="backlog-pane"
-                                  OnClick="() => ShowView(ShellView.Calendar)">
+                                  OnClick="() => ShowView(CalendarViewId)">
                         <CalendarIcon />
                         <span class="header-nav-label header-nav-label--tier-4">Calendar</span>
                     </ToggleButton>
@@ -353,12 +353,12 @@
                     {
                         <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
-                                      Pressed="ViewOptionPressed(ShellView.Roadmap)"
+                                      Pressed="ViewOptionPressed(RoadmapViewId)"
                                       id="roadmap-view-option"
                                       Title="Roadmap"
                                       TestId="roadmap-view-option"
                                       aria-controls="roadmap-view"
-                                      OnClick="() => ShowView(ShellView.Roadmap)">
+                                      OnClick="() => ShowView(RoadmapViewId)">
                             <ChartGanttIcon />
                             <span class="header-nav-label header-nav-label--tier-4">Roadmap</span>
                             <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
@@ -425,12 +425,12 @@
                    closes it. First, because it is what the work is for. *@
                 <ToggleButton BaseClass="header-group__option"
                               PressedCssClass="header-group__option--selected"
-                              Pressed="ViewOptionPressed(ShellView.Goals)"
+                              Pressed="ViewOptionPressed(GoalsViewId)"
                               id="goals-view-option"
                               Title="Goals"
                               TestId="goals-view-option"
                               aria-controls="goals-view"
-                              OnClick="() => ShowView(ShellView.Goals)">
+                              OnClick="() => ShowView(GoalsViewId)">
                     <TargetIcon />
                     <span class="header-nav-label header-nav-label--tier-2">Goals</span>
                 </ToggleButton>
@@ -817,32 +817,13 @@
            and the layout that split the row with it went when the Devbook took the
            screen. *@
         <main class="workspace" id="workspace" data-testid="workspace">
-            @if (RoadmapViewVisible)
+            @* The main view, rendered from its catalog entry (local ADR 0040 §1) with
+               the query this window last asked it with: Tasks, Board, Calendar, the
+               Roadmap or Goals, each its module's own surface. A view is replaced and
+               never closed, so the close callback it is handed does nothing. *@
+            @if (ViewOnScreen is { } view)
             {
-                @* No Escape-to-close here, unlike the takeovers: the roadmap is a
-                   view, which the switch replaces and nothing closes — and Escape
-                   already means something on it: it puts a grabbed bar back and
-                   dismisses the planning dialogs. The roadmap carries its own
-                   Planning heading row and no Tasks filter bar; the filter bar is
-                   the Tasks view's. *@
-                <div class="roadmap-view" id="roadmap-view" data-testid="roadmap-view">
-                    <RoadmapBand OnOpenTasks="OpenPlanTasks" />
-                </div>
-            }
-            else if (GoalsViewVisible)
-            {
-                @* The Goals view: the goals, No goal and the stand-up, read through
-                   the Progress ports over the shell's task list and open pull
-                   requests (GoalsTab, local ADR 0035 §10). *@
-                <div class="goals-view" id="goals-view" data-testid="goals-view">
-                    <div class="goals-view__body" data-testid="goals-view-body">
-                        <GoalsTab Reader="_work" ReadsPullRequests="PullRequestsOffered" />
-                    </div>
-                </div>
-            }
-            else
-            {
-                <TasksPane OnOpenSession="OpenSessionAsync" OnOpenDevbookReference="OpenDevbookReferenceAsync" BrainNotesFor="@BrainNotesForTask" DevbookImagesFor="@DevbookImagesForEntry" OnOpenBrainNote="OpenBrainNoteAsync" Layout="@TasksPaneLayout" BoardGrouping="@BoardGrouping" BoardGroupingChanged="OnBoardGroupingChanged" CalendarRange="@CalendarRange" CalendarRangeChanged="OnCalendarRangeChanged" LinkedWork="LinkedWorkFor" />
+                <DynamicComponent Type="view.Component" Parameters="ViewParameters(view)" />
             }
         </main>
     }
@@ -851,9 +832,19 @@
 @code {
     private WorkspaceSurface _surface = WorkspaceSurface.Workspace;
 
-    /// <summary>The main view the workspace shows. Kept while a takeover is up, so
-    /// closing the takeover shows the view the reader left.</summary>
-    private ShellView _view = ShellView.Tasks;
+    /// <summary>The main view the workspace shows, by its surface id (local ADR 0040
+    /// §2). Kept while a takeover is up, so closing the takeover shows the view the
+    /// reader left.</summary>
+    private string _view = TasksViewId;
+
+    /// <summary>The query the main view was last asked with — a jump's plan or entry —
+    /// handed to it until the next view is asked for. One instance per request: the
+    /// view follows a query it has not been handed before, so drawing again with the
+    /// same one asks nothing new.</summary>
+    private IReadOnlyDictionary<string, string> _viewQuery = NoQuery;
+
+    private static readonly IReadOnlyDictionary<string, string> NoQuery =
+        new Dictionary<string, string>(StringComparer.Ordinal);
     private bool _aiExpanded;
     private DotNetObjectReference<Home>? _selfReference;
 
@@ -889,16 +880,17 @@
             _surface = restoredSurface;
         }
 
-        // The view the workspace was showing. The store already reads a file from
-        // when the roadmap was a takeover as the Roadmap view over the workspace;
-        // the surface is checked again here so that no path can put the old
-        // takeover back on screen.
-        _view = ShellViews.Read(ShellNavigation.LastView, _view);
+        // The view the workspace was showing, by its surface id. The store reads a
+        // name the retired ShellView enum stored as its id, and a file from when the
+        // roadmap was a takeover as the Roadmap view over the workspace; the surface
+        // is checked again here so that no path can put the old takeover back on
+        // screen. An id no view registered reads as Tasks (EffectiveView).
+        _view = ShellNavigation.LastView;
 
         if (_surface == WorkspaceSurface.Roadmap)
         {
             _surface = WorkspaceSurface.Workspace;
-            _view = ShellView.Roadmap;
+            _view = RoadmapViewId;
         }
 
         // The side panes a file from before the Devbook took the screen had open
@@ -984,7 +976,15 @@
             Services.GetService<global::Backlog.Desktop.UI.Devbook.DevbookScenarioStore>());
         _devbookImages.Changed += HandleDevbookImagesChanged;
 
-        _work = WorkInProgressReader.From(Services);
+        // The window's reader of sessions and open pull requests, shared with the
+        // Goals view through the window's source; fresh on every mount, so a trip to
+        // Settings and back reads again.
+        _work = Services.GetService<ShellGoalsViewSource>()?.Renew() ?? WorkInProgressReader.From(Services);
+
+        // What the Tasks views draw beside the list that only this page holds, handed
+        // to them through the window's wiring before the first view draws.
+        _tasksViewWiring = Services.GetService<TasksViewWiring>();
+        WireTasksViews();
 
         await State.InitializeAsync();
         SynchronizeDevbookAvailability();
@@ -1135,72 +1135,55 @@
     /// been switched off.</summary>
     private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible && !NotificationsVisible;
 
-    /// <summary>The view the workspace shows: the one chosen, unless its feature
-    /// has since been switched off — then Tasks, which is always offered. The
-    /// choice itself is kept, so switching the feature back on shows it again.</summary>
-    private ShellView EffectiveView => _view switch
+    /// <summary>The surface ids of the five views (local ADR 0040 §1). The views are
+    /// their modules' surfaces; the shell names their ids, to place each option in the
+    /// header, and never their components.</summary>
+    private const string TasksViewId = TasksSurfaceQuery.SurfaceId;
+    private const string BoardViewId = TasksSurfaceQuery.BoardId;
+    private const string CalendarViewId = TasksSurfaceQuery.CalendarId;
+    private const string RoadmapViewId = RoadmapSurfaceQuery.SurfaceId;
+    private const string GoalsViewId = Backlog.Modules.Progress.UI.Goals.GoalsSurfaceQuery.SurfaceId;
+
+    /// <summary>The view the workspace shows: the one chosen, while the catalog offers
+    /// it as a view — else Tasks, which is always offered, as for the Roadmap with its
+    /// feature switched off. The choice itself is kept, so switching the feature back
+    /// on shows it again.</summary>
+    private string EffectiveView => ViewOffered(_view) ? _view : TasksViewId;
+
+    /// <summary>The view surface on screen when the workspace is: the effective view's
+    /// catalog entry, or none in a host that registered no Tasks view.</summary>
+    private ShellSurface? ViewOnScreen =>
+        Catalog.TryGet(EffectiveView, out var surface) && surface.Group == ShellSurfaceGroup.View ? surface : null;
+
+    /// <summary>Whether the catalog offers <paramref name="viewId"/> as a view: registered,
+    /// in the view group, its feature on.</summary>
+    private bool ViewOffered(string viewId) =>
+        Catalog.TryGet(viewId, out var surface) && surface.Group == ShellSurfaceGroup.View;
+
+    /// <summary>The effective view's name, for "Back to …".</summary>
+    private string EffectiveViewTitle => ViewOnScreen?.Title ?? "Tasks";
+
+    /// <summary>What the main view's component is handed: the query it was last asked
+    /// with, and a close callback that does nothing — a view is replaced, never closed.</summary>
+    private Dictionary<string, object?> ViewParameters(ShellSurface view) => new(StringComparer.Ordinal)
     {
-        ShellView.Roadmap when !RoadmapViewOffered => ShellView.Tasks,
-        _ => _view
+        [ShellSurface.QueryParameter] = _viewQuery,
+        [ShellSurface.CloseParameter] = default(EventCallback),
     };
 
     /// <summary>Whether the Goals view is on screen. Always offered (local ADR 0035 §10).</summary>
-    private bool GoalsViewVisible => WorkspaceVisible && EffectiveView == ShellView.Goals;
+    private bool GoalsViewVisible => WorkspaceVisible && EffectiveView == GoalsViewId;
 
     /// <summary>Whether the task list is in front of the reader — the Tasks view, or
     /// the Board or the Calendar laying out the same filtered rows, on screen in
     /// the workspace, not merely chosen underneath a takeover. The GitHub check acts
     /// on the list and is offered on this answer; so is the Tasks area of Ask AI.</summary>
-    private bool TasksListOnScreen => WorkspaceVisible && EffectiveView is ShellView.Tasks or ShellView.Board or ShellView.Calendar;
+    private bool TasksListOnScreen => WorkspaceVisible && EffectiveView is TasksViewId or BoardViewId or CalendarViewId;
 
     /// <summary>Whether the header offers the GitHub check: the list is on screen,
     /// the integration is on and configured, and a row links to GitHub. Read by the
     /// markup and by <see cref="ReadShellInputs"/>, so the two cannot drift.</summary>
     private bool GitHubSyncOffered => TasksListOnScreen && IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows;
-
-    /// <summary>How the Tasks pane lays out its filtered rows: columns of cards on
-    /// the Board view, the month calendar on the Calendar view, the list otherwise.</summary>
-    private TasksLayout TasksPaneLayout => EffectiveView switch
-    {
-        ShellView.Board => TasksLayout.Board,
-        ShellView.Calendar => TasksLayout.Calendar,
-        _ => TasksLayout.List
-    };
-
-    /// <summary>What the Board's columns are, as the shell remembered them beside
-    /// the view. A name it no longer knows reads as Status.</summary>
-    private TaskBoardGrouping BoardGrouping => Remembered(ShellNavigation.BoardColumns, TaskBoardGrouping.Status);
-
-    private void OnBoardGroupingChanged(TaskBoardGrouping grouping) =>
-        ShellNavigation.SetBoardColumns(grouping.ToString());
-
-    /// <summary>The calendar's Month | Week range, as the shell remembered it beside
-    /// the view. A name it no longer knows reads as Month; the date it showed is never
-    /// kept.</summary>
-    private Backlog.UI.Components.Tasks.CalendarRange CalendarRange =>
-        Remembered(ShellNavigation.CalendarRange, Backlog.UI.Components.Tasks.CalendarRange.Month);
-
-    private void OnCalendarRangeChanged(Backlog.UI.Components.Tasks.CalendarRange range) =>
-        ShellNavigation.SetCalendarRange(range.ToString());
-
-    /// <summary>
-    /// A choice the shell stored by its enum name, read back as that member, or
-    /// <paramref name="fallback"/> when the name is not one this build defines.
-    /// <para>
-    /// A member's name only: <see cref="Enum.TryParse{TEnum}(string?, out TEnum)"/>
-    /// also takes a number, so "5" would parse to an undefined member and "1" to
-    /// whichever member happens to sit there today — a stored name must start with
-    /// a letter and name a defined member. A newer build's name this build does not
-    /// know is kept in the file by the store and read here as the default.
-    /// </para>
-    /// </summary>
-    private static TEnum Remembered<TEnum>(string? stored, TEnum fallback) where TEnum : struct, Enum =>
-        !string.IsNullOrEmpty(stored)
-        && char.IsLetter(stored[0])
-        && Enum.TryParse<TEnum>(stored, out var value)
-        && Enum.IsDefined(value)
-            ? value
-            : fallback;
 
     /// <summary>Whether what is on screen can show several repositories at once:
     /// the task list, the Dashboard, the session list, or the pull requests list —
@@ -1263,17 +1246,18 @@
     /// is kept; nothing persists it.</summary>
     private bool SurfaceSwitcherVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered || NotificationsOffered;
 
-    /// <summary>Whether the view switch offers the Roadmap. The feature decides
-    /// whether there is an option; the option decides what is on screen.</summary>
-    private bool RoadmapViewOffered => IsFeatureEnabled(RoadmapFeatures.Roadmap);
+    /// <summary>Whether the view switch offers the Roadmap: the catalog offers its
+    /// surface, which it does while its feature is on. The option decides what is on
+    /// screen.</summary>
+    private bool RoadmapViewOffered => ViewOffered(RoadmapViewId);
 
     /// <summary>Whether the roadmap is on screen: the Roadmap view, in the
     /// workspace, with its feature on.</summary>
-    private bool RoadmapViewVisible => WorkspaceVisible && EffectiveView == ShellView.Roadmap;
+    private bool RoadmapViewVisible => WorkspaceVisible && EffectiveView == RoadmapViewId;
 
     /// <summary>Whether a view's option reads pressed: it is the view on screen.
     /// During a takeover no view is on screen, so none reads pressed.</summary>
-    private bool ViewOptionPressed(ShellView view) => WorkspaceVisible && EffectiveView == view;
+    private bool ViewOptionPressed(string viewId) => WorkspaceVisible && EffectiveView == viewId;
 
     /// <summary>
     /// A press on a view's option: that view becomes the workspace's main view, and
@@ -1284,20 +1268,25 @@
     /// so a view option is the way back from them as from the others.
     /// </para>
     /// </summary>
-    private void ShowView(ShellView view)
+    private void ShowView(string viewId) => ShowView(viewId, NoQuery);
+
+    /// <summary>A view asked for with a query — a jump's plan or entry, which the view
+    /// follows once (local ADR 0040 §3, §6).</summary>
+    private void ShowView(string viewId, IReadOnlyDictionary<string, string> query)
     {
         if (!WorkspaceVisible) CloseSurface();
 
-        SetView(view);
+        SetView(viewId, query);
     }
 
-    /// <summary>Makes <paramref name="view"/> the main view and remembers it for the
-    /// next fresh shell instance by its enum name. Ask AI follows it by itself:
+    /// <summary>Makes <paramref name="viewId"/> the main view and remembers it for the
+    /// next fresh shell instance by its surface id. Ask AI follows it by itself:
     /// it answers from whichever area is on screen.</summary>
-    private void SetView(ShellView view)
+    private void SetView(string viewId, IReadOnlyDictionary<string, string> query)
     {
-        _view = view;
-        ShellNavigation.SetLastView(view.ToString());
+        _view = viewId;
+        _viewQuery = query;
+        ShellNavigation.SetLastView(viewId);
         KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
 
@@ -1380,7 +1369,7 @@
     private void ToggleInbox() => ToggleSurface(WorkspaceSurface.Inbox);
 
     /// <summary>What the Inbox option's press will do.</summary>
-    private string InboxOptionTitle => InboxVisible ? $"Back to {EffectiveView}" : "Open the Inbox";
+    private string InboxOptionTitle => InboxVisible ? $"Back to {EffectiveViewTitle}" : "Open the Inbox";
 
     /// <summary>
     /// The Devbook on screen for something opened from outside it — an entry's
@@ -1410,6 +1399,11 @@
         _focusPullRequest = null;
         _surface = _surface == surface ? WorkspaceSurface.Workspace : surface;
         _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
+
+        // A takeover unmounts the main view, and the view it remounts on closing is a
+        // new one: the jump's plan or entry it was asked with was followed already,
+        // so it is not handed again.
+        if (_surface != WorkspaceSurface.Workspace) _viewQuery = NoQuery;
         RememberSurface();
         KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
@@ -1515,31 +1509,6 @@
     /// Settings and back reads again, which is what that trip is usually for.</summary>
     private WorkInProgressReader _work = new(null, null);
 
-    /// <summary>
-    /// A roadmap item's "Open in Tasks": the Tasks view on screen, listing every entry
-    /// the roadmap gathers under the item — its linked task and whatever wears its tag —
-    /// across every repository.
-    /// <para>
-    /// The request's repositories are the bar's, and are not used to scope the list: the
-    /// roadmap gathers an item's work wherever it is filed, so the only scope that cannot
-    /// hide some of what the bar counted is every repository
-    /// (<see cref="TasksDesktopState.ShowPlan"/>).
-    /// </para>
-    /// <para>
-    /// The view first, then the filter, then the same narrowing every path that changes
-    /// what is on screen follows — a no-op on the empty scope the plan leaves, kept so
-    /// this path cannot drift from the others. The scope is remembered through the
-    /// state's change, as a press on a chip is.
-    /// </para>
-    /// </summary>
-    private void OpenPlanTasks(RoadmapTasksRequest request)
-    {
-        ShowView(ShellView.Tasks);
-
-        State.ShowPlan(request.PlanTag, request.LinkedTaskId);
-        KeepRepositoryScopeSingleWhereOnlyOneFits();
-    }
-
     /// <summary>The Tasks detail panel's "Sessions and pull requests", for the
     /// selected entry. Offered while the Sessions or the Pull requests feature is on:
     /// the section draws only the kinds that are. Built once, and again on every
@@ -1548,6 +1517,22 @@
     private RenderFragment<EntryRow>? LinkedWorkFor => _linkedWork;
 
     private RenderFragment<EntryRow>? _linkedWork;
+
+    /// <summary>The window's <see cref="TasksViewWiring"/>, or null in a host that
+    /// composes none.</summary>
+    private TasksViewWiring? _tasksViewWiring;
+
+    /// <summary>Hands the Tasks views the Brain badges, the scenario screenshots and
+    /// a task's sessions and pull requests — what the shell used to pass the Tasks
+    /// pane itself — again whenever a feature switch rebuilds the last.</summary>
+    private void WireTasksViews()
+    {
+        if (_tasksViewWiring is not { } wiring) return;
+
+        wiring.BrainNotesFor = BrainNotesForTask;
+        wiring.DevbookImagesFor = DevbookImagesForEntry;
+        wiring.LinkedWork = _linkedWork;
+    }
 
     /// <summary>The fragment behind <see cref="LinkedWorkFor"/>. It reads the flags
     /// and the reader as it draws, so only whether it is offered at all is decided
@@ -1763,12 +1748,7 @@
 
         // Without a scope, the window's own: the anchor, which may be the Brain.
         var target = scope ?? State.AnchorRepositoryAlias;
-        if (BrainScope.Is(target))
-        {
-            OpenBrainChapter(chapter);
-            ShowDevbook();
-            return Task.CompletedTask;
-        }
+        if (BrainScope.Is(target)) return OpenBrainNoteAsync(chapter);
 
         return OpenRepositoryChapterAsync(target, chapter);
     }
@@ -1854,7 +1834,7 @@
             return;
         }
 
-        ShowView(ShellView.Tasks);
+        ShowView(TasksViewId);
 
         await State.SelectAsync(row);
     }
@@ -2169,10 +2149,6 @@
     /// <summary>The Devbook's id in the surface catalog.</summary>
     private const string DevbookSurfaceId = DevbookSurfaceQuery.SurfaceId;
 
-    /// <summary>The Tasks surface's id, which a jump names before Tasks registers
-    /// its surface; the shell answers it from its own Tasks view until then.</summary>
-    private const string TasksSurfaceId = "tasks";
-
     /// <summary>
     /// Where a registered surface sits among the shell's own takeovers, while the
     /// <see cref="WorkspaceSurface"/> enum still says which one is on screen (local
@@ -2239,7 +2215,7 @@
 
     /// <summary>What a registered takeover's option press will do.</summary>
     private string SurfaceOptionTitle(ShellSurface surface) =>
-        RegisteredSurfaceOnScreen?.Id == surface.Id ? $"Back to {EffectiveView}" : $"Open the {SurfaceOptionName(surface)}";
+        RegisteredSurfaceOnScreen?.Id == surface.Id ? $"Back to {EffectiveViewTitle}" : $"Open the {SurfaceOptionName(surface)}";
 
     /// <summary>The Brain's accent on the Devbook's option while it reads the Brain.</summary>
     private string? SurfaceOptionCssClass(ShellSurface surface) =>
@@ -2300,11 +2276,13 @@
             case DevbookSurfaceId:
                 await ShowDevbookAsync(request);
                 break;
-            case TasksSurfaceId when request.Value("entry") is { } entry:
-                await OpenTaskFromBrainAsync(entry);
+            case SessionsSurfaceId when request.Value(SessionQueryKey) is { Length: > 0 } session:
+                await OpenSessionAsync(session);
                 break;
-            case TasksSurfaceId:
-                ShowView(ShellView.Tasks);
+            case var viewId when Catalog.TryGet(viewId, out var view) && view.Group == ShellSurfaceGroup.View:
+                // A view, with the keys it registered: it follows a plan or an entry
+                // itself, and says so out loud for an entry this backlog does not hold.
+                ShowView(viewId, RegisteredKeysOf(view, request.Query));
                 break;
             default:
                 return false;
@@ -2312,6 +2290,22 @@
 
         StateHasChanged();
         return true;
+    }
+
+    /// <summary>The Sessions takeover's id and the key a task's session is asked
+    /// under — a jump out of the Tasks views. The shell still draws the session list
+    /// itself, so it answers the id here.</summary>
+    private const string SessionsSurfaceId = "sessions";
+    private const string SessionQueryKey = "session";
+
+    /// <summary>Only the keys of <paramref name="query"/> the surface registered, in a
+    /// new instance — the request it stands for.</summary>
+    private static IReadOnlyDictionary<string, string> RegisteredKeysOf(ShellSurface surface, IReadOnlyDictionary<string, string> query)
+    {
+        var keys = surface.QueryKeys ?? [];
+        return query
+            .Where(pair => keys.Contains(pair.Key, StringComparer.Ordinal))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -2487,6 +2481,7 @@
     private void HandleFeaturesChanged() => _ = InvokeAsync(() =>
     {
         _linkedWork = BuildLinkedWork();
+        WireTasksViews();
         SynchronizeDevbookAvailability();
 
         // Switched on after the list loaded: check now rather than at a reload
@@ -3015,12 +3010,11 @@
             : [];
 
     /// <summary>
-    /// A Brain note opened from a task row's badge: the Devbook on screen, on the
-    /// Brain side, at the note. The road a Brain search result takes, plus the
-    /// Devbook opened over the view — the reader pressed it from the list, which
-    /// waits underneath.
+    /// A Brain note at <paramref name="path"/> — a task row's badge, or a Brain search
+    /// result, asked through the navigator: the Devbook on screen, on the Brain side,
+    /// at the note, opened over the view, which waits underneath.
     /// </summary>
-    private Task OpenBrainNoteAsync(Backlog.UI.Components.Brain.BrainNoteLink note)
+    private Task OpenBrainNoteAsync(string path)
     {
         // The badges are read whatever the Devbook's flag says, so a press can come
         // while there is no Devbook to open it in: said out loud, as an entry's
@@ -3034,21 +3028,10 @@
             return Task.CompletedTask;
         }
 
-        OpenBrainChapter(note.Path);
+        OpenBrainChapter(path);
         ShowDevbook();
 
         return Task.CompletedTask;
-    }
-
-    /// <summary>A task followed out of a Brain note — the Devbook asking for the
-    /// Tasks surface at an <c>entry</c>: the task list on screen, that task
-    /// selected, as a session's entry is opened.</summary>
-    private async Task OpenTaskFromBrainAsync(string taskId)
-    {
-        if (!Guid.TryParse(taskId, out var id) || State.Rows.FirstOrDefault(row => row.Id == id) is not { } row) return;
-
-        ShowView(ShellView.Tasks);
-        await State.SelectAsync(row);
     }
 
     private void HandleBrainSettingsChanged() => _ = InvokeAsync(StateHasChanged);
@@ -3154,6 +3137,16 @@
     public async ValueTask DisposeAsync()
     {
         CancelAsk();
+
+        // Let go of what this page handed the Tasks views — unless the next page
+        // mounted in this window has wired them already.
+        if (_tasksViewWiring is { } wiring && ReferenceEquals(wiring.LinkedWork, _linkedWork)
+            && wiring.BrainNotesFor?.Target == (object)this)
+        {
+            wiring.BrainNotesFor = null;
+            wiring.DevbookImagesFor = null;
+            wiring.LinkedWork = null;
+        }
         State.Changed -= HandleStateChanged;
         if (_brainSettings is not null) _brainSettings.Changed -= HandleBrainSettingsChanged;
         if (_brainFolders is not null && _brainTaskLinks is not null) _brainFolders.Changed -= HandleBrainFoldersChanged;

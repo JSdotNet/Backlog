@@ -1228,6 +1228,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         finally
         {
             IsLoading = false;
+            HasLoaded = true;
         }
 
         Changed?.Invoke();
@@ -1296,6 +1297,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// Only that one: a reload over rows already on screen keeps them there.</summary>
     public bool IsLoading { get; private set; }
 
+    /// <summary>Whether <see cref="InitializeAsync"/> has read the list once in this
+    /// window. A surface shown in a window whose shell loads nothing — a popped-out
+    /// one (local ADR 0040 §4) — loads it while this is false.</summary>
+    public bool HasLoaded { get; private set; }
+
     public void SetStatusFilter(string? wire)
     {
         SelectedStatusFilterWire = wire ?? string.Empty;
@@ -1357,6 +1363,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (alias.Length == 0) return;
 
         ToggleInScope(alias);
+    }
+
+    /// <summary>
+    /// Widens the repository scope so <paramref name="row"/> is in it: its repository —
+    /// or the Brain, for an entry filed against none — joins the ones already scoped,
+    /// and every one already there stays. What an entry opened from outside the list
+    /// asks for (local ADR 0040 §6, <c>entry=</c>). Nothing changes, and nothing is
+    /// announced, when the scope is every repository or already holds the row; any
+    /// other filter in the row's way is <see cref="Reveal"/>'s.
+    /// </summary>
+    /// <returns>Whether the scope changed.</returns>
+    public bool WidenRepositoryScopeTo(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        if (_selectedRepositoryAliases.Count == 0 || RowInRepositoryScope(row)) return false;
+
+        _selectedRepositoryAliases.Add(RepositoryFor(row)?.Alias ?? BrainScope.Value);
+
+        ApplyFilter();
+        Changed?.Invoke();
+        return true;
     }
 
     /// <summary>Scopes the backlog to the Brain alone — the entries filed against no

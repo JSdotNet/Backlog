@@ -22,6 +22,14 @@ window.backlogDiagrams.renderDevbookAtlas = async (element, id, graph, dotnet) =
     window.backlogGraphAtlas.render(element, id, graph, dotnet);
 };
 
+// A surface served as a web page (local ADR 0040 §7) is a browser tab rather than
+// an OS window, so BrowserTabShellWindows retitles and closes the tab through
+// these. A browser closes only a tab a script opened; any other stays open.
+window.backlogShellWindow = {
+    setTitle: title => { document.title = title; },
+    close: () => window.close(),
+};
+
 
 // Escape on a takeover whose focus has fallen to <body>. Each surface's <main>
 // closes on Escape through its own @onkeydown, which hears only the keys pressed

@@ -60,9 +60,30 @@ public sealed class ShellNavigationStore
 
     private static readonly string[] Empty = [];
 
-    /// <summary>The main view a file with no <c>lastView</c> reopens on: before the
-    /// view switch the workspace's main pane was the task list.</summary>
-    public const string DefaultView = "Tasks";
+    /// <summary>The main view a file with no <c>lastView</c> reopens on, by its surface
+    /// id (local ADR 0040 §2): before the view switch the workspace's main pane was the
+    /// task list.</summary>
+    public const string DefaultView = "tasks";
+
+    /// <summary>The surface id the roadmap's view is stored under (local ADR 0040 §2).</summary>
+    private const string RoadmapViewId = "roadmap";
+
+    /// <summary>
+    /// The view names a file from before local ADR 0040 holds — the members of the
+    /// retired <c>ShellView</c> enum, and <c>InProgress</c>, the Goals view's name before
+    /// its rename — each with the surface id it reads as now (§2). Exact names only: the
+    /// enum's members were written as they were spelled.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> RetiredViewNames { get; } =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Tasks"] = "tasks",
+            ["Roadmap"] = RoadmapViewId,
+            ["Calendar"] = "calendar",
+            ["Board"] = "board",
+            ["Goals"] = "goals",
+            ["InProgress"] = "goals",
+        };
 
     /// <summary>What the Board's columns are when nothing else was remembered.</summary>
     public const string DefaultBoardColumns = "Status";
@@ -71,7 +92,7 @@ public sealed class ShellNavigationStore
     public const string DefaultCalendarRange = "Month";
 
     /// <summary>The surface name the roadmap was stored under while it was a
-    /// takeover, and the view name it is stored under now.</summary>
+    /// takeover; it reopens as the Roadmap view.</summary>
     private const string RoadmapName = "Roadmap";
 
     /// <summary>The surface that is no takeover at all: the workspace.</summary>
@@ -146,9 +167,12 @@ public sealed class ShellNavigationStore
     /// remembered yet — first launch included.</summary>
     public string? LastSurface { get; private set; }
 
-    /// <summary>The main view the workspace was showing when last set — by name,
-    /// <c>Tasks</c>, <c>Board</c>, <c>Calendar</c>, <c>Roadmap</c> or <c>InProgress</c>
-    /// — and <see cref="DefaultView"/> when nothing has been remembered yet.</summary>
+    /// <summary>The main view the workspace was showing when last set — by its surface
+    /// id, <c>tasks</c>, <c>board</c>, <c>calendar</c>, <c>roadmap</c> or <c>goals</c>
+    /// (local ADR 0040 §2) — and <see cref="DefaultView"/> when nothing has been
+    /// remembered yet. A name the retired enum stored reads as its id
+    /// (<see cref="RetiredViewNames"/>); any other value is kept as written, and the
+    /// shell reads one it does not offer as Tasks.</summary>
     public string LastView { get; private set; }
 
     /// <summary>Whether the roadmap's day and week heads carry their hours line: on until
@@ -242,6 +266,7 @@ public sealed class ShellNavigationStore
     public void SetLastView(string view)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(view);
+        view = ViewId(view);
         if (view == LastView) return;
 
         LastView = view;
@@ -253,17 +278,23 @@ public sealed class ShellNavigationStore
     /// surface. A file from before the view switch names <c>Roadmap</c> as its
     /// surface; it reopens on the Roadmap view over the workspace, and since the
     /// in-memory surface is then the workspace, the next save cannot write the old
-    /// name back. A missing view is <see cref="DefaultView"/>.
+    /// name back. A missing view is <see cref="DefaultView"/>, and a view the retired
+    /// enum named is its surface id.
     /// </summary>
     private static (string? Surface, string View) Normalize(string? surface, string? view)
     {
         if (string.Equals(surface, RoadmapName, StringComparison.Ordinal))
         {
-            return (WorkspaceSurfaceName, RoadmapName);
+            return (WorkspaceSurfaceName, RoadmapViewId);
         }
 
-        return (surface, string.IsNullOrWhiteSpace(view) ? DefaultView : view);
+        return (surface, string.IsNullOrWhiteSpace(view) ? DefaultView : ViewId(view));
     }
+
+    /// <summary>The surface id <paramref name="view"/> stands for: a name the retired
+    /// enum stored as its id, anything else as written.</summary>
+    private static string ViewId(string view) =>
+        RetiredViewNames.TryGetValue(view, out var id) ? id : view;
 
     /// <summary>
     /// The Inbox and then the Devbook were side panes beside the main view before

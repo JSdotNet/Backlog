@@ -250,7 +250,7 @@ public sealed class SurfaceWindowTests
     {
         protected override string Id => "beta";
 
-        // Not in this test's catalog: the main window still draws Tasks itself.
+        // Not in this test's catalog, so this window cannot show it itself.
         protected override (string SurfaceId, Dictionary<string, string> Query) JumpTo =>
             ("tasks", new Dictionary<string, string>(StringComparer.Ordinal) { ["entry"] = "42" });
     }

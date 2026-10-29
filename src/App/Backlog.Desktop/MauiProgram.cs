@@ -1,6 +1,7 @@
 using Backlog.Desktop.Composition;
 using Backlog.Desktop.Mcp;
 using Backlog.Desktop.Services;
+using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Aspire.ServiceDefaults;
 using Backlog.SharedKernel;
@@ -163,6 +164,10 @@ public static class MauiProgram
         // the listener it builds has a container of its own and forwards every
         // port into this one rather than composing a second ITaskItems.
         builder.Services.TryAddSingleton<McpServerWorker>();
+        // The link tokens that admit a browser to the listener's pop-out pages
+        // (local ADR 0040 §7): one set for the app's life, so a token minted by an
+        // MCP tool is the one the listener redeems.
+        builder.Services.TryAddSingleton<WindowLinkTokens>();
         // The head's windows (local ADR 0040 §4): the main one App asks for, and every
         // surface popped out beside it. Twice over, so App reaches the concrete type
         // that makes the main window while every caller sees the port.
@@ -223,6 +228,12 @@ public static class MauiProgram
             builder.Services.AddSingleton(new DevelopmentWorkspaceLabel(workspace));
         }
 #endif
+
+        // What this head composed, for the MCP listener's pop-out pages (local ADR
+        // 0040 §7): a page served there renders this head's panes, and the listener
+        // forwards whatever they inject into this container rather than composing a
+        // second one. Last, so the snapshot holds every registration above.
+        builder.Services.AddSingleton(new DesktopServiceRegistrations([.. builder.Services]));
 
         var app = builder.Build();
 
