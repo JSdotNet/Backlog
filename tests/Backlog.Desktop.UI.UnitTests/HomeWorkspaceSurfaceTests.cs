@@ -142,7 +142,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// A popped-out window's Show in main window (local ADR 0040 §4) reaches this
+    /// A popped-out window's Show in main window (local ADR 0041 §4) reaches this
     /// shell through <see cref="MainWindowSurfaces"/>: the main window shows the
     /// surface it names, and answers that it did. A surface it cannot show is
     /// answered no, and a shell that is gone is no longer asked.
@@ -171,7 +171,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The Devbook's ⧉ Open in new window button (local ADR 0040 §4) asks the host
+    /// The Devbook's ⧉ Open in new window button (local ADR 0041 §4) asks the host
     /// for one more window on every press, and hands that window the one thing of
     /// this window's the Devbook reads by: its scope. This window stays as it was.
     /// </summary>
@@ -219,7 +219,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// Every header item the window draws for a catalog surface pops out, not the
-    /// Devbook alone (local ADR 0040 §4, "each shell header item"): the Inbox, the
+    /// Devbook alone (local ADR 0041 §4, "each shell header item"): the Inbox, the
     /// views, the work in progress and the other takeovers each stand in an item of
     /// their own beside a ⧉ named as the option is. A press opens a window on that
     /// surface with no query — only the Devbook hands a scope over — and this window
@@ -637,7 +637,7 @@ public sealed class HomeWorkspaceSurfaceTests
             var workspace = component.Find("[data-testid='workspace-navigation']").Children
                 .Select(child => child.GetAttribute("data-testid")).ToList();
             // Each option stands in its header item, beside its ⧉ where the host
-            // opens windows (local ADR 0040 §4).
+            // opens windows (local ADR 0041 §4).
             Assert.Equal(["inbox-header-item", "view-switch", "devbook-header-item"], workspace);
             Assert.Equal("inbox-pane-option",
                 component.Find("[data-testid='inbox-header-item']").FirstElementChild?.GetAttribute("data-testid"));
@@ -2009,7 +2009,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("Roadmap", LabelWithoutFlag(option));
             Assert.False(option.HasAttribute("disabled"));
 
-            // In the switch, in its own header item (local ADR 0040 §4).
+            // In the switch, in its own header item (local ADR 0041 §4).
             Assert.Equal("roadmap-header-item", option.ParentElement?.GetAttribute("data-testid"));
             Assert.Equal("view-switch", option.ParentElement?.ParentElement?.GetAttribute("data-testid"));
             Assert.DoesNotContain("header-group__option--loose", option.ClassList);
@@ -3019,7 +3019,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>The test ids of a header group's options, in order. Each member of a group is a header
-    /// item (local ADR 0040 §4), and its option leads it.</summary>
+    /// item (local ADR 0041 §4), and its option leads it.</summary>
     private static List<string?> GroupOptionIds(IRenderedComponent<Home> rendered, string group) =>
         [.. rendered.Find($"[data-testid='{group}']").Children.Select(item =>
         {
@@ -3233,7 +3233,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The Devbook is a registered surface (local ADR 0040 §1): the shell draws it
+    /// The Devbook is a registered surface (local ADR 0041 §1): the shell draws it
     /// through its catalog entry, and a task followed out of a Brain note reaches the
     /// task list through the window's navigator (§3) rather than a callback the shell
     /// handed the pane — leaving the Devbook for the list, that task selected.
@@ -3270,7 +3270,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The main window answers a jump to a view (local ADR 0040 §3, §6): from the
+    /// The main window answers a jump to a view (local ADR 0041 §3, §6): from the
     /// Roadmap, a request for Tasks with a plan shows the Tasks view, from the catalog,
     /// with that plan chip pressed; and an entry the backlog does not hold still shows
     /// Tasks, with a toast saying so.

@@ -31,6 +31,14 @@ public sealed class BrainConventionTemplateTests
         Assert.Equal(BrainConventionTemplate.ParaAreas, areas);
     }
 
+    /// <summary>The folder note templates usually live in never becomes a tab.</summary>
+    [Fact]
+    public void The_shipped_conventions_ignore_the_templates_folder()
+    {
+        Assert.Contains("\n## Ignore\n", BrainConventionTemplate.Conventions, StringComparison.Ordinal);
+        Assert.Equal(["_templates"], BrainConventions.Ignored(BrainConventionTemplate.Conventions));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

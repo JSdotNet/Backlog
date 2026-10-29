@@ -16,8 +16,9 @@ namespace Backlog.Infrastructure.Devbook.Building;
 /// holds it to the retired generator that used to index it.</para>
 ///
 /// <para>The Brain (<see cref="DevbookCorpusKind.Brain"/>) is a third: its
-/// folders are the areas its <c>CONVENTIONS.md</c> declares, in declared order
-/// (<see cref="BrainConventions"/>), and a path's folder is the area it is in. No
+/// folders are its areas in tab order — the ones its <c>CONVENTIONS.md</c>
+/// declares, then every other top folder holding a note, minus the ignored ones
+/// (<see cref="BrainConventions"/>) — and a path's folder is the area it is in. No
 /// devbook folder convention applies to an area — no root document by name, no
 /// resting status, no <c>kind</c> fallback — even one that happens to be called
 /// <c>design</c>, which is what <see cref="ConventionFolderForPath"/> answers;
@@ -67,9 +68,13 @@ internal sealed record DevbookBuildLayout(
         kind is DevbookCorpusKind.Brain ? DiscoverBrain(root) : Discover(root);
 
     /// <summary>
-    /// A Brain's layout: the areas <c>CONVENTIONS.md</c> declares, or the PARA
-    /// set, in their order, of those that are folders on disk. A Brain with no
-    /// area folder yet has nothing to build.
+    /// A Brain's layout: its areas (<see cref="BrainConventions.Read"/>) — the
+    /// ones <c>CONVENTIONS.md</c> declares, or the PARA set, then the discovered
+    /// top folders holding a note, never an ignored folder or a dot-folder — in
+    /// tab order, of those that are folders on disk. The same set the pane's tabs
+    /// show and <c>brain.mjs</c> reads, and, through <see cref="Folders"/>, the
+    /// set the inputs fingerprint records, so a note in a new top folder makes the
+    /// database stale. A Brain with no area folder yet has nothing to build.
     /// </summary>
     public static DevbookBuildLayout DiscoverBrain(string brainRoot)
     {

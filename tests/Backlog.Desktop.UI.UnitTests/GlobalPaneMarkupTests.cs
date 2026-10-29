@@ -19,7 +19,7 @@ public sealed class GlobalPaneMarkupTests
         // is no longer a pane: the pane strip, its label and the Tasks option are
         // gone.
         Assert.Contains("TestId=\"inbox-pane-option\"", home, StringComparison.Ordinal);
-        // The Devbook's option is drawn from its catalog entry (local ADR 0040 §1),
+        // The Devbook's option is drawn from its catalog entry (local ADR 0041 §1),
         // its test id its surface id's: devbook-pane-option.
         Assert.Contains("TestId=\"@($\"{surfaceId}-pane-option\")\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("backlog-pane-option", home, StringComparison.Ordinal);
@@ -43,7 +43,7 @@ public sealed class GlobalPaneMarkupTests
         // The Devbook's, from its surface id: devbook-surface.
         Assert.Contains("aria-controls=\"@($\"{surfaceId}-surface\")\"", home, StringComparison.Ordinal);
         Assert.Contains("id=\"@($\"{shown.Id}-surface\")\"", home, StringComparison.Ordinal);
-        // The roadmap's view landmark is its surface's own (local ADR 0040 §1).
+        // The roadmap's view landmark is its surface's own (local ADR 0041 §1).
         Assert.Contains("id=\"roadmap-view\"", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurface.razor"))), StringComparison.Ordinal);
     }
 
@@ -223,7 +223,7 @@ public sealed class GlobalPaneMarkupTests
     /// <summary>
     /// The roadmap's option is gated on its feature the way the Inbox option is, and
     /// it is a view, not a takeover and not a pane: a view-group surface beside Tasks
-    /// (local ADR 0040 §1), offered while the catalog offers it — which it does while its
+    /// (local ADR 0041 §1), offered while the catalog offers it — which it does while its
     /// feature is on. <c>Roadmap</c> stays only as a surface name an older file may
     /// hold, which the navigation store reads as the Roadmap view over the workspace.
     /// </summary>
@@ -276,7 +276,7 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        // Drawn from the Devbook's catalog entry (local ADR 0040 §1): pressed while
+        // Drawn from the Devbook's catalog entry (local ADR 0041 §1): pressed while
         // it is the registered surface on screen, toggled through the surface switch.
         Assert.Contains("Pressed=\"@(RegisteredSurfaceOnScreen?.Id == surfaceId)\"", home, StringComparison.Ordinal);
         Assert.Contains("OnClick=\"() => ToggleRegisteredSurface(surfaceId)\"", home, StringComparison.Ordinal);
@@ -485,7 +485,7 @@ public sealed class GlobalPaneMarkupTests
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
         // Every takeover is a module's surface, rendered from its catalog entry in one
-        // branch (local ADR 0040 §1): the if chain that named each is gone.
+        // branch (local ADR 0041 §1): the if chain that named each is gone.
         foreach (var gone in new[] { "@if (ToolsVisible)", "else if (DashboardVisible)", "else if (SessionsVisible)", "else if (PullRequestsVisible)", "else if (InboxVisible)" })
         {
             Assert.DoesNotContain(gone, home, StringComparison.Ordinal);
@@ -500,7 +500,7 @@ public sealed class GlobalPaneMarkupTests
         // exactly one. The roadmap gave up its own when it became a view.
         Assert.Equal(3, CountOccurrences(home, "<main class="));
 
-        // The shell names none of the takeovers' panes (local ADR 0040 §1).
+        // The shell names none of the takeovers' panes (local ADR 0041 §1).
         foreach (var pane in new[] { "<DevbookPane ", "<ToolsPane ", "<DashboardPane ", "<SessionsPane ", "<PullRequestsPane ", "<NotificationCentrePane ", "<InboxPane " })
         {
             Assert.Equal(0, CountOccurrences(home, pane));
@@ -513,7 +513,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.True(takeoverComponent > takeover && takeoverComponent < workspace);
 
         // The main view — Tasks, Board, Calendar, the Roadmap or Goals — is rendered
-        // from the catalog directly inside the workspace (local ADR 0040 §1), and the
+        // from the catalog directly inside the workspace (local ADR 0041 §1), and the
         // shell names none of their panes.
         Assert.True(home.IndexOf("<DynamicComponent Type=\"view.Component\"", StringComparison.Ordinal) > workspace);
         Assert.Equal(0, CountOccurrences(home, "<TasksPane "));
@@ -561,7 +561,7 @@ public sealed class GlobalPaneMarkupTests
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
         // One field, holding one takeover's id or none, is what makes a takeover
-        // exclusive with the workspace and with every other takeover (local ADR 0040
+        // exclusive with the workspace and with every other takeover (local ADR 0041
         // §2): the enum that did so is retired.
         Assert.Contains("    private string? _takeover;\n", home, StringComparison.Ordinal);
         Assert.Contains("        _takeover = surfaceId;\n", home, StringComparison.Ordinal);
@@ -903,7 +903,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("<InboxPane ", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
-        // The views are their modules' surfaces (local ADR 0040 §1): the shell renders
+        // The views are their modules' surfaces (local ADR 0041 §1): the shell renders
         // the one on screen from the catalog, and hands the Tasks views what only it
         // holds through the window's wiring rather than as the pane's parameters.
         Assert.Contains("<DynamicComponent Type=\"view.Component\" Parameters=\"ViewParameters(view)\" />", home, StringComparison.Ordinal);

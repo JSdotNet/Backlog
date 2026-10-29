@@ -3,7 +3,7 @@ using Backlog.Desktop.UI.Shell;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// Reading a <c>backlog://window/{surfaceId}?…</c> link (local ADR 0040 §7): the
+/// Reading a <c>backlog://window/{surfaceId}?…</c> link (local ADR 0041 §7): the
 /// surface it names and the query it carries, and nothing for any other text.
 /// </summary>
 public sealed class BacklogWindowLinkTests

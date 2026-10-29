@@ -1,7 +1,7 @@
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// A <c>backlog://window/{surfaceId}?…</c> link, read (local ADR 0040 §7): the surface
+/// A <c>backlog://window/{surfaceId}?…</c> link, read (local ADR 0041 §7): the surface
 /// it names and the query it carries, such as <c>plan</c>, <c>entry</c>,
 /// <c>chapter</c> and <c>scope</c> (§6). The link carries no token, so one written
 /// into a brief or a digest still opens days later.

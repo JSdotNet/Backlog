@@ -4,7 +4,7 @@ namespace Backlog.Modules.Notifications.UnitTests;
 
 /// <summary>
 /// The requests to open the notification centre from outside the shell — a Windows
-/// notification pressed. Every window that listens answers (local ADR 0040 §5): the main
+/// notification pressed. Every window that listens answers (local ADR 0041 §5): the main
 /// window's shell, and a centre on screen in a window of its own. A press nobody heard is
 /// kept for the next listener that takes it.
 /// </summary>

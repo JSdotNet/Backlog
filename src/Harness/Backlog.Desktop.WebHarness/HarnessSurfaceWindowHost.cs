@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 namespace Backlog.Desktop.WebHarness;
 
 /// <summary>
-/// <see cref="ISurfaceWindowHost"/> for the web harness (local ADR 0040 §7). A browser
+/// <see cref="ISurfaceWindowHost"/> for the web harness (local ADR 0041 §7). A browser
 /// has tabs and no native windows, so <c>target: "desktop"</c> opens nothing and says
 /// so; a web link is this harness's own <c>/window/{surfaceId}</c> page, at the address
 /// it is listening on, with no token, because the harness guards no page with one.

@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// A Brain note's links into repository devbooks, and their reverse (local ADR 0027
-/// §6, <c>.devbook/domain/devbook/features.md#repo-links-and-backlinks</c>): a
+/// §6, <c>.devbook/domain/brain/features.md#repo-links-and-backlinks</c>): a
 /// <c>repo:</c> link this machine can follow is a gold chip that opens that
 /// repository's devbook at the chapter; one it cannot is a dashed chip reading
 /// "not on this machine", never an error; and a repository chapter shows its owner

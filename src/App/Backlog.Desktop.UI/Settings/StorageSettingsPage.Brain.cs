@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
 /// The Brain card on Settings › Storage (local ADR 0026,
-/// <c>.devbook/domain/devbook/features.md#brain-folder-setup</c>): the folder,
+/// <c>.devbook/domain/brain/features.md#brain-folder-setup</c>): the folder,
 /// what it holds, and <b>Create conventions</b>.
 /// <para>
 /// A partial of its own because the card's state is self-contained and the

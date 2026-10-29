@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
 /// What activating a <c>backlog://window/{surfaceId}?…</c> link does in the desktop app
-/// (local ADR 0040 §7): one more window on the surface it names, through
+/// (local ADR 0041 §7): one more window on the surface it names, through
 /// <see cref="IShellWindows"/>, with the query it carries.
 /// <list type="bullet">
 /// <item>A link that arrives before the app has started — the one the app was launched

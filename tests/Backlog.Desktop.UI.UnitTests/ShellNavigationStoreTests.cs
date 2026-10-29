@@ -1195,7 +1195,7 @@ public sealed class ShellNavigationStoreTests
 
     /// <summary>
     /// Every surface name the retired <c>WorkspaceSurface</c> enum wrote still restores
-    /// (local ADR 0040 §2): each takeover as its surface id, <c>Workspace</c> as no
+    /// (local ADR 0041 §2): each takeover as its surface id, <c>Workspace</c> as no
     /// takeover at all, and <c>Roadmap</c>, a takeover once, as the Roadmap view over
     /// the workspace. Every member is listed, so a name left out of the map cannot pass.
     /// </summary>

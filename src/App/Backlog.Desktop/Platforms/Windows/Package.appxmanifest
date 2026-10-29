@@ -69,7 +69,7 @@
         </com:Extension>
         <!--
           backlog://window/{surfaceId}?plan=…&entry=…&chapter=…&scope=… opens that surface in
-          a window of its own (local ADR 0040 §7). Windows starts a process per link; that
+          a window of its own (local ADR 0041 §7). Windows starts a process per link; that
           process hands the link to the instance already running and ends
           (Services/BacklogLinkInstance.cs). Unpackaged (Debug), nothing registers the scheme,
           and a link is read off the command line instead.

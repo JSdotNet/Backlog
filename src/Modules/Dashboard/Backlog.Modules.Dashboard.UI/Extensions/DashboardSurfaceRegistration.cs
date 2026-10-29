@@ -6,7 +6,7 @@ namespace Backlog.Modules.Dashboard.UI.Extensions;
 
 /// <summary>
 /// Puts the Dashboard in the shell as a takeover-group <see cref="ShellSurface"/>
-/// (local ADR 0040 §1), offered behind <see cref="DashboardFeatures.Dashboard"/>, the
+/// (local ADR 0041 §1), offered behind <see cref="DashboardFeatures.Dashboard"/>, the
 /// flag its header option has always gated on. On the precedent of
 /// <c>AddDevbookSurface</c>; safe to call twice.
 /// </summary>

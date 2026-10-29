@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// A module's shell surface is reached only through its registration (local ADR 0040
+/// A module's shell surface is reached only through its registration (local ADR 0041
 /// §1). Each module's <c>.UI</c> project registers a <c>ShellSurface</c> whose
 /// component is <c>typeof(...)</c> of one of its own components, and the shell renders
 /// it through <c>DynamicComponent</c> from the catalog. If

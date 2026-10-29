@@ -4,7 +4,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
 /// Inspecting a Brain folder and scaffolding its convention (local ADR 0026,
-/// <c>.devbook/domain/devbook/requirements.md#brain-folder-setup</c>): the sync
+/// <c>.devbook/domain/brain/requirements.md#brain-folder-setup</c>): the sync
 /// product said as information, the two convention files looked for, and
 /// <b>Create conventions</b> writing what is missing and never overwriting.
 /// </summary>

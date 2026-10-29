@@ -4,7 +4,7 @@ namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
 /// Remembers, per surface id, where that surface's last popped-out window stood, so the
-/// next one opens there (local ADR 0040 §5). Only the bounds: no window reopens at
+/// next one opens there (local ADR 0041 §5). Only the bounds: no window reopens at
 /// start, and nothing here says which windows were open.
 /// <para>
 /// Its own file, <c>shell-windows.json</c>, beside <c>shell-navigation.json</c>: a

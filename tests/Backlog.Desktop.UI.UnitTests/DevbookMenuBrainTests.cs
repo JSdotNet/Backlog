@@ -29,7 +29,7 @@ public sealed class DevbookMenuBrainTests : IDisposable
         Write("home/garden.md", "# Garden\n");
         _setting = Brain;
 
-        var tree = await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken);
+        var tree = await Menu().LoadBrainAsync(Source(), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["Work", "Home life"], tree.Roots.Select(root => root.Label));
         Assert.Equal(["brain/work", "brain/home"], tree.Roots.Select(root => root.AreaKey));
@@ -45,7 +45,7 @@ public sealed class DevbookMenuBrainTests : IDisposable
         Directory.CreateDirectory(Brain);
         _setting = Brain;
 
-        var tree = await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken);
+        var tree = await Menu().LoadBrainAsync(Source(), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             ["Inbox", "Projects", "Areas", "Resources", "People", "Journal", "Archive"],
@@ -61,7 +61,7 @@ public sealed class DevbookMenuBrainTests : IDisposable
         Write("projects/plan.md", "# Plan\n");
         _setting = Brain;
 
-        var tree = await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken);
+        var tree = await Menu().LoadBrainAsync(Source(), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(tree.Roots.Single(root => root.Path == "projects").Available);
         var journal = tree.Roots.Single(root => root.Path == "journal");
@@ -79,11 +79,58 @@ public sealed class DevbookMenuBrainTests : IDisposable
         Write("projects/launch/brief.md", "# Brief\n");
         _setting = Brain;
 
-        var tree = await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken);
+        var tree = await Menu().LoadBrainAsync(Source(), cancellationToken: TestContext.Current.CancellationToken);
 
         var projects = tree.Roots.Single(root => root.Path == "projects");
         Assert.Equal(["projects/launch", "projects/plan.md"], projects.Children.Select(node => node.Path).Order(StringComparer.Ordinal));
         Assert.Equal("projects/launch/brief.md", Assert.Single(projects.Children.Single(node => node.Path == "projects/launch").Children).Path);
+    }
+
+    /// <summary>Show hidden off: the menu is the areas, declared then discovered,
+    /// and no area lists a dot-entry.</summary>
+    [Fact]
+    public async Task Without_show_hidden_the_hidden_folders_and_dot_entries_are_not_listed()
+    {
+        WriteHiddenBrain();
+        _setting = Brain;
+
+        var tree = await Menu().LoadBrainAsync(Source(), showHidden: false, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Inbox", "Meetings"], tree.Roots.Select(root => root.Label));
+        Assert.Equal(["_inbox/idea.md"], tree.Roots[0].Children.Select(node => node.Path));
+    }
+
+    /// <summary>Show hidden on (local ADR 0026 §2): the ignored folders and the
+    /// dot-folders follow every other root, by folder name, and every area lists
+    /// its dot-entries — while a <c>_</c> entry inside an area stays unlisted.</summary>
+    [Fact]
+    public async Task Show_hidden_lists_the_hidden_folders_last_and_every_dot_entry()
+    {
+        WriteHiddenBrain();
+        _setting = Brain;
+
+        var tree = await Menu().LoadBrainAsync(Source(), showHidden: true, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Inbox", "Meetings", "Obsidian", "Templates"], tree.Roots.Select(root => root.Label));
+        Assert.Equal(["brain/_inbox", "brain/meetings", "brain/.obsidian", "brain/_templates"], tree.Roots.Select(root => root.AreaKey));
+        Assert.Equal(["_inbox/.draft.md", "_inbox/idea.md"], tree.Roots[0].Children.Select(node => node.Path).Order(StringComparer.Ordinal));
+        Assert.Equal(["Meetings/.trash", "Meetings/standup.md"], tree.Roots[1].Children.Select(node => node.Path).Order(StringComparer.Ordinal));
+        Assert.Equal([".obsidian/workspace.md"], tree.Roots[2].Children.Select(node => node.Path));
+        Assert.Equal(["_templates/meeting.md"], tree.Roots[3].Children.Select(node => node.Path));
+    }
+
+    /// <summary>Declares the inbox and ignores <c>_templates</c>; a discovered
+    /// <c>Meetings</c>, a dot-folder, and dot-entries and a <c>_</c> entry inside areas.</summary>
+    private void WriteHiddenBrain()
+    {
+        Write(BrainConventions.FileName, "## Areas\n\n- Inbox — `_inbox`\n\n## Ignore\n\n- `_templates`\n");
+        Write("_inbox/idea.md", "# Idea\n");
+        Write("_inbox/.draft.md", "# Draft\n");
+        Write("_inbox/_scratch.md", "# Scratch\n");
+        Write("Meetings/standup.md", "# Standup\n");
+        Write("Meetings/.trash/old.md", "# Old\n");
+        Write("_templates/meeting.md", "# Meeting\n");
+        Write(".obsidian/workspace.md", "x");
     }
 
     [Fact]
@@ -94,7 +141,7 @@ public sealed class DevbookMenuBrainTests : IDisposable
         Write("domain/context-map.md", "# Context map\n");
         _setting = Brain;
 
-        var tree = await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken);
+        var tree = await Menu().LoadBrainAsync(Source(), cancellationToken: TestContext.Current.CancellationToken);
 
         var domain = Assert.Single(tree.Roots);
         Assert.Equal("brain/domain", domain.AreaKey);
@@ -106,10 +153,10 @@ public sealed class DevbookMenuBrainTests : IDisposable
     [Fact]
     public async Task No_brain_folder_set_or_found_gives_no_roots()
     {
-        Assert.Empty((await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken)).Roots);
+        Assert.Empty((await Menu().LoadBrainAsync(Source(), cancellationToken: TestContext.Current.CancellationToken)).Roots);
 
         _setting = Brain;
-        Assert.Empty((await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken)).Roots);
+        Assert.Empty((await Menu().LoadBrainAsync(Source(), cancellationToken: TestContext.Current.CancellationToken)).Roots);
     }
 
     [Fact]
@@ -124,7 +171,7 @@ public sealed class DevbookMenuBrainTests : IDisposable
         Write("projects/alpha.md", "# Alpha\n");
         _setting = Brain;
 
-        var tree = await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken);
+        var tree = await Menu().LoadBrainAsync(Source(), cancellationToken: TestContext.Current.CancellationToken);
 
         var journal = tree.Roots.Single(root => root.Path == "journal");
         Assert.Equal(
@@ -149,7 +196,7 @@ public sealed class DevbookMenuBrainTests : IDisposable
         Write("notes/2026-02-01.md", "# B\n");
         _setting = Brain;
 
-        var tree = await Menu().LoadBrainAsync(Source(), TestContext.Current.CancellationToken);
+        var tree = await Menu().LoadBrainAsync(Source(), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["log/2026-02-01.md", "log/2026-01-01.md"], tree.Roots[0].Children.Select(node => node.Path));
         Assert.Equal(["notes/2026-01-01.md", "notes/2026-02-01.md"], tree.Roots[1].Children.Select(node => node.Path));

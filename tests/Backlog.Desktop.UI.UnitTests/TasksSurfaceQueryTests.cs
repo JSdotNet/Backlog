@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Tasks and Board surfaces follow the query they are shown with (local ADR 0040
+/// The Tasks and Board surfaces follow the query they are shown with (local ADR 0041
 /// §6): <c>plan=&lt;tag&gt;</c> opens on that plan chip, and <c>entry=&lt;id&gt;</c>, on
 /// Tasks, opens the entry in its editor, widening the window's scope to the entry's
 /// repository when the entry is outside it. An id the backlog does not hold opens

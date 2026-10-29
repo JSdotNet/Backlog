@@ -61,15 +61,15 @@ public sealed class ShellNavigationStore
     private static readonly string[] Empty = [];
 
     /// <summary>The main view a file with no <c>lastView</c> reopens on, by its surface
-    /// id (local ADR 0040 §2): before the view switch the workspace's main pane was the
+    /// id (local ADR 0041 §2): before the view switch the workspace's main pane was the
     /// task list.</summary>
     public const string DefaultView = "tasks";
 
-    /// <summary>The surface id the roadmap's view is stored under (local ADR 0040 §2).</summary>
+    /// <summary>The surface id the roadmap's view is stored under (local ADR 0041 §2).</summary>
     private const string RoadmapViewId = "roadmap";
 
     /// <summary>
-    /// The view names a file from before local ADR 0040 holds — the members of the
+    /// The view names a file from before local ADR 0041 holds — the members of the
     /// retired <c>ShellView</c> enum, and <c>InProgress</c>, the Goals view's name before
     /// its rename — each with the surface id it reads as now (§2). Exact names only: the
     /// enum's members were written as they were spelled.
@@ -86,7 +86,7 @@ public sealed class ShellNavigationStore
         };
 
     /// <summary>
-    /// The surface names a file from before local ADR 0040 holds — the members of the
+    /// The surface names a file from before local ADR 0041 holds — the members of the
     /// retired <c>WorkspaceSurface</c> enum — each with the takeover's surface id it reads
     /// as now (§2), and <c>Workspace</c>, the main view alone, as no takeover at all.
     /// <c>Roadmap</c> is not here: it was a takeover once and reads as the Roadmap view
@@ -119,7 +119,7 @@ public sealed class ShellNavigationStore
     /// workspace. Now nothing is written for it.</summary>
     private const string WorkspaceSurfaceName = "Workspace";
 
-    /// <summary>The Inbox's and the Devbook's surface ids (local ADR 0040 §2).</summary>
+    /// <summary>The Inbox's and the Devbook's surface ids (local ADR 0041 §2).</summary>
     private const string InboxId = "inbox";
     private const string DevbookId = "devbook";
 
@@ -178,6 +178,7 @@ public sealed class ShellNavigationStore
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
+        BrainHiddenShown = dto?.BrainHiddenShown ?? false;
         GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
         GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
             ? start
@@ -194,7 +195,7 @@ public sealed class ShellNavigationStore
 
     /// <summary>The main view the workspace was showing when last set — by its surface
     /// id, <c>tasks</c>, <c>board</c>, <c>calendar</c>, <c>roadmap</c> or <c>goals</c>
-    /// (local ADR 0040 §2) — and <see cref="DefaultView"/> when nothing has been
+    /// (local ADR 0041 §2) — and <see cref="DefaultView"/> when nothing has been
     /// remembered yet. A name the retired enum stored reads as its id
     /// (<see cref="RetiredViewNames"/>); any other value is kept as written, and the
     /// shell reads one it does not offer as Tasks.</summary>
@@ -263,6 +264,12 @@ public sealed class ShellNavigationStore
     /// hidden — show archived (local ADR 0029, §3): off until turned on on this device.
     /// Read through the shared kernel's <c>IShowArchivedRepositories</c>.</summary>
     public bool ShowArchivedRepositories { get; private set; }
+
+    /// <summary>Whether the Brain's hidden folders — the ignored ones and the
+    /// dot-folders — show as tabs in the Devbook pane, Show hidden (local ADR 0026
+    /// §2): off until turned on on this device. Read through the Devbook module's
+    /// <c>IBrainShowHidden</c>.</summary>
+    public bool BrainHiddenShown { get; private set; }
 
     /// <summary>The iteration length an earlier build kept per device, as the setting's
     /// value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until one was
@@ -455,6 +462,14 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    public void SetBrainHiddenShown(bool shown)
+    {
+        if (shown == BrainHiddenShown) return;
+
+        BrainHiddenShown = shown;
+        Save();
+    }
+
     /// <summary>Keeps <paramref name="aliases"/> in the order given — the anchor first —
     /// so the same aliases reordered are a change.</summary>
     public void SetRepositoryScope(IReadOnlyList<string> aliases)
@@ -534,6 +549,8 @@ public sealed class ShellNavigationStore
                 // Left out while off, the default. The key is a stored name: never
                 // rename it without reading the old one.
                 ShowArchivedRepositories = ShowArchivedRepositories ? true : null,
+                // Likewise left out while off, and likewise a stored name.
+                BrainHiddenShown = BrainHiddenShown ? true : null,
                 // Left out until chosen. Both keys are stored names: never rename them
                 // without reading the old ones.
                 GoalsIterationLength = GoalsIterationLength,
@@ -606,6 +623,10 @@ public sealed class ShellNavigationStore
         /// <summary>Written as <c>showArchivedRepositories</c>, and only while on.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? ShowArchivedRepositories { get; init; }
+
+        /// <summary>Written as <c>brainHiddenShown</c>, and only while on.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? BrainHiddenShown { get; init; }
 
         /// <summary>Written as <c>goalsIterationLength</c>: <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

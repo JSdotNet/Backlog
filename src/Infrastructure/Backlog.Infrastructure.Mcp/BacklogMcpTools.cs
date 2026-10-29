@@ -255,9 +255,9 @@ public static class BacklogMcpTools
 
     /// <summary>
     /// <c>open_window</c>, which shows the person a registered surface in a window or
-    /// as a web link (local ADR 0040 §7), and the one group behind no key.
+    /// as a web link (local ADR 0041 §7), and the one group behind no key.
     /// <para>
-    /// <b>Ungated on purpose.</b> ADR 0040 §7 gives pop-out, its routes and this tool
+    /// <b>Ungated on purpose.</b> ADR 0041 §7 gives pop-out, its routes and this tool
     /// no feature flag: the tool adds no surface and removes none. What a flag hides is
     /// the surface, and the catalog the tool reads leaves out a surface whose own flag
     /// is off — so switching the Devbook off still takes it out of reach here, as a

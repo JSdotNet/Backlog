@@ -56,7 +56,7 @@ public sealed class BrainNoteWriter : IBrainNoteWriter
             return BrainNoteWrite.Refused(location.Message ?? BrainFolderSource.NoBrainFolder);
         }
 
-        var area = BrainNoteText.InboxArea(_brain.Areas());
+        var area = BrainNoteText.InboxArea(_brain.Areas(), BrainConventions.ReadIgnored(root));
         var text = BrainNoteText.Compose(title, draft.BodyMd, draft.Source);
         var stem = BrainNoteText.FileStemFor(title);
 

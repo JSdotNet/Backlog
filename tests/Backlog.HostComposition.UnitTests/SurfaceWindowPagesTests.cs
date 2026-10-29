@@ -18,7 +18,7 @@ using Microsoft.Playwright;
 namespace Backlog.HostComposition.UnitTests;
 
 /// <summary>
-/// The pop-out pages the desktop app's MCP listener serves (local ADR 0040 §7):
+/// The pop-out pages the desktop app's MCP listener serves (local ADR 0041 §7):
 /// <c>/window/{surfaceId}</c> rendered from the MAUI head's own container, through
 /// the real <see cref="McpServerWorker"/>, compiled here from the head's source.
 /// <para>
@@ -269,7 +269,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     }
 
     /// <summary>
-    /// <c>open_window</c> with <c>target: "web"</c> on the real listener (local ADR 0040
+    /// <c>open_window</c> with <c>target: "web"</c> on the real listener (local ADR 0041
     /// §7): called over <c>/mcp</c> with the bearer token, it answers a
     /// <c>localhost</c> link carrying a token this listener redeems, and that link's
     /// first load sets the cookie and the page renders.

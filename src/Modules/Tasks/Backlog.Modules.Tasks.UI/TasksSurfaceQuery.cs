@@ -2,7 +2,7 @@ namespace Backlog.Desktop.UI.Tasks;
 
 /// <summary>
 /// The ids the Tasks module's views register in the surface catalog, and the query
-/// keys they accept (local ADR 0040 §1, §6). Tasks, Board and Calendar are three
+/// keys they accept (local ADR 0041 §1, §6). Tasks, Board and Calendar are three
 /// views of one task list, so the module registers all three.
 /// </summary>
 public static class TasksSurfaceQuery
@@ -17,11 +17,11 @@ public static class TasksSurfaceQuery
     public const string CalendarId = "calendar";
 
     /// <summary><c>plan=&lt;tag&gt;</c>: open on that plan chip, with or without its
-    /// <c>+</c> (local ADR 0040 §6). Tasks and Board.</summary>
+    /// <c>+</c> (local ADR 0041 §6). Tasks and Board.</summary>
     public const string Plan = "plan";
 
     /// <summary><c>entry=&lt;id&gt;</c>: open that entry in its editor, widening the
-    /// window's scope to the entry's repository when it is outside it (local ADR 0040
+    /// window's scope to the entry's repository when it is outside it (local ADR 0041
     /// §6). Tasks only.</summary>
     public const string Entry = "entry";
 
