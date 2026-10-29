@@ -200,7 +200,7 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 | A considered picture for the diagrams that earn one | **Archify** (generated artifact) | An optional second rendering of a fence somebody has authored a specification for. Never a replacement for Mermaid and never automatic: a fence with no artifact, or whose text has moved on, is drawn by Mermaid. See `#archify-artifacts` below. |
 | A C4 model of the system, authored beside the chapters and drawn inside them | **c4hero** (authoring) + **a first-party renderer** (drawing) | One Structurizr workspace, `.devbook/arc42/workspace.dsl`, edited in c4hero and drawn by the app from the DSL wherever a chapter embeds a view as `![…](c4:<view key>)`. Mermaid cannot be themed into the shape a C4 view wants: it sizes its own boxes, draws no glyph and writes every colour inline. See `#c4-workspaces` below. |
 | Technology graph exploration | **Blazor components positioned with CSS** | Draw the `.devbook/tech` graph as the five views of the [Technology view](../domain/devbook/features.md#technology-view). The Clusters map and the Complexity scatter place each technology with CSS, and every technology is a real `button`, so the picture is in the accessibility tree and nothing is drawn on a canvas. Colour marks the type family; status is fill, hollow until `adopted`, so it never rests on colour. Each pointer view keeps the list or table companion below. |
-| Knowledge graph exploration | **A first-party canvas renderer** | Draw the Brain's atlas, and the repository devbook atlas over every folder but `.devbook/tech`, as a 3D-projected map: one cluster per area, node size by in-degree, curved edges, and a camera that moves to what is selected. Colour comes from `color-scheme.md#chart-roles`. The keyboard companion below is part of the renderer, not an addition to it. |
+| Knowledge graph exploration | **A first-party canvas renderer** | Draw the Brain's atlas, and the repository devbook atlas over every folder but `.devbook/tech`, as a 3D-projected map: one cluster per area, node size by in-degree, curved edges, and a camera that moves to what is selected. Colour comes from `color-scheme.md#chart-roles`. The keyboard companion below is part of the renderer, not an addition to it. The same renderer also draws the [Lobes atlas](../domain/devbook/features.md#lobes-atlas): the Brain and every devbook as brains, one region per lobe — `backlogLobesAtlas`, hosted by `GraphAtlas` over a `LobesAtlasModel`, its colours the Brain's accent and gold from `color-scheme.md`, its canvas `aria-hidden` beside the same index. |
 | Editable workflow/flowchart designer | **AntV X6** (future) | Add when users need to create or edit node-edge diagrams visually. It is better suited to diagram editing than a read-and-select atlas is. |
 | Charts and operational dashboards | **Apache ECharts** (future) | Preferred for metrics, trend charts, dependency health, and monitoring dashboards. |
 | Full general-purpose diagram editor | **diagrams.net / draw.io** (optional future) | Consider only when a broad GUI editor is more valuable than Markdown-first diagrams. Bundle assets locally if embedded. |
@@ -223,8 +223,12 @@ cannot be the primary one, however carefully it is labelled. The canvas is
 nodes. The list is on screen rather than visually hidden, ordered as the folder
 reads, and carries each node's status and relation counts as text. Selection is
 one model behind both, announced once through a polite live region as position,
-status and counts. A reviewer should be able to unplug the mouse and lose nothing
-but the picture.
+status and counts. The list is one tab stop. Its arrows, Home and End move the
+focus and the canvas's spotlight from row to row and leave the selection alone.
+Enter or Space selects, as a click does, so a detail sheet that opens on a
+selection opens only when the reader asks. Escape closes the sheet and gives the
+focus back to its row. A reviewer should be able to unplug the mouse and lose
+nothing but the picture.
 
 ### C4 workspaces
 
@@ -351,7 +355,7 @@ What the product actually uses today, against the recommendations above:
 | Reorder — mobile | `CollectionView` with `CanReorderItems`, plus explicit move commands and autoscroll | None. `src/App/Backlog.Mobile*` holds no `CollectionView` and reorders nothing, so the mobile row in `#per-channel-recommendations` is a requirement rather than a description of anything |
 | Diagrams | Mermaid | **Mermaid**, as recommended — `DiagramView`, storybook *Diagrams* |
 | Technology graph | Blazor components positioned with CSS | **Blazor components positioned with CSS**, as recommended — `TechnologyClustersView` and `TechnologyComplexityView` in the Devbook module, beside the Technology area's other views; storybook *Technology page* for the library parts they draw on |
-| Knowledge graphs | A first-party canvas renderer | **A first-party canvas renderer**, as recommended — `GraphAtlas` over the Brain and over a repository's devbook, its `.tech` chapters left out, with `GraphView` and `GraphExplorer` still drawing the list, lane, spine and cluster layouts beside it; storybook *Graph atlas* and *Graph explorer* |
+| Knowledge graphs | A first-party canvas renderer | **A first-party canvas renderer**, as recommended — `GraphAtlas` over the Brain and over a repository's devbook, its `.tech` chapters left out, with `GraphView` and `GraphExplorer` still drawing the list, lane, spine and cluster layouts beside it; and `backlogLobesAtlas` drawing the Lobes atlas through the same host; storybook *Graph atlas*, *Lobes atlas* and *Graph explorer* |
 | Charts | Apache ECharts | None yet |
 
 Notes:

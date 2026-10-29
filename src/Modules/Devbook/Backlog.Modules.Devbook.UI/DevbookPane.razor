@@ -4,6 +4,7 @@
    `@onkeydown:stopPropagation` as a literal attribute and the boundary does
    nothing. *@
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
 @inject DevbookMenu DevbookMenu
 @inject DevbookFolderOpenService DevbookFolderOpen
 @inject DevbookScope Scope
@@ -14,6 +15,7 @@
    the selection dictionary below stays the pane's own. *@
 @inject DevbookOpenChapter OpenChapter
 @inject IServiceProvider Services
+@inject IJSRuntime JS
 
 @*
     The Devbook pane. Everything it needs arrives as a repository alias:
@@ -261,8 +263,8 @@
             <AppButton BaseClass="devbook-stack__atlas-toggle"
                        Variant="ButtonVariant.None"
                        TestId="devbook-atlas-toggle"
-                       title="@(_atlasOpen ? "Close the atlas" : BrainMode ? "See how the Brain links together, and into your repositories" : "See how this devbook links together")"
-                       aria-expanded="@(_atlasOpen ? "true" : "false")"
+                       title="@AtlasButtonTitle"
+                       aria-expanded="@(OpensLobesAtlas && !_atlasOpen ? null : _atlasOpen ? "true" : "false")"
                        OnClick="ToggleAtlasAsync">
                 @(_atlasOpen ? "Hide atlas" : "Atlas")
             </AppButton>
@@ -870,6 +872,26 @@
     [Parameter]
     public EventCallback<BrainRepoLink> OnOpenRepositoryChapter { get; set; }
 
+    /// <summary>
+    /// Raised by the Atlas button, with the Lobes scope of what the pane reads —
+    /// the Brain, or this repository's devbook — while the Lobes atlas is offered
+    /// (<c>.devbook/domain/devbook/context.md#lobes-atlas</c>). The host gives that
+    /// atlas the screen. A host that passes nothing, or the flag off, keeps the
+    /// button on the pane's own atlas.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnOpenLobesAtlas { get; set; }
+
+    /// <summary>Whether the Atlas button opens the Lobes atlas rather than the
+    /// pane's own.</summary>
+    private bool OpensLobesAtlas => OnOpenLobesAtlas.HasDelegate && Scope.LobesAtlasOffered;
+
+    private string AtlasButtonTitle =>
+        _atlasOpen ? "Close the atlas"
+        : OpensLobesAtlas ? BrainMode ? "Open the Brain in the atlas, beside every devbook" : "Open this devbook in the atlas, beside the Brain"
+        : BrainMode ? "See how the Brain links together, and into your repositories"
+        : "See how this devbook links together";
+
     private Task OpenRepositoryChapterAsync(BrainRepoLink link) => OnOpenRepositoryChapter.InvokeAsync(link);
 
     /// <summary>
@@ -1148,7 +1170,7 @@
     /// The open chapter is published first, while that answer is still held:
     /// it is the one read of the selection that happens after the render rather
     /// than during it, and it costs nothing more than the render already paid.</summary>
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // A Brain note is not offered to Ask AI as a repository chapter: what the
         // pane has open on the Brain is the person's own, and handing it on as
@@ -1156,8 +1178,68 @@
         if (BrainMode) OpenChapter.Clear();
         else OpenChapter.Set(ActiveRepositoryAlias, EffectiveSection, SelectedChapterPath);
 
+        var reveal = HeadingToReveal();
         _visibleAreas = null;
+
+        if (reveal is { } heading) await RevealHeadingAsync(heading.Anchor, heading.Path);
     }
+
+    /// <summary>
+    /// The heading a followed reference named, brought into view once the chapter
+    /// it is in is on screen — a chapter followed out of the atlas, a Brain note's
+    /// chip or an entry's reference all end here, so all of them land on it.
+    /// <para>
+    /// Here rather than in each panel, because every panel draws its chapter
+    /// through the same markdown view and none of them was told the heading: only a
+    /// scenario page was, for its parts, and an arc42 or design chapter opened at a
+    /// heading opened at its top. Asked once per request, so the reader scrolling
+    /// away is not pulled back by the next render, and only while the reading is on
+    /// screen — not under the pane's own atlas or search, nor before the menu that
+    /// decides the chapter has loaded. The script waits for the body to be read and
+    /// leaves a scenario part the page has already marked to that page.
+    /// </para>
+    /// </summary>
+    private (string Anchor, string? Path)? HeadingToReveal()
+    {
+        if (_focus is not { } focus || focus.Focus.Sequence == _revealedFocusSequence) return null;
+        if (_menuLoading || _atlasOpen || _searchOpen) return null;
+        if (PanelRevealsItsOwnHeading(EffectiveSection)) return null;
+        if (FocusFor(EffectiveSection, SelectedChapterPath) is null) return null;
+
+        _revealedFocusSequence = focus.Focus.Sequence;
+        return (focus.Focus.Anchor, SelectedChapterPath);
+    }
+
+    /// <summary>The AI and Design folders read their chapters through
+    /// <see cref="DocumentDevbookView"/>, which is handed the focus, resolves the
+    /// anchor to the heading of its selected document and asks the same script
+    /// itself once that document's text is on screen; asking again from here would
+    /// reveal the heading twice.</summary>
+    private static bool PanelRevealsItsOwnHeading(string areaKey) => areaKey is "ai" or "design";
+
+    private async Task RevealHeadingAsync(string anchor, string? path)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync(RevealHeadingFunction, RevealHeadingScope, anchor, path);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The window went while the pane was drawing; there is nothing to scroll.
+        }
+    }
+
+    /// <summary>The script that finds the heading by its slug and scrolls the
+    /// reading to it.</summary>
+    internal const string RevealHeadingFunction = "backlogRevealHeading";
+
+    /// <summary>Where the heading is looked for: the section the chapter is read
+    /// in, never the menu beside it — the one on screen, because every section
+    /// has a panel and the ones not chosen are there, hidden.</summary>
+    internal const string RevealHeadingScope = "[data-testid='devbook-stack'] .devbook-stack__section:not([hidden])";
+
+    /// <summary>The request whose heading was last brought into view.</summary>
+    private int _revealedFocusSequence;
 
     /// <summary>
     /// The sections this scope shows, asked of the scope once per render.
@@ -1853,6 +1935,18 @@
         {
             CloseAtlas();
             return Task.CompletedTask;
+        }
+
+        // The Lobes atlas, at the pane's scope, when it is offered: the host gives
+        // it the screen, so nothing opens in the pane. A repository the pane
+        // cannot name — a host that answers an unscoped ask with a devbook of its
+        // choosing — opens All rather than the Brain it is not showing.
+        if (OpensLobesAtlas)
+        {
+            var scope = BrainMode
+                ? DevbookLobesAtlas.ScopeKeyFor(null)
+                : ActiveRepositoryAlias is { } alias ? DevbookLobesAtlas.ScopeKeyFor(alias) : LobesAtlasModel.AllLayout;
+            return OnOpenLobesAtlas.InvokeAsync(scope);
         }
 
         _atlasScopeKey = AtlasScopes.Any(scope => string.Equals(scope.Key, EffectiveSection, StringComparison.Ordinal))

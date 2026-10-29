@@ -17524,6 +17524,7 @@ select.field__input {
 .graph-atlas__canvas[data-tone="blocked"] { --atlas-tint: var(--chart-ramp-3); }
 .graph-atlas__canvas[data-tone="active"] { --atlas-tint: var(--chart-ramp-4); }
 .graph-atlas__canvas[data-tone="done"] { --atlas-tint: var(--chart-ramp-4); }
+.graph-atlas__canvas[data-tone="brain"] { --atlas-tint: var(--color-band-2); }
 .graph-atlas__canvas[data-tone="archived"] { --atlas-tint: var(--chart-track); }
 .graph-atlas__canvas[data-tone="unknown"] { --atlas-tint: var(--chart-track); }
 
@@ -17571,8 +17572,12 @@ select.field__input {
     align-items: center;
     gap: var(--spacing-sm);
 
-    /* 44px, because this is the target the canvas cannot be. */
+    /* 44px, because this is the target the canvas cannot be. An explicit
+       min-height replaces the flex item's content-based minimum, so without the
+       flex-shrink an overflowing list squeezed a row whose label or status wraps
+       back to 44px, and it spilled over the row under it. */
     min-height: 2.75rem;
+    flex-shrink: 0;
     padding: var(--spacing-xs) var(--spacing-sm);
     border-bottom: var(--border-width) solid var(--color-border);
     cursor: pointer;
@@ -17610,6 +17615,9 @@ select.field__input {
 .graph-atlas-index__mark[data-tone="draft"] { background: var(--chart-ramp-2); }
 .graph-atlas-index__mark[data-tone="active"] { background: var(--chart-ramp-4); }
 .graph-atlas-index__mark[data-tone="done"] { background: var(--chart-ramp-4); }
+/* A Brain note in the Lobes atlas wears the Brain's accent, as its mark on the
+   map does (color-scheme.md#the-brains-accent). */
+.graph-atlas-index__mark[data-tone="brain"] { background: var(--color-band-2); }
 
 .graph-atlas-index__mark[data-tone="blocked"] {
     border-radius: var(--border-radius-none);

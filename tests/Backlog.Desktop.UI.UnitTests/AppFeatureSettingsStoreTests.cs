@@ -85,6 +85,7 @@ public sealed class AppFeatureSettingsStoreTests
                 DevbookFeatures.ArchifyDiagrams,
                 DevbookFeatures.C4Diagrams,
                 DevbookFeatures.C4Zoom,
+                DevbookFeatures.LobesAtlas,
                 DevbookFeatures.Search,
                 DevbookFeatures.SemanticSearch,
                 DevbookFeatures.Editing,

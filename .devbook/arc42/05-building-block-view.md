@@ -321,7 +321,7 @@ flowchart LR
 - **Parity.** `tools/devbook/brain.mjs` is the Node side of the same convention,
   and the parity test compares the two on a Brain fixture.
 
-The `repo:` edges are read back by three readers (local ADR 0027 §6):
+The `repo:` edges are read back by four readers (local ADR 0027 §6):
 
 ```mermaid
 flowchart LR
@@ -339,6 +339,9 @@ flowchart LR
   BrainDb --> Backlinks --> Box
   BrainDb --> Atlas
   Resolver --> Atlas
+  BrainDb --> Lobes
+  RepoDb --> Lobes
+  Resolver --> Lobes
 ```
 
 - **Forward links.** `BrainRepoLinkResolver`, in the Devbook UI, asks whether this
@@ -352,6 +355,14 @@ flowchart LR
   of its own. Each link becomes a `repo-link` edge labelled with the alias, and
   dashed where the link does not resolve. `GraphAtlas` in the component library
   draws an edge's optional `label` and `dashed`.
+- **The Lobes atlas.** `DevbookAtlasService.ReadLobesAsync` reads the Brain's
+  database and the devbook database of every repository alias it is handed, and
+  nothing else. `DevbookLobesReader` gives each node a scope, a region and a kind,
+  by the mappings of [Lobes atlas](../domain/devbook/features.md#lobes-atlas). A
+  `repo:` link resolves through `BrainRepoLinkResolver` to that devbook's own
+  chapter node, both spellings folded. A link it cannot follow is a ghost chapter;
+  an alias not handed in is a ghost scope. Each scope counts its nodes per region
+  and the Brain notes that link into it.
 
 The same project reads scenarios files, outside the database. `Scenarios/` ports
 devbook's scenarios-file parser and journey signature: each `##` journey of a

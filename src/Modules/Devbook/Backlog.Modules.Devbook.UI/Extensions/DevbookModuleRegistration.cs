@@ -71,6 +71,8 @@ public static class DevbookModuleRegistration
             copilotCliLauncher(sp),
             sp.GetRequiredService<ArchifyArtifactRenderer>()));
         services.AddSingleton<DevbookScope>();
+        // The Lobes atlas's one read: the Brain and every registered devbook.
+        services.AddSingleton<IDevbookLobesSource, DevbookLobesSource>();
         // One search over the Brain and every configured repository's devbook.
         // Built from what the host composed, so a host with no Brain or no model
         // gets a search without them.

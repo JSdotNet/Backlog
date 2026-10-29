@@ -249,6 +249,7 @@ internal static class StorybookIndex
             new("diagrams/c4", "C4 from Structurizr DSL", "One workspace authored in c4hero, drawn as a landscape, a context, a container and a deployment view — and what the reader refuses to guess at."),
             new("graph-explorer", "Graph explorer", "GraphExplorer: lanes, spine and cluster layouts over one model."),
             new("graph-atlas", "Graph atlas", "GraphAtlas: a graph drawn as a place — clustered in depth on a canvas, with the list beside it that the keyboard actually operates."),
+            new("lobes-atlas", "Lobes atlas", "The atlas renderer's lobes drawing: each scope a brain, each mark in one region of it — All, the Brain, a devbook and a ghost scope."),
 
             new("markdown", "Markdown", "MarkdownView: every block and inline the read view renders, each beside the source that produced it.", Exact: true),
             new("markdown/diagrams", "Diagrams in markdown", "What happens when a fenced block names a diagram language: MarkdownView hands it to DiagramView."),
