@@ -53,7 +53,13 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
     }
 
     /// <inheritdoc />
-    public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
+    public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) => _ = OpenAsync(surfaceId, query);
+
+    /// <inheritdoc />
+    /// <remarks>True once the window is built and the application has opened it;
+    /// false with no <see cref="Application.Current"/> to open it in, or when building
+    /// it threw — the window is then forgotten, so nothing later finds it.</remarks>
+    public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(surfaceId);
 
@@ -61,36 +67,68 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowSto
         var title = catalog.TryGet(surfaceId, out var surface) ? surface.Title : AppTitle;
         var path = SurfaceWindowRoute.PathFor(surfaceId, query);
 
+        // Asynchronous continuations: the caller resumes off the main thread, never
+        // inside the window's construction.
+        var built = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
         // Built on the main thread as well as opened there: the page and its
         // BlazorWebView are controls, and a caller from outside the user interface
         // asks from wherever it runs.
         OnMainThread(() =>
         {
-            var window = new Window(new MainPage(path, key)) { Title = WindowTitle(title) };
-
-            RememberBounds(window, surfaceId);
-
-            window.Destroying += (_, _) =>
+            if (Application.Current is not { } application)
             {
-                bool quitting;
+                built.TrySetResult(false);
+                return;
+            }
+
+            try
+            {
+                application.OpenWindow(Build(surfaceId, key, path, title));
+                built.TrySetResult(true);
+            }
+            catch (Exception)
+            {
                 lock (_gate)
                 {
                     _popped.Remove(key);
-                    quitting = _quitting;
                 }
 
-                // The main window's close flushed once for every window it closes.
-                if (!quitting) Flush();
-                else FlushBounds();
-            };
+                built.TrySetResult(false);
+            }
+        });
 
+        return built.Task;
+    }
+
+    /// <summary>A popped-out window on <paramref name="path"/>, remembered under
+    /// <paramref name="key"/> until it closes. Called on the main thread.</summary>
+    private Window Build(string surfaceId, string key, string path, string title)
+    {
+        var window = new Window(new MainPage(path, key)) { Title = WindowTitle(title) };
+
+        RememberBounds(window, surfaceId);
+
+        window.Destroying += (_, _) =>
+        {
+            bool quitting;
             lock (_gate)
             {
-                _popped[key] = window;
+                _popped.Remove(key);
+                quitting = _quitting;
             }
 
-            Application.Current?.OpenWindow(window);
-        });
+            // The main window's close flushed once for every window it closes.
+            if (!quitting) Flush();
+            else FlushBounds();
+        };
+
+        lock (_gate)
+        {
+            _popped[key] = window;
+        }
+
+        return window;
     }
 
     /// <inheritdoc />

@@ -1705,6 +1705,9 @@
     /// <see cref="OpenBrainChapter"/>.</item>
     /// <item>No chapter, and the Brain or the switch's repository as <c>scope</c>: a
     /// side of the pane's <c>Brain | repo</c> switch picked.</item>
+    /// <item>No chapter, and any other <c>scope</c> — a popped-out Devbook's Show in
+    /// main window, reading a repository this window's switch does not offer: that
+    /// repository, read as a reference's is, with the header scope left alone.</item>
     /// </list>
     /// </summary>
     private Task ShowDevbookAsync(SurfaceRequest request)
@@ -1718,6 +1721,16 @@
                 && (BrainScope.Is(scope) || string.Equals(scope, partner, StringComparison.Ordinal)))
             {
                 OnDevbookShowsBrainChanged(BrainScope.Is(scope));
+            }
+            else if (scope is not null)
+            {
+                // Any other scope — a popped-out window's Show in main window, reading
+                // a repository this window's switch does not offer — is read as asked,
+                // the way a reference's repository is, and the header scope stays.
+                _devbookSwitch = null;
+                _devbookRepositoryRequest = string.Equals(scope, DevbookRequestAnchor, StringComparison.Ordinal)
+                    ? null
+                    : new DevbookRepositoryRequest(DevbookRequestAnchor, scope);
             }
 
             ShowDevbook();

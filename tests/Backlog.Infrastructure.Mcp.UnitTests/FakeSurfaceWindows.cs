@@ -15,12 +15,12 @@ internal sealed class FakeSurfaceWindows(bool nativeWindows = true, int? listene
 
     public List<(string SurfaceId, IReadOnlyDictionary<string, string> Query)> Linked { get; } = [];
 
-    public bool TryOpenWindow(string surfaceId, IReadOnlyDictionary<string, string> query)
+    public Task<bool> TryOpenWindowAsync(string surfaceId, IReadOnlyDictionary<string, string> query)
     {
-        if (!nativeWindows) return false;
+        if (!nativeWindows) return Task.FromResult(false);
 
         Opened.Add((surfaceId, query));
-        return true;
+        return Task.FromResult(true);
     }
 
     public Uri? WebLink(string surfaceId, IReadOnlyDictionary<string, string> query)

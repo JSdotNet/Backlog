@@ -25,7 +25,8 @@
     <link rel="stylesheet" href="_content/Backlog.Modules.Notifications.UI/notifications.css" />
     <link rel="stylesheet" href="app.css" />
     <link rel="icon" href="data:,">
-    <HeadOutlet />
+    @* Interactive, as Routes is, so a popped-out surface's PageTitle follows a jump. *@
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>

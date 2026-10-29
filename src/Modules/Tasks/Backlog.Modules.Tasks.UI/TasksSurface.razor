@@ -6,6 +6,7 @@
 @inject ISurfaceNavigator Navigator
 @inject IToastChannel Toasts
 @inject IServiceProvider Services
+@inject IJSRuntime JS
 
 @*
     The Tasks view as a shell surface (local ADR 0041 §1, §3, §6), and the base the
@@ -161,6 +162,37 @@
         State.WidenRepositoryScopeTo(row);
         State.Reveal(row);
         await State.SelectAsync(row);
+
+        // The editor shows the entry, but in a long list its row may sit below the
+        // fold: once drawn, the row is scrolled into its list's view.
+        _revealEntry = row.Id;
+        StateHasChanged();
+    }
+
+    /// <summary>The entry an <c>entry=</c> query opened, whose row is still to be
+    /// scrolled into view.</summary>
+    private Guid? _revealEntry;
+
+    /// <summary>The selector the row of <paramref name="id"/> is found by: its list row,
+    /// or its card on the Board.</summary>
+    public static string RowSelector(Guid id) => $"[data-task-id='{id}']";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_revealEntry is not { } id) return;
+        _revealEntry = null;
+
+        try
+        {
+            // The nearest scroll container only, waited for over a few frames while
+            // the row arrives: the pull requests list reveals its focused row the same way.
+            await JS.InvokeVoidAsync("backlogRevealRow", RowSelector(id));
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // The window went, it is still prerendering, or the script refused;
+            // the editor still shows the entry.
+        }
     }
 
     private void SetBoardGrouping(TaskBoardGrouping grouping)

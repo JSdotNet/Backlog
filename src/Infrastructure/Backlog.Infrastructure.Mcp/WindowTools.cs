@@ -66,7 +66,7 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
         + "it open a window on the person's screen; use that only when the person asked for a window. Both answers "
         + "carry a backlog:// link that opens the surface in the installed app and stays valid, for a brief or a "
         + "digest. A surface the app does not offer is refused with the ids it does.")]
-    public WindowOpenedPayload Open(
+    public async Task<WindowOpenedPayload> OpenAsync(
         [Description("The surface's id, such as tasks, board, roadmap or devbook.")]
         string surface,
         [Description("desktop to open a native window now, or web to get a link and open nothing.")]
@@ -87,7 +87,8 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
 
         if (kind == Desktop)
         {
-            var opened = host.TryOpenWindow(shown.Id, query);
+            // Awaited: the answer is what happened, never what was merely asked for.
+            var opened = await host.TryOpenWindowAsync(shown.Id, query).ConfigureAwait(false);
 
             return new WindowOpenedPayload(
                 shown.Id,
@@ -97,7 +98,7 @@ public sealed class WindowTools(ISurfaceCatalog catalog, ISurfaceWindowHost host
                 backlogLink,
                 opened
                     ? $"Opened {shown.Title} in a new window."
-                    : $"No native window is available here: this host serves {shown.Title} as a web page only. Ask again with target \"web\" for a link.");
+                    : $"No window was opened for {shown.Title}: this host has no native window to open, or the window could not be built. Ask again with target \"web\" for a link.");
         }
 
         var link = host.WebLink(shown.Id, query);

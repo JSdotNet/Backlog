@@ -14,16 +14,37 @@ public sealed class DesktopSurfaceWindowHostTests
         new Dictionary<string, string> { ["plan"] = "shell-pop-out-windows" };
 
     [Fact]
-    public void A_native_window_is_one_more_of_the_heads_windows()
+    public async Task A_native_window_is_one_more_of_the_heads_windows()
     {
         var windows = new RecordingShellWindows();
         var host = new DesktopSurfaceWindowHost(windows, new WindowLinkTokens(), () => 5757);
 
-        Assert.True(host.TryOpenWindow("tasks", PlanQuery));
+        Assert.True(await host.TryOpenWindowAsync("tasks", PlanQuery));
 
         var (surfaceId, query) = Assert.Single(windows.Opened);
         Assert.Equal("tasks", surfaceId);
         Assert.Same(PlanQuery, query);
+    }
+
+    /// <summary>
+    /// The head's answer is the tool's: a window that could not be built — no
+    /// application to open it in, or a page that threw — reads as not opened, and the
+    /// answer waits for the head rather than saying "opened" on the way in.
+    /// </summary>
+    [Fact]
+    public async Task A_window_the_head_could_not_build_reads_as_not_opened_and_the_answer_waits_for_it()
+    {
+        var built = new TaskCompletionSource<bool>();
+        var windows = new RecordingShellWindows(built.Task);
+        var host = new DesktopSurfaceWindowHost(windows, new WindowLinkTokens(), () => 5757);
+
+        var answer = host.TryOpenWindowAsync("tasks", PlanQuery);
+
+        Assert.False(answer.IsCompleted);
+        Assert.Single(windows.Opened);
+
+        built.SetResult(false);
+        Assert.False(await answer);
     }
 
     [Fact]
@@ -81,11 +102,20 @@ public sealed class DesktopSurfaceWindowHostTests
         Assert.NotNull(tokens.Redeem(SurfaceWindowRoute.QueryOf(link.AbsoluteUri)[WindowLinkTokens.QueryKey]));
     }
 
-    private sealed class RecordingShellWindows : IShellWindows
+    /// <summary>Records every window asked for, and answers each with
+    /// <paramref name="answer"/> — built, unless a test says otherwise.</summary>
+    private sealed class RecordingShellWindows(Task<bool>? answer = null) : IShellWindows
     {
         public List<(string SurfaceId, IReadOnlyDictionary<string, string>? Query)> Opened { get; } = [];
 
-        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) => Opened.Add((surfaceId, query));
+        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
+            throw new NotSupportedException("open_window awaits OpenAsync; it never opens fire and forget.");
+
+        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
+        {
+            Opened.Add((surfaceId, query));
+            return answer ?? Task.FromResult(true);
+        }
 
         public void Close(string windowKey)
         {

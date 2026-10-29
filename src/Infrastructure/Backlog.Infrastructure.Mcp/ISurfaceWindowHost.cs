@@ -15,10 +15,11 @@ public interface ISurfaceWindowHost
 {
     /// <summary>
     /// Opens one more native window on <paramref name="surfaceId"/> with
-    /// <paramref name="query"/>, beside the main window. False when this host has no
-    /// native windows to open — the web harness — and nothing was opened.
+    /// <paramref name="query"/>, beside the main window, and answers once it is known
+    /// whether one was: false when this host has no native windows to open — the web
+    /// harness — or the window could not be built, and nothing was opened.
     /// </summary>
-    bool TryOpenWindow(string surfaceId, IReadOnlyDictionary<string, string> query);
+    Task<bool> TryOpenWindowAsync(string surfaceId, IReadOnlyDictionary<string, string> query);
 
     /// <summary>
     /// The full web address of the surface's page with <paramref name="query"/>, a link

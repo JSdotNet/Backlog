@@ -30,11 +30,10 @@ public sealed class DesktopSurfaceWindowHost(IShellWindows windows, WindowLinkTo
     : ISurfaceWindowHost
 {
     /// <inheritdoc />
-    public bool TryOpenWindow(string surfaceId, IReadOnlyDictionary<string, string> query)
-    {
-        windows.Open(surfaceId, query);
-        return true;
-    }
+    /// <remarks>Awaits the head's answer, so a window that failed to build, or an app
+    /// with nothing to open it in, reads as not opened.</remarks>
+    public Task<bool> TryOpenWindowAsync(string surfaceId, IReadOnlyDictionary<string, string> query) =>
+        windows.OpenAsync(surfaceId, query);
 
     /// <inheritdoc />
     /// <remarks>No token is minted while the listener is not listening: a token for a

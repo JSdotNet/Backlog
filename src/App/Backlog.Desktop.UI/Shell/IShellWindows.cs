@@ -15,6 +15,14 @@ public interface IShellWindows
     /// in any number of windows at once.</summary>
     void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null);
 
+    /// <summary>Opens another window on <paramref name="surfaceId"/>, as
+    /// <see cref="Open"/> does, and answers once it is known whether the window was
+    /// built and handed to the system: false when there was nothing to open it in, or
+    /// building it failed. What a caller that reports the outcome — the
+    /// <c>open_window</c> tool — awaits, so it never says "opened" before a window
+    /// exists.</summary>
+    Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null);
+
     /// <summary>Closes the popped-out window <paramref name="windowKey"/> names. The
     /// main window is never closed this way.</summary>
     void Close(string windowKey);
