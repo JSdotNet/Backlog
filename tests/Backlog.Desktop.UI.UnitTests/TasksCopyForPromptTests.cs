@@ -6,21 +6,19 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// Lifting a task's text off the screen and into a prompt.
 /// <para>
-/// Both lists in this pane used to refuse. The entry list refused on a taste
-/// argument — a clipboard button on every row would be the loudest control in a
-/// column whose job is scanning — which the shared row has since answered in CSS:
-/// the button sits in the disabled-text colour until the row is reached. The steps
-/// list refused for no recorded reason at all.
+/// The entry list used to refuse on a taste argument — a clipboard button on every
+/// row would be the loudest control in a column whose job is scanning — which the
+/// shared row has since answered in CSS: the button sits in the disabled-text
+/// colour until the row is reached.
 /// </para>
 /// <para>
-/// What each hands over is the point, not that a button exists. An entry row
+/// What it hands over is the point, not that a button exists. An entry row
 /// carries no <c>Body</c> — that is deliberate, a body would give every row in the
 /// column a disclosure — so left alone it would copy a bare title, which is not a
-/// prompt. It is given the whole written entry instead. A step already carries its
-/// note, so it needs nothing but permission.
+/// prompt. It is given the whole written entry instead.
 /// </para>
 /// <para>
-/// Neither copies the metadata line. `task` `*high` `!ready` `@backlog` is this
+/// It does not copy the metadata line. `task` `*high` `!ready` `@backlog` is this
 /// app's bookkeeping about the entry, not something the reader wrote, and pasting
 /// it into a model is pasting noise. What an entry copies instead is one line
 /// ahead of the title — <see cref="EntryRunMarker"/>, the command that runs the
@@ -149,25 +147,6 @@ public sealed class TasksCopyForPromptTests
             + "```\n## Not a step\n`task` `!ready`\n```\n\n"
             + "## Setup: install the plugin\n\nInstall it.\n\n"
             + "## Update the devbook once this prompt lands",
-            Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
-    }
-
-    [Fact]
-    public async Task A_step_copies_its_own_title_and_note()
-    {
-        using var host = await TasksPaneHost.CreateAsync();
-        host.Context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
-
-        await host.WriteEntryAsync(EntryWithSteps);
-        var pane = host.Render();
-
-        pane.Find("[data-testid='subitem-list-0-copy']").Click();
-
-        // The step, and only the step: the parent's prose is a different task's
-        // brief and would arrive unlabelled in the middle of this one. No command
-        // either — a step is not an entry Backlog can be asked about.
-        Assert.Equal(
-            "Wire up the store\n\nHow the store gets wired.",
             Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
     }
 

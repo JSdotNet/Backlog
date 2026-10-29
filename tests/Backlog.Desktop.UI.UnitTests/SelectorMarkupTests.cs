@@ -101,8 +101,8 @@ public sealed class SelectorMarkupTests
     }
 
     /// <summary>
-    /// Entries and steps are both rows in the shared task list, the open entry is the
-    /// shared panel, and the pane writes none of their titles itself.
+    /// Entries are rows in the shared task list, the open entry is the shared
+    /// panel, and the pane writes none of their titles itself.
     /// <para>
     /// This replaces a pin on two collapse buttons integrated into the two titles.
     /// Both titles were <c>AppButton</c>s the pane composed, each folding its own
@@ -120,14 +120,15 @@ public sealed class SelectorMarkupTests
     /// </para>
     /// </summary>
     [Fact]
-    public void Entries_and_steps_are_rows_and_the_open_entry_is_the_shared_panel()
+    public void Entries_are_rows_and_the_open_entry_is_the_shared_panel()
     {
         var pane = NormalizeLineEndings(File.ReadAllText(FindTasksPane()));
 
-        // Two lists: the entries on the left, the selected entry's steps on the
-        // right. The entry that is open is the panel they are beside.
+        // One list, the entries on the left. The entry that is open is the panel
+        // beside it, and its steps are written in its body's markdown rather than
+        // listed.
         Assert.Contains("TestId=\"entry-list\"", pane, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"subitem-list\"", pane, StringComparison.Ordinal);
+        Assert.DoesNotContain("TestId=\"subitem-list\"", pane, StringComparison.Ordinal);
         Assert.Contains("<TaskPanel", pane, StringComparison.Ordinal);
 
         // No row for the open entry, and so no list to put one in.

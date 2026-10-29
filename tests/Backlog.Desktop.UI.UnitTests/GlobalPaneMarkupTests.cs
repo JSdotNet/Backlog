@@ -1152,7 +1152,6 @@ public sealed class GlobalPaneMarkupTests
         {
             ".entry-detail__panel .task-panel__body {",
             ".entry-detail__body {",
-            ".entry-detail__view:not([hidden]) {",
             ".entry-detail__note {",
             ".entry-detail__note .markdown-editor__surface {",
             ".entry-detail__note .markdown-editor__grow {"
@@ -1268,8 +1267,8 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// The entry card, its four grab rails, its drop zones and the sub-item cards
-    /// are gone from the stylesheet as well as from the markup.
+    /// The entry card, its four grab rails, its drop zones, the sub-item cards and
+    /// the body's two readings are gone from the stylesheet as well as from the markup.
     /// <para>
     /// Dead CSS is not harmless: it is the next reader's evidence that a shape still
     /// exists. Every selector below styled something the shared components now draw,
@@ -1292,7 +1291,10 @@ public sealed class GlobalPaneMarkupTests
                      ".entry-doc__read {",
                      ".entry-doc__title-line",
                      ".subitem-card",
-                     ".subitem-list"
+                     ".subitem-list",
+                     ".entry-detail__views",
+                     ".entry-detail__view",
+                     ".entry-detail__prose"
                  })
         {
             Assert.DoesNotContain(dead, css, StringComparison.Ordinal);
