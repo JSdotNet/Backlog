@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.SpecManager.Api;
 using Backlog.Modules.Tasks.Abstractions.Connectors;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
@@ -21,6 +22,7 @@ public sealed class SpecManagerRegistrationTests
         Assert.Equal("spec-manager", connector.Descriptor.Id);
         Assert.True(connector.Capabilities.HasEffort);
         Assert.True(connector.Capabilities.HasDependencies);
+        Assert.True(connector.Capabilities.HasQuestions);
     }
 
     [Fact]
@@ -99,6 +101,76 @@ public sealed class SpecManagerRegistrationTests
         using var response = await client.GetAsync(new Uri("https://spec.test/api/products/x/backlog"), TestContext.Current.CancellationToken);
 
         Assert.True(handler.RequestCount > 1, $"Expected a retry, saw {handler.RequestCount} request(s).");
+    }
+
+    /// <summary>ADR 0018: the SpecManager section of a head's configuration points the app at
+    /// another installation — a harness at a local spec-manager.</summary>
+    [Fact]
+    public void The_base_url_is_bound_from_the_spec_manager_section()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["SpecManager:BaseUrl"] = "https://localhost:7443/" })
+            .Build();
+        var services = new ServiceCollection();
+        services.AddSpecManager(_ => new InMemorySpecManagerTokenStore(), configuration: configuration.GetSection(SpecManagerOptions.SectionName));
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Equal("https://localhost:7443", provider.GetRequiredService<IOptions<SpecManagerOptions>>().Value.Root);
+    }
+
+    [Fact]
+    public void An_empty_section_keeps_the_installation_that_ships()
+    {
+        var configuration = new ConfigurationBuilder().Build();
+        var services = new ServiceCollection();
+        services.AddSpecManager(_ => new InMemorySpecManagerTokenStore(), configuration: configuration.GetSection(SpecManagerOptions.SectionName));
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Equal(new Uri(SpecManagerOptions.DefaultBaseUrl), provider.GetRequiredService<IOptions<SpecManagerOptions>>().Value.BaseUrl);
+    }
+
+    [Fact]
+    public void It_answers_and_probes_for_the_spec_manager_source_once_however_often_it_is_added()
+    {
+        var services = new ServiceCollection();
+        services.AddSpecManager(_ => new InMemorySpecManagerTokenStore());
+        services.AddSpecManager(_ => new InMemorySpecManagerTokenStore());
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        Assert.Equal("spec-manager", Assert.Single(provider.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationAnswerHandler>()).Source);
+        Assert.Equal("spec-manager", Assert.Single(provider.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationSubjectProbe>()).Context);
+    }
+
+    [Fact]
+    public void The_question_source_starts_where_notifications_are_composed()
+    {
+        var services = new ServiceCollection();
+        services.AddSpecManager(_ => new InMemorySpecManagerTokenStore());
+        var ledger = new NotificationLedger();
+        services.AddSingleton<Backlog.Modules.Notifications.Abstractions.INotifications>(ledger);
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        var source = provider.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
+
+        Assert.False(source.IsOpen);
+    }
+
+    [Fact]
+    public void On_the_owner_the_question_source_also_pulls_the_other_notifications_and_hears_acknowledgements()
+    {
+        var services = new ServiceCollection();
+        services.AddSpecManager(_ => new InMemorySpecManagerTokenStore());
+        var ledger = new NotificationLedger();
+        services.AddSingleton<Backlog.Modules.Notifications.Abstractions.INotifications>(ledger);
+        services.AddSingleton<Backlog.Modules.Notifications.Abstractions.INotificationReplication>(ledger);
+        services.AddSingleton<Backlog.Modules.Notifications.Abstractions.INotificationCentre>(new FakeNotificationCentre());
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+
+        var source = provider.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
+
+        Assert.False(source.IsOpen);
+        Assert.NotNull(provider.GetService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerNotificationSync>());
+        Assert.NotNull(provider.GetService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerNotificationReads>());
     }
 
     private static (HttpClient Client, CountingHandler Handler) PipelineClient()

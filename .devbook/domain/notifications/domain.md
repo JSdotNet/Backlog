@@ -33,7 +33,7 @@ Its content is meant to be shown on every channel:
 - The title holds at most 80 characters, and the summary at most 180, both plain
   text. They are the only content that leaves the replica in an OS notification
   or a push payload. A push also names the notification's id, kind, severity and
-  state.
+  state, and its [origin](#origin) as "System · Place".
 - The body is Markdown, with Mermaid diagrams and images. Images travel as
   attachments through the blob store
   (`.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md`).
@@ -43,6 +43,13 @@ Its content is meant to be shown on every channel:
 
 A notification has no deadline and no default answer. A question stays open until
 the owner accepts an answer, the publisher closes it, or its subject ends.
+
+A source that asks about something with an identity of its own may name the
+notification's id, derived from that thing. Publishing an id the owner already
+holds changes nothing, whatever state it reached, so a source can publish on every
+pull. Two desktops that derive the same id both publish it; the replica keeps the
+one that pushed it first, and the other closes its own copy as "Owned by another
+desktop" and stays a viewer.
 
 The rules it holds are `### Invariant:` chapters in
 [`domain.invariants.md`](domain.invariants.md#notification).
@@ -58,6 +65,47 @@ aliases: [NotificationSource]
 The boundary that raised the notification, and the key inside it: for example
 `sessions` / `run-58`. The owner hands the accepted answer back to the handler
 registered for the source's boundary. An alert-only source registers no handler.
+The source routes; it is never shown. What a person reads is the
+[Origin](#origin).
+
+### Origin
+
+```meta
+status: proposed
+type: value-object
+aliases: [NotificationOrigin]
+related: [.devbook/domain/notifications/domain.invariants.md#invariant-an-origin-stays-within-its-bounds]
+```
+
+Where the notification came from, in words a person reads. Optional: a
+notification without one is drawn by its source, as before.
+
+| Part | Holds | Bound |
+|---|---|---|
+| System | The system that raised it: "Claude Code", "Backlog", "spec-manager". Required. | 40 characters |
+| Place | Where in that system: a repository and run title, a product and item, a chapter. | 120 characters |
+| Asked by | The person who asked, when known. | 80 characters |
+| Via | How it was asked: "Agent session", "MCP ask". | 40 characters |
+| Open link | An `http` or `https` link that opens it at its origin, or none. | |
+
+Every part is one line of plain text. The origin holds no content, so it
+travels wherever the title does, a private notification's push included.
+"System · Place" is the attribution line of a Windows notification, the
+subtitle of the phone's tray entry, and the push's `origin`, cut to 60
+characters there. The card draws the system as a badge with the place above
+the title, who asked and how under it, and "Open in &lt;System&gt;" when there is
+a link. The centre filters by the system.
+
+The sources inside Backlog fill it:
+
+| Source | System | Place | Via |
+|---|---|---|---|
+| A run's Personal Validation | Claude Code | The repository and the run's title | Agent session |
+| Pairing a device | Backlog | Pairing | |
+| A Devbook remark | Backlog | The chapter, the remark's author as asked by | |
+| MCP `ask` and `notify` | The MCP client's own name; Claude Code for a call that names a Claude session; else "MCP client" | | MCP ask |
+| A spec-manager question | spec-manager, with the host for an installation other than the one that ships | The product and `#<number> <title>`, or the product and the OpenSpec change | "Agent session", with the session's title when the item's linked task names exactly one session, or "typed in spec-manager"; the asker as asked by |
+| Another spec-manager notification | spec-manager, with the host as above | The product, when the notification is about one | The category in words: "Mention", "Reply", "Change proposal", "Input", "Review work", "Administration" |
 
 ### Subject
 
@@ -84,6 +132,10 @@ The subjects a notification can be about, and when each ends:
 | `tasks` / `task` / task id | Tasks | marked Done or Archived, or deleted | "Task done" |
 | `devbook` / `remark` / remark id | Devbook | resolved or deleted | "Remark resolved" |
 | `sync` / `pairing` / pairing id | Sync | its pairing code expires unredeemed, or the question about the device that redeemed it is answered; a pairing from an earlier run stays live | "Pairing finished" |
+| `spec-manager` / `question` / question id | The spec-manager adapter, for a question whose item is no linked task | answered, deleted or reassigned away in spec-manager; one that reaches the person again is a new notification | "Answered in spec-manager by &lt;name&gt;: &lt;answer&gt;", or "Withdrawn in spec-manager" |
+
+A spec-manager question whose item is a linked task is about that task instead,
+`tasks` / `task` / the task's id, and closes when the item is finished or archived.
 
 The owning context reports the end where it notices it, and answers a probe
 about each subject at startup for the ends it missed. An end made on another
@@ -103,10 +155,14 @@ one of four shapes:
 
 | Shape | What a reply may hold |
 |---|---|
-| Single choice | Exactly one of two to six set choices. Each choice has an id, a label, and an optional style: primary or destructive. |
+| Single choice | Exactly one of two to eight set choices. Each choice has an id, a label, and an optional style: primary or destructive. |
 | Multiple choice | Any subset of the set choices, within an optional minimum and maximum. |
 | Open | Plain text, with an optional placeholder and length limit. Markdown is not allowed in an answer. |
 | Choices with open | One of the set choices, or an open answer instead. |
+
+Any shape may also take a **note**: plain text with an optional placeholder and
+length limit, which a reply may fill beside its choice or open answer. A note
+never answers on its own, and a question without one takes no note.
 
 An answer spec may also say `answerOn: owner`. Only a reply made on the owner
 instance is then accepted. Without it, any paired viewer may answer, critical
@@ -162,7 +218,9 @@ stateDiagram-v2
   needs no answer, and a reply sent after it is rejected as closed.
 
 Only the owner makes these transitions. Read marks are per device and are not
-part of the state.
+part of the state. A source may act on a transition outside Backlog: an alert
+raised for a spec-manager notification that is acknowledged is marked read in
+spec-manager, and the publisher closes one read there.
 
 ## Reply
 
@@ -186,7 +244,7 @@ answer spec. The viewer can then reply again. The owner deletes a reply once it
 has processed it.
 
 A reply names the notification, its owner instance, the device it came from, the
-chosen choice ids and the open text.
+chosen choice ids, the open text and the note.
 
 ## Answer
 

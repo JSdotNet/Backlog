@@ -35,6 +35,36 @@ public class NotificationPushPreviewTests
     }
 
     [Fact]
+    public void The_preview_carries_the_origin_as_system_and_place_cut_to_sixty_characters()
+    {
+        var origin = new NotificationOrigin("spec-manager", "Billing · #7 Rounding in invoices, half even or half up for the totals");
+        var change = NotificationPayloads.ToChange(Snapshot(isPrivate: true) with { Origin = origin }, [], Created);
+
+        Assert.NotNull(change.Preview);
+        Assert.Equal(60, change.Preview.Origin!.Length);
+        Assert.StartsWith("spec-manager · Billing · #7", change.Preview.Origin, StringComparison.Ordinal);
+        Assert.EndsWith("…", change.Preview.Origin, StringComparison.Ordinal);
+        Assert.Null(NotificationRecordLimits.WhyRefused(change));
+    }
+
+    [Fact]
+    public void A_notification_without_an_origin_previews_none()
+    {
+        var change = NotificationPayloads.ToChange(Snapshot(isPrivate: false), [], Created);
+
+        Assert.Null(change.Preview!.Origin);
+    }
+
+    [Fact]
+    public void The_origin_travels_in_the_replica_document_and_reads_back()
+    {
+        var origin = new NotificationOrigin("Claude Code", "JSdotNet/Backlog · Notification origin", "Ada", "Agent session", "https://example.test/q/7");
+        var change = NotificationPayloads.ToChange(Snapshot(isPrivate: false) with { Origin = origin }, [], Created);
+
+        Assert.Equal(origin, NotificationPayloads.Read(change)!.Notification.Origin);
+    }
+
+    [Fact]
     public void The_preview_holds_to_the_services_bounds()
     {
         var change = NotificationPayloads.ToChange(Snapshot(isPrivate: false), [], Created);

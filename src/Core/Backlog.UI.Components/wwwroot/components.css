@@ -1439,6 +1439,13 @@ button.badge:hover {
     margin: var(--spacing-xs) 0 0;
 }
 
+/* The line under "Only questions assigned to me" on how to stop the source's own
+   push: worded as the switch's description, a line of its own under it. */
+.connected-target__push-hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
 .connected-target__options {
     display: grid;
     gap: var(--spacing-sm);
@@ -23113,6 +23120,44 @@ select.field__input {
     color: var(--color-text-secondary);
 }
 
+/* Where it came from: the system as a badge and the place beside it above the
+   title, who asked and how under it, "Open in <System> ↗" at the foot. All on
+   the existing badge tones — the system badge stands out by weight, the via pill
+   by its outline, so an origin reads as context and never as a second state. */
+.notification-card__origin,
+.notification-card__asked {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    margin: 0;
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.notification-card__place {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.notification-card__footer {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.badge--notification-origin-system {
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.badge--notification-origin-via {
+    background: transparent;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+}
+
 .notification-card__body {
     min-width: 0;
 }
@@ -23128,6 +23173,24 @@ select.field__input {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-sm);
+}
+
+/* Seven or eight choices: an even grid that wraps, so a long row of buttons
+   never runs past the card and a long label breaks inside its button. */
+.notification-card__actions--many {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+}
+
+.notification-card__actions--many .btn {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.notification-card__note {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
 }
 
 .notification-card__choices {

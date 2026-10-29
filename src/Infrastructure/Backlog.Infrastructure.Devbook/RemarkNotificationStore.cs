@@ -149,7 +149,8 @@ public sealed class RemarkNotificationStore(
 
             {quoted}
             """,
-            DeepLink: DevbookNotificationSubjects.ChapterLink(remark.RepositoryAlias, remark.ChapterPath));
+            DeepLink: DevbookNotificationSubjects.ChapterLink(remark.RepositoryAlias, remark.ChapterPath),
+            Origin: NotificationOrigin.Fit(NotificationOrigins.Backlog, chapter, askedBy: remark.Author));
     }
 
     private static string Fit(string text, int length) =>

@@ -101,6 +101,21 @@ The title holds at most 80 characters and the summary at most 180, both plain te
 
 Enforced at: constructor
 
+### Invariant: An origin stays within its bounds
+
+```meta
+status: proposed
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationOriginTests.A_part_past_its_bound_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationOriginTests.An_origin_without_a_system_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationOriginTests.A_part_that_runs_over_a_line_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationOriginTests.A_link_that_is_not_http_or_https_is_refused]
+```
+
+An [origin](domain.md#origin) names its system. Its system holds at most 40
+characters, its place 120, who asked 80 and how 40, each one line of plain text
+(`notification.content_too_long`, `notification.origin_invalid`). Its link is an
+absolute `http` or `https` address.
+
+Enforced at: constructor
+
 ## Reply
 
 ```meta
@@ -116,10 +131,10 @@ related: [.devbook/domain/notifications/domain.md#reply]
 ```meta
 status: proposed
 type: invariant
-tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_single_choice_reply_picks_exactly_one_offered_choice, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_multiple_choice_reply_picks_offered_choices_within_the_limits, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.An_open_reply_is_plain_text_within_the_length_limit, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.Choices_with_open_take_one_choice_or_the_open_answer_but_not_both]
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_single_choice_reply_picks_exactly_one_offered_choice, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_multiple_choice_reply_picks_offered_choices_within_the_limits, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.An_open_reply_is_plain_text_within_the_length_limit, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.Choices_with_open_take_one_choice_or_the_open_answer_but_not_both, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_note_goes_beside_a_choice_or_an_open_answer_within_its_limit, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_without_a_note_takes_no_note]
 ```
 
-A reply holds only choice ids the answer spec offers, within its count limits, and open text only where the spec allows it and within its length (`reply.invalid`).
+A reply holds only choice ids the answer spec offers, within its count limits, open text only where the spec allows it and within its length, and a note only where the spec takes one and within its length (`reply.invalid`).
 
 Enforced at: `Accept()` on the Notification
 

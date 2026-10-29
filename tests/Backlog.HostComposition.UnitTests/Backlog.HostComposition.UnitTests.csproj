@@ -57,6 +57,7 @@
   <ItemGroup>
     <Compile Include="..\Shared\TestDoubles\InMemorySessionRequestStore.cs" Link="Shared\TestDoubles\InMemorySessionRequestStore.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingTelemetry.cs" Link="Shared\TestDoubles\RecordingTelemetry.cs" />
+    <Compile Include="..\Shared\TestDoubles\RecordingNotifications.cs" Link="Shared\TestDoubles\RecordingNotifications.cs" />
   </ItemGroup>
 
   <!-- The MAUI head's MCP listener, compiled here from its own source: the head

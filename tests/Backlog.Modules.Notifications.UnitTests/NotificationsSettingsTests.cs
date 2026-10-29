@@ -244,7 +244,7 @@ public sealed class NotificationsSettingsTests : IDisposable
         page.Find(SendQuestion).Click();
         page.WaitForAssertion(() => Assert.NotNull(page.Find(Clear)));
 
-        await _centre.AnswerAsync((await OnlyTestAsync()).Id, [TestNotifications.NotYetChoiceId], null, Ct);
+        await _centre.AnswerAsync((await OnlyTestAsync()).Id, [TestNotifications.NotYetChoiceId], null, cancellationToken: Ct);
 
         page.WaitForAssertion(() => Assert.StartsWith(
             "Answered: Not yet — from this desktop", Step(page, "answered"), StringComparison.Ordinal));

@@ -414,7 +414,7 @@ public sealed class NotificationToolsRelayTests
     [Fact]
     public void The_answers_are_keyed_by_the_question_text_as_written()
     {
-        var payload = new NotificationAnswerPayload(Guid.NewGuid(), "answered", [], null, Noon, null, new Dictionary<string, string> { ["Which Tags apply?"] = "ui, docs" });
+        var payload = new NotificationAnswerPayload(Guid.NewGuid(), "answered", [], null, Noon, null, Answers: new Dictionary<string, string> { ["Which Tags apply?"] = "ui, docs" });
 
         var json = JsonSerializer.Serialize(payload, McpJsonUtilities.DefaultOptions);
 

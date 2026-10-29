@@ -504,7 +504,7 @@ internal static class StorybookIndex
         // DiagramView included.
         new("Notifications",
         [
-            new("notification-card", "Notification card", "NotificationCard: one alert or question, read in Markdown and answered in place — buttons for a set answer, checkboxes for several, a plain-text box for an open answer, Acknowledge on an alert, and the answer that won or the reason it closed.")
+            new("notification-card", "Notification card", "NotificationCard: one alert or question and where it came from, read in Markdown and answered in place — buttons for a set answer, checkboxes for several, a plain-text box for an open answer, Acknowledge on an alert, and the answer that won or the reason it closed.")
         ]),
 
         // A subject of its own after Dashboard, and after it by the rule: a settings
