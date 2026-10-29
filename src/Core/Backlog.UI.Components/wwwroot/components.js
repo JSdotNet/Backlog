@@ -1535,6 +1535,10 @@
         // that control. Only the button form is named: an inert tag is text on the
         // row like the title is, and text on the row is draggable.
         'button.tag-chip__label,' +
+        // A web address in a title is followed by a click, so the press on it
+        // is the address's: dragging the row from there would turn following a
+        // link into moving the row a reader only meant to leave.
+        '[data-title-url],' +
         'input, textarea, select, a[href]';
 
     let taskDrag = null;
@@ -2149,6 +2153,36 @@
         dot.setAttribute('cy', String(endY));
         dot.setAttribute('r', snap ? String(TASK_LINK_DOT_R) : '0');
     }
+
+    // A web address drawn inside a control — a task title is the button that
+    // opens its row, so the address in it cannot be an anchor — is opened from
+    // here when a pointer clicks it (TaskTitleText draws it with data-title-url).
+    // TASK_DRAG_EXCLUDED above keeps the press on it from starting a drag.
+    //
+    // A native listener and not a call from .NET, because a browser lets a page
+    // open a window only while the click that asked for it is still running: a
+    // round trip through a Blazor Server circuit first can outlast that, and the
+    // popup blocker drops the window without a word. A new window is the request
+    // every host already routes the way it routes an `<a target="_blank">`: a
+    // browser opens a tab, and the desktop head's WebView hands it to the system
+    // browser.
+    //
+    // Opening is all this does. Keeping the row, the card and the rename button
+    // from hearing the click is Blazor's `@onclick:stopPropagation` on the span,
+    // which ends Blazor's own walk; the native event still reaches this listener.
+    // The scheme is checked again here, whatever drew the attribute, because what
+    // it opens is a window.
+    document.addEventListener('click', (event) => {
+        if (event.button !== 0) return;
+
+        const span = event.target instanceof Element ? event.target.closest('[data-title-url]') : null;
+        if (!span) return;
+
+        const url = span.getAttribute('data-title-url');
+        if (!url || !/^https?:\/\//i.test(url)) return;
+
+        window.open(url, '_blank', 'noopener,noreferrer');
+    });
 
     // A right-click on a row asks for its menu, and asking must not move the
     // focus. The browser's default for a mousedown is to focus the nearest
