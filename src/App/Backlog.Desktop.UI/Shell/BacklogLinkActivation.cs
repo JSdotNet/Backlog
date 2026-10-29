@@ -62,7 +62,7 @@ public sealed class BacklogLinkActivation(IShellWindows windows, ISurfaceCatalog
 
     private void Open(string? text)
     {
-        if (BacklogWindowLink.Parse(text) is not { } link)
+        if (SurfaceLink.Parse(text) is not { } link)
         {
             logger.LogWarning("The activation {Link} is no backlog://window/ link; no window was opened.", text);
             return;

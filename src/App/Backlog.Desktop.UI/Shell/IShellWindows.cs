@@ -55,25 +55,7 @@ public static class SurfaceWindowRoute
         SurfaceLink.Path(surfaceId, query);
 
     /// <summary>The query of <paramref name="uri"/>, each key and value unescaped. A
-    /// key given twice keeps its first value.</summary>
-    public static Dictionary<string, string> QueryOf(string uri)
-    {
-        var query = new Dictionary<string, string>(StringComparer.Ordinal);
-        var start = uri.IndexOf('?', StringComparison.Ordinal);
-        if (start < 0) return query;
-
-        var end = uri.IndexOf('#', start);
-        var text = end < 0 ? uri[(start + 1)..] : uri[(start + 1)..end];
-        foreach (var part in text.Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var equals = part.IndexOf('=', StringComparison.Ordinal);
-            var key = Unescape(equals < 0 ? part : part[..equals]);
-            var value = equals < 0 ? string.Empty : Unescape(part[(equals + 1)..]);
-            if (key.Length > 0) query.TryAdd(key, value);
-        }
-
-        return query;
-    }
-
-    private static string Unescape(string text) => Uri.UnescapeDataString(text.Replace('+', ' '));
+    /// key given twice keeps its first value. <see cref="SurfaceLink.QueryOf"/> reads
+    /// it, as it reads a <c>backlog://window/…</c> link's.</summary>
+    public static Dictionary<string, string> QueryOf(string uri) => SurfaceLink.QueryOf(uri);
 }

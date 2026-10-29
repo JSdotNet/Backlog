@@ -12,34 +12,61 @@
 
 Each view and work-in-progress option leads with a glyph from the library's Icons folder. The glyph is decorative and hidden from assistive technology, so each option's name is still its word.
 
+Every option is a surface that pops out, so each carries a ⧉ Open in new window button. It hangs centred under its option, clear of the word, the glyph and the selected underline, and shows on hover and while anything in the item has focus — always, where nothing can hover. It is placed absolutely, so showing it never moves the header. Its name is Open <name> in a new window, and every press opens one more window and changes nothing here.
+
 The sample is live: pick a view, or press the Inbox, the Devbook or a takeover — the line under it says what the shell would show. Board lays the Tasks rows out in columns and Calendar by due date, on a month or a week as the calendar's Month | Week range says."
            Code="@HeaderCode">
+        @* Each option stands in a header item beside its ⧉, drawn once by
+           HeaderItem, as the shell's Home draws its own. *@
         <nav class="sb-header-nav" aria-label="Workspace views" data-testid="sb-header-nav">
             <div class="sb-header-nav__workspace">
-                <ToggleButton Pressed="@(_takeover == InboxTakeover)" OnClick="() => ToggleTakeover(InboxTakeover)" TestId="sb-inbox-toggle">Inbox</ToggleButton>
+                @HeaderItem(InboxTakeover, @<ToggleButton Pressed="@(_takeover == InboxTakeover)" OnClick="() => ToggleTakeover(InboxTakeover)" TestId="sb-inbox-toggle">Inbox</ToggleButton>)
                 <ButtonGroup AriaLabel="View" TestId="sb-view-switch">
-                    <ToggleButton Pressed="@ViewPressed("Tasks")" OnClick="@(() => ShowView("Tasks"))"><ListIcon />Tasks</ToggleButton>
-                    <ToggleButton Pressed="@ViewPressed("Board")" OnClick="@(() => ShowView("Board"))"><Columns3Icon />Board</ToggleButton>
-                    <ToggleButton Pressed="@ViewPressed("Calendar")" OnClick="@(() => ShowView("Calendar"))"><CalendarIcon />Calendar</ToggleButton>
-                    <ToggleButton Pressed="@ViewPressed("Roadmap")" OnClick="@(() => ShowView("Roadmap"))"><ChartGanttIcon />Roadmap</ToggleButton>
+                    @HeaderItem("Tasks", @<ToggleButton Pressed="@ViewPressed("Tasks")" OnClick="@(() => ShowView("Tasks"))"><ListIcon />Tasks</ToggleButton>)
+                    @HeaderItem("Board", @<ToggleButton Pressed="@ViewPressed("Board")" OnClick="@(() => ShowView("Board"))"><Columns3Icon />Board</ToggleButton>)
+                    @HeaderItem("Calendar", @<ToggleButton Pressed="@ViewPressed("Calendar")" OnClick="@(() => ShowView("Calendar"))"><CalendarIcon />Calendar</ToggleButton>)
+                    @HeaderItem("Roadmap", @<ToggleButton Pressed="@ViewPressed("Roadmap")" OnClick="@(() => ShowView("Roadmap"))"><ChartGanttIcon />Roadmap</ToggleButton>)
                 </ButtonGroup>
-                <ToggleButton Pressed="@(_takeover == DevbookTakeover)" OnClick="() => ToggleTakeover(DevbookTakeover)" TestId="sb-devbook-toggle">Devbook</ToggleButton>
+                @HeaderItem(DevbookTakeover, @<ToggleButton Pressed="@(_takeover == DevbookTakeover)" OnClick="() => ToggleTakeover(DevbookTakeover)" TestId="sb-devbook-toggle">Devbook</ToggleButton>)
             </div>
             @* Goals leads the group though it is a view, not a takeover: it is the
                summary the two lists are behind, so a press shows it as a view. *@
             <ButtonGroup AriaLabel="Work in progress" TestId="sb-work-in-progress">
-                <ToggleButton Pressed="@ViewPressed("Goals")" OnClick="@(() => ShowView("Goals"))"><TargetIcon />Goals</ToggleButton>
-                <ToggleButton Pressed="@(_takeover == "Sessions")" OnClick="@(() => ToggleTakeover("Sessions"))"><SquareTerminalIcon />Sessions</ToggleButton>
-                <ToggleButton Pressed="@(_takeover == "Pull requests")" OnClick="@(() => ToggleTakeover("Pull requests"))"><GitPullRequestIcon />Pull requests</ToggleButton>
+                @HeaderItem("Goals", @<ToggleButton Pressed="@ViewPressed("Goals")" OnClick="@(() => ShowView("Goals"))"><TargetIcon />Goals</ToggleButton>)
+                @HeaderItem("Sessions", @<ToggleButton Pressed="@(_takeover == "Sessions")" OnClick="@(() => ToggleTakeover("Sessions"))"><SquareTerminalIcon />Sessions</ToggleButton>)
+                @HeaderItem("Pull requests", @<ToggleButton Pressed="@(_takeover == "Pull requests")" OnClick="@(() => ToggleTakeover("Pull requests"))"><GitPullRequestIcon />Pull requests</ToggleButton>)
             </ButtonGroup>
             <div class="sb-row" role="group" aria-label="Surface">
                 @foreach (var takeover in Surfaces)
                 {
-                    <ToggleButton Pressed="@(_takeover == takeover)" OnClick="() => ToggleTakeover(takeover)">@takeover</ToggleButton>
+                    @HeaderItem(takeover, @<ToggleButton Pressed="@(_takeover == takeover)" OnClick="() => ToggleTakeover(takeover)">@takeover</ToggleButton>)
                 }
             </div>
         </nav>
         <p class="sb-state" data-testid="sb-header-state">@HeaderState</p>
+    </Story>
+
+    <Story Name="Popped-out window header"
+           Description="A surface popped out into its own window wears a slim header of three things: the surface's title as its heading, the window's own repository scope chips led by the Brain chip, and Show in main window, which switches the main window to this surface and closes this one. A plain press on a chip scopes that one, and a press on the only one in scope clears it; the chips narrow this window alone, never the main window's scope.
+
+There is no view switch, no takeover option, no Ask AI — it stays in the main window — and no close button: the OS one closes the window. The sample is live: press a chip, or Show in main window, and the line under it says what the window would do."
+           Code="@WindowHeaderCode">
+        <header class="sb-window-header" data-testid="sb-window-header">
+            <h3 class="sb-window-header__title">Roadmap</h3>
+            <ButtonGroup AriaLabel="Repository scope" TestId="sb-window-scope">
+                <ToggleButton Pressed="@_windowScope.Contains(BrainScope)" OnClick="() => ScopeWindow(BrainScope)"><BrainIcon />@BrainScope</ToggleButton>
+                @foreach (var repository in WindowRepositories)
+                {
+                    <ToggleButton Pressed="@_windowScope.Contains(repository)" OnClick="() => ScopeWindow(repository)">@repository</ToggleButton>
+                }
+            </ButtonGroup>
+            <AppButton TestId="sb-window-show-in-main"
+                       Title="Show this in the main window and close this window"
+                       OnClick="ShowInMainWindow">
+                Show in main window
+            </AppButton>
+        </header>
+        <p class="sb-state" data-testid="sb-window-state">@WindowState</p>
     </Story>
 
     <Story Name="Tab bar"
@@ -129,16 +156,57 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
     /// <summary>A view press is also the way back from a takeover.</summary>
     private void ShowView(string view)
     {
+        _poppedOut = null;
         _takeover = null;
         _view = view;
     }
 
-    private void ToggleTakeover(string takeover) => _takeover = _takeover == takeover ? null : takeover;
+    private void ToggleTakeover(string takeover)
+    {
+        _poppedOut = null;
+        _takeover = _takeover == takeover ? null : takeover;
+    }
+
+    /// <summary>The surface whose ⧉ was pressed last, which the line under the
+    /// sample names.</summary>
+    private string? _poppedOut;
+
+    /// <summary>One header item: <paramref name="option"/> and the ⧉ that pops
+    /// <paramref name="name"/> out. A press opens one more window and changes
+    /// nothing in this one, so here it only says so.</summary>
+    private RenderFragment HeaderItem(string name, RenderFragment option) =>
+        @<span class="sb-header-item">@option<IconButton BaseClass="sb-header-item__pop"
+                                                        AriaLabel="@($"Open {name} in a new window")"
+                                                        OnClick="() => _poppedOut = name">⧉</IconButton></span>;
+
+    private const string BrainScope = "Brain";
+
+    private static readonly string[] WindowRepositories = ["backlog", "web", "api"];
+
+    private List<string> _windowScope = [];
+    private bool _shownInMain;
+
+    /// <summary>A plain press scopes that one; a press on the only one in scope
+    /// clears it.</summary>
+    private void ScopeWindow(string scope)
+    {
+        _shownInMain = false;
+        _windowScope = _windowScope is [var only] && only == scope ? [] : [scope];
+    }
+
+    private void ShowInMainWindow() => _shownInMain = true;
+
+    private string WindowState => _shownInMain
+        ? "The main window switches to the Roadmap, and this window closes."
+        : _windowScope is [var scope]
+            ? $"This window shows {scope} alone; the main window's scope is unchanged."
+            : "This window shows every repository in scope; the main window's scope is unchanged.";
 
     private string HeaderState
     {
         get
         {
+            if (_poppedOut is { } poppedOut) return $"One more window opened on {poppedOut}; this one is unchanged.";
             if (_takeover == InboxTakeover) return $"The Inbox has the screen; its option, a view or another takeover returns to {_view}. Escape stays with the Inbox.";
             if (_takeover is not null) return $"{_takeover} has the screen; its option, Escape, a view or another takeover returns to {_view}.";
 
@@ -188,25 +256,44 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
     private const string HeaderCode = """
         <nav class="app-header__nav" aria-label="Workspace views">
             <div class="app-header__workspace">
-                <ToggleButton Pressed="InboxVisible" OnClick="ToggleInbox">Inbox</ToggleButton>
+                @HeaderItem(InboxSurfaceId, @<ToggleButton Pressed="InboxVisible" OnClick="ToggleInbox">Inbox</ToggleButton>)
                 <ButtonGroup CssClass="header-group header-group--views" AriaLabel="View">
-                    <ToggleButton Pressed="ViewOptionPressed(TasksViewId)" OnClick="() => ShowView(TasksViewId)"><ListIcon />Tasks</ToggleButton>
-                    <ToggleButton Pressed="ViewOptionPressed(BoardViewId)" OnClick="() => ShowView(BoardViewId)"><Columns3Icon />Board</ToggleButton>
-                    <ToggleButton Pressed="ViewOptionPressed(CalendarViewId)" OnClick="() => ShowView(CalendarViewId)"><CalendarIcon />Calendar</ToggleButton>
-                    <ToggleButton Pressed="ViewOptionPressed(RoadmapViewId)" OnClick="() => ShowView(RoadmapViewId)"><ChartGanttIcon />Roadmap</ToggleButton>
+                    @HeaderItem(TasksViewId, @<ToggleButton Pressed="ViewOptionPressed(TasksViewId)" OnClick="() => ShowView(TasksViewId)"><ListIcon />Tasks</ToggleButton>)
+                    @HeaderItem(BoardViewId, @<ToggleButton Pressed="ViewOptionPressed(BoardViewId)" OnClick="() => ShowView(BoardViewId)"><Columns3Icon />Board</ToggleButton>)
+                    @HeaderItem(CalendarViewId, @<ToggleButton Pressed="ViewOptionPressed(CalendarViewId)" OnClick="() => ShowView(CalendarViewId)"><CalendarIcon />Calendar</ToggleButton>)
+                    @HeaderItem(RoadmapViewId, @<ToggleButton Pressed="ViewOptionPressed(RoadmapViewId)" OnClick="() => ShowView(RoadmapViewId)"><ChartGanttIcon />Roadmap</ToggleButton>)
                 </ButtonGroup>
-                <ToggleButton Pressed="DevbookVisible" OnClick="ToggleDevbook">Devbook</ToggleButton>
+                @HeaderItem(DevbookSurfaceId, @<ToggleButton Pressed="DevbookVisible" OnClick="ToggleDevbook">Devbook</ToggleButton>)
             </div>
             <ButtonGroup CssClass="header-group header-group--work" AriaLabel="Work in progress">
-                <ToggleButton Pressed="ViewOptionPressed(GoalsViewId)" Title="Goals" OnClick="() => ShowView(GoalsViewId)"><TargetIcon />Goals</ToggleButton>
-                <ToggleButton Pressed="SessionsVisible" PressedChanged="ToggleSessions"><SquareTerminalIcon />Sessions</ToggleButton>
-                <ToggleButton Pressed="PullRequestsVisible" PressedChanged="TogglePullRequests"><GitPullRequestIcon />Pull requests</ToggleButton>
+                @HeaderItem(GoalsViewId, @<ToggleButton Pressed="ViewOptionPressed(GoalsViewId)" Title="Goals" OnClick="() => ShowView(GoalsViewId)"><TargetIcon />Goals</ToggleButton>)
+                @HeaderItem(SessionsSurfaceId, @<ToggleButton Pressed="SessionsVisible" PressedChanged="ToggleSessions"><SquareTerminalIcon />Sessions</ToggleButton>)
+                @HeaderItem(PullRequestsSurfaceId, @<ToggleButton Pressed="PullRequestsVisible" PressedChanged="TogglePullRequests"><GitPullRequestIcon />Pull requests</ToggleButton>)
             </ButtonGroup>
             <ButtonGroup CssClass="header-group header-group--loose header-group--surface" AriaLabel="Surface">
-                <ToggleButton Pressed="DashboardVisible" PressedChanged="ToggleDashboard">Dashboard</ToggleButton>
-                <ToggleButton Pressed="ToolsVisible" PressedChanged="ToggleTools">Tools</ToggleButton>
+                @HeaderItem(DashboardSurfaceId, @<ToggleButton Pressed="DashboardVisible" PressedChanged="ToggleDashboard">Dashboard</ToggleButton>)
+                @HeaderItem(ToolsSurfaceId, @<ToggleButton Pressed="ToolsVisible" PressedChanged="ToggleTools">Tools</ToggleButton>)
             </ButtonGroup>
         </nav>
+        @code {
+            // The option, then its ⧉: one more window on the surface per press.
+            private RenderFragment HeaderItem(string surfaceId, RenderFragment option) =>
+                @<span class="header-surface-item">@option@PopOutButton(surfaceId)</span>;
+        }
+        """;
+
+    private const string WindowHeaderCode = """
+        <header class="app-header surface-window__header">
+            <h1 class="surface-window__title">@Title</h1>
+            <ButtonGroup CssClass="header-group app-header__repository-scope surface-window__scope" AriaLabel="Repository scope">
+                <ToggleButton Pressed="state.BrainInScope" OnClick="ScopeBrain"><BrainIcon CssClass="chip__icon" />Brain</ToggleButton>
+                @foreach (var repository in state.Repositories)
+                {
+                    <ToggleButton Pressed="InScope(repository)" OnClick="() => ScopeRepository(repository.Alias)">@repository.Alias</ToggleButton>
+                }
+            </ButtonGroup>
+            <AppButton Title="Show this in the main window and close this window" OnClick="ShowInMainWindowAsync">Show in main window</AppButton>
+        </header>
         """;
 
     private const string NotPairedCode = """
