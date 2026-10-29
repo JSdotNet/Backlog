@@ -443,6 +443,10 @@ Reached directly, as below, the marks are not on the page, so the back-links poi
         new("MdCodeSpan", "`inline code`", "code.md-inline-code"),
         new("MdTag", "#tag", "span.tag-chip carrying the literal #tag — the same class TagChip wears, and not the same markup. See Tags"),
         new("MdLink", "[a link](https://example.com)", "a.md-link, target=_blank, rel=noopener noreferrer — or a followable chapter, where the host said this is a knowledge document. See References"),
+        // Two more ways to write the same record, so they get rows of their own:
+        // nothing in the source says "link" but the address itself.
+        new("MdLink — a bare web address", "see https://example.com/a.", "the same a.md-link, the address as its words — http and https only, and the full stop after it stays in the sentence"),
+        new("MdLink — an angle-bracket autolink", "<https://example.com>", "the same a.md-link, the brackets dropped — an address of any other scheme stays the literal text typed"),
         // A URL that resolves: this row renders live, and a placeholder would
         // 404 and show the reader a broken image instead of an image.
         new("MdImage", "![alt text](sample-image.svg)", "img.md-image, loading=lazy — or its alt text, when the URL is one we will not fetch"),

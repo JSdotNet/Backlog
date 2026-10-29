@@ -5688,6 +5688,50 @@ button.task-panel__check:focus-visible {
     vertical-align: baseline;
 }
 
+/*
+  A web address typed into a task title — on the row, the card and the panel
+  heading. It sits inside the control that opens or renames the task, so it is a
+  span a pointer can follow rather than an anchor; it still has to read as a link,
+  and by more than its colour: the dotted underline is the shape the inert link
+  already wears (`.md-link--inert`), and the pointer cursor says a click goes
+  somewhere. Inline and unclamped, like a title tag: it is part of the sentence,
+  and the title ellipses as a whole.
+*/
+.task-title-url {
+    color: var(--color-text-link);
+    text-decoration: underline dotted;
+    text-underline-offset: 0.2em;
+    cursor: pointer;
+}
+
+/* A finished task's address goes quiet with the rest of the title. */
+.task-item--done .task-title-url,
+.task-card--done .task-title-url {
+    color: inherit;
+}
+
+/*
+  The followable link beside the title: a linked badge, the shape the source
+  badge next to it has, labelled with the host. The arrow is the badge's own
+  text so it inherits the tone; it is hidden from the accessible name, which is
+  the whole address.
+*/
+.task-title-link {
+    flex: 0 0 auto;
+}
+
+.task-title-link__arrow {
+    white-space: pre;
+}
+
+/* The panel's heading line holds its title links together, like the row's slot. */
+.task-panel__links {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 0 0 auto;
+}
+
 /* Beside the title, and never squeezed by it: a badge that shrank would
    hyphenate a single word. The title takes the space instead, which it already
    knows how to give up — it ellipses.
