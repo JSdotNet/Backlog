@@ -10336,6 +10336,14 @@ a.pull-request-detail-checks__name:hover {
   takes the room that is left, so Show in main window sits at the far edge where
   the main window keeps its utilities.
 */
+/* A popped-out window is often narrow and has no tiers to fold, so its header
+   wraps rather than pushing Show in main window off the edge; the scope chips
+   wrap inside their group the same way. */
+.surface-window__header,
+.surface-window__scope {
+    flex-wrap: wrap;
+}
+
 .surface-window__title {
     flex: 1 1 auto;
     min-width: 0;
