@@ -1,0 +1,44 @@
+@*
+    The web addresses in a task title, as real links beside it: one anchor per
+    distinct URL, in title order, each opening a new tab in a browser and the system
+    browser from the desktop head, the way every external link in the product does.
+
+    Beside the title and never inside it, because the title is the control that
+    opens the task. The address in the title is drawn link-styled by TaskTitleText
+    and a pointer can follow it there; this is the followable link a keyboard and a
+    screen reader reach, so it sits where the host's other facts-to-follow sit — the
+    row's and the card's badge slot, the panel's heading line — and that slot stops
+    the press and the click, so following it is not opening the task.
+
+    A linked badge, the shape the source badge beside it already has, labelled with
+    the host and an arrow: on a dense row the host is the shortest label that still
+    tells two links apart, and the arrow says it leaves the app. The accessible name
+    is the whole address, "Open https://…", because a host alone does not say which
+    page of it.
+
+    Nothing at all for a title with no address, so a host can place it
+    unconditionally.
+*@
+@foreach (var url in TitleRuns.Urls(Title))
+{
+    <Badge Kind="linked"
+           Href="@url"
+           Title="@url"
+           CssClass="task-title-link"
+           TestId="@TestId"
+           target="_blank"
+           rel="noopener noreferrer"
+           aria-label="@($"Open {url}")">
+        @TitleRuns.Host(url)<span class="task-title-link__arrow" aria-hidden="true"> ↗</span>
+    </Badge>
+}
+
+@code {
+    /// <summary>The title, exactly as stored.</summary>
+    [Parameter, EditorRequired]
+    public string? Title { get; set; }
+
+    /// <summary>Carried by every anchor; a title with two addresses has two.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+}
