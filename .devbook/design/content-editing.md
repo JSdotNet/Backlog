@@ -87,6 +87,7 @@ serialize them to canonical Markdown.
 ### Inline Constructs
 
 ```meta
+related: [".devbook/design/content-editing.md#paste-behavior", ".devbook/design/interaction-guidelines.md#task-rows"]
 ```
 
 | Construct | Notes |
@@ -94,6 +95,8 @@ serialize them to canonical Markdown.
 | Bold, italic, strikethrough | `**`, `*`/`_`, `~~`. |
 | Inline code | Backticks; `font-family-mono`. |
 | Links | Editable target + text; keyboard-accessible link editing. A link is rendered as a link only when its scheme is `http`, `https`, `mailto`, or a relative path — anything else (`javascript:`, `data:`) MUST render as the literal text the author typed, still readable but inert. The read view is a webview, and an `href` is the one place typed text could otherwise become behaviour. |
+| Bare web addresses | A bare `http://` or `https://` address in prose renders as a link, the same anchor a written `[url](url)` draws. A `<…>` autolink with one of those two schemes does too, and its brackets are dropped. Every other address stays the literal text typed, bare or bracketed: `www.` without a scheme, `mailto:`, `ftp:` and the rest. An address runs to whitespace, `<` or `>`, then sheds trailing `.,:;!?*_~'"` and an unbalanced `)`, as GFM's extended autolinks do. A scheme glued to the word before it starts no link. A task title finds and ends its addresses the same way, per `interaction-guidelines.md#task-rows`. |
+| Addresses among other inlines | A code span, a written link or image, an autolink, or a footnote mark with a note behind it binds before an address. One that opens inside an address ends the address there. Emphasis, strikethrough and a tag do not bind first, so the `*`, `_`, `~` and `#` inside an address stay in it. An address inside code or inside emphasis is not linked. Linking is display only: the source keeps the text as typed, and `#paste-behavior` still governs what the editor inserts. |
 | `#tags` | Recognized inline per `.devbook/arc42/08-crosscutting-concepts.md#tagging-and-organization`; rendered as a subtle chip but stored as literal `#tag` text. |
 | Mentions / references | If supported, stored as their canonical Markdown/text form. |
 
