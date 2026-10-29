@@ -87,7 +87,7 @@ public sealed class BacklogLinkActivationTests
 
         Assert.Empty(_windows.Opened);
         var warning = Assert.Single(_logger.Warnings);
-        Assert.Contains(BacklogWindowLink.Parse(link)!.SurfaceId, warning, StringComparison.Ordinal);
+        Assert.Contains(SurfaceLink.Parse(link)!.SurfaceId, warning, StringComparison.Ordinal);
     }
 
     [Theory]

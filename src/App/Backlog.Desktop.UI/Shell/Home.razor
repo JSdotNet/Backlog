@@ -276,14 +276,14 @@
            underneath and comes back as it was. *@
         <nav class="app-header__nav" aria-label="Workspace views">
             <div class="app-header__workspace" data-testid="workspace-navigation">
-                @* Every header item below stands in a header-surface-item beside its ⧉
-                   Open in new window button (local ADR 0041 §4): PopOutButton draws it,
-                   only where the host opens windows. The wrapper is there either way,
-                   so the header's shape does not depend on the host. *@
+                @* Every header item below is drawn by HeaderItem: its option in a
+                   header-surface-item beside its ⧉ Open in new window button (local
+                   ADR 0041 §4), which PopOutButton draws only where the host opens
+                   windows. The wrapper is there either way, so the header's shape
+                   does not depend on the host. *@
                 @if (InboxPaneOptionVisible)
                 {
-                    <span class="header-surface-item" data-testid="@($"{InboxSurfaceId}-header-item")">
-                    <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                    @HeaderItem(InboxSurfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="InboxVisible"
                                   id="inbox-pane-option"
@@ -296,9 +296,7 @@
                         <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
                                             Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
                                             TestId="inbox-feature-status" />
-                    </ToggleButton>
-                    @PopOutButton(InboxSurfaceId)
-                    </span>
+                    </ToggleButton>)
                 }
 
                 @* The view switch. Tasks, Board and Calendar are always offered; the
@@ -312,8 +310,7 @@
                 <ButtonGroup CssClass="header-group header-group--views"
                              AriaLabel="View"
                              TestId="view-switch">
-                    <span class="header-surface-item" data-testid="@($"{TasksViewId}-header-item")">
-                    <ToggleButton BaseClass="header-group__option"
+                    @HeaderItem(TasksViewId, @<ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(TasksViewId)"
                                   id="tasks-view-option"
@@ -323,14 +320,11 @@
                                   OnClick="() => ShowView(TasksViewId)">
                         <ListIcon />
                         <span class="header-nav-label header-nav-label--tier-4">Tasks</span>
-                    </ToggleButton>
-                    @PopOutButton(TasksViewId)
-                    </span>
+                    </ToggleButton>)
 
                     @* The Board: the Tasks pane's filtered rows in columns of cards,
                        right after Tasks because it is the same rows read another way. *@
-                    <span class="header-surface-item" data-testid="@($"{BoardViewId}-header-item")">
-                    <ToggleButton BaseClass="header-group__option"
+                    @HeaderItem(BoardViewId, @<ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(BoardViewId)"
                                   id="board-view-option"
@@ -340,14 +334,11 @@
                                   OnClick="() => ShowView(BoardViewId)">
                         <Columns3Icon />
                         <span class="header-nav-label header-nav-label--tier-4">Board</span>
-                    </ToggleButton>
-                    @PopOutButton(BoardViewId)
-                    </span>
+                    </ToggleButton>)
 
                     @* The Calendar: the Tasks pane's filtered rows on a month by due
                        date. Board sits between it and Tasks. *@
-                    <span class="header-surface-item" data-testid="@($"{CalendarViewId}-header-item")">
-                    <ToggleButton BaseClass="header-group__option"
+                    @HeaderItem(CalendarViewId, @<ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(CalendarViewId)"
                                   id="calendar-view-option"
@@ -357,14 +348,11 @@
                                   OnClick="() => ShowView(CalendarViewId)">
                         <CalendarIcon />
                         <span class="header-nav-label header-nav-label--tier-4">Calendar</span>
-                    </ToggleButton>
-                    @PopOutButton(CalendarViewId)
-                    </span>
+                    </ToggleButton>)
 
                     @if (RoadmapViewOffered)
                     {
-                        <span class="header-surface-item" data-testid="@($"{RoadmapViewId}-header-item")">
-                        <ToggleButton BaseClass="header-group__option"
+                        @HeaderItem(RoadmapViewId, @<ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="ViewOptionPressed(RoadmapViewId)"
                                       id="roadmap-view-option"
@@ -377,9 +365,7 @@
                             <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
                                                 Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
                                                 TestId="roadmap-feature-status" />
-                        </ToggleButton>
-                        @PopOutButton(RoadmapViewId)
-                        </span>
+                        </ToggleButton>)
                     }
                 </ButtonGroup>
 
@@ -393,10 +379,9 @@
                 {
                     var surfaceId = surface.Id;
                     @* Each pops out like every other header item (local ADR 0041 §4):
-                       a ⧉ button beside its option, shown on hover and on keyboard
+                       a ⧉ button under its option, shown on hover and on keyboard
                        focus, and every press opens one more window. *@
-                    <span class="header-surface-item" data-testid="@($"{surfaceId}-header-item")">
-                    <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                    @HeaderItem(surfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
                                   CssClass="@SurfaceOptionCssClass(surface)"
                                   Pressed="@(RegisteredSurfaceOnScreen?.Id == surfaceId)"
@@ -412,9 +397,7 @@
                                                 Title="@FeatureStatusTitle(featureKey)"
                                                 TestId="@($"{surfaceId}-feature-status")" />
                         }
-                    </ToggleButton>
-                    @PopOutButton(surfaceId)
-                    </span>
+                    </ToggleButton>)
                 }
             </div>
 
@@ -430,8 +413,7 @@
                 @* A main view, not a takeover, though it sits with two: pressing
                    it shows the view as a view-switch option does, and nothing
                    closes it. First, because it is what the work is for. *@
-                <span class="header-surface-item" data-testid="@($"{GoalsViewId}-header-item")">
-                <ToggleButton BaseClass="header-group__option"
+                @HeaderItem(GoalsViewId, @<ToggleButton BaseClass="header-group__option"
                               PressedCssClass="header-group__option--selected"
                               Pressed="ViewOptionPressed(GoalsViewId)"
                               id="goals-view-option"
@@ -441,14 +423,11 @@
                               OnClick="() => ShowView(GoalsViewId)">
                     <TargetIcon />
                     <span class="header-nav-label header-nav-label--tier-2">Goals</span>
-                </ToggleButton>
-                @PopOutButton(GoalsViewId)
-                </span>
+                </ToggleButton>)
 
                 @if (SessionsOffered)
                 {
-                    <span class="header-surface-item" data-testid="@($"{SessionsSurfaceId}-header-item")">
-                    <ToggleButton BaseClass="header-group__option"
+                    @HeaderItem(SessionsSurfaceId, @<ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="SessionsVisible"
                                   id="sessions-toggle-button"
@@ -461,17 +440,14 @@
                         <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
                                             Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
                                             TestId="sessions-feature-status" />
-                    </ToggleButton>
-                    @PopOutButton(SessionsSurfaceId)
-                    </span>
+                    </ToggleButton>)
                 }
 
                 @* Its own option and its own flag, since it asks GitHub on every
                    opening and the session list asks nothing. *@
                 @if (PullRequestsOffered)
                 {
-                    <span class="header-surface-item" data-testid="@($"{PullRequestsSurfaceId}-header-item")">
-                    <ToggleButton BaseClass="header-group__option"
+                    @HeaderItem(PullRequestsSurfaceId, @<ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="PullRequestsVisible"
                                   id="pull-requests-toggle-button"
@@ -484,9 +460,7 @@
                         <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
                                             Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
                                             TestId="pull-requests-feature-status" />
-                    </ToggleButton>
-                    @PopOutButton(PullRequestsSurfaceId)
-                    </span>
+                    </ToggleButton>)
                 }
             </ButtonGroup>
 
@@ -504,8 +478,7 @@
                              TestId="workspace-surface-switcher">
                     @if (DashboardOffered)
                     {
-                        <span class="header-surface-item" data-testid="@($"{DashboardSurfaceId}-header-item")">
-                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                        @HeaderItem(DashboardSurfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="DashboardVisible"
                                       id="dashboard-toggle-button"
@@ -518,9 +491,7 @@
                             <FeatureStatusBadge Status="@FeatureStatusSlug(DashboardFeatures.Dashboard)"
                                                 Title="@FeatureStatusTitle(DashboardFeatures.Dashboard)"
                                                 TestId="dashboard-feature-status" />
-                        </ToggleButton>
-                        @PopOutButton(DashboardSurfaceId)
-                        </span>
+                        </ToggleButton>)
                     }
 
                     @* The notification centre, with the count of questions waiting
@@ -529,8 +500,7 @@
                        control that answers it rather than a status region. *@
                     @if (NotificationsOffered)
                     {
-                        <span class="header-surface-item" data-testid="@($"{NotificationsSurfaceId}-header-item")">
-                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                        @HeaderItem(NotificationsSurfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="NotificationsVisible"
                                       id="notifications-toggle-button"
@@ -544,15 +514,12 @@
                             <FeatureStatusBadge Status="@FeatureStatusSlug(NotificationsFeatures.Notifications)"
                                                 Title="@FeatureStatusTitle(NotificationsFeatures.Notifications)"
                                                 TestId="notifications-feature-status" />
-                        </ToggleButton>
-                        @PopOutButton(NotificationsSurfaceId)
-                        </span>
+                        </ToggleButton>)
                     }
 
                     @if (ToolsOffered)
                     {
-                        <span class="header-surface-item" data-testid="@($"{ToolsSurfaceId}-header-item")">
-                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                        @HeaderItem(ToolsSurfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="ToolsVisible"
                                       id="tools-toggle-button"
@@ -563,9 +530,7 @@
                             <FeatureStatusBadge Status="@FeatureStatusSlug(DevPcFeatures.SystemTools)"
                                                 Title="@FeatureStatusTitle(DevPcFeatures.SystemTools)"
                                                 TestId="tools-feature-status" />
-                        </ToggleButton>
-                        @PopOutButton(ToolsSurfaceId)
-                        </span>
+                        </ToggleButton>)
                     }
                 </ButtonGroup>
             }
@@ -1988,6 +1953,14 @@
 
     /// <summary>The ⧉ button's name: what its press opens, named as the option is.</summary>
     private string PopOutName(ShellSurface surface) => $"Open {SurfaceOptionName(surface)} in a new window";
+
+    /// <summary>
+    /// One header item, written once for every option the header draws for a catalog
+    /// surface: <paramref name="option"/> in its <c>header-surface-item</c>, followed by
+    /// its ⧉ (local ADR 0041 §4), so a test finds it as <c>{surfaceId}-header-item</c>.
+    /// </summary>
+    private RenderFragment HeaderItem(string surfaceId, RenderFragment option) =>
+        @<span class="header-surface-item" data-testid="@($"{surfaceId}-header-item")">@option@PopOutButton(surfaceId)</span>;
 
     /// <summary>
     /// The ⧉ beside a header item's option (local ADR 0041 §4), written once for

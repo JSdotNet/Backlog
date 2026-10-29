@@ -1,4 +1,5 @@
 using Backlog.Desktop.UI.Shell;
+using Backlog.SharedKernel;
 
 using Microsoft.Windows.AppLifecycle;
 
@@ -123,7 +124,7 @@ internal static class BacklogLinkInstance
         switch (arguments.Kind)
         {
             case ExtendedActivationKind.Protocol when arguments.Data is IProtocolActivatedEventArgs protocol
-                && string.Equals(protocol.Uri?.Scheme, BacklogWindowLink.Scheme, StringComparison.OrdinalIgnoreCase):
+                && string.Equals(protocol.Uri?.Scheme, SurfaceLink.Scheme, StringComparison.OrdinalIgnoreCase):
                 return protocol.Uri!.OriginalString;
 
             case ExtendedActivationKind.Launch when arguments.Data is ILaunchActivatedEventArgs launch:
@@ -143,7 +144,7 @@ internal static class BacklogLinkInstance
             ? arguments.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             : ownLaunch ? Environment.GetCommandLineArgs() : [];
 
-        return candidates.FirstOrDefault(candidate => BacklogWindowLink.Parse(candidate) is not null)?.Trim().Trim('"');
+        return candidates.FirstOrDefault(candidate => SurfaceLink.Parse(candidate) is not null)?.Trim().Trim('"');
     }
 
     /// <summary>The key the running instance registers under. A packaged install is one

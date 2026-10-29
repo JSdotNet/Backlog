@@ -3890,14 +3890,20 @@ h1, h2, h3 {
 /*
   A header item — every option the header draws for a catalog surface, loose or
   fused — and its ⧉ Open in new window button (local ADR 0041 §4). The button
-  sits on the option's bottom-right corner, over it rather than beside it, so
-  showing it never moves the header or what the fold measures; the top-right
-  corner is the feature flag's. In a fused group that corner is a neighbour's
-  edge, which the button overlaps only while it shows. Hidden until the item
-  is hovered or anything in it has focus — a keyboard user tabbing from the
-  option lands on it and sees it — and always shown where nothing can hover.
-  Hidden by opacity, not display, so it stays in the tab order. 24px square, the
-  smallest target accessibility.md allows beside the header's own options.
+  hangs centred under its option, its top on the option's bottom edge, so it
+  covers none of the option: not the word, not the glyph of a folded option,
+  not the selected underline, and not a fused neighbour, since every option is
+  wider than the button. Placed absolutely, so showing it never moves the
+  header or what backlogHeaderFit measures; the top-right corner stays the
+  feature flag's. While it shows it covers the strip under the header, which
+  is why it shows only on hover and while anything in the item has focus — a
+  keyboard user tabbing from the option lands on it and sees it — and the item
+  never loses hover on the way down to it, because the two touch. Where nothing
+  can hover it is always shown, and the header keeps the strip it hangs in
+  clear below itself and between the rows it wraps to (the hover: none
+  block), so it covers nothing there either. Hidden by opacity, not display,
+  so it stays in the tab order. 24px square, the smallest target
+  accessibility.md allows beside the header's own options.
 */
 .header-surface-item {
     position: relative;
@@ -3906,8 +3912,9 @@ h1, h2, h3 {
 
 .header-surface-item__pop {
     position: absolute;
-    bottom: calc(-1 * var(--spacing-xs));
-    right: calc(-1 * var(--spacing-xs));
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 2;
     display: inline-flex;
     align-items: center;
@@ -3948,6 +3955,20 @@ h1, h2, h3 {
     .header-surface-item__pop {
         opacity: 1;
         pointer-events: auto;
+    }
+
+    /* Always shown, the ⧉ keeps a strip of its own: under the header, and
+       between the rows a wrapped header folds onto, so it never sits over what
+       is below it. On the header rather than the navigation, so the regions
+       beside the navigation stay centred on its options. Height only: the
+       fold measures widths. */
+    .app-header:has(.header-surface-item__pop) {
+        padding-bottom: 1.5rem;
+    }
+
+    .app-header--wrap:has(.header-surface-item__pop),
+    .app-header--wrap:has(.header-surface-item__pop) :is(.app-header__nav, .app-header__workspace) {
+        row-gap: calc(1.5rem + var(--spacing-xs));
     }
 }
 
@@ -4063,9 +4084,9 @@ h1, h2, h3 {
    standing past them just the same. Where one carries a flag the group stops
    clipping, and its end members take the corners the clip used to cut.
 
-   A group of header items never clips: each item's ⧉ hangs past its option's
-   bottom-right corner (.header-surface-item__pop), and the last one's past the
-   group's own edge, so a clip would cut it whether a flag is there or not. The
+   A group of header items never clips: each item's ⧉ hangs below its option
+   (.header-surface-item__pop), past the group's own bottom edge, so a clip
+   would cut it whether a flag is there or not. The
    corners move onto the end items' options the same way. Not onto a loose
    option, which keeps the full radius of its own border. */
 .header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)),
