@@ -212,6 +212,10 @@ builder.Services.AddBacklogMcpServer().WithHttpTransport();
 // Cost section has figures without an Azure sign-in. A person's own Foundry
 // configuration keeps the real client, and their real bill.
 AddAzureFoundryCostClient(builder.Services, azureFoundrySettings);
+// The ⧉ on a header item opens /window/{surfaceId} in a new browser tab (local ADR
+// 0040 §7). Each tab is its own circuit and so its own scope; nothing more is needed
+// for a tab to be a window with view state of its own.
+builder.Services.AddScoped<IShellWindows, BrowserTabShellWindows>();
 // This assembly's own pages, under Components/Pages: they exist only to be
 // driven — the shipped app has no route that throws on request.
 builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
