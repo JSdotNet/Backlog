@@ -15,10 +15,13 @@ namespace Backlog.Desktop.Services;
 /// <see cref="ShellNavigationStore"/>, not only the main one's.</item>
 /// <item>Closing the main window closes every popped-out one and quits the app: the
 /// main window owns the app's life, and no layout is kept for the next start.</item>
+/// <item>A popped-out window writes its bounds to <see cref="ShellWindowStore"/> when it
+/// moves, resizes or closes, and the next window of that surface opens there, clamped to
+/// a monitor that is connected now. Nothing reopens at start.</item>
 /// </list>
 /// A singleton, because the windows outlive every window's scope.
 /// </summary>
-public sealed class ShellWindows(ShellNavigationStore navigation, ISurfaceCatalog catalog) : IShellWindows
+public sealed class ShellWindows(ShellNavigationStore navigation, ShellWindowStore windowBounds, ISurfaceCatalog catalog) : IShellWindows
 {
     private const string AppTitle = "Backlog.Desktop";
 
@@ -65,6 +68,8 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ISurfaceCatalo
         {
             var window = new Window(new MainPage(path, key)) { Title = WindowTitle(title) };
 
+            RememberBounds(window, surfaceId);
+
             window.Destroying += (_, _) =>
             {
                 bool quitting;
@@ -76,6 +81,7 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ISurfaceCatalo
 
                 // The main window's close flushed once for every window it closes.
                 if (!quitting) Flush();
+                else FlushBounds();
             };
 
             lock (_gate)
@@ -170,7 +176,116 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ISurfaceCatalo
     /// for it rather than leaving it to the process exit, but only briefly: a write
     /// stalled on a synced folder must not hold the closing window.
     /// </summary>
-    private void Flush() => Task.Run(navigation.Flush).Wait(FlushTimeout);
+    private void Flush() => Task.Run(() =>
+    {
+        navigation.Flush();
+        windowBounds.Flush();
+    }).Wait(FlushTimeout);
+
+    /// <summary>The window bounds alone: the main window's close already flushed the
+    /// navigation for every window it closes.</summary>
+    private void FlushBounds() => Task.Run(windowBounds.Flush).Wait(FlushTimeout);
+
+    /// <summary>
+    /// Opens <paramref name="window"/> where the last window of
+    /// <paramref name="surfaceId"/> stood, clamped to a monitor connected now, and keeps
+    /// its bounds as it moves, resizes and closes. Placed before the window is first
+    /// shown, so it never flashes up where the system would have put it.
+    /// </summary>
+    private void RememberBounds(Window window, string surfaceId)
+    {
+#if WINDOWS
+        window.Created += (_, _) =>
+        {
+            if ((window.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow is not { } appWindow) return;
+
+            Place(appWindow, windowBounds.Get(surfaceId)?.ClampTo(WorkAreas()));
+
+            // Kept once as placed, before anything maximises it: a window maximised
+            // before it ever moved still has a rectangle to restore to.
+            Keep(appWindow, surfaceId, restoring: true);
+
+            appWindow.Changed += (sender, args) =>
+            {
+                if (args.DidPositionChange || args.DidSizeChange || args.DidPresenterChange) Keep(sender, surfaceId);
+            };
+        };
+
+        window.Destroying += (_, _) =>
+        {
+            if ((window.Handler?.PlatformView as Microsoft.UI.Xaml.Window)?.AppWindow is { } appWindow) Keep(appWindow, surfaceId);
+        };
+#endif
+    }
+
+#if WINDOWS
+    private static void Place(Microsoft.UI.Windowing.AppWindow appWindow, ShellWindowBounds? bounds)
+    {
+        if (bounds is null) return;
+
+        // Moved first, then sized: landing on a monitor of another scale rescales the
+        // window, and the size set after the move is the one that stays.
+        appWindow.Move(new Windows.Graphics.PointInt32(bounds.X, bounds.Y));
+        appWindow.Resize(new Windows.Graphics.SizeInt32(bounds.Width, bounds.Height));
+        if (bounds.Maximized && appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter) presenter.Maximize();
+    }
+
+    /// <summary>
+    /// Keeps where the window stands now. A minimised window keeps nothing: it has no
+    /// place on screen to come back to. A maximised one keeps the rectangle already kept
+    /// and marks it maximised, since the system reports the maximised rectangle, not the
+    /// one it restores to.
+    /// </summary>
+    /// <param name="restoring">True for the keep straight after placing, which records
+    /// the rectangle the window restores to and leaves the maximised state as kept.</param>
+    private void Keep(Microsoft.UI.Windowing.AppWindow appWindow, string surfaceId, bool restoring = false)
+    {
+        var state = (appWindow.Presenter as Microsoft.UI.Windowing.OverlappedPresenter)?.State;
+        if (state is Microsoft.UI.Windowing.OverlappedPresenterState.Minimized) return;
+
+        var position = appWindow.Position;
+        var size = appWindow.Size;
+        var current = new ShellWindowBounds(position.X, position.Y, size.Width, size.Height, Maximized: false);
+
+        if (restoring)
+        {
+            if (state is not Microsoft.UI.Windowing.OverlappedPresenterState.Maximized)
+            {
+                windowBounds.Set(surfaceId, current with { Maximized = windowBounds.Get(surfaceId)?.Maximized ?? false });
+            }
+
+            return;
+        }
+
+        var bounds = state is Microsoft.UI.Windowing.OverlappedPresenterState.Maximized
+            ? (windowBounds.Get(surfaceId) ?? current) with { Maximized = true }
+            : current;
+
+        windowBounds.Set(surfaceId, bounds);
+    }
+
+    /// <summary>The work area of every monitor connected now, the primary one first.
+    /// Read by index: enumerating the list <c>DisplayArea.FindAll</c> answers fails
+    /// in some Windows App SDK releases.</summary>
+    private static List<ScreenArea> WorkAreas()
+    {
+        var areas = new List<ScreenArea>();
+        var primary = Microsoft.UI.Windowing.DisplayArea.Primary;
+        if (primary is not null) areas.Add(ToScreenArea(primary));
+
+        var all = Microsoft.UI.Windowing.DisplayArea.FindAll();
+        for (var i = 0; i < all.Count; i++)
+        {
+            var area = ToScreenArea(all[i]);
+            if (!areas.Contains(area)) areas.Add(area);
+        }
+
+        return areas;
+    }
+
+    private static ScreenArea ToScreenArea(Microsoft.UI.Windowing.DisplayArea display) =>
+        new(display.WorkArea.X, display.WorkArea.Y, display.WorkArea.Width, display.WorkArea.Height);
+#endif
 
     /// <summary>A popped-out window's title: its surface, then the app.</summary>
     private static string WindowTitle(string surfaceTitle) =>
