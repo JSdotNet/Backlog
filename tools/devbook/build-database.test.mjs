@@ -734,11 +734,11 @@ test("an excerpt from this repository's corpus reads as prose, not fence debris"
     const [hit] = all(`
         SELECT snippet(chapter_fts, 1, '', '', '...', 24) AS excerpt
         FROM chapter_fts JOIN chapter ON chapter.id = chapter_fts.rowid
-        WHERE chapter_fts MATCH 'organized' AND chapter.path = '.devbook/domain/devbook/domain.md'
+        WHERE chapter_fts MATCH 'organized' AND chapter.path = '.devbook/domain/brain/domain.md'
             AND chapter.slug = 'knowledge-note'
     `);
 
-    assert.ok(hit, 'expected .devbook/domain/devbook/domain.md#knowledge-note to match "organized"');
+    assert.ok(hit, 'expected .devbook/domain/brain/domain.md#knowledge-note to match "organized"');
     assert.match(hit.excerpt, /An organized unit of project knowledge/);
     assert.doesNotMatch(hit.excerpt, /```/);
     assert.doesNotMatch(hit.excerpt, /\b(status|aliases|related|type):/);

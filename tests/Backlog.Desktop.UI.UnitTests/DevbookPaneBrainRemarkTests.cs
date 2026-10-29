@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// A remark on a Brain note (local ADR 0026 §3,
-/// <c>.devbook/domain/devbook/features.md#brain-mode-of-the-devbook-pane</c>): the
+/// <c>.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane</c>): the
 /// reader leaves one on a block the way they do on a repository chapter, and it is
 /// stored under the Brain's unscoped alias, keyed by the note's path from the Brain's
 /// root — where <c>list_annotations</c> and <c>resolve_annotation</c> on

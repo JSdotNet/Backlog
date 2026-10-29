@@ -98,7 +98,7 @@ public static class DevbookModuleRegistration
         // is off, so registering it does not turn it on.
         services.AddSingleton<C4DevbookStore>();
         // The Code level of the C4 zoom tab: a component's types read from its C#
-        // source when the level is opened (local ADR 0040 §3). One reader per app,
+        // source when the level is opened (local ADR 0041 §3). One reader per app,
         // because it remembers each folder until a file in it moves.
         services.AddSingleton<CSharpCodeReader>();
         services.AddSingleton<C4DevbookCode>();

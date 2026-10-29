@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// <summary>
 /// Writing a new note into the Brain's inbox area — the writer the Devbook pane's
 /// Capture, Inbox triage's To Brain and the capture tool share
-/// (<c>.devbook/domain/devbook/requirements.md#capture-into-the-brain</c>). The
+/// (<c>.devbook/domain/brain/requirements.md#capture-into-the-brain</c>). The
 /// text itself is <c>BrainNoteTextTests</c>'; these are the file: where it lands,
 /// that it never overwrites, and what an unusable Brain answers.
 /// </summary>

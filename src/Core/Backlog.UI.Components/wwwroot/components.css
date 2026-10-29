@@ -18471,7 +18471,7 @@ select.field__input {
 /* ---- the C4 zoom tab ------------------------------------------------------
 
    One model zoomed a level at a time, beside the C4 tab rather than inside it
-   (local ADR 0040). The zoom bar heads it: the current step ringed in the primary
+   (local ADR 0041). The zoom bar heads it: the current step ringed in the primary
    colour, a step that jumps drawn plain, a step still waiting on a selection
    drawn grey. Nothing here is reached by a .c4-explorer rule, so the C4 tab draws
    exactly as before.                                                           */

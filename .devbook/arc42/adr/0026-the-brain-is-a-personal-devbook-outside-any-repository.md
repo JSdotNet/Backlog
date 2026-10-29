@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-28
-related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/12-glossary.md#terms", ".devbook/domain/inbox/features.md#route-to-brain", ".devbook/domain/devbook/domain.md#knowledge-note", ".devbook/domain/devbook/domain.md#para-category"]
+related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/12-glossary.md#terms", ".devbook/domain/inbox/features.md#route-to-brain", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/brain/domain.md#para-category"]
 c4: [backlog.desktop.devbook]
 c4-touches: [backlog.desktop.inbox, backlog.mobile]
 ```
@@ -25,6 +25,12 @@ Amended 2026-10-28 by the change that makes the folders on disk the tabs
 and put notes into a new top folder. Under the first rule those notes vanished
 from the pane until someone also edited `CONVENTIONS.md`. Now the folders on
 disk are the tabs, and `CONVENTIONS.md` is an overlay with an `Ignore` list.
+
+> **Superseded in part, 2026-10-29, by
+> [ADR 0040](0040-the-brain-is-its-own-bounded-context.md) (proposed).** The
+> Brain's place inside the Devbook bounded context gives way to a context of its
+> own. The folder, its convention, the three fields, the database in app storage
+> and the reuse of the devbook machinery still stand.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one.

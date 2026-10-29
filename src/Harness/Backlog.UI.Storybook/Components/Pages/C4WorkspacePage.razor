@@ -66,7 +66,7 @@ Here the Devbook component has code folders, so it carries a chip on the Desktop
     </Story>
 
     <Story Name="The Code level"
-           Description="`C4CodeView`, level 4 of the zoom tab: one component's types **drawn from its C# source when it is opened**, never authored (local ADR 0040 §3). Each class box carries its stereotype — the kind with its modifiers and its base list — its name, and its members, the **Public** ones or **All** of them, in UML's marks: + public, # protected, ~ internal, - private. A box lists up to eight members; past eight it lists seven and says how many more there are.
+           Description="`C4CodeView`, level 4 of the zoom tab: one component's types **drawn from its C# source when it is opened**, never authored (local ADR 0041 §3). Each class box carries its stereotype — the kind with its modifiers and its base list — its name, and its members, the **Public** ones or **All** of them, in UML's marks: + public, # protected, ~ internal, - private. A box lists up to eight members; past eight it lists seven and says how many more there are.
 
 Every use is an arrow, laid out by `C4LayoutEngine` as a relationship is a level up: solid where a type names another, dashed where it inherits it. Pick a box and the panel beside it names the files it is declared in, offers **Open in editor** where the host can open one, and lists the decision records linked to the component — each opens its chapter. Backspace on the picture zooms back out to the components view."
            Code="@CodeUsage">

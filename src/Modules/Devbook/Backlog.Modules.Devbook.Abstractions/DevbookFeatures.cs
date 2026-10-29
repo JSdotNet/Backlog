@@ -53,7 +53,7 @@ public static class DevbookFeatures
     /// reading of the same model, and with the model off there is nothing to zoom
     /// through. Its own key rather than a change to the C4 tab, so the new navigation
     /// can be used beside the current one and replace it only once it is validated
-    /// (local ADR 0040).
+    /// (local ADR 0041).
     /// </para></summary>
     public const string C4Zoom = "c4-zoom";
 
