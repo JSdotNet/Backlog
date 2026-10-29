@@ -96,7 +96,10 @@ spec-manager reaches the person the same way. While a desktop is signed in to an
 installation, the questions on its connected products that are assigned to the
 person, and the unassigned ones they may answer, arrive as questions: each option a
 choice, "Other" the open answer, and a note beside either. A product's "Only
-questions assigned to me" leaves the unassigned ones out. The desktop follows
+questions assigned to me" leaves the unassigned ones out. spec-manager also pushes
+each question to a phone subscribed to it, so that phone gets both pushes; the
+product's card says to switch off "Backlog question" in spec-manager's notification
+preferences on that phone to keep only Backlog's. The desktop follows
 spec-manager's notification stream and pulls on each change, every five minutes
 besides, and every two minutes while the stream is down. The answer goes back to
 spec-manager. If the product does not take answers from a connected app, or someone

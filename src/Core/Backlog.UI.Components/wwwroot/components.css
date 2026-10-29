@@ -1439,6 +1439,13 @@ button.badge:hover {
     margin: var(--spacing-xs) 0 0;
 }
 
+/* The line under "Only questions assigned to me" on how to stop the source's own
+   push: worded as the switch's description, a line of its own under it. */
+.connected-target__push-hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
 .connected-target__options {
     display: grid;
     gap: var(--spacing-sm);
