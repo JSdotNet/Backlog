@@ -6,7 +6,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// <para>
 /// Until a folder is set the Brain chip reads <see cref="SetUpLabel"/> and opens
 /// the Brain card on Settings › Storage
-/// (<c>.devbook/domain/devbook/features.md#brain-scope</c>). The chip itself is
+/// (<c>.devbook/domain/brain/features.md#brain-scope</c>). The chip itself is
 /// the header's; this is the one place its words and its destination are kept.
 /// </para>
 /// </summary>

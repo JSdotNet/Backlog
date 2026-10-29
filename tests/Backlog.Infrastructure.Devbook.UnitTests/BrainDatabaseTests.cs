@@ -56,17 +56,50 @@ public class BrainDatabaseTests : IDisposable
     }
 
     [Fact]
-    public void The_areas_are_the_scopes_in_their_declared_order()
+    public void The_areas_are_the_scopes_declared_first_then_discovered()
     {
         Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
 
         using var database = DevbookDatabase.TryOpen(Target);
         Assert.NotNull(database);
-        Assert.Equal(".,work,design,projects", database.Meta[DevbookDatabaseSchema.ScopesKey]);
+        Assert.Equal(".,work,design,projects,archive", database.Meta[DevbookDatabaseSchema.ScopesKey]);
 
         using var connection = Open();
-        Assert.Equal(["work", "design", "projects"], Strings(connection, "SELECT name FROM outline_entry WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal"));
-        Assert.Empty(Strings(connection, "SELECT path FROM chapter WHERE path LIKE 'archive/%' OR path = 'README.md' OR path = 'CONVENTIONS.md'"));
+        Assert.Equal(["work", "design", "projects", "archive"], Strings(connection, "SELECT name FROM outline_entry WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal"));
+        Assert.Equal("archive", Strings(connection, "SELECT folder FROM node WHERE id = 'archive/old.md'").Single());
+        Assert.Empty(Strings(connection, "SELECT path FROM chapter WHERE path = 'README.md' OR path = 'CONVENTIONS.md'"));
+    }
+
+    /// <summary>An ignored folder's notes are not in the database, so search and
+    /// the atlas leave them out — and neither is a dot-folder's.</summary>
+    [Fact]
+    public void An_ignored_folder_and_a_dot_folder_are_not_indexed()
+    {
+        File.AppendAllText(Path.Combine(Brain, BrainConventions.FileName), "\n## Ignore\n\n- `_templates`\n- `projects`\n");
+        Write("_templates/meeting.md", "# Meeting template\n");
+        Write(".obsidian/workspace.md", "# Workspace\n");
+
+        Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
+
+        using var connection = Open();
+        Assert.Equal(["work", "design", "archive"], Strings(connection, "SELECT name FROM outline_entry WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal"));
+        Assert.Empty(Strings(connection, "SELECT id FROM node WHERE id LIKE '_templates/%' OR id LIKE '.obsidian/%' OR id LIKE 'projects/%'"));
+    }
+
+    [Fact]
+    public void A_note_in_a_new_top_folder_makes_the_database_stale()
+    {
+        Directory.CreateDirectory(Path.Combine(Brain, "Meetings"));
+        DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken);
+        Assert.True(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain));
+
+        Write("Meetings/standup.md", "# Standup\n");
+
+        Assert.False(DevbookDatabaseBuilder.IsCurrent(Brain, Target, DevbookCorpusKind.Brain));
+        DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken);
+
+        using var connection = Open();
+        Assert.Equal("Meetings", Strings(connection, "SELECT folder FROM node WHERE id = 'Meetings/standup.md'").Single());
     }
 
     [Fact]
@@ -150,7 +183,7 @@ public class BrainDatabaseTests : IDisposable
         Assert.True(DevbookDatabaseBuilder.Build(Brain, Target, DevbookCorpusKind.Brain, TestContext.Current.CancellationToken));
 
         using var connection = Open();
-        Assert.Equal(["projects", "archive"], Strings(connection, "SELECT name FROM outline_entry WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal"));
+        Assert.Equal(["projects", "archive", "design", "work"], Strings(connection, "SELECT name FROM outline_entry WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal"));
     }
 
     [Fact]

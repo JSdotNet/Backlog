@@ -8,7 +8,7 @@ using ModelContextProtocol;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// The devbook tools on the Brain (<c>.devbook/domain/devbook/features.md#mcp-brain-scope</c>):
+/// The devbook tools on the Brain (<c>.devbook/domain/brain/features.md#mcp-brain-scope</c>):
 /// the reserved scope <c>#brain</c> beside the repositories, and <c>capture_note</c>.
 /// <para>
 /// Over the real <see cref="BrainFolderSource"/> and <see cref="BrainNoteWriter"/>

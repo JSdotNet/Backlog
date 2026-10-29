@@ -4,12 +4,13 @@
 //
 // The Brain is one devbook-shaped folder per user, outside every repository
 // (local ADR 0026). It keeps the devbook's `meta` blocks and `annotation` fences
-// but not its folders: instead of arc42/domain/tech/design/ai it has the areas
-// its own `CONVENTIONS.md` declares, each a top folder, and the PARA set when it
-// declares none. A note adds three fields — `para`, `repos` and `tasks` — and may
-// link into a repository devbook with `repo:<alias>/<devbook path>[#slug]`
-// (local ADR 0027 §6), which no Brain database can resolve: those links are
-// stored as edges whose target is no node.
+// but not its folders: instead of arc42/domain/tech/design/ai it has areas, each
+// a top folder — the ones its own `CONVENTIONS.md` declares, or the PARA set when
+// it declares none, then every other top folder holding a note, minus the
+// folders its `Ignore` section lists (local ADR 0026 §2). A note adds three
+// fields — `para`, `repos` and `tasks` — and may link into a repository devbook
+// with `repo:<alias>/<devbook path>[#slug]` (local ADR 0027 §6), which no Brain
+// database can resolve: those links are stored as edges whose target is no node.
 //
 // Nothing here parses a chapter. `loadBrainGenerator` wraps the generator this
 // repository has installed — the same `parseDocument`, `buildGraph`,
@@ -18,9 +19,9 @@
 // path is in, and the projection of the graph described at `brainGraph`. The C#
 // builder's Brain convention (`DevbookBuildLayout` with `DevbookCorpusKind.Brain`)
 // is held to this by `DevbookBuilderParityTests`, and `BrainConventions.cs` is the
-// C# twin of `parseConventions` below.
+// C# twin of `parseConventions`, `ignoredFolders` and `readBrainAreas` below.
 
-import { readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, readlink, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 /** The file at the Brain's root that declares its areas. */
@@ -28,6 +29,9 @@ export const CONVENTIONS_FILE = 'CONVENTIONS.md';
 
 /** The heading the areas are declared under. */
 const AREAS_HEADING = 'areas';
+
+/** The heading the folders that are never areas are listed under. */
+const IGNORE_HEADING = 'ignore';
 
 /** The PARA set, in reading order: the areas of a Brain that declares none. */
 export const PARA_AREAS = Object.freeze([
@@ -89,12 +93,10 @@ function unquote(cell) {
 }
 
 /**
- * The areas `markdown` declares under its `Areas` heading, in order — empty when
- * it declares none. A table needs a `Folder` column and may carry `Area` or
- * `Name` and `Order`; a list item names its folder in backticks, or is the
- * folder. See `BrainConventions.cs`, which this mirrors line for line.
+ * Every folder the section under `headingName` names, as written: table rows
+ * with a `Folder` column and list items, outside code fences.
  */
-export function declaredAreas(markdown) {
+function sectionCandidates(markdown, headingName) {
     if (!markdown) return [];
     // A byte order mark is not text: C#'s File.ReadAllText drops it.
     if (markdown.charCodeAt(0) === 0xfeff) markdown = markdown.slice(1);
@@ -121,7 +123,7 @@ export function declaredAreas(markdown) {
             const level = heading[1].length;
             if (sectionLevel !== null && level <= sectionLevel) sectionLevel = null;
             const text = heading[2].trim().replace(/#+$/, '').trim();
-            if (sectionLevel === null && text.toLowerCase() === AREAS_HEADING) {
+            if (sectionLevel === null && text.toLowerCase() === headingName) {
                 sectionLevel = level;
                 header = null;
             }
@@ -167,7 +169,17 @@ export function declaredAreas(markdown) {
         }
     }
 
-    const ordered = candidates
+    return candidates;
+}
+
+/**
+ * The areas `markdown` declares under its `Areas` heading, in order — empty when
+ * it declares none. A table needs a `Folder` column and may carry `Area` or
+ * `Name` and `Order`; a list item names its folder in backticks, or is the
+ * folder. See `BrainConventions.cs`, which this mirrors line for line.
+ */
+export function declaredAreas(markdown) {
+    const ordered = sectionCandidates(markdown, AREAS_HEADING)
         .map((candidate, index) => ({ ...candidate, index }))
         .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || a.index - b.index);
 
@@ -187,13 +199,162 @@ export function parseConventions(markdown) {
     return declared.length ? declared : PARA_AREAS.map((area) => ({ ...area }));
 }
 
-/** The areas of the Brain at `brainRoot`: its `CONVENTIONS.md`'s, or PARA. */
-export async function readBrainAreas(brainRoot) {
-    try {
-        return parseConventions(await readFile(path.join(brainRoot, CONVENTIONS_FILE), 'utf8'));
-    } catch {
-        return PARA_AREAS.map((area) => ({ ...area }));
+/**
+ * The folders `markdown` lists under its `Ignore` heading, in order: list items
+ * naming the folder in backticks or bare, or a table's `Folder` column. A folder
+ * that is not one plain segment is skipped, one listed twice counts once.
+ */
+export function ignoredFolders(markdown) {
+    const seen = new Set();
+    const folders = [];
+    for (const { folder } of sectionCandidates(markdown, IGNORE_HEADING)) {
+        if (!isAreaFolder(folder) || seen.has(caseKey(folder))) continue;
+        seen.add(caseKey(folder));
+        folders.push(folder);
     }
+    return folders;
+}
+
+/**
+ * A folder name as .NET's `StringComparer.OrdinalIgnoreCase` sees it: each code
+ * point upper-cased on its own by simple case mapping. A code point whose upper
+ * case is longer (`ß`) is kept, and so is dotless `ı` (U+0131), which .NET
+ * deliberately leaves alone where JavaScript maps it to `I`.
+ *
+ * Known limits, both outside any plain folder name seen so far:
+ * - Node's ICU may know a newer Unicode than .NET's casing table: U+019B,
+ *   U+0264, U+1C8A, U+A7CD, U+A7CF, U+A7D3, U+A7D5 and U+A7DB upper-case
+ *   here and not in .NET 10. No generic rule closes that gap.
+ * - The key is compared by UTF-16 unit, as `ordinal` does, so a name with an
+ *   astral character (U+10428) may sort apart from .NET's order against a BMP
+ *   character above the surrogates (U+FF41).
+ */
+function caseKey(folder) {
+    let key = '';
+    for (const point of folder) {
+        const upper = point === 'ı' ? point : point.toUpperCase();
+        key += upper.length === point.length ? upper : point;
+    }
+    return key;
+}
+
+/** UTF-16 code-unit order, as .NET's ordinal comparison. */
+const ordinal = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
+
+/** Folder names in tab order: ordinal by upper case, then ordinal. */
+const folderOrder = (left, right) => ordinal(caseKey(left), caseKey(right)) || ordinal(left, right);
+
+/**
+ * The areas from what `readBrainAreas` finds on disk: `declared` (or the PARA set
+ * when it is empty) in order, minus `ignored`, then every top folder that can be
+ * an area, is neither declared nor ignored, and `holdsNote` — by folder name,
+ * named after the folder. `BrainConventions.Resolve` is its twin.
+ */
+export async function resolveAreas(declared, ignored, topFolders, holdsNote) {
+    const leading = declared.length ? declared : PARA_AREAS;
+    const skipped = new Set(ignored.map(caseKey));
+    const named = new Set(leading.map((area) => caseKey(area.folder)));
+
+    const kept = leading.filter((area) => !skipped.has(caseKey(area.folder)));
+    const candidates = [];
+    for (const folder of topFolders) {
+        if (!isAreaFolder(folder) || skipped.has(caseKey(folder)) || named.has(caseKey(folder))) continue;
+        named.add(caseKey(folder));
+        candidates.push(folder);
+    }
+    candidates.sort(folderOrder);
+
+    const areas = kept.map((area, index) => ({ ...area, order: index + 1 }));
+    for (const folder of candidates) {
+        if (await holdsNote(folder)) areas.push({ name: nameFor(folder), folder, order: areas.length + 1 });
+    }
+    return areas;
+}
+
+/** Whether a directory entry leads to a folder. A link is told by its target,
+ *  and a placeholder — a reparse point `readlink` cannot read — by `stat`,
+ *  which reads attributes and downloads nothing. */
+async function leadsToFolder(directory, entry) {
+    if (entry.isDirectory()) return true;
+    if (!entry.isSymbolicLink()) return false;
+    try {
+        return (await stat(path.join(directory, entry.name))).isDirectory();
+    } catch {
+        return false;
+    }
+}
+
+/** Whether a reparse point is a link — a symbolic link or a junction, which
+ *  could loop — rather than a placeholder, as `BrainConventions.IsLink` tells. */
+async function isLink(absolute) {
+    try {
+        await readlink(absolute);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/** The names of the folders at the Brain's root, links and placeholders included. */
+async function topFolders(brainRoot) {
+    let entries;
+    try {
+        entries = await readdir(brainRoot, { withFileTypes: true });
+    } catch {
+        return [];
+    }
+    const folders = [];
+    for (const entry of entries) {
+        if (await leadsToFolder(brainRoot, entry)) folders.push(entry.name);
+    }
+    return folders;
+}
+
+/**
+ * Whether a `.md` sits anywhere under `directory`, outside its dot sub-folders:
+ * by name alone, stopping at the first, reparse points included — a OneDrive
+ * placeholder counts here, as it does to `BrainConventions`, although the
+ * indexing below still skips it. A sub-folder that is a link is not followed.
+ */
+async function holdsNote(directory) {
+    let entries;
+    try {
+        entries = await readdir(directory, { withFileTypes: true });
+    } catch {
+        return false;
+    }
+    const folders = [];
+    for (const entry of entries) {
+        if (!(await leadsToFolder(directory, entry))) {
+            if (entry.name.endsWith('.md')) return true;
+            continue;
+        }
+        if (entry.name.startsWith('.')) continue;
+        const child = path.join(directory, entry.name);
+        if (entry.isSymbolicLink() && (await isLink(child))) continue;
+        folders.push(child);
+    }
+    for (const child of folders) {
+        if (await holdsNote(child)) return true;
+    }
+    return false;
+}
+
+/** The text of the Brain's `CONVENTIONS.md`, or null when it cannot be read. */
+async function readConventions(brainRoot) {
+    try {
+        return await readFile(path.join(brainRoot, CONVENTIONS_FILE), 'utf8');
+    } catch {
+        return null;
+    }
+}
+
+/** The areas of the Brain at `brainRoot`: its `CONVENTIONS.md`'s, or PARA, then
+ *  the top folders holding a note, minus the ignored ones. */
+export async function readBrainAreas(brainRoot) {
+    const markdown = await readConventions(brainRoot);
+    return resolveAreas(declaredAreas(markdown), ignoredFolders(markdown), await topFolders(brainRoot), (folder) =>
+        holdsNote(path.join(brainRoot, folder)));
 }
 
 async function isDirectory(absolute) {
@@ -387,7 +548,6 @@ function applyBrainFields(node, meta, area) {
  *  placeholder is skipped here where the C# builder indexes it by name: the one
  *  stated difference between the two writers (`.devbook/tech/tooling.md`). */
 async function markdownUnder(root, folder) {
-    const { readdir } = await import('node:fs/promises');
     const found = [];
     async function walk(relative) {
         let entries;

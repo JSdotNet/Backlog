@@ -23,7 +23,7 @@ its [day overrides](domain.md#day-override) are set on the roadmap's axis.
 
 Outside it: execution and task status, which [Tasks](../tasks/domain.md#task)
 answers, and the registered effort a plan totals but never owns, which lives on
-the Tasks and [Devbook](../devbook/domain.md#knowledge-note) chapters an item
+the Tasks and [Devbook](../devbook/domain.md#shared-value-objects) chapters an item
 gathers. The model itself is in [domain.md](domain.md).
 
 ## Roadmap view

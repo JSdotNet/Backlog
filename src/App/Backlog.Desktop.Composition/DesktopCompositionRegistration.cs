@@ -418,6 +418,11 @@ public static class DesktopCompositionRegistration
         // offered in the scope, the Board and the pickers, kept per device in the same file.
         services.AddSingleton<Backlog.SharedKernel.IShowArchivedRepositories>(sp =>
             new ShowArchivedRepositories(sp.GetService<ShellNavigationStore>()));
+        // Show hidden (local ADR 0026 §2): whether the Brain's ignored folders and
+        // dot-folders show as tabs, kept per device in the same file — never in the
+        // Brain folder, never on the Brain setting whose change reloads the Brain.
+        services.AddSingleton<IBrainShowHidden>(sp =>
+            new BrainShowHidden(sp.GetService<ShellNavigationStore>()));
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
         services.AddToolsAiContentSource();
 
