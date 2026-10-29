@@ -56,10 +56,10 @@ public class WindowToolsTests
         Assert.False(answer.Opened);
         Assert.Empty(host.Opened);
         Assert.Equal(
-            "http://localhost:5757/window/devbook?chapter=.devbook%2Farc42%2Fadr%2F0041-a-surface-can-open-in-its-own-window.md&scope=JSdotNet%2FBacklog&t=token",
+            "http://localhost:5757/window/devbook?chapter=.devbook%2Farc42%2Fadr%2F0042-a-surface-can-open-in-its-own-window.md&scope=JSdotNet%2FBacklog&t=token",
             answer.Url);
         Assert.Equal(
-            "backlog://window/devbook?chapter=.devbook%2Farc42%2Fadr%2F0041-a-surface-can-open-in-its-own-window.md&scope=JSdotNet%2FBacklog",
+            "backlog://window/devbook?chapter=.devbook%2Farc42%2Fadr%2F0042-a-surface-can-open-in-its-own-window.md&scope=JSdotNet%2FBacklog",
             answer.BacklogLink);
     }
 
