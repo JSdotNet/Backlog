@@ -17,6 +17,7 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Logging;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.SpecManager;
@@ -177,6 +178,12 @@ public static class MauiProgram
         builder.Services.TryAddSingleton(_ => new ShellWindowStore());
         builder.Services.TryAddSingleton<ShellWindows>();
         builder.Services.TryAddSingleton<IShellWindows>(sp => sp.GetRequiredService<ShellWindows>());
+        // What open_window opens and links to (local ADR 0040 §7): these windows, and a
+        // tokenized link to the listener's page at the port it is listening on now.
+        builder.Services.TryAddSingleton<ISurfaceWindowHost>(sp => new DesktopSurfaceWindowHost(
+            sp.GetRequiredService<IShellWindows>(),
+            sp.GetRequiredService<WindowLinkTokens>(),
+            () => sp.GetService<McpServerWorker>()?.Address?.Port));
         // The Brain card's Browse: this head has a window to open the Windows
         // folder picker over, so it is the one host that registers one. One per
         // window, so it stands over the window whose Settings asked for it.

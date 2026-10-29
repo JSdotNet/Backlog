@@ -699,3 +699,21 @@ public sealed record SyncUnitVerdictInput(
     string? Action,
     string? Link,
     IReadOnlyList<SyncChapterVerdictInput>? Chapters);
+
+/// <summary>What <c>open_window</c> answered.</summary>
+/// <param name="Surface">The surface's id, as the catalog holds it.</param>
+/// <param name="Target"><c>desktop</c> or <c>web</c>.</param>
+/// <param name="Opened">True when a native window was opened. Always false for
+/// <c>web</c>, which opens nothing.</param>
+/// <param name="Url">For <c>web</c>, the page's full address with its single-use link
+/// token, or null when no page is served now. Null for <c>desktop</c>.</param>
+/// <param name="BacklogLink">The <c>backlog://window/{surfaceId}?…</c> link that opens the
+/// same surface in the installed app. It carries no token and stays valid.</param>
+/// <param name="Answer">The sentence to report, already written for a person.</param>
+public sealed record WindowOpenedPayload(
+    string Surface,
+    string Target,
+    bool Opened,
+    string? Url,
+    string BacklogLink,
+    string Answer);

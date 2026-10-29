@@ -151,6 +151,7 @@ public class McpToolCreationTests
                 SessionRequestTools.MarkSessionRequest,
                 NotificationTools.Notify,
                 SurfaceTools.OpenDashboard,
+                WindowTools.OpenWindow,
                 ImpedimentTools.RaiseImpediment,
                 SurfaceTools.RecordPrompt,
                 DevbookTools.ResolveAnnotation,
@@ -263,6 +264,11 @@ public class McpToolCreationTests
         Assert.Equal(["id", "outcome", "dispatcher"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "mark_session_request")));
         Assert.Equal(["state"], schemas["list_session_requests"]);
         Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_session_requests")));
+
+        // The surface and where to show it are required; the query keys of local ADR
+        // 0040 §6 are each optional, and advertised so a model knows they exist.
+        Assert.Equal(["surface", "target", "plan", "entry", "chapter", "scope"], schemas["open_window"]);
+        Assert.Equal(["surface", "target"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "open_window")));
     }
 
     /// <summary>
@@ -308,7 +314,8 @@ public class McpToolCreationTests
             [typeof(ImpedimentTools)] = new ImpedimentTools(new FakeImpediments()),
             [typeof(GoalTools)] = new GoalTools(new FakeGoals(), new FakeRepositoryDirectory()),
             [typeof(SessionRequestTools)] = new SessionRequestTools(new InMemorySessionRequestStore()),
-            [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications())
+            [typeof(NotificationTools)] = new NotificationTools(new FakeNotifications(), new FakeNotifications()),
+            [typeof(WindowTools)] = new WindowTools(FakeSurfaceWindows.Catalog(), new FakeSurfaceWindows())
         };
 
         foreach (var group in BacklogMcpTools.Groups)

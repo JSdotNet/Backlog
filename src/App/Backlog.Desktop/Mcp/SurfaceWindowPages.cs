@@ -47,7 +47,7 @@ public sealed class DesktopServiceRegistrations(IReadOnlyList<ServiceDescriptor>
 internal static class SurfaceWindowPages
 {
     /// <summary>The query key a web link carries its link token under.</summary>
-    public const string TokenQueryKey = "t";
+    public const string TokenQueryKey = WindowLinkTokens.QueryKey;
 
     /// <summary>The cookie that stands in for the link token after a page's first
     /// load. A cookie is scoped to a host and not to a port, so the port is in the

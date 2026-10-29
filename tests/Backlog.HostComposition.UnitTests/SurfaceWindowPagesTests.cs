@@ -268,6 +268,57 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         Assert.Contains("data-testid=\"probe-query\">keep=yes</", html, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// <c>open_window</c> with <c>target: "web"</c> on the real listener (local ADR 0040
+    /// §7): called over <c>/mcp</c> with the bearer token, it answers a
+    /// <c>localhost</c> link carrying a token this listener redeems, and that link's
+    /// first load sets the cookie and the page renders.
+    /// </summary>
+    [Fact]
+    public async Task Open_window_answers_a_web_link_the_listener_admits()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head's container and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var listener = await StartAsync();
+        using var mcp = listener.Client(out _);
+        using var call = new HttpRequestMessage(HttpMethod.Post, "/mcp")
+        {
+            Content = System.Net.Http.Json.JsonContent.Create(new
+            {
+                jsonrpc = "2.0",
+                id = 1,
+                method = "tools/call",
+                @params = new { name = "open_window", arguments = new { surface = "probe", target = "web" } }
+            })
+        };
+        call.Headers.Authorization = new AuthenticationHeaderValue("Bearer", listener.Settings.EnsureMcpServerToken());
+        call.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        call.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+        using var answered = await mcp.SendAsync(call, TestContext.Current.CancellationToken);
+        var body = await answered.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(answered.IsSuccessStatusCode, body);
+        Assert.Contains("backlog://window/probe", body, StringComparison.Ordinal);
+        var link = System.Text.RegularExpressions.Regex.Match(body, @"http://localhost:\d+/window/probe\?t=[A-Za-z0-9_-]+").Value;
+        Assert.True(link.StartsWith($"http://localhost:{listener.Settings.McpServerPort}/window/probe?t=", StringComparison.Ordinal), body);
+
+        var cookies = new CookieContainer();
+#pragma warning disable CA2000 // The client owns the handler and disposes it.
+        using var browser = new HttpClient(new HttpClientHandler { CookieContainer = cookies, AllowAutoRedirect = false }, disposeHandler: true);
+#pragma warning restore CA2000
+
+        using var redirect = await browser.GetAsync(new Uri(link), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Redirect, redirect.StatusCode);
+
+        using var page = await browser.GetAsync(new Uri(new Uri(link), redirect.Headers.Location!), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+    }
+
     /// <summary>A page, its files and its circuit, asked for with neither a valid
     /// token nor the cookie, are 401 — before anything of the desktop app is
     /// rendered or served.</summary>

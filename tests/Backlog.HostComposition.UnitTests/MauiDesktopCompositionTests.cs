@@ -586,7 +586,35 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         // registered by the head beside McpServerWorker (local ADR 0040 §7).
         services.TryAddSingleton<Backlog.Desktop.UI.Mcp.WindowLinkTokens>();
 
+        // What open_window opens and links to, registered by the head beside them: no
+        // OS window can open in a test, so its windows are a stand-in; the link names
+        // the port the listener is configured on.
+        services.TryAddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost>(sp => new Backlog.Desktop.UI.Mcp.DesktopSurfaceWindowHost(
+            new NoShellWindows(),
+            sp.GetRequiredService<Backlog.Desktop.UI.Mcp.WindowLinkTokens>(),
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().McpServerPort));
+
         Backlog.Infrastructure.AzureFoundry.AzureFoundryRegistration.AddAzureFoundryCostClient(services);
+    }
+
+    /// <summary>The head's windows, which a test cannot open.</summary>
+    private sealed class NoShellWindows : Backlog.Desktop.UI.Shell.IShellWindows
+    {
+        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
+        {
+        }
+
+        public void Close(string windowKey)
+        {
+        }
+
+        public void SetTitle(string windowKey, string title)
+        {
+        }
+
+        public void ActivateMainWindow()
+        {
+        }
     }
 
     private sealed class SwitchedOffMcpEndpoint : IMcpEndpointSource

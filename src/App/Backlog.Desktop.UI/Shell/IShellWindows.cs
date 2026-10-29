@@ -1,3 +1,5 @@
+using Backlog.SharedKernel;
+
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
@@ -39,17 +41,10 @@ public static class SurfaceWindowRoute
     public const string WindowKeyCascade = "ShellWindowKey";
 
     /// <summary>The path a window opens on: <c>/window/{surfaceId}</c> and the query,
-    /// each key and value escaped.</summary>
-    public static string PathFor(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(surfaceId);
-
-        var path = "/window/" + Uri.EscapeDataString(surfaceId);
-        if (query is null || query.Count == 0) return path;
-
-        return path + "?" + string.Join('&', query.Select(pair =>
-            Uri.EscapeDataString(pair.Key) + "=" + Uri.EscapeDataString(pair.Value)));
-    }
+    /// each key and value escaped. <see cref="SurfaceLink.Path"/> spells it, so the
+    /// <c>open_window</c> tool's links name the same path.</summary>
+    public static string PathFor(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
+        SurfaceLink.Path(surfaceId, query);
 
     /// <summary>The query of <paramref name="uri"/>, each key and value unescaped. A
     /// key given twice keeps its first value.</summary>

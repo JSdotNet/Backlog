@@ -218,6 +218,9 @@ AddAzureFoundryCostClient(builder.Services, azureFoundrySettings);
 // desktop app's served pages use; this host opens no tab under a window key, so
 // SurfaceWindow never asks it to close or retitle one.
 builder.Services.AddScoped<IShellWindows, BrowserTabShellWindows>();
+// What open_window opens and links to: no native window, and this harness's own
+// /window/{surfaceId} page at the address it listens on, with no token.
+builder.Services.AddSingleton<Backlog.Infrastructure.Mcp.ISurfaceWindowHost, HarnessSurfaceWindowHost>();
 // This assembly's own pages, under Components/Pages: they exist only to be
 // driven — the shipped app has no route that throws on request.
 builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
