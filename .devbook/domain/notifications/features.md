@@ -23,7 +23,10 @@ the notification's owner instance. A Claude session asking through the MCP `ask`
 tool is the first case: the tool returns the notification's id at once, and the
 agent polls `get_answer` for the answer, or withdraws its question with `close`
 once it no longer needs one. The MCP `notify` tool tells the person something the
-same way, with nothing to wait for.
+same way, with nothing to wait for. A session's own hooks ask through the same
+tools with its questions in the dialog's shape, and the Sessions
+[Question Relay](../sessions/domain.md#question-relay) decides when those reach
+the person.
 
 ## Answering from another device
 

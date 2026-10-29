@@ -952,11 +952,19 @@ How far along a session is, as far as the evidence goes:
 - `running` — the agent is present on the environment and something moved recently.
 - `stalled` — still registered as present, but nothing has moved for longer than the
   `Stale Threshold`.
+- `waiting` — live, and holding an open [Waiting Question](#waiting-question): it
+  asked the person something and no answer has reached it yet.
 - `finished` — over. Only its record is left.
 
-Starting, waiting and failed are left out on purpose. An agent could be in any of
-them, but none can be derived from what it leaves behind, so this context does not
-claim them.
+[An open Waiting Question makes a live session
+Waiting](domain.invariants.md#invariant-an-open-waiting-question-makes-a-live-session-waiting).
+Waiting takes the place of running or stalled while the question is open. A session
+that reads finished is never waiting, because its end closes its questions. Local
+[ADR 0041](../../arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)
+made the state derivable: the question relay registers every question a session asks.
+
+Starting and failed are left out on purpose. An agent could be in either, but neither
+can be derived from what it leaves behind, so this context does not claim them.
 
 ### Reporting Capability
 
@@ -1234,7 +1242,7 @@ by waiting on the listener's long poll.
 
 | Dispatcher call | What it does |
 | --- | --- |
-| `GET /session-requests/wait` | Answers the oldest Requested request at once, or holds the call up to 50 seconds and answers `204`. It hands the request out without claiming it. |
+| `GET /session-requests/wait` | Answers one item at once — an answer delivery of the [Question Relay](#question-relay) (`kind: delivery`) before the oldest Requested request (`kind: request`, its entry-or-plan kind as `requestKind`) — or holds the call up to 50 seconds and answers `204`. It hands the item out without claiming it. |
 | `claim_session_request` | Claims a request for the dispatcher under the lease, or answers that it was taken. The holder asking again is told it holds it; the lease is not renewed. |
 | `mark_session_request` | `started` with the session id moves the claim to Started; `released` gives it back to Requested. Only the dispatcher holding the claim may mark it. |
 | `list_session_requests` | Lists the requests, or those in one state, for a dispatcher that restarts. |
@@ -1310,6 +1318,185 @@ A **dispatcher** is whatever claims requests and starts their sessions. The firs
 the **Manager session**, a long-lived Claude Desktop session running a skill. A direct
 launch from the app is a later one. The context holds no record of a dispatcher beyond
 the claim it made.
+
+## Question Relay
+
+```meta
+type: aggregate
+status: draft
+related: [.devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md, .devbook/domain/sessions/domain.invariants.md#question-relay, .devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/notifications/context.md]
+```
+
+The questions sessions are waiting on, and when each one should reach the person
+outside the session. A session registers a question through MCP `ask`. The relay
+reads the person's [Presence](#presence) and decides whether the question stays in the
+session for now or becomes a notification at once. It then routes the answer back to
+the session (local
+[ADR 0041](../../arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)).
+
+The relay owns the waiting and the route. [Notifications](../notifications/context.md)
+owns the notification, the replies and which reply becomes the answer. The relay
+publishes through it as the Sessions source, about the session as subject, and takes
+the accepted answer through the Sessions answer handler.
+
+The relay is this machine's, like the [Session Request Queue](#session-request-queue):
+presence is read on this desktop, and the questions are kept in the app's local
+database. It sits behind the `notifications` flag and adds none of its own.
+
+Invocation semantics: command-oriented, with one scheduled step. Hooks in the session
+call `ask`, `get_answer` and `close` on the MCP listener. A timer publishes a question
+whose notify delay has run out. The Manager claims and marks deliveries through the
+dispatch wait route of the [Session Request Queue](#session-request-queue).
+
+| Call | What it does |
+| --- | --- |
+| `ask` with a session id and `toolUseId`, `questions` or `kind` | Registers a Waiting Question — a `dialog` of one to four questions in `AskUserQuestion`'s shape with its tool use id, or one `prose` question — or answers the one already registered for that tool use. Answers the `route` (`session` or `backlog`), the question's id and `waitSeconds`, the dialog wait. |
+| `get_answer` with the question's id | Marks the hook as still waiting, then holds the call for `waitSeconds`, at most 55 seconds, on a completion source the relay completes when the question is answered or closed. Answers `open`; `answered`, with the answers keyed by question text and a multi-select's labels comma-joined, as the dialog takes them; or `closed` with its reason. |
+| `close` with the question's id | Closes the question with a reason: `answered-in-session`, with the answers in the same shape; `timed-out`; or `session-ended`. |
+| `GET /session-requests/wait` | Hands a waiting Manager a due delivery before any session request, oldest answer first, with the session id, the Claude desktop app's id for it, the question and the answer. Only a session the desktop app holds open gets one. |
+| `claim_delivery`, `mark_delivery` | Claim a delivery under a two-minute lease, then mark it `delivered`, or `released` when the session is gone. Only the dispatcher holding the claim may mark it. |
+| `list_deliveries` | Lists the deliveries not yet delivered, or those Pending or Claimed, for a Manager that restarts. |
+| `GET /hooks/ask-backlog.mjs` | Serves the hook script the desktop app embeds, behind the listener's guard. |
+
+The hooks are one script, `ask-backlog.mjs`. The desktop app embeds it, serves it on
+the MCP listener and writes the same bytes to `hooks\ask-backlog.mjs` under its app
+data folder on every start, so the installed hook is always the running app's. Its
+first argument names the hook: `pre` and `post` for `AskUserQuestion`, `stop`,
+`prompt` for `UserPromptSubmit`, and `end` for `SessionEnd`. `pre` holds a `backlog`
+dialog on `get_answer`, asking again every 15 seconds while Backlog does not answer,
+and stops at once when Backlog refuses. No call lists a session's questions, so the
+script keeps the ids it was given in a file per session beside it. On any error it
+exits 0 without output, so the session never waits on Backlog being up.
+
+The five hooks are installed only at the user scope of the `backlog` server
+registration, each running `node "$LOCALAPPDATA/Backlog/hooks/ask-backlog.mjs" <mode>`:
+`PreToolUse` and `PostToolUse` matching `AskUserQuestion` (`pre` with a 28800-second
+timeout, `post`), `Stop`, `UserPromptSubmit` and `SessionEnd`, the four short ones at
+10 seconds. The Dev PC catalog's `backlog` row merges them into Claude's user
+`settings.json` when it registers the server there and takes exactly those entries out
+when it unregisters it, keeping every other hook; a rerun changes nothing. This
+repository's `.mcp.json` registration installs none, and its `.claude/settings.json`
+lists none: user-scope hooks already fire in it, and repository entries would run each
+hook twice and fire for every contributor, CI run and sub-agent, failing wherever no
+release Backlog is installed. The path is the release app's folder: a debug build
+writes the script under `Backlog.Debug`, so its hooks find no script and Claude
+reports a non-blocking hook error.
+
+### Waiting Question
+
+```meta
+type: entity
+status: draft
+aliases: [WaitingQuestion, waiting question, relay question, delivery, answer delivery]
+related: [.devbook/domain/sessions/domain.md#session-state, .devbook/domain/notifications/domain.md#notification, .devbook/domain/notifications/domain.md#answer]
+```
+
+One question a session asked the person and is waiting on. It carries:
+
+- the **session id** of the session that asked;
+- the **tool use id** of the question dialog, for a dialog;
+- the **notification ids**, one for each question it published, once it is Notified;
+- its **kind**: Dialog, one to four questions in a question dialog, or Prose, one
+  question written at the end of a turn;
+- its **route**: `session` when asked while the person was at the keyboard, or
+  `backlog` when asked while they were away;
+- when it was **asked**, and when it **escalates**: the moment it becomes a
+  notification if still open, the notify delay after it was asked;
+- its **delivery state**, once an answer must reach the session through the Manager;
+- its **state**.
+
+**States.**
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> InSession: asked while the person is at the keyboard
+  [*] --> Notified: asked while the person is away
+  InSession --> Notified: escalate at passes
+  InSession --> Answered: answered in the session
+  Notified --> Answered: answered in the session or in Backlog
+  InSession --> Closed: the session ends
+  Notified --> Closed: the session ends, or the wait runs out
+  Answered --> [*]
+  Closed --> [*]
+```
+
+- **InSession.** Asked while the person was at the keyboard. Nothing is published
+  yet, and the question waits for its escalate at.
+- **Notified.** Published as one notification per question, under the session as
+  subject. [Coming back to the keyboard never takes it
+  back](domain.invariants.md#invariant-presence-never-takes-a-question-back).
+- **Answered.** Answered in the session, or every one of its notifications has an
+  accepted answer. An answer given in the session closes the notifications with the
+  answers, so every viewer shows where it was answered.
+- **Closed.** The session ended, or a dialog's hook stopped waiting. Its
+  notifications close with it.
+
+**How the answer returns.** A Dialog on the `backlog` route is answered by the hook
+that holds it, which reads the answer through `get_answer`. A Dialog that escalated
+from InSession, and every Prose question, are answered through a **delivery**: the
+relay records the answer as one for the Manager to send to the session.
+
+**Delivery state.** A delivery is Pending until the Manager claims it, then Claimed
+under a two-minute lease, then Delivered once the Manager sent the message, or
+Released back to Pending when the session could not be reached. A lease that runs out
+reads as Pending again. A released delivery is held back from the wait route for one
+lease, so a session that cannot be reached does not wake the Manager on every call. A
+question answered in the session, or through the hook, never gets a delivery.
+
+The Manager's capacity rule counts a dispatched session that holds an open Waiting
+Question as waiting, not working: the session list reads it [Waiting](#session-state)
+and names the desktop app's id for it, which is the id the Manager started it under.
+
+[A session has at most one open question per tool
+use](domain.invariants.md#invariant-one-waiting-question-per-tool-use): hooks installed
+at two scopes that both register the same dialog get the same question back.
+
+### Presence
+
+```meta
+type: value-object
+status: draft
+aliases: [presence, away, at the keyboard, away after, notify after, dialog wait]
+related: [.devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md]
+```
+
+Whether the person is at this desktop's keyboard, as the desktop reads it at the
+moment a question is asked. It is made of:
+
+- the time since the last keyboard or mouse input on this desktop;
+- whether the screen is locked;
+- when the person last typed a prompt in the asking session, from hook telemetry.
+
+The person is **away** after 10 minutes without input, or while the screen is
+locked. Otherwise they are **at the keyboard**. Presence is read on the desktop only:
+a phone never sees it and it never travels.
+
+Three desktop settings shape the relay, each with its default:
+
+| Setting | Default | What it decides |
+| --- | --- | --- |
+| Away after | 10 minutes | How long without input makes the person away. |
+| Notify after | 15 minutes | How long an InSession question waits before it is published. |
+| Dialog wait | 8 hours | How long a dialog's hook waits for an answer from Backlog. |
+
+[Presence picks the route once, when the question is
+asked](domain.invariants.md#invariant-presence-picks-the-route-once). Equality is by
+its parts.
+
+The context reads it through the `IPresence` port: `IsAway`, `LastInputAt` and
+`LastPromptAt(sessionId)`. The rule itself is platform-free and takes the platform's
+reading of the input; the Windows desktop head answers that reading from
+`GetLastInputInfo`, sampled when asked, and from the session-switch events Windows
+raises on lock and unlock. An input the platform cannot read counts as at the
+keyboard, so the notify delay still publishes a question nobody answers. The last
+prompt per session comes from the `UserPromptSubmit` events the hook telemetry
+endpoint receives, is kept in memory, and is forgotten on `SessionEnd` or a restart.
+
+The settings are kept in the desktop's workspace settings file and edited on the
+Notifications settings page, in whole minutes for away after and notify after (1 to
+480) and whole hours for dialog wait (1 to 24). A value outside those bounds is
+refused with the setting named.
 
 ## Session Activity Publishing
 
