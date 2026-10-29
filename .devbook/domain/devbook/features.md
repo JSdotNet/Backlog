@@ -206,10 +206,8 @@ checklist, opens at that part, marks it as the one asked for, and scrolls it int
 view. The mark stays until the reader picks another chapter, and it belongs to the
 repository the reference named.
 
-An image written `scenario:<scenarios file>#<label>` in any chapter, or in a task's
-own text
-([Acceptance from scenario parts](../tasks/features.md#acceptance-from-scenario-parts)),
-shows that screenshot from the last run of the journey that holds the label. The
+An image written `scenario:<scenarios file>#<label>` in any chapter shows that
+screenshot from the last run of the journey that holds the label. The
 file is named by its path inside the domain folder, such as `work/scenarios.md`,
 and a label is unique in its file. Inside the scenarios file itself, `shot:<label>`
 is enough. A source line under the image names the journey, the part, the run's

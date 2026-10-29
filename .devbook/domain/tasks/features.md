@@ -81,9 +81,12 @@ related: [.devbook/domain/tasks/requirements.md#sub-items-and-steps]
 ```
 
 Break a task into ordered sub-items with a title, a status (pending or done),
-and notes. A person toggles a sub-item between open and done from the rendered
-task, and can reorder, add and remove sub-items independently. The parent shows
-its progress, such as 3/5 done. Sub-items can project to GitHub issue task lists.
+and notes. On the desktop a step is a `##` chapter written in the task's body.
+A person adds, renames, reorders and removes steps by editing that text. A step
+is finished with `[x]` in its heading or `!done` on the line under it. On the
+phone a person ticks a step on or off from the checklist on the task's own page,
+while the task is in today's My Day. The parent shows its progress, such as 3/5
+done. Sub-items can project to GitHub issue task lists.
 
 A step is a [Sub-Item](domain.md#sub-item); that chapter says what a step
 carries and what stays on the task.
@@ -146,12 +149,12 @@ When every part passes, the task says it is proved. Being proved is a signal and
 nothing more: the task keeps its status until a person moves it. A green run is
 evidence for deciding that the work is done, and the decision stays with the person.
 
-A task's own text can show a scenario screenshot. An image written
-`scenario:<scenarios file>#<label>` in the text a task opens with, or in a step's note, shows
-the capture from the journey's last run with its source line, exactly as a chapter
-shows it ([Rendered devbook documents](../devbook/features.md#rendered-devbook-documents)).
-It is resolved against the repository the task's Devbook references open in. Any
-other image in a task shows as it always has.
+A task's own text can name a scenario screenshot, as an image written
+`scenario:<scenarios file>#<label>`. The desktop's task detail shows the body as
+Markdown source and draws no image, so the image reads there as the text written.
+Drawing it is kept for a later rendered reading of the body. Until then the
+screenshot is shown where its scenarios file is read in the Devbook pane
+([Rendered devbook documents](../devbook/features.md#rendered-devbook-documents)).
 
 The same answer reaches a coding session. Listing a task's Devbook references gives
 each part with its state and last run, the step a failed part stopped on, and a count
