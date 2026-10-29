@@ -27,8 +27,12 @@ public partial class ShellSurfaceRegistrationTests
     {
         var components = RegisteredSurfaceComponents().ToList();
 
-        // The Devbook registers one today; an empty list would pass for the wrong reason.
-        Assert.Contains(components, component => component.Name == "DevbookSurface");
+        // The Devbook and the five views register one each; an empty list would pass
+        // for the wrong reason.
+        foreach (var expected in new[] { "DevbookSurface", "TasksSurface", "BoardSurface", "CalendarSurface", "RoadmapSurface", "GoalsSurface" })
+        {
+            Assert.Contains(components, component => component.Name == expected);
+        }
 
         var shell = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", "App", "Backlog.Desktop.UI"));
         var shellFiles = Repository.SourceFilesUnder(shell, ".razor", ".cs")
@@ -48,9 +52,13 @@ public partial class ShellSurfaceRegistrationTests
             + "registration and the surface catalog instead:\n" + string.Join('\n', offenders));
     }
 
-    [Fact]
-    public void The_desktop_composition_registers_the_devbook_surface() =>
-        Assert.Contains("AddDevbookSurface(", Repository.DesktopCompositionSource(), StringComparison.Ordinal);
+    [Theory]
+    [InlineData("AddDevbookSurface(")]
+    [InlineData("AddTasksSurfaces(")]
+    [InlineData("AddRoadmapSurface(")]
+    [InlineData("AddGoalsSurface(")]
+    public void The_desktop_composition_registers_each_module_surface(string registration) =>
+        Assert.Contains(registration, Repository.DesktopCompositionSource(), StringComparison.Ordinal);
 
     /// <summary>The component of every <c>ShellSurface</c> a module constructs.</summary>
     private static IEnumerable<(string Name, string RegisteredIn)> RegisteredSurfaceComponents()

@@ -190,15 +190,15 @@ These tabs are live too: tapping Stand-up opens /app-shell/standup and lights it
             <div class="app-header__workspace">
                 <ToggleButton Pressed="InboxVisible" OnClick="ToggleInbox">Inbox</ToggleButton>
                 <ButtonGroup CssClass="header-group header-group--views" AriaLabel="View">
-                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Tasks)" OnClick="() => ShowView(ShellView.Tasks)"><ListIcon />Tasks</ToggleButton>
-                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Board)" OnClick="() => ShowView(ShellView.Board)"><Columns3Icon />Board</ToggleButton>
-                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Calendar)" OnClick="() => ShowView(ShellView.Calendar)"><CalendarIcon />Calendar</ToggleButton>
-                    <ToggleButton Pressed="ViewOptionPressed(ShellView.Roadmap)" OnClick="() => ShowView(ShellView.Roadmap)"><ChartGanttIcon />Roadmap</ToggleButton>
+                    <ToggleButton Pressed="ViewOptionPressed(TasksViewId)" OnClick="() => ShowView(TasksViewId)"><ListIcon />Tasks</ToggleButton>
+                    <ToggleButton Pressed="ViewOptionPressed(BoardViewId)" OnClick="() => ShowView(BoardViewId)"><Columns3Icon />Board</ToggleButton>
+                    <ToggleButton Pressed="ViewOptionPressed(CalendarViewId)" OnClick="() => ShowView(CalendarViewId)"><CalendarIcon />Calendar</ToggleButton>
+                    <ToggleButton Pressed="ViewOptionPressed(RoadmapViewId)" OnClick="() => ShowView(RoadmapViewId)"><ChartGanttIcon />Roadmap</ToggleButton>
                 </ButtonGroup>
                 <ToggleButton Pressed="DevbookVisible" OnClick="ToggleDevbook">Devbook</ToggleButton>
             </div>
             <ButtonGroup CssClass="header-group header-group--work" AriaLabel="Work in progress">
-                <ToggleButton Pressed="ViewOptionPressed(ShellView.Goals)" Title="Goals" OnClick="() => ShowView(ShellView.Goals)"><TargetIcon />Goals</ToggleButton>
+                <ToggleButton Pressed="ViewOptionPressed(GoalsViewId)" Title="Goals" OnClick="() => ShowView(GoalsViewId)"><TargetIcon />Goals</ToggleButton>
                 <ToggleButton Pressed="SessionsVisible" PressedChanged="ToggleSessions"><SquareTerminalIcon />Sessions</ToggleButton>
                 <ToggleButton Pressed="PullRequestsVisible" PressedChanged="TogglePullRequests"><GitPullRequestIcon />Pull requests</ToggleButton>
             </ButtonGroup>

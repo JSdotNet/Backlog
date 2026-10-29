@@ -21,7 +21,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.Null(store.LastSurface);
-            Assert.Equal("Tasks", store.LastView);
+            Assert.Equal("tasks", store.LastView);
             Assert.Equal(path, store.SettingsPath);
         }
         finally
@@ -90,21 +90,21 @@ public sealed class ShellNavigationStoreTests
             store.SetLastSurface("Dashboard");
 
             Assert.Equal("Dashboard", store.LastSurface);
-            Assert.Equal("Board", store.LastView);
+            Assert.Equal("board", store.LastView);
 
             var restarted = new ShellNavigationStore(path);
 
             Assert.Equal("Dashboard", restarted.LastSurface);
-            Assert.Equal("Board", restarted.LastView);
+            Assert.Equal("board", restarted.LastView);
 
             restarted.SetLastSurface("Workspace");
 
-            Assert.Equal("Board", restarted.LastView);
+            Assert.Equal("board", restarted.LastView);
 
             var restartedAgain = new ShellNavigationStore(path);
 
             Assert.Equal("Workspace", restartedAgain.LastSurface);
-            Assert.Equal("Board", restartedAgain.LastView);
+            Assert.Equal("board", restartedAgain.LastView);
         }
         finally
         {
@@ -193,7 +193,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.Null(store.LastSurface);
-            Assert.Equal("Tasks", store.LastView);
+            Assert.Equal("tasks", store.LastView);
         }
         finally
         {
@@ -362,7 +362,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.False(store.CalendarPlansShown);
-            Assert.Equal("Calendar", store.LastView);
+            Assert.Equal("calendar", store.LastView);
         }
         finally
         {
@@ -418,9 +418,9 @@ public sealed class ShellNavigationStoreTests
 
             store.SetLastView("Roadmap");
 
-            Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
+            Assert.Equal("roadmap", new ShellNavigationStore(path).LastView);
             using var document = JsonDocument.Parse(Written(path));
-            Assert.Equal("Roadmap", document.RootElement.GetProperty("lastView").GetString());
+            Assert.Equal("roadmap", document.RootElement.GetProperty("lastView").GetString());
         }
         finally
         {
@@ -453,7 +453,7 @@ public sealed class ShellNavigationStoreTests
 
             var restarted = new ShellNavigationStore(path);
             Assert.Equal("Plan", restarted.BoardColumns);
-            Assert.Equal("Board", restarted.LastView);
+            Assert.Equal("board", restarted.LastView);
 
             restarted.SetBoardColumns("Status");
             Assert.Equal("Status", new ShellNavigationStore(path).BoardColumns);
@@ -494,7 +494,7 @@ public sealed class ShellNavigationStoreTests
 
             var restarted = new ShellNavigationStore(path);
             Assert.Equal("Week", restarted.CalendarRange);
-            Assert.Equal("Calendar", restarted.LastView);
+            Assert.Equal("calendar", restarted.LastView);
 
             restarted.SetCalendarRange("Month");
             Assert.Equal("Month", new ShellNavigationStore(path).CalendarRange);
@@ -772,7 +772,7 @@ public sealed class ShellNavigationStoreTests
 
             var store = new ShellNavigationStore(path);
 
-            Assert.Equal("Tasks", store.LastView);
+            Assert.Equal("tasks", store.LastView);
             Assert.Equal("Dashboard", store.LastSurface);
         }
         finally
@@ -803,7 +803,7 @@ public sealed class ShellNavigationStoreTests
 
             var store = new ShellNavigationStore(path);
 
-            Assert.Equal("Roadmap", store.LastView);
+            Assert.Equal("roadmap", store.LastView);
             Assert.Equal("Workspace", store.LastSurface);
 
             // The roadmap takeover covered the Inbox pane, so the Inbox was not on
@@ -812,7 +812,7 @@ public sealed class ShellNavigationStoreTests
 
             using var document = JsonDocument.Parse(Written(path));
             Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
-            Assert.Equal("Roadmap", document.RootElement.GetProperty("lastView").GetString());
+            Assert.Equal("roadmap", document.RootElement.GetProperty("lastView").GetString());
             Assert.False(document.RootElement.TryGetProperty("lastEnabledPanes", out _));
         }
         finally
@@ -835,7 +835,7 @@ public sealed class ShellNavigationStoreTests
             store.SetLastSurface("Roadmap");
 
             Assert.Equal("Workspace", store.LastSurface);
-            Assert.Equal("Roadmap", store.LastView);
+            Assert.Equal("roadmap", store.LastView);
             using var document = JsonDocument.Parse(Written(path));
             Assert.Equal("Workspace", document.RootElement.GetProperty("lastSurface").GetString());
         }
@@ -873,7 +873,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.Equal("Inbox", store.LastSurface);
-            Assert.Equal("Board", store.LastView);
+            Assert.Equal("board", store.LastView);
         }
         finally
         {
@@ -984,7 +984,7 @@ public sealed class ShellNavigationStoreTests
             var store = new ShellNavigationStore(path);
 
             Assert.Equal("Devbook", store.LastSurface);
-            Assert.Equal("Board", store.LastView);
+            Assert.Equal("board", store.LastView);
         }
         finally
         {
@@ -995,10 +995,10 @@ public sealed class ShellNavigationStoreTests
     /// <summary>A takeover stored over the Devbook pane was what the reader saw, so it
     /// stays the surface — the roadmap takeover as the Roadmap view, as ever.</summary>
     [Theory]
-    [InlineData("Devbook", "Dashboard", "Dashboard", "Calendar")]
-    [InlineData("Knowledge", "Sessions", "Sessions", "Calendar")]
-    [InlineData("Devbook", "Tools", "Tools", "Calendar")]
-    [InlineData("Knowledge", "Roadmap", "Workspace", "Roadmap")]
+    [InlineData("Devbook", "Dashboard", "Dashboard", "calendar")]
+    [InlineData("Knowledge", "Sessions", "Sessions", "calendar")]
+    [InlineData("Devbook", "Tools", "Tools", "calendar")]
+    [InlineData("Knowledge", "Roadmap", "Workspace", "roadmap")]
     public void A_devbook_pane_under_another_surface_leaves_that_surface(
         string pane, string storedSurface, string surface, string view)
     {
@@ -1128,7 +1128,7 @@ public sealed class ShellNavigationStoreTests
         try
         {
             var store = new ShellNavigationStore(path);
-            string[] views = ["Board", "Calendar", "Roadmap", "InProgress", "Tasks", "Board", "Calendar"];
+            string[] views = ["board", "calendar", "roadmap", "goals", "tasks", "board", "calendar"];
 
             foreach (var view in views)
             {
@@ -1139,7 +1139,7 @@ public sealed class ShellNavigationStoreTests
             store.Flush();
 
             using var document = JsonDocument.Parse(File.ReadAllText(path));
-            Assert.Equal("Calendar", document.RootElement.GetProperty("lastView").GetString());
+            Assert.Equal("calendar", document.RootElement.GetProperty("lastView").GetString());
             Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(path)!, "*.tmp"));
         }
         finally
