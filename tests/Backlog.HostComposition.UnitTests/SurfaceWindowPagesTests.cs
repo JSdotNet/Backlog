@@ -229,7 +229,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
 
     /// <summary>
     /// A web link's first load redeems its token: the listener sets the page's cookie
-    /// — HttpOnly, SameSite=Strict, for this loopback origin — and redirects to the
+    /// — HttpOnly, Secure, SameSite=Strict, for this loopback origin — and redirects to the
     /// same address without the token, the rest of the query kept. The page then
     /// renders on the cookie alone.
     /// </summary>
@@ -255,11 +255,12 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         var setCookie = Assert.Single(redirect.Headers.GetValues("Set-Cookie"));
         Assert.StartsWith(SurfaceWindowPages.CookieName(listener.Settings.McpServerPort) + "=", setCookie, StringComparison.Ordinal);
         Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secure", setCookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("samesite=strict", setCookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("path=/", setCookie, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("domain=", setCookie, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("expires=", setCookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Single(cookies.GetCookies(new Uri(listener.Address)));
+        Assert.Single(cookies.GetCookies(LoopbackBrowser.AsSecure(new Uri(listener.Address))));
 
         using var page = await client.GetAsync(redirect.Headers.Location, TestContext.Current.CancellationToken);
         var html = await page.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -307,10 +308,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         var link = System.Text.RegularExpressions.Regex.Match(body, @"http://localhost:\d+/window/probe\?t=[A-Za-z0-9_-]+").Value;
         Assert.True(link.StartsWith($"http://localhost:{listener.Settings.McpServerPort}/window/probe?t=", StringComparison.Ordinal), body);
 
-        var cookies = new CookieContainer();
-#pragma warning disable CA2000 // The client owns the handler and disposes it.
-        using var browser = new HttpClient(new HttpClientHandler { CookieContainer = cookies, AllowAutoRedirect = false }, disposeHandler: true);
-#pragma warning restore CA2000
+        using var browser = LoopbackBrowser.Create(new CookieContainer());
 
         using var redirect = await browser.GetAsync(new Uri(link), TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Redirect, redirect.StatusCode);
@@ -558,10 +556,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         public HttpClient Client(out CookieContainer cookies)
         {
             cookies = new CookieContainer();
-#pragma warning disable CA2000 // The client owns the handler and disposes it.
-            var handler = new HttpClientHandler { CookieContainer = cookies, AllowAutoRedirect = false };
-#pragma warning restore CA2000
-            return new HttpClient(handler, disposeHandler: true) { BaseAddress = new Uri(Address) };
+            return LoopbackBrowser.Create(cookies, new Uri(Address));
         }
 
         /// <summary>A browser admitted the way a person is: by a tokenized link's
@@ -658,5 +653,54 @@ public sealed class ProbeTargetSurface : ComponentBase
         builder.AddAttribute(1, "data-testid", "probe-target");
         builder.AddContent(2, "Target");
         builder.CloseElement();
+    }
+}
+
+/// <summary>
+/// An <see cref="HttpClient"/> that holds cookies the way a browser does on loopback.
+/// A browser treats <c>http://localhost</c> and <c>http://127.0.0.1</c> as a secure
+/// context, so it keeps a <c>Secure</c> cookie set there and sends it back over plain
+/// http; <see cref="CookieContainer"/> sends one only to an <c>https</c> address. So
+/// the container is read and written under the address's <c>https</c> form, which
+/// for a cookie — scoped to a host, not to a port or a scheme — is the same jar.
+/// </summary>
+internal static class LoopbackBrowser
+{
+    public static HttpClient Create(CookieContainer cookies, Uri? baseAddress = null)
+    {
+#pragma warning disable CA2000 // The client owns the handler chain and disposes it.
+        var handler = new LoopbackCookieHandler(cookies)
+        {
+            InnerHandler = new HttpClientHandler { UseCookies = false, AllowAutoRedirect = false },
+        };
+#pragma warning restore CA2000
+        return new HttpClient(handler, disposeHandler: true) { BaseAddress = baseAddress };
+    }
+
+    /// <summary>The address the container is read and written under.</summary>
+    public static Uri AsSecure(Uri address) => new UriBuilder(address) { Scheme = Uri.UriSchemeHttps }.Uri;
+
+    private sealed class LoopbackCookieHandler(CookieContainer cookies) : DelegatingHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var address = AsSecure(request.RequestUri!);
+            var header = cookies.GetCookieHeader(address);
+            if (header.Length > 0)
+            {
+                request.Headers.Add("Cookie", header);
+            }
+
+            var response = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (response.Headers.TryGetValues("Set-Cookie", out var set))
+            {
+                foreach (var cookie in set)
+                {
+                    cookies.SetCookies(address, cookie);
+                }
+            }
+
+            return response;
+        }
     }
 }

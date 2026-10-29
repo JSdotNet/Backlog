@@ -153,6 +153,9 @@ internal static class SurfaceWindowPages
                 context.Response.Cookies.Append(cookieName, cookie, new CookieOptions
                 {
                     HttpOnly = true,
+                    // Secure though the listener is plain http: a browser holds localhost to
+                    // be a secure context, so it keeps and sends a Secure cookie there.
+                    Secure = true,
                     SameSite = SameSiteMode.Strict,
                     Path = "/",
                     IsEssential = true,
