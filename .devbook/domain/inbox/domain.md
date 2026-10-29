@@ -317,7 +317,7 @@ and then removes the group, so no list is ever deleted by deleting its group.
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#import, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#import, .devbook/domain/brain/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.MergeIntoTaskTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxMergeIntoTaskTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Creating_a_plan_hands_the_items_folder_to_the_import_as_its_attachment]
 aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, ArchiveItemCommand, MergeIntoTaskCommand, InboxMergeRequestDto]
 ```
@@ -383,7 +383,7 @@ first, so a failure never leaves an item archived against a task that never
 heard of it. [Merge and To Brain](flow.md#merge-and-to-brain) shows the order.
 
 **To Brain** writes a capture or a note into the person's
-[Brain](../devbook/domain.md#brain) as a new Knowledge Note in its inbox area,
+[Brain](../brain/domain.md#brain) as a new Knowledge Note in its inbox area,
 title and body kept. It records the routing target as `devbook`, with no
 repository and no task. Devbook is asked first, through the `IInboxBrainTarget`
 port, and the item is routed only once the note is written. The route is
@@ -556,8 +556,8 @@ item is different: it is a thought waiting to be sorted, and the phone forgets
 it once the desktop takes it in.
 
 A note is not a *Brain note*, a
-[Knowledge Note](../devbook/domain.md#knowledge-note). A Brain note is a file in
-the person's [Brain](../devbook/domain.md#brain). The folder's own sync carries
+[Knowledge Note](../brain/domain.md#knowledge-note). A Brain note is a file in
+the person's [Brain](../brain/domain.md#brain). The folder's own sync carries
 it between machines, never the task feed, so the phone does not see it
 (local ADRs 0025 and 0026). Triaging a note
 [To Brain](features.md#route-to-brain) writes a Brain note from it. The

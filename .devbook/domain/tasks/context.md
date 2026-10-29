@@ -16,7 +16,7 @@ Outside it: what arrives and how it is triaged, which the
 [Inbox](../inbox/domain.md#inbox-item) answers; when planned work happens and in
 which order, which [Roadmap Planning](../roadmap/domain.md#roadmap-item)
 answers; and the knowledge a task links to, which
-[Devbook](../devbook/domain.md#knowledge-note) answers.
+[Brain](../brain/domain.md#knowledge-note) answers.
 
 ## Task backlog
 

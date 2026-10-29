@@ -1,13 +1,11 @@
-# Devbook
+# Flow
 
 ```meta
 type: flow
 status: draft
 ```
 
-> Lifecycle and process flows for this bounded context. Flows describe how a
-> knowledge note moves through its workflow phases over time — complementary to
-> `model.md` (structure) and `domain.md` (responsibilities/invariants).
+> How a Knowledge Note moves through its workflow phases over time.
 
 ## Knowledge note lifecycle
 

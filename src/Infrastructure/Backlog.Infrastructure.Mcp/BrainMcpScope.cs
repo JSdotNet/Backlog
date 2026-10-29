@@ -5,7 +5,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// <summary>
 /// The Brain as a session names it on the wire: <c>#brain</c>, in the place a
 /// devbook tool otherwise takes a repository's <c>owner/name</c>
-/// (<c>.devbook/domain/devbook/features.md#mcp-brain-scope</c>).
+/// (<c>.devbook/domain/brain/features.md#mcp-brain-scope</c>).
 /// <para>
 /// Not <see cref="BrainScope.Value"/>, the empty string the shell stores for the
 /// Brain: on this wire an empty <c>repository</c> is already the

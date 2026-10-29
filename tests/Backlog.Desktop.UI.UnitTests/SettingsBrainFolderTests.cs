@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Brain card on Settings › Storage (<c>.devbook/domain/devbook/requirements.md#brain-folder-setup</c>):
+/// The Brain card on Settings › Storage (<c>.devbook/domain/brain/requirements.md#brain-folder-setup</c>):
 /// an empty field on a fresh install, the path kept in the app's settings and not
 /// the folder, the database line, Create conventions scaffolding without
 /// overwriting, and a link that opens the screen at the card.
