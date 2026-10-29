@@ -138,14 +138,16 @@ public sealed class ShellNavigationStore
     /// <summary>The format <see cref="GoalsTwoWeekStart"/> is stored in.</summary>
     private const string IsoDate = "yyyy-MM-dd";
 
+    /// <summary>The file's name, in the head's own app-data folder.</summary>
+    public const string FileName = "shell-navigation.json";
+
     private readonly string _path;
 
+    /// <summary>The file in <see cref="WorkspaceSettingsStore.DefaultAppDataDirectory"/>:
+    /// <c>Backlog.Debug</c> for a Debug build, <c>Backlog</c> for the installed app, so
+    /// a head started out of a checkout never writes what the installed app restores.</summary>
     public ShellNavigationStore()
-        : this(
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "shell-navigation.json"))
+        : this(Path.Combine(WorkspaceSettingsStore.DefaultAppDataDirectory, FileName))
     {
     }
 
