@@ -26,9 +26,36 @@ public sealed class ShellWindowStoreTests : IDisposable
     public void The_default_file_sits_beside_the_shell_navigation_file()
     {
         var store = new ShellWindowStore();
-        var backlogFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Backlog");
 
-        Assert.Equal(Path.Combine(backlogFolder, "shell-windows.json"), store.SettingsPath);
+        Assert.Equal(
+            Path.Combine(Path.GetDirectoryName(new ShellNavigationStore().SettingsPath)!, "shell-windows.json"),
+            store.SettingsPath);
+    }
+
+    /// <summary>
+    /// Both shell stores live in the head's own app-data folder: <c>Backlog.Debug</c> for
+    /// a Debug build, the folder the log and the workspace already use there, so a head
+    /// started out of a checkout never overwrites the installed app's
+    /// <c>shell-navigation.json</c> and <c>shell-windows.json</c>. A Debug composition
+    /// names the installed app's <c>Backlog</c> folder for neither.
+    /// </summary>
+    [Fact]
+    public void The_shell_stores_default_to_the_heads_own_app_data_folder()
+    {
+        var appData = WorkspaceSettingsStore.DefaultAppDataDirectory;
+        var installed = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Backlog");
+
+        string[] paths = [new ShellNavigationStore().SettingsPath, new ShellWindowStore().SettingsPath];
+
+        Assert.Equal(
+            [Path.Combine(appData, ShellNavigationStore.FileName), Path.Combine(appData, ShellWindowStore.FileName)],
+            paths);
+#if DEBUG
+        Assert.Equal("Backlog.Debug", WorkspaceSettingsStore.DefaultAppDataFolderName);
+        Assert.All(paths, path => Assert.NotEqual(installed, Path.GetDirectoryName(path), StringComparer.OrdinalIgnoreCase));
+#else
+        Assert.All(paths, path => Assert.Equal(installed, Path.GetDirectoryName(path), StringComparer.OrdinalIgnoreCase));
+#endif
     }
 
     [Fact]

@@ -541,7 +541,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
             MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(appData, MyDayPreferencesStore.FileName)),
             IterationSettings = sp => new IterationSettingsStore(
                 Path.Combine(appData, IterationSettingsStore.FileName), sp.GetRequiredService<ShellNavigationStore>()),
-            ShellNavigation = _ => new ShellNavigationStore(Path.Combine(appData, "shell-navigation.json")),
+            ShellNavigation = _ => new ShellNavigationStore(Path.Combine(appData, ShellNavigationStore.FileName)),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(appData, "capture-sources.json")),
             CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(appData, "capture-runs.json")),
             CaptureTargetLedger = _ => new CaptureTargetLedgerStore(Path.Combine(appData, "capture-targets.json")),

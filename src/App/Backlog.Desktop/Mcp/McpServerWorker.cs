@@ -838,6 +838,18 @@ public sealed class McpServerWorker : IDisposable
     /// registered <c>AddScoped</c>, and a singleton holding one would pin it.
     /// </para>
     /// <para>
+    /// A port the head composed as a singleton is the exception: it is handed over
+    /// as the instance, resolved from the desktop root here, at build, the way
+    /// <see cref="SurfaceWindowPages.Forward"/> hands over every other singleton. The
+    /// listener's container disposes whatever a factory gives it when the scope that
+    /// asked ends, so a singleton store forwarded through a scoped factory was
+    /// disposed with the first request or page that ended, and went on serving the
+    /// main window disposed. An instance registered as one is never the container's
+    /// to dispose. The lifetime is read off <see cref="DesktopServiceRegistrations"/>;
+    /// a head that registered no snapshot forwards every port out of the request's
+    /// desktop scope, as before.
+    /// </para>
+    /// <para>
     /// Which ports, read off the tool classes' own constructors rather than
     /// listed here. A list would be a second statement of what the tools need,
     /// in a project that does not own them — and the group table is already
@@ -852,10 +864,18 @@ public sealed class McpServerWorker : IDisposable
     {
         var probe = _services.GetService<IServiceProviderIsService>();
 
+        var desktop = _services.GetService<DesktopServiceRegistrations>();
+
         listenerServices.AddScoped(_ => _services.CreateScope());
 
         foreach (var port in ForwardedPorts(probe))
         {
+            if (IsSingleton(desktop, port) && SingletonInstance(port) is { } instance)
+            {
+                listenerServices.Add(new ServiceDescriptor(port, instance));
+                continue;
+            }
+
             listenerServices.Add(new ServiceDescriptor(
                 port,
                 request => request.GetRequiredService<IServiceScope>().ServiceProvider.GetRequiredService(port),
@@ -869,9 +889,42 @@ public sealed class McpServerWorker : IDisposable
         // own view state, as a native window does. A head that registered no
         // snapshot forwards nothing more, and its page fails on the first service
         // it asks for rather than being served by a second composition.
-        if (_services.GetService<DesktopServiceRegistrations>() is { } desktop)
+        if (desktop is not null)
         {
             SurfaceWindowPages.Forward(listenerServices, desktop.Descriptors, _services, _log);
+        }
+    }
+
+    /// <summary>Whether the head composed <paramref name="port"/> as a singleton, and
+    /// only as one: a port with a scoped or transient registration beside it comes
+    /// out of the request's desktop scope.</summary>
+    private static bool IsSingleton(DesktopServiceRegistrations? desktop, Type port)
+    {
+        if (desktop is null) return false;
+
+        var lifetimes = desktop.Descriptors
+            .Where(descriptor => descriptor.ServiceType == port && !descriptor.IsKeyedService)
+            .Select(descriptor => descriptor.Lifetime)
+            .ToList();
+
+        return lifetimes.Count > 0 && lifetimes.All(lifetime => lifetime == ServiceLifetime.Singleton);
+    }
+
+    /// <summary>The desktop root's own instance of a singleton port, or null when it
+    /// cannot be built — that port is then forwarded through the request's desktop
+    /// scope, where the tool that needs it fails as loudly as it did before.</summary>
+    private object? SingletonInstance(Type port)
+    {
+        try
+        {
+            return _services.GetService(port);
+        }
+#pragma warning disable CA1031 // Any failure leaves the port to the scoped forward, which reports it per call.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            _log.LogWarning(ex, "The MCP listener cannot use the desktop app's {Port} as an instance; it is forwarded per request.", port.Name);
+            return null;
         }
     }
 
