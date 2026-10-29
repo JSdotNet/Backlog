@@ -184,6 +184,9 @@ public static class MauiProgram
             sp.GetRequiredService<IShellWindows>(),
             sp.GetRequiredService<WindowLinkTokens>(),
             () => sp.GetService<McpServerWorker>()?.Address?.Port));
+        // What a backlog:// link opens (local ADR 0040 §7): BacklogLinkInstance hands it
+        // the link the app was launched with and every one redirected here later.
+        builder.Services.TryAddSingleton<BacklogLinkActivation>();
         // The Brain card's Browse: this head has a window to open the Windows
         // folder picker over, so it is the one host that registers one. One per
         // window, so it stands over the window whose Settings asked for it.
@@ -315,6 +318,11 @@ public static class MauiProgram
         // to: it watches the folder the Brain setting names and follows the
         // setting from here on (local ADR 0026 §4).
         app.Services.GetRequiredService<BrainFolderWatch>().Start();
+
+        // And the backlog:// links (local ADR 0040 §7): the one this launch carried and
+        // any redirected here since the App constructor claimed the instance, held until
+        // the main window is up.
+        BacklogLinkInstance.Attach(app.Services.GetRequiredService<BacklogLinkActivation>());
 
         return app;
     }
