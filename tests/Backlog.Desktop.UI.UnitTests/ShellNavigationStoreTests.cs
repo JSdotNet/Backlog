@@ -1117,6 +1117,87 @@ public sealed class ShellNavigationStoreTests
     }
 
     /// <summary>
+    /// The atlas's place — the takeover it was opened over, by its surface id, and the
+    /// scope it is on — survives a restart, so leaving it for Settings and coming back
+    /// keeps both; neither key is written until the atlas has been opened. A name the
+    /// retired enum stored reads as its id, and the workspace as none.
+    /// </summary>
+    [Fact]
+    public void The_atlas_place_survives_a_restart_and_writes_no_key_until_the_atlas_opens()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            var store = new ShellNavigationStore(path);
+            Assert.Null(store.AtlasReturnSurface);
+            Assert.Null(store.AtlasScope);
+
+            store.SetLastSurface("Dashboard");
+            using (var none = JsonDocument.Parse(Written(path)))
+            {
+                Assert.False(none.RootElement.TryGetProperty("atlasReturnSurface", out _));
+                Assert.False(none.RootElement.TryGetProperty("atlasScope", out _));
+            }
+
+            store.SetLastSurface("atlas");
+            store.SetAtlasPlace("dashboard", "ghost:devbook-stack");
+
+            var restarted = new ShellNavigationStore(path);
+            Assert.Equal("atlas", restarted.LastSurface);
+            Assert.Equal("dashboard", restarted.AtlasReturnSurface);
+            Assert.Equal("ghost:devbook-stack", restarted.AtlasScope);
+
+            // All, from the header, is no scope at all; the workspace is no takeover.
+            restarted.SetAtlasPlace(null, null);
+            var again = new ShellNavigationStore(path);
+            Assert.Null(again.AtlasReturnSurface);
+            Assert.Null(again.AtlasScope);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// A file from before the atlas was a registered surface names it, and the
+    /// takeover it was opened over, by the retired enum's members: each reads as its
+    /// surface id, the workspace and the Roadmap as no takeover at all.
+    /// </summary>
+    [Theory]
+    [InlineData("Devbook", "devbook")]
+    [InlineData("PullRequests", "pull-requests")]
+    [InlineData("Workspace", null)]
+    [InlineData("Roadmap", null)]
+    public void A_retired_atlas_place_reads_as_surface_ids(string storedReturn, string? returnId)
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, $$"""
+                {
+                  "lastSurface": "Atlas",
+                  "atlasReturnSurface": "{{storedReturn}}",
+                  "atlasScope": "repo:backlog"
+                }
+                """);
+
+            var store = new ShellNavigationStore(path);
+
+            Assert.Equal("atlas", store.LastSurface);
+            Assert.Equal(returnId, store.AtlasReturnSurface);
+            Assert.Equal("repo:backlog", store.AtlasScope);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
     /// The setters are on the click path, so the file is written off it, and a
     /// burst of presses — the view options pressed in quick succession — still
     /// leaves the last one on disk, never an earlier one that finished later.
@@ -1209,6 +1290,7 @@ public sealed class ShellNavigationStoreTests
     [InlineData("Inbox", "inbox", "tasks")]
     [InlineData("Devbook", "devbook", "tasks")]
     [InlineData("Notifications", "notifications", "tasks")]
+    [InlineData("Atlas", "atlas", "tasks")]
     public void Every_retired_surface_name_restores_as_its_surface_id(string storedSurface, string? surface, string view)
     {
         var path = NewSettingsPath();
@@ -1244,7 +1326,7 @@ public sealed class ShellNavigationStoreTests
     [Fact]
     public void The_retired_surface_names_are_the_retired_enum_members()
     {
-        string[] members = ["Workspace", "Tools", "Dashboard", "Sessions", "PullRequests", "Inbox", "Devbook", "Notifications"];
+        string[] members = ["Workspace", "Tools", "Dashboard", "Sessions", "PullRequests", "Inbox", "Devbook", "Notifications", "Atlas"];
 
         Assert.Equal(members.Order(StringComparer.Ordinal), ShellNavigationStore.RetiredSurfaceNames.Keys.Order(StringComparer.Ordinal));
     }

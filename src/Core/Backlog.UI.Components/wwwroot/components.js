@@ -78,53 +78,120 @@
         attempt(focusFrames);
     };
 
-    // A chapter opened from a link that named one of its headings — a usage picked
-    // on an AI tab — has to open at that heading, not at the top of its file. The
-    // heading is found inside `scope` by its text: a rendered heading carries no id,
-    // and the caller has already resolved the anchor to the heading it names; a
-    // heading's type mark is an image with no text, so the text matches exactly.
-    // The nearest container that actually scrolls is scrolled until the heading
-    // sits at its top, for the reason backlogRevealRow gives — a file view that
-    // does not fill the pane keeps its body's overflow but grows instead, and the
-    // section around it is what scrolls. Focus then moves to the heading without
-    // scrolling again, so a keyboard
-    // or screen reader user lands where the reader's eye does. Waited for a few
-    // frames, because the chapter's body arrives with its read.
-    window.backlogRevealHeading = (scope, text) => {
-        const normalise = value => (value ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
-        const wanted = normalise(text);
-        if (!wanted) return;
+    // The heading a followed reference named — `#quality-goals` on a chapter
+    // opened out of the atlas, a Brain note's chip or an entry — brought to the
+    // top of the reading it is in. A rendered heading carries no id, so it is
+    // found by its text, slugged by GitHub's rule as the devbook generator spells
+    // it (DevbookMarkdown.Slugify), the type mark a heading may lead with left
+    // out: the anchor as written, then the anchor slugged too, so one typed as
+    // the heading reads still lands — the reference resolver's order. The
+    // generator slugs the source, so a heading holding a link slugs its target
+    // there and only its words here; such a heading is not found.
+    //
+    // Looked for in the file the pane opened, where its file view says so —
+    // a design or domain reading stacks several files — and anywhere in the
+    // reading otherwise. Only the nearest container that actually scrolls moves,
+    // for the reason backlogRevealRow gives — a file view that does not fill the
+    // pane keeps its body's overflow but grows instead, and the section around it
+    // is what scrolls — and the heading lands below that container's top padding. Waited for a few seconds, because the chapter's body
+    // is read off disk after the pane selects it, then kept at the top for a
+    // second more: a panel switches its path before the new body lands, so the
+    // first match may be a heading of the same name in the file it is leaving,
+    // and diagrams drawn above the heading push it down. The reader scrolling,
+    // pressing a key or a pointer in the reading ends that at once. A scenario
+    // part its page has marked is that page's to reveal, and the heading under
+    // it is left alone. Once the reading settles, focus moves to the heading
+    // without scrolling again, so a keyboard or screen reader user lands where the
+    // reader's eye does — unless the reader moved first.
+    //
+    // A panel that resolves the heading itself — the AI and Design folders'
+    // document view (DocumentDevbookView) — passes the heading's text as the
+    // anchor and no path; the text slugged finds the same heading.
+    const headingFrames = 300;
+    const headingSettleFrames = 60;
 
-        const find = () => {
-            const root = document.querySelector(scope);
-            if (!root) return null;
-            const headings = [...root.querySelectorAll('[role="heading"], h1, h2, h3, h4, h5, h6')];
-            return headings.find(heading => normalise(heading.textContent) === wanted) ?? null;
+    const headingSlug = text => text.toLowerCase().trim()
+        .replace(/[^\p{L}\p{N}_\s-]/gu, '')
+        .replace(/\s/g, '-');
+
+    window.backlogRevealHeading = (scopeSelector, anchor, path) => {
+        const written = (anchor ?? '').trim();
+        if (!written) return;
+        const wanted = [written.toLowerCase(), headingSlug(written)];
+        const expected = (path ?? '').trim().toLowerCase();
+
+        const textOf = heading => {
+            const copy = heading.cloneNode(true);
+            copy.querySelectorAll('[data-testid="markdown-chapter-type-mark"]').forEach(mark => mark.remove());
+            return copy.textContent ?? '';
         };
 
-        const attempt = framesLeft => {
-            const heading = find();
-            if (!heading) {
-                if (framesLeft > 0) requestAnimationFrame(() => attempt(framesLeft - 1));
-                return;
-            }
+        const opened = view => {
+            const shown = (view.querySelector('.file-view__path')?.textContent ?? '').trim().toLowerCase();
+            return expected.length > 0 && (shown === expected || shown.endsWith('/' + expected));
+        };
 
+        const find = scope => {
+            const views = Array.from(scope.querySelectorAll('.file-view')).filter(opened);
+            const headings = views.length > 0
+                ? views.flatMap(view => Array.from(view.querySelectorAll('[role="heading"]')))
+                : Array.from(scope.querySelectorAll('[role="heading"]'));
+            const slugged = headings.map(heading => ({ heading, slug: headingSlug(textOf(heading)) }));
+            for (const slug of wanted) {
+                const match = slugged.find(entry => entry.slug === slug);
+                if (match) return match.heading;
+            }
+            return null;
+        };
+
+        const scrollerOf = heading => {
             let container = heading.parentElement;
             while (container && container !== document.body) {
                 const overflowY = getComputedStyle(container).overflowY;
-                if ((overflowY === 'auto' || overflowY === 'scroll') && container.scrollHeight > container.clientHeight) break;
+                if ((overflowY === 'auto' || overflowY === 'scroll') && container.scrollHeight > container.clientHeight) return container;
                 container = container.parentElement;
             }
-            if (container && container !== document.body) {
-                const inset = parseFloat(getComputedStyle(container).paddingTop) || 0;
-                container.scrollTop += heading.getBoundingClientRect().top - container.getBoundingClientRect().top - inset;
-            }
-
-            if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
-            heading.focus({ preventScroll: true });
+            return null;
         };
 
-        attempt(focusFrames);
+        let readerMoved = false;
+        let watched = null;
+        const moved = () => { readerMoved = true; };
+        const readerEvents = ['wheel', 'touchstart', 'keydown', 'pointerdown'];
+        const done = () => readerEvents.forEach(type => watched?.removeEventListener(type, moved));
+
+        const attempt = (waitLeft, settleLeft, found) => {
+            const scope = document.querySelector(scopeSelector);
+            if (!scope || readerMoved || scope.querySelector('[data-testid="devbook-scenario-part"][aria-current="true"]')) return done();
+
+            if (watched !== scope) {
+                done();
+                watched = scope;
+                readerEvents.forEach(type => scope.addEventListener(type, moved, { passive: true }));
+            }
+
+            const heading = find(scope);
+            const container = heading ? scrollerOf(heading) : null;
+            if (container) {
+                const inset = parseFloat(getComputedStyle(container).paddingTop) || 0;
+                const offset = heading.getBoundingClientRect().top - container.getBoundingClientRect().top - inset;
+                if (Math.abs(offset) > 1) container.scrollTop += offset;
+            }
+
+            // A heading in a reading too short to scroll is already in view.
+            const settling = found || heading !== null;
+            if (settling ? settleLeft > 0 : waitLeft > 0) {
+                requestAnimationFrame(() => attempt(waitLeft - 1, settling ? settleLeft - 1 : settleLeft, settling));
+            } else {
+                done();
+                if (heading) {
+                    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+                    heading.focus({ preventScroll: true });
+                }
+            }
+        };
+
+        attempt(headingFrames, headingSettleFrames, false);
     };
 
     // A card the settings search found, brought into view when its link is
@@ -2013,6 +2080,24 @@
 
         const target = event.target instanceof Element ? event.target : null;
         if (!target || !target.matches('.changed-file, .change-scope__row, .menu-list__item')) return;
+
+        event.preventDefault();
+    });
+
+    // The keys a graph atlas's index takes for itself. The arrows, Home and End
+    // move to another row and would otherwise scroll the index, which scrolls
+    // itself; Space chooses the row and would otherwise scroll it by a screen.
+    // The same reasoning and contract as the row keys above: refused at the
+    // keydown because a state-bound `@onkeydown:preventDefault` is one key late,
+    // only the default, and the event keeps bubbling — to the index's own handler
+    // and to the hosts above it. Enter has no default on a row and is left alone.
+    const GRAPH_ATLAS_INDEX_SWALLOWED_KEYS = new Set(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End', ' ']);
+
+    document.addEventListener('keydown', (event) => {
+        if (!GRAPH_ATLAS_INDEX_SWALLOWED_KEYS.has(event.key)) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches('[role="listbox"] > .graph-atlas-index__option')) return;
 
         event.preventDefault();
     });
@@ -4019,6 +4104,1487 @@
         select(id, nodeId) {
             const instance = backlogDiagramInstances.get(id);
             if (instance && instance.select) instance.select(nodeId || null);
+        }
+    };
+
+    /*
+        The Lobes atlas: scopes drawn as brains.
+
+        The same renderer family as the atlas above — a 2D context, a perspective
+        projection, no library — with a different reading of the model. Here a
+        node is a mark in one region of one scope's brain, and the region decides
+        the shape it packs into: Frontal and Temporal dense, Parietal, Occipital
+        and Cerebellum loose clouds, the Brain stem and the repository hubs a few
+        ringed hubs, and a faint dust of points tracing the brain's outline.
+
+        Every position is derived from the mark's id, never from a shared random
+        sequence, so a mark keeps its seat when another is added and the same
+        model draws the same picture twice.
+
+        Every colour is a design token read off the root at render time
+        (`.devbook/design/color-scheme.md`): the Brain wears cool tones round its
+        accent, `color-band-2`; a devbook wears gold; a ghost wears the muted ink.
+        A token that is not there yet falls back to the atlas palette above, so
+        nothing here writes a colour of its own.
+
+        The canvas is `aria-hidden` and untabbable, exactly as the atlas's is: the
+        index beside it is the control, and a pick is reported to .NET, which
+        decides what is selected and says so through `select`.
+    */
+
+    // The brain's anatomy, in world units with y pointing down the screen. Each
+    // region's centre sits inside an ellipsoid shell whose radii are below.
+    const BACKLOG_LOBES_CENTRES = {
+        frontal: [-40, -110, 240],
+        parietal: [20, -200, -40],
+        temporal: [-200, 40, 80],
+        occipital: [280, -10, -270],
+        cerebellum: [130, 190, -200],
+        stem: [30, 300, 0]
+    };
+
+    const BACKLOG_LOBES_SHELL = { x: 340, y: 290, z: 430, lift: -20 };
+
+    // How a region packs: dense regions are a tight gaussian, clouds a loose
+    // ball whose radius grows with how much is in it. `reference` is the count
+    // the radius is tuned at.
+    const BACKLOG_LOBES_PACKING = {
+        frontal: { shape: 'dense', spread: 42, reference: 94, glow: 0.4 },
+        temporal: { shape: 'dense', spread: 26, reference: 31, glow: 0.4, pair: [[-20, 10, 20], [120, -50, -50]] },
+        parietal: { shape: 'cloud', spread: 180, reference: 420, glow: 0.07 },
+        occipital: { shape: 'cloud', spread: 80, reference: 60, glow: 0.07 },
+        cerebellum: { shape: 'cloud', spread: 155, reference: 210, glow: 0.07 },
+        stem: { shape: 'cloud', spread: 60, reference: 20, glow: 0.07 }
+    };
+
+    // Tokens per scope kind and region. Cool for the Brain round its accent,
+    // gold for a devbook, the muted ink for a ghost. No other band hue: the
+    // band set marks a repository's identity, and a third hue on the map would
+    // read as one more repository.
+    const BACKLOG_LOBES_TOKENS = {
+        brain: {
+            frontal: '--color-band-2',
+            parietal: '--color-band-2',
+            temporal: '--color-text-primary',
+            occipital: '--color-band-2',
+            cerebellum: '--color-text-secondary',
+            stem: '--color-text-primary',
+            dust: '--color-border-strong',
+            accent: '--color-band-2'
+        },
+        devbook: {
+            frontal: '--color-primary',
+            parietal: '--color-primary-light',
+            temporal: '--color-primary-dark',
+            occipital: '--color-primary-light',
+            cerebellum: '--color-primary-dark',
+            stem: '--color-text-primary',
+            dust: '--color-primary-dark',
+            accent: '--color-primary'
+        },
+        ghost: {
+            frontal: '--color-text-secondary',
+            parietal: '--color-text-secondary',
+            temporal: '--color-text-secondary',
+            occipital: '--color-text-secondary',
+            cerebellum: '--color-text-secondary',
+            stem: '--color-text-secondary',
+            dust: '--color-border-strong',
+            accent: '--color-text-secondary'
+        },
+        ink: '--color-text-primary',
+        inkMuted: '--color-text-secondary',
+        surface: '--chart-surface',
+        focus: '--color-border-focus'
+    };
+
+    const BACKLOG_LOBES_DUST = { brain: 170, devbook: 120, ghost: 120 };
+    const BACKLOG_LOBES_PERSPECTIVE = 1500;
+    const BACKLOG_LOBES_SATELLITE = [520, -300, 160];
+
+    // The camera a reader left each atlas at, per layout, so a region toggle —
+    // which hands over a new model and so a new render — does not snap the view
+    // back. A new layout starts from the default view, as switching scope should.
+    const backlogLobesCameras = new Map();
+
+    function backlogLobesPalette() {
+        const styles = getComputedStyle(document.documentElement);
+        const fallback = backlogAtlasPalette();
+        const read = (name, otherwise) => (styles.getPropertyValue(name) || '').trim() || otherwise;
+        const palette = {
+            ink: read(BACKLOG_LOBES_TOKENS.ink, fallback.ink),
+            inkMuted: read(BACKLOG_LOBES_TOKENS.inkMuted, fallback.inkMuted),
+            surface: read(BACKLOG_LOBES_TOKENS.surface, fallback.surface),
+            focus: read(BACKLOG_LOBES_TOKENS.focus, fallback.focus),
+            font: read('--font-family-mono', read('--font-family-base', 'monospace'))
+        };
+
+        for (const kind of ['brain', 'devbook', 'ghost']) {
+            palette[kind] = {};
+            for (const [region, token] of Object.entries(BACKLOG_LOBES_TOKENS[kind])) {
+                palette[kind][region] = read(token, fallback.inkMuted);
+            }
+        }
+
+        return palette;
+    }
+
+    // A colour at an opacity, for gradient stops, which take no globalAlpha. Hex
+    // and rgb() are what the tokens resolve to; anything else is used as is.
+    function backlogLobesAlpha(color, alpha) {
+        const value = String(color).trim();
+        let match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value);
+        if (match) {
+            let hex = match[1];
+            if (hex.length === 3) hex = hex.split('').map((digit) => digit + digit).join('');
+            const n = parseInt(hex, 16);
+            return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+        }
+
+        match = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(value);
+        return match ? `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})` : value;
+    }
+
+    function backlogLobesBoxesMeet(left, right) {
+        return left.x < right.x + right.width
+            && right.x < left.x + left.width
+            && left.y < right.y + right.height
+            && right.y < left.y + left.height;
+    }
+
+    // A seeded generator per string: the same id always yields the same
+    // sequence, which is what keeps a mark in its seat.
+    function backlogLobesRandom(seed) {
+        let a = 2166136261;
+        for (let i = 0; i < seed.length; i++) {
+            a ^= seed.charCodeAt(i);
+            a = Math.imul(a, 16777619);
+        }
+
+        return () => {
+            a = (a + 0x6D2B79F5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    function backlogLobesShellPoint(random) {
+        const u = random() * Math.PI * 2;
+        const v = Math.acos(random() * 2 - 1);
+        const k = 1 + (random() - 0.5) * 0.12;
+        return {
+            x: Math.sin(v) * Math.cos(u) * BACKLOG_LOBES_SHELL.x * k,
+            y: Math.cos(v) * BACKLOG_LOBES_SHELL.y * k + BACKLOG_LOBES_SHELL.lift,
+            z: Math.sin(v) * Math.sin(u) * BACKLOG_LOBES_SHELL.z * k
+        };
+    }
+
+    function backlogLobesBall(random, radius) {
+        for (;;) {
+            const x = random() * 2 - 1;
+            const y = random() * 2 - 1;
+            const z = random() * 2 - 1;
+            if (x * x + y * y + z * z <= 1) return [x * radius, y * radius, z * radius];
+        }
+    }
+
+    /*
+        Where every mark sits inside its own scope's brain, before the scope is
+        placed and scaled by the layout. Hubs spiral out from their region's
+        centre; dense regions are a gaussian; clouds a ball with a brighter core;
+        dust lies on the shell.
+    */
+    function backlogLobesAnatomy(model) {
+        const marks = Array.isArray(model?.marks) ? model.marks : [];
+        const links = Array.isArray(model?.links) ? model.links : [];
+        const degree = new Map();
+
+        for (const link of links) {
+            degree.set(link.source, (degree.get(link.source) || 0) + 1);
+            degree.set(link.target, (degree.get(link.target) || 0) + 1);
+        }
+
+        const groups = new Map();
+        for (const mark of marks) {
+            const key = mark.scope + '\u0000' + mark.lobe;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(mark);
+        }
+
+        const points = [];
+
+        for (const members of groups.values()) {
+            const lobe = members[0].lobe;
+            const ordered = [...members].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+
+            if (lobe === 'dust') {
+                for (const mark of ordered) {
+                    points.push({ mark, ...backlogLobesShellPoint(backlogLobesRandom(mark.id)), glow: false });
+                }
+
+                continue;
+            }
+
+            const centre = BACKLOG_LOBES_CENTRES[lobe] || BACKLOG_LOBES_CENTRES.parietal;
+            const packing = BACKLOG_LOBES_PACKING[lobe] || BACKLOG_LOBES_PACKING.parietal;
+            const items = ordered.filter((mark) => mark.kind !== 'hub');
+            const hubs = ordered.filter((mark) => mark.kind === 'hub');
+
+            // The marks most linked glow, a share per region — the ones a reader
+            // is likeliest to be looking for.
+            const glowing = new Set([...items]
+                .sort((left, right) => (degree.get(right.id) || 0) - (degree.get(left.id) || 0))
+                .slice(0, Math.round(items.length * packing.glow))
+                .map((mark) => mark.id));
+
+            // A region's hubs — the Brain stem's area roots and conventions, a
+            // devbook's convention and reading-order roots, Occipital's repository
+            // hubs — lie on a golden spiral round its centre, each a little lower
+            // than the last. Both the spread and the drop grow with the square root
+            // of the hub's place, so a Brain's nine area roots or a devbook's twenty
+            // reading-order roots stay a compact cluster rather than a column running
+            // off the bottom of the canvas, and the design's two or three hubs keep
+            // their short staircase. Both are capped, so a stem of sixty still sits
+            // inside the brain's width.
+            hubs.forEach((mark, index) => {
+                const angle = index * BACKLOG_ATLAS_GOLDEN;
+                const step = Math.sqrt(index);
+                const radius = Math.min(36 * step, 200);
+                points.push({
+                    mark,
+                    x: centre[0] + Math.cos(angle) * radius,
+                    y: centre[1] + Math.min(12 * step, 80),
+                    z: centre[2] + Math.sin(angle) * radius,
+                    glow: false
+                });
+            });
+
+            const count = Math.max(items.length, 1);
+
+            for (const mark of items) {
+                const random = backlogLobesRandom(mark.id);
+                const glow = glowing.has(mark.id);
+                let x;
+                let y;
+                let z;
+
+                if (packing.shape === 'dense') {
+                    const gauss = () => (random() + random() + random() + random() - 2) / 1.15;
+                    const spread = Math.max(16, packing.spread * Math.cbrt(count / packing.reference));
+                    const offset = packing.pair ? packing.pair[random() < 0.6 ? 0 : 1] : [0, 0, 0];
+                    x = centre[0] + offset[0] + gauss() * spread;
+                    y = centre[1] + offset[1] + gauss() * spread * (packing.pair ? 0.8 : 1);
+                    z = centre[2] + offset[2] + gauss() * spread;
+                } else {
+                    const radius = Math.max(40, packing.spread * Math.cbrt(count / packing.reference));
+                    const v = backlogLobesBall(random, glow ? radius * 0.3 : radius);
+                    x = centre[0] + v[0];
+                    y = centre[1] + v[1] * 0.85;
+                    z = centre[2] + v[2];
+                }
+
+                points.push({ mark, x, y, z, glow });
+            }
+        }
+
+        return points;
+    }
+
+    /*
+        Where each scope's brain sits and how big it is. In All the first Brain
+        scope is centred and scaled down and every other scope is a smaller brain
+        seated round it, sized by how much it holds; in a scope's own layout that
+        scope alone is drawn at full size.
+    */
+    function backlogLobesSeats(model) {
+        const scopes = Array.isArray(model?.scopes) ? model.scopes : [];
+        const layout = model?.layout || 'all';
+        const seats = new Map();
+
+        if (layout !== 'all') {
+            if (scopes.some((scope) => scope.key === layout)) seats.set(layout, { offset: [0, 0, 0], scale: 1 });
+            return seats;
+        }
+
+        const hidden = new Set(model.hiddenScopes || []);
+        const centre = scopes.find((scope) => scope.kind === 'brain');
+        const around = scopes.filter((scope) => scope !== centre);
+        const largest = around.reduce((most, scope) => Math.max(most, scope.count || 0), 1);
+
+        if (centre && !hidden.has(centre.key)) seats.set(centre.key, { offset: [0, 0, 60], scale: 0.62 });
+
+        around.forEach((scope, index) => {
+            if (hidden.has(scope.key)) return;
+            // Seats are given out by list position, hidden or not, so hiding one
+            // scope never moves another.
+            const angle = Math.PI + (index * Math.PI * 2) / Math.max(around.length, 1) + 0.25;
+            const scale = scope.kind === 'ghost' ? 0.28 : 0.28 + 0.16 * Math.sqrt((scope.count || 0) / largest);
+            seats.set(scope.key, {
+                offset: [Math.cos(angle) * 460, Math.sin(angle) * 260 + 40, -80 - (index % 2) * 100],
+                scale
+            });
+        });
+
+        return seats;
+    }
+
+    // How the Lobes camera moves, in one place. The design draws a still mock,
+    // so these are chosen here: the durations mirror the motion tokens
+    // (interaction-guidelines.md#motion-and-reduced-motion) because a canvas
+    // cannot read a CSS transition, and every rate is per 16.67 ms frame so the
+    // feel does not change with the display's refresh rate.
+    const BACKLOG_LOBES_MOTION = {
+        frameMs: 1000 / 60,
+        // The longest step one frame integrates: a frame after a stall moves the
+        // camera as far as a short one would, not a jump.
+        maxStepMs: 64,
+        // The share of the remaining distance yaw and pitch close per frame — the
+        // other atlas's settle rate — and zoom and pan, which settle in about
+        // transition-base (250 ms) so a wheel notch lands before the next.
+        turnLerp: 0.14,
+        zoomLerp: 0.32,
+        turnEpsilon: 1e-4,
+        zoomEpsilon: 1e-4,
+        panEpsilon: 0.1,
+        // Drag: radians per CSS pixel, and the tilt stopped short of the poles.
+        dragGain: 0.008,
+        pitchLimit: 1.3,
+        // Inertia: the moves of the last 80 ms make the fling, its speed kept by
+        // this much each frame (a time constant near 200 ms) until it is below
+        // the stop speed. A press on a spin faster than the catch speed only
+        // stops it.
+        flingWindowMs: 80,
+        flingMaxSpeed: 0.006,
+        damping: 0.92,
+        stopSpeed: 0.0005,
+        catchSpeed: 0.002,
+        // Idle: about a turn in 100 s, starting after four quiet seconds and
+        // ramping in over transition-slow (350 ms) so it never starts with a jerk.
+        idleSpeed: 0.06,
+        idleDelayMs: 4000,
+        idleRampMs: 350,
+        // A new layout eases from the last view to its default over
+        // transition-page (500 ms), on the ease-in-out curve.
+        scopeMs: 500,
+        easeInOut: [0.4, 0, 0.2, 1],
+        zoomMin: 0.5,
+        zoomMax: 2.4,
+        home: { yaw: -0.7, pitch: -0.2, zoom: 1, panX: 0, panY: 0 }
+    };
+
+    // One frame's step of `current` toward `target`, the same distance in total
+    // whether it is taken in one long frame or two short ones; close enough is
+    // there, so an easing ends rather than creeping.
+    function backlogLobesEase(current, target, dtMs, lerp, epsilon) {
+        const kept = Math.pow(1 - lerp, dtMs / BACKLOG_LOBES_MOTION.frameMs);
+        const next = target + (current - target) * kept;
+        return Math.abs(target - next) < epsilon ? target : next;
+    }
+
+    // A fling's speed (radians per ms) after `dtMs` more of damping; zero once
+    // it is slower than the stop speed.
+    function backlogLobesDamp(speed, dtMs) {
+        const frame = BACKLOG_LOBES_MOTION.frameMs;
+        const next = speed * Math.pow(BACKLOG_LOBES_MOTION.damping, dtMs / frame);
+        return Math.abs(next) * frame < BACKLOG_LOBES_MOTION.stopSpeed ? 0 : next;
+    }
+
+    // A CSS cubic-bezier(x1, y1, x2, y2) timing function, solved for x by a few
+    // Newton steps and a bisection fallback: the canvas mirrors the token's
+    // numbers rather than reading its curve.
+    function backlogLobesBezier(x1, y1, x2, y2) {
+        const axis = (a, b, t) => ((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t * t + 3 * a * t;
+        const slope = (a, b, t) => 3 * (1 - 3 * b + 3 * a) * t * t + 2 * (3 * b - 6 * a) * t + 3 * a;
+
+        return (x) => {
+            if (x <= 0) return 0;
+            if (x >= 1) return 1;
+
+            let t = x;
+            for (let i = 0; i < 8; i++) {
+                const error = axis(x1, x2, t) - x;
+                if (Math.abs(error) < 1e-6) return axis(y1, y2, t);
+                const d = slope(x1, x2, t);
+                if (Math.abs(d) < 1e-6) break;
+                t -= error / d;
+            }
+
+            let low = 0;
+            let high = 1;
+            t = x;
+            for (let i = 0; i < 30; i++) {
+                const value = axis(x1, x2, t);
+                if (Math.abs(value - x) < 1e-6) break;
+                if (value < x) low = t;
+                else high = t;
+                t = (low + high) / 2;
+            }
+
+            return axis(y1, y2, t);
+        };
+    }
+
+    const backlogLobesEaseInOut = backlogLobesBezier(...BACKLOG_LOBES_MOTION.easeInOut);
+
+    // How much of the idle speed applies `sinceInputMs` after the last input:
+    // none before the delay, then up to all of it over the ramp.
+    function backlogLobesIdleRamp(sinceInputMs) {
+        const motion = BACKLOG_LOBES_MOTION;
+        if (!(sinceInputMs >= motion.idleDelayMs)) return 0;
+        return backlogLobesEaseInOut(Math.min(1, (sinceInputMs - motion.idleDelayMs) / motion.idleRampMs));
+    }
+
+    // `angle` moved by whole turns to the one nearest `toward`, so easing to a
+    // view never spins the long way round after an idle rotation wound it up.
+    function backlogLobesNearestTurn(angle, toward) {
+        const turn = Math.PI * 2;
+        return angle - Math.round((angle - toward) / turn) * turn;
+    }
+
+    // The pan that keeps the point `cursor` pixels from the canvas centre under
+    // the cursor when the zoom is multiplied by `ratio`.
+    function backlogLobesAnchorPan(pan, cursor, ratio) {
+        return cursor - (cursor - pan) * ratio;
+    }
+
+    // How far the scene centre may be panned from the canvas centre: nowhere at
+    // zoom 1 or less, out to the canvas edge from zoom 2 — the most a zoom
+    // anchored anywhere on the canvas needs, so the centre never leaves it.
+    function backlogLobesPanLimit(half, zoom) {
+        return half * Math.min(1, Math.max(0, zoom - 1));
+    }
+
+    // The shortest gap between two camera reports to the host.
+    const BACKLOG_LOBES_CAMERA_REPORT_MS = 60;
+
+    function backlogLobesRender(element, id, model, dotnet) {
+        backlogDiagramInstances.get(id)?.destroy?.();
+        element.replaceChildren();
+
+        const marks = Array.isArray(model?.marks) ? model.marks : [];
+        if (marks.length === 0) {
+            const empty = backlogGraphElement('p', 'graph-atlas__status', model?.emptyMessage ?? 'Nothing to draw.');
+            empty.setAttribute('role', 'status');
+            element.append(empty);
+            return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.className = 'graph-atlas__surface graph-atlas__surface--lobes';
+        // The picture, not the control: the index beside it is the control.
+        canvas.setAttribute('aria-hidden', 'true');
+        canvas.tabIndex = -1;
+        element.append(canvas);
+
+        const context = canvas.getContext('2d');
+        if (!context) {
+            const failed = backlogGraphElement('p', 'graph-atlas__status', 'The atlas could not be drawn here.');
+            failed.setAttribute('role', 'status');
+            element.append(failed);
+            return;
+        }
+
+        const layoutKey = model.layout || 'all';
+        const all = layoutKey === 'all';
+        const scopes = new Map((model.scopes || []).map((scope) => [scope.key, scope]));
+        const seats = backlogLobesSeats(model);
+        const hiddenLobes = new Set((model.hiddenLobes || []).map((region) => region.scope + '\u0000' + region.lobe));
+        const showLabels = model.showLabels !== false;
+        let palette = backlogLobesPalette();
+
+        // What is drawn: a mark whose scope has a seat, and — in a scope's own
+        // layout — whose region the reader has not hidden.
+        const drawn = (mark) => seats.has(mark.scope)
+            && (all || !hiddenLobes.has(mark.scope + '\u0000' + mark.lobe));
+
+        const points = backlogLobesAnatomy(model).filter((point) => drawn(point.mark));
+
+        // Everything hidden, or a layout naming no scope: a sentence, not a blank
+        // canvas. Showing a scope or a region again hands over a new model.
+        if (points.length === 0) {
+            canvas.remove();
+            const none = backlogGraphElement('p', 'graph-atlas__status', model?.emptyMessage ?? 'Nothing to draw.');
+            none.setAttribute('role', 'status');
+            element.append(none);
+            return;
+        }
+        const byId = new Map(points.map((point) => [point.mark.id, point]));
+
+        // The outline dust of each drawn brain: decoration, so a fixed count per
+        // scope seeded by its key, never picked.
+        const dust = [];
+        for (const [key] of seats) {
+            const scope = scopes.get(key);
+            const kind = scope?.kind || 'devbook';
+            const random = backlogLobesRandom('dust:' + key);
+            for (let i = 0; i < (BACKLOG_LOBES_DUST[kind] || 120); i++) {
+                dust.push({ scope: key, kind, ...backlogLobesShellPoint(random) });
+            }
+        }
+
+        const scopeSatellite = !all ? scopes.get(layoutKey) : null;
+        const satellite = scopeSatellite && scopeSatellite.kind !== 'brain' && scopeSatellite.satelliteLabel
+            ? { label: scopeSatellite.satelliteLabel }
+            : null;
+
+        const links = [];
+        const satelliteLinks = [];
+        for (const link of model.links || []) {
+            const from = byId.get(link.source);
+            const to = byId.get(link.target);
+
+            if (from && to) {
+                links.push({ from, to, kind: link.kind, dashed: link.dashed === true });
+                continue;
+            }
+
+            // A bundle from a Brain hub into the scope drawn alone is redrawn from
+            // the satellite hub beside it.
+            if (satellite && link.kind === 'bundle' && to && !from) {
+                satelliteLinks.push({ to, dashed: link.dashed === true });
+            }
+        }
+
+        const adjacency = new Map();
+        for (const link of links) {
+            for (const [a, b] of [[link.from, link.to], [link.to, link.from]]) {
+                if (!adjacency.has(a.mark.id)) adjacency.set(a.mark.id, new Set());
+                adjacency.get(a.mark.id).add(b.mark.id);
+            }
+        }
+
+        const motion = BACKLOG_LOBES_MOTION;
+        const home = motion.home;
+        const idleMotion = model.idleMotion !== false;
+        const motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+        // Read live: the rule is that the decoration goes, not the function —
+        // drag still turns the brain, and zoom and scope still arrive, at once.
+        const reduced = () => !!(motionQuery && motionQuery.matches);
+
+        const cameraOf = (from) => ({
+            yaw: from?.yaw ?? home.yaw,
+            pitch: from?.pitch ?? home.pitch,
+            zoom: from?.zoom ?? home.zoom,
+            panX: from?.panX ?? 0,
+            panY: from?.panY ?? 0
+        });
+
+        // The camera has where it is (view) and where it is going (target); each
+        // frame closes the gap. A fling carries velocity in radians per ms, and
+        // the idle turn waits on the time of the last input.
+        const saved = backlogLobesCameras.get(id);
+        const now0 = performance.now();
+        let view;
+        let target;
+        let velocity = { yaw: 0, pitch: 0 };
+        let lastInput = now0;
+        let tween = null;
+
+        if (saved && saved.layout === layoutKey) {
+            // The same layout handed over again — a region or Labels toggle — so
+            // the camera carries on as it was, mid-spin included.
+            view = cameraOf(saved);
+            target = cameraOf(saved.target ?? saved);
+            velocity = { yaw: saved.velocity?.yaw ?? 0, pitch: saved.velocity?.pitch ?? 0 };
+            lastInput = saved.lastInput ?? now0;
+            if (reduced()) {
+                velocity = { yaw: 0, pitch: 0 };
+                view = { ...target };
+            }
+        } else if (saved && !reduced()) {
+            // A new layout: from the view the last one was left at, eased home.
+            const from = cameraOf(saved);
+            from.yaw = backlogLobesNearestTurn(from.yaw, home.yaw);
+            view = { ...from };
+            target = { ...home };
+            tween = { from, to: { ...home }, start: now0, duration: motion.scopeMs };
+        } else {
+            view = { ...home };
+            target = { ...home };
+        }
+
+        view.width = 0;
+        view.height = 0;
+        view.fit = 1;
+
+        let selectedId = null;
+        let hoveredId = null;
+        let frame = 0;
+        let frames = 0;
+        let lastTick = 0;
+        let shown = false;
+        let destroyed = false;
+        let idleTimer = 0;
+        let painted = [];
+
+        function project(seat, x, y, z) {
+            const wx = seat.offset[0] + x * seat.scale;
+            const wy = seat.offset[1] + y * seat.scale;
+            const wz = seat.offset[2] + z * seat.scale;
+            const cy = Math.cos(view.yaw);
+            const sy = Math.sin(view.yaw);
+            const cp = Math.cos(view.pitch);
+            const sp = Math.sin(view.pitch);
+            const x1 = wx * cy + wz * sy;
+            const z1 = -wx * sy + wz * cy;
+            const y2 = wy * cp - z1 * sp;
+            const z2 = wy * sp + z1 * cp;
+            const s = BACKLOG_LOBES_PERSPECTIVE / (BACKLOG_LOBES_PERSPECTIVE + z2) * view.zoom * view.fit;
+            return { x: view.width / 2 + view.panX + x1 * s, y: view.height / 2 + view.panY + y2 * s, z: z2, s };
+        }
+
+        const world = { offset: [0, 0, 0], scale: 1 };
+
+        function resize() {
+            const ratio = window.devicePixelRatio || 1;
+            const box = canvas.getBoundingClientRect();
+
+            // A canvas with no size — hidden by display:none, or not laid out yet —
+            // draws nothing and runs no frames until it has one again.
+            shown = box.width > 0 && box.height > 0;
+            if (!shown) {
+                stopFrames();
+                return;
+            }
+
+            const width = Math.max(1, Math.round(box.width));
+            const height = Math.max(1, Math.round(box.height));
+
+            canvas.width = Math.round(width * ratio);
+            canvas.height = Math.round(height * ratio);
+            context.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+            view.width = width;
+            view.height = height;
+            // The anatomy is tuned on a 1200 by 800 stage; a smaller one draws the
+            // same picture smaller rather than cropping it.
+            view.fit = Math.min(width / 1200, height / 800);
+            clampPan();
+            schedule();
+        }
+
+        // Frames run only while something moves — an easing, a fling, the idle
+        // turn — on a canvas that is shown, connected and in a visible document;
+        // a still camera draws one frame per change and stops.
+        function canRun() {
+            return !destroyed && shown && canvas.isConnected && !document.hidden;
+        }
+
+        function schedule() {
+            if (frame || !canRun()) return;
+            frame = requestAnimationFrame(tick);
+        }
+
+        function stopFrames() {
+            if (frame) cancelAnimationFrame(frame);
+            frame = 0;
+            lastTick = 0;
+        }
+
+        function tick(now) {
+            frame = 0;
+            if (!canRun()) {
+                lastTick = 0;
+                return;
+            }
+
+            const dt = lastTick ? Math.min(Math.max(now - lastTick, 0), motion.maxStepMs) : motion.frameMs;
+            lastTick = now;
+
+            if (step(now, dt)) {
+                // Marks moving under a still pointer change what it is over.
+                if (pointer.inside && !dragging) hover(pointer.x, pointer.y);
+                remember();
+            }
+
+            draw();
+            frames++;
+
+            if (moving(now)) {
+                schedule();
+            } else {
+                lastTick = 0;
+                armIdle(now);
+            }
+        }
+
+        // The share of the idle speed that applies now; none while anything else
+        // holds the camera or the reader is pointing at a mark.
+        function idleShare(now) {
+            if (!idleMotion || reduced() || dragging || hoveredId !== null || tween) return 0;
+            if (velocity.yaw || velocity.pitch) return 0;
+            return backlogLobesIdleRamp(now - lastInput);
+        }
+
+        function settled() {
+            return view.yaw === target.yaw && view.pitch === target.pitch && view.zoom === target.zoom
+                && view.panX === target.panX && view.panY === target.panY;
+        }
+
+        function moving(now) {
+            return !!tween || (!dragging && (velocity.yaw !== 0 || velocity.pitch !== 0)) || !settled() || idleShare(now) > 0;
+        }
+
+        // When the idle turn is due but nothing else moves, a timer wakes the
+        // frames at its start rather than a loop waiting for it.
+        function armIdle(now) {
+            if (idleTimer) clearTimeout(idleTimer);
+            idleTimer = 0;
+            if (!idleMotion || reduced() || dragging || hoveredId !== null) return;
+            const wait = motion.idleDelayMs - (now - lastInput);
+            if (wait > 0) idleTimer = setTimeout(() => { idleTimer = 0; schedule(); }, wait + 5);
+        }
+
+        // Input: the idle turn stops on this frame and waits its delay again.
+        function touched() {
+            lastInput = performance.now();
+            if (idleTimer) clearTimeout(idleTimer);
+            idleTimer = 0;
+        }
+
+        // An easing in progress stops where it is, so input takes over from the
+        // picture on screen rather than from where it was heading.
+        function holdTween() {
+            if (!tween) return;
+            tween = null;
+            target = { yaw: view.yaw, pitch: view.pitch, zoom: view.zoom, panX: view.panX, panY: view.panY };
+        }
+
+        function clampPan() {
+            const limitX = backlogLobesPanLimit(view.width / 2, target.zoom);
+            const limitY = backlogLobesPanLimit(view.height / 2, target.zoom);
+            target.panX = Math.max(-limitX, Math.min(limitX, target.panX));
+            target.panY = Math.max(-limitY, Math.min(limitY, target.panY));
+            if (reduced()) {
+                view.panX = target.panX;
+                view.panY = target.panY;
+            }
+        }
+
+        // One frame of camera motion; whether anything moved.
+        function step(now, dt) {
+            let moved = false;
+
+            if (tween) {
+                const t = Math.min(1, (now - tween.start) / tween.duration);
+                const e = backlogLobesEaseInOut(t);
+                for (const key of ['yaw', 'pitch', 'zoom', 'panX', 'panY']) {
+                    view[key] = tween.from[key] + (tween.to[key] - tween.from[key]) * e;
+                    target[key] = view[key];
+                }
+
+                if (t >= 1) {
+                    tween = null;
+                    for (const key of ['yaw', 'pitch', 'zoom', 'panX', 'panY']) view[key] = target[key] = home[key];
+                }
+
+                moved = true;
+            } else {
+                if (!dragging && (velocity.yaw || velocity.pitch)) {
+                    view.yaw += velocity.yaw * dt;
+                    target.yaw = view.yaw;
+
+                    const pitch = view.pitch + velocity.pitch * dt;
+                    const clamped = Math.max(-motion.pitchLimit, Math.min(motion.pitchLimit, pitch));
+                    // A fling dies against the pole rather than pressing on it.
+                    if (clamped !== pitch) velocity.pitch = 0;
+                    view.pitch = clamped;
+                    target.pitch = clamped;
+
+                    velocity.yaw = backlogLobesDamp(velocity.yaw, dt);
+                    velocity.pitch = backlogLobesDamp(velocity.pitch, dt);
+                    moved = true;
+                }
+
+                const instant = reduced();
+                const channels = [
+                    ['yaw', motion.turnLerp, motion.turnEpsilon],
+                    ['pitch', motion.turnLerp, motion.turnEpsilon],
+                    ['zoom', motion.zoomLerp, motion.zoomEpsilon],
+                    ['panX', motion.zoomLerp, motion.panEpsilon],
+                    ['panY', motion.zoomLerp, motion.panEpsilon]
+                ];
+                for (const [key, lerp, epsilon] of channels) {
+                    if (view[key] === target[key]) continue;
+                    view[key] = instant ? target[key] : backlogLobesEase(view[key], target[key], dt, lerp, epsilon);
+                    moved = true;
+                }
+            }
+
+            const share = idleShare(now);
+            if (share > 0) {
+                const turn = (motion.idleSpeed / 1000) * dt * share;
+                view.yaw += turn;
+                target.yaw += turn;
+                moved = true;
+            }
+
+            return moved;
+        }
+
+        function colourOf(mark) {
+            const kind = scopes.get(mark.scope)?.kind || 'devbook';
+            return (palette[kind] || palette.devbook)[mark.lobe] || palette.inkMuted;
+        }
+
+        function draw() {
+            context.clearRect(0, 0, view.width, view.height);
+
+            for (const point of points) {
+                point.projected = project(seats.get(point.mark.scope), point.x, point.y, point.z);
+            }
+
+            const satellitePoint = satellite ? project(world, ...BACKLOG_LOBES_SATELLITE) : null;
+            taken = [];
+
+            drawDust();
+            drawLinks(satellitePoint);
+
+            painted = points.slice().sort((left, right) => right.projected.z - left.projected.z);
+
+            for (const point of painted) {
+                drawMark(point);
+            }
+
+            if (satellitePoint) drawSatellite(satellitePoint);
+            if (showLabels) drawLabels(satellitePoint);
+            else drawPointedLabels();
+        }
+
+        function drawDust() {
+            for (const grain of dust) {
+                const q = project(seats.get(grain.scope), grain.x, grain.y, grain.z);
+                context.globalAlpha = Math.max(0.1, (grain.kind === 'ghost' ? 0.3 : 0.42) - q.z / 1600);
+                context.fillStyle = (palette[grain.kind] || palette.devbook).dust;
+                context.fillRect(q.x - 0.8, q.y - 0.8, 1.6, 1.6);
+            }
+
+            context.globalAlpha = 1;
+        }
+
+        function emphasis(markId) {
+            if (!selectedId || markId === selectedId) return 1;
+            return adjacency.get(selectedId)?.has(markId) ? 0.85 : 0.35;
+        }
+
+        function drawLinks(satellitePoint) {
+            context.lineWidth = 1;
+
+            for (const link of links) {
+                const a = link.from.projected;
+                const b = link.to.projected;
+                const lit = selectedId && (link.from.mark.id === selectedId || link.to.mark.id === selectedId);
+                drawLine(a, b, link.kind, link.dashed, lit);
+            }
+
+            if (satellitePoint) {
+                for (const link of satelliteLinks) {
+                    drawLine(satellitePoint, link.to.projected, 'bundle', link.dashed, selectedId === link.to.mark.id);
+                }
+            }
+
+            context.setLineDash([]);
+            context.globalAlpha = 1;
+        }
+
+        function drawLine(a, b, kind, dashed, lit) {
+            context.globalAlpha = selectedId && !lit ? 0.3 : 1;
+
+            if (dashed) {
+                context.strokeStyle = backlogLobesAlpha(palette.inkMuted, 0.55);
+                context.setLineDash([5, 5]);
+            } else {
+                const gradient = context.createLinearGradient(a.x, a.y, b.x, b.y);
+                if (kind === 'bundle') {
+                    // Teal into gold: from the Brain's hub to a devbook's chapter.
+                    gradient.addColorStop(0, backlogLobesAlpha(palette.brain.accent, lit ? 0.9 : 0.45));
+                    gradient.addColorStop(1, backlogLobesAlpha(palette.devbook.accent, lit ? 0.8 : 0.35));
+                } else {
+                    gradient.addColorStop(0, backlogLobesAlpha(palette.ink, lit ? 0.7 : 0.28));
+                    gradient.addColorStop(1, backlogLobesAlpha(palette.ink, lit ? 0.5 : 0.08));
+                }
+
+                context.strokeStyle = gradient;
+                context.setLineDash([]);
+            }
+
+            context.lineWidth = lit ? 1.6 : 1;
+            context.beginPath();
+            context.moveTo(a.x, a.y);
+            context.lineTo(b.x, b.y);
+            context.stroke();
+        }
+
+        // A mark's drawn radius: nearer marks are larger, through the projected
+        // scale, and a scope drawn small still keeps a legible mark.
+        function markRadius(point) {
+            const seat = seats.get(point.mark.scope);
+            const k = point.projected.s * Math.max(0.55, seat.scale) / Math.max(view.fit, 0.01) * Math.max(view.fit, 0.45);
+            // Hubs and ghost rings keep a floor: below it a ring stops reading as
+            // one, and a dashed outline becomes a speck.
+            if (point.mark.kind === 'hub') return Math.max(all ? 2.5 : 3.5, 4.5 * k);
+            if (point.mark.kind === 'ghost') return Math.max(all ? 3.5 : 4.5, 4 * k);
+            if (point.mark.lobe === 'dust') return Math.max(0.9, 1.1 * k);
+            if (point.glow) return 3.25 * k;
+            return Math.max(0.8, 1.8 * k);
+        }
+
+        function drawMark(point) {
+            const q = point.projected;
+            const mark = point.mark;
+            const r = markRadius(point);
+            const colour = colourOf(mark);
+            // Nearer is brighter as well as larger.
+            const near = Math.min(1, Math.max(0.35, 0.72 - q.z / 900));
+            const alpha = emphasis(mark.id);
+
+            context.save();
+
+            if (mark.kind === 'hub') {
+                context.globalAlpha = alpha;
+                context.shadowColor = colour;
+                context.shadowBlur = 16 * (r / 4.5);
+                context.fillStyle = colour;
+                context.beginPath();
+                context.arc(q.x, q.y, r, 0, Math.PI * 2);
+                context.fill();
+                context.shadowBlur = 0;
+
+                // The ring: a gap in the surface colour, then a pale ring — dashed
+                // when the hub's links cannot be followed here.
+                context.strokeStyle = palette.surface;
+                context.lineWidth = r * 0.66;
+                context.beginPath();
+                context.arc(q.x, q.y, r * 1.33, 0, Math.PI * 2);
+                context.stroke();
+
+                context.strokeStyle = backlogLobesAlpha(palette.ink, 0.75);
+                context.lineWidth = Math.max(1, r * 0.33);
+                context.setLineDash(mark.dashed ? [3, 3] : []);
+                context.beginPath();
+                context.arc(q.x, q.y, r * (mark.dashed ? 2.1 : 1.83), 0, Math.PI * 2);
+                context.stroke();
+            } else if (mark.kind === 'ghost') {
+                context.globalAlpha = alpha;
+                context.fillStyle = backlogLobesAlpha(palette.surface, 0.7);
+                context.strokeStyle = colour;
+                context.lineWidth = 1.5;
+                context.setLineDash([3, 2.5]);
+                context.beginPath();
+                context.arc(q.x, q.y, r, 0, Math.PI * 2);
+                context.fill();
+                context.stroke();
+            } else if (point.glow) {
+                context.globalAlpha = near * alpha;
+                const gradient = context.createRadialGradient(q.x, q.y, 0, q.x, q.y, r);
+                gradient.addColorStop(0, palette.ink);
+                gradient.addColorStop(0.55, colour);
+                gradient.addColorStop(1, colour);
+                context.shadowColor = colour;
+                context.shadowBlur = 3 * r;
+                context.fillStyle = gradient;
+                context.beginPath();
+                context.arc(q.x, q.y, r, 0, Math.PI * 2);
+                context.fill();
+            } else {
+                context.globalAlpha = (mark.lobe === 'dust' ? 0.55 : near * 0.9) * alpha;
+                context.fillStyle = colour;
+                context.beginPath();
+                context.arc(q.x, q.y, r, 0, Math.PI * 2);
+                context.fill();
+            }
+
+            if (mark.id === selectedId) {
+                context.globalAlpha = 1;
+                context.shadowBlur = 0;
+                context.setLineDash([]);
+                context.strokeStyle = palette.focus;
+                context.lineWidth = 2;
+                context.beginPath();
+                context.arc(q.x, q.y, Math.max(7, r * 2.4), 0, Math.PI * 2);
+                context.stroke();
+            }
+
+            context.restore();
+        }
+
+        function drawSatellite(q) {
+            const accent = palette.brain.accent;
+            context.save();
+            context.shadowColor = accent;
+            context.shadowBlur = 18;
+            context.fillStyle = accent;
+            context.beginPath();
+            context.arc(q.x, q.y, 6, 0, Math.PI * 2);
+            context.fill();
+            context.shadowBlur = 0;
+            context.strokeStyle = palette.surface;
+            context.lineWidth = 4;
+            context.beginPath();
+            context.arc(q.x, q.y, 8, 0, Math.PI * 2);
+            context.stroke();
+            context.strokeStyle = backlogLobesAlpha(accent, 0.8);
+            context.lineWidth = 1.5;
+            context.beginPath();
+            context.arc(q.x, q.y, 10.75, 0, Math.PI * 2);
+            context.stroke();
+            context.restore();
+        }
+
+        // Words on the map, with a halo of the surface colour so they read over
+        // the marks behind them.
+        // The boxes of the words already on the map this frame. A label that
+        // would land on one steps below or above it, and one with no free seat is
+        // left off — two words drawn over each other say neither.
+        let taken = [];
+
+        function tag(text, x, y, colour, weight, size) {
+            context.font = `${weight} ${size}px ${palette.font}`;
+            const width = context.measureText(text).width;
+            let seat = null;
+
+            for (const dy of [0, 14, -14, 28, -28]) {
+                const box = { x: x + 10, y: y + dy - 8, width: width + 8, height: 16 };
+                if (!taken.some((other) => backlogLobesBoxesMeet(box, other))) {
+                    seat = { y: y + dy, box };
+                    break;
+                }
+            }
+
+            if (!seat) return;
+            taken.push(seat.box);
+            context.textAlign = 'left';
+            context.textBaseline = 'middle';
+            context.lineJoin = 'round';
+            context.strokeStyle = backlogLobesAlpha(palette.surface, 0.85);
+            context.lineWidth = 4;
+            context.strokeText(text, x + 14, seat.y);
+            context.fillStyle = colour;
+            context.fillText(text, x + 14, seat.y);
+        }
+
+        function drawLabels(satellitePoint) {
+            context.save();
+            context.globalAlpha = 1;
+
+            if (all) {
+                for (const [key, seat] of seats) {
+                    const scope = scopes.get(key);
+                    if (!scope) continue;
+                    const q = project(world, seat.offset[0], seat.offset[1] - 330 * seat.scale, seat.offset[2]);
+                    // Each tag carries its count; a ghost, which has none, says why.
+                    const text = scope.label + (typeof scope.count === 'number' ? ' · ' + scope.count : scope.status ? ' · ' + scope.status : '');
+                    tag(text, q.x - 14, q.y, (palette[scope.kind] || palette.devbook).accent, 600, 12);
+                }
+            } else {
+                const scope = scopes.get(layoutKey);
+                const seat = seats.get(layoutKey);
+                for (const region of scope?.regions || []) {
+                    if (hiddenLobes.has(layoutKey + '\u0000' + region.lobe)) continue;
+                    const centre = BACKLOG_LOBES_CENTRES[region.lobe];
+                    if (!centre || !seat) continue;
+                    const q = project(seat, centre[0], centre[1], centre[2]);
+                    const colour = (palette[scope.kind] || palette.devbook)[region.lobe];
+                    tag(`${String(region.label).toUpperCase()} · ${region.count}`, q.x, q.y, colour, 600, 11);
+                }
+
+                for (const point of painted) {
+                    if (point.mark.kind === 'hub') tag(point.mark.label, point.projected.x, point.projected.y, palette.ink, 500, 11);
+                }
+
+                if (satellitePoint) tag(satellite.label, satellitePoint.x, satellitePoint.y, palette.brain.accent, 600, 11);
+            }
+
+            drawPointedLabels();
+            context.restore();
+        }
+
+        // The selected and the hovered mark are named whether labels are on or not.
+        function drawPointedLabels() {
+            for (const markId of new Set([selectedId, hoveredId])) {
+                const point = markId ? byId.get(markId) : null;
+                if (!point || !point.projected) continue;
+                if (showLabels && point.mark.kind === 'hub' && !all) continue;
+                tag(point.mark.label, point.projected.x, point.projected.y, palette.ink, markId === selectedId ? 600 : 500, 12);
+            }
+        }
+
+        function pick(clientX, clientY) {
+            const box = canvas.getBoundingClientRect();
+            const x = clientX - box.left;
+            const y = clientY - box.top;
+            let hit = null;
+            let best = Infinity;
+
+            // Nearest wins, and among equals the one nearest the eye: `painted`
+            // runs far to near.
+            for (const point of painted) {
+                const reach = Math.max(markRadius(point) * 1.8, 9);
+                const distance = Math.hypot(point.projected.x - x, point.projected.y - y);
+                if (distance <= reach && distance <= best) {
+                    best = distance;
+                    hit = point;
+                }
+            }
+
+            return hit;
+        }
+
+        const listeners = [];
+
+        function on(target, type, handler, options) {
+            target.addEventListener(type, handler, options);
+            listeners.push(() => target.removeEventListener(type, handler, options));
+        }
+
+        function remember() {
+            backlogLobesCameras.delete(id);
+            // The motion goes with the position, so a toggle mid-spin keeps
+            // spinning; an easing home in progress is kept as where it is going.
+            backlogLobesCameras.set(id, {
+                layout: layoutKey,
+                yaw: view.yaw,
+                pitch: view.pitch,
+                zoom: view.zoom,
+                panX: view.panX,
+                panY: view.panY,
+                target: { ...(tween ? tween.to : target) },
+                velocity: { ...velocity },
+                lastInput
+            });
+            // Every mounted atlas has an id of its own, so the oldest are let go
+            // rather than kept for atlases long since closed.
+            while (backlogLobesCameras.size > 16) backlogLobesCameras.delete(backlogLobesCameras.keys().next().value);
+            report();
+        }
+
+        // The camera told to the host, so the zoom level and the orientation
+        // marker it draws follow the drag and the wheel. At most one call per
+        // stretch of BACKLOG_LOBES_CAMERA_REPORT_MS, the last position always
+        // sent: a call per pointer move would queue renders faster than they
+        // land.
+        let reportTimer = 0;
+        let reportedAt = 0;
+
+        function sendCamera() {
+            reportTimer = 0;
+            reportedAt = performance.now();
+            if (dotnet && dotnet.invokeMethodAsync) {
+                dotnet.invokeMethodAsync('CameraMoved', view.yaw, view.pitch, view.zoom).catch(() => { });
+            }
+        }
+
+        function report() {
+            if (reportTimer) return;
+            const wait = Math.max(0, BACKLOG_LOBES_CAMERA_REPORT_MS - (performance.now() - reportedAt));
+            reportTimer = setTimeout(sendCamera, wait);
+        }
+
+        let dragging = false;
+        let dragged = false;
+        let caught = false;
+        let lastX = 0;
+        let lastY = 0;
+        let lastMoveAt = 0;
+        // The drag's recent moves — how far each turned the camera and over how
+        // long — from which a release makes its fling.
+        let flingSamples = [];
+        // Where the pointer is over the canvas, so a frame that moves the marks
+        // can re-pick what it is over.
+        const pointer = { inside: false, x: 0, y: 0 };
+
+        function hover(clientX, clientY) {
+            const hit = pick(clientX, clientY);
+            const next = hit ? hit.mark.id : null;
+            if (next === hoveredId) return;
+
+            // Pointing at a mark holds the idle turn; leaving it starts the wait.
+            if (hoveredId !== null && next === null) touched();
+            hoveredId = next;
+            canvas.style.cursor = next ? 'pointer' : '';
+            schedule();
+        }
+
+        on(canvas, 'pointerdown', (event) => {
+            if (event.button !== 0) return;
+            const now = performance.now();
+            touched();
+            holdTween();
+
+            // A press on a spin stops it; a press on a fast one does only that.
+            caught = Math.max(Math.abs(velocity.yaw), Math.abs(velocity.pitch)) > motion.catchSpeed / motion.frameMs;
+            velocity = { yaw: 0, pitch: 0 };
+            target.yaw = view.yaw;
+            target.pitch = view.pitch;
+
+            dragging = true;
+            dragged = false;
+            lastX = event.clientX;
+            lastY = event.clientY;
+            lastMoveAt = now;
+            flingSamples = [];
+            canvas.setPointerCapture(event.pointerId);
+            canvas.classList.add('graph-atlas__surface--dragging');
+            remember();
+            schedule();
+        });
+
+        on(canvas, 'pointermove', (event) => {
+            pointer.inside = true;
+            pointer.x = event.clientX;
+            pointer.y = event.clientY;
+
+            if (!dragging) {
+                hover(event.clientX, event.clientY);
+                return;
+            }
+
+            const now = performance.now();
+            touched();
+
+            // A press is a click until the pointer has travelled more than 3 px
+            // from where it went down, however slowly. Until then the camera
+            // holds still, and lastX/lastY stay at the press point, so the first
+            // turn applies the whole travel once: none lost, none doubled.
+            if (!dragged) {
+                if (Math.abs(event.clientX - lastX) + Math.abs(event.clientY - lastY) <= 3) return;
+                dragged = true;
+            }
+
+            const dx = event.clientX - lastX;
+            const dy = event.clientY - lastY;
+            lastX = event.clientX;
+            lastY = event.clientY;
+
+            // Drag rotates the brain as if held: the near face follows the pointer
+            // across and up and down alike, tilted short of the poles. It moves
+            // one to one, under reduced motion too.
+            const yaw = -dx * motion.dragGain;
+            const pitch = Math.max(-motion.pitchLimit, Math.min(motion.pitchLimit, view.pitch + dy * motion.dragGain));
+            const turned = { yaw, pitch: pitch - view.pitch, ms: Math.max(1, now - lastMoveAt), at: now };
+            lastMoveAt = now;
+
+            view.yaw += yaw;
+            view.pitch = pitch;
+            target.yaw = view.yaw;
+            target.pitch = view.pitch;
+
+            flingSamples.push(turned);
+            while (flingSamples.length && now - flingSamples[0].at > motion.flingWindowMs) flingSamples.shift();
+
+            remember();
+            schedule();
+        });
+
+        // The speed the drag was turning at as it let go: the moves of the last
+        // window, none at all when the pointer had stopped before it lifted.
+        function flingAt(now) {
+            const recent = flingSamples.filter((sample) => now - sample.at <= motion.flingWindowMs);
+            if (recent.length === 0) return { yaw: 0, pitch: 0 };
+
+            const ms = recent.reduce((sum, sample) => sum + sample.ms, 0);
+            const limit = motion.flingMaxSpeed;
+            const speed = (key) => Math.max(-limit, Math.min(limit, recent.reduce((sum, sample) => sum + sample[key], 0) / ms));
+            return { yaw: speed('yaw'), pitch: speed('pitch') };
+        }
+
+        function endDrag(event) {
+            if (!dragging) return;
+            dragging = false;
+            canvas.classList.remove('graph-atlas__surface--dragging');
+            if (canvas.hasPointerCapture && canvas.hasPointerCapture(event.pointerId)) {
+                canvas.releasePointerCapture(event.pointerId);
+            }
+
+            touched();
+            schedule();
+        }
+
+        on(canvas, 'pointerup', (event) => {
+            const wasDragging = dragging;
+            const moved = dragged;
+            const stopped = caught;
+            caught = false;
+            endDrag(event);
+            if (!wasDragging) return;
+
+            if (moved) {
+                // Let go while moving, the brain keeps turning and slows; under
+                // reduced motion it stays where the drag left it.
+                velocity = reduced() ? { yaw: 0, pitch: 0 } : flingAt(performance.now());
+                flingSamples = [];
+                remember();
+                schedule();
+                return;
+            }
+
+            if (stopped) return;
+
+            const hit = pick(event.clientX, event.clientY);
+            const next = hit ? (hit.mark.id === selectedId ? null : hit.mark.id) : null;
+            if (dotnet && dotnet.invokeMethodAsync) dotnet.invokeMethodAsync('NodePicked', next);
+        });
+
+        on(canvas, 'pointercancel', (event) => {
+            caught = false;
+            flingSamples = [];
+            endDrag(event);
+        });
+
+        on(canvas, 'pointerleave', () => {
+            pointer.inside = false;
+            if (dragging || hoveredId === null) return;
+            hoveredId = null;
+            canvas.style.cursor = '';
+            touched();
+            schedule();
+        });
+
+        // The wheel zooms by a ratio per notch, the delta normalised across the
+        // three units a wheel reports in, as the atlas above does. It moves the
+        // zoom the camera is heading for, with the pan that keeps the point under
+        // the cursor where it is; the frames carry the camera there.
+        on(canvas, 'wheel', (event) => {
+            event.preventDefault();
+            touched();
+            holdTween();
+
+            const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? view.height : 1;
+            const notches = Math.max(-4, Math.min(4, (event.deltaY * unit) / 100));
+            const zoom = Math.max(motion.zoomMin, Math.min(motion.zoomMax, target.zoom * Math.pow(1 / 1.08, notches)));
+            const ratio = zoom / target.zoom;
+
+            const box = canvas.getBoundingClientRect();
+            target.panX = backlogLobesAnchorPan(target.panX, event.clientX - box.left - view.width / 2, ratio);
+            target.panY = backlogLobesAnchorPan(target.panY, event.clientY - box.top - view.height / 2, ratio);
+            target.zoom = zoom;
+            clampPan();
+
+            if (reduced()) {
+                view.zoom = target.zoom;
+                view.panX = target.panX;
+                view.panY = target.panY;
+            }
+
+            remember();
+            schedule();
+        }, { passive: false });
+
+        on(canvas, 'contextlost', (event) => {
+            event.preventDefault();
+            if (dotnet && dotnet.invokeMethodAsync) dotnet.invokeMethodAsync('RendererLost');
+        });
+
+        const observer = new ResizeObserver(() => resize());
+        observer.observe(canvas);
+        listeners.push(() => observer.disconnect());
+
+        on(window, 'focus', () => {
+            palette = backlogLobesPalette();
+            schedule();
+        });
+
+        // A hidden document runs no frames; shown again, it picks up where the
+        // camera is without integrating the time it was away.
+        on(document, 'visibilitychange', () => {
+            if (document.hidden) stopFrames();
+            else schedule();
+        });
+
+        if (motionQuery) {
+            const changed = () => {
+                if (reduced()) {
+                    // Turned on mid-motion: everything arrives now.
+                    velocity = { yaw: 0, pitch: 0 };
+                    if (tween) {
+                        target = { ...tween.to };
+                        tween = null;
+                    }
+
+                    for (const key of ['yaw', 'pitch', 'zoom', 'panX', 'panY']) view[key] = target[key];
+                    if (idleTimer) clearTimeout(idleTimer);
+                    idleTimer = 0;
+                } else {
+                    touched();
+                }
+
+                remember();
+                schedule();
+            };
+
+            if (motionQuery.addEventListener) on(motionQuery, 'change', changed);
+            else if (motionQuery.addListener) {
+                motionQuery.addListener(changed);
+                listeners.push(() => motionQuery.removeListener(changed));
+            }
+        }
+
+        backlogDiagramInstances.set(id, {
+            select(markId) {
+                selectedId = markId || null;
+                schedule();
+            },
+            // For a test or a trace: what the camera is at, where it is heading,
+            // whether frames are running, and what is on the map — with the mark
+            // nearest the eye, so a test can see which way a drag carries it.
+            describe() {
+                const now = performance.now();
+                const nearest = painted.length ? painted[painted.length - 1] : null;
+                return {
+                    layout: layoutKey,
+                    yaw: view.yaw,
+                    pitch: view.pitch,
+                    zoom: view.zoom,
+                    pan: { x: view.panX, y: view.panY },
+                    target: { yaw: target.yaw, pitch: target.pitch, zoom: target.zoom, pan: { x: target.panX, y: target.panY } },
+                    velocity: { yaw: velocity.yaw, pitch: velocity.pitch },
+                    animating: frame !== 0,
+                    frames,
+                    idle: idleShare(now) > 0,
+                    idleMotion,
+                    reducedMotion: reduced(),
+                    nearest: nearest && nearest.projected
+                        ? { id: nearest.mark.id, x: nearest.projected.x, y: nearest.projected.y, z: nearest.projected.z }
+                        : null,
+                    marks: points.length,
+                    links: links.length + satelliteLinks.length,
+                    satellite: !!satellite,
+                    selected: selectedId
+                };
+            },
+            // Where a mark is drawn now, in CSS pixels from the canvas's corner.
+            locate(markId) {
+                const point = byId.get(markId);
+                return point && point.projected ? { x: point.projected.x, y: point.projected.y, z: point.projected.z } : null;
+            },
+            destroy() {
+                destroyed = true;
+                stopFrames();
+                if (reportTimer) clearTimeout(reportTimer);
+                reportTimer = 0;
+                if (idleTimer) clearTimeout(idleTimer);
+                idleTimer = 0;
+                for (const remove of listeners) remove();
+                listeners.length = 0;
+            }
+        });
+
+        resize();
+        // The camera this layout starts at — its default, or the one it was left
+        // at — so the host's marker matches the picture from the first frame.
+        sendCamera();
+    }
+
+    // The lobes drawing, beside the atlas: GraphAtlas hosts it by naming
+    // `backlogLobesAtlas.render` as its JsFunction, and selection reaches it
+    // through `backlogGraphAtlas.select`, which finds the instance by id.
+    window.backlogLobesAtlas = {
+        render(element, id, model, dotnet) {
+            backlogLobesRender(element, id, model, dotnet);
+        },
+        describe(id) {
+            return backlogDiagramInstances.get(id)?.describe?.() ?? null;
         }
     };
 

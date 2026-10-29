@@ -147,8 +147,8 @@ public sealed class GlobalPaneMarkupTests
             StringComparison.Ordinal);
         Assert.DoesNotContain("header-group--panes", home, StringComparison.Ordinal);
 
-        // Two standalone toggles and the two loose takeovers wear the loose option.
-        Assert.Equal(5, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
+        // Two standalone toggles and the four loose takeovers wear the loose option.
+        Assert.Equal(6, CountOccurrences(home, "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\""));
 
         // The workspace's own three controls are one cluster, closer together than
         // the groups around them.
@@ -499,6 +499,9 @@ public sealed class GlobalPaneMarkupTests
         // Escape, the workspace — and the branches are exclusive, so the page has
         // exactly one. The roadmap gave up its own when it became a view.
         Assert.Equal(3, CountOccurrences(home, "<main class="));
+        // The Lobes atlas is a takeover like the rest, drawn from its catalog entry:
+        // the shell never names the component its module registered.
+        Assert.DoesNotContain("<LobesAtlasTakeover", home, StringComparison.Ordinal);
 
         // The shell names none of the takeovers' panes (local ADR 0042 §1).
         foreach (var pane in new[] { "<DevbookPane ", "<ToolsPane ", "<DashboardPane ", "<SessionsPane ", "<PullRequestsPane ", "<NotificationCentrePane ", "<InboxPane " })
@@ -538,7 +541,10 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("@ref=\"_surfaceElement\"", home, StringComparison.Ordinal);
         Assert.Contains("@onkeydown=\"OnSurfaceKeyDown\"", home, StringComparison.Ordinal);
         Assert.Contains("await _surfaceElement.FocusAsync();", home, StringComparison.Ordinal);
-        Assert.Contains("if (e.Key == \"Escape\") CloseSurface();", home, StringComparison.Ordinal);
+        // Escape is a takeover's close, which for the Lobes atlas is its way back to
+        // the surface it was opened over.
+        Assert.Contains("if (e.Key == \"Escape\") CloseTakeover();", home, StringComparison.Ordinal);
+        Assert.Contains("if (AtlasVisible) CloseAtlas();", home, StringComparison.Ordinal);
         // Every takeover closes on Escape through the one branch that draws those whose
         // registration says so; the Inbox keeps Escape for its own keys.
         Assert.Equal(1, CountOccurrences(home, "data-escape-closes"));
@@ -634,7 +640,10 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("@ref=\"_surfaceElement\"", surface, StringComparison.Ordinal);
 
         Assert.Contains("private bool DevbookVisible => TakeoverVisible(DevbookSurfaceId);", home, StringComparison.Ordinal);
-        Assert.Equal(3, CountOccurrences(home, "        ShowDevbook();\n"));
+        // An entry's reference, a Brain note's badge and the Lobes atlas's card all
+        // open it through OpenDevbookOnAsync, the one road.
+        Assert.Equal(2, CountOccurrences(home, "        ShowDevbook();\n"));
+        Assert.Contains("private Task OpenDevbookOnAsync(string alias, string? reference, string unavailable)", home, StringComparison.Ordinal);
     }
 
     [Fact]

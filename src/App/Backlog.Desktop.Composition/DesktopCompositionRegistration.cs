@@ -326,8 +326,8 @@ public static class DesktopCompositionRegistration
         // ShellSurface, one catalog holds them, and each window jumps between them
         // through a navigator of its own (§3). The five views — Tasks, Board and
         // Calendar from Tasks, the Roadmap, Goals — and the takeovers: the Inbox, the
-        // Devbook, Sessions, the Dashboard, the notification centre and Tools from
-        // their modules, and the pull requests from the shell's own project, which
+        // Devbook, Sessions, the Dashboard, the notification centre, Tools and the
+        // Lobes atlas from their modules, and the pull requests from the shell's own project, which
         // reads GitHub for them.
         services.AddTasksSurfaces();
         services.AddRoadmapSurface();
@@ -339,6 +339,7 @@ public static class DesktopCompositionRegistration
         services.AddDashboardSurface();
         services.AddNotificationsSurface();
         services.AddToolsSurface();
+        services.AddAtlasSurface();
         // What those takeovers read from the window they are shown in — its scope,
         // its entries, the Inbox's Capture — built from the window's own state, so a
         // takeover draws the same in a window of its own.

@@ -103,6 +103,7 @@ public sealed class ShellNavigationStore
             [InboxName] = InboxId,
             [DevbookName] = DevbookId,
             ["Notifications"] = "notifications",
+            ["Atlas"] = "atlas",
         };
 
     /// <summary>What the Board's columns are when nothing else was remembered.</summary>
@@ -179,6 +180,8 @@ public sealed class ShellNavigationStore
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
+        AtlasReturnSurface = AtlasReturnId(dto?.AtlasReturnSurface);
+        AtlasScope = string.IsNullOrWhiteSpace(dto?.AtlasScope) ? null : dto.AtlasScope;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
         BrainHiddenShown = dto?.BrainHiddenShown ?? false;
         GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
@@ -262,6 +265,20 @@ public sealed class ShellNavigationStore
     /// one was chosen.</summary>
     public string? ToolsHostFilter { get; private set; }
 
+    /// <summary>The takeover the Lobes atlas was opened over, which its way back
+    /// returns to, by its surface id; null for the workspace, and until the atlas was
+    /// opened. A name the retired enum stored reads as its id, as
+    /// <see cref="LastSurface"/>'s does.
+    /// Kept beside <see cref="LastSurface"/> because the Router remounts the shell on
+    /// every route change — Register repository's trip to Settings among them — and
+    /// a reopened atlas must still know where it came from.</summary>
+    public string? AtlasReturnSurface { get; private set; }
+
+    /// <summary>The scope the Lobes atlas was opened on, or the ghost its Register
+    /// repository left from — <c>brain</c>, <c>repo:&lt;alias&gt;</c> or
+    /// <c>ghost:&lt;alias&gt;</c> — or null for All.</summary>
+    public string? AtlasScope { get; private set; }
+
     /// <summary>Whether the archived repositories are shown where they are otherwise
     /// hidden — show archived (local ADR 0029, §3): off until turned on on this device.
     /// Read through the shared kernel's <c>IShowArchivedRepositories</c>.</summary>
@@ -333,6 +350,12 @@ public sealed class ShellNavigationStore
         string.IsNullOrWhiteSpace(surface) ? null
         : RetiredSurfaceNames.TryGetValue(surface, out var id) ? id
         : surface;
+
+    /// <summary>The atlas's way back as it is kept: a takeover's surface id, or none for
+    /// the workspace — and for <c>Roadmap</c>, which the retired enum could still name
+    /// though it was a view by then.</summary>
+    private static string? AtlasReturnId(string? surface) =>
+        string.Equals(surface, RoadmapName, StringComparison.Ordinal) ? null : SurfaceId(surface);
 
     /// <summary>The surface id <paramref name="view"/> stands for: a name the retired
     /// enum stored as its id, anything else as written.</summary>
@@ -431,6 +454,18 @@ public sealed class ShellNavigationStore
         if (tab == ToolsTab) return;
 
         ToolsTab = tab;
+        Save();
+    }
+
+    /// <summary>Replaces the atlas's place — its way back and its scope — in one save.</summary>
+    public void SetAtlasPlace(string? returnSurface, string? scope)
+    {
+        returnSurface = AtlasReturnId(returnSurface);
+        scope = string.IsNullOrWhiteSpace(scope) ? null : scope;
+        if (returnSurface == AtlasReturnSurface && scope == AtlasScope) return;
+
+        AtlasReturnSurface = returnSurface;
+        AtlasScope = scope;
         Save();
     }
 
@@ -548,6 +583,10 @@ public sealed class ShellNavigationStore
                 // Left out until the tools pane has been on a tab or a filter here.
                 ToolsTab = ToolsTab,
                 ToolsHostFilter = ToolsHostFilter,
+                // Left out until the atlas has been opened here. Both keys are stored
+                // names: never rename them without reading the old ones.
+                AtlasReturnSurface = AtlasReturnSurface,
+                AtlasScope = AtlasScope,
                 // Left out while off, the default. The key is a stored name: never
                 // rename it without reading the old one.
                 ShowArchivedRepositories = ShowArchivedRepositories ? true : null,
@@ -621,6 +660,14 @@ public sealed class ShellNavigationStore
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ToolsHostFilter { get; init; }
+
+        /// <summary>Written as <c>atlasReturnSurface</c>, a takeover's surface id.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? AtlasReturnSurface { get; init; }
+
+        /// <summary>Written as <c>atlasScope</c>, a Lobes scope key.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? AtlasScope { get; init; }
 
         /// <summary>Written as <c>showArchivedRepositories</c>, and only while on.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

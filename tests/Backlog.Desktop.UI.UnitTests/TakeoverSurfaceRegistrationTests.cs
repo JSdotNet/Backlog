@@ -1,4 +1,6 @@
+using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.PullRequests;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.DevPc.Abstractions;
@@ -29,6 +31,7 @@ public sealed class TakeoverSurfaceRegistrationTests
         { "dashboard", "Dashboard", DashboardFeatures.Dashboard, [] },
         { "notifications", "Notifications", NotificationsFeatures.Notifications, ["notification"] },
         { "tools", "Tools", DevPcFeatures.SystemTools, [] },
+        { "atlas", "Atlas", DevbookFeatures.LobesAtlas, ["layout"] },
     };
 
     [Theory]
@@ -56,9 +59,10 @@ public sealed class TakeoverSurfaceRegistrationTests
             services.AddDashboardSurface();
             services.AddNotificationsSurface();
             services.AddToolsSurface();
+            services.AddAtlasSurface();
         }
 
-        Assert.Equal(6, services.Count(descriptor => descriptor.ImplementationInstance is ShellSurface));
+        Assert.Equal(7, services.Count(descriptor => descriptor.ImplementationInstance is ShellSurface));
     }
 
     [Fact]
@@ -69,7 +73,7 @@ public sealed class TakeoverSurfaceRegistrationTests
             .OrderBy(surface => surface.Order)
             .Select(surface => surface.Id);
 
-        Assert.Equal(["inbox", "devbook", "sessions", "pull-requests", "dashboard", "notifications", "tools"], order);
+        Assert.Equal(["inbox", "devbook", "sessions", "pull-requests", "dashboard", "notifications", "tools", "atlas"], order);
     }
 
     private static List<ShellSurface> Registered() =>

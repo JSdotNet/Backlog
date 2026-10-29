@@ -33,7 +33,7 @@ public partial class ShellSurfaceRegistrationTests
         foreach (var expected in new[]
         {
             "DevbookSurface", "TasksSurface", "BoardSurface", "CalendarSurface", "RoadmapSurface", "GoalsSurface",
-            "InboxSurface", "SessionsSurface", "DashboardSurface", "NotificationsSurface", "ToolsSurface",
+            "InboxSurface", "SessionsSurface", "DashboardSurface", "NotificationsSurface", "ToolsSurface", "AtlasSurface",
         })
         {
             Assert.Contains(components, component => component.Name == expected);
@@ -68,6 +68,7 @@ public partial class ShellSurfaceRegistrationTests
     [InlineData("AddDashboardSurface(")]
     [InlineData("AddNotificationsSurface(")]
     [InlineData("AddToolsSurface(")]
+    [InlineData("AddAtlasSurface(")]
     public void The_desktop_composition_registers_each_module_surface(string registration) =>
         Assert.Contains(registration, Repository.DesktopCompositionSource(), StringComparison.Ordinal);
 

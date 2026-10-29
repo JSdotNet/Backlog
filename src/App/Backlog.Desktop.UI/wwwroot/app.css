@@ -10022,6 +10022,686 @@ a.pull-request-detail-checks__name:hover {
     min-height: 0;
 }
 
+/* The Lobes atlas takeover (.devbook/domain/devbook/features.md#lobes-atlas),
+   laid out as Lobes.dc.html draws it: the map fills the takeover and everything
+   else floats over it — the title and the scope switch at the top left, the
+   picture's controls and the close at the top right with the chips under them,
+   the panel and the scope card down the left, the index list down the right,
+   and the foot's hint and orientation marker at the bottom. It was a header row
+   and a grid column until #1494, #1498 and #1500 each found the map squeezed to
+   about 760 x 494 px of a 1440 x 960 window. None of the floating parts is
+   inside the canvas, so a drag or a wheel on one never reaches the camera.
+
+   A window narrower than 60rem has no room to float a panel either side of a
+   map, so it stacks the parts in one column instead (the second media query
+   below): the scopes and the chips scroll sideways, the panel and the card fold
+   into a sheet behind one disclosure, and the map and its list take the rest.
+
+   What both layouts share comes first. */
+.workspace-surface > .lobes-atlas {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+/* Layout containment makes the takeover the box a fixed child is placed in, so
+   a selection's detail sheet opens over the takeover and above everything that
+   floats on the map, not over the shell. */
+.lobes-atlas {
+    --lobes-atlas-inset: var(--spacing-md);
+    --lobes-atlas-target: 44px;
+    --lobes-atlas-side: 16.375rem;
+    --lobes-atlas-glass: color-mix(in srgb, var(--color-background) 82%, transparent);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    contain: layout;
+}
+
+.lobes-atlas__lead {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-md);
+    min-width: 0;
+}
+
+/* The heading keeps its width beside the scope switch, up to half the row; a
+   longer headline ends in an ellipsis rather than starving the switch. */
+.lobes-atlas__heading {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    max-width: 50%;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    letter-spacing: 0.08em;
+}
+
+.lobes-atlas__title {
+    flex: none;
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.lobes-atlas__headline {
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* With no map yet, whose atlas is waiting: the library's Brain badge
+   (badge--brain), set in the body face rather than the heading's spaced mono. */
+.lobes-atlas__subject {
+    flex: none;
+    font-family: var(--font-family-base);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: normal;
+}
+
+.lobes-atlas__dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-band-2);
+}
+
+.lobes-atlas__dot--devbook {
+    background: var(--color-primary);
+}
+
+.lobes-atlas__dot--ghost {
+    background: var(--color-text-secondary);
+}
+
+/* The scope switch scrolls sideways when its scopes outgrow the room it has,
+   and no option shrinks below its name. It clipped until the live QA pass found
+   six of thirteen scopes out of reach at 390 px and the rest squeezed until
+   their names ran into each other. The padding, taken back by the margin,
+   keeps a focused option's ring clear of the scrolling edge. */
+.lobes-atlas__scopes {
+    min-width: 0;
+    max-width: 100%;
+    margin: calc(-1 * var(--spacing-xs));
+    padding: var(--spacing-xs);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.lobes-atlas__scopes > .header-group__option {
+    flex: none;
+}
+
+/* A ghost devbook's scope option is dashed, as its outline is on the map. */
+.lobes-atlas__scopes .lobes-atlas__scope--ghost {
+    outline: var(--border-width) dashed var(--color-border-strong);
+    outline-offset: calc(-1 * var(--spacing-2xs));
+    color: var(--color-text-secondary);
+}
+
+.lobes-atlas__controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.lobes-atlas__tools {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* The chips keep one row and scroll sideways rather than wrap: a scope chip per
+   devbook in All outgrows any row. The padding, taken back by the margin, keeps
+   a focused chip's ring clear of the scrolling edge. */
+.lobes-atlas__chips {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--spacing-2xs);
+    max-width: calc(100% + 2 * var(--spacing-xs));
+    margin: calc(-1 * var(--spacing-xs));
+    padding: var(--spacing-xs);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.lobes-atlas__chip {
+    flex: none;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+}
+
+/* The panel's one disclosure, the library's fold: only a narrow window folds
+   the panel and the card into a sheet, so over the map it is not there at all.
+   Its trigger is a full-width row naming the panel and the card it opens. */
+.lobes-atlas__sheet-toggle {
+    display: none;
+}
+
+.lobes-atlas__sheet-toggle .fold__trigger {
+    width: 100%;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.lobes-atlas__sheet-toggle-title {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.lobes-atlas__sheet-toggle-sub {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* The sheet holds the two boxes, the panel's list over the scope card. Only a
+   window too short even for two rows and the card scrolls it as a whole, so the
+   card is never cut off out of reach. */
+.lobes-atlas__sheet {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* The panel's own box: its title and its rows. The rows scroll before anything
+   else does. The panel scrolled as a whole until the live QA pass found the
+   scope card's one action under its fold at 1440 x 900; the title and the card
+   now keep their height and the list gives way, down to two rows: the box's
+   floor is the title, two rows and its padding, and below its content height
+   it clips rather than letting the rows run out over the card. */
+.lobes-atlas__legend {
+    display: flex;
+    flex: 0 1 auto;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-height: calc(2 * 44px + var(--spacing-2xs) + 2 * var(--spacing-xs) + 2.75rem);
+    overflow: hidden;
+    padding: var(--spacing-sm) var(--spacing-xs) var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--lobes-atlas-glass);
+    backdrop-filter: blur(6px);
+}
+
+.lobes-atlas__panel-title {
+    flex: none;
+    margin: 0 0 0 var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+/* The padding keeps a focused row's ring, 2 px out and 2 px wide, clear of
+   the scrolling edge. The floor is two rows. */
+.lobes-atlas__rows {
+    display: grid;
+    flex: 0 1 auto;
+    align-content: start;
+    gap: var(--spacing-2xs);
+    min-height: calc(2 * 44px + var(--spacing-2xs) + 2 * var(--spacing-xs));
+    margin: 0;
+    padding: var(--spacing-xs);
+    overflow-y: auto;
+    list-style: none;
+}
+
+.lobes-atlas__row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: 44px;
+    padding: var(--spacing-2xs) var(--spacing-xs);
+    border: 0;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.lobes-atlas__row:hover {
+    background: var(--color-background-alt);
+}
+
+/* A region row is a toggle: pressed while the region is drawn, faded while it
+   is hidden. A scope row in All is a plain button and never fades. */
+.lobes-atlas__row[aria-pressed="false"] {
+    opacity: 0.45;
+}
+
+.lobes-atlas__swatch {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--color-primary);
+}
+
+.lobes-atlas__swatch--brain {
+    border-radius: 50%;
+    background: var(--color-band-2);
+}
+
+.lobes-atlas__swatch--ghost {
+    border: 1.5px dashed var(--color-text-secondary);
+    background: transparent;
+    box-sizing: border-box;
+}
+
+.lobes-atlas__row-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.lobes-atlas__row-name {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+}
+
+.lobes-atlas__row-sub,
+.lobes-atlas__row-count {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* Every control of the atlas is a full target (accessibility.md#target-size):
+   at least 44 x 44 px whatever its glyph, the scope switch's fused options
+   included, which the shell header draws shorter. */
+.lobes-atlas__header :is(button, a),
+.lobes-atlas__panel :is(button, a),
+.lobes-atlas__empty button {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+/* And every one shows where the keyboard is: the panel's rows are bare
+   buttons with no .btn ring of their own. */
+.lobes-atlas__row:focus-visible,
+.lobes-atlas__chip:focus-visible,
+.lobes-atlas__header .header-group__option:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The foot: the drag/scroll hint on the left, the orientation marker turning
+   with the camera on the right. */
+.lobes-atlas__footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.lobes-atlas__hint {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.lobes-atlas__orientation {
+    flex: none;
+}
+
+.lobes-atlas__orientation-ring {
+    fill: none;
+    stroke: var(--color-border);
+}
+
+.lobes-atlas__orientation-axis {
+    stroke: var(--color-text-secondary);
+    stroke-width: 1;
+}
+
+.lobes-atlas__orientation-tag {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: 11px;
+}
+
+/* While the atlas reads, the spinner sits where the map will be. */
+.lobes-atlas > .spinner {
+    margin: auto;
+}
+
+/* No Brain index yet: the shared empty state, centred where the map would be,
+   with the offer to build it and the way back side by side. */
+.lobes-atlas__empty {
+    flex: 0 1 auto;
+    width: 100%;
+    max-width: 34rem;
+    margin: auto;
+}
+
+.lobes-atlas__art {
+    stroke: var(--color-text-secondary);
+}
+
+.lobes-atlas__art path {
+    stroke: var(--color-border-strong);
+}
+
+/* The empty state's action slot is a row; here it stacks the buttons, the
+   alert a failed build leaves and the footnote. */
+.lobes-atlas__empty .empty-state__action {
+    flex-direction: column;
+    align-items: center;
+}
+
+.lobes-atlas__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.lobes-atlas__footnote {
+    margin: var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.lobes-atlas__card {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--lobes-atlas-glass);
+    backdrop-filter: blur(6px);
+}
+
+.lobes-atlas__card--brain {
+    border-color: color-mix(in srgb, var(--color-band-2) 35%, transparent);
+}
+
+.lobes-atlas__card--devbook {
+    border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.lobes-atlas__card--ghost {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+}
+
+.lobes-atlas__card-kind {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.lobes-atlas__card--brain .lobes-atlas__card-kind {
+    color: var(--color-band-2);
+}
+
+.lobes-atlas__card--devbook .lobes-atlas__card-kind {
+    color: var(--color-primary);
+}
+
+.lobes-atlas__card-title {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.lobes-atlas__card-line {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+}
+
+.lobes-atlas__card-action {
+    align-self: flex-start;
+}
+
+.lobes-atlas__open {
+    margin-top: var(--spacing-sm);
+}
+
+/* The detail sheet fills the takeover it is placed in, rather than the
+   window's height, and never outgrows its width. The atlas stops being a size
+   container in both layouts below, so the takeover is the sheet's box and its
+   backdrop covers every control while the sheet holds the focus. */
+.lobes-atlas .detail-sheet {
+    max-width: 100%;
+    height: 100%;
+}
+
+.lobes-atlas__graph {
+    container-type: normal;
+}
+
+/* Over the map. The floating boxes take no pointer themselves, so a drag that
+   starts on the empty part of one — the title's row, the gap beside the tools
+   — still turns the map; their controls take it.
+
+   The offsets follow the parts' own sizes: the left column starts under the
+   one 44 px row of the title and the switch, the right one under the tools'
+   row and the chips' row (whose sideways scrollbar the 1.25rem leaves room
+   for), and the index stops above the orientation marker, which
+   LobesAtlasCompass draws 96 px square. */
+@media (width > 60rem) {
+    .lobes-atlas {
+        --lobes-atlas-left-top: calc(var(--lobes-atlas-inset) + var(--lobes-atlas-target) + 1.25rem);
+        --lobes-atlas-right-top: calc(var(--lobes-atlas-inset) + 2 * var(--lobes-atlas-target) + var(--spacing-sm) + 1.25rem);
+        --lobes-atlas-foot: 96px;
+        padding: var(--lobes-atlas-left-top) var(--spacing-md) var(--spacing-md);
+    }
+
+    .lobes-atlas__header,
+    .lobes-atlas__panel,
+    .lobes-atlas__footer {
+        position: absolute;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .lobes-atlas__scopes,
+    .lobes-atlas__tools,
+    .lobes-atlas__chips,
+    .lobes-atlas__sheet {
+        pointer-events: auto;
+    }
+
+    /* The title and the switch at the top left, the controls at the top right;
+       the switch gives way to the controls, never the other way round. */
+    .lobes-atlas__header {
+        top: var(--lobes-atlas-inset);
+        right: var(--lobes-atlas-inset);
+        left: var(--lobes-atlas-inset);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: var(--spacing-md);
+    }
+
+    .lobes-atlas__lead {
+        flex: 1 1 auto;
+        min-height: var(--lobes-atlas-target);
+    }
+
+    .lobes-atlas__controls {
+        flex: none;
+        align-items: flex-end;
+        max-width: 50%;
+    }
+
+    /* The panel's box and the card under it, down the left. The room left at
+       the foot is the hint's. */
+    .lobes-atlas__panel {
+        top: var(--lobes-atlas-left-top);
+        left: var(--lobes-atlas-inset);
+        display: flex;
+        flex-direction: column;
+        width: var(--lobes-atlas-side);
+        max-height: calc(100% - var(--lobes-atlas-left-top) - 3.5rem);
+    }
+
+    /* The map, full-bleed: the atlas's canvas fills the takeover and its index
+       floats down the right, under the chips and clear of the orientation
+       marker. Being no size container, the atlas is no stacking context
+       either, so the detail sheet inside it rises above every floating box. */
+    .lobes-atlas__graph {
+        position: absolute;
+        inset: 0;
+    }
+
+    .lobes-atlas__graph > .graph-atlas__stage {
+        display: block;
+        position: relative;
+    }
+
+    .lobes-atlas__graph .graph-atlas__canvas {
+        position: absolute;
+        inset: 0;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .lobes-atlas__graph .graph-atlas-index {
+        position: absolute;
+        z-index: 1;
+        top: var(--lobes-atlas-right-top);
+        right: var(--lobes-atlas-inset);
+        width: var(--lobes-atlas-side);
+        max-height: calc(100% - var(--lobes-atlas-right-top) - var(--lobes-atlas-inset) - var(--lobes-atlas-foot) - var(--spacing-sm));
+        background: var(--lobes-atlas-glass);
+        backdrop-filter: blur(6px);
+    }
+
+    .lobes-atlas__footer {
+        right: var(--lobes-atlas-inset);
+        bottom: var(--lobes-atlas-inset);
+        left: var(--lobes-atlas-inset);
+    }
+}
+
+/* A narrow window: one column, read top to bottom in the order the keyboard
+   meets it — the title, the scopes, the controls, the chips, the panel's
+   disclosure, the map with its list under it, and the foot. Nothing floats, so
+   nothing overlaps, and the column scrolls when an opened sheet makes it
+   taller than the window. */
+@media (width <= 60rem) {
+    .lobes-atlas {
+        gap: var(--spacing-sm);
+        padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
+        overflow-y: auto;
+    }
+
+    .lobes-atlas__header {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .lobes-atlas__lead {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .lobes-atlas__heading {
+        max-width: 100%;
+    }
+
+    .lobes-atlas__scopes {
+        align-self: flex-start;
+    }
+
+    .lobes-atlas__controls {
+        align-items: flex-end;
+    }
+
+    .lobes-atlas__panel {
+        display: flex;
+        flex: none;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .lobes-atlas__sheet-toggle {
+        display: flex;
+    }
+
+    .lobes-atlas:not(.lobes-atlas--sheet-open) .lobes-atlas__sheet {
+        display: none;
+    }
+
+    .lobes-atlas__sheet {
+        overflow: visible;
+    }
+
+    /* The disclosure already names the list it opens. */
+    .lobes-atlas__panel-title {
+        display: none;
+    }
+
+    .lobes-atlas__rows {
+        max-height: 18rem;
+    }
+
+    /* The map and its list take what is left, and never less than a usable
+       map, with the list under the canvas keeping a real share of the height —
+       the atlas's own narrow layout, set here because the atlas is no size
+       container to query in the takeover. */
+    .lobes-atlas__graph {
+        flex: 1 0 26rem;
+    }
+
+    .lobes-atlas__graph > .graph-atlas__stage {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(12rem, 1fr) minmax(8rem, 0.75fr);
+    }
+
+    .lobes-atlas__footer {
+        flex: none;
+        align-items: center;
+    }
+
+    .lobes-atlas__orientation {
+        width: 56px;
+        height: 56px;
+    }
+}
+
 /* Search shares the atlas's shape because it replaces the same panel body: a
    header that stays put and one scrolling region under it. What it does not
    share is the atlas's `overflow: hidden` on that region — a graph is drawn to

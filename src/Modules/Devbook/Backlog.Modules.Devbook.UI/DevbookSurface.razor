@@ -21,7 +21,8 @@
              OnOpenReferenceFollowed="Requests.Followed"
              OnOpenRepositoryChapter="OpenRepositoryChapter"
              TaskTitleFor="@(_taskTitles is null ? null : _taskTitles.TitleFor)"
-             OnOpenTask="OpenTask" />
+             OnOpenTask="OpenTask"
+             OnOpenLobesAtlas="OpenAtlas" />
 
 @code {
     /// <summary>The surface's id in the catalog.</summary>
@@ -97,6 +98,14 @@
         {
             [DevbookSurfaceQuery.Scope] = DevbookSurfaceQuery.ScopeFor(alias),
             [DevbookSurfaceQuery.Chapter] = reference,
+        });
+
+    /// <summary>The pane's Atlas button, while the Lobes atlas is offered: the atlas on
+    /// the scope the pane reads, over the Devbook, which its way back returns to.</summary>
+    private void OpenAtlas(string scope) =>
+        Navigator.Show(Extensions.AtlasSurfaceRegistration.SurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [Extensions.AtlasSurfaceRegistration.ScopeKey] = scope,
         });
 
     /// <summary>A task followed out of a Brain note: the Tasks surface, at that entry.</summary>
