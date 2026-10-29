@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The link token that guards the pop-out pages the desktop app serves (local ADR
-/// 0041 §7): minted for one link, redeemed once, dead after ten minutes, and
+/// 0042 §7): minted for one link, redeemed once, dead after ten minutes, and
 /// exchanged on redemption for the cookie value a page's later requests carry.
 /// </summary>
 public sealed class WindowLinkTokensTests

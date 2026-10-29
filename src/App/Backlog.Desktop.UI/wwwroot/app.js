@@ -22,7 +22,7 @@ window.backlogDiagrams.renderDevbookAtlas = async (element, id, graph, dotnet) =
     window.backlogGraphAtlas.render(element, id, graph, dotnet);
 };
 
-// A surface served as a web page (local ADR 0041 §7) is a browser tab rather than
+// A surface served as a web page (local ADR 0042 §7) is a browser tab rather than
 // an OS window, so BrowserTabShellWindows retitles and closes the tab through
 // these. A browser closes only a tab a script opened; any other stays open.
 // open answers whether the browser opened the tab: null from window.open is a
@@ -61,7 +61,7 @@ window.backlogTakeoverEscape = (() => {
 
     // Keyless, and one owner per WebView: this script runs once per document, and
     // every window — the main one and each surface popped out beside it (local ADR
-    // 0041 §4) — has a WebView, and so a document, of its own. Only the main
+    // 0042 §4) — has a WebView, and so a document, of its own. Only the main
     // window's shell registers; a popped-out window registers nothing and marks no
     // <main> to close, so Escape there closes nothing — in it or in another window,
     // whose document this listener cannot see. A web page the desktop serves is a

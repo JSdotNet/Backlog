@@ -2,7 +2,7 @@ namespace Backlog.SharedKernel;
 
 /// <summary>
 /// A screen of the desktop shell that a module brings rather than the shell
-/// (local ADR 0041 §1).
+/// (local ADR 0042 §1).
 /// <para>
 /// A module registers one in the container from its <c>.UI</c> project's
 /// registration extension, the way it registers a <see cref="SettingsSection"/>,
@@ -35,7 +35,7 @@ namespace Backlog.SharedKernel;
 /// one that is always offered. While it is off the catalog leaves the surface out
 /// everywhere it is read.</param>
 /// <param name="QueryKeys">The query keys the surface accepts, such as
-/// <c>chapter</c> and <c>scope</c> (local ADR 0041 §6), or null for none.</param>
+/// <c>chapter</c> and <c>scope</c> (local ADR 0042 §6), or null for none.</param>
 /// <param name="EscapeCloses">Whether Escape closes the surface, as it closes a
 /// takeover, and whether the shell moves focus onto it when it opens. False for a
 /// surface that keeps Escape for keys of its own — the Inbox, which leaves triage
@@ -52,7 +52,7 @@ public sealed record ShellSurface(
     bool EscapeCloses = true)
 {
     /// <summary>The id reserved for the Review pane of the management bots'
-    /// proposal queue (local ADR 0041 §1). Until that pane registers its surface the
+    /// proposal queue (local ADR 0042 §1). Until that pane registers its surface the
     /// catalog answers it as not available, the same as an unknown id.</summary>
     public const string ProposalsId = "proposals";
 
@@ -64,7 +64,7 @@ public sealed record ShellSurface(
 }
 
 /// <summary>
-/// The two kinds of surface the shell header lists (local ADR 0041 §1), in the
+/// The two kinds of surface the shell header lists (local ADR 0042 §1), in the
 /// order the catalog lists them.
 /// </summary>
 public enum ShellSurfaceGroup

@@ -18,7 +18,7 @@ namespace Backlog.Desktop.Services;
 /// rather than anything a shared project could hold.
 /// </para>
 /// <para>
-/// One per window (local ADR 0041 §5): it stands over the window whose Settings asked
+/// One per window (local ADR 0042 §5): it stands over the window whose Settings asked
 /// for it — named by the window's <see cref="CurrentShellWindow"/> — rather than over
 /// whichever window the app lists first, which with surfaces popped out beside the main
 /// window is not always the one the person is looking at.

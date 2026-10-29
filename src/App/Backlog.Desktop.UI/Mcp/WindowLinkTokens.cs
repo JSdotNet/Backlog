@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.Mcp;
 
 /// <summary>
 /// The link token that guards the pop-out pages the desktop app serves on its
-/// loopback MCP listener (local ADR 0041 §7). A web link to <c>/window/{surfaceId}</c>
+/// loopback MCP listener (local ADR 0042 §7). A web link to <c>/window/{surfaceId}</c>
 /// carries one, minted for that link alone; the page's first load redeems it, once,
 /// within <see cref="Lifetime"/>, for a cookie value the listener sets and every
 /// later request of that page — its files and its circuit — carries instead.
@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.Mcp;
 /// A singleton of the desktop head, in memory only: a restart forgets every token
 /// and every cookie value, so a link minted before it is dead and a page opened
 /// before it asks for a new one. Nothing a link carries survives into a file, which
-/// is what keeps a token out of a digest read the next morning (ADR 0041 rejects
+/// is what keeps a token out of a digest read the next morning (ADR 0042 rejects
 /// tokens in <c>backlog://</c> links for the same reason).
 /// </para>
 /// <para>

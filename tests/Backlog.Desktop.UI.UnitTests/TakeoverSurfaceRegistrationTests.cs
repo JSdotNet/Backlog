@@ -14,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The takeovers are their modules' surfaces (local ADR 0041 §1): each registers a
+/// The takeovers are their modules' surfaces (local ADR 0042 §1): each registers a
 /// takeover-group <see cref="ShellSurface"/> behind the flag its header option has
 /// always gated on, under the id its stored name now reads as (§2), with the query keys
 /// a jump opens it on (§6). Only the Inbox keeps Escape for keys of its own.

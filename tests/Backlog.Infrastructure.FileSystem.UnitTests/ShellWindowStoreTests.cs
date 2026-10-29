@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
-/// Where each surface's last popped-out window stood (local ADR 0041 §5): kept per
+/// Where each surface's last popped-out window stood (local ADR 0042 §5): kept per
 /// surface id in <c>shell-windows.json</c>, written off the caller's thread, read back by
 /// the next store, and never in the way of a window opening when the file is missing or
 /// corrupt.

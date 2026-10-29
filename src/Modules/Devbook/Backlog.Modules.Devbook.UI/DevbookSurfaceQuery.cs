@@ -3,7 +3,7 @@ using Backlog.SharedKernel;
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// The query keys the Devbook surface accepts (local ADR 0041 §6), and how a
+/// The query keys the Devbook surface accepts (local ADR 0042 §6), and how a
 /// repository alias or the Brain is written into one.
 /// </summary>
 public static class DevbookSurfaceQuery
@@ -16,7 +16,7 @@ public static class DevbookSurfaceQuery
     public const string Chapter = "chapter";
 
     /// <summary>What the surface reads: a repository alias, or <see cref="Brain"/>.
-    /// Without it, the window's repository scope (local ADR 0041 §6).</summary>
+    /// Without it, the window's repository scope (local ADR 0042 §6).</summary>
     public const string Scope = "scope";
 
     /// <summary>The repository on the other side of the pane's <c>Brain | repo</c>

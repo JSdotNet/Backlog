@@ -532,7 +532,7 @@ public class McpEndpointGateTests
     }
 
     /// <summary>
-    /// <c>open_window</c> is behind no flag (local ADR 0041 §7): listed with an area
+    /// <c>open_window</c> is behind no flag (local ADR 0042 §7): listed with an area
     /// switched off, and answered end to end through the SDK and both filters. In
     /// the harness, <c>desktop</c> says no window was opened and still
     /// carries the <c>backlog://</c> link; an id the catalog does not offer is not
@@ -729,7 +729,7 @@ public class McpEndpointGateTests
     {
         var everythingOff = new AllOff();
 
-        // Every gated group: open_window has no flag (local ADR 0041 §7) and stays.
+        // Every gated group: open_window has no flag (local ADR 0042 §7) and stays.
         Assert.All(
             BacklogMcpTools.Groups.Where(group => group.FeatureKey is not null),
             group => Assert.All(

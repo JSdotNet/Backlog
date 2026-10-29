@@ -1,7 +1,7 @@
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// Which window a scope belongs to (local ADR 0041 §4, §5): the key the head named a
+/// Which window a scope belongs to (local ADR 0042 §4, §5): the key the head named a
 /// popped-out window by, or null for the main window. One per window, with the window's
 /// view state; <see cref="Routes"/> writes it as the window's root renders.
 /// <para>

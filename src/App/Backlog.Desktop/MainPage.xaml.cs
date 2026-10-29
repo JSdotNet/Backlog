@@ -13,7 +13,7 @@ public partial class MainPage : ContentPage
     }
 
     /// <summary>
-    /// A window's page (local ADR 0041 §4): <paramref name="startPath"/> is the route
+    /// A window's page (local ADR 0042 §4): <paramref name="startPath"/> is the route
     /// its <c>BlazorWebView</c> opens on — <c>/window/{surfaceId}</c> for a popped-out
     /// window — and <paramref name="windowKey"/> the name the root component hands
     /// that route, so the page can close and retitle its own window.

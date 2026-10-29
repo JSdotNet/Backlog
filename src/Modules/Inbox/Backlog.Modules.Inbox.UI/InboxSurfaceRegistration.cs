@@ -6,7 +6,7 @@ namespace Backlog.Modules.Inbox.UI;
 
 /// <summary>
 /// Puts the Inbox in the shell as a takeover-group <see cref="ShellSurface"/> (local
-/// ADR 0041 §1), offered behind <see cref="InboxFeatures.Pane"/>, the flag its header
+/// ADR 0042 §1), offered behind <see cref="InboxFeatures.Pane"/>, the flag its header
 /// option has always gated on. Escape does not close it: the Inbox's own keys use
 /// Escape to leave triage. On the precedent of <c>AddDevbookSurface</c>; safe to call
 /// twice.

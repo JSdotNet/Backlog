@@ -1302,7 +1302,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
     /// <summary>Whether <see cref="InitializeAsync"/> has read the list once in this
     /// window. A surface shown in a window whose shell loads nothing — a popped-out
-    /// one (local ADR 0041 §4) — loads it while this is false.</summary>
+    /// one (local ADR 0042 §4) — loads it while this is false.</summary>
     public bool HasLoaded { get; private set; }
 
     public void SetStatusFilter(string? wire)
@@ -1372,7 +1372,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     /// Widens the repository scope so <paramref name="row"/> is in it: its repository —
     /// or the Brain, for an entry filed against none — joins the ones already scoped,
     /// and every one already there stays. What an entry opened from outside the list
-    /// asks for (local ADR 0041 §6, <c>entry=</c>). Nothing changes, and nothing is
+    /// asks for (local ADR 0042 §6, <c>entry=</c>). Nothing changes, and nothing is
     /// announced, when the scope is every repository or already holds the row; any
     /// other filter in the row's way is <see cref="Reveal"/>'s.
     /// </summary>
@@ -3402,7 +3402,7 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
 
     /// <summary>
     /// Writes every save still waiting on its debounce, then disposes. This is the
-    /// end a window's scope gives its state (local ADR 0041 §5): closing a
+    /// end a window's scope gives its state (local ADR 0042 §5): closing a
     /// popped-out window, or the WebView reloading its page, disposes the scope its
     /// <c>BlazorWebView</c> opened, asynchronously, and an edit typed in the last
     /// debounce interval would otherwise be dropped with the timer that held it.

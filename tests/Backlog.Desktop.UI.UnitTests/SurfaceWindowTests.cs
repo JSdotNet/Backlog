@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// A popped-out window (local ADR 0041 §3, §4, §6): the slim header over one
+/// A popped-out window (local ADR 0042 §3, §4, §6): the slim header over one
 /// surface from the catalog, "not available" for an id the catalog does not offer,
 /// a jump that switches what the window shows, and Show in main window.
 /// <para>
@@ -131,7 +131,7 @@ public sealed class SurfaceWindowTests
     }
 
     /// <summary>
-    /// Escape in a popped-out window closes nothing (local ADR 0041 §4): the window
+    /// Escape in a popped-out window closes nothing (local ADR 0042 §4): the window
     /// marks no surface for the document-level listener, registers none with it — that
     /// listener is one per WebView, and only the main window's shell owns it — and a
     /// press inside the surface neither closes the window nor asks the main window for
@@ -191,7 +191,7 @@ public sealed class SurfaceWindowTests
 
     /// <summary>
     /// A task written outside this window — the MCP server, or the main window's
-    /// list, through the process-wide task signal (local ADR 0041 §5) — reloads the
+    /// list, through the process-wide task signal (local ADR 0042 §5) — reloads the
     /// window's own list, and what the window shows follows.
     /// </summary>
     [Fact]

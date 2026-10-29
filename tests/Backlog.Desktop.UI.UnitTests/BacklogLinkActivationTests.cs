@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// What activating a <c>backlog://</c> link does in the desktop app (local ADR 0041
+/// What activating a <c>backlog://</c> link does in the desktop app (local ADR 0042
 /// §7): a window on the surface it names once the app has started, and nothing but a
 /// warning for a link that names no surface on offer, <c>proposals</c> included.
 /// </summary>

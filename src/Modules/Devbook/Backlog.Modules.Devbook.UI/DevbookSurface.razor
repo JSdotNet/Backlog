@@ -5,7 +5,7 @@
 @inject IServiceProvider Services
 
 @*
-    The Devbook as a shell surface (local ADR 0041 §1, §3): what the shell used to
+    The Devbook as a shell surface (local ADR 0042 §1, §3): what the shell used to
     hand the Devbook pane, wired here from the query it is shown with. Which
     repository it reads, the partner of its Brain | repo switch and the chapter a
     press asked for arrive as query keys (DevbookSurfaceQuery); every jump out of
@@ -47,7 +47,7 @@
     }
 
     // A chapter asked with no press token — a popped-out window opened on
-    // /window/devbook?chapter=…, or a jump inside one (local ADR 0041 §6) — is a
+    // /window/devbook?chapter=…, or a jump inside one (local ADR 0042 §6) — is a
     // press of its own, keyed by the chapter: followed once in this window.
     protected override void OnParametersSet() =>
         _openRequest = Requests.For(
@@ -57,7 +57,7 @@
     private string? Value(string key) => Query is not null && Query.TryGetValue(key, out var value) ? value : null;
 
     /// <summary>
-    /// What the Devbook reads (local ADR 0041 §6): <c>scope=brain</c> the Brain, a
+    /// What the Devbook reads (local ADR 0042 §6): <c>scope=brain</c> the Brain, a
     /// <c>scope</c> naming a repository — by <c>owner/name</c> or by its alias — that
     /// repository, and no <c>scope</c> the window's own repository scope. A repository
     /// no longer configured is handed on as named, and the pane says it has nothing.

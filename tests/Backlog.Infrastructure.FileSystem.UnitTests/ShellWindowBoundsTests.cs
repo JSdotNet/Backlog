@@ -2,7 +2,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
 /// <summary>
 /// The next window of a surface opens where the last one stood, clamped to a monitor
-/// that is connected now (local ADR 0041 §5): on the monitor it overlaps most, on the
+/// that is connected now (local ADR 0042 §5): on the monitor it overlaps most, on the
 /// primary one when its own is gone, inside the work area and no larger than it.
 /// </summary>
 public sealed class ShellWindowBoundsTests

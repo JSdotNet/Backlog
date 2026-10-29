@@ -7,7 +7,7 @@ namespace Backlog.Modules.Notifications.UI;
 
 /// <summary>
 /// Puts the notification centre in the shell as a takeover-group
-/// <see cref="ShellSurface"/> (local ADR 0041 §1), offered behind
+/// <see cref="ShellSurface"/> (local ADR 0042 §1), offered behind
 /// <see cref="NotificationsFeatures.Notifications"/>, the flag its header option has
 /// always gated on. It accepts <see cref="NotificationKey"/>, the notification to open
 /// on (§6). The centre reads <see cref="INotificationCentre"/>, which only an owner

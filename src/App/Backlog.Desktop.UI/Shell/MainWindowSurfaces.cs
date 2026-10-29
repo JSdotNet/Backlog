@@ -3,7 +3,7 @@ using Backlog.SharedKernel;
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// How a popped-out window reaches the main window's shell (local ADR 0041 §4):
+/// How a popped-out window reaches the main window's shell (local ADR 0042 §4):
 /// <c>Home</c> attaches itself here, the way it attaches to
 /// <see cref="SessionsSurfaceActivator"/>, and a <see cref="SurfaceWindow"/>'s
 /// <b>Show in main window</b> — or a jump to a surface the catalog cannot show in a

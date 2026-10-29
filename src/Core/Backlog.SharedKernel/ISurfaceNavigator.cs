@@ -2,7 +2,7 @@ namespace Backlog.SharedKernel;
 
 /// <summary>
 /// How a surface jumps to another — "Open task", "Open in Devbook" — in the window
-/// it was clicked in (local ADR 0041 §3). One per window: the hosts register it with
+/// it was clicked in (local ADR 0042 §3). One per window: the hosts register it with
 /// the window-state lifetime, so the window whose shell listens is the one that
 /// switches. It replaces the callbacks the shell used to pass each pane.
 /// </summary>

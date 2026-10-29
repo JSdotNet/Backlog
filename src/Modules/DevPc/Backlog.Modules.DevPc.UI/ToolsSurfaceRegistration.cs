@@ -6,7 +6,7 @@ namespace Backlog.Modules.DevPc.UI;
 
 /// <summary>
 /// Puts Dev PC Management's Tools in the shell as a takeover-group
-/// <see cref="ShellSurface"/> (local ADR 0041 §1), offered behind
+/// <see cref="ShellSurface"/> (local ADR 0042 §1), offered behind
 /// <see cref="DevPcFeatures.SystemTools"/>, the flag its header option has always
 /// gated on. On the precedent of <c>AddDevbookSurface</c>; safe to call twice.
 /// </summary>

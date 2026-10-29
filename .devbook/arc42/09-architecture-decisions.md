@@ -126,4 +126,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0037 — A session attaches to a goal as its own item](adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md)
 - [ADR 0038 — Backlog queues session requests and a Manager session dispatches them](adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md)
 - [ADR 0039 — Notifications are an owned document kind on their own replica container, and the realtime channel only nudges](adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md) (proposed)
-- [ADR 0041 — A surface can open in its own window, and modules register the surfaces the shell shows](adr/0041-a-surface-can-open-in-its-own-window.md)
+- [ADR 0042 — A surface can open in its own window, and modules register the surfaces the shell shows](adr/0042-a-surface-can-open-in-its-own-window.md)

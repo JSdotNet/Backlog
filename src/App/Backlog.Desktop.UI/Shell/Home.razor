@@ -19,7 +19,7 @@
    panel is then simply not offered. *@
 @inject IEnumerable<IAiContentSource> AiSources
 @inject DevbookScope Devbook
-@* The surfaces modules register (local ADR 0041 §1), and this window's way of
+@* The surfaces modules register (local ADR 0042 §1), and this window's way of
    being asked to show one (§3). *@
 @inject ISurfaceCatalog Catalog
 @inject ISurfaceNavigator Navigator
@@ -278,7 +278,7 @@
             <div class="app-header__workspace" data-testid="workspace-navigation">
                 @* Every header item below is drawn by HeaderItem: its option in a
                    header-surface-item beside its ⧉ Open in new window button (local
-                   ADR 0041 §4), which PopOutButton draws only where the host opens
+                   ADR 0042 §4), which PopOutButton draws only where the host opens
                    windows. The wrapper is there either way, so the header's shape
                    does not depend on the host. *@
                 @if (InboxPaneOptionVisible)
@@ -369,7 +369,7 @@
                     }
                 </ButtonGroup>
 
-                @* The registered takeovers, from the surface catalog (local ADR 0041
+                @* The registered takeovers, from the surface catalog (local ADR 0042
                    §1): today the Devbook, which follows the switch. Each option's id,
                    test id and the surface it controls are its surface id's, so the
                    Devbook keeps the ids selectors and scenarios find it by. Named for
@@ -378,7 +378,7 @@
                 @foreach (var surface in RegisteredTakeoversOffered)
                 {
                     var surfaceId = surface.Id;
-                    @* Each pops out like every other header item (local ADR 0041 §4):
+                    @* Each pops out like every other header item (local ADR 0042 §4):
                        a ⧉ button under its option, shown on hover and on keyboard
                        focus, and every press opens one more window. *@
                     @HeaderItem(surfaceId, @<ToggleButton BaseClass="header-group__option header-group__option--loose"
@@ -687,7 +687,7 @@
        semantics for the update and feedback dialogs, which really are modal.
 
        A takeover is a module's surface, rendered from its catalog entry (local ADR
-       0041 §1) with the query this window shows it with: the Inbox, the Devbook,
+       0042 §1) with the query this window shows it with: the Inbox, the Devbook,
        the session and pull request lists, the Dashboard, the notification centre and
        Tools. Escape closes it, as the takeovers always closed, except where its
        registration keeps Escape for keys of its own — the Inbox, which uses it to
@@ -727,7 +727,7 @@
            and the layout that split the row with it went when the Devbook took the
            screen. *@
         <main class="workspace" id="workspace" data-testid="workspace">
-            @* The main view, rendered from its catalog entry (local ADR 0041 §1) with
+            @* The main view, rendered from its catalog entry (local ADR 0042 §1) with
                the query this window last asked it with: Tasks, Board, Calendar, the
                Roadmap or Goals, each its module's own surface. A view is replaced and
                never closed, so the close callback it is handed does nothing. *@
@@ -741,7 +741,7 @@
 
 @code {
     /// <summary>
-    /// The takeover on screen, by its surface id (local ADR 0041 §2), or null for the
+    /// The takeover on screen, by its surface id (local ADR 0042 §2), or null for the
     /// workspace — the main view the view switch picks, alone.
     /// <para>
     /// One field rather than a flag per takeover, and that is the whole point: a
@@ -762,7 +762,7 @@
     /// for. The Devbook's is the shell's own; see <see cref="SurfaceQuery"/>.</summary>
     private IReadOnlyDictionary<string, string> _takeoverQuery = NoQuery;
 
-    /// <summary>The main view the workspace shows, by its surface id (local ADR 0041
+    /// <summary>The main view the workspace shows, by its surface id (local ADR 0042
     /// §2). Kept while a takeover is up, so closing the takeover shows the view the
     /// reader left.</summary>
     private string _view = TasksViewId;
@@ -879,7 +879,7 @@
         // simply is not asked, which is the correct behaviour rather than a gap.
         _surfaceAttachment = Services.GetService<SessionsSurfaceActivator>()?.Attach(DescribeSessionsAsync);
 
-        // A popped-out window's Show in main window (local ADR 0041 §4), on the same
+        // A popped-out window's Show in main window (local ADR 0042 §4), on the same
         // optional terms: this window is the main one, so the windows beside it reach
         // its surfaces through here.
         _mainWindowAttachment = Services.GetService<MainWindowSurfaces>()?.Attach(ShowFromAnotherWindowAsync);
@@ -908,7 +908,7 @@
         WireTasksViews();
 
         // The Dashboard's Ask AI, which only this window offers: Ask AI stays in the
-        // main window (local ADR 0041 §4).
+        // main window (local ADR 0042 §4).
         _dashboardWiring = Services.GetService<Backlog.Modules.Dashboard.UI.DashboardSurfaceWiring>();
         WireDashboard();
 
@@ -1008,7 +1008,7 @@
         }
     }
 
-    /// <summary>The takeovers' surface ids (local ADR 0041 §1). The takeovers are their
+    /// <summary>The takeovers' surface ids (local ADR 0042 §1). The takeovers are their
     /// modules' surfaces; the shell names their ids, to place each option in the
     /// header and to answer what is on screen, and never their components.</summary>
     private const string InboxSurfaceId = Backlog.Modules.Inbox.UI.InboxSurfaceRegistration.SurfaceId;
@@ -1077,7 +1077,7 @@
     /// been switched off.</summary>
     private bool WorkspaceVisible => TakeoverOnScreen is null;
 
-    /// <summary>The surface ids of the five views (local ADR 0041 §1). The views are
+    /// <summary>The surface ids of the five views (local ADR 0042 §1). The views are
     /// their modules' surfaces; the shell names their ids, to place each option in the
     /// header, and never their components.</summary>
     private const string TasksViewId = TasksSurfaceQuery.SurfaceId;
@@ -1213,7 +1213,7 @@
     private void ShowView(string viewId) => ShowView(viewId, NoQuery);
 
     /// <summary>A view asked for with a query — a jump's plan or entry, which the view
-    /// follows once (local ADR 0041 §3, §6).</summary>
+    /// follows once (local ADR 0042 §3, §6).</summary>
     private void ShowView(string viewId, IReadOnlyDictionary<string, string> query)
     {
         if (!WorkspaceVisible) CloseSurface();
@@ -1659,7 +1659,7 @@
 
     /// <summary>
     /// The Devbook asked for through this window's <see cref="ISurfaceNavigator"/>
-    /// (local ADR 0041 §3) — by the Devbook itself, for a jump out of what it shows.
+    /// (local ADR 0042 §3) — by the Devbook itself, for a jump out of what it shows.
     /// <list type="bullet">
     /// <item>A <c>chapter</c> in a repository — a Brain note's <c>repo:</c> link
     /// (local ADR 0027 §6) or another repository's search result — takes the road a
@@ -1948,7 +1948,7 @@
     private void ToggleRegisteredSurface(string surfaceId) => ToggleSurface(surfaceId);
 
     /// <summary>The host's windows, or null where it opens none and the header offers
-    /// no ⧉ (local ADR 0041 §4).</summary>
+    /// no ⧉ (local ADR 0042 §4).</summary>
     private IShellWindows? _shellWindows;
 
     /// <summary>The ⧉ button's name: what its press opens, named as the option is.</summary>
@@ -1957,13 +1957,13 @@
     /// <summary>
     /// One header item, written once for every option the header draws for a catalog
     /// surface: <paramref name="option"/> in its <c>header-surface-item</c>, followed by
-    /// its ⧉ (local ADR 0041 §4), so a test finds it as <c>{surfaceId}-header-item</c>.
+    /// its ⧉ (local ADR 0042 §4), so a test finds it as <c>{surfaceId}-header-item</c>.
     /// </summary>
     private RenderFragment HeaderItem(string surfaceId, RenderFragment option) =>
         @<span class="header-surface-item" data-testid="@($"{surfaceId}-header-item")">@option@PopOutButton(surfaceId)</span>;
 
     /// <summary>
-    /// The ⧉ beside a header item's option (local ADR 0041 §4), written once for
+    /// The ⧉ beside a header item's option (local ADR 0042 §4), written once for
     /// every item the header draws: nothing where the host opens no windows, or
     /// where the catalog holds no such surface to open one on.
     /// </summary>
@@ -1982,7 +1982,7 @@
     private static readonly RenderFragment NoPopOut = _ => { };
 
     /// <summary>
-    /// ⧉ pressed: one more window on the surface (local ADR 0041 §4). It opens on what
+    /// ⧉ pressed: one more window on the surface (local ADR 0042 §4). It opens on what
     /// this window would show of it — the Devbook on the repository or the Brain it
     /// reads here. Only its scope: the chapter last pressed and the switch's partner
     /// were this window's, and the new window has a scope of its own.
@@ -2043,7 +2043,7 @@
         return query;
     }
 
-    /// <summary>A surface asked for through this window's navigator (local ADR 0041
+    /// <summary>A surface asked for through this window's navigator (local ADR 0042
     /// §3): answered on this page's dispatcher, then drawn.</summary>
     private void HandleSurfaceRequested(SurfaceRequest request) => _ = InvokeAsync(() => ShowRequestedSurfaceAsync(request));
 

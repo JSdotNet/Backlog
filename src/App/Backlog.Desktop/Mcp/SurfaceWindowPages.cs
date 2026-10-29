@@ -12,7 +12,7 @@ namespace Backlog.Desktop.Mcp;
 
 /// <summary>
 /// Every service the desktop head composed, as it registered them, so the MCP
-/// listener can forward what a page served from it asks for (local ADR 0041 §7).
+/// listener can forward what a page served from it asks for (local ADR 0042 §7).
 /// <para>
 /// A snapshot the head takes just before it builds its container, because a built
 /// <see cref="IServiceProvider"/> cannot be asked what it holds — only whether it
@@ -27,7 +27,7 @@ public sealed class DesktopServiceRegistrations(IReadOnlyList<ServiceDescriptor>
 
 /// <summary>
 /// The pop-out pages the desktop app serves on its loopback MCP listener (local ADR
-/// 0041 §7): <c>/window/{surfaceId}</c> as an interactive server page rendering
+/// 0042 §7): <c>/window/{surfaceId}</c> as an interactive server page rendering
 /// <see cref="SurfaceWindow"/>, for Claude Desktop's browser pane, and the web files
 /// that page loads.
 /// <para>

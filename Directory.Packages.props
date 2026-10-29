@@ -111,7 +111,7 @@
       listener serves the pop-out pages, reference it, PrivateAssets="all" as the
       implicit one was. The scripts may run a patch apart from the runtime,
       which these undeployed harnesses can afford, and so can the head while its
-      pages are served in a Debug build only (local ADR 0041 §7); keep the version at the ASP.NET
+      pages are served in a Debug build only (local ADR 0042 §7); keep the version at the ASP.NET
       Core patch of the SDK CI installs, and regenerate the lock files with it.
     -->
     <PackageVersion Include="Microsoft.AspNetCore.App.Internal.Assets" Version="10.0.13" />

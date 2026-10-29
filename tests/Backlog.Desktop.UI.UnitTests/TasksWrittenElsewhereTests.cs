@@ -97,7 +97,7 @@ public sealed class TasksWrittenElsewhereTests : IDisposable
     }
 
     /// <summary>
-    /// Two windows, each with its own list (local ADR 0041, §5): window state is
+    /// Two windows, each with its own list (local ADR 0042, §5): window state is
     /// scoped, so each window composes its own <see cref="TasksDesktopState"/> over
     /// its own use cases, and the one process-wide <see cref="ITaskChangeSignal"/>
     /// is what carries a write from one to the other. A save in either list is

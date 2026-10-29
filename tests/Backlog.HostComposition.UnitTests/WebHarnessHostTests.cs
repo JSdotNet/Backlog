@@ -497,7 +497,7 @@ public class WebHarnessHostTests
 
     /// <summary>
     /// The desktop harness opens a popped-out surface in a browser tab of its own
-    /// (local ADR 0041 §7): it composes <see cref="Backlog.Desktop.UI.Shell.IShellWindows"/>
+    /// (local ADR 0042 §7): it composes <see cref="Backlog.Desktop.UI.Shell.IShellWindows"/>
     /// per circuit, so <c>Home</c> draws the ⧉, and the address a ⧉ opens renders the
     /// Devbook under the popped-out window's slim header rather than "not available".
     /// </summary>

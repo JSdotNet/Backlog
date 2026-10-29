@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The Roadmap surface follows <c>plan=&lt;tag&gt;</c> (local ADR 0041 §6): the chart
+/// The Roadmap surface follows <c>plan=&lt;tag&gt;</c> (local ADR 0042 §6): the chart
 /// opens with the bar of the item carrying that tag selected, without opening its
 /// editor; and its "Open in Tasks" is a jump to the Tasks surface through the window's
 /// navigator, with the plan and the item's linked task as the query.
