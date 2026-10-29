@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Shell;
 using Backlog.Modules.Devbook.Abstractions;
 
 #if WINDOWS
@@ -16,8 +17,14 @@ namespace Backlog.Desktop.Services;
 /// WebView is not guaranteed to be on. Both are why this is the head's own type
 /// rather than anything a shared project could hold.
 /// </para>
+/// <para>
+/// One per window (local ADR 0040 §5): it stands over the window whose Settings asked
+/// for it — named by the window's <see cref="CurrentShellWindow"/> — rather than over
+/// whichever window the app lists first, which with surfaces popped out beside the main
+/// window is not always the one the person is looking at.
+/// </para>
 /// </summary>
-public sealed class WindowsBrainFolderPicker : IBrainFolderPicker
+public sealed class WindowsBrainFolderPicker(ShellWindows windows, CurrentShellWindow current) : IBrainFolderPicker
 {
     public async Task<string?> PickFolderAsync(string? startFolder, CancellationToken cancellationToken = default)
     {
@@ -33,7 +40,7 @@ public sealed class WindowsBrainFolderPicker : IBrainFolderPicker
             };
             picker.FileTypeFilter.Add("*");
 
-            var window = Microsoft.Maui.Controls.Application.Current?.Windows.FirstOrDefault()?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
+            var window = windows.WindowFor(current.Key)?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
             if (window is null) return null;
 
             WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(window));

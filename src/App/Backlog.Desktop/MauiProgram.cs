@@ -169,8 +169,9 @@ public static class MauiProgram
         builder.Services.TryAddSingleton<ShellWindows>();
         builder.Services.TryAddSingleton<IShellWindows>(sp => sp.GetRequiredService<ShellWindows>());
         // The Brain card's Browse: this head has a window to open the Windows
-        // folder picker over, so it is the one host that registers one.
-        builder.Services.TryAddSingleton<IBrainFolderPicker, WindowsBrainFolderPicker>();
+        // folder picker over, so it is the one host that registers one. One per
+        // window, so it stands over the window whose Settings asked for it.
+        builder.Services.TryAddScoped<IBrainFolderPicker, WindowsBrainFolderPicker>();
 
         // The owner's Windows app notifications (local ADR 0039, the notification centre's
         // plan entry), and the channel a press in one opens the shell's centre through.

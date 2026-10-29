@@ -1,5 +1,11 @@
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.InProgress;
+using Backlog.Desktop.UI.PullRequests;
+using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Inbox.UI;
+using Backlog.Modules.Notifications.UI;
+using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.FileSystem;
@@ -25,6 +31,12 @@ internal static class ShellSurfaceTestServices
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
         services.AddDevbookSurface();
+        services.AddInboxSurface();
+        services.AddSessionsSurface();
+        services.AddPullRequestsSurface();
+        services.AddDashboardSurface();
+        services.AddNotificationsSurface();
+        services.AddToolsSurface();
         services.AddSingleton<ITasksViewPreferences>(sp => new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
         services.AddScoped(sp => new ShellGoalsViewSource(sp));
         services.AddScoped<IGoalsViewSource>(sp => sp.GetRequiredService<ShellGoalsViewSource>());
@@ -32,6 +44,7 @@ internal static class ShellSurfaceTestServices
         services.AddScoped<ISurfaceNavigator, SurfaceNavigator>();
         services.AddScoped<IBrainTaskTitles>(sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()));
         services.AddScoped<IDevbookWindowScope>(sp => new ShellDevbookWindowScope(sp.GetRequiredService<TasksDesktopState>()));
+        services.AddShellSurfaceWiring(ServiceLifetime.Scoped);
         return services;
     }
 }

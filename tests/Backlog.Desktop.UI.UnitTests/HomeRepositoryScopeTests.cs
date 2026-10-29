@@ -781,7 +781,7 @@ public sealed class HomeRepositoryScopeTests
             Assert.Equal("tasks-devbook-unavailable", toast.TestId);
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
-        Assert.NotEqual("Devbook", shellNavigation.LastSurface);
+        Assert.NotEqual("devbook", shellNavigation.LastSurface);
 
         _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 

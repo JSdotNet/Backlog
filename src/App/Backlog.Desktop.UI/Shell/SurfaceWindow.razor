@@ -252,9 +252,9 @@
 
     /// <summary>
     /// A jump inside this window (local ADR 0040 §3): it switches to the surface asked
-    /// for. A surface the catalog cannot show in a window yet — the takeovers the
-    /// main window still draws itself — goes to the main window
-    /// instead, so a jump never leaves this window on "not available".
+    /// for. A surface the catalog does not offer — its flag off, or none registered
+    /// under the id — goes to the main window instead, so a jump never leaves this
+    /// window on "not available".
     /// </summary>
     private void HandleShowRequested(SurfaceRequest request) => _ = InvokeAsync(async () =>
     {

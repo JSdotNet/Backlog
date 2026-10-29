@@ -36,6 +36,11 @@ namespace Backlog.SharedKernel;
 /// everywhere it is read.</param>
 /// <param name="QueryKeys">The query keys the surface accepts, such as
 /// <c>chapter</c> and <c>scope</c> (local ADR 0040 §6), or null for none.</param>
+/// <param name="EscapeCloses">Whether Escape closes the surface, as it closes a
+/// takeover, and whether the shell moves focus onto it when it opens. False for a
+/// surface that keeps Escape for keys of its own — the Inbox, which leaves triage
+/// with it — and takes focus inside itself. A view is never closed, whatever this
+/// says.</param>
 public sealed record ShellSurface(
     string Id,
     string Title,
@@ -43,7 +48,8 @@ public sealed record ShellSurface(
     int Order,
     Type Component,
     string? FeatureKey = null,
-    IReadOnlyList<string>? QueryKeys = null)
+    IReadOnlyList<string>? QueryKeys = null,
+    bool EscapeCloses = true)
 {
     /// <summary>The id reserved for the Review pane of the management bots'
     /// proposal queue (local ADR 0040 §1). Until that pane registers its surface the

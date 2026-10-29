@@ -114,6 +114,23 @@ public sealed class ShellWindows(ShellNavigationStore navigation, ISurfaceCatalo
         if (main is not null) OnMainThread(() => Application.Current?.ActivateWindow(main));
     }
 
+    /// <summary>
+    /// The window <paramref name="windowKey"/> names: a popped-out window, or the main
+    /// window for no key — the main window's own scope carries none — and for a key whose
+    /// window has gone. What a head service that needs a window to stand over, such as a
+    /// picker, asks for the window a request came from.
+    /// </summary>
+    public Window? WindowFor(string? windowKey)
+    {
+        lock (_gate)
+        {
+            return windowKey is not null && _popped.TryGetValue(windowKey, out var window) ? window : _main;
+        }
+    }
+
+    /// <summary>The main window, once <see cref="CreateMainWindow"/> made it.</summary>
+    public Window? MainWindow => WindowFor(null);
+
     private Window? Popped(string windowKey)
     {
         lock (_gate)

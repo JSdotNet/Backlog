@@ -24,10 +24,6 @@
 @inject ISurfaceCatalog Catalog
 @inject ISurfaceNavigator Navigator
 @inject ShellNavigationStore ShellNavigation
-@* Injected hard rather than resolved: the Inbox's Capture button is on screen
-   whenever the Inbox is, and a host that composes the Inbox without the module
-   behind it should fail at startup rather than quietly offer a dead button. *@
-@inject ICaptureRunner CaptureRunner
 
 @*
     This page. It owns the header and the AI panel, and decides which surface sits
@@ -475,7 +471,7 @@
             </ButtonGroup>
 
             @* The remaining takeovers, loose: the Dashboard and Dev PC Management's
-               Tools, related only by each taking the screen. WorkspaceSurface is a
+               Tools, related only by each taking the screen. The takeover on screen is a
                single enum because a takeover cannot coexist with the workspace or
                with another takeover, and a group of pressed states describes that
                exclusivity where independent aria-expanded buttons did not. Ask AI
@@ -527,14 +523,14 @@
                         </ToggleButton>
                     }
 
-                    @if (IsFeatureEnabled(DevPcFeatures.SystemTools))
+                    @if (ToolsOffered)
                     {
                         <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="ToolsVisible"
                                       id="tools-toggle-button"
                                       TestId="tools-toggle-button"
-                                      aria-controls="tools-pane"
+                                      aria-controls="tools-surface"
                                       PressedChanged="ToggleTools">
                             Tools
                             <FeatureStatusBadge Status="@FeatureStatusSlug(DevPcFeatures.SystemTools)"
@@ -694,122 +690,42 @@
        <main>. A takeover is deliberately not a Modal: there is no scrim and no
        focus trap, because the header behind it is not inert — it is where the
        control that closes the surface lives. Modal.razor still owns the modal
-       semantics for the update and feedback dialogs, which really are modal. *@
-    @if (ToolsVisible)
+       semantics for the update and feedback dialogs, which really are modal.
+
+       A takeover is a module's surface, rendered from its catalog entry (local ADR
+       0040 §1) with the query this window shows it with: the Inbox, the Devbook,
+       the session and pull request lists, the Dashboard, the notification centre and
+       Tools. Escape closes it, as the takeovers always closed, except where its
+       registration keeps Escape for keys of its own — the Inbox, which uses it to
+       leave triage, so it carries no Escape-closes marker and no surface key
+       handler, and its header option, or another surface's, is the way back. A key a
+       field, a draft's control or a dialog inside a surface handles stays there: the
+       library's Combobox and Modal end the key's walk up to this handler, so one
+       Escape closes the list or the dialog and leaves the surface on screen. *@
+    @if (TakeoverOnScreen is { } shown)
     {
-        <main class="workspace-surface"
-              data-testid="tools-surface"
-              tabindex="-1"
-              @ref="_surfaceElement"
-              @onkeydown="OnSurfaceKeyDown"
-              data-escape-closes
-              aria-label="System tools">
-            <ToolsPane OnClose="CloseSurface" />
-        </main>
-    }
-    else if (DashboardVisible)
-    {
-        <main class="workspace-surface"
-              id="dashboard-surface"
-              data-testid="dashboard-surface"
-              tabindex="-1"
-              @ref="_surfaceElement"
-              @onkeydown="OnSurfaceKeyDown"
-              data-escape-closes
-              aria-label="Dashboard">
-            <DashboardPane OnClose="CloseSurface"
-                           RepositoryAliases="@State.SelectedRepositoryAliases"
-                           RepositoryColour="@RepositoryColourFor"
-                           OnOpenSessions="@(SessionsOffered ? EventCallback.Factory.Create(this, ToggleSessions) : default)"
-                           OnAskAi="@(DashboardAskAiOffered ? EventCallback.Factory.Create<string>(this, AskAboutDashboardPartAsync) : default)" />
-        </main>
-    }
-    else if (SessionsVisible)
-    {
-        <main class="workspace-surface"
-              id="sessions-surface"
-              data-testid="sessions-surface"
-              tabindex="-1"
-              @ref="_surfaceElement"
-              @onkeydown="OnSurfaceKeyDown"
-              data-escape-closes
-              aria-label="Sessions">
-            <SessionsPane OnClose="CloseSurface"
-                          RepositoryScope="@State.SelectedRepositoryAliases"
-                          RepositoryAlias="@RepositoryAliasFor"
-                          RepositoryColour="@RepositoryColourFor"
-                          OnOpenTask="OpenPlanEntryAsync"
-                          SessionTask="SessionTaskFor"
-                          PullRequestStatus="@(PullRequestsOffered ? SessionPullRequestStatusFor : null)"
-                          FocusSessionId="@_focusSessionId" />
-        </main>
-    }
-    else if (NotificationsVisible)
-    {
-        <main class="workspace-surface"
-              id="notifications-surface"
-              data-testid="notifications-surface"
-              tabindex="-1"
-              @ref="_surfaceElement"
-              @onkeydown="OnSurfaceKeyDown"
-              data-escape-closes
-              aria-label="Notifications">
-            <NotificationCentrePane OnClose="CloseSurface"
-                                    FocusNotificationId="@_focusNotificationId" />
-        </main>
-    }
-    else if (PullRequestsVisible)
-    {
-        <main class="workspace-surface"
-              id="pull-requests-surface"
-              data-testid="pull-requests-surface"
-              tabindex="-1"
-              @ref="_surfaceElement"
-              @onkeydown="OnSurfaceKeyDown"
-              data-escape-closes
-              aria-label="Pull requests">
-            <PullRequestsPane OnClose="CloseSurface"
-                              RepositoryScope="@State.SelectedRepositoryAliases"
-                              RepositoryAlias="@RepositoryAliasFor"
-                              RepositoryColour="@RepositoryColourFor"
-                              PullRequestTask="PullRequestTaskFor"
-                              OnOpenTask="OpenPlanEntryAsync"
-                              OnOpenSession="OpenSessionAsync"
-                              FocusPullRequest="@_focusPullRequest" />
-        </main>
-    }
-    else if (InboxVisible)
-    {
-        @* The Inbox takes the screen like the takeovers above, but Escape is not
-           its way out: no Escape-closes marker and no surface key handler, so
-           Escape stays with the Inbox's own keys, which use it to leave triage.
-           Its header option, or another surface's, is the way back. *@
-        <main class="workspace-surface"
-              id="inbox-surface"
-              data-testid="inbox-surface"
-              aria-label="Inbox">
-            @InboxPaneContent
-        </main>
-    }
-    else if (RegisteredSurfaceOnScreen is { } shown)
-    {
-        @* A registered takeover — today the Devbook — takes the screen as the
-           takeovers above do (local ADR 0022, amendment of 2026-10-15), Escape
-           included, rendered from its catalog entry (local ADR 0040 §1) with the
-           query this window shows it with. A key a field, a draft's control or a
-           dialog inside it handles stays there: the library's Combobox and Modal
-           end the key's walk up to this handler, so one Escape closes the list or
-           the dialog and leaves the surface on screen. *@
-        <main class="workspace-surface"
-              id="@($"{shown.Id}-surface")"
-              data-testid="@($"{shown.Id}-surface")"
-              tabindex="-1"
-              @ref="_surfaceElement"
-              @onkeydown="OnSurfaceKeyDown"
-              data-escape-closes
-              aria-label="@SurfaceOptionName(shown)">
-            <DynamicComponent Type="shown.Component" Parameters="SurfaceParameters(shown)" />
-        </main>
+        if (shown.EscapeCloses)
+        {
+            <main class="workspace-surface"
+                  id="@($"{shown.Id}-surface")"
+                  data-testid="@($"{shown.Id}-surface")"
+                  tabindex="-1"
+                  @ref="_surfaceElement"
+                  @onkeydown="OnSurfaceKeyDown"
+                  data-escape-closes
+                  aria-label="@SurfaceOptionName(shown)">
+                <DynamicComponent @key="shown.Id" Type="shown.Component" Parameters="SurfaceParameters(shown)" />
+            </main>
+        }
+        else
+        {
+            <main class="workspace-surface"
+                  id="@($"{shown.Id}-surface")"
+                  data-testid="@($"{shown.Id}-surface")"
+                  aria-label="@SurfaceOptionName(shown)">
+                <DynamicComponent @key="shown.Id" Type="shown.Component" Parameters="SurfaceParameters(shown)" />
+            </main>
+        }
     }
     else
     {
@@ -830,7 +746,27 @@
 </div>
 
 @code {
-    private WorkspaceSurface _surface = WorkspaceSurface.Workspace;
+    /// <summary>
+    /// The takeover on screen, by its surface id (local ADR 0040 §2), or null for the
+    /// workspace — the main view the view switch picks, alone.
+    /// <para>
+    /// One field rather than a flag per takeover, and that is the whole point: a
+    /// takeover cannot coexist with the workspace, and the takeovers cannot coexist
+    /// with each other — opening any of them means the reader has stopped looking at
+    /// the backlog. It was the <c>WorkspaceSurface</c> enum, which kept the takeovers
+    /// exclusive by construction; the modules register their takeovers now, so the
+    /// id of one in the catalog's takeover group keeps them exclusive instead, and a
+    /// takeover the catalog does not offer — its flag off, or not registered — is the
+    /// workspace. Deliberately a field of its own beside <see cref="_view"/>: closing
+    /// a takeover simply reveals the view that was there all along.
+    /// </para>
+    /// </summary>
+    private string? _takeover;
+
+    /// <summary>The query the takeover on screen was asked with — a jump's session,
+    /// pull request or notification — handed to it until the next takeover is asked
+    /// for. The Devbook's is the shell's own; see <see cref="SurfaceQuery"/>.</summary>
+    private IReadOnlyDictionary<string, string> _takeoverQuery = NoQuery;
 
     /// <summary>The main view the workspace shows, by its surface id (local ADR 0040
     /// §2). Kept while a takeover is up, so closing the takeover shows the view the
@@ -872,26 +808,17 @@
         _shellWindows = Services.GetService<IShellWindows>();
 
         // Reopen on the surface the reader was last looking at rather than
-        // always defaulting to the workspace panes. An unrecognised or absent
-        // value — first launch included — leaves the field defaults in place.
-        if (Enum.TryParse<WorkspaceSurface>(ShellNavigation.LastSurface, out var restoredSurface)
-            && Enum.IsDefined(restoredSurface))
-        {
-            _surface = restoredSurface;
-        }
+        // always defaulting to the workspace panes, by its surface id. The store
+        // reads a name the retired WorkspaceSurface enum stored as its id, and a file
+        // from when the roadmap was a takeover as the Roadmap view over the
+        // workspace. An id the catalog does not offer as a takeover — first launch
+        // included — leaves the workspace on screen (TakeoverOnScreen).
+        _takeover = ShellNavigation.LastSurface;
 
         // The view the workspace was showing, by its surface id. The store reads a
-        // name the retired ShellView enum stored as its id, and a file from when the
-        // roadmap was a takeover as the Roadmap view over the workspace; the surface
-        // is checked again here so that no path can put the old takeover back on
-        // screen. An id no view registered reads as Tasks (EffectiveView).
+        // name the retired ShellView enum stored as its id. An id no view registered
+        // reads as Tasks (EffectiveView).
         _view = ShellNavigation.LastView;
-
-        if (_surface == WorkspaceSurface.Roadmap)
-        {
-            _surface = WorkspaceSurface.Workspace;
-            _view = RoadmapViewId;
-        }
 
         // The side panes a file from before the Devbook took the screen had open
         // are read by the store, which turns a Devbook that was on screen into the
@@ -986,6 +913,11 @@
         _tasksViewWiring = Services.GetService<TasksViewWiring>();
         WireTasksViews();
 
+        // The Dashboard's Ask AI, which only this window offers: Ask AI stays in the
+        // main window (local ADR 0040 §4).
+        _dashboardWiring = Services.GetService<Backlog.Modules.Dashboard.UI.DashboardSurfaceWiring>();
+        WireDashboard();
+
         await State.InitializeAsync();
         SynchronizeDevbookAvailability();
         CheckPullRequestsAfterLoad();
@@ -1044,27 +976,8 @@
             }
         }
 
-        // The Inbox loads the first time its pane is on screen rather than when
-        // this page does, because the pane ships behind a flag and is closed by
-        // default — a store read for a pane nobody opened is a store read wasted.
-        // After every render rather than on a toggle handler, because there are
-        // three ways the Inbox opens (its own option, a restored surface, and the
-        // feature switching on) and one place to notice is better than three.
-        if (InboxVisible && !_inboxInitialized)
-        {
-            _inboxInitialized = true;
-            _inboxWasVisible = true;
-            await InboxState.InitializeAsync();
-        }
-        else if (InboxVisible != _inboxWasVisible)
-        {
-            // Every later open runs the resurface sweep again, so a deferred
-            // item due since the pane was last closed is back before anyone
-            // reads the queue. The flag moves first: the sweep re-renders, and
-            // the render after it must not see a second opening.
-            _inboxWasVisible = InboxVisible;
-            if (InboxVisible) await InboxState.OpenedAsync();
-        }
+        // The Inbox loads itself the first time it is on screen in a window, and
+        // runs its resurface sweep on every later opening (its own surface does it).
 
         // The two branches below run on every render, not only the first: a
         // surface can open and close any number of times after it.
@@ -1097,43 +1010,74 @@
         }
     }
 
-    /// <summary>Whether the tools surface is on screen. It takes the whole screen,
-    /// so nothing else renders beside it, and it is gated on the feature, so turning
-    /// the feature off returns the reader to the workspace.</summary>
-    private bool ToolsVisible => _surface == WorkspaceSurface.Tools && IsFeatureEnabled(DevPcFeatures.SystemTools);
+    /// <summary>The takeovers' surface ids (local ADR 0040 §1). The takeovers are their
+    /// modules' surfaces; the shell names their ids, to place each option in the
+    /// header and to answer what is on screen, and never their components.</summary>
+    private const string InboxSurfaceId = Backlog.Modules.Inbox.UI.InboxSurfaceRegistration.SurfaceId;
+    private const string SessionsSurfaceId = Backlog.Modules.Sessions.UI.SessionsSurfaceRegistration.SurfaceId;
+    private const string PullRequestsSurfaceId = Backlog.Modules.Sessions.UI.SessionsSurfaceRegistration.PullRequestsSurfaceId;
+    private const string DashboardSurfaceId = Backlog.Modules.Dashboard.UI.Extensions.DashboardSurfaceRegistration.SurfaceId;
+    private const string NotificationsSurfaceId = NotificationsSurfaceRegistration.SurfaceId;
+    private const string ToolsSurfaceId = Backlog.Modules.DevPc.UI.ToolsSurfaceRegistration.SurfaceId;
 
-    /// <summary>Whether the dashboard is on screen. The same shape as
-    /// <see cref="ToolsVisible"/>, and mutually exclusive with it by construction
-    /// rather than by a rule written here: both read the one surface field.</summary>
-    private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && DashboardOffered;
+    /// <summary>The takeovers the header places itself — each in its group, with its
+    /// glyph and its fold tier. Any other takeover the catalog offers is drawn after
+    /// the view switch, beside the Devbook, without a shell edit.</summary>
+    private static readonly HashSet<string> PlacedTakeovers = new(StringComparer.Ordinal)
+    {
+        InboxSurfaceId, SessionsSurfaceId, PullRequestsSurfaceId, DashboardSurfaceId, NotificationsSurfaceId, ToolsSurfaceId,
+    };
 
-    private bool DashboardOffered => IsFeatureEnabled(DashboardFeatures.Dashboard);
+    /// <summary>
+    /// Whether this window offers a takeover: the catalog offers it in the takeover
+    /// group — registered, its flag on — and the shell has something for it to show:
+    /// the Devbook only while there is something to read, the notification centre only
+    /// where the host composed the owner's centre, so a host without it offers no
+    /// option rather than one that opens on nothing.
+    /// </summary>
+    private bool TakeoverOffered(string surfaceId) =>
+        Catalog.TryGet(surfaceId, out var surface)
+        && surface.Group == ShellSurfaceGroup.Takeover
+        && surfaceId switch
+        {
+            DevbookSurfaceId => DevbookPaneOptionVisible,
+            NotificationsSurfaceId => _notificationCentreComposed,
+            _ => true,
+        };
 
-    /// <summary>Whether the session list is on screen. The same shape again, for
-    /// another context: the flag it reads is Sessions', not the shell's, because
-    /// the pane is that context's too.</summary>
-    private bool SessionsVisible => _surface == WorkspaceSurface.Sessions && SessionsOffered;
+    /// <summary>The takeover on screen: the one chosen, while this window offers it —
+    /// else none, and the workspace is on screen. Its flag switched off returns the
+    /// reader to the workspace; switched back on, the choice shows again.</summary>
+    private ShellSurface? TakeoverOnScreen =>
+        _takeover is { } id && TakeoverOffered(id) && Catalog.TryGet(id, out var surface) ? surface : null;
 
-    private bool SessionsOffered => IsFeatureEnabled(SessionFeatures.Sessions);
+    /// <summary>Whether <paramref name="surfaceId"/> is the takeover on screen.</summary>
+    private bool TakeoverVisible(string surfaceId) => TakeoverOnScreen?.Id == surfaceId;
 
-    /// <summary>Whether the pull requests list is on screen. The same shape again,
-    /// and the same context as the session list, under a flag of its own.</summary>
-    private bool PullRequestsVisible => _surface == WorkspaceSurface.PullRequests && PullRequestsOffered;
+    private bool ToolsVisible => TakeoverVisible(ToolsSurfaceId);
 
-    private bool PullRequestsOffered => IsFeatureEnabled(SessionFeatures.PullRequests);
+    private bool ToolsOffered => TakeoverOffered(ToolsSurfaceId);
 
-    /// <summary>Whether the notification centre is on screen. The same shape again, for
-    /// the Notifications context, and only where the host composed the owner's centre —
-    /// a host without it offers no option rather than one that opens on nothing.</summary>
-    private bool NotificationsVisible => _surface == WorkspaceSurface.Notifications && NotificationsOffered;
+    private bool DashboardVisible => TakeoverVisible(DashboardSurfaceId);
 
-    private bool NotificationsOffered =>
-        IsFeatureEnabled(NotificationsFeatures.Notifications) && _notificationCentreComposed;
+    private bool DashboardOffered => TakeoverOffered(DashboardSurfaceId);
+
+    private bool SessionsVisible => TakeoverVisible(SessionsSurfaceId);
+
+    private bool SessionsOffered => TakeoverOffered(SessionsSurfaceId);
+
+    private bool PullRequestsVisible => TakeoverVisible(PullRequestsSurfaceId);
+
+    private bool PullRequestsOffered => TakeoverOffered(PullRequestsSurfaceId);
+
+    private bool NotificationsVisible => TakeoverVisible(NotificationsSurfaceId);
+
+    private bool NotificationsOffered => TakeoverOffered(NotificationsSurfaceId);
 
     /// <summary>Whether the workspace — the main view — is on screen. Anything that
     /// is not a takeover is the workspace, including a surface whose feature has
     /// been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible && !NotificationsVisible;
+    private bool WorkspaceVisible => TakeoverOnScreen is null;
 
     /// <summary>The surface ids of the five views (local ADR 0040 §1). The views are
     /// their modules' surfaces; the shell names their ids, to place each option in the
@@ -1244,7 +1188,7 @@
     /// offered at all: with both features off it would be an empty group. Sessions
     /// and Pull requests have a group of their own. The name is older than that and
     /// is kept; nothing persists it.</summary>
-    private bool SurfaceSwitcherVisible => IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered || NotificationsOffered;
+    private bool SurfaceSwitcherVisible => ToolsOffered || DashboardOffered || NotificationsOffered;
 
     /// <summary>Whether the view switch offers the Roadmap: the catalog offers its
     /// surface, which it does while its feature is on. The option decides what is on
@@ -1333,40 +1277,40 @@
         return answer;
     }
 
-    private void ToggleTools() => ToggleSurface(WorkspaceSurface.Tools);
+    private void ToggleTools() => ToggleSurface(ToolsSurfaceId);
 
-    private void ToggleDashboard() => ToggleSurface(WorkspaceSurface.Dashboard);
+    private void ToggleDashboard() => ToggleSurface(DashboardSurfaceId);
 
     /// <summary>The Notifications option: opens the centre on what is waiting, or returns
     /// to the workspace when it is already on screen.</summary>
-    private void ToggleNotifications()
-    {
-        _focusNotificationId = null;
-        ToggleSurface(WorkspaceSurface.Notifications);
-    }
+    private void ToggleNotifications() => ToggleSurface(NotificationsSurfaceId);
 
     /// <summary>
     /// The centre asked for from outside the shell — a Windows notification pressed — open on
     /// the notification named. Never closes it: a second press on the same notification shows
-    /// the centre again rather than toggling it away.
+    /// the centre again rather than toggling it away. A centre open in a window of its own
+    /// answers the same request there (NotificationCentreRequests keeps every listener).
     /// </summary>
     private void OpenNotificationCentre(Guid? notificationId) =>
         _ = InvokeAsync(() =>
         {
             if (!NotificationsOffered) return;
 
-            _focusNotificationId = notificationId;
-            if (_surface != WorkspaceSurface.Notifications) ToggleSurface(WorkspaceSurface.Notifications);
+            OpenTakeover(
+                NotificationsSurfaceId,
+                notificationId is { } id
+                    ? new Dictionary<string, string>(StringComparer.Ordinal) { [NotificationsSurfaceRegistration.NotificationKey] = id.ToString() }
+                    : NoQuery);
             StateHasChanged();
         });
 
-    private void ToggleSessions() => ToggleSurface(WorkspaceSurface.Sessions);
+    private void ToggleSessions() => ToggleSurface(SessionsSurfaceId);
 
-    private void TogglePullRequests() => ToggleSurface(WorkspaceSurface.PullRequests);
+    private void TogglePullRequests() => ToggleSurface(PullRequestsSurfaceId);
 
     /// <summary>The Inbox option: opens the Inbox in place of the main view, or
     /// returns to that view when the Inbox is already on screen.</summary>
-    private void ToggleInbox() => ToggleSurface(WorkspaceSurface.Inbox);
+    private void ToggleInbox() => ToggleSurface(InboxSurfaceId);
 
     /// <summary>What the Inbox option's press will do.</summary>
     private string InboxOptionTitle => InboxVisible ? $"Back to {EffectiveViewTitle}" : "Open the Inbox";
@@ -1385,25 +1329,33 @@
     /// </summary>
     private void ShowDevbook()
     {
-        if (!DevbookPaneOptionVisible || _surface == WorkspaceSurface.Devbook) return;
+        if (!DevbookPaneOptionVisible || DevbookVisible) return;
 
-        ToggleSurface(WorkspaceSurface.Devbook);
+        ToggleSurface(DevbookSurfaceId);
     }
 
-    /// <summary>Opens a surface, or returns to the workspace if it was already the
+    /// <summary>Opens a takeover, or returns to the workspace if it was already the
     /// one on screen. Assigning rather than flipping a flag is what makes the
     /// takeovers exclusive: opening one is the same act as closing the other.</summary>
-    private void ToggleSurface(WorkspaceSurface surface)
+    private void ToggleSurface(string surfaceId)
     {
-        _focusSessionId = null;
-        _focusPullRequest = null;
-        _surface = _surface == surface ? WorkspaceSurface.Workspace : surface;
-        _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
+        if (TakeoverVisible(surfaceId)) CloseSurface();
+        else OpenTakeover(surfaceId, NoQuery);
+    }
+
+    /// <summary>Puts a takeover on screen with the query it was asked with — opened,
+    /// never toggled, so a jump to the takeover already on screen keeps it there and
+    /// follows the new query.</summary>
+    private void OpenTakeover(string surfaceId, IReadOnlyDictionary<string, string> query)
+    {
+        _takeover = surfaceId;
+        _takeoverQuery = query;
+        _focusSurfacePending = true;
 
         // A takeover unmounts the main view, and the view it remounts on closing is a
         // new one: the jump's plan or entry it was asked with was followed already,
         // so it is not handed again.
-        if (_surface != WorkspaceSurface.Workspace) _viewQuery = NoQuery;
+        _viewQuery = NoQuery;
         RememberSurface();
         KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
@@ -1412,35 +1364,20 @@
     /// nothing to restore — it is simply visible again.</summary>
     private void CloseSurface()
     {
-        _focusSessionId = null;
-        _focusPullRequest = null;
-        _surface = WorkspaceSurface.Workspace;
+        _takeover = null;
+        _takeoverQuery = NoQuery;
         RememberSurface();
         KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
 
     /// <summary>What the reader is looking at, written for the next fresh shell
-    /// instance by its enum name.</summary>
-    private void RememberSurface() => ShellNavigation.SetLastSurface(_surface.ToString());
-
-    /// <summary>The session a task asked the sessions list to open on, until the
-    /// reader leaves the list. Cleared on every other way off it, so opening the
-    /// list from the header later is an ordinary opening rather than a replay.</summary>
-    private string? _focusSessionId;
+    /// instance by its surface id; nothing for the workspace.</summary>
+    private void RememberSurface() => ShellNavigation.SetLastSurface(_takeover);
 
     /// <summary>
     /// An AI session a Backlog entry names, opened from the entry: the sessions list
-    /// on screen with that session's row marked and focused.
-    /// <para>
-    /// The mirror of <see cref="OpenPlanEntryAsync"/>, and here for the same reason:
-    /// the entry belongs to Tasks and the session to Sessions, and the shell is the
-    /// one place that holds both. A list switched off is said out loud rather than
-    /// forced open over a setting the reader chose.
-    /// </para>
-    /// <para>
-    /// It navigates, which <see cref="DescribeSessionsAsync"/> must never do: this is
-    /// the reader's own click, where that is an agent asking from outside.
-    /// </para>
+    /// on screen with that session's row marked and focused. A list switched off is
+    /// said out loud rather than forced open over a setting the reader chose.
     /// </summary>
     private Task OpenSessionAsync(string sessionId)
     {
@@ -1453,24 +1390,12 @@
             return Task.CompletedTask;
         }
 
-        // Opened rather than toggled: asked from the list itself, a toggle would close it.
-        if (_surface != WorkspaceSurface.Sessions) ToggleSessions();
-
-        // After the switch, which clears the focus on every other way onto the list.
-        _focusSessionId = sessionId;
+        OpenTakeover(SessionsSurfaceId, new Dictionary<string, string>(StringComparer.Ordinal) { [SessionQueryKey] = sessionId });
 
         return Task.CompletedTask;
     }
 
     private const string SessionsOffTestId = "tasks-session-sessions-off";
-
-    /// <summary>The pull request a card asked the pull requests list to open on, by
-    /// its <c>owner/name#number</c> key, until the reader leaves the list.</summary>
-    private string? _focusPullRequest;
-
-    /// <summary>The notification a Windows notification asked the centre to open on, until
-    /// the reader opens the centre from its own option.</summary>
-    private Guid? _focusNotificationId;
 
     /// <summary>Whether the host composed the owner's notification centre at all.</summary>
     private bool _notificationCentreComposed;
@@ -1494,14 +1419,15 @@
             return Task.CompletedTask;
         }
 
-        if (_surface != WorkspaceSurface.PullRequests) TogglePullRequests();
-
-        _focusPullRequest = key;
+        OpenTakeover(PullRequestsSurfaceId, new Dictionary<string, string>(StringComparer.Ordinal) { [PullRequestKey] = key });
 
         return Task.CompletedTask;
     }
 
     private const string PullRequestsOffTestId = "in-progress-pull-requests-off";
+
+    /// <summary>The key the pull requests list reads the pull request to open on from.</summary>
+    private const string PullRequestKey = "pullRequest";
 
     /// <summary>The sessions and open pull requests the Goals view and a task's
     /// side panel draw from, read by either and kept for both. Rebuilt with
@@ -1532,6 +1458,24 @@
         wiring.BrainNotesFor = BrainNotesForTask;
         wiring.DevbookImagesFor = DevbookImagesForEntry;
         wiring.LinkedWork = _linkedWork;
+    }
+
+    /// <summary>The window's Dashboard wiring, or null in a host that composes none.</summary>
+    private Backlog.Modules.Dashboard.UI.DashboardSurfaceWiring? _dashboardWiring;
+
+    /// <summary>What the shell hands the Dashboard's parts: their Ask AI, while the
+    /// assistant is on and a Dashboard source answers — again whenever a feature switch
+    /// moves that. Raised on this page's dispatcher, which owns the panel it opens.</summary>
+    private Func<string, Task>? _dashboardAskAi;
+
+    private void WireDashboard()
+    {
+        if (_dashboardWiring is not { } wiring) return;
+
+        _dashboardAskAi = DashboardAskAiOffered
+            ? title => InvokeAsync(() => AskAboutDashboardPartAsync(title))
+            : null;
+        wiring.AskAi = _dashboardAskAi;
     }
 
     /// <summary>The fragment behind <see cref="LinkedWorkFor"/>. It reads the flags
@@ -1786,179 +1730,6 @@
         return OpenDevbookReferenceAsync(new DevbookReferenceRequest(alias, reference));
     }
 
-    /// <summary>
-    /// The Backlog entry a delivery run was started from, opened from the sessions
-    /// list: back to the panes, the task list on screen, that entry selected.
-    /// <para>
-    /// Here rather than in the sessions pane because an entry belongs to Tasks and
-    /// that pane holds sessions: it knows a run names an entry and nothing about how
-    /// this workspace shows one. The shell owns both, which is what makes it the one
-    /// place the two can meet.
-    /// </para>
-    /// <para>
-    /// Matched first on the entry's stored id where the reference carries one — the
-    /// line the app puts on every entry it copies names it, and so does an entry that
-    /// linked the session — because nothing identifies an entry more surely. Then on
-    /// the pair the import writes down — the plan and the item's id within it —
-    /// because that is what identifies an entry across plan versions; the plan is
-    /// stored with its sigil and the marker states the slug, so the comparison drops
-    /// it. An entry this workspace does not hold is said out loud rather than
-    /// silently doing nothing: the run was real and the entry is somewhere, just not
-    /// here.
-    /// </para>
-    /// </summary>
-    private async Task OpenPlanEntryAsync(DeliveryRunReference reference)
-    {
-        // Named by id alone, the label is the entry's title rather than an item id,
-        // so there is no plan item to fall back on.
-        var byIdOnly = reference.EntryId is not null && reference.Plan is null;
-
-        var row = reference.EntryId is { } entryId
-            ? State.Rows.FirstOrDefault(candidate => candidate.Id == entryId)
-            : null;
-
-        row ??= byIdOnly
-            ? null
-            : State.Rows.FirstOrDefault(candidate =>
-                string.Equals(candidate.PreviewImportItemId, reference.Label, StringComparison.OrdinalIgnoreCase)
-                && InPlan(candidate, reference.Plan));
-
-        if (row is null)
-        {
-            Toasts.Publish(ToastMessage.Warning(
-                byIdOnly
-                    ? $"The entry {reference.Label} is not in this workspace."
-                    : $"No entry of plan {reference.Plan} with the id {reference.Label} is in this workspace.",
-                PlanEntryMissingTestId));
-
-            return;
-        }
-
-        ShowView(TasksViewId);
-
-        await State.SelectAsync(row);
-    }
-
-    /// <summary>
-    /// Whether an entry belongs to the plan a run names. Two ways, because an entry
-    /// can carry the plan in two: Import stamps the plan id on what it writes, and an
-    /// entry typed by hand carries the plan tag and nothing else. Either is the plan
-    /// saying so; neither is a guess.
-    /// <para>
-    /// The sigil is trimmed on both sides — the app stores a plan tag as
-    /// <c>+slug</c> and the marker states the slug bare — and a reference that names
-    /// no plan matches on the item id alone, which the caller has already compared.
-    /// </para>
-    /// </summary>
-    private static bool InPlan(EntryRow row, string? plan)
-    {
-        if (plan is null) return true;
-
-        var wanted = plan.TrimStart('+');
-
-        return string.Equals((row.ImportPlanId ?? string.Empty).TrimStart('+'), wanted, StringComparison.OrdinalIgnoreCase)
-            || row.PreviewTags.Any(tag => string.Equals(tag.TrimStart('+'), wanted, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private const string PlanEntryMissingTestId = "sessions-plan-entry-missing";
-
-    /// <summary>
-    /// How a pull request the sessions list shows stands, as its readiness verdict: read
-    /// from GitHub by number and judged the way the pull requests pane judges it, so one
-    /// pull request wears one chip on both screens. Null without GitHub. A pull request it
-    /// finds merged or closed closes the notifications about it.
-    /// </summary>
-    private Task<Backlog.Modules.Sessions.UI.SessionPullRequestStatus?> SessionPullRequestStatusFor(DeliveryRunReference pull) =>
-        Backlog.Desktop.UI.PullRequests.SessionPullRequestStatuses.ReadAsync(
-            Services.GetService<GitHubIntegration>(),
-            pull,
-            Services.GetService<Backlog.Desktop.UI.PullRequests.PullRequestSubjects>());
-
-    /// <summary>
-    /// The entry that linked a session, as the sessions list asks for it: the entry's
-    /// own record of the session it was worked in, written by the Backlog server's
-    /// <c>link_session</c>. Answered here for the reason <see cref="OpenPlanEntryAsync"/>
-    /// is — the link is stored on the entry and the session is in the other pane — and
-    /// by stored id, so opening it is the surest match that method makes.
-    /// </summary>
-    private DeliveryRunReference? SessionTaskFor(string sessionId)
-    {
-        var row = State.Rows.FirstOrDefault(candidate =>
-            candidate.Id is not null
-            && candidate.SessionLinks.Any(link => string.Equals(link.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)));
-
-        return TaskReference(row);
-    }
-
-    /// <summary>
-    /// The entry a pull request belongs to, as the pull requests list asks for it,
-    /// found by <see cref="PullRequestTaskMatcher"/> in order of how sure each
-    /// relation is: the entry's own <c>pull-request</c> projection, a GitHub issue a
-    /// linked task follows that the pull request closes, a linked task's external key
-    /// in its title or branch, and the entry that linked its session. Answered here
-    /// for the reason <see cref="SessionTaskFor"/> is — the record is on the entry and
-    /// the pull request is in another pane — and by stored id, so opening it is the
-    /// surest match <see cref="OpenPlanEntryAsync"/> makes.
-    /// <para>
-    /// With <paramref name="mineOnly"/> only my tasks are asked — open ones, and a
-    /// linked task only where the Tasks pane would count it as mine — which is what the
-    /// pane's "Mine" adds to the pull requests I opened myself.
-    /// </para>
-    /// </summary>
-    private DeliveryRunReference? PullRequestTaskFor(PullRequestTaskSubject pull, bool mineOnly)
-    {
-        var (matcher, rows) = PullRequestMatcher;
-        return matcher.Match(pull, mineOnly) is { } match && rows.TryGetValue(match.Candidate.EntryId, out var row)
-            ? TaskReference(row)
-            : null;
-    }
-
-    private (PullRequestTaskMatcher Matcher, Dictionary<Guid, EntryRow> Rows)? _pullRequestMatcher;
-    private List<EntryRow>? _pullRequestMatcherRows;
-
-    /// <summary>One matcher over every entry, built on first ask and again whenever
-    /// the task list changed — not per row the pane draws, which asks once per cell.</summary>
-    private (PullRequestTaskMatcher Matcher, Dictionary<Guid, EntryRow> Rows) PullRequestMatcher
-    {
-        get
-        {
-            if (_pullRequestMatcher is { } built && ReferenceEquals(_pullRequestMatcherRows, State.Rows)) return built;
-
-            var rows = new Dictionary<Guid, EntryRow>();
-            var candidates = new List<PullRequestTaskCandidate>();
-            foreach (var row in State.Rows)
-            {
-                if (row.Id is not { } id || !rows.TryAdd(id, row)) continue;
-
-                var source = row.SourceRef;
-                candidates.Add(new PullRequestTaskCandidate(
-                    id,
-                    [.. row.PullRequestLinks.Select(link => new RecordedPullRequest(link.Repository, link.Number))],
-                    source is null ? null : PullRequestTaskMatcher.GitHubIssueOf(source.ConnectorId, source.Target, source.DisplayKey, source.Url),
-                    PullRequestTaskMatcher.ExternalKeysOf(source?.DisplayKey),
-                    [.. row.SessionLinks.Select(link => link.SessionId)],
-                    IsMine: row.PreviewStatus is not (EntryStatus.Done or EntryStatus.Archived)));
-            }
-
-            _pullRequestMatcherRows = State.Rows;
-            _pullRequestMatcher = (new PullRequestTaskMatcher(candidates), rows);
-            return _pullRequestMatcher.Value;
-        }
-    }
-
-    /// <summary>An entry as a task reference another pane can hand back: its title, or
-    /// the first block of its id where it has none, and the id itself to open it by.</summary>
-    private static DeliveryRunReference? TaskReference(EntryRow? row) =>
-        row is { Id: { } id }
-            ? new DeliveryRunReference(
-                DeliveryRunReferenceKind.Task,
-                string.IsNullOrWhiteSpace(row.PreviewTitle) ? id.ToString()[..8] : row.PreviewTitle,
-                Title: null,
-                Url: null,
-                Repository: null,
-                EntryId: id)
-            : null;
-
     private void OnSurfaceKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Escape") CloseSurface();
@@ -2127,9 +1898,7 @@
         ask.Dispose();
     }
 
-    private bool InboxFeatureEnabled => IsFeatureEnabled(AppFeatures.InboxPane);
-
-    private bool InboxPaneOptionVisible => InboxFeatureEnabled;
+    private bool InboxPaneOptionVisible => TakeoverOffered(InboxSurfaceId);
 
     /// <summary>The Inbox pane's own id, the one its keyboard shortcuts are
     /// registered under; see <c>InboxPane</c>.</summary>
@@ -2137,7 +1906,7 @@
 
     /// <summary>Whether the Inbox has the screen. The same shape as the takeovers
     /// above: its flag switched off returns the reader to the workspace.</summary>
-    private bool InboxVisible => _surface == WorkspaceSurface.Inbox && InboxPaneOptionVisible;
+    private bool InboxVisible => TakeoverVisible(InboxSurfaceId);
 
     /// <summary>Whether there is any knowledge to offer: the Devbook's surface in the
     /// catalog — registered, its flag on — and something for it to read. The shell
@@ -2149,41 +1918,22 @@
     /// <summary>The Devbook's id in the surface catalog.</summary>
     private const string DevbookSurfaceId = DevbookSurfaceQuery.SurfaceId;
 
-    /// <summary>
-    /// Where a registered surface sits among the shell's own takeovers, while the
-    /// <see cref="WorkspaceSurface"/> enum still says which one is on screen (local
-    /// ADR 0040 §2 retires it once every surface is registered). A surface the shell
-    /// cannot place yet is not offered.
-    /// </summary>
-    private static WorkspaceSurface? WorkspaceSurfaceFor(string surfaceId) => surfaceId switch
-    {
-        DevbookSurfaceId => WorkspaceSurface.Devbook,
-        _ => null,
-    };
-
-    /// <summary>Whether a registered takeover is on offer in this window: the
-    /// Devbook only while it has something to read.</summary>
-    private bool RegisteredSurfaceOffered(ShellSurface surface) => WorkspaceSurfaceFor(surface.Id) switch
-    {
-        WorkspaceSurface.Devbook => DevbookPaneOptionVisible,
-        null => false,
-        _ => true,
-    };
-
-    /// <summary>The registered takeovers the header offers, in the catalog's order.</summary>
+    /// <summary>The registered takeovers the header draws after the view switch, in the
+    /// catalog's order: every one this window offers that the header does not place
+    /// itself — today the Devbook.</summary>
     private IEnumerable<ShellSurface> RegisteredTakeoversOffered =>
-        Catalog.Surfaces.Where(surface => surface.Group == ShellSurfaceGroup.Takeover && RegisteredSurfaceOffered(surface));
+        Catalog.Surfaces.Where(surface =>
+            surface.Group == ShellSurfaceGroup.Takeover
+            && !PlacedTakeovers.Contains(surface.Id)
+            && TakeoverOffered(surface.Id));
 
-    /// <summary>The registered takeover on screen, or null.</summary>
+    /// <summary>The registered takeover on screen among those, or null.</summary>
     private ShellSurface? RegisteredSurfaceOnScreen =>
-        RegisteredTakeoversOffered.FirstOrDefault(surface => WorkspaceSurfaceFor(surface.Id) == _surface);
+        TakeoverOnScreen is { } shown && !PlacedTakeovers.Contains(shown.Id) ? shown : null;
 
     /// <summary>A registered takeover's header option: opens it in place of the main
     /// view, or returns to that view when it is already on screen.</summary>
-    private void ToggleRegisteredSurface(string surfaceId)
-    {
-        if (WorkspaceSurfaceFor(surfaceId) is { } surface) ToggleSurface(surface);
-    }
+    private void ToggleRegisteredSurface(string surfaceId) => ToggleSurface(surfaceId);
 
     /// <summary>The host's windows, or null where it opens none and the header offers
     /// no ⧉ (local ADR 0040 §4).</summary>
@@ -2239,8 +1989,9 @@
     /// </summary>
     private IReadOnlyDictionary<string, string> SurfaceQuery(ShellSurface surface)
     {
+        if (surface.Id != DevbookSurfaceId) return TakeoverOnScreen?.Id == surface.Id ? _takeoverQuery : NoQuery;
+
         var query = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (surface.Id != DevbookSurfaceId) return query;
 
         query[DevbookSurfaceQuery.Scope] = DevbookSurfaceQuery.ScopeFor(DevbookRepositoryAlias);
         if (DevbookSwitchRepositoryAlias is { } partner) query[DevbookSurfaceQuery.Switch] = partner;
@@ -2277,7 +2028,15 @@
                 await ShowDevbookAsync(request);
                 break;
             case SessionsSurfaceId when request.Value(SessionQueryKey) is { Length: > 0 } session:
+                // A task's session: the list on it, or said out loud when it is off.
                 await OpenSessionAsync(session);
+                break;
+            case var takeoverId when Catalog.TryGet(takeoverId, out var takeover)
+                    && takeover.Group == ShellSurfaceGroup.Takeover
+                    && TakeoverOffered(takeoverId):
+                // A takeover, with the keys it registered: the session list on a
+                // session, the pull requests on one, the centre on a notification.
+                OpenTakeover(takeoverId, RegisteredKeysOf(takeover, request.Query));
                 break;
             case var viewId when Catalog.TryGet(viewId, out var view) && view.Group == ShellSurfaceGroup.View:
                 // A view, with the keys it registered: it follows a plan or an entry
@@ -2292,11 +2051,9 @@
         return true;
     }
 
-    /// <summary>The Sessions takeover's id and the key a task's session is asked
-    /// under — a jump out of the Tasks views. The shell still draws the session list
-    /// itself, so it answers the id here.</summary>
-    private const string SessionsSurfaceId = "sessions";
-    private const string SessionQueryKey = "session";
+    /// <summary>The key a task's session is asked under — a jump out of the Tasks
+    /// views and a task's side panel.</summary>
+    private const string SessionQueryKey = Backlog.Modules.Sessions.UI.SessionsSurfaceRegistration.SessionKey;
 
     /// <summary>Only the keys of <paramref name="query"/> the surface registered, in a
     /// new instance — the request it stands for.</summary>
@@ -2335,7 +2092,7 @@
     /// <summary>Whether the Devbook has the screen. The same shape as the takeovers
     /// above: with its flag switched off, or nothing left for it to show, the reader
     /// is back on the workspace.</summary>
-    private bool DevbookVisible => _surface == WorkspaceSurface.Devbook && DevbookPaneOptionVisible;
+    private bool DevbookVisible => TakeoverVisible(DevbookSurfaceId);
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
 
@@ -2376,9 +2133,6 @@
     /// </summary>
     private void HandleStateChanged() => _ = InvokeAsync(() =>
     {
-        // A row's links, status or assignee can change in place, which the list's
-        // identity would not show, so any change rebuilds the pull request matcher.
-        _pullRequestMatcher = null;
         SynchronizeDevbookAvailability();
         ForgetDevbookRepositoryRequestLeftBehind();
 
@@ -2482,6 +2236,7 @@
     {
         _linkedWork = BuildLinkedWork();
         WireTasksViews();
+        WireDashboard();
         SynchronizeDevbookAvailability();
 
         // Switched on after the list loaded: check now rather than at a reload
@@ -2497,17 +2252,6 @@
     /// <summary>Whether the GitHub integration was on when the feature switches
     /// were last looked at. See <see cref="HandleFeaturesChanged"/>.</summary>
     private bool _gitHubIntegrationWasOn;
-
-    /// <summary>Whether the Inbox has been told to load. Once per page: the
-    /// state itself outlives the page and keeps what it loaded, so a second
-    /// Home — Settings and back — asks again and gets a fresh read, which is
-    /// the cheap and correct answer for a store another device may have
-    /// written to meanwhile.</summary>
-    private bool _inboxInitialized;
-
-    /// <summary>Whether the Inbox pane was on screen at the last render, so a
-    /// closed-then-opened pane is noticed as an opening.</summary>
-    private bool _inboxWasVisible;
 
     /// <summary>The replication loop, or null in a host that composes none. The
     /// Inbox listens to it here rather than itself because the Inbox's UI may
@@ -2588,7 +2332,7 @@
             }
         }
 
-        if (!_inboxInitialized || !(applied || failed)) return;
+        if (!InboxState.Loaded || !(applied || failed)) return;
 
         try
         {
@@ -2658,114 +2402,6 @@
     private const string InboxReloadErrorTestId = "inbox-reload-error";
     private const string TasksReloadErrorTestId = "tasks-reload-error";
 
-    /// <summary>Whether a capture run is in flight, and what the last one said.
-    /// Held here rather than in the pane for the reason the Inbox's own view
-    /// state lives in <see cref="InboxDesktopState"/>: the pane re-mounts when
-    /// it changes slot, and a run's result dropping at that moment would leave
-    /// the reader with a button that did nothing. The Inbox's capture field is not
-    /// answered here at all — the pane files it through its own module.</summary>
-    private bool _captureRunning;
-    private string? _captureMessage;
-
-    /// <summary>
-    /// The Inbox pane as this shell composes it, once, for both slots it can
-    /// sit in: the Capture button answered by <see cref="RunCaptureAsync"/>,
-    /// and the Capture context's own sources panel in the pane's sources slot,
-    /// which the pane shows when its Sources button is pressed. The pane draws that slot
-    /// without naming what is in it, so the Inbox stays free of Capture's
-    /// types while its button and its switches sit together on one pane.
-    /// </summary>
-    private RenderFragment InboxPaneContent =>
-        @<InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage">
-            <Sources>
-                <CaptureSourcesPanel OnImported="ImportedAsync" />
-            </Sources>
-        </InboxPane>;
-
-    /// <summary>
-    /// The Inbox's Capture, answered: one run over the sources switched on in
-    /// Settings, reported back as a sentence the pane can print — and, when the
-    /// run delivered anything, the Inbox re-read so the new rows are on screen
-    /// without a restart, the way a sync pull re-reads it.
-    /// <para>
-    /// The runner never throws for a source — each answers for itself in the
-    /// result — so a throw here is the run itself failing to start, and that is
-    /// reported in the same line rather than left to the console. The re-read
-    /// is kept out of that try: its failure is the Inbox's to report, not the
-    /// run's, and the run's own line stands.
-    /// </para>
-    /// </summary>
-    private async Task RunCaptureAsync()
-    {
-        if (_captureRunning) return;
-
-        _captureRunning = true;
-        _captureMessage = null;
-        CaptureRunResultDto? run = null;
-
-        try
-        {
-            run = await CaptureRunner.RunAsync();
-            _captureMessage = Describe(run);
-        }
-        catch (Exception ex)
-        {
-            _captureMessage = $"Capture could not run: {ex.Message}";
-        }
-        finally
-        {
-            _captureRunning = false;
-        }
-
-        if (run is { TotalNewItems: > 0 }) await ReloadInboxAfterCaptureAsync();
-    }
-
-    /// <summary>The sources panel's Import file…, answered the way the Capture
-    /// button's run is: when it delivered anything, the Inbox is re-read so the
-    /// imported rows are on screen. The panel prints the import's own line.</summary>
-    private async Task ImportedAsync(CaptureRunResultDto run)
-    {
-        if (run.TotalNewItems > 0) await ReloadInboxAfterCaptureAsync();
-    }
-
-    /// <summary>The same read <see cref="HandleTaskSyncChanged"/> does after a
-    /// pull, for the same reason and with the same guard: before the pane has
-    /// loaded at all, the first load will read whatever the run delivered.</summary>
-    private async Task ReloadInboxAfterCaptureAsync()
-    {
-        if (!_inboxInitialized) return;
-
-        try
-        {
-            await InboxState.ReloadAsync();
-        }
-        catch (Exception ex)
-        {
-            Toasts.Publish(ToastMessage.Error($"The Inbox could not be refreshed after a capture: {ex.Message}", InboxReloadErrorTestId));
-        }
-    }
-
-    /// <summary>A run's result in one line. Nothing enabled points at the
-    /// tab that would change that — it is on the same pane, beside the queue;
-    /// otherwise each source's own sentence — which already carries that
-    /// source's count — and, when there was more than one source, the total,
-    /// so a reader is not left adding up.</summary>
-    private static string Describe(CaptureRunResultDto run)
-    {
-        if (run.NothingEnabled)
-        {
-            return "No capture sources are enabled. Press Sources in the Inbox header and switch one on.";
-        }
-
-        var sources = string.Join(" ", run.Sources.Select(source => source.Message));
-
-        if (run.Sources.Count == 1) return sources;
-
-        var total = run.TotalNewItems == 1 ? "1 new item in all." : $"{run.TotalNewItems} new items in all.";
-
-        return $"{sources} {total}";
-    }
-
     /// <summary>
     /// Keeps the Devbook surface honest about what it can show, after the load and
     /// on every Tasks, Inbox or feature change. With its flag switched off, or
@@ -2776,7 +2412,7 @@
     /// </summary>
     private void SynchronizeDevbookAvailability()
     {
-        if (_surface == WorkspaceSurface.Devbook && !DevbookPaneOptionVisible) CloseSurface();
+        if (_takeover == DevbookSurfaceId && !DevbookPaneOptionVisible) CloseSurface();
 
         KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
@@ -3146,6 +2782,10 @@
             wiring.BrainNotesFor = null;
             wiring.DevbookImagesFor = null;
             wiring.LinkedWork = null;
+        }
+        if (_dashboardWiring is { } dashboard && dashboard.AskAi is not null && ReferenceEquals(dashboard.AskAi, _dashboardAskAi))
+        {
+            dashboard.AskAi = null;
         }
         State.Changed -= HandleStateChanged;
         if (_brainSettings is not null) _brainSettings.Changed -= HandleBrainSettingsChanged;

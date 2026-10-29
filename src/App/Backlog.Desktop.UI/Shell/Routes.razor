@@ -24,4 +24,11 @@
     /// null in the main window.</summary>
     [Parameter]
     public string? WindowKey { get; set; }
+
+    /// <summary>Tells the window's scope which window it is, for a head service that
+    /// stands over the window a request came from (<see cref="CurrentShellWindow"/>).</summary>
+    protected override void OnParametersSet()
+    {
+        if (Services.GetService<CurrentShellWindow>() is { } current) current.Key = WindowKey;
+    }
 }

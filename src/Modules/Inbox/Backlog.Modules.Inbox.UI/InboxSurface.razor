@@ -1,0 +1,50 @@
+@using Microsoft.Extensions.DependencyInjection
+@inject InboxDesktopState State
+@inject IServiceProvider Services
+
+@*
+    The Inbox as a shell surface (local ADR 0040 §1): a takeover, in the main window in
+    place of the main view or in a window of its own. Escape is not its way out: it
+    belongs to the Inbox's own keys, which use it to leave triage, so the surface is
+    registered with EscapeCloses off and the shell marks nothing for Escape to close.
+
+    The Inbox loads the first time it is on screen in a window, rather than when the
+    window opens: it ships behind a flag, and a store read for a queue nobody opened is
+    a store read wasted. Every later opening runs the resurface sweep again, so a
+    deferred item due since the Inbox was last on screen is back before anyone reads
+    the queue. Capture is another context's, answered through the window's
+    InboxSurfaceWiring.
+*@
+<InboxPane OnCapture="@CaptureCallback"
+           CaptureRunning="@(_wiring?.CaptureRunning?.Invoke() ?? false)"
+           CaptureMessage="@(_wiring?.CaptureMessage?.Invoke())"
+           Sources="@_wiring?.Sources" />
+
+@code {
+    /// <summary>Unused: the Inbox takes no query.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Closes the surface. The Inbox draws no close of its own: its header
+    /// option, or another surface's, is the way back.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private InboxSurfaceWiring? _wiring;
+
+    protected override void OnInitialized() => _wiring = Services.GetService<InboxSurfaceWiring>();
+
+    /// <summary>The Capture button's press, or none where the window offers no capture.
+    /// Raised on this component, so the button draws busy while the run is out and the
+    /// run's line once it is back.</summary>
+    private EventCallback CaptureCallback =>
+        _wiring?.Capture is { } capture ? EventCallback.Factory.Create(this, capture) : default;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        if (State.Loaded) await State.OpenedAsync();
+        else await State.InitializeAsync();
+    }
+}

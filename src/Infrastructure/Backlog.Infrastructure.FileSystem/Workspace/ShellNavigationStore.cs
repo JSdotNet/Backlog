@@ -85,6 +85,26 @@ public sealed class ShellNavigationStore
             ["InProgress"] = "goals",
         };
 
+    /// <summary>
+    /// The surface names a file from before local ADR 0040 holds — the members of the
+    /// retired <c>WorkspaceSurface</c> enum — each with the takeover's surface id it reads
+    /// as now (§2), and <c>Workspace</c>, the main view alone, as no takeover at all.
+    /// <c>Roadmap</c> is not here: it was a takeover once and reads as the Roadmap view
+    /// over the workspace. Exact names only: the enum's members were written as spelled.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string?> RetiredSurfaceNames { get; } =
+        new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            [WorkspaceSurfaceName] = null,
+            ["Tools"] = "tools",
+            ["Dashboard"] = "dashboard",
+            ["Sessions"] = "sessions",
+            ["PullRequests"] = "pull-requests",
+            [InboxName] = InboxId,
+            [DevbookName] = DevbookId,
+            ["Notifications"] = "notifications",
+        };
+
     /// <summary>What the Board's columns are when nothing else was remembered.</summary>
     public const string DefaultBoardColumns = "Status";
 
@@ -95,15 +115,20 @@ public sealed class ShellNavigationStore
     /// takeover; it reopens as the Roadmap view.</summary>
     private const string RoadmapName = "Roadmap";
 
-    /// <summary>The surface that is no takeover at all: the workspace.</summary>
+    /// <summary>The surface name the retired enum wrote for no takeover at all: the
+    /// workspace. Now nothing is written for it.</summary>
     private const string WorkspaceSurfaceName = "Workspace";
 
+    /// <summary>The Inbox's and the Devbook's surface ids (local ADR 0040 §2).</summary>
+    private const string InboxId = "inbox";
+    private const string DevbookId = "devbook";
+
     /// <summary>The pane name the Inbox was stored under while it was a side pane,
-    /// and the surface name it is stored under now.</summary>
+    /// and the surface name the retired enum stored it under.</summary>
     private const string InboxName = "Inbox";
 
     /// <summary>The pane name the Devbook was stored under while it was a side pane,
-    /// and the surface name it is stored under now.</summary>
+    /// and the surface name the retired enum stored it under.</summary>
     private const string DevbookName = "Devbook";
 
     /// <summary>The pane name the Devbook was stored under before the Knowledge
@@ -278,18 +303,27 @@ public sealed class ShellNavigationStore
     /// surface. A file from before the view switch names <c>Roadmap</c> as its
     /// surface; it reopens on the Roadmap view over the workspace, and since the
     /// in-memory surface is then the workspace, the next save cannot write the old
-    /// name back. A missing view is <see cref="DefaultView"/>, and a view the retired
-    /// enum named is its surface id.
+    /// name back. A missing view is <see cref="DefaultView"/>, a view the retired
+    /// <c>ShellView</c> enum named is its surface id, and a surface the retired
+    /// <c>WorkspaceSurface</c> enum named is its takeover's id, or none for the workspace.
     /// </summary>
     private static (string? Surface, string View) Normalize(string? surface, string? view)
     {
         if (string.Equals(surface, RoadmapName, StringComparison.Ordinal))
         {
-            return (WorkspaceSurfaceName, RoadmapViewId);
+            return (null, RoadmapViewId);
         }
 
-        return (surface, string.IsNullOrWhiteSpace(view) ? DefaultView : ViewId(view));
+        return (SurfaceId(surface), string.IsNullOrWhiteSpace(view) ? DefaultView : ViewId(view));
     }
+
+    /// <summary>The takeover's surface id <paramref name="surface"/> stands for: a name
+    /// the retired enum stored as its id, the workspace as none, anything else as
+    /// written.</summary>
+    private static string? SurfaceId(string? surface) =>
+        string.IsNullOrWhiteSpace(surface) ? null
+        : RetiredSurfaceNames.TryGetValue(surface, out var id) ? id
+        : surface;
 
     /// <summary>The surface id <paramref name="view"/> stands for: a name the retired
     /// enum stored as its id, anything else as written.</summary>
@@ -321,11 +355,11 @@ public sealed class ShellNavigationStore
         var panesWereOnScreen = storedSurface is null || string.Equals(storedSurface, WorkspaceSurfaceName, StringComparison.Ordinal);
         if (!panesWereOnScreen) return surface;
 
-        if (panes.Contains(InboxName, StringComparer.Ordinal)) return InboxName;
+        if (panes.Contains(InboxName, StringComparer.Ordinal)) return InboxId;
 
         if (panes.Contains(DevbookName, StringComparer.Ordinal) || panes.Contains(LegacyDevbookName, StringComparer.Ordinal))
         {
-            return DevbookName;
+            return DevbookId;
         }
 
         return surface;

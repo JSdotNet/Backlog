@@ -106,6 +106,32 @@ public sealed class SurfaceWindowTests
         Assert.Equal(1, host.Windows.Activations);
     }
 
+    /// <summary>
+    /// Escape in a popped-out window closes nothing (local ADR 0040 §4): the window
+    /// marks no surface for the document-level listener, registers none with it — that
+    /// listener is one per WebView, and only the main window's shell owns it — and a
+    /// press inside the surface neither closes the window nor asks the main window for
+    /// anything, so no other window is touched either.
+    /// </summary>
+    [Fact]
+    public async Task Escape_in_a_popped_out_window_closes_nothing_here_or_in_another_window()
+    {
+        using var host = await CreateHostAsync();
+        var window = host.Render("alpha");
+
+        Assert.Empty(window.FindAll("[data-escape-closes]"));
+        // The surface's landmark carries no key handler at all.
+        Assert.Throws<MissingEventHandlerException>(() =>
+            window.Find("[data-testid='alpha-surface']").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" }));
+
+        Assert.NotEmpty(window.FindAll("[data-testid='alpha-body']"));
+        Assert.Empty(host.Windows.Closed);
+        Assert.Empty(host.MainWindowRequests);
+        Assert.DoesNotContain(
+            host.Pane.Context.JSInterop.Invocations,
+            invocation => invocation.Identifier.StartsWith("backlogTakeoverEscape.", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void The_route_carries_the_surface_and_its_query_there_and_back()
     {
