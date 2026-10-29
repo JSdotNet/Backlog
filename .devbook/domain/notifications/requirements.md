@@ -55,16 +55,28 @@ The system SHALL refuse a Question that names no subject.
 ```meta
 status: proposed
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_offers_one_of_four_answer_shapes, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.Any_other_answer_spec_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_offers_two_to_eight_set_choices, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_accepts_an_open_answer_instead_of_a_choice, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_keeps_the_note_with_the_accepted_answer, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreTests.An_answer_carries_the_note_written_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.NotificationCardTests.Seven_or_eight_choices_lay_out_as_a_wrapping_grid_and_fewer_stay_one_row, unit:dotnet:Backlog.UI.Components.UnitTests.NotificationCardTests.A_question_that_takes_a_note_sends_it_with_the_choice_pressed, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.Eight_choices_wrap_and_a_note_goes_with_the_choice_into_the_outbox]
+tests: [unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_offers_one_of_four_answer_shapes, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.Any_other_answer_spec_is_refused, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_accepts_an_open_answer_instead_of_a_choice, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_accepts_a_choice_with_its_words, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_refuses_a_choice_that_takes_text_sent_without_it_and_stays_open, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreScreenTests.A_choice_that_takes_text_is_answered_from_the_pane_with_its_words, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.A_question_offers_two_to_eight_set_choices, unit:dotnet:Backlog.Modules.Notifications.UnitTests.ReplyInvariantTests.The_owner_keeps_the_note_with_the_accepted_answer, unit:dotnet:Backlog.Modules.Notifications.UnitTests.NotificationCentreTests.An_answer_carries_the_note_written_beside_it, unit:dotnet:Backlog.UI.Components.UnitTests.NotificationCardTests.Seven_or_eight_choices_lay_out_as_a_wrapping_grid_and_fewer_stay_one_row, unit:dotnet:Backlog.UI.Components.UnitTests.NotificationCardTests.A_question_that_takes_a_note_sends_it_with_the_choice_pressed, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.Eight_choices_wrap_and_a_note_goes_with_the_choice_into_the_outbox]
 ```
 
-The system SHALL accept a Question whose answer is single choice from two to eight set choices, multiple choice, open plain text, or choices plus an open answer, and nothing else; and SHALL let any of these shapes take an optional plain-text note that a reply carries beside its answer.
+The system SHALL accept a Question whose answer is single choice from two to eight set choices, multiple choice, open plain text, or choices plus an open answer, and nothing else; SHALL let a set choice of a single-choice question take text; and SHALL let any of these shapes take an optional plain-text note that a reply carries beside its answer.
 
 #### Scenario: Choices with an open answer
 
 - **Given** a source asks "Pick a name for the module, or suggest one" with three choices and an open answer
 - **When** a viewer types "Signals" instead of picking a choice
 - **Then** the owner accepts "Signals" as the answer
+
+#### Scenario: A choice that takes text
+
+- **Given** a single-choice question whose choice Revise takes text
+- **When** a viewer picks Revise and types "Split the migration in two"
+- **Then** the owner accepts Revise with "Split the migration in two" as the answer
+
+#### Scenario: A choice that takes text, sent without it
+
+- **Given** a single-choice question whose choice Revise takes text
+- **When** a viewer picks Revise and types nothing
+- **Then** the owner rejects the reply as not fitting the answer spec, and the viewer can reply again
 
 #### Scenario: Eight choices and a note
 
@@ -200,16 +212,71 @@ related: [.devbook/domain/notifications/features.md#asking-from-the-contexts, .d
 ```meta
 status: proposed
 type: requirement
-tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Reaching_personal_validation_asks_to_approve_the_run_with_approve_reject_and_an_open_answer, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_answer_is_recorded_on_the_run_as_its_gate_decision, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_replayed_answer_changes_nothing_and_the_next_gate_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Re_reporting_the_gate_after_it_was_approved_asks_nothing_more, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_decision_the_desktop_recorded_after_the_question_wins_over_a_late_answer, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_gate_moving_on_at_the_desktop_closes_the_unanswered_question]
+related: [.devbook/domain/tasks/requirements.md#requirement-a-follow-up-is-filed-once-after-the-gated-entry]
+tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_first_gate_report_with_a_handoff_asks_to_approve_the_run_with_the_handoff_as_its_body, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_that_goes_in_progress_with_no_links_and_no_handoff_asks_nothing_until_a_report_carries_one, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_handoff_longer_than_the_body_holds_is_cut_to_fit_and_ends_with_a_line_that_says_so, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_its_entry_is_offered_approve_approve_with_a_follow_up_revise_and_reject, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_run_that_names_no_entry_is_offered_approve_revise_and_reject_with_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_gate_reported_twice_with_its_handoff_asks_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.After_a_revise_round_the_gate_asks_again_with_only_the_new_attempts_handoff, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Re_reporting_the_gate_after_it_was_approved_asks_nothing_more, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_answer_is_recorded_on_the_run_as_its_gate_decision, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.Approve_with_a_follow_up_files_one_entry_after_the_gated_entry_and_records_its_id, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_answer_delivered_twice_leaves_the_run_unchanged_and_files_no_second_entry, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_follow_up_whose_gated_entry_is_gone_records_the_approval_with_the_words_and_no_follow_up, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_replayed_answer_changes_nothing_and_the_next_gate_asks_again, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_decision_the_desktop_recorded_after_the_question_wins_over_a_late_answer_and_files_nothing, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.A_desktop_decision_taken_while_the_follow_up_is_filed_stands, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.ValidationQuestionTests.The_gate_moving_on_at_the_desktop_closes_the_unanswered_question, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Get_run_carries_the_gate_decision_the_answer_chosen_and_the_follow_up_entry]
 ```
 
-The system SHALL ask "Approve the validation of *run*?" with Approve, Reject and an open answer when a delivery run's Personal Validation stage goes in progress, and SHALL record the answer on the run as its gate decision, an open answer as a rejection in the person's words.
+The system SHALL ask "Approve the validation of *run*?" with the run's gate handoff as its body and the choices Approve, Approve + follow-up, Revise and Reject when a delivery run's Personal Validation stage first reports a handoff, and SHALL record the answer on the run as its gate decision.
+
+#### Scenario: The handoff is the body
+
+- **Given** a delivery run on Desktop A whose Personal Validation stage is in progress
+- **When** the stage reports its review links, what to check, the acceptance criteria and the evidence paths
+- **Then** Desktop A asks the question with all four as text in its body, and the title and summary carry none of it
+
+#### Scenario: A gate that reports no handoff yet
+
+- **Given** a delivery run whose Personal Validation stage went in progress with no links and no handoff text
+- **When** nothing more is reported
+- **Then** no question is asked, and the next report that carries links or handoff text asks it
+
+#### Scenario: A handoff longer than the body holds
+
+- **Given** a gate handoff longer than 32 KB
+- **When** the question is asked
+- **Then** the body holds the handoff cut to fit, ending with a line that says it was truncated
 
 #### Scenario: Approved from the phone
 
 - **Given** a delivery run on Desktop A reaches Personal Validation
 - **When** the person taps Approve on the phone, and Desktop A accepts it
 - **Then** the run records the approval, and the pull request is still opened at Desktop A
+
+#### Scenario: Approved with a follow-up
+
+- **Given** a delivery run that names the entry it works, at Personal Validation
+- **When** the person answers Approve + follow-up with "Add the empty-state screenshot to the docs", and Desktop A accepts it
+- **Then** the run records the approval with those words as its note and the id of the follow-up entry, and exactly one follow-up entry is filed after the gated entry
+
+#### Scenario: A follow-up answer delivered twice
+
+- **Given** an Approve + follow-up answer that already filed its follow-up entry
+- **When** the answer is handed to the Sessions handler again
+- **Then** the run is unchanged, and no second entry is filed
+
+#### Scenario: Sent back to revise
+
+- **Given** a delivery run at Personal Validation
+- **When** the person answers Revise with "The toast overlaps the header"
+- **Then** the run records a rejection with those words, and the flow starts a revise round
+
+#### Scenario: Rejected
+
+- **Given** a delivery run at Personal Validation
+- **When** the person answers Reject
+- **Then** the run records a rejection with none of the person's words, and `execute-plan` blocks the entry instead of starting a revise round
+
+#### Scenario: A run that names no entry
+
+- **Given** a delivery run whose file names neither an entry id nor a plan and item
+- **When** its Personal Validation stage reports a handoff
+- **Then** the question offers Approve, Revise and Reject, and no Approve + follow-up
+
+#### Scenario: The desktop decided first
+
+- **Given** an Open validation question
+- **When** the person approves the gate at Desktop A, and an Approve + follow-up answer from the phone arrives afterwards
+- **Then** the desktop's decision stands, and no follow-up entry is filed
 
 ### Requirement: A redeemed pairing code is confirmed on the desktop that showed it
 

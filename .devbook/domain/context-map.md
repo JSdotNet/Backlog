@@ -97,10 +97,12 @@ flowchart LR
     %% Sessions. The Sessions -> Productivity and Sessions -> Tasks edges are
     %% built, each through an infrastructure adapter rather than a published
     %% event. The other two below are named and not built: see the strategic
-    %% rules below and .devbook/domain/sessions/dependencies.md.
+    %% rules below and .devbook/domain/sessions/dependencies.md. Tasks -> Sessions
+    %% is the follow-up a gate answer files, in process through ITaskFollowUps; built.
     DevPC -.->|"Customer/Supplier (not built)<br/>Machine identity for an environment"| Sessions
     Sessions -->|Customer/Supplier<br/>Agent session facts| Productivity
     Sessions -->|Customer/Supplier<br/>Linked session state| Tasks
+    Tasks -->|Customer/Supplier<br/>File a follow-up after an entry| Sessions
     Sessions -.->|"Customer/Supplier (not built)<br/>Attached session: state, branch"| Progress
     Sessions -.->|"Customer/Supplier (not built)<br/>Stalled-session observation"| Monitor
 
@@ -121,10 +123,11 @@ flowchart LR
     Sync -->|OHS + Published Language<br/>Annotation replica| Devbook
     Sync -->|Customer/Supplier<br/>capture-kind documents for IInboxIntake| Inbox
 
-    %% Notifications. Not built yet: local ADR 0039. It conforms to Sync's replica
-    %% protocol and offers INotifications to the contexts that publish.
+    %% Notifications. Local ADR 0039. It conforms to Sync's replica protocol and
+    %% offers INotifications to the contexts that publish. The Sessions edge is
+    %% built: see .devbook/domain/notifications/context.md.
     Sync -.->|"Conformist (not built)<br/>Notification and reply replica"| Notify
-    Notify -.->|"OHS + Published Language (not built)<br/>INotifications, answer handler"| Sessions
+    Notify -->|OHS + Published Language<br/>INotifications, answer handler| Sessions
     Notify -.->|"OHS + Published Language (not built)<br/>INotifications, answer handler"| Sync
     Notify -.->|"OHS + Published Language (not built)<br/>INotifications"| Devbook
     Notify -.->|"OHS + Published Language (not built)<br/>Close by subject"| Tasks
@@ -257,3 +260,12 @@ flowchart LR
   question makes `Sync` both its supplier and a publisher. The two edges run
   through different parts: the desktop sync client carries the documents, and the
   pairing flow publishes the question.
+- `Sessions` and `Tasks` supply each other through different parts, so the two
+  edges between them do not make a cycle of modules. Sessions supplies the session
+  state a task's work badge shows. Tasks supplies
+  [filing a follow-up after an entry](tasks/features.md#filing-a-follow-up-after-an-entry),
+  which the Sessions answer handler calls when the person approves a run with a
+  follow-up. Sessions interprets the answer and records it on the run; Tasks decides
+  what the follow-up is born with. Both go through infrastructure adapters, and
+  neither module references the other. The follow-up is a task, never a session
+  request (local ADR 0038 §1).

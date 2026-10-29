@@ -396,6 +396,34 @@ public class SurfaceToolsTests
     }
 
     [Fact]
+    public async Task Get_run_carries_the_gate_decision_the_answer_chosen_and_the_follow_up_entry()
+    {
+        var followUp = Guid.Parse("8d2b7c1e-55aa-4f0e-9b3c-2a9f0c7e1d44");
+        var decidedAt = new DateTimeOffset(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
+        var surface = new FakeDeliverySurfaceLifecycle(
+            run: Runs.Run() with { Approval = new DeliveryRunApproval("approved", "Add the screenshot", decidedAt, "approve-follow-up", followUp) });
+
+        var run = await new SurfaceTools(surface).GetRunAsync(Worktree, "run-1", TestContext.Current.CancellationToken);
+
+        var wire = JsonSerializer.SerializeToNode(run, JsonSerializerOptions.Web)!["approval"]!;
+        Assert.Equal("approved", wire["decision"]!.GetValue<string>());
+        Assert.Equal("Add the screenshot", wire["note"]!.GetValue<string>());
+        Assert.Equal("approve-follow-up", wire["choice"]!.GetValue<string>());
+        Assert.Equal(followUp, wire["followUpEntryId"]!.GetValue<Guid>());
+        Assert.Equal(decidedAt, wire["decidedAt"]!.GetValue<DateTimeOffset>());
+    }
+
+    [Fact]
+    public async Task Get_run_reads_a_run_with_no_gate_decision_as_no_approval()
+    {
+        var surface = new FakeDeliverySurfaceLifecycle(run: Runs.Run());
+
+        var run = await new SurfaceTools(surface).GetRunAsync(Worktree, "run-1", TestContext.Current.CancellationToken);
+
+        Assert.Null(run!.Approval);
+    }
+
+    [Fact]
     public async Task List_runs_reads_a_run_without_either_as_null()
     {
         var surface = new FakeDeliverySurfaceLifecycle(runs: [Runs.Run("run-1")]);

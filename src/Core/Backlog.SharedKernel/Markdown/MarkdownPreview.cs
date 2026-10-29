@@ -85,7 +85,13 @@ public static partial class MarkdownPreview
     private const string LinkPattern = @"(?<link>\[[^\]\n]+\]\((?:[^()\s]|\([^()\s]*\))+\))";
 
     [GeneratedRegex(
-        CodePattern +
+        // The CommonMark backslash escape, tried at each position before anything
+        // else: a `\` before ASCII punctuation is that character as text, so `\#x`
+        // is no tag and `\*` opens no emphasis. A backslash before anything else —
+        // a Windows path — is text as typed, and one inside a code span is the
+        // code's, because the span is matched from its opening backtick first.
+        @"(?<escape>\\[!-/:-@\[-`{-~])" +
+        "|" + CodePattern +
         "|" + AutolinkPattern +
         // Image before link: both start with a bracket run, and the link
         // alternative would otherwise match from the `[` and leave the `!`
@@ -773,6 +779,17 @@ public static partial class MarkdownPreview
         var cursor = 0;
         var bare = BareUrlScanner.FindNext(text, 0);
 
+        // Plain text and escaped characters gather here, so an escape reads as part
+        // of the text around it — one MdText — rather than splitting it in pieces.
+        var run = new System.Text.StringBuilder();
+
+        void FlushText()
+        {
+            if (run.Length == 0) return;
+            parts.Add(new MdText(run.ToString()));
+            run.Clear();
+        }
+
         while (cursor < text.Length)
         {
             var match = InlineRegex().Match(text, cursor);
@@ -790,7 +807,8 @@ public static partial class MarkdownPreview
             if (bare is { } whole && (!match.Success || whole.Index < match.Index)
                 && CutShort(text, whole, footnotes) is { } url)
             {
-                if (url.Index > cursor) parts.Add(new MdText(text[cursor..url.Index]));
+                if (url.Index > cursor) run.Append(text, cursor, url.Index - cursor);
+                FlushText();
 
                 // The words are the URL itself, so the read view draws the same
                 // anchor a `[url](url)` would, and every reader of an MdLink —
@@ -804,10 +822,20 @@ public static partial class MarkdownPreview
 
             if (match.Index > cursor)
             {
-                parts.Add(new MdText(text[cursor..match.Index]));
+                run.Append(text, cursor, match.Index - cursor);
             }
 
             var value = match.Value;
+            cursor = match.Index + match.Length;
+
+            if (match.Groups["escape"].Success)
+            {
+                run.Append(value[1]);
+                continue;
+            }
+
+            FlushText();
+
             if (match.Groups["code"].Success) parts.Add(new MdCodeSpan(value[1..^1]));
             else if (match.Groups["bold"].Success) parts.Add(new MdStrong(value[2..^2]));
             else if (match.Groups["strike"].Success) parts.Add(new MdStrike(value[2..^2]));
@@ -842,11 +870,10 @@ public static partial class MarkdownPreview
                 var address = value[1..^1];
                 parts.Add(BareUrlScanner.IsWebUrl(address) ? new MdLink(address, address) : new MdText(value));
             }
-
-            cursor = match.Index + match.Length;
         }
 
-        if (cursor < text.Length) parts.Add(new MdText(text[cursor..]));
+        if (cursor < text.Length) run.Append(text, cursor, text.Length - cursor);
+        FlushText();
         return parts;
     }
 

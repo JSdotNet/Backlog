@@ -147,6 +147,16 @@ internal static class TestNotifications
 
     public static readonly AnswerSpec ReleaseNote = new([], Open: new OpenAnswer("Write an answer…", 200));
 
+    /// <summary>A single-choice question whose Revise takes the person's words, as the Personal
+    /// Validation question asks.</summary>
+    public static AnswerSpec Validation(OpenAnswer? open = null) => new(
+        [
+            new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+            new AnswerChoice("revise", "Revise", TakesText: true, Placeholder: "What should change?"),
+            new AnswerChoice("reject", "Reject", AnswerChoiceStyle.Destructive)
+        ],
+        Open: open);
+
     /// <summary>The owner accepted <paramref name="replyId"/> from <paramref name="fromDevice"/>.</summary>
     public static NotificationSnapshot Answered(NotificationSnapshot question, Guid replyId, Guid fromDevice, DateTimeOffset at, params string[] choiceIds) =>
         question with

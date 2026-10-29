@@ -15,13 +15,17 @@
     a diagram like it is everywhere else.
 
     The answer controls follow the question's shape and nothing else:
-      single choice      one AppButton per set answer, pressed to answer
+      single choice      one AppButton per set answer, pressed to answer; a choice
+                         that takes text opens a plain-text TextArea with Send
+                         instead, and answers with the choice and its words
       multiple choice    one Checkbox per set answer, and Answer to send the picks
       open               a plain-text TextArea and Send
       choices with open  the buttons, and the box with Send below them
     Seven or eight choices wrap into two even columns. A question that takes a
     note adds a plain-text box, "Add a note (optional)", under the answers, and
     whatever is in it goes with the answer.
+    The tray offers no actions for a question with a choice that takes text, so
+    this card is where the phone answers it.
     A question that says answerOn: owner draws none: only its owner takes an
     answer. An alert draws none either; acknowledging one stays on the desktop.
 
@@ -114,9 +118,33 @@
                         <AppButton Variant="@VariantFor(choice.Style)"
                                    Disabled="@Busy"
                                    TestId="@($"notification-choice-{choice.Id}")"
-                                   OnClick="@(() => ReplyAsync([choice.Id], null))">@choice.Label</AppButton>
+                                   OnClick="@(() => ChooseAsync(choice))">@choice.Label</AppButton>
                     }
                 </div>
+
+                @if (Composing is { } composing)
+                {
+                    <div class="phone-notification__open" data-testid="notification-choice-text">
+                        <TextArea Label="@($"{composing.Label}: in your own words")"
+                                  @bind-Value="_choiceText"
+                                  Placeholder="@(composing.Placeholder ?? "Write what you mean…")"
+                                  Disabled="@Busy"
+                                  Rows="2"
+                                  maxlength="@(spec.Open?.MaxLength ?? OpenAnswer.DefaultMaxLength)" />
+                        <div class="phone-notification__choices">
+                            <AppButton Variant="ButtonVariant.Primary"
+                                       Busy="@Busy"
+                                       BusyLabel="Sending"
+                                       Disabled="@(!NotificationStandings.Fits(spec, [composing.Id], _choiceText, _note))"
+                                       TestId="notification-choice-send"
+                                       OnClick="@(() => ReplyAsync([composing.Id], _choiceText))">Send</AppButton>
+                            <AppButton Variant="ButtonVariant.Secondary"
+                                       Disabled="@Busy"
+                                       TestId="notification-choice-cancel"
+                                       OnClick="CancelChoiceText">Cancel</AppButton>
+                        </div>
+                    </div>
+                }
             }
 
             @if (spec.Open is { } open)
@@ -181,6 +209,8 @@
     private readonly string _titleId = "notification-" + Guid.NewGuid().ToString("N");
     private readonly HashSet<string> _picked = new(StringComparer.Ordinal);
     private string? _text;
+    private string? _composing;
+    private string? _choiceText;
     private string? _note;
     private Guid _shownId;
 
@@ -280,6 +310,8 @@
         _shownId = Notification.Id;
         _picked.Clear();
         _text = null;
+        _composing = null;
+        _choiceText = null;
         _note = null;
     }
 
@@ -317,6 +349,30 @@
         else _picked.Remove(id);
     }
 
+    /// <summary>The choice whose words are being typed, or null.</summary>
+    private AnswerChoice? Composing => _composing is null
+        ? null
+        : Spec?.Choices.FirstOrDefault(choice => string.Equals(choice.Id, _composing, StringComparison.Ordinal));
+
+    private Task ChooseAsync(AnswerChoice choice)
+    {
+        if (choice.TakesText)
+        {
+            // Its words come first: the box opens and nothing is queued until Send.
+            if (!string.Equals(_composing, choice.Id, StringComparison.Ordinal)) _choiceText = null;
+            _composing = choice.Id;
+            return Task.CompletedTask;
+        }
+
+        return ReplyAsync([choice.Id], null);
+    }
+
+    private void CancelChoiceText()
+    {
+        _composing = null;
+        _choiceText = null;
+    }
+
     private Task SubmitPicksAsync() =>
         ReplyAsync([.. Spec!.Choices.Where(choice => _picked.Contains(choice.Id)).Select(choice => choice.Id)], null);
 
@@ -329,6 +385,8 @@
 
         _picked.Clear();
         _text = null;
+        _composing = null;
+        _choiceText = null;
         _note = null;
     }
 }
