@@ -1,0 +1,44 @@
+@using Microsoft.Extensions.DependencyInjection
+@inject global::Backlog.SharedKernel.ISurfaceNavigator Navigator
+@inject global::Backlog.SharedKernel.ISurfaceCatalog Catalog
+@inject IServiceProvider Services
+
+@*
+    The Dashboard as a shell surface (local ADR 0040 §1, §3): a takeover, in the main
+    window in place of the main view or in a window of its own. What it reads of the
+    window — the repository scope, the hues and Ask AI — comes through the window's
+    DashboardSurfaceWiring. The Sessions tab's link to every session is a jump to the
+    Sessions surface through the window's navigator, offered while the catalog offers
+    that surface.
+*@
+<DashboardPane OnClose="OnClose"
+               RepositoryAliases="@(_wiring?.RepositoryAliases?.Invoke() ?? [])"
+               RepositoryColour="@_wiring?.RepositoryColour"
+               OnOpenSessions="@OpenSessionsCallback"
+               OnAskAi="@AskAiCallback" />
+
+@code {
+    /// <summary>The Sessions surface's id, named here as a string, since the Dashboard
+    /// module references no Sessions UI project.</summary>
+    private const string SessionsSurfaceId = "sessions";
+
+    /// <summary>Unused: the Dashboard takes no query.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Closes the surface: back to the main view, or the window closed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private DashboardSurfaceWiring? _wiring;
+
+    protected override void OnInitialized() => _wiring = Services.GetService<DashboardSurfaceWiring>();
+
+    private EventCallback OpenSessionsCallback =>
+        Catalog.TryGet(SessionsSurfaceId, out _)
+            ? EventCallback.Factory.Create(this, () => Navigator.Show(SessionsSurfaceId))
+            : default;
+
+    private EventCallback<string> AskAiCallback =>
+        _wiring?.AskAi is { } askAi ? EventCallback.Factory.Create(this, askAi) : default;
+}

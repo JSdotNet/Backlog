@@ -38,6 +38,7 @@ using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Sessions.UI;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Modules.Sync.UI;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -324,12 +325,27 @@ public static class DesktopCompositionRegistration
         // The shell's surfaces (local ADR 0040 §1): each module's .UI registers its
         // ShellSurface, one catalog holds them, and each window jumps between them
         // through a navigator of its own (§3). The five views — Tasks, Board and
-        // Calendar from Tasks, the Roadmap, Goals — and the Devbook are registered;
-        // the shell still draws the other takeovers itself until they move.
+        // Calendar from Tasks, the Roadmap, Goals — and the takeovers: the Inbox, the
+        // Devbook, Sessions, the Dashboard, the notification centre and Tools from
+        // their modules, and the pull requests from the shell's own project, which
+        // reads GitHub for them.
         services.AddTasksSurfaces();
         services.AddRoadmapSurface();
         services.AddGoalsSurface();
         services.AddDevbookSurface();
+        services.AddInboxSurface();
+        services.AddSessionsSurface();
+        services.AddPullRequestsSurface();
+        services.AddDashboardSurface();
+        services.AddNotificationsSurface();
+        services.AddToolsSurface();
+        // What those takeovers read from the window they are shown in — its scope,
+        // its entries, the Inbox's Capture — built from the window's own state, so a
+        // takeover draws the same in a window of its own.
+        services.AddShellSurfaceWiring(options.WindowStateLifetime);
+        // Which window a scope belongs to, for a head service that stands over the
+        // window a request came from.
+        services.Add(new ServiceDescriptor(typeof(CurrentShellWindow), typeof(CurrentShellWindow), options.WindowStateLifetime));
         // What the views read beside the list: the Board's columns and the Calendar's
         // range from the shell's navigation file, and the Goals view's candidates from
         // the window's own task list and reader of pull requests.

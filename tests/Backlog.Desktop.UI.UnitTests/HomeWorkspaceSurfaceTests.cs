@@ -510,7 +510,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='backlog-pane']"));
                 Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
                 Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("Workspace", shellNavigation.LastSurface);
+                Assert.Null(shellNavigation.LastSurface);
             });
         }
         finally
@@ -864,12 +864,12 @@ public sealed class HomeWorkspaceSurfaceTests
             var component = Render(harness);
 
             component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Dashboard", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Equal("dashboard", shellNavigation.LastSurface));
 
             // The name the sessions list has always been remembered by, so a file
             // written while it was a Dashboard tab reopens on it too.
             component.Find("[data-testid='sessions-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Sessions", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Equal("sessions", shellNavigation.LastSurface));
         }
         finally
         {
@@ -894,11 +894,11 @@ public sealed class HomeWorkspaceSurfaceTests
             var component = Render(harness);
 
             component.Find("[data-testid='tools-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Tools", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Equal("tools", shellNavigation.LastSurface));
 
             component.Find("[data-testid='tools-toggle-button']").Click();
 
-            component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
         }
         finally
         {
@@ -980,7 +980,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 var component = Render(harness);
                 OpenTheRoadmap(component);
                 OpenTheDevbook(component);
-                component.WaitForAssertion(() => Assert.Equal("Devbook", shellNavigation.LastSurface));
+                component.WaitForAssertion(() => Assert.Equal("devbook", shellNavigation.LastSurface));
             }
 
             Assert.DoesNotContain("lastEnabledPanes", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
@@ -999,7 +999,7 @@ public sealed class HomeWorkspaceSurfaceTests
             reopened.Find("[data-testid='devbook-pane-option']").Click();
             reopened.WaitForAssertion(() =>
             {
-                Assert.Equal("Workspace", restarted.LastSurface);
+                Assert.Null(restarted.LastSurface);
                 Assert.NotEmpty(reopened.FindAll("[data-testid='workspace'] [data-testid='roadmap-band']"));
             });
         }
@@ -1029,7 +1029,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 var component = Render(harness);
                 component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']")));
                 component.Find("[data-testid='inbox-pane-option']").Click();
-                component.WaitForAssertion(() => Assert.Equal("Inbox", shellNavigation.LastSurface));
+                component.WaitForAssertion(() => Assert.Equal("inbox", shellNavigation.LastSurface));
             }
 
             var restarted = new ShellNavigationStore(path);
@@ -1042,7 +1042,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.NotEmpty(reopened.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']")));
 
             reopened.Find("[data-testid='inbox-pane-option']").Click();
-            reopened.WaitForAssertion(() => Assert.Equal("Workspace", restarted.LastSurface));
+            reopened.WaitForAssertion(() => Assert.Null(restarted.LastSurface));
         }
         finally
         {
@@ -1085,7 +1085,7 @@ public sealed class HomeWorkspaceSurfaceTests
             {
                 Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
                 Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
-                Assert.Equal("Workspace", shellNavigation.LastSurface);
+                Assert.Null(shellNavigation.LastSurface);
             });
         }
         finally
@@ -1170,7 +1170,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
                 Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
                 Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("Workspace", shellNavigation.LastSurface);
+                Assert.Null(shellNavigation.LastSurface);
             });
         }
         finally
@@ -1243,9 +1243,9 @@ public sealed class HomeWorkspaceSurfaceTests
             });
 
             component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Dashboard", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Equal("dashboard", shellNavigation.LastSurface));
             component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
 
             Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
             Assert.Equal("roadmap", new ShellNavigationStore(path).LastView);
@@ -1768,7 +1768,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.Empty(component.FindAll("[data-testid='inbox-pane-option']"));
                 Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
             });
-            Assert.Equal("Inbox", shellNavigation.LastSurface);
+            Assert.Equal("inbox", shellNavigation.LastSurface);
         }
         finally
         {
@@ -1805,7 +1805,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
                 Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='roadmap-band']"));
                 Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
-                Assert.Equal("Workspace", shellNavigation.LastSurface);
+                Assert.Null(shellNavigation.LastSurface);
             });
 
             _ = features.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
@@ -2013,20 +2013,6 @@ public sealed class HomeWorkspaceSurfaceTests
                 harness.Context.JSInterop.Invocations,
                 invocation => invocation.Identifier == "backlogPaneResizer.initialize" && invocation.Arguments.Count == 1);
         });
-    }
-
-    /// <summary>
-    /// The surfaces are stored by name, so each is appended and none reordered, and
-    /// the Devbook joined after the Inbox (local ADR 0022, amendment of
-    /// 2026-10-15) and the notification centre last. A tripwire on a later tidy-up rather than a test of behaviour,
-    /// which is why it lists members.
-    /// </summary>
-    [Fact]
-    public void The_notification_centre_is_the_last_surface_appended_after_the_devbook()
-    {
-        string[] expected = ["Workspace", "Tools", "Dashboard", "Roadmap", "Sessions", "PullRequests", "Inbox", "Devbook", "Notifications"];
-
-        Assert.Equal(expected, Enum.GetNames<WorkspaceSurface>());
     }
 
     /// <summary>
@@ -2308,10 +2294,10 @@ public sealed class HomeWorkspaceSurfaceTests
             });
 
             component.Find("[data-testid='tasks-view-option']").Click();
-            component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
             component.Find("[data-testid='pull-requests-toggle-button']").Click();
 
-            component.WaitForAssertion(() => Assert.Equal("PullRequests", shellNavigation.LastSurface));
+            component.WaitForAssertion(() => Assert.Equal("pull-requests", shellNavigation.LastSurface));
         }
         finally
         {

@@ -27,9 +27,14 @@ public partial class ShellSurfaceRegistrationTests
     {
         var components = RegisteredSurfaceComponents().ToList();
 
-        // The Devbook and the five views register one each; an empty list would pass
-        // for the wrong reason.
-        foreach (var expected in new[] { "DevbookSurface", "TasksSurface", "BoardSurface", "CalendarSurface", "RoadmapSurface", "GoalsSurface" })
+        // The five views and the takeovers a module draws register one each; an empty
+        // list would pass for the wrong reason. The pull requests list is the shell's
+        // own, so it is not among them.
+        foreach (var expected in new[]
+        {
+            "DevbookSurface", "TasksSurface", "BoardSurface", "CalendarSurface", "RoadmapSurface", "GoalsSurface",
+            "InboxSurface", "SessionsSurface", "DashboardSurface", "NotificationsSurface", "ToolsSurface",
+        })
         {
             Assert.Contains(components, component => component.Name == expected);
         }
@@ -57,6 +62,12 @@ public partial class ShellSurfaceRegistrationTests
     [InlineData("AddTasksSurfaces(")]
     [InlineData("AddRoadmapSurface(")]
     [InlineData("AddGoalsSurface(")]
+    [InlineData("AddInboxSurface(")]
+    [InlineData("AddSessionsSurface(")]
+    [InlineData("AddPullRequestsSurface(")]
+    [InlineData("AddDashboardSurface(")]
+    [InlineData("AddNotificationsSurface(")]
+    [InlineData("AddToolsSurface(")]
     public void The_desktop_composition_registers_each_module_surface(string registration) =>
         Assert.Contains(registration, Repository.DesktopCompositionSource(), StringComparison.Ordinal);
 

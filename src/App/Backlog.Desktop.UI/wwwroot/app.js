@@ -56,7 +56,13 @@ window.backlogTakeoverEscape = (() => {
         owner.invokeMethodAsync('CloseSurfaceOnEscapeAsync');
     });
 
-    // Keyless, like the shell's resizer registration: there is one shell.
+    // Keyless, and one owner per WebView: this script runs once per document, and
+    // every window — the main one and each surface popped out beside it (local ADR
+    // 0040 §4) — has a WebView, and so a document, of its own. Only the main
+    // window's shell registers; a popped-out window registers nothing and marks no
+    // <main> to close, so Escape there closes nothing — in it or in another window,
+    // whose document this listener cannot see. A web page the desktop serves is a
+    // browser tab, a document of its own again.
     return {
         register: (dotnet) => { owner = dotnet; },
         unregister: () => { owner = null; }

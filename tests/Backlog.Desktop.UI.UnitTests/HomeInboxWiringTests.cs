@@ -63,7 +63,7 @@ public sealed class HomeInboxWiringTests
         // The Inbox the item was routed from keeps the screen.
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']"));
         Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-        Assert.Equal("Inbox", harness.ShellNavigation.LastSurface);
+        Assert.Equal("inbox", harness.ShellNavigation.LastSurface);
         Assert.Equal("tasks", harness.ShellNavigation.LastView);
 
         // The Inbox option returns to the list, which already holds the entry.
@@ -340,7 +340,7 @@ public sealed class HomeInboxWiringTests
         await component.InvokeAsync(() => component.Instance.CloseSurfaceOnEscapeAsync());
 
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface']"));
-        Assert.Equal("Inbox", harness.ShellNavigation.LastSurface);
+        Assert.Equal("inbox", harness.ShellNavigation.LastSurface);
     }
 
     /// <summary>Opening the Inbox puts focus inside its pane, not on the surface
