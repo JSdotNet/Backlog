@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 
 /// <summary>
 /// A Brain note's <c>tasks</c> field read both ways (local ADR 0026 §3,
-/// <c>.devbook/domain/devbook/requirements.md#bi-directional-linking</c>): forwards as
+/// <c>.devbook/domain/brain/requirements.md#bi-directional-linking</c>): forwards as
 /// the tasks a note names, in reverse as the notes naming one task — from the Brain's
 /// own database, never from the backlog. A value is the task's stored id, a GUID.
 /// </summary>

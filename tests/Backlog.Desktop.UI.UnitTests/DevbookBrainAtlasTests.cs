@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The Brain's atlas (local ADR 0027 §6,
-/// <c>.devbook/domain/devbook/features.md#atlas-edges</c>): the Brain's notes and
+/// <c>.devbook/domain/brain/features.md#atlas-edges</c>): the Brain's notes and
 /// the links between them, with every <c>repo:</c> link drawn as an edge to a node
 /// for the repository chapter it names — labelled with the repository alias, and
 /// dashed where this machine cannot follow it. Read from the Brain's own database;
@@ -374,6 +374,8 @@ public sealed class DevbookBrainAtlasTests : IDisposable
             DevbookFolderLocation.Unavailable(key, "Not used here.");
 
         public IReadOnlyList<BrainArea> Areas() => [];
+
+        public IReadOnlyList<BrainArea> HiddenAreas() => [];
 
         public IReadOnlyList<BrainConflictCopy> ConflictCopies() => [];
     }

@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// A Brain note's Tasks section (local ADR 0026 §3,
-/// <c>.devbook/domain/devbook/requirements.md#bi-directional-linking</c>): the tasks
+/// <c>.devbook/domain/brain/requirements.md#bi-directional-linking</c>): the tasks
 /// its <c>tasks</c> field names, read from the Brain's database, each a chip that
 /// opens the task — or, for a task this backlog has not got, a dashed chip reading
 /// "not in this backlog", never an error.

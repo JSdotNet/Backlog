@@ -3,11 +3,15 @@ import type { Plan, PlanEntry, Worker, WorkerState } from '../types'
 /** get_plan_items on any server whose tool name ends in it. */
 export const isPlanItems = (tool: string) => /^mcp__.*__get_plan_items$/.test(tool)
 export const isTransition = (tool: string) => /^mcp__.*backlog.*__transition$/.test(tool)
-/** start_run/update_stage/finish_run on any delivery surface, bound or bare. */
-export const surfaceOp = (tool: string): 'start_run' | 'update_stage' | 'finish_run' | null => {
-  const m = /^mcp__.*__(start_run|update_stage|finish_run)$/.exec(tool)
-  return m ? (m[1] as 'start_run' | 'update_stage' | 'finish_run') : null
-}
+/** The host's session tools, on any server: start one, list or read them, read a session's events. */
+export const isStartSession = (tool: string) => /^mcp__.*__start_session$/.test(tool)
+export const isSessionRows = (tool: string) => /^mcp__.*__(list_sessions|get_session)$/.test(tool)
+export const isEvents = (tool: string) => /^mcp__.*__list_events$/.test(tool)
+/** A message to a session: the host's SendMessage (`to`) or a session server's send_message (`session_id`). */
+export const messageTarget = (tool: string, args: Record<string, unknown>): string =>
+  tool === 'SendMessage' ? String(args.to ?? '') : /^mcp__.*__send_message$/.test(tool) ? String(args.session_id ?? '') : ''
+/** list_runs/get_run on any delivery surface, bound or bare. */
+export const isRuns = (tool: string) => /^mcp__.*__(list_runs|get_run)$/.test(tool)
 
 /** `Draft`, `in-progress`, `InProgress` → `draft`, `inprogress`. */
 export const normStatus = (s: unknown) => String(s ?? '').toLowerCase().replace(/[^a-z]/g, '')
@@ -17,8 +21,8 @@ const parseJson = (text: string | undefined): unknown => {
   try {
     return JSON.parse(text)
   } catch {
-    const at = text.indexOf('{')
-    if (at < 0) return null
+    const at = [text.indexOf('{'), text.indexOf('[')].filter(i => i >= 0).sort((a, b) => a - b)[0]
+    if (at === undefined) return null
     try {
       return JSON.parse(text.slice(at))
     } catch {
@@ -55,22 +59,13 @@ export const parsePlan = (tag: string, text: string | undefined): Plan | null =>
   return { tag: body.planId ?? tag, entries }
 }
 
-/** The run id start_run answered with, under any of the spellings a surface uses. */
-export const parseRunId = (text: string | undefined): string => {
-  const body = parseJson(text) as Record<string, unknown> | null
-  const id = body?.runId ?? body?.id ?? (body?.run as Record<string, unknown> | undefined)?.id
-  if (id) return String(id)
-  const m = /run[_ ]?id["':\s]+([\w-]+)/i.exec(text ?? '')
-  return m?.[1] ?? ''
-}
-
 const stageName = (v: unknown): string => {
   const raw = typeof v === 'string' ? v : v && typeof v === 'object' ? ((v as { name?: unknown; title?: unknown }).name ?? (v as { title?: unknown }).title) : undefined
   return typeof raw === 'string' ? raw.trim() : ''
 }
 
 /**
- * The stages a start_run declared, however the worker spelled them: an array of names or of
+ * The stages a run lists, however they are spelled: an array of names or of
  * `{ name }` / `{ title }` objects, that array JSON-encoded as a string, or a comma-separated
  * string. Anything else declares none.
  */
@@ -91,16 +86,6 @@ export const parseStages = (v: unknown): string[] => {
   return v.map(stageName).filter(s => s !== '')
 }
 
-/** A stage index sent as a number or a numeric string; anything else is NaN, out of every range. */
-export const asIndex = (v: unknown): number => {
-  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v.trim()) : NaN
-  return Number.isInteger(n) ? n : NaN
-}
-
-/** A run id sent as a string or a number, as the string a surface answered; else ''. */
-export const asId = (v: unknown): string =>
-  typeof v === 'string' ? v.trim() : typeof v === 'number' && Number.isFinite(v) ? String(v) : ''
-
 /** The brief's opening line: You run one entry of the Backlog plan `<tag>`: `<n> - <Title>` (id `<id>`). */
 export const parseBrief = (prompt: string) => {
   const m = /entry of the Backlog plan `([^`]+)`: `(\d+)\s*-\s*([^`]+)` \(id `([^`]+)`\)/.exec(prompt)
@@ -109,7 +94,7 @@ export const parseBrief = (prompt: string) => {
   return { tag: m[1] ?? '', n: Number(m[2]), title, entryId: m[4] ?? '' }
 }
 
-/** A sub-agent's one-line return: done-before, gate, pr <url>, blocked <stage>: <reason>. */
+/** An entry session's one-line return: done-before, gate, pr <url>, blocked <stage>: <reason>. */
 export const parseReturn = (answer: string): { state: WorkerState; note: string } => {
   const lines = answer.trim().split(/\r?\n/)
   for (const line of [lines[0] ?? '', ...lines.slice(1).reverse()]) {
@@ -120,8 +105,96 @@ export const parseReturn = (answer: string): { state: WorkerState; note: string 
   return { state: 'stopped', note: (lines[0] ?? '').slice(0, 80) }
 }
 
-export const newWorker = (agentId: string, b: NonNullable<ReturnType<typeof parseBrief>>): Worker => ({
-  agentId,
+/**
+ * The session id start_session answered: its JSON `sessionId` / `session_id` when that is a
+ * `local_…` id — the answer may name a parent session first — else, when it has no such field,
+ * the first `local_…` id in it.
+ */
+export const parseSessionId = (text: string | undefined): string => {
+  const body = parseJson(text) as Record<string, unknown> | null
+  const own = body && typeof body === 'object' && !Array.isArray(body) ? body.sessionId ?? body.session_id : undefined
+  // An id field of its own that is no local id answers no session: any local id beside it is another's.
+  if (own !== undefined && own !== null) return typeof own === 'string' ? /^local_[0-9A-Za-z-]+$/.exec(own.trim())?.[0] ?? '' : ''
+  return /local_[0-9A-Za-z-]+/.exec(text ?? '')?.[0] ?? ''
+}
+
+const asText = (v: unknown) => (typeof v === 'string' ? v : '')
+
+/**
+ * The sessions a list_sessions or get_session answered — a JSON array of rows or one row,
+ * bare or under `sessions` / `session` — each with its worktree: `worktreePath`, else `cwd`.
+ */
+export const parseSessionRows = (text: string | undefined): { sessionId: string; worktree: string }[] => {
+  const body = parseJson(text) as unknown
+  const holder = body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : null
+  const raw = Array.isArray(body) ? body : Array.isArray(holder?.sessions) ? holder.sessions : holder?.session ?? holder
+  const rows = (Array.isArray(raw) ? raw : raw ? [raw] : []) as unknown[]
+  return rows
+    .filter((r): r is Record<string, unknown> => !!r && typeof r === 'object')
+    .map(r => ({ sessionId: asText(r.sessionId), worktree: asText(r.worktreePath) || asText(r.cwd) }))
+    .filter(r => r.sessionId !== '')
+}
+
+/** One path, however spelled: case, `/` against `\` and a trailing slash do not count. Empty never matches. */
+export const sameWorktree = (a: string | undefined, b: string | undefined) => {
+  const norm = (p: string | undefined) => (p ?? '').trim().replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  return norm(a) !== '' && norm(a) === norm(b)
+}
+
+export type RunView = { id: string; flow: string; status: string; stages: string[]; stageStatus: string[] }
+
+/**
+ * The run a list_runs or get_run answered for a worktree: list_runs answers `{ runs }` newest
+ * first, get_run one run, bare or under `run`. The run in progress wins, else the newest.
+ */
+export const parseRuns = (text: string | undefined): RunView | null => {
+  const body = parseJson(text) as Record<string, unknown> | unknown[] | null
+  if (!body || typeof body !== 'object') return null
+  const holder = body as Record<string, unknown>
+  const raw = Array.isArray(body) ? body : Array.isArray(holder.runs) ? holder.runs : [holder.run ?? holder]
+  const runs = (raw as unknown[]).filter(
+    (r): r is Record<string, unknown> => !!r && typeof r === 'object' && Array.isArray((r as { stages?: unknown }).stages),
+  )
+  const run = runs.find(r => normStatus(r.status) === 'inprogress') ?? runs[0]
+  if (!run) return null
+  const list = (run.stages as unknown[]).filter(s => stageName(s) !== '')
+  return {
+    id: String(run.id ?? run.runId ?? ''),
+    flow: asText(run.skillId),
+    status: asText(run.status),
+    stages: parseStages(list),
+    stageStatus: list.map(s => (s && typeof s === 'object' ? asText((s as { status?: unknown }).status) : '') || 'pending'),
+  }
+}
+
+/**
+ * The session's latest word from a list_events answer: a header, then messages each opening
+ * with `[role] `, maybe over several lines. The last assistant message with text beside its
+ * `(called …)` lines is the return; no such message, no return.
+ */
+export const parseEventsReturn = (text: string | undefined): { state: WorkerState; note: string } | null => {
+  const messages: { role: string; lines: string[] }[] = []
+  const header: string[] = []
+  for (const line of (text ?? '').split(/\r?\n/)) {
+    // Three letters at least, so a markdown checkbox `[x]` inside a message stays its text.
+    const m = /^\[([a-z_]{3,})\](?: (.*))?$/.exec(line)
+    if (m) messages.push({ role: m[1] ?? '', lines: [m[2] ?? ''] })
+    else if (messages.length === 0) header.push(line)
+    else messages.at(-1)?.lines.push(line)
+  }
+  // A session still in its turn has not returned yet: its latest text is no return line.
+  if (header.some(l => /\(running\)/i.test(l))) return null
+  for (const msg of messages.reverse()) {
+    if (msg.role !== 'assistant') continue
+    const said = msg.lines.filter(l => !/^\s*\(called [^)]*\)\s*$/.test(l)).join('\n').trim()
+    if (said !== '') return parseReturn(said)
+  }
+  return null
+}
+
+export const newWorker = (sessionId: string, b: NonNullable<ReturnType<typeof parseBrief>>): Worker => ({
+  sessionId,
+  worktree: '',
   entryId: b.entryId,
   n: b.n,
   title: b.title,

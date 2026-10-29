@@ -22,7 +22,8 @@ status: draft
 | Inbox | Core | It owns triage and the decision point where captured input becomes work, knowledge, deferral, or archive. |
 | Tasks | Core | It owns the durable work model, prioritization, and multi-repository execution planning. |
 | Roadmap Planning | Core | It owns the forward plan — what is intended, when, in what order — and is the only context that holds a dependency between two pieces of planned work. Sequencing intent across repositories is a judgement the product exists to support, not a report over work someone else owns. |
-| Devbook | Core | It owns durable knowledge linked to work and makes knowledge reusable across projects. |
+| Devbook | Core | It reads the devbook a repository carries beside its code in place, builds its database, renders and searches it, and supplies that reading machinery to the Brain. |
+| Brain | Core | It owns one person's own notes, organized by that person and their agent, linked to their work by id and, one way, into a repository's devbook (local ADR 0040). |
 | Productivity | Supporting | It turns AI-assisted work activity into personal productivity insight without owning the work items or execution tools. |
 | Environment | Supporting | It provides quick access to named local, cloud, and project environments without becoming the authority for repository or health data. |
 | Monitoring & Dashboard | Supporting | It observes the core flow and turns signals into visibility and follow-up actions rather than owning the work itself. |
@@ -42,7 +43,8 @@ flowchart LR
     Inbox[Inbox]
     Tasks[Tasks]
     Roadmap[Roadmap Planning]
-    Brain[Devbook]
+    Devbook[Devbook]
+    Brain[Brain]
     Productivity[Productivity]
     Environment[Environment]
     Monitor["Monitoring & Dashboard"]
@@ -60,11 +62,14 @@ flowchart LR
     %% Tasks' published ITaskItems — not an async event. See
     %% .devbook/domain/inbox/dependencies.md.
     Inbox -->|OHS + Published Language<br/>ItemTriaged| Tasks
-    Inbox -->|OHS + Published Language<br/>ItemTriaged| Brain
-    Tasks <-->|Partnership<br/>Cross-link by id| Brain
+    Inbox -->|OHS + Published Language<br/>ItemTriaged: To Brain| Brain
+    Tasks <-->|Partnership<br/>Task links by id| Brain
+    Devbook -->|Customer/Supplier<br/>Reader, database builder, viewer, search, remarks| Brain
+    Brain -.->|"One-way reference<br/>repo: link to a repository chapter"| Devbook
+    Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Brain
     Tasks <-->|Partnership<br/>Optional cross-link by id| Roadmap
     Roadmap -->|Customer/Supplier<br/>Roadmap tag vocabulary| Tasks
-    Brain -->|Customer/Supplier<br/>Chapters by tag/ref + registered effort| Roadmap
+    Devbook -->|Customer/Supplier<br/>Chapters by tag/ref + registered effort| Roadmap
 
     Roadmap -->|OHS + Published Language<br/>RoadmapItemScheduled| Monitor
 
@@ -113,7 +118,7 @@ flowchart LR
     %% Backlog.Infrastructure.Sync. See .devbook/domain/sync/context.md.
     Sync -->|OHS + Published Language<br/>Task replica feed| Tasks
     Sync -->|OHS + Published Language<br/>Session record replica| Sessions
-    Sync -->|OHS + Published Language<br/>Annotation replica| Brain
+    Sync -->|OHS + Published Language<br/>Annotation replica| Devbook
     Sync -->|Customer/Supplier<br/>capture-kind documents for IInboxIntake| Inbox
 
     %% Notifications. Not built yet: local ADR 0039. It conforms to Sync's replica
@@ -121,7 +126,7 @@ flowchart LR
     Sync -.->|"Conformist (not built)<br/>Notification and reply replica"| Notify
     Notify -.->|"OHS + Published Language (not built)<br/>INotifications, answer handler"| Sessions
     Notify -.->|"OHS + Published Language (not built)<br/>INotifications, answer handler"| Sync
-    Notify -.->|"OHS + Published Language (not built)<br/>INotifications"| Brain
+    Notify -.->|"OHS + Published Language (not built)<br/>INotifications"| Devbook
     Notify -.->|"OHS + Published Language (not built)<br/>Close by subject"| Tasks
 ```
 
@@ -130,12 +135,13 @@ flowchart LR
 | Contract owner | Published language / contract | Used by |
 |---|---|---|
 | Capture | `.devbook/domain/capture/domain.md#itemcaptured` | Inbox |
-| Inbox | `.devbook/domain/inbox/domain.md#itemtriaged` | Tasks, Devbook |
+| Inbox | `.devbook/domain/inbox/domain.md#itemtriaged` | Tasks, Brain |
 | Tasks | `.devbook/domain/tasks/domain.md#statuschanged`, `.devbook/domain/tasks/domain.md#taskprojected`, `.devbook/domain/tasks/domain.md#taskcompleted` | Monitoring & Dashboard |
 | Tasks | `.devbook/domain/tasks/domain.md#aiworklogged` | Productivity |
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmapitemscheduled` | Monitoring & Dashboard |
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-item` | Tasks |
 | Roadmap Planning | `.devbook/domain/roadmap/domain.md#roadmap-tag` | Tasks, Devbook |
+| Devbook | The devbook convention (local ADR 0016) and the [planning fields](devbook/domain.md#shared-value-objects) a chapter carries | Brain, Roadmap Planning |
 | Monitoring & Dashboard | `.devbook/domain/monitoring/domain.md#followupcaptured` | Inbox |
 | Dev PC Management | `.devbook/domain/dev-pc-management/domain.md#machinestatuschanged`, `.devbook/domain/dev-pc-management/domain.md#complianceupdated` | Monitoring & Dashboard |
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
@@ -169,9 +175,17 @@ flowchart LR
 
   Both are keyed by the same deterministic per-entry id, so idempotency belongs
   to the port, not to the transport.
-- `Tasks` and `Devbook` are a deliberate `Partnership`: both
+- `Tasks` and `Brain` are a deliberate `Partnership`: both
   sides keep only foreign ids and the link semantics are coordinated through the
-  Cross-Linking service rather than a shared aggregate.
+  [Cross-Linking](brain/domain.md#cross-linking) service rather than a shared
+  aggregate.
+- `Brain` is downstream of `Devbook` as a Customer/Supplier, not a Shared Kernel
+  (local ADR 0040). It conforms to the devbook convention and reads, indexes and
+  renders its notes through Devbook's machinery; a need of its own enters through
+  a hook Devbook offers, and Devbook knows no PARA, area or capture. Its repo links
+  run one way, into a repository chapter: no repository devbook links into a
+  Brain, and its backlinks are read from the owner's Brain, never written into
+  the repository.
 - `Roadmap Planning` **totals** what it does not **own**. Story-point `effort` is
   registered on Tasks and on devbook chapters. A
   [roadmap tag](roadmap/domain.md#roadmap-tag) is the vocabulary Tasks offers in

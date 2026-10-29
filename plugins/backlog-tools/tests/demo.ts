@@ -12,7 +12,7 @@ const STAGES = [
 type Script = {
   n: number
   start: number | ((tick: number) => number | null)
-  /** The stage it stops at, and what the sub-agent returns there. */
+  /** The stage it stops at, and what the session returns there. */
   stop: number
   outcome: Exclude<WorkerState, 'running'> | 'running'
   note: string
@@ -50,7 +50,8 @@ export const demoAt = (tick: number): { plan: Plan; workers: Worker[]; isOver: b
       return 'pending'
     })
     workers.push({
-      agentId: `demo-${s.n}`,
+      sessionId: `local_demo-${s.n}`,
+      worktree: `D:/w/e${s.n}`,
       entryId: `e${s.n}`,
       n: s.n,
       title: TITLES[s.n - 1] ?? '',

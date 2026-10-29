@@ -564,7 +564,7 @@ the AI cards.
 type: feature
 status: draft
 depends-on: [.devbook/domain/inbox/features.md#triage-workflow]
-related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/devbook/features.md#knowledge-capture]
+related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/brain/features.md#knowledge-capture]
 ```
 
 Routing is the terminal outcome of triage and happens exactly once.
@@ -734,15 +734,15 @@ says why in the panel and adds nothing. Confirm routes the batch through
 type: sub-feature
 status: draft
 aliases: [Route to Devbook, To Brain]
-related: [.devbook/domain/devbook/features.md#knowledge-capture, .devbook/domain/devbook/features.md#capture-into-the-brain, .devbook/domain/inbox/requirements.md#route-to-brain, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0025-notes-ride-the-task-feed.md]
+related: [.devbook/domain/brain/features.md#knowledge-capture, .devbook/domain/brain/features.md#capture-into-the-brain, .devbook/domain/inbox/requirements.md#route-to-brain, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0025-notes-ride-the-task-feed.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBrainTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxToBrainTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.BrainNoteWriterTests.Routing_the_same_item_again_reuses_the_untouched_note_it_wrote, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.Keep_as_knowledge_says_why_it_cannot_be_taken_while_no_brain_is_set]
 ```
 
 **To Brain** writes the item into the person's
-[Brain](../devbook/domain.md#brain) as a new note in the Brain's inbox area,
+[Brain](../brain/domain.md#brain) as a new note in the Brain's inbox area,
 keeping its title and its body. Under the default
-[PARA](../devbook/domain.md#para-category) areas that area is the `_inbox`
+[PARA](../brain/domain.md#para-category) areas that area is the `_inbox`
 folder. It is the route for [collected material](domain.md#collected-material),
 a capture the reader wants to keep rather than act on. It is also the route for
 an Inbox [note](domain.md#note) the reader has finished with on the phone and

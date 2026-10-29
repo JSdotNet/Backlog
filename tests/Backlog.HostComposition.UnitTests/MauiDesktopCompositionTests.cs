@@ -491,6 +491,14 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         Assert.Same(watch, provider.GetRequiredService<BrainFolderWatch>());
         watch.Start();
         Assert.Equal(folder, watch.WatchedRoot);
+
+        // Show hidden is the device's, kept beside show archived in the shell's
+        // navigation file, never in the Brain folder or its setting.
+        var showHidden = provider.GetRequiredService<IBrainShowHidden>();
+        Assert.IsType<BrainShowHidden>(showHidden);
+        Assert.Same(showHidden, provider.GetRequiredService<IBrainShowHidden>());
+        showHidden.SetShown(true);
+        Assert.True(provider.GetRequiredService<ShellNavigationStore>().BrainHiddenShown);
     }
 
     [SupportedOSPlatform("windows")]
