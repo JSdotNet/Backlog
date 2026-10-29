@@ -1,0 +1,139 @@
+@page "/markdown/live-editing"
+
+<PageTitle>Live editing — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Live editing"
+           Summary="A subpage of Markdown, about writing it where it is read. MarkdownLiveEditor renders every block of a document except the one holding the caret, which shows its own source in place. A block is every line that belongs together — a paragraph, a list, a table, a fenced block or a diagram — so opening one shows all of its lines and nothing else."
+           Guidelines="@Rules">
+
+    <Story Name="One block at a time"
+           Description="Click any block, or Tab to it and press Enter or Space, and it opens as its own source; every other block stays rendered. A click on a control inside a block — a task's checkbox, a link — is the control's, and the block stays rendered. ArrowUp on the first line of the box and ArrowDown on its last move into the neighbouring block. Backspace at the very start and Delete at the very end take in the block beside it, so the next key removes the break between them. Escape closes the block, and so does Tab onto another block or out of the editor.
+
+The source beside the editor is the value `ValueChanged` raised last: the whole document on every keystroke, with the blocks nobody opened kept byte for byte. While a block is open the blocks around it hold still. A paragraph typed into two, or a fence half typed, is cut into blocks when the caret leaves."
+           Code="@DocumentCode"
+           Source="@_document">
+        <div class="sb-columns">
+            <div class="sb-stack">
+                <p class="sb-label">Edit</p>
+                <MarkdownLiveEditor Value="@_document"
+                                    ValueChanged="v => _document = v"
+                                    TestId="live-editor" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">The source, live</p>
+                <CodeView Source="@_document"
+                          Language="markdown"
+                          AllowCopy="false"
+                          CssClass="sb-raw__code"
+                          TestId="live-editor-raised" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="An empty document"
+           Description="With nothing to render, the editor is one empty box, so there is somewhere to start typing. It is not focused on its own: the page decides where the keyboard goes. Type a few lines and click away, and the box becomes the blocks you wrote."
+           Code="@EmptyCode">
+        <MarkdownLiveEditor Value="@_empty"
+                            ValueChanged="v => _empty = v"
+                            Placeholder="Start with a heading, a paragraph, or a list…"
+                            TestId="live-editor-empty" />
+    </Story>
+
+    <Story Name="What stays byte for byte"
+           Description="This document is written with Windows line ends and carries three things the read view is partial about: a footnote definition, raw HTML, and a heading underlined rather than marked with `#`. The footnote definition is lines no block claims, so it shows as raw Markdown and opens like any block. The HTML and the underlined heading render as the prose the parser makes of them, and open as exactly what was written.
+
+Open any block and close it again, or edit one, and the line count below still reads CRLF throughout: the typed lines take the document's own line end, and the untouched ones are never rewritten."
+           Code="@VerbatimCode"
+           Source="@_verbatim">
+        <div class="sb-stack">
+            <MarkdownLiveEditor Value="@_verbatim"
+                                ValueChanged="v => _verbatim = v"
+                                TestId="live-editor-verbatim" />
+            <p class="sb-label" data-testid="live-editor-verbatim-line-ends">@LineEnds(_verbatim)</p>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#editing-model", "Why a block is edited where it is read rather than as raw text beside a preview."),
+        new("content-editing.md#raw-markdown-escape-hatch", "What opening one block's source in place has to offer."),
+        new("content-editing.md#round-trip-fidelity", "What has to survive opening a block, editing another, and closing both."),
+        new("content-editing.md#unsupported-syntax-preservation", "What the editor does with lines its parser does not model."),
+        new("interaction-guidelines.md#auto-save-no-save-buttons", "Why every keystroke raises the whole document and there is no save button."),
+        new("accessibility.md#keyboard-navigation", "Which keys reach a block, open it, and move between blocks.")
+    ];
+
+    private const string LiveDocument = """
+        # Release checklist
+
+        Everything that has to be true before the build goes out. Each block
+        opens on its own, so this paragraph's two lines are one block.
+
+        - [x] Merge the release branch
+        - [ ] Tag the build
+        - [ ] Write the release notes
+
+        | Channel | Owner | State |
+        | ------- | ----- | ----- |
+        | Desktop | Alex  | Ready |
+        | Mobile  | Sam   | Open  |
+
+        ```powershell
+        dotnet build Backlog.sln --configuration Release
+        ```
+
+        ```mermaid
+        graph LR
+          Merge --> Tag --> Notes --> Ship
+        ```
+
+        > Ship on a Tuesday, never on a Friday.
+        """;
+
+    private const string VerbatimDocument =
+        "Release notes\r\n" +
+        "=============\r\n" +
+        "\r\n" +
+        "The sync service now retries a dropped write.[^1]\r\n" +
+        "\r\n" +
+        "<kbd>Ctrl</kbd>+<kbd>S</kbd> is gone: everything saves as you type.\r\n" +
+        "\r\n" +
+        "[^1]: Three times, a second apart.\r\n";
+
+    private string _document = LiveDocument;
+    private string _empty = string.Empty;
+    private string _verbatim = VerbatimDocument;
+
+    /// <summary>How the document's lines end, counted — so a CRLF that turned into
+    /// an LF anywhere in it shows here as a number that moved.</summary>
+    private static string LineEnds(string text)
+    {
+        var crlf = text.Split("\r\n").Length - 1;
+        var lf = text.Count(ch => ch == '\n') - crlf;
+
+        return $"Line ends: {crlf} CRLF, {lf} LF";
+    }
+
+    private const string DocumentCode = """
+        <MarkdownLiveEditor Value="@_document"
+                            ValueChanged="v => _document = v" />
+
+        @* The value raised is always the whole document. *@
+        <CodeView Source="@_document" Language="markdown" />
+        """;
+
+    private const string EmptyCode = """
+        <MarkdownLiveEditor Value="@_empty"
+                            ValueChanged="v => _empty = v"
+                            Placeholder="Start with a heading, a paragraph, or a list…" />
+        """;
+
+    private const string VerbatimCode = """
+        @* A CRLF document stays CRLF: typed lines take its line end. *@
+        <MarkdownLiveEditor Value="@_verbatim"
+                            ValueChanged="v => _verbatim = v" />
+        """;
+}

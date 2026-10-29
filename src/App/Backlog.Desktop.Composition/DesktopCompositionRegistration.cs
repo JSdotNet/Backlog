@@ -140,11 +140,16 @@ public static class DesktopCompositionRegistration
         // targets are kept, and the module brings the sync and its timer. Each
         // connector is added with AddTaskConnector<T>(): GitHub issues through the
         // GitHub adapter registered below, and spec-manager with the head saying
-        // where its sign-in is kept.
+        // where its sign-in is kept and which installation it talks to — the
+        // SpecManager section of the head's configuration, bound here (ADR 0018). The
+        // spec-manager adapter also brings its questions in as notifications; the heads
+        // start SpecManagerQuestionSource once the container is built.
         services.AddSingleton(options.ConnectedTargets);
         services.AddLinkedTaskSync();
         services.AddTaskConnector<GitHubConnector>();
-        services.AddSpecManager(options.SpecManagerTokenStore);
+        services.AddSpecManager(
+            options.SpecManagerTokenStore,
+            configuration: options.Configuration?.GetSection(SpecManagerOptions.SectionName));
 
         services.AddRoadmapModule();
         // The plan behind the shell's Ask AI port, after the module so the scoped

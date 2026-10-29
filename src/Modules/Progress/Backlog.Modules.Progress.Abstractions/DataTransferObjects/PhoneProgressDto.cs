@@ -10,7 +10,9 @@ namespace Backlog.Modules.Progress.Abstractions.DataTransferObjects;
 /// <param name="CreatedAt">When it was set, which orders the goals alike on every device;
 /// null in a document that does not say.</param>
 /// <param name="Deleted">Whether the document is the tombstone a deletion leaves.</param>
-public sealed record GoalDocumentDto(GoalDto Goal, DateTimeOffset? CreatedAt, bool Deleted);
+/// <param name="Rank">Where the person placed it in their order, or null for a goal never
+/// placed; with <paramref name="CreatedAt"/> it is the goal's key in <see cref="GoalOrder"/>.</param>
+public sealed record GoalDocumentDto(GoalDto Goal, DateTimeOffset? CreatedAt, bool Deleted, long? Rank = null);
 
 /// <summary>An impediment as an <c>impediment</c> document says it, read by the phone.</summary>
 /// <param name="CreatedAt">When it was raised, which orders the impediments alike on every device.</param>

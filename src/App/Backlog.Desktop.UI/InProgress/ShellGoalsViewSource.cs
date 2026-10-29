@@ -2,6 +2,7 @@ using Backlog.Desktop.UI.Tasks;
 using Backlog.Modules.Progress.UI.Goals;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Desktop.UI.InProgress;
 
@@ -59,6 +60,10 @@ public sealed class ShellGoalsViewSource : IGoalsViewSource, IDisposable
         _ = refresh ? _reader.ReadAsync() : _reader.EnsureAllAsync();
         return Task.CompletedTask;
     }
+
+    /// <summary>The window's own create, so the task is in this window's list before the
+    /// Goals view attaches it.</summary>
+    public Func<string, Task<Result<Guid>>>? CreateTask => _state.CreateTaskAsync;
 
     private void OnChanged() => Changed?.Invoke();
 

@@ -26,6 +26,20 @@ public sealed class NotificationToastTests
         new([.. Enumerable.Range(1, count).Select(i => new AnswerChoice($"c{i}", $"Choice {i}"))], multiple, open);
 
     [Fact]
+    public void The_origin_is_the_attribution_line()
+    {
+        var toast = NotificationToast.For(View() with { Origin = new NotificationOrigin("Claude Code", "JSdotNet/Backlog · Notification origin", "Ada") })!;
+
+        Assert.Equal("Claude Code · JSdotNet/Backlog · Notification origin", toast.Attribution);
+    }
+
+    [Fact]
+    public void A_notification_without_an_origin_has_no_attribution_line()
+    {
+        Assert.Null(NotificationToast.For(View())!.Attribution);
+    }
+
+    [Fact]
     public void Set_answers_become_action_buttons()
     {
         var toast = NotificationToast.For(View())!;

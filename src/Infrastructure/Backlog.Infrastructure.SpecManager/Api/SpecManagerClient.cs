@@ -8,9 +8,11 @@ using Backlog.Infrastructure.SpecManager.OAuth;
 namespace Backlog.Infrastructure.SpecManager.Api;
 
 /// <summary>
-/// The REST calls the connector makes, and nothing else: five reads — the products,
-/// a product's backlog, its statuses, its labels and its members — and one write, an
-/// item's status.
+/// The REST calls the connector and the question source make, and nothing else: the
+/// reads — the products, a product's backlog, its statuses, its labels, its members and
+/// its questions, and the person's unread notifications — the writes — an item's status,
+/// a question's answer and a notification marked read — and the notification stream that
+/// says when to read the questions and notifications again.
 /// Thin on purpose — what an answer means is the connector's business.
 /// <para>
 /// Every call carries the bearer <see cref="SpecManagerSignIn"/> hands out. A 401 is
@@ -25,19 +27,175 @@ internal sealed class SpecManagerClient
     /// pipeline on.</summary>
     public const string HttpClientName = "spec-manager";
 
+    /// <summary>The named client the notification stream is held open on: no retry and
+    /// no timeout, because a stream meant to stay open for a quarter of an hour would be
+    /// cut by either.</summary>
+    public const string StreamHttpClientName = "spec-manager-stream";
+
     private readonly Func<HttpClient> _http;
+    private readonly Func<HttpClient> _streamHttp;
     private readonly SpecManagerSignIn _signIn;
     private readonly SpecManagerOptions _options;
 
-    public SpecManagerClient(Func<HttpClient> http, SpecManagerSignIn signIn, SpecManagerOptions options)
+    /// <param name="streamHttp">The client the notification stream is read on; the
+    /// pipeline's client when null, which is what a test hands in.</param>
+    public SpecManagerClient(Func<HttpClient> http, SpecManagerSignIn signIn, SpecManagerOptions options, Func<HttpClient>? streamHttp = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(signIn);
         ArgumentNullException.ThrowIfNull(options);
 
         _http = http;
+        _streamHttp = streamHttp ?? http;
         _signIn = signIn;
         _options = options;
+    }
+
+    /// <summary>The installation's root, as every path is appended to.</summary>
+    public string Root => _options.Root;
+
+    /// <summary>
+    /// The product's questions in <paramref name="state"/> — <c>open</c> or
+    /// <c>answered</c> — and, with <paramref name="changedSince"/>, only those asked,
+    /// answered, reassigned or edited at or after it. Read like every other path: a
+    /// 401 refreshed once and asked again, a refusal thrown as
+    /// <see cref="HttpRequestException"/> with its status, nobody signed in as
+    /// <see cref="SpecManagerSignInRequiredException"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<BacklogQuestionDto>> GetQuestionsAsync(
+        string product,
+        string state,
+        DateTimeOffset? changedSince,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(state);
+
+        var query = "?state=" + Uri.EscapeDataString(state);
+        if (changedSince is { } since)
+        {
+            query += "&changedSince=" + Uri.EscapeDataString(since.ToString("O", CultureInfo.InvariantCulture));
+        }
+
+        return await GetAsync<IReadOnlyList<BacklogQuestionDto>>(ProductPath(product, "backlog-questions") + query, cancellationToken).ConfigureAwait(false) ?? [];
+    }
+
+    /// <summary>
+    /// Answers <paramref name="questionId"/>: one option by its position, or "Other"
+    /// with its own text, and a note; answers the question as it then stands. A refusal
+    /// — what spec-manager says no to and would say no to again — throws
+    /// <see cref="SpecManagerRefusedException"/> with the server's own reason: a 403 while
+    /// the product does not allow answering from a connected app (or keeps agents out), a
+    /// 400 when someone else answered first, a 404 when the question is gone, a 409 when
+    /// it changed under the answer. A token refused again after the refresh is
+    /// <see cref="SpecManagerSignInRequiredException"/>, and any other failure — a server
+    /// error, a throttle the pipeline gave up on — an <see cref="HttpRequestException"/>:
+    /// neither is an answer about the question, so the caller keeps the answer to send
+    /// again. The same answer sent again by the same person is a correction to the same
+    /// thing, which spec-manager accepts.
+    /// </summary>
+    public async Task<BacklogQuestionDto?> AnswerQuestionAsync(
+        string product,
+        string questionId,
+        BacklogAnswerRequest answer,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(questionId);
+        ArgumentNullException.ThrowIfNull(answer);
+
+        using var response = await SendAsync(
+            HttpMethod.Put,
+            ProductPath(product, $"backlog-questions/{Uri.EscapeDataString(questionId)}/answer"),
+            answer,
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Forbidden or HttpStatusCode.NotFound or HttpStatusCode.Conflict)
+        {
+            throw new SpecManagerRefusedException(response.StatusCode, await ProblemOfAsync(response, cancellationToken).ConfigureAwait(false));
+        }
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized) throw new SpecManagerSignInRequiredException();
+
+        response.EnsureSuccessStatusCode();
+
+        // The answer is recorded once the status says so; a body this build cannot read
+        // does not make it unrecorded, and sending it again would only correct it to itself.
+        try
+        {
+            return await response.Content.ReadFromJsonAsync<BacklogQuestionDto>(SpecManagerJson.Options, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Opens <c>GET /api/notifications/stream</c>, spec-manager's Server-Sent Events
+    /// stream that says when the person's notification centre changed, and answers the
+    /// response with its headers read and its body not: the caller reads the events off
+    /// it and disposes it. A 401 is refreshed once like every other path; any other
+    /// refusal throws <see cref="HttpRequestException"/> with its status.
+    /// </summary>
+    public async Task<HttpResponseMessage> OpenNotificationStreamAsync(CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(
+            HttpMethod.Get,
+            "/api/notifications/stream",
+            body: null,
+            cancellationToken,
+            HttpCompletionOption.ResponseHeadersRead,
+            "text/event-stream",
+            _streamHttp).ConfigureAwait(false);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var status = response.StatusCode;
+            response.Dispose();
+            throw new HttpRequestException($"spec-manager answered {(int)status} to the notification stream.", null, status);
+        }
+
+        return response;
+    }
+
+    /// <summary>
+    /// The person's unread notifications, newest first —
+    /// <c>GET /api/notifications?unread=true&amp;count=N</c>, <paramref name="count"/> clamped
+    /// to 1..200 by the server — with how many unread there are in all. Read like every other
+    /// path: a 401 refreshed once and asked again, a refusal thrown as
+    /// <see cref="HttpRequestException"/> with its status, nobody signed in as
+    /// <see cref="SpecManagerSignInRequiredException"/>.
+    /// </summary>
+    public async Task<NotificationsResponse?> GetUnreadNotificationsAsync(int count, CancellationToken cancellationToken) =>
+        await GetAsync<NotificationsResponse>(
+            "/api/notifications?unread=true&count=" + count.ToString(CultureInfo.InvariantCulture),
+            cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Marks <paramref name="notificationId"/> read in the person's notification centre —
+    /// <c>POST /api/notifications/{id}/read</c>. A 204 is done, and so is a 404: spec-manager
+    /// answers it for an id it no longer has, or that is not the person's, and sending it
+    /// again would only be answered the same. A token refused again after the refresh is
+    /// <see cref="SpecManagerSignInRequiredException"/>; any other failure an
+    /// <see cref="HttpRequestException"/> with its status, and the read is sent again later.
+    /// </summary>
+    public async Task MarkNotificationReadAsync(Guid notificationId, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(
+            HttpMethod.Post,
+            $"/api/notifications/{notificationId:D}/read",
+            body: null,
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode == HttpStatusCode.NotFound) return;
+        if (response.StatusCode == HttpStatusCode.Unauthorized) throw new SpecManagerSignInRequiredException();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"spec-manager answered {(int)response.StatusCode} to marking a notification read.",
+                null,
+                response.StatusCode);
+        }
     }
 
     /// <summary>
@@ -143,12 +301,20 @@ internal sealed class SpecManagerClient
     private Task<HttpResponseMessage> SendAsync(string pathAndQuery, CancellationToken cancellationToken) =>
         SendAsync(HttpMethod.Get, pathAndQuery, body: null, cancellationToken);
 
-    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string pathAndQuery, object? body, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendAsync(
+        HttpMethod method,
+        string pathAndQuery,
+        object? body,
+        CancellationToken cancellationToken,
+        HttpCompletionOption completion = HttpCompletionOption.ResponseContentRead,
+        string accept = "application/json",
+        Func<HttpClient>? http = null)
     {
         var token = await _signIn.GetAccessTokenAsync(cancellationToken).ConfigureAwait(false)
             ?? throw new SpecManagerSignInRequiredException();
 
-        var response = await SendOnceAsync(method, pathAndQuery, body, token, cancellationToken).ConfigureAwait(false);
+        var client = http ?? _http;
+        var response = await SendOnceAsync(method, pathAndQuery, body, token, completion, accept, client, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode != HttpStatusCode.Unauthorized) return response;
 
         // The token was refused before its time — revoked, or the clock here is
@@ -157,19 +323,27 @@ internal sealed class SpecManagerClient
         var renewed = await _signIn.RefreshAfterRejectionAsync(token, cancellationToken).ConfigureAwait(false)
             ?? throw new SpecManagerSignInRequiredException();
 
-        return await SendOnceAsync(method, pathAndQuery, body, renewed, cancellationToken).ConfigureAwait(false);
+        return await SendOnceAsync(method, pathAndQuery, body, renewed, completion, accept, client, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>One request. The body is serialised afresh each time, because a
     /// retry is a new request and a sent one's content is spent.</summary>
-    private async Task<HttpResponseMessage> SendOnceAsync(HttpMethod method, string pathAndQuery, object? body, string token, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendOnceAsync(
+        HttpMethod method,
+        string pathAndQuery,
+        object? body,
+        string token,
+        HttpCompletionOption completion,
+        string accept,
+        Func<HttpClient> http,
+        CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, new Uri(_options.Root + pathAndQuery));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(accept));
         if (body is not null) request.Content = JsonContent.Create(body, body.GetType(), options: SpecManagerJson.Options);
 
-        return await _http().SendAsync(request, cancellationToken).ConfigureAwait(false);
+        return await http().SendAsync(request, completion, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

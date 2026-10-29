@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Results;
+
 namespace Backlog.Modules.Progress.UI.Goals;
 
 /// <summary>
@@ -19,4 +21,9 @@ public interface IGoalsViewSource
     /// <summary>The view opened (false) or Refresh was pressed (true). Not awaited by the
     /// view: the board draws from what is held, and fills in when the read lands.</summary>
     Task ReadAsync(bool refresh);
+
+    /// <summary>The window's create for a goal's "New task" row: a task titled with the
+    /// text given, its id back or the Tasks module's refusal — the shell's, because
+    /// Progress UI may not reach Tasks. Null, the default, offers no goal the row.</summary>
+    Func<string, Task<Result<Guid>>>? CreateTask => null;
 }

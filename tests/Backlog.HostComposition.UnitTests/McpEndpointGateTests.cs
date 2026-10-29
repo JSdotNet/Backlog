@@ -9,6 +9,7 @@ using Backlog.Desktop.UI.Extensions;
 using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.Mcp;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.Tests;
@@ -53,7 +54,8 @@ public class McpEndpointGateTests
         bool sessions = true,
         IDeliverySurfaceLifecycle? surface = null,
         bool sessionRequests = true,
-        ISessionRequestStore? queue = null)
+        ISessionRequestStore? queue = null,
+        INotifications? notifications = null)
         : IsolatedHarnessFactory<DesktopHarness::Program>
     {
         protected override void ConfigureHarness(IWebHostBuilder builder)
@@ -70,6 +72,10 @@ public class McpEndpointGateTests
 
                 // And an in-memory queue rather than the workspace's backlog.db.
                 if (queue is not null) services.AddSingleton(queue);
+
+                // And a recording port rather than the owner's notifications, which
+                // would publish to this machine's shared backlog.db.
+                if (notifications is not null) services.AddSingleton(notifications);
             });
         }
     }
@@ -103,7 +109,7 @@ public class McpEndpointGateTests
 
     /// <summary>An <c>initialize</c>, which is the first thing any MCP client
     /// sends and the only call that needs no session behind it.</summary>
-    private static HttpRequestMessage Initialize(string protocolVersion = "2024-11-05")
+    private static HttpRequestMessage Initialize(string protocolVersion = "2024-11-05", string clientName = "host-composition-tests")
     {
         var request = new HttpRequestMessage(HttpMethod.Post, BacklogMcpServerRegistration.EndpointPath)
         {
@@ -116,7 +122,7 @@ public class McpEndpointGateTests
                 {
                     protocolVersion,
                     capabilities = new { },
-                    clientInfo = new { name = "host-composition-tests", version = "1.0.0" }
+                    clientInfo = new { name = clientName, version = "1.0.0" }
                 }
             })
         };
@@ -556,8 +562,37 @@ public class McpEndpointGateTests
         Assert.Contains("\"isError\":true", proposals, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// <c>ask</c> names its origin over the real endpoint, where the tool's own tests cannot
+    /// reach: the client arrives through the SDK's injected server, never as an argument.
+    /// The endpoint is stateless, so a client on the handshake revisions is not named on the
+    /// later <c>tools/call</c> — this one said <c>claude-code</c> in its <c>initialize</c> and
+    /// the call still carries no client — and the Claude session it names is what makes it
+    /// Claude Code.
+    /// </summary>
+    [Fact]
+    public async Task Ask_from_a_claude_session_names_claude_code_as_its_origin()
+    {
+        var notifications = new RecordingNotifications();
+        await using var harness = new Harness(notifications: notifications);
+        using var client = harness.CreateClient();
+
+        using var handshake = Initialize("2025-06-18", clientName: "claude-code");
+        using var initialized = await client.SendAsync(handshake, TestContext.Current.CancellationToken);
+        Assert.True(initialized.IsSuccessStatusCode);
+        var session = initialized.Headers.TryGetValues("mcp-session-id", out var ids) ? ids.Single() : null;
+
+        var body = await CallToolAsync(client, "ask", new { title = "Pick a name", choices = new[] { "Signals", "Pulse" }, sessionId = "sess-91" }, session);
+
+        Assert.DoesNotContain("\"isError\":true", body, StringComparison.Ordinal);
+        var origin = Assert.Single(notifications.Published).Draft.Origin;
+        Assert.NotNull(origin);
+        Assert.Equal("MCP ask", origin.Via);
+        Assert.Equal("Claude Code", origin.System);
+    }
+
     /// <summary>One stateless <c>tools/call</c>, as its body.</summary>
-    private static async Task<string> CallToolAsync(HttpClient client, string name, object arguments)
+    private static async Task<string> CallToolAsync(HttpClient client, string name, object arguments, string? session = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, BacklogMcpServerRegistration.EndpointPath)
         {
@@ -572,6 +607,8 @@ public class McpEndpointGateTests
 
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+        if (session is not null) request.Headers.Add("mcp-session-id", session);
 
         using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
 

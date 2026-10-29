@@ -128,6 +128,12 @@ public sealed class DesktopCompositionOptions
     /// there is not the installed app's. Never a settings file.</summary>
     public required Func<IServiceProvider, ISpecManagerTokenStore> SpecManagerTokenStore { get; init; }
 
+    /// <summary>The head's configuration, from which the composition binds the sections
+    /// its adapters own (ADR 0018 in <c>.devbook/arc42/adr/guidelines/</c>) — today
+    /// <c>SpecManager</c>, so a harness can point the app at a local spec-manager. Null
+    /// binds nothing, and every adapter keeps the defaults it ships with.</summary>
+    public Microsoft.Extensions.Configuration.IConfiguration? Configuration { get; init; }
+
     /// <summary>The reader's inbox routing rules.</summary>
     public required Func<IServiceProvider, IInboxRoutingRules> InboxRoutingRules { get; init; }
 

@@ -29,6 +29,17 @@
         </div>
     </Story>
 
+    <Story Name="Questions assigned to me"
+           Description="Offered only where the source asks the person questions — the host says so with HasQuestions, from the connector's capabilities — and off by default, which brings the questions assigned to the person and the unassigned ones they may answer. On, only the ones assigned to them arrive as notifications. spec-manager asks; GitHub does not, so its card, the second here, has no switch.
+
+Under the switch, one line says how to stop a phone buzzing twice. spec-manager pushes its own question to a phone subscribed to it, on by default, on top of Backlog's. Both pushes are kept, and the line names the preference on that phone that leaves only Backlog's. It goes with the switch, so a connector that asks no questions has neither."
+           Code="@QuestionsCode">
+        <div class="sb-menu-wide" data-testid="connected-target-questions">
+            <ConnectedTargetEditor Options="@_questions" OnChange="options => _questions = options" TestId="connected-target-asking" />
+            <ConnectedTargetEditor Options="@NoQuestions" OnChange="_ => { }" TestId="connected-target-not-asking" />
+        </div>
+    </Story>
+
     <Story Name="Repository and statuses"
            Description="A spec-manager product filed under a repository, with its statuses mapped. The repository picker offers the registry's repositories by alias and stores the owner/name; its empty choice is None for a product, and the target's own repository for a GitHub one. New tasks are filed under it, and tasks already filed keep theirs.
 
@@ -128,6 +139,12 @@ The Statuses group has one row per status the source lists, in its order, each w
     private ConnectedTargetOptions _restorable =
         new("spec-manager", "fincent-specs") { LastSynced = "15 Oct 2026 08:30", DeletedTaskCount = 34 };
 
+    private ConnectedTargetOptions _questions =
+        new("spec-manager", "billing", CompleteAtSource: true) { LastSynced = "26 Oct 2026 09:20", CanCompleteAtSource = true, HasQuestions = true };
+
+    private static readonly ConnectedTargetOptions NoQuestions =
+        new("GitHub", "JSdotNet/Backlog") { Icon = "github", LastSynced = "26 Oct 2026 09:15" };
+
     private static readonly ConnectedTargetOptions CannotComplete =
         new("Jira", "PROJ") { LastSynced = "5 Oct 2026 08:40" };
 
@@ -164,6 +181,14 @@ The Statuses group has one row per status the source lists, in its order, each w
     private const string CompleteCode = """
         <ConnectedTargetEditor Options="@(options with { CanCompleteAtSource = connector.Capabilities.CanComplete })"
                                OnChange="Save" />
+        """;
+
+    private const string QuestionsCode = """
+        <ConnectedTargetEditor Options="@(options with { HasQuestions = connector.Capabilities.HasQuestions })"
+                               OnChange="Save" />
+
+        @* spec-manager: HasQuestions is true, so the switch and its push line show.
+           GitHub: false, so neither does. *@
         """;
 
     private const string MappingCode = """

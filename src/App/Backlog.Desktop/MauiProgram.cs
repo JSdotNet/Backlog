@@ -124,6 +124,9 @@ public static class MauiProgram
             // A refresh token is a secret, so DPAPI, beside github.json under the
             // per-user Backlog folder; the connected targets above stay plain text.
             SpecManagerTokenStore = _ => new DpapiSpecManagerTokenStore(),
+            // The SpecManager section, bound by the composition (ADR 0018). The installed
+            // app sets none and talks to the installation that ships.
+            Configuration = builder.Configuration,
             InboxRoutingRules = _ => new InboxRoutingRulesStore(),
             GitHubSettings = root => new GitHubSettingsStore(GitHubSettingsStore.DefaultLocalPath, root),
             PullRequestPins = _ => new PullRequestPinsStore(),
@@ -300,6 +303,11 @@ public static class MauiProgram
         // And the linked task sync's timer, on the same terms: each connected
         // repository or product syncs on its own interval only while this exists.
         _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
+
+        // And the spec-manager question source, on the same terms: while signed in to
+        // spec-manager it holds the notification stream and brings the product's questions
+        // in as notifications; a singleton nobody resolves asks nothing.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.SpecManager.Questions.SpecManagerQuestionSource>();
 
         // And the blocked-task watcher, on the same terms: it raises an impediment for a
         // task marked blocked (local ADR 0035), and a watcher nobody resolves hears nothing.

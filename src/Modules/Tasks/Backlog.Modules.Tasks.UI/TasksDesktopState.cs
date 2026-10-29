@@ -1821,6 +1821,53 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     }
 
     /// <summary>
+    /// Saves a new task titled <paramref name="title"/> and answers with its id — the Goals
+    /// view's "New task" row, which the shell hands this to because Progress UI may not
+    /// reach Tasks (ADR 0035 §6, local ADR 0028). The Goals view attaches it to the goal
+    /// itself: nothing about a goal is written into the task.
+    /// <para>
+    /// It starts as <see cref="NewRow"/> starts an entry — <c>`task`</c> <c>`*medium`</c>
+    /// <c>`!draft`</c>, filed in the anchored repository so it stays in the scope it was
+    /// typed in — with no plan tag and nothing else. The title comes from a one-line
+    /// search box and is written as one title line, its line breaks folded to spaces, so
+    /// caller text never becomes a step.
+    /// </para>
+    /// <para>
+    /// Saved the way any new entry is, through the self-attributed use cases, so the pane
+    /// knows the write for its own and undo can take it back. The row is in
+    /// <see cref="Rows"/> when this answers: the Goals view maps its reading over the list
+    /// straight after, and a task it does not find there is one it counts but cannot show.
+    /// A refusal is the module's, handed back with no row left behind.
+    /// </para>
+    /// </summary>
+    public async Task<Result<Guid>> CreateTaskAsync(string title)
+    {
+        var line = string.Join(' ', (title ?? string.Empty).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)).Trim();
+
+        var tokens = "`task` `*medium` `!draft`";
+        if (AnchorRepositoryAlias.Length > 0) tokens += $" `repo:{AnchorRepositoryAlias}`";
+        var text = EntryTextParser.WithTitle($"# \n{tokens}\n", line);
+
+        var row = new EntryRow { RawText = text };
+        Rows.Add(row);
+
+        var saved = await ApplySegmentAsync(row, text, rewriteText: true);
+        if (saved.IsFailure || row.Id is not { } id)
+        {
+            Rows.Remove(row);
+            ApplyFilter();
+            Changed?.Invoke();
+            return Result.Failure<Guid>(saved.IsFailure
+                ? saved.Error
+                : Error.Unexpected("entry.save_failed", "The task was not saved."));
+        }
+
+        ApplyFilter();
+        Changed?.Invoke();
+        return id;
+    }
+
+    /// <summary>
     /// Brings in a plan — a block of entry text naming one or more prompts — and
     /// turns it into backlog entries in one step. Per ADR 0007 this is a use case
     /// over the same grammar every entry already goes through, so the only thing
@@ -1968,12 +2015,6 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         // the dispatcher's next keystroke on the same row.
         await FinishOwedOnMergeAsync();
     }
-
-    // The sub-item raw editor is gone, and its capability is not: a step's notes
-    // are edited in the shared task row's own body editor, which reports every
-    // keystroke to ChangeSubItemNote below. That is the same rewrite through the
-    // same ReplaceSubItemText, arriving from a library control instead of a
-    // hand-rolled textarea — so what went is an implementation, not a way in.
 
     /// <summary>Explicit, deliberate destructive action — distinct from the
     /// forbidden "Save" gesture, so it stays as a confirmed button.</summary>
@@ -2614,45 +2655,6 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         Changed?.Invoke();
     }
 
-    public async Task ToggleSubItemAsync(EntryRow row, int subItemIndex)
-    {
-        if (row.IsReadOnly) return;
-
-        // Two ways a sub-item can be finished, and which one applies is decided by
-        // what the author wrote rather than by this method. A heading carrying a
-        // literal `[ ]` has its marker flipped, because the checkbox glyph is
-        // reserved for literal task-list syntax
-        // (.devbook/design/content-editing.md#backlog-entry-structure). A plain heading has
-        // no marker to flip, and inventing one would put checkbox syntax into
-        // somebody's document because they pressed a control — so its completion
-        // goes on its own metadata line as `!done`, which is the same form the
-        // cascading parent status change already writes and the same form the read
-        // view already reads back.
-        var rewritten = EntryTextParser.ToggleSubItem(row.RawText, subItemIndex);
-
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal))
-        {
-            var done = subItemIndex >= 0
-                && subItemIndex < row.PreviewSubItems.Count
-                && row.PreviewSubItems[subItemIndex].Done;
-
-            rewritten = EntryTextParser.WithSubItemStatus(
-                row.RawText,
-                subItemIndex,
-                done ? EntryStatus.Ready : EntryStatus.Done);
-        }
-
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
-
-        CancelDebounce(row);
-        row.RawText = rewritten;
-
-        await SaveRowAsync(row, isFlush: true);
-
-        ApplyFilter();
-        Changed?.Invoke();
-    }
-
     public async Task ChangeTypeAsync(EntryRow row, EntryType type) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithType(row.RawText, type));
 
@@ -2738,81 +2740,11 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
     // method with no caller and no test. An orphan that still compiles reads as a
     // supported way in, so it went with its caller rather than after it.
 
-    /// <summary>Renames one step. Same shape as renaming the entry, one level
-    /// down, and indexed the way every other sub-item write here is indexed — the
-    /// nth chapter.</summary>
-    public async Task RenameSubItemAsync(EntryRow row, int subItemIndex, string title)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        await RewriteMetadataAsync(row, EntryTextParser.WithSubItemTitle(row.RawText, subItemIndex, title));
-    }
-
-    /// <summary>One step's notes, per keystroke, debounced for the same reason the
-    /// entry's note is.</summary>
-    public void ChangeSubItemNote(EntryRow row, int subItemIndex, string note)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        if (row.IsReadOnly) return;
-
-        var rewritten = EntryTextParser.WithSubItemNote(row.RawText, subItemIndex, note);
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
-
-        row.RawText = rewritten;
-        ScheduleDebouncedSave(row);
-        Changed?.Invoke();
-    }
-
-    /// <summary>Adds a step to the end of the entry. Nothing happens on an empty
-    /// name: there is no such thing as a step with no name, and adding one would
-    /// leave a chapter the reader cannot see or remove.</summary>
-    public async Task AddSubItemAsync(EntryRow row, string title)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        await RewriteMetadataAsync(row, EntryTextParser.AppendSubItem(row.RawText, title));
-    }
-
-    /// <summary>
-    /// Deletes one step: the chapter, its own metadata line and its notes.
-    /// <para>
-    /// No confirmation and no undo, which is the entry-level bin's bargain one level
-    /// down — <see cref="DeleteRowAsync"/> asks nothing and offers nothing back, and
-    /// a step that asked while the entry holding it did not would be inconsistent in
-    /// the wrong direction: the step is the cheaper of the two to lose and the
-    /// cheaper of the two to type again.
-    /// </para>
-    /// <para>
-    /// Indexed the way every other sub-item write here is — the nth chapter — and
-    /// guarded the way the move is, against an index that names no step: the id came
-    /// off a row, and a row the reader pressed may already have gone.
-    /// </para>
-    /// <para>
-    /// <c>_editingSubItemCount</c> is deliberately left alone, exactly as
-    /// <see cref="AddSubItemAsync"/> leaves it. It is the count the raw editor was
-    /// opened against, and a count higher than the chapters that remain falls back
-    /// to the first chapter in <c>ChildStartLine</c> — which is the honest boundary
-    /// for an entry nobody has typed a new <c>##</c> into. Rewriting it here would
-    /// be this method deciding what an open editor is showing, which is
-    /// <see cref="BeginEdit"/>'s answer rather than a step delete's.
-    /// </para>
-    /// </summary>
-    public async Task RemoveSubItemAsync(EntryRow row, int subItemIndex)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        if (subItemIndex < 0 || subItemIndex >= row.PreviewSubItems.Count) return;
-
-        await RewriteMetadataAsync(row, EntryTextParser.RemoveSubItem(row.RawText, subItemIndex));
-    }
-
-    // No per-sub-item type, priority, status or tag edits. A sub-item carries a
-    // title, a status, notes and an order and nothing else, and the four
-    // rewrites that used to live here wrote tokens that TaskTextSync then
-    // discarded on the next save — the UI was editing values the domain had no
-    // room for. Sub-item completion is still expressible, through the checkbox
-    // and ToggleSubItemAsync above.
+    // No step writes here. A step is a `##` chapter, so it is renamed, added,
+    // moved, deleted and finished (`!done` on its line, or `[x]` in its heading)
+    // in the body's editor, through ChangeBody. A sub-item carries a title, a
+    // status, notes and an order and nothing else, so there are no per-step type,
+    // priority or tag edits either: TaskTextSync would discard them on the next save.
 
     public async Task ChangeAreaAsync(EntryRow row, string? area) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithArea(row.RawText, area));
@@ -3040,30 +2972,13 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         await RewriteMetadataAsync(row, EntryTextParser.WithAttachment(row.RawText, Attachment.From(path)));
 
     /// <summary>
-    /// Remembers which reading of the body the person asked for.
-    /// <para>
-    /// A metadata rewrite like every other one on this list, and flushed rather than
-    /// debounced for the same reason a status change is: it is one discrete decision,
-    /// not typing. The entry is where it is kept because the markdown is canonical —
-    /// a preference held anywhere else would not survive the file being shared, and
-    /// the next person to open it from a clone would get somebody else's default.
-    /// </para>
-    /// </summary>
-    public async Task ChangeViewAsync(EntryRow row, EntryView? view)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        await RewriteMetadataAsync(row, EntryTextParser.WithView(row.RawText, view));
-    }
-
-    /// <summary>
     /// The whole body, per keystroke, debounced for the same reason a note is
     /// (see <c>interaction-guidelines.md#auto-save-no-save-buttons</c>) — prose is prose, and a save per character would be a save per character.
     /// <para>
-    /// The body rather than the note, because the markdown block in the pane is a
-    /// view of the same text the steps list is a view of. A writer scoped to the
-    /// prose half would silently discard a <c>##</c> chapter somebody typed into the
-    /// block, which is the one thing a raw-ish surface must never do.
+    /// The body rather than the note, because the pane's editor holds the prose and
+    /// the steps' <c>##</c> chapters together. A writer scoped to the prose would
+    /// silently discard a chapter somebody typed into it, which is the one thing a
+    /// raw-ish surface must never do.
     /// </para>
     /// </summary>
     public void ChangeBody(EntryRow row, string body)
@@ -3361,43 +3276,6 @@ public sealed class TasksDesktopState : IDisposable, IAsyncDisposable, ISaveStat
         Changed?.Invoke();
 
         return new BulkEditOutcome(updated, unchanged, failures);
-    }
-
-    /// <summary>
-    /// Moves one step into another step's place, within the same entry.
-    /// <para>
-    /// Two indices rather than a direction, and no drag state to consult: the
-    /// shared task list holds the whole gesture and reports where the step landed,
-    /// exactly as it does for the entries above. Steps only ever re-rank inside
-    /// their own entry — a step belongs to what it is written under, so dropping
-    /// one on another entry would be moving text between two documents, which is a
-    /// rewrite rather than a re-rank, and no list here offers it.
-    /// </para>
-    /// <para>
-    /// The re-focus the keyboard move needs is the list's now too. It puts the
-    /// caret back on the row it moved, by an id only it knows, which is why there
-    /// is nothing left here for a pane to consume.
-    /// </para>
-    /// </summary>
-    public async Task MoveSubItemAsync(EntryRow row, int from, int to)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        if (row.IsReadOnly) return;
-        if (from == to || from < 0 || to < 0 || to >= row.PreviewSubItems.Count) return;
-
-        var rewritten = EntryTextParser.MoveSubItem(row.RawText, from, to);
-        if (string.Equals(rewritten, row.RawText, StringComparison.Ordinal)) return;
-
-        CancelDebounce(row);
-        row.RawText = rewritten;
-
-        // A re-rank is a finished gesture, not a keystroke: save it now rather
-        // than on a debounce that a drag never generates.
-        await SaveRowAsync(row, isFlush: true);
-
-        ApplyFilter();
-        Changed?.Invoke();
     }
 
     /// <summary>
@@ -7032,14 +6910,6 @@ public sealed class EntryRow
 
     public string ProgressText => SubItemCount == 0 ? string.Empty : $"{CompletedSubItemCount}/{SubItemCount}";
 
-    /// <summary>The rendered body shown when this row is not being edited. Stops
-    /// at the first sub-item: sub-items are items in their own right and are laid
-    /// out below the entry rather than inside its body.</summary>
-    public IReadOnlyList<MdBlock> PreviewBlocks
-    {
-        get { Render(); return _bodyBlocks; }
-    }
-
     /// <summary>The entry's sub-items, in the order they are written. Each is
     /// rendered as its own draggable card beneath the entry.</summary>
     public IReadOnlyList<MdSubItem> PreviewSubItems
@@ -7053,41 +6923,6 @@ public sealed class EntryRow
     public string PreviewBody
     {
         get { Render(); return _parsed!.Body; }
-    }
-
-    /// <summary>One reading of the steps and the text it was read from, published
-    /// together so another thread never pairs one text with another's steps.</summary>
-    private sealed record StepTextsCache(string From, IReadOnlyList<EntryTextParser.SubItemTitleAndNote> Steps);
-
-    private volatile StepTextsCache? _stepTexts;
-
-    /// <summary>
-    /// Every step's title and notes as <see cref="EntryTextParser.GetSubItemTitle"/>
-    /// and <see cref="EntryTextParser.GetSubItemNote"/> read them, indexed the
-    /// same way — read once per text rather than twice per step per render.
-    /// <para>
-    /// Not <see cref="PreviewSubItems"/>: that list is the Markdown preview's own
-    /// reading of the body, while the steps list writes back by the parser's
-    /// index. Where the two counts differ, an index past the end here is a step
-    /// with no title or notes, which is what the per-index reads return for it.
-    /// </para>
-    /// <para>
-    /// Kept apart from <see cref="Render"/> and built only when asked, because
-    /// only the open entry's steps list reads it.
-    /// </para>
-    /// </summary>
-    public IReadOnlyList<EntryTextParser.SubItemTitleAndNote> PreviewStepTexts
-    {
-        get
-        {
-            var text = RawText;
-            var cached = _stepTexts;
-            if (cached is not null && string.Equals(cached.From, text, StringComparison.Ordinal)) return cached.Steps;
-
-            var steps = EntryTextParser.GetSubItemTitlesAndNotes(text);
-            _stepTexts = new StepTextsCache(text, steps);
-            return steps;
-        }
     }
 
     public bool HasExpandableContent
@@ -7272,62 +7107,13 @@ public sealed class EntryRow
     }
 
     /// <summary>
-    /// Which reading of the body this entry was last looked at in, as written down.
-    /// Null when nobody has said, which is a different answer from either view —
-    /// see <see cref="EffectiveView"/> for what the pane does with that.
+    /// The <c>view:</c> token as written down, or null when there is none. Inert:
+    /// the pane draws one editor whatever it says, and nothing writes it any more.
+    /// Still read so the metadata hint reports a token found on the line.
     /// </summary>
     public EntryView? PreviewView
     {
         get { Render(); return _parsed!.View; }
-    }
-
-    /// <summary>
-    /// The view to actually draw: the one that was asked for, or the one that has
-    /// something to show.
-    /// <para>
-    /// An entry with no <c>##</c> chapters has no steps for the steps view to list,
-    /// so defaulting it there would open every prose entry on an empty list with a
-    /// line underneath explaining that its text is somewhere else. Derived rather
-    /// than written down, because a default written into the text is a preference
-    /// the reader never expressed — and it would then have to be unwritten from
-    /// every entry before this default could ever change.
-    /// </para>
-    /// </summary>
-    public EntryView EffectiveView
-    {
-        get
-        {
-            Render();
-
-            // Off the cached parse rather than re-locating the chapters. The pane
-            // asks this several times per render, and the text has not changed
-            // while it did.
-            return _parsed!.View ?? (_subItems.Count > 0 ? EntryView.Steps : EntryView.Notes);
-        }
-    }
-
-    /// <summary>
-    /// Whether the entry opens with prose before its first chapter.
-    /// <para>
-    /// The steps view lists chapters, and the prose an entry opens with is not one.
-    /// A view that quietly hid it would make the markdown look like it had lost
-    /// text, so the pane reads it out above the steps (<see cref="PreviewBlocks"/>) —
-    /// <c>.devbook/design/content-editing.md#round-trip-fidelity</c> is about the text
-    /// surviving, and a reader who cannot see it has no way to know that it did.
-    /// </para>
-    /// </summary>
-    public bool StepsViewHidesProse
-    {
-        get
-        {
-            Render();
-
-            // The blocks in front of the first chapter, which is exactly the prose
-            // the steps have no row for. Read off the same cached parse the steps
-            // themselves come from, so the two cannot disagree about where the first
-            // chapter starts.
-            return _bodyBlocks.Count > 0;
-        }
     }
 
     /// <summary>What the app actually understood from the meta line, in plain

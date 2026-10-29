@@ -224,6 +224,14 @@ public sealed record GoalAttachRequest(string GoalId, GoalSubject Subject);
 /// <summary>Detach <paramref name="Subject"/> from the goal <paramref name="GoalId"/>.</summary>
 public sealed record GoalDetachRequest(string GoalId, GoalSubject Subject);
 
+/// <summary>Create a task titled <paramref name="Title"/>, trimmed, and attach it to the goal
+/// <paramref name="GoalId"/>: the open goal's "New task" row.</summary>
+public sealed record GoalQuickAddRequest(string GoalId, string Title);
+
+/// <summary>Put the goal <paramref name="GoalId"/> at <paramref name="ToIndex"/> among the
+/// board's goals, counted from 0 in the order the board was handed them.</summary>
+public sealed record GoalMoveRequest(string GoalId, int ToIndex);
+
 /// <summary>A goal's title, outcome and due date as its open card hands them back, trimmed:
 /// the three replace what the goal says (<c>.devbook/domain/progress/features.md#setting-a-goal</c>).</summary>
 /// <param name="GoalId">The host's id for the goal.</param>

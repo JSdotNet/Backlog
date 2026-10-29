@@ -116,6 +116,59 @@ public sealed class NotificationToolsTests
         Assert.Empty(port.Closed);
     }
 
+    // --- origin ---------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Ask_and_notify_name_their_origin_as_an_mcp_ask()
+    {
+        var port = new FakeNotifications();
+
+        await Tools(port).AskAsync("Pick a name", ["Signals", "Pulse"], cancellationToken: Cancellation);
+        await Tools(port).NotifyAsync("Heads up", cancellationToken: Cancellation);
+
+        Assert.All(port.Published, published =>
+            Assert.Equal(new NotificationOrigin(NotificationTools.UnnamedClient, Via: "MCP ask"), published.Draft.Origin));
+    }
+
+    [Theory]
+    [InlineData("claude-code", null, "Claude Code")]
+    [InlineData("Claude-Code", null, "Claude Code")]
+    [InlineData("cursor", null, "cursor")]
+    [InlineData("vscode", "Visual Studio Code", "Visual Studio Code")]
+    [InlineData("  ", "  ", "MCP client")]
+    public void The_origins_system_is_the_mcp_clients_own_name(string name, string? title, string system)
+    {
+        var origin = NotificationTools.Origin(new ModelContextProtocol.Protocol.Implementation { Name = name, Title = title, Version = "1.0" });
+
+        Assert.Equal(system, origin!.System);
+        Assert.Equal("MCP ask", origin.Via);
+    }
+
+    [Fact]
+    public void A_call_with_no_client_information_reads_as_an_unnamed_mcp_client()
+    {
+        Assert.Equal("MCP client", NotificationTools.Origin(null)!.System);
+    }
+
+    /// <summary>The stateless endpoint names no client on the handshake revisions; a call that
+    /// names a Claude session is from Claude Code all the same.</summary>
+    [Fact]
+    public void A_call_naming_a_claude_session_without_client_information_reads_as_claude_code()
+    {
+        Assert.Equal("Claude Code", NotificationTools.Origin(null, Session)!.System);
+        Assert.Equal("cursor", NotificationTools.Origin(new ModelContextProtocol.Protocol.Implementation { Name = "cursor", Version = "1" }, Session)!.System);
+    }
+
+    [Fact]
+    public async Task Ask_about_a_session_names_claude_code_as_its_origin()
+    {
+        var port = new FakeNotifications();
+
+        await Tools(port).AskAsync("Pick a name", ["Signals", "Pulse"], sessionId: Session, cancellationToken: Cancellation);
+
+        Assert.Equal(new NotificationOrigin("Claude Code", Via: "MCP ask"), Assert.Single(port.Published).Draft.Origin);
+    }
+
     [Fact]
     public async Task Ask_without_a_session_is_about_the_question_itself()
     {

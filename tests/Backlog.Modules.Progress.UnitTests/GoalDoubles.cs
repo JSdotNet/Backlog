@@ -8,7 +8,9 @@ using Backlog.SharedKernel;
 namespace Backlog.Modules.Progress.UnitTests;
 
 /// <summary>The goals kept in memory, as the SQLite row would keep them: saved whole and
-/// handed back as stored, in the order they were first saved.</summary>
+/// handed back as stored, in the person's order (<see cref="GoalOrder"/>). A goal saved
+/// without the moment it was set is keyed by when it was first saved, as the SQLite store
+/// keys it by its row's stamp.</summary>
 internal sealed class InMemoryGoalRepository : IGoalRepository
 {
     private readonly List<Goal> _all = [];
@@ -18,7 +20,18 @@ internal sealed class InMemoryGoalRepository : IGoalRepository
     public int Deletes { get; private set; }
 
     public Task<IReadOnlyList<Goal>> ListAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<Goal>>([.. _all]);
+        Task.FromResult<IReadOnlyList<Goal>>(
+        [
+            .. _all
+                .Select((goal, saved) => (Goal: goal, Key: GoalOrder.Key(goal.Rank, goal.CreatedAt ?? FirstSaved.AddTicks(saved))))
+                .OrderBy(entry => entry.Key)
+                .ThenBy(entry => entry.Goal.Id)
+                .Select(entry => entry.Goal)
+        ]);
+
+    /// <summary>The stand-in for the stamp of a goal saved without a date: after every goal
+    /// the tests set with one.</summary>
+    private static readonly DateTimeOffset FirstSaved = new(2100, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     public Task<Goal?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
         Task.FromResult(_all.FirstOrDefault(goal => goal.Id == id));
