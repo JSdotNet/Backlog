@@ -136,11 +136,18 @@ public static class SessionsAdapterRegistration
         // and not here, so a context whose answer handler reads sessions cannot make
         // the two singletons wait on each other; a host that composed none closes
         // nothing.
+        // And the question relay read in last (local ADR 0041): a live session holding an
+        // open waiting question reads Waiting. Resolved per reading for the reason
+        // Notifications is: a host that composed no relay gets the list unchanged.
         services.AddSingleton<IAgentSessionSource>(sp =>
-            new SessionEndWatchingSource(
-                new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]),
-                sp.GetService<INotifications>,
-                sp.GetService<ILogger<SessionEndWatchingSource>>()));
+            new WaitingSessionSource(
+                new SessionEndWatchingSource(
+                    new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]),
+                    sp.GetService<INotifications>,
+                    sp.GetService<ILogger<SessionEndWatchingSource>>(),
+                    sp.GetService<QuestionRelay>),
+                sp.GetService<QuestionRelay>,
+                sp.GetService<ILogger<WaitingSessionSource>>()));
 
         // The delivery runs go in with the sessions rather than behind a call of their
         // own, and that is the opposite of the choice AddAgentActivitySource makes.
@@ -272,7 +279,8 @@ public static class SessionsAdapterRegistration
             new SessionValidationAnswers(
                 sp.GetRequiredService<IDeliverySurfaceLifecycle>(),
                 sp.GetService<ILogger<SessionValidationAnswers>>(),
-                new ScopedTaskFollowUps(sp.GetRequiredService<IServiceScopeFactory>()))));
+                new ScopedTaskFollowUps(sp.GetRequiredService<IServiceScopeFactory>()),
+                sp.GetService<QuestionRelay>())));
 
         return services;
     }

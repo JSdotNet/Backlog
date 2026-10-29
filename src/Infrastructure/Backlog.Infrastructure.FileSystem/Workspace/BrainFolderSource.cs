@@ -14,8 +14,9 @@ namespace Backlog.Infrastructure.FileSystem;
 /// always editable, so the location it answers carries
 /// <see cref="DevbookSourceKind.LocalFolder"/> and the panels offer the editor on
 /// every note. Its folder is its own root, and the areas inside it are the ones its
-/// <c>CONVENTIONS.md</c> declares (<see cref="BrainConventions"/>), read by the
-/// database builder under <see cref="DevbookCorpusKind.Brain"/>.</para>
+/// <c>CONVENTIONS.md</c> declares, then the other top folders holding a note, minus
+/// the ignored ones (<see cref="BrainConventions"/>) — the same set the database
+/// builder reads under <see cref="DevbookCorpusKind.Brain"/>.</para>
 ///
 /// <para>The Brain's folder is asked of <c>brainFolder</c> on every resolve, so a
 /// setting that changes takes effect at once; whoever owns that setting calls
@@ -77,9 +78,11 @@ public sealed class BrainFolderSource : IBrainFolderSource
         }
     }
 
-    /// <summary>The areas the Brain shows, in order: what its
-    /// <c>CONVENTIONS.md</c> declares, or the PARA set.</summary>
+    /// <inheritdoc />
     public IReadOnlyList<BrainArea> Areas() => BrainConventions.Read(BrainRoot);
+
+    /// <inheritdoc />
+    public IReadOnlyList<BrainArea> HiddenAreas() => BrainConventions.Hidden(BrainRoot);
 
     /// <summary>The OneDrive conflict pairs among the Brain's notes, by name
     /// alone (<see cref="BrainConflictCopies"/>): a listing, never a read of a

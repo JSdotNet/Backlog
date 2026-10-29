@@ -3,7 +3,24 @@ import type { On } from 'claude-code'
 
 import type { Worker } from '../types'
 
-import { asId, asIndex, kindOf, parseBrief, parsePlan, parseReturn, parseRunId, parseStages, surfaceOp, tally } from '../hooks/parse'
+import {
+  isEvents,
+  isRuns,
+  isSessionRows,
+  isStartSession,
+  kindOf,
+  messageTarget,
+  parseBrief,
+  parseEventsReturn,
+  parsePlan,
+  parseReturn,
+  parseRuns,
+  parseSessionId,
+  parseSessionRows,
+  parseStages,
+  sameWorktree,
+  tally,
+} from '../hooks/parse'
 import { BLOCK, CELL, abbrev, alsoLine, bandRows, cellsOf, columnsOf, currentStage, liveRows, matrixLayout, matrixSvg, rowsOf, stageStatesOf } from '../hooks/view'
 import { demoAt } from './demo'
 
@@ -20,6 +37,44 @@ const PLAN = JSON.stringify({
 
 const BRIEF =
   'You run one entry of the Backlog plan `+demo`: `2 - Second prompt` (id `b2`) in `JSdotNet/Backlog`,\n**attended**.'
+
+// What the host's session tools and a delivery surface answer about an entry session.
+const SESSION = 'local_7f3a-b2c1'
+const WORKTREE = 'D:\\Repos\\Backlog\\.claude\\worktrees\\entry-b2'
+const STARTED = `Started session ${SESSION} ("+demo:2 - Second prompt"). It runs in the background.`
+const SESSIONS = JSON.stringify([
+  { sessionId: 'local_other', title: 'Something else', cwd: 'D:\\Repos\\Other', isRunning: false },
+  { sessionId: SESSION, title: '+demo:2 - Second prompt', cwd: WORKTREE, isRunning: true },
+])
+const runsAnswer = (worktree: string, stages: { name: string; status: string }[]) =>
+  JSON.stringify({ worktree, count: 1, runs: [{ id: 'run-1', skillId: 'flow-code', status: 'in_progress', stages }] })
+const RUNS = runsAnswer('D:/Repos/Backlog/.claude/worktrees/entry-b2', [
+  { name: 'Scope', status: 'done' },
+  { name: 'Implement', status: 'in_progress' },
+  { name: 'Build & Test', status: 'pending' },
+  { name: 'Personal Validation', status: 'pending' },
+])
+const EVENTS_AT_GATE = [
+  `Session "+demo:2 - Second prompt" (idle) — showing 5 events`,
+  '[user] You run one entry of the Backlog plan `+demo`.',
+  '[assistant] Starting on the entry.',
+  '(called Bash)',
+  '[assistant] gate',
+  'Review at http://localhost:5173 — check the new filter chip.',
+  '[assistant] (called Bash)',
+].join('\n')
+
+type Answer = { result: unknown; text: string }
+const answer = (text: string): Answer => ({ result: text, text })
+/** The host and the surfaces, answering each call the way they do. */
+const host = (e: { tool: string }): Answer => {
+  if (e.tool === 'mcp__backlog__get_plan_items') return answer(PLAN)
+  if (isStartSession(e.tool)) return answer(STARTED)
+  if (isSessionRows(e.tool)) return answer(SESSIONS)
+  if (isRuns(e.tool)) return answer(RUNS)
+  if (isEvents(e.tool)) return answer(EVENTS_AT_GATE)
+  return answer('ok')
+}
 
 test('reads the plan, numbering each entry by its title', () => {
   const plan = parsePlan('+demo', PLAN)
@@ -51,20 +106,23 @@ test('numbers a follow-up filed under the plan tag after the highest step, never
   ])
 })
 
-test('recognises the brief, the surface tools and the returns', () => {
+test('recognises the brief, the session tools and the returns', () => {
   expect(parseBrief(BRIEF)).toEqual({ tag: '+demo', n: 2, title: 'Second prompt', entryId: 'b2' })
-  expect(surfaceOp('mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__update_stage')).toBe('update_stage')
-  expect(surfaceOp('mcp__backlog__start_run')).toBe('start_run')
-  expect(surfaceOp('mcp__backlog__transition')).toBe(null)
-  expect(parseRunId('{"runId":"r-9","resumed":false}')).toBe('r-9')
+  expect(isStartSession('mcp__ccd_session__start_session')).toBe(true)
+  expect([isSessionRows('mcp__ccd_session__list_sessions'), isSessionRows('mcp__x__get_session')]).toEqual([true, true])
+  expect(isRuns('mcp__plugin_delivery-surface-backlog_delivery-surface-backlog__list_runs')).toBe(true)
+  expect([isRuns('mcp__dashboard__get_run'), isRuns('mcp__backlog__start_run')]).toEqual([true, false])
+  expect([isEvents('mcp__ccd_session__list_events'), isStartSession('start_session')]).toEqual([true, false])
+  expect(messageTarget('SendMessage', { to: 'local_a' })).toBe('local_a')
+  expect(messageTarget('mcp__ccd_session__send_message', { session_id: 'local_b', to: 'local_x' })).toBe('local_b')
+  expect([messageTarget('mcp__x__send_message', { to: 'local_a' }), messageTarget('send_message', { session_id: 'local_a' })]).toEqual(['', ''])
   expect(parseReturn('pr https://github.com/o/r/pull/7')).toEqual({ state: 'pr', note: 'https://github.com/o/r/pull/7' })
   expect(parseReturn('Some notes.\n\nblocked implement: empty diff').state).toBe('blocked')
   expect(parseReturn('gate\nReview at http://localhost:5000').state).toBe('gate')
-  expect(parseReturn('gate run-7 D:/dm/b2\nReview at http://localhost:5000')).toEqual({ state: 'gate', note: 'run-7 D:/dm/b2' })
   expect(parseBrief(BRIEF.replace('`2 - Second', '`2 - 2 - Second'))?.title).toBe('Second prompt')
 })
 
-test('reads a declared stage list in any shape a worker sends it', () => {
+test('reads a stage list in any shape a run spells it', () => {
   const stages = ['scope', 'implement', 'build-test']
   expect(parseStages(stages)).toEqual(stages)
   expect(parseStages('["scope","implement","build-test"]')).toEqual(stages)
@@ -73,16 +131,75 @@ test('reads a declared stage list in any shape a worker sends it', () => {
   for (const other of [undefined, null, 3, {}, '', '{"stages":1}', [1, 2]]) expect(parseStages(other)).toEqual([])
 })
 
-test('compares a stage index and a run id after coercion', () => {
-  expect([asIndex(2), asIndex('0'), asIndex(' 3 ')]).toEqual([2, 0, 3])
-  for (const other of [undefined, null, '', 'two', '1.5', 1.5, {}]) expect(asIndex(other)).toBeNaN()
-  expect([asId('r1'), asId(' r1 '), asId(42)]).toEqual(['r1', 'r1', '42'])
-  for (const other of [undefined, null, {}, [], true]) expect(asId(other)).toBe('')
+test('takes the session id start_session answered', () => {
+  expect(parseSessionId(STARTED)).toBe(SESSION)
+  expect(parseSessionId('{"sessionId":"local_abc-123","title":"x"}')).toBe('local_abc-123')
+  // A JSON answer's own id wins over a parent session it names first.
+  expect(parseSessionId('{"parentSessionId":"local_p","sessionId":"local_s1"}')).toBe('local_s1')
+  expect(parseSessionId('Started: {"parent":"local_p","session_id":"local_s2"}')).toBe('local_s2')
+  // Its own id field, not a local id: no session — a local id beside it is another session's.
+  expect(parseSessionId('{"parentSessionId":"local_p","sessionId":"remote_9"}')).toBe('')
+  expect(parseSessionId('{"parentSessionId":"local_p","session_id":null}')).toBe('local_p')
+  for (const other of [undefined, '', 'Started.', 'session remote_9']) expect(parseSessionId(other)).toBe('')
+})
+
+test('reads each session row with its worktree, the worktree path before the cwd', () => {
+  expect(parseSessionRows(SESSIONS)).toEqual([
+    { sessionId: 'local_other', worktree: 'D:\\Repos\\Other' },
+    { sessionId: SESSION, worktree: WORKTREE },
+  ])
+  const one = JSON.stringify({ sessionId: SESSION, cwd: 'D:/a', worktreePath: 'D:/b' })
+  expect(parseSessionRows(one)).toEqual([{ sessionId: SESSION, worktree: 'D:/b' }])
+  expect(parseSessionRows(`Linked sessions:\n${SESSIONS}`)).toHaveLength(2)
+  expect(parseSessionRows(JSON.stringify({ sessions: [{ sessionId: SESSION }] }))).toEqual([{ sessionId: SESSION, worktree: '' }])
+  for (const other of [undefined, '', 'none', '[]', '{}', '[1,"x"]']) expect(parseSessionRows(other)).toEqual([])
+})
+
+test('compares worktrees however the path is spelled', () => {
+  expect(sameWorktree(WORKTREE, 'd:/repos/backlog/.claude/worktrees/entry-b2/')).toBe(true)
+  expect(sameWorktree('D:/a/', 'D:\\a')).toBe(true)
+  expect(sameWorktree('D:/a', 'D:/ab')).toBe(false)
+  expect([sameWorktree('', ''), sameWorktree(undefined, ''), sameWorktree('', 'D:/a')]).toEqual([false, false, false])
+})
+
+test('reads the run in progress, else the newest, from list_runs and get_run', () => {
+  expect(parseRuns(RUNS)).toEqual({
+    id: 'run-1',
+    flow: 'flow-code',
+    status: 'in_progress',
+    stages: ['Scope', 'Implement', 'Build & Test', 'Personal Validation'],
+    stageStatus: ['done', 'in_progress', 'pending', 'pending'],
+  })
+  // The real list_runs answer, with doneCount beside each stage.
+  const real = '{"worktree":"x","count":1,"runs":[{"id":"run-1","skillId":"flow-code","status":"in_progress","stages":[{"name":"Update Base","status":"done","doneCount":1},{"name":"Scope","status":"in_progress","doneCount":0}]}]}'
+  expect(parseRuns(real)?.stageStatus).toEqual(['done', 'in_progress'])
+  const run = (id: string, status: string) => ({ id, skillId: 'flow-code', status, stages: [{ name: 'Scope', status: 'done' }] })
+  expect(parseRuns(JSON.stringify({ runs: [run('r3', 'done'), run('r2', 'in_progress')] }))?.id).toBe('r2')
+  expect(parseRuns(JSON.stringify({ runs: [run('r3', 'done'), run('r2', 'failed')] }))?.id).toBe('r3')
+  expect(parseRuns(JSON.stringify(run('r4', 'done')))?.id).toBe('r4')
+  expect(parseRuns(JSON.stringify({ run: run('r5', 'in_progress') }))?.id).toBe('r5')
+  for (const other of [undefined, '', 'No runs.', '{"runs":[]}', '{"id":"r"}']) expect(parseRuns(other)).toBeNull()
+})
+
+test('reads the return from the last assistant message with text', () => {
+  expect(parseEventsReturn(EVENTS_AT_GATE)).toEqual({ state: 'gate', note: '' })
+  const pr = `Session ${SESSION}\n[assistant] Opened it.\n\npr https://github.com/o/r/pull/9\n[user] thanks`
+  expect(parseEventsReturn(pr)).toEqual({ state: 'pr', note: 'https://github.com/o/r/pull/9' })
+  // A markdown checkbox inside a message is the message's text, not a new message.
+  const box = '[assistant] blocked build-test: 2 failing\n[x] reproduced\n[assistant] (called Bash)'
+  expect(parseEventsReturn(box)).toEqual({ state: 'blocked', note: 'build-test: 2 failing' })
+  // A session still in its turn has not returned: its latest text is not read.
+  const running = EVENTS_AT_GATE.replace('(idle)', '(running)')
+  expect(parseEventsReturn(running)).toBeNull()
+  expect(parseEventsReturn(`Session "x" (idle) — showing 1 event
+[assistant] pr https://x/pull/1`)?.state).toBe('pr')
+  for (const none of [undefined, '', 'Session x — 0 events', '[user] go', '[assistant] (called Bash)\n(called Read)'])
+    expect(parseEventsReturn(none)).toBeNull()
 })
 
 test('tallies entries with workers overriding stored status', () => {
   const plan = parsePlan('+demo', PLAN)
-  const w = { agentId: 'ag', entryId: 'b2', n: 2, title: 'Second prompt', state: 'gate' as const, note: '', flow: '', runIds: [], stages: [], stageStatus: [], runStatus: '' }
+  const w = { sessionId: SESSION, worktree: '', entryId: 'b2', n: 2, title: 'Second prompt', state: 'gate' as const, note: '', flow: '', runIds: [], stages: [], stageStatus: [], runStatus: '' }
   expect(kindOf(plan?.entries[2], undefined)).toBe('manual')
   const c = tally(plan, [w])
   expect([c.total, c.done, c.gate, c.manual]).toEqual([3, 1, 1, 1])
@@ -91,31 +208,15 @@ test('tallies entries with workers overriding stored status', () => {
   expect([fromFile.total, fromFile.gate, fromFile.blocked]).toEqual([2, 1, 1])
 })
 
-test('the pane follows a worker through its flow stages', async ($, on) => {
-  on('tool.call', ($, e) =>
-    e.tool === 'mcp__backlog__get_plan_items'
-      ? { result: PLAN, text: PLAN }
-      : { result: '{"runId":"r1"}', text: '{"runId":"r1"}' },
-  )
-  let spawned = 0
-  on('agent.spawn', () => ({ model: 'x', agentId: ++spawned === 1 ? 'worker-1' : 'runner-1' }))
+test('the pane follows an entry session through its flow stages', async ($, on) => {
+  on('tool.call', ($, e) => host(e as never))
   // What the plugins beneath the band draw: nothing here.
   on('ui.render', () => ({ type: 'Box' }) as never)
 
   await $.tool.call({ tool: 'mcp__backlog__get_plan_items', planId: '+demo' } as never)
-  await $.agent.spawn({ prompt: BRIEF, description: 'entry 2' } as never)
-  await $.tool.call({
-    tool: 'mcp__backlog__start_run',
-    agentId: 'worker-1',
-    worktree: 'D:/w',
-    skillId: 'flow-code',
-    title: 'Second prompt',
-    stages: ['scope', 'implement', 'build-test', 'personal-validation'],
-  } as never)
-  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', worktree: 'D:/w', runId: 'r1', stageIndex: 0, status: 'done' } as never)
-  // A phase the worker's flow delegates reports from a nested agent's loop.
-  await $.agent.spawn({ prompt: 'Implement slice 1.', description: 'implement', parentAgentId: 'worker-1' } as never)
-  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'runner-1', worktree: 'D:/w', runId: 'r1', stageIndex: 1, status: 'in_progress' } as never)
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', title: '+demo:2 - Second prompt', prompt: BRIEF } as never)
+  await $.tool.call({ tool: 'mcp__ccd_session__list_sessions', linked: true } as never)
+  await $.tool.call({ tool: 'mcp__backlog__list_runs', worktree: 'd:/repos/backlog/.claude/worktrees/entry-b2/' } as never)
 
   // The details on a terminal: the whole plan, a column per stage under its short name.
   const pane = await $.ui.mount({ plugin: 'backlog-tools', surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 60 } } as never)
@@ -135,12 +236,11 @@ test('the pane follows a worker through its flow stages', async ($, on) => {
   await drawn.unmount()
 
   for (const surface of ['terminal', 'desktop'] as const) {
-
     // The band: only the entry in flow, with the stage it stands at.
     const band = await $.ui.mount({ plugin: 'backlog-tools', surface, component: 'AbovePrompt', props: { hasSurvey: false, isWorking: true, maxRows: 10, bodyColumns: 100 } } as never)
     expect(await band.find({ type: 'Text', text: /execute-plan/ })).toBeDefined()
     expect(await band.find({ type: 'Text', text: /2 Second prompt/ })).toBeDefined()
-    expect(await band.find({ type: 'Text', text: /^implement$/ })).toBeDefined()
+    expect(await band.find({ type: 'Text', text: /^Implement$/ })).toBeDefined()
     expect(await band.find({ type: 'Text', text: /First prompt/ })).toBeUndefined()
     expect(await band.find({ type: 'Button', key: 'details' } as never)).toBeDefined()
     await band.unmount()
@@ -160,7 +260,7 @@ test('lays out the matrix and the band from the rows', () => {
   expect(matrixLayout(80, 12)).toEqual({ cell: 3, gap: 1, hasHeadings: true, titleWidth: 29 })
   expect(matrixLayout(56, 12)).toEqual({ cell: 2, gap: 0, hasHeadings: false, titleWidth: 29 })
   const plan = parsePlan('+demo', PLAN)
-  const w = { agentId: 'ag', entryId: 'b2', n: 2, title: 'Second prompt', state: 'gate' as const, note: '', flow: 'flow-code', runIds: ['r'], stages: ['Scope', 'Implement'], stageStatus: ['done', 'in_progress'], runStatus: '' }
+  const w = { sessionId: SESSION, worktree: WORKTREE, entryId: 'b2', n: 2, title: 'Second prompt', state: 'gate' as const, note: '', flow: 'flow-code', runIds: ['r'], stages: ['Scope', 'Implement'], stageStatus: ['done', 'in_progress'], runStatus: '' }
   const rows = rowsOf(plan, [w])
   expect(liveRows(rows).map(r => r.n)).toEqual([2])
   expect(alsoLine(rows)).toBe('✓ 1 · ✎ 1')
@@ -172,7 +272,7 @@ test('lays out the matrix and the band from the rows', () => {
 
 test('a block the run moved past is parked, and only a block it stopped at is a failure', () => {
   const stages = ['Ready', 'Personal Validation', 'Create Pull Request', 'Summary']
-  const base = { agentId: 'ag', entryId: 'b2', n: 2, title: 'Second prompt', note: '', flow: 'flow-code', runIds: ['r'], stages, runStatus: '' }
+  const base = { sessionId: SESSION, worktree: WORKTREE, entryId: 'b2', n: 2, title: 'Second prompt', note: '', flow: 'flow-code', runIds: ['r'], stages, runStatus: '' }
   // Unattended: Personal Validation moved onto the draft, reported as blocked, and the flow went on.
   const movedOn = { ...base, state: 'running' as const, stageStatus: ['done', 'blocked', 'in_progress', 'pending'] }
   expect(stageStatesOf(movedOn)).toEqual(['done', 'parked', 'in_progress', 'pending'])
@@ -195,13 +295,12 @@ test('a block the run moved past is parked, and only a block it stopped at is a 
 })
 
 test('a brief for another plan starts the pane over', async ($, on) => {
-  on('tool.call', () => ({ result: PLAN, text: PLAN }))
-  let spawned = 0
-  on('agent.spawn', () => ({ model: 'x', agentId: `w${++spawned}` }))
+  let started = 0
+  on('tool.call', ($, e) => (isStartSession(e.tool as string) ? answer(`Started local_s${++started}.`) : host(e as never)))
 
   await $.tool.call({ tool: 'mcp__backlog__get_plan_items', planId: '+demo' } as never)
-  await $.agent.spawn({ prompt: BRIEF } as never)
-  await $.agent.spawn({ prompt: BRIEF.replace('+demo', '+other').replace('(id `b2`)', '(id `z9`)') } as never)
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF } as never)
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF.replace('+demo', '+other').replace('(id `b2`)', '(id `z9`)') } as never)
 
   const ui = await $.ui.mount({ plugin: 'backlog-tools', surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: {} } as never)
   expect(await ui.find({ type: 'Text', text: /\+other/ })).toBeDefined()
@@ -209,10 +308,7 @@ test('a brief for another plan starts the pane over', async ($, on) => {
   await ui.unmount()
 })
 
-// The surface calls the pane mirrors are what the worker said, not what a surface stored: a call
-// the surface rejected still counts, and a call the host denied never ran.
-const STAGES = ['scope', 'implement', 'build-test', 'personal-validation']
-// The run status is drawn nowhere: a plugin beside this one reads the state it declares instead.
+// The workers are drawn only in part: a plugin beside this one reads the state they declare.
 const PEEK = {
   name: 'peek',
   register: (on: On) => {
@@ -222,11 +318,115 @@ const PEEK = {
     })
   },
 }
-const workerOf = async ($: { command: { run: (e: never) => Promise<{ text?: string }> } }) =>
-  (JSON.parse((await $.command.run({ command: 'peek-workers', args: '' } as never)).text ?? '[]') as Worker[])[0]
+const workersOf = async ($: { command: { run: (e: never) => Promise<{ text?: string }> } }) =>
+  JSON.parse((await $.command.run({ command: 'peek-workers', args: '' } as never)).text ?? '[]') as Worker[]
+const workerOf = async ($: Parameters<typeof workersOf>[0]) => (await workersOf($))[0]
+
+test('start_session with a brief adds a worker keyed by the answered session id', { plugins: [PEEK] }, async ($, on) => {
+  on('tool.call', ($, e) => host(e as never))
+
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF } as never)
+
+  const w = await workerOf($)
+  expect([w?.sessionId, w?.worktree, w?.entryId, w?.n, w?.state]).toEqual([SESSION, '', 'b2', 2, 'running'])
+})
+
+test('a start_session whose prompt is no brief, or that answered no session, adds nothing', { plugins: [PEEK] }, async ($, on) => {
+  let rejected = false
+  on('tool.call', ($, e) => (rejected ? { isError: true, result: null, text: `Failed for ${SESSION}.` } : host(e as never)) as never)
+
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: 'Look into the flaky test.' } as never)
+  rejected = true
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF } as never)
+
+  expect(await workersOf($)).toEqual([])
+})
+
+test('the session rows set the worktree, and only that worktree’s runs fill the stages', { plugins: [PEEK] }, async ($, on) => {
+  on('tool.call', ($, e) => host(e as never))
+
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF } as never)
+  await $.tool.call({ tool: 'mcp__ccd_session__get_session', session_id: SESSION } as never)
+  expect((await workerOf($))?.worktree).toBe(WORKTREE)
+
+  // Another worktree's runs are another session's.
+  await $.tool.call({ tool: 'mcp__backlog__list_runs', worktree: 'D:/Repos/Backlog/.claude/worktrees/entry-z9' } as never)
+  await $.tool.call({ tool: 'mcp__backlog__list_runs' } as never)
+  expect((await workerOf($))?.stages).toEqual([])
+
+  await $.tool.call({ tool: 'mcp__plugin_delivery-surface-dashboard_delivery-surface-dashboard__get_run', worktree: WORKTREE } as never)
+  const w = await workerOf($)
+  expect([w?.flow, w?.runIds, w?.stages, w?.stageStatus, w?.runStatus]).toEqual([
+    'flow-code',
+    ['run-1'],
+    ['Scope', 'Implement', 'Build & Test', 'Personal Validation'],
+    ['done', 'in_progress', 'pending', 'pending'],
+    'in_progress',
+  ])
+})
+
+test('the session’s events set its return, and a message to it sets it running again', { plugins: [PEEK] }, async ($, on) => {
+  let denied = false
+  let running = false
+  on('tool.call', ($, e) =>
+    (denied
+      ? { deny: 'refused by the host' }
+      : running && isEvents(e.tool as string)
+        ? answer(EVENTS_AT_GATE.replace('(idle)', '(running)'))
+        : host(e as never)) as never,
+  )
+  on('ui.render', () => ({ type: 'Box' }) as never)
+
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF } as never)
+  // Another session's events leave this one alone.
+  await $.tool.call({ tool: 'mcp__ccd_session__list_events', session_id: 'local_other' } as never)
+  expect((await workerOf($))?.state).toBe('running')
+
+  await $.tool.call({ tool: 'mcp__ccd_session__list_events', session_id: SESSION } as never)
+  expect((await workerOf($))?.state).toBe('gate')
+
+  const band = await $.ui.mount({ plugin: 'backlog-tools', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: true, maxRows: 10, bodyColumns: 100 } } as never)
+  expect(await band.find({ type: 'Text', text: /gate/ })).toBeDefined()
+  await band.unmount()
+
+  // A message the host refused never reached the session.
+  denied = true
+  await $.tool.call({ tool: 'SendMessage', to: SESSION, message: 'Approved — go on.' } as never)
+  expect((await workerOf($))?.state).toBe('gate')
+
+  denied = false
+  await $.tool.call({ tool: 'SendMessage', to: 'local_other', message: 'Approved — go on.' } as never)
+  expect((await workerOf($))?.state).toBe('gate')
+  await $.tool.call({ tool: 'SendMessage', to: SESSION, message: 'Approved — go on.' } as never)
+  const w = await workerOf($)
+  expect([w?.state, w?.note]).toEqual(['running', ''])
+
+  // While its turn runs, the events say nothing about a return.
+  running = true
+  await $.tool.call({ tool: 'mcp__ccd_session__list_events', session_id: SESSION } as never)
+  expect((await workerOf($))?.state).toBe('running')
+})
+
+test('a send_message to a stopped session sets it running again', { plugins: [PEEK] }, async ($, on) => {
+  on('tool.call', ($, e) => host(e as never))
+
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF } as never)
+  await $.tool.call({ tool: 'mcp__ccd_session__list_events', session_id: SESSION } as never)
+  expect((await workerOf($))?.state).toBe('gate')
+
+  await $.tool.call({ tool: 'mcp__ccd_session__send_message', session_id: 'local_other', message: 'Approved.' } as never)
+  expect((await workerOf($))?.state).toBe('gate')
+  // Subscribing to the session sends it nothing.
+  await $.tool.call({ tool: 'mcp__ccd_session__send_message', session_id: SESSION, notify_when_idle: true } as never)
+  await $.tool.call({ tool: 'SendMessage', to: SESSION, message: '  ', notify_when_idle: true } as never)
+  expect((await workerOf($))?.state).toBe('gate')
+  await $.tool.call({ tool: 'mcp__ccd_session__send_message', session_id: SESSION, message: 'Approved.' } as never)
+  expect((await workerOf($))?.state).toBe('running')
+})
+
 // The session's state outlives a reload of the plugin's code: after /reload-plugins the module
-// meets the workers 0.17.0 stored, with one `runId` and no `runIds`. This plugin turns the first
-// worker written into one 0.17.0 left mid-run, its start_run confirmed as `r1`.
+// meets the workers an older release stored, keyed on `agentId`, with no session or worktree.
+// This plugin turns the first worker written into one of those.
 const LEGACY = {
   name: 'legacy',
   register: (on: On) => {
@@ -234,115 +434,35 @@ const LEGACY = {
     on('state.set', { plugin: 'backlog-tools', key: 'workers' }, ($, e, next) => {
       if (seeded) return next(e)
       seeded = true
-      const stages = ['scope', 'implement', 'build-test', 'personal-validation']
-      const value = e.value.map(({ runIds: _, ...w }) => ({
-        ...w, flow: 'flow-code', runId: 'r1', stages, stageStatus: stages.map(() => 'pending'), runStatus: 'in_progress',
-      }))
+      const value = e.value.map(({ sessionId: _, worktree: __, ...w }) => ({ ...w, agentId: 'agent-1', state: 'gate' }))
       return next({ ...e, value } as never)
     })
   },
 }
-const REJECTED = { isError: true, result: null, text: "An error occurred invoking 'start_run'." } as const
-const runIdAnswer = (id: string) => ({ result: `{"runId":"${id}"}`, text: `{"runId":"${id}"}` })
 
-test('a start_run the surface rejected still draws the entry’s stages, and its reports move them', async ($, on) => {
-  // The Backlog surface rejects every lifecycle call, as it did a start_run without a worktree.
-  on('tool.call', ($, e) => (e.tool === 'mcp__backlog__get_plan_items' ? { result: PLAN, text: PLAN } : REJECTED) as never)
-  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
-  on('ui.render', () => ({ type: 'Box' }) as never)
+test('a worker an older release stored matches no session and breaks nothing', { plugins: [PEEK, LEGACY] }, async ($, on) => {
+  on('tool.call', ($, e) =>
+    isStartSession(e.tool as string) && String((e as { prompt?: string }).prompt).includes('`c3`') ? answer('Started local_c3.') : host(e as never),
+  )
 
-  await $.tool.call({ tool: 'mcp__backlog__get_plan_items', planId: '+demo' } as never)
-  await $.agent.spawn({ prompt: BRIEF, description: 'entry 2' } as never)
-  // The observed call: stages JSON-encoded as a string, resume as a string, no worktree.
-  await $.tool.call({
-    tool: 'mcp__backlog__start_run',
-    agentId: 'worker-1',
-    skillId: 'flow-code',
-    title: 'Second prompt',
-    stages: JSON.stringify(STAGES),
-    resume: 'false',
-  } as never)
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF } as never)
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', prompt: BRIEF.replace('`2 - Second prompt` (id `b2`)', '`3 - Third prompt` (id `c3`)') } as never)
+  for (const call of [
+    { tool: 'mcp__ccd_session__list_sessions', linked: true },
+    { tool: 'mcp__backlog__list_runs', worktree: WORKTREE },
+    { tool: 'mcp__ccd_session__list_events', session_id: '' },
+    { tool: 'SendMessage', to: '' },
+    { tool: 'SendMessage', to: 'local_c3' },
+  ])
+    await $.tool.call(call as never)
+
+  const [legacy, fresh] = await workersOf($)
+  expect([legacy?.entryId, legacy?.state, legacy?.stages]).toEqual(['b2', 'gate', []])
+  expect([fresh?.sessionId, fresh?.entryId, fresh?.state]).toEqual(['local_c3', 'c3', 'running'])
 
   const pane = await $.ui.mount({ plugin: 'backlog-tools', surface: 'terminal', component: 'Pane', requestId: 'plan-progress', props: { bodyColumns: 60 } } as never)
-  for (const heading of [/^scp$/, /^imp$/, /^b&t$/, /^pv$/]) expect(await pane.find({ type: 'Text', text: heading })).toBeDefined()
-  expect(await pane.findAll({ type: 'Text', text: /^·$/ })).toHaveLength(STAGES.length)
+  expect(await pane.find({ type: 'Text', text: /3 Third prompt/ })).toBeDefined()
   await pane.unmount()
-
-  // No surface confirmed the run, so a report without a run id is the worker's current run's.
-  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', stageIndex: 1, status: 'in_progress' } as never)
-
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const band = await $.ui.mount({ plugin: 'backlog-tools', surface, component: 'AbovePrompt', props: { hasSurvey: false, isWorking: true, maxRows: 10, bodyColumns: 100 } } as never)
-    expect(await band.find({ type: 'Text', text: /^●$/ })).toBeDefined()
-    expect(await band.find({ type: 'Text', text: /^implement$/ })).toBeDefined()
-    await band.unmount()
-  }
-})
-
-test('a finish_run the surface rejected still records how the run ended', { plugins: [PEEK] }, async ($, on) => {
-  on('tool.call', () => REJECTED as never)
-  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
-
-  await $.agent.spawn({ prompt: BRIEF } as never)
-  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'worker-1', skillId: 'flow-code', stages: STAGES } as never)
-  await $.tool.call({ tool: 'mcp__backlog__finish_run', agentId: 'worker-1', status: 'done' } as never)
-
-  expect((await workerOf($))?.runStatus).toBe('done')
-})
-
-test('once a surface confirmed the run, another run’s reports leave it alone', { plugins: [PEEK] }, async ($, on) => {
-  on('tool.call', () => runIdAnswer('r1'))
-  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
-
-  await $.agent.spawn({ prompt: BRIEF } as never)
-  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'worker-1', skillId: 'flow-code', stages: STAGES } as never)
-  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r2', stageIndex: 0, status: 'done' } as never)
-  await $.tool.call({ tool: 'mcp__backlog__finish_run', agentId: 'worker-1', runId: 'r2', status: 'failed' } as never)
-
-  const w = await workerOf($)
-  expect([w?.stageStatus, w?.runStatus]).toEqual([['pending', 'pending', 'pending', 'pending'], 'in_progress'])
-})
-
-test('a report the host denied moves nothing', { plugins: [PEEK] }, async ($, on) => {
-  on('tool.call', ($, e) => (e.tool === 'mcp__backlog__update_stage' ? { deny: 'refused by the host' } : runIdAnswer('r1')) as never)
-  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
-
-  await $.agent.spawn({ prompt: BRIEF } as never)
-  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'worker-1', skillId: 'flow-code', stages: STAGES } as never)
-  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r1', stageIndex: 0, status: 'done' } as never)
-
-  expect((await workerOf($))?.stageStatus).toEqual(['pending', 'pending', 'pending', 'pending'])
-})
-
-test('one run fanned out to two surfaces keeps one set of stages, moved by either run id', { plugins: [PEEK] }, async ($, on) => {
-  // Each bound surface answers the same run with its own id.
-  on('tool.call', ($, e) => runIdAnswer(String(e.tool).includes('dashboard') ? 'r2' : 'r1'))
-  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
-
-  await $.agent.spawn({ prompt: BRIEF } as never)
-  const start = { agentId: 'worker-1', skillId: 'flow-code', stages: STAGES }
-  await $.tool.call({ tool: 'mcp__backlog__start_run', ...start } as never)
-  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r1', stageIndex: 0, status: 'done' } as never)
-  await $.tool.call({ tool: 'mcp__dashboard__start_run', ...start } as never)
-  await $.tool.call({ tool: 'mcp__dashboard__update_stage', agentId: 'worker-1', runId: 'r2', stageIndex: 1, status: 'in_progress' } as never)
-  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r1', stageIndex: 2, status: 'skipped' } as never)
-
-  expect((await workerOf($))?.stageStatus).toEqual(['done', 'in_progress', 'skipped', 'pending'])
-})
-
-test('a worker stored by 0.17.0 still moves after a reload', { plugins: [PEEK, LEGACY] }, async ($, on) => {
-  on('tool.call', () => runIdAnswer('r1'))
-  on('agent.spawn', () => ({ model: 'x', agentId: 'worker-1' }))
-
-  await $.agent.spawn({ prompt: BRIEF } as never)
-  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r1', stageIndex: 0, status: 'done' } as never)
-  // The same run declared again (a reattach): it keeps the statuses and takes the answered id.
-  await $.tool.call({ tool: 'mcp__backlog__start_run', agentId: 'worker-1', skillId: 'flow-code', stages: STAGES } as never)
-  await $.tool.call({ tool: 'mcp__backlog__update_stage', agentId: 'worker-1', runId: 'r1', stageIndex: 1, status: 'in_progress' } as never)
-  await $.tool.call({ tool: 'mcp__backlog__finish_run', agentId: 'worker-1', runId: 'r1', status: 'done' } as never)
-
-  const w = await workerOf($)
-  expect([w?.stageStatus, w?.runStatus, w?.runIds]).toEqual([['done', 'in_progress', 'pending', 'pending'], 'done', ['r1']])
 })
 
 test('the scripted run ends with a merge, a gate, a block and a manual step', () => {

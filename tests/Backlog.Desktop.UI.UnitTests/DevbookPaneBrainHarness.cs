@@ -44,13 +44,16 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
 
     public BrainFolderSource Brain { get; }
 
+    /// <summary>Show hidden, held in memory: off until a test or a press turns it on.</summary>
+    public BrainShowHidden ShowHidden { get; } = new(store: null);
+
     public RecordingRepositoryFolders RepositoryFolders { get; }
 
     public string RepositoryAlias { get; }
 
     /// <summary>The branch catalog the overview lists through, so a test can see
     /// that the Brain asked it nothing.</summary>
-    public StubBranchCatalog Catalog { get; private init; } = new();
+    public StubBranchCatalog Catalog { get; private set; } = new();
 
     /// <summary>The folder the Brain setting points at by default, created empty.</summary>
     public string BrainFolder => Path.Combine(Root, "Brain");
@@ -103,6 +106,8 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
         var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton(store);
+        var harness = new DevbookPaneBrainHarness(root, context, settings, brain, repositoryFolders, repository.Alias);
+        context.Services.AddSingleton<IBrainShowHidden>(harness.ShowHidden);
         context.Services.AddSingleton<IAppFeatureSettings>(featureSettings);
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton<IDevbookFolderSource>(repositoryFolders);
@@ -137,7 +142,8 @@ internal sealed class DevbookPaneBrainHarness : IAsyncDisposable
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
         context.Services.AddSingleton<IDevbookSearch>(sp => new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
 
-        return new DevbookPaneBrainHarness(root, context, settings, brain, repositoryFolders, repository.Alias) { Catalog = catalog };
+        harness.Catalog = catalog;
+        return harness;
     }
 
     /// <summary>Stands for "the harness's own Brain folder" in <see cref="Create"/>,

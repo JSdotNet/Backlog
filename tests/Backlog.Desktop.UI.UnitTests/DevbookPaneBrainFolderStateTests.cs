@@ -3,7 +3,7 @@ using Bunit;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The pane on a Brain it cannot read (<c>.devbook/domain/devbook/requirements.md#brain-scope</c>):
+/// The pane on a Brain it cannot read (<c>.devbook/domain/brain/requirements.md#brain-scope</c>):
 /// with no folder set it asks for one — through the Settings card that owns the
 /// setting — and with one set that is missing or not a path it says what is wrong in
 /// the source's own words. Neither draws a tab, and neither throws.

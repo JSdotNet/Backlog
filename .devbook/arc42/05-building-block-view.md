@@ -268,7 +268,7 @@ flowchart LR
   Settings["IBrainSettings\n(BrainFolder)"]
   Watch["BrainFolderWatch\n(Infrastructure.FileSystem)"]
   Refresher["DevbookDatabaseRefresher\n.WatchBrain"]
-  Conventions["BrainConventions\n(CONVENTIONS.md areas, or PARA)"]
+  Conventions["BrainConventions\n(declared areas + top folders\nholding a note, minus Ignore)"]
   Builder["Devbook builder\n(DevbookCorpusKind.Brain)"]
   Db[("Brain database\n(app storage)")]
   Source["BrainFolderSource\n(IBrainFolderSource, key brain)"]
@@ -285,8 +285,10 @@ flowchart LR
 ```
 
 - **Areas, not devbook folders.** The builder indexes the areas `BrainConventions`
-  (Devbook Abstractions) reads from the Brain's `CONVENTIONS.md`, or the PARA set.
-  No devbook folder convention applies to them. `para`, `repos` and `tasks` become
+  (Devbook Abstractions) resolves: the areas the Brain's `CONVENTIONS.md`
+  declares, or the PARA set, then every other top folder that holds a note, minus
+  the folders its `Ignore` section lists (local ADR 0026 §2). No devbook folder
+  convention applies to them. `para`, `repos` and `tasks` become
   node attributes, and a `repo:` link in `related` or in prose is stored as an
   edge whose target is no node.
 - **A port of its own.** `BrainFolderSource` resolves the Brain as one local,
@@ -306,7 +308,7 @@ flowchart LR
 - **Parity.** `tools/devbook/brain.mjs` is the Node side of the same convention,
   and the parity test compares the two on a Brain fixture.
 
-The `repo:` edges are read back by three readers (local ADR 0027 §6):
+The `repo:` edges are read back by four readers (local ADR 0027 §6):
 
 ```mermaid
 flowchart LR
@@ -324,6 +326,9 @@ flowchart LR
   BrainDb --> Backlinks --> Box
   BrainDb --> Atlas
   Resolver --> Atlas
+  BrainDb --> Lobes
+  RepoDb --> Lobes
+  Resolver --> Lobes
 ```
 
 - **Forward links.** `BrainRepoLinkResolver`, in the Devbook UI, asks whether this
@@ -337,6 +342,14 @@ flowchart LR
   of its own. Each link becomes a `repo-link` edge labelled with the alias, and
   dashed where the link does not resolve. `GraphAtlas` in the component library
   draws an edge's optional `label` and `dashed`.
+- **The Lobes atlas.** `DevbookAtlasService.ReadLobesAsync` reads the Brain's
+  database and the devbook database of every repository alias it is handed, and
+  nothing else. `DevbookLobesReader` gives each node a scope, a region and a kind,
+  by the mappings of [Lobes atlas](../domain/devbook/features.md#lobes-atlas). A
+  `repo:` link resolves through `BrainRepoLinkResolver` to that devbook's own
+  chapter node, both spellings folded. A link it cannot follow is a ghost chapter;
+  an alias not handed in is a ghost scope. Each scope counts its nodes per region
+  and the Brain notes that link into it.
 
 The same project reads scenarios files, outside the database. `Scenarios/` ports
 devbook's scenarios-file parser and journey signature: each `##` journey of a

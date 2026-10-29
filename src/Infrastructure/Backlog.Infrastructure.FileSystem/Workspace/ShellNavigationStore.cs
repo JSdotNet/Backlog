@@ -131,7 +131,10 @@ public sealed class ShellNavigationStore
         RepositoryScope = MigrateNoRepositoryOnly(dto?.RepositoryScope ?? Empty, dto?.NoRepositoryOnly);
         ToolsTab = string.IsNullOrWhiteSpace(dto?.ToolsTab) ? null : dto.ToolsTab;
         ToolsHostFilter = string.IsNullOrWhiteSpace(dto?.ToolsHostFilter) ? null : dto.ToolsHostFilter;
+        AtlasReturnSurface = string.IsNullOrWhiteSpace(dto?.AtlasReturnSurface) ? null : dto.AtlasReturnSurface;
+        AtlasScope = string.IsNullOrWhiteSpace(dto?.AtlasScope) ? null : dto.AtlasScope;
         ShowArchivedRepositories = dto?.ShowArchivedRepositories ?? false;
+        BrainHiddenShown = dto?.BrainHiddenShown ?? false;
         GoalsIterationLength = string.IsNullOrWhiteSpace(dto?.GoalsIterationLength) ? null : dto.GoalsIterationLength;
         GoalsTwoWeekStart = DateOnly.TryParseExact(dto?.GoalsTwoWeekStart, IsoDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
             ? start
@@ -210,10 +213,28 @@ public sealed class ShellNavigationStore
     /// one was chosen.</summary>
     public string? ToolsHostFilter { get; private set; }
 
+    /// <summary>The surface the Lobes atlas was opened over, which its way back
+    /// returns to, by the shell's own surface name; null until the atlas was opened.
+    /// Kept beside <see cref="LastSurface"/> because the Router remounts the shell on
+    /// every route change — Register repository's trip to Settings among them — and
+    /// a reopened atlas must still know where it came from.</summary>
+    public string? AtlasReturnSurface { get; private set; }
+
+    /// <summary>The scope the Lobes atlas was opened on, or the ghost its Register
+    /// repository left from — <c>brain</c>, <c>repo:&lt;alias&gt;</c> or
+    /// <c>ghost:&lt;alias&gt;</c> — or null for All.</summary>
+    public string? AtlasScope { get; private set; }
+
     /// <summary>Whether the archived repositories are shown where they are otherwise
     /// hidden — show archived (local ADR 0029, §3): off until turned on on this device.
     /// Read through the shared kernel's <c>IShowArchivedRepositories</c>.</summary>
     public bool ShowArchivedRepositories { get; private set; }
+
+    /// <summary>Whether the Brain's hidden folders — the ignored ones and the
+    /// dot-folders — show as tabs in the Devbook pane, Show hidden (local ADR 0026
+    /// §2): off until turned on on this device. Read through the Devbook module's
+    /// <c>IBrainShowHidden</c>.</summary>
+    public bool BrainHiddenShown { get; private set; }
 
     /// <summary>The iteration length an earlier build kept per device, as the setting's
     /// value — <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>; null until one was
@@ -360,6 +381,18 @@ public sealed class ShellNavigationStore
         Save();
     }
 
+    /// <summary>Replaces the atlas's place — its way back and its scope — in one save.</summary>
+    public void SetAtlasPlace(string? returnSurface, string? scope)
+    {
+        returnSurface = string.IsNullOrWhiteSpace(returnSurface) ? null : returnSurface;
+        scope = string.IsNullOrWhiteSpace(scope) ? null : scope;
+        if (returnSurface == AtlasReturnSurface && scope == AtlasScope) return;
+
+        AtlasReturnSurface = returnSurface;
+        AtlasScope = scope;
+        Save();
+    }
+
     public void SetToolsHostFilter(string hostFilter)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(hostFilter);
@@ -387,6 +420,14 @@ public sealed class ShellNavigationStore
         if (shown == ShowArchivedRepositories) return;
 
         ShowArchivedRepositories = shown;
+        Save();
+    }
+
+    public void SetBrainHiddenShown(bool shown)
+    {
+        if (shown == BrainHiddenShown) return;
+
+        BrainHiddenShown = shown;
         Save();
     }
 
@@ -647,9 +688,15 @@ public sealed class ShellNavigationStore
                 // Left out until the tools pane has been on a tab or a filter here.
                 ToolsTab = ToolsTab,
                 ToolsHostFilter = ToolsHostFilter,
+                // Left out until the atlas has been opened here. Both keys are stored
+                // names: never rename them without reading the old ones.
+                AtlasReturnSurface = AtlasReturnSurface,
+                AtlasScope = AtlasScope,
                 // Left out while off, the default. The key is a stored name: never
                 // rename it without reading the old one.
                 ShowArchivedRepositories = ShowArchivedRepositories ? true : null,
+                // Likewise left out while off, and likewise a stored name.
+                BrainHiddenShown = BrainHiddenShown ? true : null,
                 // Left out until chosen. Both keys are stored names: never rename them
                 // without reading the old ones.
                 GoalsIterationLength = GoalsIterationLength,
@@ -719,9 +766,21 @@ public sealed class ShellNavigationStore
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ToolsHostFilter { get; init; }
 
+        /// <summary>Written as <c>atlasReturnSurface</c>, a surface name.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? AtlasReturnSurface { get; init; }
+
+        /// <summary>Written as <c>atlasScope</c>, a Lobes scope key.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? AtlasScope { get; init; }
+
         /// <summary>Written as <c>showArchivedRepositories</c>, and only while on.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? ShowArchivedRepositories { get; init; }
+
+        /// <summary>Written as <c>brainHiddenShown</c>, and only while on.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? BrainHiddenShown { get; init; }
 
         /// <summary>Written as <c>goalsIterationLength</c>: <c>day</c>, <c>week</c>, <c>two-weeks</c> or <c>month</c>.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
