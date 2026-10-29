@@ -170,6 +170,80 @@ public sealed class HomeWorkspaceSurfaceTests
         Assert.False(mainWindow.Attached);
     }
 
+    /// <summary>
+    /// Every header item the catalog draws carries a ⧉ Open in new window button
+    /// (local ADR 0040 §4) with a name of its own, and each press asks the host for
+    /// one more window on that surface while this window stays as it was. The
+    /// Devbook is the only surface registered so far, so it is the one item with one.
+    /// </summary>
+    [Fact]
+    public void Each_catalog_header_item_pops_out_and_every_press_opens_another_window()
+    {
+        var windows = new OpeningShellWindows();
+        using var harness = CreateHarness(configureServices: services => services.AddSingleton<IShellWindows>(windows));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-pop-out']")));
+        Assert.Single(component.FindAll(".header-surface-item__pop"));
+
+        var item = component.Find("[data-testid='devbook-header-item']");
+        Assert.Contains("header-surface-item", item.GetAttribute("class"), StringComparison.Ordinal);
+        Assert.NotNull(item.QuerySelector("[data-testid='devbook-pane-option']"));
+
+        var popOut = component.Find("[data-testid='devbook-pop-out']");
+        Assert.Equal("BUTTON", popOut.TagName);
+        Assert.Equal("Open Devbook in a new window", popOut.GetAttribute("aria-label"));
+
+        // Scoped to the one repository, so the Devbook here reads it — and so does
+        // the window the ⧉ opens.
+        var alias = Assert.Single(harness.Context.Services.GetRequiredService<GitHubSettingsStore>().Current.Repositories).Alias;
+        component.Find("[data-testid='repository-filter-option']").Click();
+        popOut = component.Find("[data-testid='devbook-pop-out']");
+        Assert.Equal(popOut.GetAttribute("aria-label"), popOut.GetAttribute("title"));
+        Assert.Equal("⧉", popOut.QuerySelector("[aria-hidden='true']")!.TextContent);
+
+        popOut.Click();
+        component.Find("[data-testid='devbook-pop-out']").Click();
+
+        Assert.Equal(2, windows.Opened.Count);
+        Assert.All(windows.Opened, opened =>
+        {
+            Assert.Equal("devbook", opened.SurfaceId);
+            // The scope this window hands its Devbook, and nothing else of this window's.
+            Assert.Equal([DevbookSurfaceQuery.Scope], opened.Query.Keys);
+            Assert.Equal(alias, opened.Query[DevbookSurfaceQuery.Scope]);
+        });
+
+        // This window is unchanged: the Devbook did not take its screen.
+        Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
+        Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
+    }
+
+    /// <summary>A host that opens no windows offers no ⧉ at all.</summary>
+    [Fact]
+    public void A_host_with_no_windows_to_open_offers_no_pop_out()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
+        Assert.Empty(component.FindAll(".header-surface-item__pop"));
+    }
+
+    private sealed class OpeningShellWindows : IShellWindows
+    {
+        public List<(string SurfaceId, IReadOnlyDictionary<string, string> Query)> Opened { get; } = [];
+
+        public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
+            Opened.Add((surfaceId, query ?? new Dictionary<string, string>()));
+
+        public void Close(string windowKey) => throw new NotSupportedException("Home closes no window.");
+
+        public void SetTitle(string windowKey, string title) => throw new NotSupportedException("Home titles no window.");
+
+        public void ActivateMainWindow() { }
+    }
+
     /// <summary>The same from the workspace, where the reader spends most of their
     /// time: the task list stays on screen.</summary>
     [Fact]
@@ -493,7 +567,11 @@ public sealed class HomeWorkspaceSurfaceTests
 
             var workspace = component.Find("[data-testid='workspace-navigation']").Children
                 .Select(child => child.GetAttribute("data-testid")).ToList();
-            Assert.Equal(["inbox-pane-option", "view-switch", "devbook-pane-option"], workspace);
+            // The Devbook's option stands in its catalog item, beside its ⧉ where the
+            // host opens windows (local ADR 0040 §4).
+            Assert.Equal(["inbox-pane-option", "view-switch", "devbook-header-item"], workspace);
+            Assert.Equal("devbook-pane-option",
+                component.Find("[data-testid='devbook-header-item']").FirstElementChild?.GetAttribute("data-testid"));
 
             Assert.Equal(
                 ["tasks-view-option", "board-view-option", "calendar-view-option", "roadmap-view-option"],

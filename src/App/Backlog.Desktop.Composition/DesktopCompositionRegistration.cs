@@ -332,6 +332,11 @@ public static class DesktopCompositionRegistration
             typeof(IBrainTaskTitles),
             sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()),
             options.WindowStateLifetime));
+        // The window's repository scope, for a Devbook opened with no scope of its own (§6).
+        services.Add(new ServiceDescriptor(
+            typeof(IDevbookWindowScope),
+            sp => new ShellDevbookWindowScope(sp.GetRequiredService<TasksDesktopState>()),
+            options.WindowStateLifetime));
 
         // One window's state, and what reads it. The panes' state captures the
         // modules' scoped services; see WindowStateLifetime for why that makes it

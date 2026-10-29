@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// What <c>AddDesktopComposition</c> registers for the shell's surfaces (local ADR
 /// 0040 §1, §3), for the tests that render <c>Home</c> with a container of their own:
 /// the Devbook's surface, the catalog, the window's navigator, and the task titles a
-/// Brain note draws.
+/// Brain note draws, and the window scope a Devbook opened with no scope reads.
 /// </summary>
 internal static class ShellSurfaceTestServices
 {
@@ -20,6 +20,7 @@ internal static class ShellSurfaceTestServices
         services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
         services.AddScoped<ISurfaceNavigator, SurfaceNavigator>();
         services.AddScoped<IBrainTaskTitles>(sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()));
+        services.AddScoped<IDevbookWindowScope>(sp => new ShellDevbookWindowScope(sp.GetRequiredService<TasksDesktopState>()));
         return services;
     }
 }
