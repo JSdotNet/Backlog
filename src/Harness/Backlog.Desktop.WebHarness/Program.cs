@@ -214,7 +214,9 @@ builder.Services.AddBacklogMcpServer().WithHttpTransport();
 AddAzureFoundryCostClient(builder.Services, azureFoundrySettings);
 // The ⧉ on a header item opens /window/{surfaceId} in a new browser tab (local ADR
 // 0040 §7). Each tab is its own circuit and so its own scope; nothing more is needed
-// for a tab to be a window with view state of its own.
+// for a tab to be a window with view state of its own. It is the same class the
+// desktop app's served pages use; this host opens no tab under a window key, so
+// SurfaceWindow never asks it to close or retitle one.
 builder.Services.AddScoped<IShellWindows, BrowserTabShellWindows>();
 // This assembly's own pages, under Components/Pages: they exist only to be
 // driven — the shipped app has no route that throws on request.

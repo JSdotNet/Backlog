@@ -508,7 +508,7 @@ public class WebHarnessHostTests
 
         using (var scope = harness.Services.CreateScope())
         {
-            Assert.IsType<DesktopHarness::Backlog.Desktop.WebHarness.BrowserTabShellWindows>(
+            Assert.IsType<Backlog.Desktop.UI.Shell.BrowserTabShellWindows>(
                 scope.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Shell.IShellWindows>());
         }
 

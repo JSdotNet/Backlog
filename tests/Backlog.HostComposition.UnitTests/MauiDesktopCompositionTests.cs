@@ -502,43 +502,49 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         });
 
     [SupportedOSPlatform("windows")]
-    private IServiceCollection BuildMauiShapedServices()
+    private IServiceCollection BuildMauiShapedServices() => MauiShapedServices(_appData);
+
+    /// <summary>The MAUI head's container as <c>MauiProgram</c> composes it, every
+    /// per-user file under <paramref name="appData"/>; shared with
+    /// <see cref="SurfaceWindowPagesTests"/>, which serves pages over it.</summary>
+    [SupportedOSPlatform("windows")]
+    internal static IServiceCollection MauiShapedServices(string appData)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
         builder.AddServiceDefaults();
 
         builder.Services.AddDesktopComposition(new DesktopCompositionOptions
         {
-            DeviceIdentity = new DeviceIdentityStore(Path.Combine(_appData, "device.json")),
-            DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(_appData, "device-credential.json")),
-            TaskSyncStateStore = _ => new FileTaskSyncStateStore(Path.Combine(_appData, "task-sync-state.json")),
-            SessionSyncFolder = _appData,
-            AnnotationSyncFolder = _appData,
-            BackupStatePath = Path.Combine(_appData, "backup-state.json"),
-            SyncServiceSettingsPath = Path.Combine(_appData, "sync-service.json"),
-            FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(_appData, "features.json")),
-            WorkingHoursSettings = _ => new WorkingHoursSettingsStore(Path.Combine(_appData, "working-hours.json")),
-            UsageResetSettings = _ => new UsageResetSettingsStore(Path.Combine(_appData, "usage-reset.json")),
-            SpendBudgetSettings = _ => new SpendBudgetSettingsStore(Path.Combine(_appData, "spend-budgets.json")),
+            DeviceIdentity = new DeviceIdentityStore(Path.Combine(appData, "device.json")),
+            DeviceCredentialStore = _ => new DpapiDeviceCredentialStore(Path.Combine(appData, "device-credential.json")),
+            TaskSyncStateStore = _ => new FileTaskSyncStateStore(Path.Combine(appData, "task-sync-state.json")),
+            SessionSyncFolder = appData,
+            AnnotationSyncFolder = appData,
+            BackupStatePath = Path.Combine(appData, "backup-state.json"),
+            SyncServiceSettingsPath = Path.Combine(appData, "sync-service.json"),
+            FeatureSettings = _ => new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(appData, "features.json")),
+            WorkingHoursSettings = _ => new WorkingHoursSettingsStore(Path.Combine(appData, "working-hours.json")),
+            UsageResetSettings = _ => new UsageResetSettingsStore(Path.Combine(appData, "usage-reset.json")),
+            SpendBudgetSettings = _ => new SpendBudgetSettingsStore(Path.Combine(appData, "spend-budgets.json")),
             PlanningVelocitySettings = sp => new PlanningVelocitySettingsStore(
-                Path.Combine(_appData, "planning-velocity.json"),
+                Path.Combine(appData, "planning-velocity.json"),
                 time: null,
                 sp.GetRequiredService<WorkingHoursSettingsStore>()),
-            MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(_appData, MyDayPreferencesStore.FileName)),
+            MyDayPreferences = _ => new MyDayPreferencesStore(Path.Combine(appData, MyDayPreferencesStore.FileName)),
             IterationSettings = sp => new IterationSettingsStore(
-                Path.Combine(_appData, IterationSettingsStore.FileName), sp.GetRequiredService<ShellNavigationStore>()),
-            ShellNavigation = _ => new ShellNavigationStore(Path.Combine(_appData, "shell-navigation.json")),
-            CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(_appData, "capture-sources.json")),
-            CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(_appData, "capture-runs.json")),
-            CaptureTargetLedger = _ => new CaptureTargetLedgerStore(Path.Combine(_appData, "capture-targets.json")),
-            ConnectedTargets = _ => new ConnectedTargetsSettingsStore(Path.Combine(_appData, "connected-targets.json")),
-            SpecManagerTokenStore = _ => new DpapiSpecManagerTokenStore(Path.Combine(_appData, "spec-manager-credentials.json")),
-            InboxRoutingRules = _ => new InboxRoutingRulesStore(Path.Combine(_appData, "inbox-routing-rules.json")),
-            GitHubSettings = root => new GitHubSettingsStore(Path.Combine(_appData, "github.settings.json"), root),
-            PullRequestPins = _ => new PullRequestPinsStore(Path.Combine(_appData, "pull-request-pins.json")),
-            ClaudeSettings = _ => new ClaudeSettingsStore(Path.Combine(_appData, "claude.settings.json")),
-            AzureFoundrySettings = _ => new Backlog.Infrastructure.AzureFoundry.AzureFoundrySettingsStore(Path.Combine(_appData, "azure-foundry.json")),
-            BrainSettings = _ => new BrainSettingsStore(Path.Combine(_appData, BrainSettingsStore.FileName)),
+                Path.Combine(appData, IterationSettingsStore.FileName), sp.GetRequiredService<ShellNavigationStore>()),
+            ShellNavigation = _ => new ShellNavigationStore(Path.Combine(appData, "shell-navigation.json")),
+            CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(Path.Combine(appData, "capture-sources.json")),
+            CaptureRunLog = _ => new CaptureRunLogStore(Path.Combine(appData, "capture-runs.json")),
+            CaptureTargetLedger = _ => new CaptureTargetLedgerStore(Path.Combine(appData, "capture-targets.json")),
+            ConnectedTargets = _ => new ConnectedTargetsSettingsStore(Path.Combine(appData, "connected-targets.json")),
+            SpecManagerTokenStore = _ => new DpapiSpecManagerTokenStore(Path.Combine(appData, "spec-manager-credentials.json")),
+            InboxRoutingRules = _ => new InboxRoutingRulesStore(Path.Combine(appData, "inbox-routing-rules.json")),
+            GitHubSettings = root => new GitHubSettingsStore(Path.Combine(appData, "github.settings.json"), root),
+            PullRequestPins = _ => new PullRequestPinsStore(Path.Combine(appData, "pull-request-pins.json")),
+            ClaudeSettings = _ => new ClaudeSettingsStore(Path.Combine(appData, "claude.settings.json")),
+            AzureFoundrySettings = _ => new Backlog.Infrastructure.AzureFoundry.AzureFoundrySettingsStore(Path.Combine(appData, "azure-foundry.json")),
+            BrainSettings = _ => new BrainSettingsStore(Path.Combine(appData, BrainSettingsStore.FileName)),
             FolderEditorLauncher = _ => new VsCodeFolderEditorLauncher(),
             // MsixAppUpdateService is the head's and compiled for Windows only.
             AppUpdateService = _ => new UnsupportedAppUpdateService(),
@@ -554,7 +560,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         // The workspace store the composition registers reads the real per-user
         // settings; the container is the subject here, not the person's workspace,
         // so a later registration points it at a folder of the test's own.
-        builder.Services.AddSingleton(new WorkspaceSettingsStore(_appData, Path.Combine(_appData, "settings.json"), _ => null));
+        builder.Services.AddSingleton(new WorkspaceSettingsStore(appData, Path.Combine(appData, "settings.json"), _ => null));
 
         AddMauiHeadRegistrations(builder.Services);
 
