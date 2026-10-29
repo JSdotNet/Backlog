@@ -2,7 +2,10 @@
 
   <!--
     The spec-manager connector (local ADR 0020): a product's backlog brought in as
-    linked tasks. Three parts, each thin:
+    linked tasks, and its questions brought in as notifications (Questions/:
+    SpecManagerQuestionSource holds the notification stream and pulls, SpecManagerAnswers
+    sends an answer back, SpecManagerQuestionProbe says whether a question is still
+    open). Three parts to the connector, each thin:
       SpecManagerSignIn     OAuth 2.1 authorization code with PKCE on a loopback
                             redirect, the one dynamic client registration per base
                             URL, and the refresh that rotates the refresh token
@@ -28,6 +31,11 @@
     <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
     <!-- AddTaskConnector<T>(); see the header. -->
     <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <!-- The questions: published, answered and closed through the Notifications
+         context's published ports; and the one agent session a linked task names, read
+         through the Sessions context's, for a question's "Via". -->
+    <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.Abstractions\Backlog.Modules.Notifications.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

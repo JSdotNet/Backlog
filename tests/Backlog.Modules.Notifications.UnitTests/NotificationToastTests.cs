@@ -26,6 +26,20 @@ public sealed class NotificationToastTests
         new([.. Enumerable.Range(1, count).Select(i => new AnswerChoice($"c{i}", $"Choice {i}"))], multiple, open);
 
     [Fact]
+    public void The_origin_is_the_attribution_line()
+    {
+        var toast = NotificationToast.For(View() with { Origin = new NotificationOrigin("Claude Code", "JSdotNet/Backlog · Notification origin", "Ada") })!;
+
+        Assert.Equal("Claude Code · JSdotNet/Backlog · Notification origin", toast.Attribution);
+    }
+
+    [Fact]
+    public void A_notification_without_an_origin_has_no_attribution_line()
+    {
+        Assert.Null(NotificationToast.For(View())!.Attribution);
+    }
+
+    [Fact]
     public void Set_answers_become_action_buttons()
     {
         var toast = NotificationToast.For(View())!;
@@ -85,6 +99,23 @@ public sealed class NotificationToastTests
         var toast = NotificationToast.For(View(spec: Choices(3, open: new OpenAnswer())))!;
 
         Assert.Equal(["Send", "Open in Backlog"], toast.Buttons.Select(button => button.Label));
+    }
+
+    [Fact]
+    public void A_choice_that_takes_text_offers_no_choice_buttons_and_opens_the_app()
+    {
+        var spec = new AnswerSpec(
+        [
+            new AnswerChoice("approve", "Approve", AnswerChoiceStyle.Primary),
+            new AnswerChoice("revise", "Revise", TakesText: true)
+        ]);
+
+        var toast = NotificationToast.For(View(spec: spec))!;
+
+        var only = Assert.Single(toast.Buttons);
+        Assert.Equal("Open in Backlog", only.Label);
+        Assert.Equal(NotificationToast.OpenAction, only.Arguments[NotificationToast.ActionArgument]);
+        Assert.Null(toast.TextBox);
     }
 
     [Fact]

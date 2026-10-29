@@ -5,6 +5,7 @@ using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel.Results;
 
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace Backlog.Infrastructure.Mcp;
@@ -20,6 +21,12 @@ namespace Backlog.Infrastructure.Mcp;
 /// session — <c>sessions</c> / <c>session</c> / the id — when the caller names one, so the context
 /// that owns sessions can close them when the session ends; otherwise a question is about itself,
 /// <c>mcp</c> / <c>ask</c> / the call's key, and an alert is about nothing in particular.
+/// </para>
+/// <para>
+/// <b>The origin is the calling client.</b> What a person reads as where it came from is the MCP
+/// client's own name — "Claude Code" for <c>claude-code</c> — asked "MCP ask"
+/// (<c>.devbook/domain/notifications/domain.md#origin</c>). <see cref="Origin"/> says what it
+/// falls back on where the stateless endpoint cannot name the client.
 /// </para>
 /// <para>
 /// <b><c>ask</c> never blocks.</b> It answers the notification's id as soon as the question is
@@ -126,7 +133,8 @@ public sealed class NotificationTools(
         string? severity = null,
         [Description("Your Claude session id, so the alert is about this session. Optional.")]
         string? sessionId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        McpServer? server = null)
     {
         var key = NewKey();
         var draft = new NotificationDraft(
@@ -136,7 +144,8 @@ public sealed class NotificationTools(
             ReadSeverity(severity),
             title,
             summary ?? string.Empty,
-            body ?? string.Empty);
+            body ?? string.Empty,
+            Origin: Origin(server?.ClientInfo, sessionId));
 
         var id = (await notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false)).ValueOrThrow();
 
@@ -145,7 +154,7 @@ public sealed class NotificationTools(
 
     [McpServerTool(Name = Ask, Title = "Ask the person a question", ReadOnly = false, Idempotent = false, Destructive = false, OpenWorld = false)]
     [Description(
-        "Asks the person a question they can answer on this desktop or on any paired device. Offer 2 to 6 choices, "
+        "Asks the person a question they can answer on this desktop or on any paired device. Offer 2 to 8 choices, "
         + "an open plain-text answer, or both (one choice, or the open answer instead). allowMultiple lets them pick "
         + "several choices, and takes no open answer. Answers the notification's id at once and never waits for the "
         + "answer: poll get_answer with the id. There is no deadline and no default answer. Pass sessionId - your "
@@ -180,7 +189,8 @@ public sealed class NotificationTools(
         AskQuestion[]? questions = null,
         [Description("dialog or prose. Defaults to dialog with toolUseId, prose without.")]
         string? kind = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        McpServer? server = null)
     {
         if (toolUseId is not null || questions is not null || kind is not null)
             return await RelayAskAsync(sessionId, toolUseId, questions, kind, cancellationToken).ConfigureAwait(false);
@@ -204,7 +214,8 @@ public sealed class NotificationTools(
             title,
             summary ?? string.Empty,
             body ?? string.Empty,
-            new AnswerSpec([.. labels.Select(label => new AnswerChoice(label, label))], allowMultiple, open));
+            new AnswerSpec([.. labels.Select(label => new AnswerChoice(label, label))], allowMultiple, open),
+            Origin: Origin(server?.ClientInfo, sessionId));
 
         var id = (await notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false)).ValueOrThrow();
 
@@ -293,6 +304,40 @@ public sealed class NotificationTools(
 
         return published && callers ? status : throw RepositoryScope.Failure(NotificationsErrors.NotFound(id));
     }
+
+    /// <summary>
+    /// Where a <c>notify</c> or <c>ask</c> came from: the calling MCP client as it names itself —
+    /// its title, else its name, with Claude Code's <c>claude-code</c> in words — asked
+    /// "MCP ask".
+    /// <para>
+    /// The endpoint is stateless, so a client on a revision with the <c>initialize</c> handshake
+    /// is not named on a later <c>tools/call</c>: only the 2026-07-28 revision carries the
+    /// client per request. Then a call that names a Claude session — the <c>sessionId</c> every
+    /// one of these tools asks a Claude session for — reads as Claude Code, and any other as
+    /// <see cref="UnnamedClient"/>.
+    /// </para>
+    /// </summary>
+    internal static NotificationOrigin? Origin(Implementation? client, string? sessionId = null)
+    {
+        var title = client?.Title;
+        var name = string.IsNullOrWhiteSpace(title) ? client?.Name : title;
+        var system = string.IsNullOrWhiteSpace(name)
+            ? string.IsNullOrWhiteSpace(sessionId) ? UnnamedClient : NotificationOrigins.ClaudeCode
+            : KnownClients.TryGetValue(name.Trim(), out var known) ? known : name;
+
+        return NotificationOrigin.Fit(system, via: NotificationOrigins.McpAsk);
+    }
+
+    /// <summary>The system an MCP client that sent no name is shown as.</summary>
+    internal const string UnnamedClient = "MCP client";
+
+    /// <summary>Client names that read better in words, matched case-insensitively.</summary>
+    private static readonly IReadOnlyDictionary<string, string> KnownClients =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["claude-code"] = NotificationOrigins.ClaudeCode,
+            ["claude-ai"] = "Claude",
+        };
 
     /// <summary>The <c>get_answer</c> status of a waiting question.</summary>
     internal static string ToWire(WaitingQuestionState state) => state switch
@@ -491,6 +536,7 @@ public sealed record AskOption(string Label, string? Description = null);
 /// question: answered-in-session, timed-out or session-ended.</param>
 /// <param name="Answers">For an answered waiting question: the answers keyed by question text, several
 /// picked labels comma-joined. Absent otherwise.</param>
+/// <param name="Note">The note the person wrote beside the answer, or null.</param>
 public sealed record NotificationAnswerPayload(
     Guid Id,
     string Status,
@@ -498,6 +544,7 @@ public sealed record NotificationAnswerPayload(
     string? Text,
     DateTimeOffset? AnsweredAt,
     string? Reason,
+    string? Note = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string, string>? Answers = null)
 {
     internal static NotificationAnswerPayload From(WaitingQuestion question) =>
@@ -508,7 +555,7 @@ public sealed record NotificationAnswerPayload(
             null,
             question.State == WaitingQuestionState.Answered ? question.EndedAt : null,
             question.CloseReason is { } reason ? WaitingQuestions.Spelling(reason) : null,
-            question.State == WaitingQuestionState.Answered ? NotificationTools.DialogAnswers(question) : null);
+            Answers: question.State == WaitingQuestionState.Answered ? NotificationTools.DialogAnswers(question) : null);
 
     internal static NotificationAnswerPayload From(NotificationStatus status) =>
         new(
@@ -517,5 +564,6 @@ public sealed record NotificationAnswerPayload(
             status.Answer?.ChoiceIds ?? [],
             status.Answer?.Text,
             status.Answer?.AnsweredAt,
-            status.State == NotificationState.Closed ? status.CloseReason : null);
+            status.State == NotificationState.Closed ? status.CloseReason : null,
+            status.Answer?.Note);
 }

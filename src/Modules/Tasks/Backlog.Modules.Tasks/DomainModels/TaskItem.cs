@@ -54,7 +54,8 @@ public sealed class TaskItem
         IEnumerable<string>? tags,
         string? sourceInboxId,
         DateTimeOffset createdAt,
-        Guid? recurrenceSourceId = null)
+        Guid? recurrenceSourceId = null,
+        Guid? sourceNotificationId = null)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title is required.", nameof(title));
@@ -68,6 +69,7 @@ public sealed class TaskItem
         SourceInboxId = sourceInboxId;
         CreatedAt = createdAt;
         RecurrenceSourceId = recurrenceSourceId;
+        SourceNotificationId = sourceNotificationId;
 
         // Born already stamped. A task constructed and saved with no further
         // mutation would otherwise persist the default 0001-01-01, which sorts
@@ -100,6 +102,14 @@ public sealed class TaskItem
     /// is a separate aggregate that may since have been archived or deleted, so
     /// this is set once at birth and never edited afterwards.</summary>
     public Guid? RecurrenceSourceId { get; }
+
+    /// <summary>The notification whose answer asked for this entry — an Approve +
+    /// follow-up answer to a delivery run's Personal Validation question — or null
+    /// when no answer did (<c>.devbook/domain/tasks/domain.md#task</c>). Provenance on
+    /// <see cref="RecurrenceSourceId"/>'s terms, set once at birth and never edited,
+    /// and also the key that keeps a second delivery of the same answer from filing a
+    /// second follow-up.</summary>
+    public Guid? SourceNotificationId { get; }
 
     public DateTimeOffset CreatedAt { get; }
 

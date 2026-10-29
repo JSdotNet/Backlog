@@ -76,8 +76,11 @@ queues, and one that tends a person's Brain — and a pane that follows a runnin
   orchestrator merges into, ending in a single pull request to the base branch; and
   *stacked*, each cut from and targeting its predecessor's branch, so a chain runs before
   anything merges and the person merges bottom-up. *Attended*, the entry session ends its turn
-  at each Personal Validation, and the orchestrator relays it to the person and sends the
-  decision back to that session (`SendMessage`); *unattended* (branch or stacked), each entry parks at
+  at each Personal Validation, and the orchestrator relays it to the person, takes the first
+  answer — from the chat or from the question the gate raises on the person's devices
+  (`skills/execute-plan/assets/gates.md`) — and sends it back to that session (`SendMessage`);
+  Reject blocks the entry, and a follow-up an Approve + follow-up files runs as a ready entry
+  once the gated one lands; *unattended* (branch or stacked), each entry parks at
   its gate and lands as a draft pull request whose body is the review handoff, so the whole
   plan runs without anyone present and Personal Validation happens on the drafts — in branch
   mode on the closing draft to the base branch. A failed entry blocks only what depends on
@@ -226,7 +229,7 @@ hooks, beside the command hooks above. It draws an `execute-plan` run in two pla
   draws there, such as `delivery-run-view`'s flow band, stays under it.
 - **The Plan progress pane**, the band's **details** button or `/backlog-tools:plan-progress`:
   the whole plan as a matrix — every entry a row, every stage a column under its short name
-  (`scp`, `imp`, `b&t`, `pv`, …) — with the gate's review link and each block's reason under it.
+  (`scp`, `imp`, `b&t`, `pv`, …) — with the gate's run and worktree and each block's reason under it.
   A surface has no `parked` status, so an unattended entry reports the Personal Validation it
   moved onto its draft as `blocked`; the pane draws that as parked, and keeps ✗ for a block the
   run stopped at.

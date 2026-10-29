@@ -4,7 +4,7 @@ namespace Backlog.Infrastructure.Devbook.Code;
 
 /// <summary>
 /// Reads the Code level of a C4 component from its C# source, on demand (local
-/// ADR 0042 §3).
+/// ADR 0043 §3).
 /// <para>
 /// Every <c>*.cs</c> under the folder is parsed with
 /// <c>CSharpSyntaxTree.ParseText</c> and nothing more: no compilation, no

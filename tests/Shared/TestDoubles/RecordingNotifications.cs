@@ -52,7 +52,7 @@ internal sealed class RecordingNotifications : INotifications
     {
         if (Fails is { } failure) throw failure;
 
-        var id = Guid.NewGuid();
+        var id = draft.Id ?? Guid.NewGuid();
         lock (_gate) _published.Add((id, draft));
         return Task.FromResult(Result.Success(id));
     }

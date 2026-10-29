@@ -16,6 +16,8 @@ namespace Backlog.UI.Components.Notifications;
 /// <param name="Answer">The answers a question takes; null on an alert.</param>
 /// <param name="State">Where it stands.</param>
 /// <param name="Outcome">How it was settled, or null while it is open.</param>
+/// <param name="Origin">Where it came from, drawn as a line above the title; null draws the card
+/// as it always was, <see cref="Source"/> beside the time.</param>
 public sealed record NotificationCardModel(
     string Id,
     NotificationCardKind Kind,
@@ -27,10 +29,28 @@ public sealed record NotificationCardModel(
     string When,
     NotificationCardAnswerSpec? Answer,
     NotificationCardState State,
-    NotificationCardOutcome? Outcome = null)
+    NotificationCardOutcome? Outcome = null,
+    NotificationCardOrigin? Origin = null)
 {
     public bool IsOpen => State == NotificationCardState.Open;
 }
+
+/// <summary>
+/// Where a notification came from, already in words: the system as a badge and the place beside
+/// it above the title, who asked and how under the title, and "Open in &lt;System&gt; ↗" when there
+/// is a link that opens it there.
+/// </summary>
+/// <param name="System">The system that raised it — "Claude Code", "spec-manager".</param>
+/// <param name="Place">Where in that system, or null.</param>
+/// <param name="AskedBy">The person who asked, or null.</param>
+/// <param name="Via">How it was asked — "Agent session", "MCP ask" — or null.</param>
+/// <param name="OpenLink">An absolute http or https link that opens it at its origin, or null.</param>
+public sealed record NotificationCardOrigin(
+    string System,
+    string? Place = null,
+    string? AskedBy = null,
+    string? Via = null,
+    string? OpenLink = null);
 
 public enum NotificationCardKind
 {
@@ -61,24 +81,45 @@ public enum NotificationCardChoiceStyle
     Destructive
 }
 
-/// <summary>One set answer: the id the host gets back, the label a person reads, its style.</summary>
-public sealed record NotificationCardChoice(string Id, string Label, NotificationCardChoiceStyle Style = NotificationCardChoiceStyle.Default);
+/// <summary>One set answer: the id the host gets back, the label a person reads, its style, and
+/// whether picking it also takes the person's words.</summary>
+/// <param name="Id">The choice id the reply carries.</param>
+/// <param name="Label">What the button says.</param>
+/// <param name="Style">How the button is drawn.</param>
+/// <param name="TakesText">Whether pressing it opens a plain-text box first, and the reply carries
+/// the choice with the non-empty text typed there.</param>
+/// <param name="Placeholder">The hint that box shows, or null.</param>
+public sealed record NotificationCardChoice(
+    string Id,
+    string Label,
+    NotificationCardChoiceStyle Style = NotificationCardChoiceStyle.Default,
+    bool TakesText = false,
+    string? Placeholder = null);
 
 /// <summary>
 /// The answers a question takes, in the four shapes a question has: single choice (buttons),
 /// multiple choice (<see cref="AllowMultiple"/>, checkboxes within <see cref="MinChoices"/> and
 /// <see cref="MaxChoices"/>), open (no choices, <see cref="Open"/>: a plain-text box), or choices
-/// with an open answer.
+/// with an open answer. In a single-choice question a choice may
+/// <see cref="NotificationCardChoice.TakesText"/>; its text keeps to <see cref="Open"/>'s limit,
+/// or <see cref="NotificationCardOpenAnswer.DefaultMaxLength"/> without one. Any shape may take a
+/// <see cref="Note"/>: an optional plain-text box under the answers, sent with whichever answer
+/// the person gives and kept apart from a choice's words.
 /// </summary>
 public sealed record NotificationCardAnswerSpec(
     IReadOnlyList<NotificationCardChoice> Choices,
     bool AllowMultiple = false,
     NotificationCardOpenAnswer? Open = null,
     int? MinChoices = null,
-    int? MaxChoices = null);
+    int? MaxChoices = null,
+    NotificationCardOpenAnswer? Note = null);
 
 /// <summary>A plain-text answer: the placeholder its box shows and the most characters it takes.</summary>
-public sealed record NotificationCardOpenAnswer(string? Placeholder = null, int MaxLength = 2000);
+public sealed record NotificationCardOpenAnswer(string? Placeholder = null, int MaxLength = NotificationCardOpenAnswer.DefaultMaxLength)
+{
+    /// <summary>The most characters an answer takes when the question names no limit.</summary>
+    public const int DefaultMaxLength = 2000;
+}
 
 /// <summary>
 /// How a notification was settled: the answer that won and the device it came from, or why it was
@@ -91,5 +132,5 @@ public sealed record NotificationCardOpenAnswer(string? Placeholder = null, int 
 public sealed record NotificationCardOutcome(string? Answer = null, string? Device = null, string? Reason = null, string? When = null);
 
 /// <summary>What a person answered in the card: the picked choice ids, the typed text, or both
-/// where the question takes both.</summary>
-public sealed record NotificationCardReply(IReadOnlyList<string> ChoiceIds, string? Text);
+/// where the question takes both, and the note written beside the answer, or null.</summary>
+public sealed record NotificationCardReply(IReadOnlyList<string> ChoiceIds, string? Text, string? Note = null);

@@ -17,12 +17,16 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// <param name="Summary">The summary, at most <see cref="NotificationRecordLimits.PreviewSummaryLength"/>
 /// characters, or null for a private notification.</param>
 /// <param name="IsPrivate">Whether the source marked it private.</param>
+/// <param name="Origin">Where it came from, "System · Place", at most
+/// <see cref="NotificationRecordLimits.PreviewOriginLength"/> characters, or null when it names
+/// none. Sent for a private notification too: it holds no content.</param>
 public sealed record NotificationPushPreview(
     string Kind,
     string Severity,
     string Title,
     string? Summary,
-    bool IsPrivate);
+    bool IsPrivate,
+    string? Origin = null);
 
 /// <summary>The kinds a <see cref="NotificationPushPreview"/> may name, as the Notifications
 /// context writes them on the wire.</summary>
@@ -77,6 +81,12 @@ public static class NotificationPushData
 
     /// <summary>The summary, or <see cref="PrivateSummary"/>; absent when the owner sent no preview.</summary>
     public const string Summary = "summary";
+
+    /// <summary>Where it came from, "System · Place", at most
+    /// <see cref="NotificationRecordLimits.PreviewOriginLength"/> characters — the tray's
+    /// subtitle. Absent when the owner sent no preview or the notification names no origin;
+    /// present for a private one, since it holds no content.</summary>
+    public const string Origin = "origin";
 
     /// <summary>What a private notification's summary reads as outside the app
     /// (<c>.devbook/domain/notifications/domain.md</c>).</summary>

@@ -16,12 +16,10 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// notice it by. A green parser test would have said the feature worked.
 /// </para>
 /// <para>
-/// What is being persisted here is a display preference rather than a fact about
-/// the work — see <c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c>
-/// and <c>.devbook/domain/tasks/domain.md</c>. It rides on the metadata line anyway
-/// because the markdown is canonical: a preference kept in a sidecar would not
-/// survive the file being shared, and the reader who opened the entry somewhere
-/// else would get somebody else's default.
+/// The token is inert now: the desktop draws the body as one editor whatever it
+/// says, and nothing writes it. It is still a persisted, synced value somebody may
+/// have typed, so a save keeps it as written and invents none — see
+/// <c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c>.
 /// </para>
 /// </summary>
 public sealed class EntryViewPreferenceRoundTripTests : IDisposable
@@ -92,32 +90,6 @@ public sealed class EntryViewPreferenceRoundTripTests : IDisposable
 
         Assert.DoesNotContain("view:", reloaded.RawText, StringComparison.Ordinal);
         Assert.Null(EntryTextParser.Parse(reloaded.RawText).View);
-    }
-
-    /// <summary>Switching the view is a metadata rewrite like every other one, so
-    /// the token it writes has to come back out of the store the same way a
-    /// hand-typed one does.</summary>
-    [Fact]
-    public async Task Choosing_a_view_writes_the_token_and_the_store_keeps_it()
-    {
-        var root = TempRoot();
-
-        var writing = State(root);
-        await writing.InitializeAsync();
-
-        var row = new EntryRow { RawText = "# Plain\n`task` `*medium` `!draft`\n\nJust prose.\n" };
-        writing.Rows.Add(row);
-        writing.BeginEdit(row);
-        await writing.EndEditAsync(row);
-
-        await writing.ChangeViewAsync(row, EntryView.Steps);
-
-        Assert.Contains("`view:steps`", row.RawText, StringComparison.Ordinal);
-
-        var reading = State(root);
-        await reading.InitializeAsync();
-
-        Assert.Equal(EntryView.Steps, Assert.Single(reading.Rows).PreviewView);
     }
 
     /// <summary>A value the grammar does not know is refused rather than swallowed,

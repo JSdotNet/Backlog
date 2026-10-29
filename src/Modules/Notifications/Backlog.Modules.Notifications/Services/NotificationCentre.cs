@@ -48,6 +48,7 @@ internal sealed class NotificationCentre : INotificationCentre, IDisposable
         Guid notificationId,
         IReadOnlyList<string> choiceIds,
         string? text,
+        string? note = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(choiceIds);
@@ -60,7 +61,8 @@ internal sealed class NotificationCentre : INotificationCentre, IDisposable
             FromDeviceId: me,
             [.. choiceIds],
             string.IsNullOrWhiteSpace(text) ? null : text,
-            _time.GetUtcNow());
+            _time.GetUtcNow(),
+            string.IsNullOrWhiteSpace(note) ? null : note);
 
         return _replies.AcceptReplyAsync(reply, cancellationToken);
     }
@@ -107,5 +109,6 @@ internal sealed class NotificationCentre : INotificationCentre, IDisposable
         n.State,
         n.SettledAt,
         n.CloseReason,
-        n.Answer);
+        n.Answer,
+        n.Origin);
 }

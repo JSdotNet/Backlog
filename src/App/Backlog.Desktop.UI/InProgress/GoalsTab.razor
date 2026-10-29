@@ -9,9 +9,11 @@
     shell holds — the task list, the plan tags and the open pull requests the shell's
     reader found — as GoalsCandidates, and reads that reader when the view opens and on
     Refresh. A read landing, or the task list moving, maps
-    the view again without reading the module.
+    the view again without reading the module. A goal's "New task" row creates its task
+    through TasksDesktopState.CreateTaskAsync — To do, no plan tag, the list's own create —
+    which has the task in the list before GoalsHost attaches it and reads again.
 *@
-<GoalsHost Candidates="CandidatesOf" Revision="_revision" OnRead="Read" />
+<GoalsHost Candidates="CandidatesOf" Revision="_revision" OnRead="Read" CreateTask="State.CreateTaskAsync" />
 
 @code {
     /// <summary>The shell's reader, shared with the side panel.</summary>

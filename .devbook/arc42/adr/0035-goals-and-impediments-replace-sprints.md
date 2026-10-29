@@ -4,7 +4,7 @@
 date: 2026-10-26
 status: proposed
 roadmap: [goals-standup]
-related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
+related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 c4-touches: [backlog.desktop.shell, backlog.desktop.dashboard, backlog.mobile, backlog.cloud, backlog.taskStore]
 ```
 
@@ -219,6 +219,12 @@ sits on every pull request row as two icons with counts:
   A base branch no rule asks an approval of has no required total.
 
 The words "checks" and "approvals" appear only as screen-reader labels.
+
+> **Amended by [ADR 0042](0042-repository-management-owns-pull-request-state.md).**
+> Progress no longer reads this status from GitHub itself: Repository Management
+> publishes it, and Progress reads it through that contract
+> ([§5](0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract)).
+> The diagram's `GitHub --> Progress` edge now runs through Repository Management.
 
 ### 8. The phone reads, and edits impediments only
 
