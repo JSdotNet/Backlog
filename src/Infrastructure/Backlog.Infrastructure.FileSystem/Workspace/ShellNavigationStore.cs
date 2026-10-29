@@ -424,31 +424,11 @@ public sealed class ShellNavigationStore
     /// Waits until every write queued for the file at <paramref name="path"/> —
     /// by any store on it in this process — has landed.
     /// </summary>
-    public static void WaitForPendingWrites(string path)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        Task? writer;
-        lock (WriteGate)
-        {
-            writer = PendingWrites.TryGetValue(KeyOf(path), out var pending) ? pending.Writer : null;
-        }
-
-        try
-        {
-            writer?.Wait();
-        }
-        catch (AggregateException)
-        {
-            // A writer that faulted has already retired its entry and lost only its
-            // own write; waiting for it is over either way, and a reader goes on
-            // to the file as it stands.
-        }
-    }
+    public static void WaitForPendingWrites(string path) => QueuedFileWrites.WaitFor(path);
 
     /// <summary>
     /// Snapshots the choices on the caller's thread and hands the file write to the
-    /// pool.
+    /// pool (<see cref="QueuedFileWrites"/>).
     /// <para>
     /// The setters run on the click path — a view option, a takeover, a toggle — and
     /// on the desktop that is the renderer's UI thread, where a synchronous write
@@ -457,172 +437,11 @@ public sealed class ShellNavigationStore
     /// on the UI thread"). The properties are the truth for this process and change
     /// at once, so nothing that reads them waits; only the file lags.
     /// </para>
-    /// <para>
-    /// The JSON is taken here, in call order, and the writer only ever writes the
-    /// newest snapshot it holds, so the last choice made is the last one written
-    /// however the writes interleave. One writer per file, shared by every store
-    /// on it, so two stores on one path — a shell remounted, a test restarting —
-    /// cannot land their writes out of order, and a store constructed on a path
-    /// waits for the writes still queued for it before it reads.
-    /// </para>
     /// </summary>
     private void Save()
     {
-        Enqueue(_path, Serialize());
+        QueuedFileWrites.Enqueue(_path, Serialize());
         Changed?.Invoke();
-    }
-
-    /// <summary>Guards <see cref="PendingWrites"/>. Writes are rare — one per press
-    /// that changes something — so one gate for every path is enough.</summary>
-    private static readonly Lock WriteGate = new();
-
-    /// <summary>The file writes queued or running, by full path. An entry leaves
-    /// when its writer has nothing left to write.</summary>
-    private static readonly Dictionary<string, PendingWrite> PendingWrites = new(StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>The newest snapshot not yet written, and the pool task writing.</summary>
-    private sealed class PendingWrite
-    {
-        public string? Json { get; set; }
-
-        public Task Writer { get; set; } = Task.CompletedTask;
-    }
-
-    static ShellNavigationStore()
-    {
-        // A choice made in the last moment before the window closed is still in a
-        // writer's hands; the process waits a little for it rather than dropping it.
-        // The write itself is atomic, so a process that does not wait loses that
-        // choice and never the file.
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => WaitForAllPendingWrites(TimeSpan.FromSeconds(2));
-    }
-
-    private static string KeyOf(string path) => Path.GetFullPath(path);
-
-    private static void Enqueue(string path, string json)
-    {
-        var key = KeyOf(path);
-
-        lock (WriteGate)
-        {
-            if (PendingWrites.TryGetValue(key, out var pending))
-            {
-                pending.Json = json;
-                return;
-            }
-
-            pending = new PendingWrite { Json = json };
-            PendingWrites[key] = pending;
-
-            // Assigned under the gate the writer takes first, so it can never look
-            // for its own entry before the entry knows it.
-            pending.Writer = Task.Run(() => DrainWrites(key));
-        }
-    }
-
-    /// <summary>Writes the newest snapshot for <paramref name="key"/> until none is
-    /// left, then retires the entry — under the gate, so a save arriving as it
-    /// finishes either lands in this loop or starts a writer of its own.</summary>
-    private static void DrainWrites(string key)
-    {
-        var retired = false;
-        try
-        {
-            while (true)
-            {
-                string json;
-                lock (WriteGate)
-                {
-                    var pending = PendingWrites[key];
-                    if (pending.Json is null)
-                    {
-                        PendingWrites.Remove(key);
-                        retired = true;
-                        return;
-                    }
-
-                    json = pending.Json;
-                    pending.Json = null;
-                }
-
-                try
-                {
-                    WriteFile(key, json);
-                }
-                catch (Exception ex) when (ex is not OutOfMemoryException)
-                {
-                    // One write lost, and only that one: the loop goes on to the
-                    // next snapshot, so a failure nobody foresaw cannot leave the
-                    // path with an entry and no writer behind it.
-                }
-            }
-        }
-        finally
-        {
-            // Out of the loop without retiring — something above the write
-            // itself threw. The entry goes anyway, so the next save starts a
-            // writer of its own instead of queueing behind a dead one.
-            if (!retired)
-            {
-                lock (WriteGate)
-                {
-                    PendingWrites.Remove(key);
-                }
-            }
-        }
-    }
-
-    private static void WaitForAllPendingWrites(TimeSpan timeout)
-    {
-        Task[] writers;
-        lock (WriteGate)
-        {
-            writers = [.. PendingWrites.Values.Select(pending => pending.Writer)];
-        }
-
-        try
-        {
-            Task.WaitAll(writers, timeout);
-        }
-        catch (AggregateException)
-        {
-            // Every write already swallows its own IO failure; nothing to report
-            // on the way out.
-        }
-    }
-
-    /// <summary>Written beside the file and moved over it, so a process that ends
-    /// mid-write leaves the previous file rather than half of a new one. The name
-    /// beside it is this write's own: several app instances share one debug
-    /// workspace and so this file, and two writers on one temporary name would fail
-    /// each other's writes or move each other's half-written file.</summary>
-    private static void WriteFile(string path, string json)
-    {
-        var temporary = $"{path}.{Guid.NewGuid():n}.tmp";
-        try
-        {
-            File.WriteAllText(temporary, json);
-            File.Move(temporary, path, overwrite: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Losing this write only costs the next launch its restore; what
-            // is on screen right now is unaffected. Its temporary file goes with
-            // it rather than lingering beside the real one.
-            TryDelete(temporary);
-        }
-    }
-
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Left behind; a later write never reads it.
-        }
     }
 
     private string Serialize() =>

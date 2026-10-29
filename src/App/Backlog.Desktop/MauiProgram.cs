@@ -166,6 +166,10 @@ public static class MauiProgram
         // The head's windows (local ADR 0040 §4): the main one App asks for, and every
         // surface popped out beside it. Twice over, so App reaches the concrete type
         // that makes the main window while every caller sees the port.
+        // %LOCALAPPDATA%\Backlog\shell-windows.json, beside shell-navigation.json: where
+        // each surface's last popped-out window stood (local ADR 0040 §5). The head's
+        // own, since only its windows have bounds.
+        builder.Services.TryAddSingleton(_ => new ShellWindowStore());
         builder.Services.TryAddSingleton<ShellWindows>();
         builder.Services.TryAddSingleton<IShellWindows>(sp => sp.GetRequiredService<ShellWindows>());
         // The Brain card's Browse: this head has a window to open the Windows
