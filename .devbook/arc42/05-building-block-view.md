@@ -260,7 +260,7 @@ Devbook module's Abstractions, so the builder, the MCP chapter read and the
 Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes the
 same tables, and `DevbookBuilderParityTests` compares the two writers.
 
-The same project reads the C4 zoom tab's Code level (local ADR 0041 §3).
+The same project reads the C4 zoom tab's Code level (local ADR 0042 §3).
 `Code/CSharpCodeReader` parses every `*.cs` under a component's folder, `bin/`
 and `obj/` left out, with Roslyn syntax trees and never a compilation. It returns
 the types with their public members and the members of every accessibility, and

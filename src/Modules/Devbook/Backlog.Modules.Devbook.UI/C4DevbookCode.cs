@@ -7,7 +7,7 @@ using Backlog.UI.Components.Diagrams.C4;
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// The Code level of the C4 zoom tab, read for the Devbook (local ADR 0041 §3): which
+/// The Code level of the C4 zoom tab, read for the Devbook (local ADR 0042 §3): which
 /// components have code folders, their types read from the source by
 /// <see cref="CSharpCodeReader"/>, and the decision records linked to them.
 /// <para>

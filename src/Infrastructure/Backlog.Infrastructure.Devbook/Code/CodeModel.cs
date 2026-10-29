@@ -1,7 +1,7 @@
 namespace Backlog.Infrastructure.Devbook.Code;
 
 /// <summary>
-/// What the C4 zoom tab's Code level shows for one component (local ADR 0041 §3):
+/// What the C4 zoom tab's Code level shows for one component (local ADR 0042 §3):
 /// the types declared under one repository folder, their members, and the uses
 /// between them that can be seen by name. Read from syntax trees alone, so it is
 /// a picture of the declarations as written — a partial type merged by name, a

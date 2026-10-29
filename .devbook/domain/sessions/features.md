@@ -1772,3 +1772,28 @@ later item of the `session-dispatch` plan.
 - Once the session links itself the chip goes, and the entry shows the linked session as
   a pasted run's does. The app reads the queue again every five seconds while the flag
   is on, because a dispatcher moves a request without the app hearing it.
+
+## Answer a session's question from elsewhere
+
+```meta
+type: feature
+status: draft
+related: [.devbook/arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md, .devbook/domain/sessions/domain.md#question-relay, .devbook/domain/sessions/requirements.md#answer-a-sessions-question-from-elsewhere, .devbook/domain/notifications/features.md#answering-from-another-device]
+```
+
+When a Claude session waits on the person and they are not at the keyboard, its
+question becomes a Backlog notification they can answer from the phone or another
+desktop, and the answer gets back into the session. While they are at the keyboard,
+the session asks them there as it does today, and the question leaves the session only
+if it is still unanswered after a while.
+
+A session asks in a question dialog or in prose at the end of its turn. Either way a
+hook registers the question with Backlog, which reads the person's
+[Presence](domain.md#presence) to decide. A dialog asked while the person is away
+never opens: the hook waits for the answer and hands it to the session. Any other
+answer reaches the session as a message from the Manager session, which wakes it.
+Answering in the session closes the question everywhere.
+
+Local
+[ADR 0041](../../arc42/adr/0041-agent-questions-reach-backlog-by-presence-and-come-back-through-the-hook-or-the-manager.md)
+decides it. It sits behind the `notifications` flag, and nothing of it is built yet.
