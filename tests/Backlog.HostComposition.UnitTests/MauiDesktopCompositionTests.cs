@@ -569,7 +569,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
     /// <summary>What <c>MauiProgram</c> registers beside the shared composition: the
     /// MCP endpoint the tools adapter reads, the notification centre's request channel,
-    /// and the cost client. There is no Devbook
+    /// the pop-out pages' link tokens, and the cost client. There is no Devbook
     /// block here any more: <c>AddDesktopComposition</c> calls <c>AddDevbookModule</c>
     /// (issue #738), so neither the head nor this restatement of it registers one.</summary>
     private static void AddMauiHeadRegistrations(IServiceCollection services)
@@ -581,6 +581,10 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         // The channel a press on a Windows notification opens the centre through,
         // registered by the head beside WindowsAppNotifications.
         services.TryAddSingleton<Backlog.Modules.Notifications.UI.NotificationCentreRequests>();
+
+        // The link tokens the MCP listener admits a browser to its pop-out pages by,
+        // registered by the head beside McpServerWorker (local ADR 0040 §7).
+        services.TryAddSingleton<Backlog.Desktop.UI.Mcp.WindowLinkTokens>();
 
         Backlog.Infrastructure.AzureFoundry.AzureFoundryRegistration.AddAzureFoundryCostClient(services);
     }
