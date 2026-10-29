@@ -22,6 +22,15 @@ window.backlogDiagrams.renderDevbookAtlas = async (element, id, graph, dotnet) =
     window.backlogGraphAtlas.render(element, id, graph, dotnet);
 };
 
+// The Lobes atlas, the same way: C# builds the model the lobes drawing reads
+// (`DevbookLobesAtlas.Model`), the drawing is the library's
+// (`backlogLobesAtlas` in components.js), and this name is the Lobes atlas's own
+// so a test or a trace can tell it from the other two. Selection reaches the
+// drawing through `backlogGraphAtlas.select`, as it does the atlas.
+window.backlogDiagrams.renderLobesAtlas = async (element, id, model, dotnet) => {
+    window.backlogLobesAtlas.render(element, id, model, dotnet);
+};
+
 
 // Escape on a takeover whose focus has fallen to <body>. Each surface's <main>
 // closes on Escape through its own @onkeydown, which hears only the keys pressed

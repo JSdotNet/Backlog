@@ -92,5 +92,13 @@ internal enum WorkspaceSurface
     /// subject, with the one picked drawn and answered beside the list — taking the whole
     /// screen. Appended after <see cref="Devbook"/> for the reason
     /// <see cref="PullRequests"/> was. Escape closes it as it closes the other takeovers.</summary>
-    Notifications
+    Notifications,
+
+    /// <summary>The Lobes atlas — the Brain and every registered devbook drawn as
+    /// brains — taking the whole screen while its flag is on
+    /// (<c>.devbook/domain/devbook/features.md#lobes-atlas</c>). Opened from the
+    /// header or from the Devbook's own Atlas button, so unlike the other
+    /// takeovers its way back is to the surface it was opened from, not always the
+    /// workspace. Appended for the reason <see cref="PullRequests"/> was.</summary>
+    Atlas
 }

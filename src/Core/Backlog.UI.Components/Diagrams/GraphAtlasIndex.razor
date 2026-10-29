@@ -14,13 +14,19 @@
 
     Roving tabindex: one row is tabbable and the arrows move between them, so the
     list is one stop on the page rather than one stop per technology.
+
+    Moving is not choosing. The arrows, Home and End move the focus — and the
+    active row, which the host may spotlight on its picture — and leave the
+    selection alone; Enter or Space selects the focused row, and so does a
+    click. A selection is what opens a host's detail sheet, and a sheet that
+    opened and took the focus on every arrow press would leave a keyboard reader
+    no way to browse the list at all.
 *@
 
 <div class="@ClassValue"
      data-testid="@TestId"
      role="listbox"
      aria-label="@AriaLabel"
-     aria-activedescendant="@ActiveDescendantId"
      @onkeydown="OnKeyDownAsync">
     @foreach (var node in Nodes)
     {
@@ -34,7 +40,7 @@
              aria-selected="@(selected ? "true" : "false")"
              tabindex="@(IsRovingStop(node) ? 0 : -1)"
              @ref="_rows[node.Id]"
-             @onclick="() => SelectAsync(node.Id)">
+             @onclick="() => PickAsync(node.Id)">
             <span class="graph-atlas-index__mark" data-tone="@ToneValue(node)" aria-hidden="true"></span>
 
             <span class="graph-atlas-index__body">
@@ -81,6 +87,16 @@
     [Parameter]
     public EventCallback<string?> SelectedIdChanged { get; set; }
 
+    /// <summary>The row the keyboard is on: the focused one, the tab stop, the
+    /// one a host spotlights. Moved by the arrows without touching
+    /// <see cref="SelectedId"/>; falls back to the selection when it names no
+    /// row.</summary>
+    [Parameter]
+    public string? ActiveId { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> ActiveIdChanged { get; set; }
+
     [Parameter]
     public string AriaLabel { get; set; } = "Nodes";
 
@@ -96,19 +112,30 @@
 
     private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
 
-    private int SelectedIndex => Nodes.ToList().FindIndex(node => IsSelected(node));
-
     private bool IsSelected(GraphAtlasNode node) => string.Equals(node.Id, SelectedId, StringComparison.Ordinal);
 
-    /// <summary>The one tabbable row. The selected one when there is a selection,
-    /// so tabbing back into the list lands where the reader left it; the first row
-    /// otherwise, so the list is always reachable.</summary>
-    private bool IsRovingStop(GraphAtlasNode node) =>
-        SelectedIndex >= 0 ? IsSelected(node) : ReferenceEquals(node, Nodes.FirstOrDefault());
+    private int IndexOf(string? id) =>
+        id is null ? -1 : Nodes.ToList().FindIndex(node => string.Equals(node.Id, id, StringComparison.Ordinal));
+
+    /// <summary>Where the keyboard is: the active row, else the selected one, else
+    /// none.</summary>
+    private int CurrentIndex => IndexOf(ActiveId) is var active and >= 0 ? active : IndexOf(SelectedId);
+
+    /// <summary>The one tabbable row, as an index: the current one when there is
+    /// one, so tabbing back into the list — or closing a sheet — lands where the
+    /// reader left it; the first row otherwise, so the list is always reachable.
+    /// It is the row that holds the focus while the list does, so it is where an
+    /// arrow moves from: the first Down from the first row goes to the second.
+    /// No <c>aria-activedescendant</c>: the focus itself moves, which is the
+    /// roving-tabindex pattern, and naming a descendant as well would be the other
+    /// pattern laid over it.</summary>
+    private int RovingIndex => CurrentIndex is var current and >= 0 ? current : (Nodes.Count > 0 ? 0 : -1);
+
+    private bool IsRovingStop(GraphAtlasNode node) => RovingIndex is var stop and >= 0 && ReferenceEquals(node, Nodes[stop]);
+
+    private GraphAtlasNode? RovingStop => RovingIndex is var stop and >= 0 ? Nodes[stop] : null;
 
     private string RowId(GraphAtlasNode node) => $"{_id}-{Math.Abs(node.Id.GetHashCode())}";
-
-    private string? ActiveDescendantId => Nodes.FirstOrDefault(IsSelected) is { } node ? RowId(node) : null;
 
     private string RowClass(GraphAtlasNode node)
     {
@@ -133,9 +160,26 @@
         await SelectedIdChanged.InvokeAsync(id);
     }
 
-    /// <summary>Moves the selection and asks for focus to follow it. Focus moves in
-    /// <c>OnAfterRender</c> rather than here because the row that should receive it
-    /// may not have been rendered as the roving stop yet.</summary>
+    private async Task ActivateAsync(string? id)
+    {
+        if (string.Equals(id, ActiveId, StringComparison.Ordinal)) return;
+
+        ActiveId = id;
+        await ActiveIdChanged.InvokeAsync(id);
+    }
+
+    /// <summary>A click both moves to the row and chooses it — the pointer has no
+    /// browsing gesture to keep apart from choosing.</summary>
+    private async Task PickAsync(string id)
+    {
+        await ActivateAsync(id);
+        await SelectAsync(id);
+    }
+
+    /// <summary>Moves the active row and asks for focus to follow it, leaving the
+    /// selection where it was. Focus moves in <c>OnAfterRender</c> rather than
+    /// here because the row that should receive it may not have been rendered as
+    /// the roving stop yet.</summary>
     private async Task MoveAsync(int index)
     {
         if (Nodes.Count == 0) return;
@@ -143,19 +187,23 @@
         var clamped = Math.Clamp(index, 0, Nodes.Count - 1);
         var target = Nodes[clamped];
         _focusRequestId = target.Id;
-        await SelectAsync(target.Id);
+        await ActivateAsync(target.Id);
     }
+
+    /// <summary>Enter or Space: choose the row the keyboard is on.</summary>
+    private Task ChooseAsync() => RovingStop is { } node ? PickAsync(node.Id) : Task.CompletedTask;
 
     private Task OnKeyDownAsync(KeyboardEventArgs args)
     {
-        var current = SelectedIndex;
+        var current = RovingIndex;
 
         return args.Key switch
         {
-            "ArrowDown" or "ArrowRight" => MoveAsync(current < 0 ? 0 : current + 1),
-            "ArrowUp" or "ArrowLeft" => MoveAsync(current < 0 ? 0 : current - 1),
+            "ArrowDown" or "ArrowRight" => MoveAsync(current + 1),
+            "ArrowUp" or "ArrowLeft" => MoveAsync(current - 1),
             "Home" => MoveAsync(0),
             "End" => MoveAsync(Nodes.Count - 1),
+            "Enter" or " " => ChooseAsync(),
             _ => Task.CompletedTask
         };
     }
