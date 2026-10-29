@@ -1185,6 +1185,142 @@ The system SHALL open the Lobes atlas at the pane's scope from the Devbook pane'
 - **When** the reader opens the technology atlas on the Tech tab
 - **Then** it is drawn in its layered layout
 
+### Requirement: A drag turns the brains like a globe in the hand
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.A_fling_slows_and_comes_to_rest_within_a_second_and_a_half, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.One_long_frame_moves_the_camera_as_far_as_two_short_ones]
+```
+
+The system SHALL turn the near face of a brain with the pointer on both axes while the reader drags, and carry a brisk drag on after release until it comes to rest.
+
+#### Scenario: Dragging across
+
+- **Given** the brains are at rest
+- **When** the reader drags to the right across the map
+- **Then** the near face of the brains moves to the right with the pointer
+
+#### Scenario: A fling
+
+- **Given** the atlas is open
+- **When** the reader drags quickly across it and lets go while moving
+- **Then** the brains keep turning the same way and come to rest within about a second and a half
+
+#### Scenario: A click is no fling
+
+- **Given** the brains are at rest
+- **When** the reader presses and releases on a mark without moving the pointer
+- **Then** the camera stays where it was and the mark's details open
+
+#### Scenario: Catching a spin
+
+- **Given** the brains are still turning after a fling
+- **When** the reader presses on a mark
+- **Then** the brains stop where they are and no details open
+
+### Requirement: A scroll zooms toward the pointer
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.A_zoom_keeps_the_point_under_the_cursor_where_it_is, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_pan_is_held_at_the_centre_until_zoomed_in_and_never_past_the_edge, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.An_easing_closes_on_its_target_and_then_stops_there]
+```
+
+The system SHALL zoom toward the point under the pointer when the reader scrolls, easing to each step and staying between half and 2.4 times.
+
+#### Scenario: Zooming at the pointer
+
+- **Given** the atlas is open
+- **When** the reader scrolls in with the pointer on a mark away from the centre
+- **Then** the zoom eases to its new level and the mark stays under the pointer
+
+#### Scenario: At the limit
+
+- **Given** the atlas is zoomed in to 2.4 times
+- **When** the reader scrolls in again
+- **Then** the zoom stays at 2.4 times and the foot still reads 240%
+
+### Requirement: A scope switch eases the camera home
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_scope_curve_starts_at_rest_ends_at_rest_and_never_turns_back, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.Easing_home_takes_the_short_way_round_however_far_the_idle_turn_wound]
+```
+
+The system SHALL ease the camera from the last view to the default view, the short way round, when the reader switches scope.
+
+#### Scenario: Switching scope
+
+- **Given** the reader has turned the brains in All
+- **When** the reader picks a devbook's scope
+- **Then** the camera turns through the views in between and settles on the default view within a second
+
+#### Scenario: After a long idle turn
+
+- **Given** the brains have turned on their own for several minutes
+- **When** the reader switches scope
+- **Then** the camera turns less than half a turn on its way to the default view
+
+### Requirement: A region or Labels toggle leaves the camera as it was
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL keep the camera's view and its motion when the reader shows or hides a region or turns Labels on or off.
+
+#### Scenario: A toggle mid-turn
+
+- **Given** the brains are turning
+- **When** the reader hides a region or turns Labels off
+- **Then** the brains keep turning from where they were, with no jump
+
+### Requirement: The brains turn on their own only while nobody uses them
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_idle_turn_waits_its_delay_then_ramps_in_over_transition_slow, unit:dotnet:Backlog.UI.Components.UnitTests.LobesCameraScriptTests.The_idle_turn_is_slow_enough_to_take_about_a_hundred_seconds_a_turn]
+```
+
+The system SHALL turn the brains slowly on their own only after four seconds without input, and stop the turn at once when the reader presses, scrolls or rests the pointer on a mark.
+
+#### Scenario: Left alone
+
+- **Given** the atlas is open with the brains at rest
+- **When** the reader leaves the map untouched for four seconds
+- **Then** the brains start turning slowly, about one turn in a hundred seconds
+
+#### Scenario: Coming back
+
+- **Given** the brains are turning on their own
+- **When** the reader presses or scrolls on the map, or rests the pointer on a mark
+- **Then** the turn stops at once, and starts again only after four more seconds without input
+
+### Requirement: Reduced motion holds the atlas still
+
+```meta
+type: requirement
+status: draft
+```
+
+The system SHALL, under reduced motion, turn the brains only while a drag lasts, land a scroll and a scope switch at once, and never turn the brains on their own.
+
+#### Scenario: Reduced motion
+
+- **Given** reduced motion is on
+- **When** the reader drags quickly and lets go, then scrolls, then switches scope
+- **Then** the drag turns the brains only until the release, and the zoom and the default view arrive at once
+
+#### Scenario: Waiting under reduced motion
+
+- **Given** reduced motion is on and the atlas is open
+- **When** the reader leaves the map untouched for longer than four seconds
+- **Then** the brains do not move
+
 ## Capture into the Brain
 
 ```meta
