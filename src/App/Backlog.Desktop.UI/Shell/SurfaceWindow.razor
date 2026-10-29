@@ -115,7 +115,11 @@
         _windows = Services.GetService<IShellWindows>();
         _mainWindow = Services.GetService<MainWindowSurfaces>();
         Navigator.ShowRequested += HandleShowRequested;
-        if (_state is not null) _state.Changed += HandleStateChanged;
+        if (_state is not null)
+        {
+            _state.Changed += HandleStateChanged;
+            _state.WrittenElsewhere += HandleTasksWrittenElsewhere;
+        }
 
         // This window's own task list, which no shell here loads: the views read it,
         // and so do the Goals view's candidates and the scope chips' repositories.
@@ -288,9 +292,44 @@
 
     private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
 
+    /// <summary>
+    /// A task was written outside this window — the main window's list, another
+    /// window's, or the MCP server — so this window's own list reloads from the
+    /// store (local ADR 0040 §5). The main window's <c>Home</c> does the same for
+    /// its list: on the renderer's dispatcher, because the state raises this on the
+    /// writer's thread, and coalesced, because an agent's burst is one signal per
+    /// write. The reload raises <c>Changed</c>, which renders the window again.
+    /// </summary>
+    private void HandleTasksWrittenElsewhere() => _ = InvokeAsync(async () =>
+    {
+        if (_state is not { } state) return;
+
+        try
+        {
+            await _tasksReload.RunAsync(state.ReloadFromStoreAsync);
+        }
+        catch (Exception exception)
+        {
+            Services.GetService<IToastChannel>()?.Publish(ToastMessage.Error(
+                $"The task list in this window could not be refreshed after a change made outside it: {exception.Message}",
+                ReloadFailedTestId));
+        }
+    });
+
+    /// <summary>The reload <see cref="HandleTasksWrittenElsewhere"/> runs, and the
+    /// one owed behind it. Only touched on the renderer's dispatcher.</summary>
+    private readonly CoalescedReload _tasksReload = new();
+
+    /// <summary>The test id of the toast a failed reload of the window's list raises.</summary>
+    private const string ReloadFailedTestId = "surface-window-reload-failed";
+
     public void Dispose()
     {
         Navigator.ShowRequested -= HandleShowRequested;
-        if (_state is not null) _state.Changed -= HandleStateChanged;
+        if (_state is not null)
+        {
+            _state.Changed -= HandleStateChanged;
+            _state.WrittenElsewhere -= HandleTasksWrittenElsewhere;
+        }
     }
 }

@@ -1,4 +1,5 @@
 using Backlog.Desktop.UI.Shell;
+using Backlog.Modules.Tasks.Services;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -165,9 +166,72 @@ public sealed class SurfaceWindowTests
         Assert.Equal(["second", "first"], asked);
     }
 
-    private static async Task<Host> CreateHostAsync()
+    /// <summary>
+    /// A task written outside this window — the MCP server, or the main window's
+    /// list, through the process-wide task signal (local ADR 0040 §5) — reloads the
+    /// window's own list, and what the window shows follows.
+    /// </summary>
+    [Fact]
+    public async Task A_task_written_outside_the_window_reloads_its_list_and_the_window_shows_it()
     {
-        var pane = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs");
+        var signal = new TaskChangeSignal();
+        using var host = await CreateHostAsync(signal);
+        var elsewhere = host.Pane.EntriesElsewhere(signal);
+        var saved = await elsewhere.SaveFromTextAsync(null, "# Named in the main window\n`task` `!ready`\n", 0, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(saved.IsSuccess);
+        await host.Pane.State.ReloadFromStoreAsync();
+
+        var window = host.Render("rows");
+        Assert.Equal(["Named in the main window"], RowTitles(window));
+
+        // Off the renderer's thread, as a request to the MCP endpoint is.
+        var renamed = await Task.Run(() => elsewhere.SaveFromTextAsync(
+            saved.Value.Entry.Id, "# Renamed in the main window\n`task` `!ready`\n", 0));
+        Assert.True(renamed.IsSuccess);
+
+        window.WaitForAssertion(
+            () => Assert.Equal(["Renamed in the main window"], RowTitles(window)),
+            TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>A window that closed stops listening: a write after it reloads
+    /// nothing into the list it held.</summary>
+    [Fact]
+    public async Task A_closed_window_no_longer_reloads_for_a_write_made_outside_it()
+    {
+        var signal = new TaskChangeSignal();
+        using var host = await CreateHostAsync(signal);
+        var elsewhere = host.Pane.EntriesElsewhere(signal);
+        var saved = await elsewhere.SaveFromTextAsync(null, "# Named before the window closed\n`task` `!ready`\n", 0, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(saved.IsSuccess);
+        await host.Pane.State.ReloadFromStoreAsync();
+
+        host.Render("rows");
+        await host.Pane.Context.DisposeComponentsAsync();
+
+        var changed = 0;
+        host.Pane.State.Changed += () => Interlocked.Increment(ref changed);
+
+        var renamed = await Task.Run(() => elsewhere.SaveFromTextAsync(
+            saved.Value.Entry.Id, "# Renamed after the window closed\n`task` `!ready`\n", 0));
+        Assert.True(renamed.IsSuccess);
+
+        // Long enough for a reload the dispatcher had queued to land; none should.
+        await Task.Delay(TimeSpan.FromMilliseconds(500), TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, Volatile.Read(ref changed));
+        Assert.Equal("Named before the window closed", Assert.Single(host.Pane.State.Rows).PreviewTitle);
+    }
+
+    private static string[] RowTitles(IRenderedComponent<SurfaceWindow> window) =>
+        [.. window.FindAll("[data-testid='rows-surface'] [data-testid='rows-row']").Select(row => row.TextContent.Trim())];
+
+    private static async Task<Host> CreateHostAsync(TaskChangeSignal? taskWrites = null)
+    {
+        var pane = await TasksPaneHost.CreateAsync(
+            roadmapTags: null,
+            ["backlog = JSdotNet/Backlog", "docs = JSdotNet/Docs"],
+            taskWrites: taskWrites);
         var windows = new RecordingShellWindows();
         var main = new MainWindowSurfaces();
         var requests = new List<SurfaceRequest>();
@@ -180,6 +244,7 @@ public sealed class SurfaceWindowTests
         var services = pane.Context.Services;
         services.AddSingleton(new ShellSurface("alpha", "Alpha", ShellSurfaceGroup.Takeover, 10, typeof(AlphaSurface), QueryKeys: ["note", "scope"]));
         services.AddSingleton(new ShellSurface("beta", "Beta", ShellSurfaceGroup.Takeover, 20, typeof(BetaSurface), QueryKeys: ["item"]));
+        services.AddSingleton(new ShellSurface("rows", "Rows", ShellSurfaceGroup.Takeover, 30, typeof(RowsSurface)));
         services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
         services.AddScoped<ISurfaceNavigator, SurfaceNavigator>();
         services.AddSingleton<IShellWindows>(windows);
@@ -279,5 +344,34 @@ public sealed class SurfaceWindowTests
         // Not in this test's catalog, so this window cannot show it itself.
         protected override (string SurfaceId, Dictionary<string, string> Query) JumpTo =>
             ("tasks", new Dictionary<string, string>(StringComparer.Ordinal) { ["entry"] = "42" });
+    }
+
+    /// <summary>A surface that draws the titles of the window's list, as Tasks,
+    /// Board, Calendar and Roadmap draw from it. It listens to nothing itself: what
+    /// it shows changes only when the window renders it again.</summary>
+    private sealed class RowsSurface : ComponentBase
+    {
+        [Inject]
+        private TasksDesktopState State { get; set; } = default!;
+
+        [Parameter]
+        public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+        [Parameter]
+        public EventCallback OnClose { get; set; }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "ul");
+            foreach (var row in State.Rows)
+            {
+                builder.OpenElement(1, "li");
+                builder.AddAttribute(2, "data-testid", "rows-row");
+                builder.AddContent(3, row.PreviewTitle);
+                builder.CloseElement();
+            }
+
+            builder.CloseElement();
+        }
     }
 }

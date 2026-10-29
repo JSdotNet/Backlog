@@ -3786,6 +3786,14 @@ h1, h2, h3 {
     border-left: var(--border-width) solid var(--color-border);
 }
 
+/* The header's options each stand in a header item beside their ⧉ (local ADR
+   0040 §4), so in a fused group the neighbour the hairline follows is the item
+   before, not the option. A loose option is left out: it draws its whole border
+   itself, and this rule's weight would beat its selected colour on the left. */
+.header-surface-item + .header-surface-item > .header-group__option:not(.header-group__option--loose) {
+    border-left: var(--border-width) solid var(--color-border);
+}
+
 .header-group__option:hover:not(:disabled) {
     background: var(--color-background-raised);
     color: var(--color-text-primary);
@@ -3880,10 +3888,12 @@ h1, h2, h3 {
 }
 
 /*
-  A header item the surface catalog draws, and its ⧉ Open in new window button
-  (local ADR 0040 §4). The button sits on the option's bottom-right corner, over
-  it rather than beside it, so showing it never moves the header or what the fold
-  measures; the top-right corner is the feature flag's. Hidden until the item
+  A header item — every option the header draws for a catalog surface, loose or
+  fused — and its ⧉ Open in new window button (local ADR 0040 §4). The button
+  sits on the option's bottom-right corner, over it rather than beside it, so
+  showing it never moves the header or what the fold measures; the top-right
+  corner is the feature flag's. In a fused group that corner is a neighbour's
+  edge, which the button overlaps only while it shows. Hidden until the item
   is hovered or anything in it has focus — a keyboard user tabbing from the
   option lands on it and sees it — and always shown where nothing can hover.
   Hidden by opacity, not display, so it stays in the tab order. 24px square, the
@@ -4051,17 +4061,26 @@ h1, h2, h3 {
 
 /* A fused group clips its members to its rounded corners, and would clip a flag
    standing past them just the same. Where one carries a flag the group stops
-   clipping, and its end members take the corners the clip used to cut. */
-.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) {
+   clipping, and its end members take the corners the clip used to cut.
+
+   A group of header items never clips: each item's ⧉ hangs past its option's
+   bottom-right corner (.header-surface-item__pop), and the last one's past the
+   group's own edge, so a clip would cut it whether a flag is there or not. The
+   corners move onto the end items' options the same way. Not onto a loose
+   option, which keeps the full radius of its own border. */
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)),
+.header-group:has(> .header-surface-item) {
     overflow: visible;
 }
 
-.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:first-child {
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:first-child,
+.header-group > .header-surface-item:first-child > .header-group__option:not(.header-group__option--loose) {
     border-top-left-radius: calc(var(--border-radius-md) - var(--border-width));
     border-bottom-left-radius: calc(var(--border-radius-md) - var(--border-width));
 }
 
-.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:last-child {
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:last-child,
+.header-group > .header-surface-item:last-child > .header-group__option:not(.header-group__option--loose) {
     border-top-right-radius: calc(var(--border-radius-md) - var(--border-width));
     border-bottom-right-radius: calc(var(--border-radius-md) - var(--border-width));
 }
