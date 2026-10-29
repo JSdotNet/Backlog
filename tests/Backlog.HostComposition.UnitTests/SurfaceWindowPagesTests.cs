@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 
 using Backlog.Desktop.Mcp;
+using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.SharedKernel;
@@ -40,7 +41,8 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     /// <summary>The page renders <see cref="SurfaceWindow"/> for the surface the
     /// address names, with what the surface's component drew — from the desktop
     /// container, under the window's slim header — and the scripts that start its
-    /// circuit. No bearer token: a browser loading a page has none.</summary>
+    /// circuit. No bearer token: a browser loading a page has none, and carries the
+    /// cookie its link token was exchanged for instead.</summary>
     [Fact]
     public async Task The_window_route_renders_the_surface_from_the_desktop_container()
     {
@@ -50,8 +52,8 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             return;
         }
 
-        using var listener = await StartAsync(servesWindowPages: true);
-        using var client = listener.Client();
+        using var listener = await StartAsync();
+        using var client = await listener.AdmittedClientAsync();
 
         using var response = await client.GetAsync("/window/probe?keep=yes&drop=no", TestContext.Current.CancellationToken);
         var page = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -79,8 +81,8 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             return;
         }
 
-        using var listener = await StartAsync(servesWindowPages: true);
-        using var client = listener.Client();
+        using var listener = await StartAsync();
+        using var client = await listener.AdmittedClientAsync();
 
         var page = await client.GetStringAsync("/window/" + surfaceId, TestContext.Current.CancellationToken);
 
@@ -104,8 +106,8 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             return;
         }
 
-        using var listener = await StartAsync(servesWindowPages: true);
-        using var client = listener.Client();
+        using var listener = await StartAsync();
+        using var client = await listener.AdmittedClientAsync();
 
         using var response = await client.GetAsync(path, TestContext.Current.CancellationToken);
 
@@ -113,9 +115,9 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         Assert.Equal(mediaType, response.Content.Headers.ContentType?.MediaType);
     }
 
-    /// <summary>Serving pages waives the bearer token for them alone: <c>/mcp</c> still
-    /// refuses a request without one, and a page is still refused to a foreign
-    /// <c>Origin</c>.</summary>
+    /// <summary>A page's cookie stands in for the bearer token on its paths alone:
+    /// <c>/mcp</c> still refuses a request without one, and a page is still refused
+    /// to a foreign <c>Origin</c> and <c>Host</c>, cookie or not.</summary>
     [Fact]
     public async Task The_mcp_endpoint_keeps_its_checks_and_a_page_keeps_the_origin_check()
     {
@@ -125,8 +127,8 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             return;
         }
 
-        using var listener = await StartAsync(servesWindowPages: true);
-        using var client = listener.Client();
+        using var listener = await StartAsync();
+        using var client = await listener.AdmittedClientAsync();
 
         using (var noToken = await client.PostAsync(McpServerWorker.EndpointPath, new StringContent("{}"), TestContext.Current.CancellationToken))
         {
@@ -180,10 +182,10 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             return;
         }
 
-        var listener = await StartAsync(servesWindowPages: true);
+        var listener = await StartAsync();
         var shared = _provider!.GetRequiredService<ProbeSingleton>();
 
-        using (var client = listener.Client())
+        using (var client = await listener.AdmittedClientAsync())
         {
             var page = await client.GetStringAsync("/window/probe", TestContext.Current.CancellationToken);
             Assert.Contains($"data-testid=\"probe-singleton\">{shared.Id}</", page, StringComparison.Ordinal);
@@ -211,8 +213,8 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             return;
         }
 
-        using var listener = await StartAsync(servesWindowPages: true);
-        using var client = listener.Client();
+        using var listener = await StartAsync();
+        using var client = listener.Client(out _);
 
         using (var anonymous = await client.GetAsync(path, TestContext.Current.CancellationToken))
         {
@@ -225,11 +227,14 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    /// <summary>A listener that does not serve the pages — a Release one, until the
-    /// link token guards them — answers the route as it answers any other path: the
-    /// bearer token first.</summary>
+    /// <summary>
+    /// A web link's first load redeems its token: the listener sets the page's cookie
+    /// — HttpOnly, SameSite=Strict, for this loopback origin — and redirects to the
+    /// same address without the token, the rest of the query kept. The page then
+    /// renders on the cookie alone.
+    /// </summary>
     [Fact]
-    public async Task Without_the_pages_the_route_is_refused_like_any_other_path()
+    public async Task A_tokenized_link_sets_the_cookie_and_redirects_without_the_token()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -237,17 +242,125 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             return;
         }
 
-        using var listener = await StartAsync(servesWindowPages: false);
-        using var client = listener.Client();
+        using var listener = await StartAsync();
+        using var client = listener.Client(out var cookies);
 
-        using var response = await client.GetAsync("/window/probe", TestContext.Current.CancellationToken);
+        using var redirect = await client.GetAsync(
+            $"/window/probe?keep=yes&t={listener.Tokens.Mint()}&drop=no",
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Redirect, redirect.StatusCode);
+        Assert.Equal("/window/probe?keep=yes&drop=no", redirect.Headers.Location?.OriginalString);
+
+        var setCookie = Assert.Single(redirect.Headers.GetValues("Set-Cookie"));
+        Assert.StartsWith(SurfaceWindowPages.CookieName(listener.Settings.McpServerPort) + "=", setCookie, StringComparison.Ordinal);
+        Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=strict", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("path=/", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("domain=", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("expires=", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(cookies.GetCookies(new Uri(listener.Address)));
+
+        using var page = await client.GetAsync(redirect.Headers.Location, TestContext.Current.CancellationToken);
+        var html = await page.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Contains("data-testid=\"probe-query\">keep=yes</", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>A page, its files and its circuit, asked for with neither a valid
+    /// token nor the cookie, are 401 — before anything of the desktop app is
+    /// rendered or served.</summary>
+    [Theory]
+    [InlineData("/window/probe")]
+    [InlineData("/window/probe?t=never-minted")]
+    [InlineData("/window/probe?t=")]
+    [InlineData("/app.js")]
+    [InlineData("/_framework/blazor.web.js")]
+    [InlineData("/_content/Backlog.UI.Components/components.js")]
+    [InlineData("/_blazor/negotiate?negotiateVersion=1")]
+    public async Task A_page_request_without_a_token_or_the_cookie_is_401(string path)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head's container and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var listener = await StartAsync();
+        using var client = listener.Client(out _);
+
+        using var response = path.StartsWith("/_blazor", StringComparison.Ordinal)
+            ? await client.PostAsync(path, content: null, TestContext.Current.CancellationToken)
+            : await client.GetAsync(path, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.False(response.Headers.Contains("Set-Cookie"));
+        Assert.DoesNotContain("surface-window", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+    }
 
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", listener.Settings.EnsureMcpServerToken());
-        using var authorized = await client.GetAsync("/window/probe", TestContext.Current.CancellationToken);
+    /// <summary>A token admits one browser: the same link opened a second time,
+    /// without the first browser's cookie, is 401. A cookie the listener never
+    /// issued is no better than none.</summary>
+    [Fact]
+    public async Task A_token_admits_once_and_a_forged_cookie_admits_nothing()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head's container and its DPAPI credential store are Windows-only.");
+            return;
+        }
 
-        Assert.Equal(HttpStatusCode.NotFound, authorized.StatusCode);
+        using var listener = await StartAsync();
+        var link = $"/window/probe?t={listener.Tokens.Mint()}";
+
+        using (var first = listener.Client(out _))
+        using (var admitted = await first.GetAsync(link, TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, admitted.StatusCode);
+        }
+
+        using (var second = listener.Client(out _))
+        using (var refused = await second.GetAsync(link, TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+        }
+
+        using var forger = listener.Client(out var cookies);
+        cookies.Add(new Uri(listener.Address), new System.Net.Cookie(SurfaceWindowPages.CookieName(listener.Settings.McpServerPort), "forged"));
+        using var forged = await forger.GetAsync("/window/probe", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, forged.StatusCode);
+    }
+
+    /// <summary>A browser that already has the cookie and loads an address that still
+    /// carries a token — a stale link, or a second one — is sent on without it rather
+    /// than refused, and a live token is spent either way.</summary>
+    [Fact]
+    public async Task With_the_cookie_a_token_in_the_address_is_dropped_and_spent()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("The MAUI head's container and its DPAPI credential store are Windows-only.");
+            return;
+        }
+
+        using var listener = await StartAsync();
+        using var client = await listener.AdmittedClientAsync();
+        var unused = listener.Tokens.Mint();
+
+        using (var stale = await client.GetAsync("/window/probe?t=spent-long-ago&keep=1", TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, stale.StatusCode);
+            Assert.Equal("/window/probe?keep=1", stale.Headers.Location?.OriginalString);
+        }
+
+        using (var fresh = await client.GetAsync($"/window/probe?t={unused}", TestContext.Current.CancellationToken))
+        {
+            Assert.Equal(HttpStatusCode.Redirect, fresh.StatusCode);
+        }
+
+        Assert.Null(listener.Tokens.Redeem(unused));
     }
 
     /// <summary>
@@ -270,7 +383,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             return;
         }
 
-        using var listener = await StartAsync(servesWindowPages: true);
+        using var listener = await StartAsync();
         using var playwright = await Playwright.CreateAsync();
 
         IBrowser browser;
@@ -288,8 +401,11 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         {
             var first = await browser.NewPageAsync();
             var second = await browser.NewPageAsync();
-            await first.GotoAsync(listener.Address + "window/probe");
-            await second.GotoAsync(listener.Address + "window/probe");
+            // Two browser contexts, so two links: each redeems its own token, and
+            // lands on the address without it.
+            await first.GotoAsync(listener.Address + "window/probe?t=" + listener.Tokens.Mint());
+            await second.GotoAsync(listener.Address + "window/probe?t=" + listener.Tokens.Mint());
+            Assert.Equal(listener.Address + "window/probe", first.Url);
 
             // Interactive once the circuit answers a press: the prerendered button
             // does nothing until the circuit is connected.
@@ -342,7 +458,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
     }
 
     [SupportedOSPlatform("windows")]
-    private async Task<Listener> StartAsync(bool servesWindowPages)
+    private async Task<Listener> StartAsync()
     {
         var services = MauiDesktopCompositionTests.MauiShapedServices(_appData);
         services.AddSingleton(new ShellSurface("probe", "Probe", ShellSurfaceGroup.Takeover, 900, typeof(ProbeSurface), QueryKeys: ["keep"]));
@@ -358,7 +474,6 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             _provider,
             settings,
             log: null,
-            servesWindowPages,
             Path.Combine(AppContext.BaseDirectory, "Backlog.Desktop.WebHarness.staticwebassets.runtime.json"));
 
         var deadline = DateTime.UtcNow + Patience;
@@ -369,7 +484,7 @@ public sealed class SurfaceWindowPagesTests : IDisposable
             await Task.Delay(TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
         }
 
-        return new Listener(worker, settings);
+        return new Listener(worker, settings, _provider.GetRequiredService<WindowLinkTokens>());
     }
 
     private static int FreePort()
@@ -379,13 +494,34 @@ public sealed class SurfaceWindowPagesTests : IDisposable
         return ((IPEndPoint)probe.LocalEndpoint).Port;
     }
 
-    private sealed class Listener(McpServerWorker worker, WorkspaceSettingsStore settings) : IDisposable
+    private sealed class Listener(McpServerWorker worker, WorkspaceSettingsStore settings, WindowLinkTokens tokens) : IDisposable
     {
         public WorkspaceSettingsStore Settings { get; } = settings;
 
+        public WindowLinkTokens Tokens { get; } = tokens;
+
         public string Address { get; } = $"http://127.0.0.1:{settings.McpServerPort}/";
 
-        public HttpClient Client() => new() { BaseAddress = new Uri(Address) };
+        /// <summary>A browser of the test's own: it keeps the cookies it is given
+        /// and follows no redirect, so a test sees each one.</summary>
+        public HttpClient Client(out CookieContainer cookies)
+        {
+            cookies = new CookieContainer();
+#pragma warning disable CA2000 // The client owns the handler and disposes it.
+            var handler = new HttpClientHandler { CookieContainer = cookies, AllowAutoRedirect = false };
+#pragma warning restore CA2000
+            return new HttpClient(handler, disposeHandler: true) { BaseAddress = new Uri(Address) };
+        }
+
+        /// <summary>A browser admitted the way a person is: by a tokenized link's
+        /// first load, whose cookie it then carries.</summary>
+        public async Task<HttpClient> AdmittedClientAsync()
+        {
+            var client = Client(out _);
+            using var admitted = await client.GetAsync($"/window/probe?t={Tokens.Mint()}", TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Redirect, admitted.StatusCode);
+            return client;
+        }
 
         public void Dispose() => worker.Dispose();
     }

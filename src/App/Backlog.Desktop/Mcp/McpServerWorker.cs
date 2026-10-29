@@ -55,12 +55,13 @@ namespace Backlog.Desktop.Mcp;
 /// them and forwards instead. See <see cref="BridgeToDesktopContainer"/>.
 /// </para>
 /// <para>
-/// <b>Pop-out pages.</b> In a Debug build the listener also serves
-/// <c>/window/{surfaceId}</c> as an interactive server page for Claude Desktop's
-/// browser pane (local ADR 0040 §7), with the files it loads; see
-/// <see cref="SurfaceWindowPages"/>. A page renders this head's panes, so the bridge
-/// forwards everything the head composed, one desktop scope per circuit, and a page
-/// is held to the <c>Origin</c> check alone until the link token guards it.
+/// <b>Pop-out pages.</b> The listener also serves <c>/window/{surfaceId}</c> as an
+/// interactive server page for Claude Desktop's browser pane (local ADR 0040 §7),
+/// with the files it loads; see <see cref="SurfaceWindowPages"/>. A page renders this
+/// head's panes, so the bridge forwards everything the head composed, one desktop
+/// scope per circuit. A page carries no bearer token: it is held to the
+/// <c>Origin</c> check, a loopback <c>Host</c> and the cookie its link token was
+/// exchanged for (<see cref="WindowLinkTokens"/>).
 /// </para>
 /// </summary>
 public sealed class McpServerWorker : IDisposable
@@ -148,32 +149,33 @@ public sealed class McpServerWorker : IDisposable
 
     private bool _disposed;
 
-    /// <summary>Whether this listener serves the pop-out pages (local ADR 0040 §7);
-    /// see <see cref="SurfaceWindowPages.ServedByDefault"/>.</summary>
-    private readonly bool _servesWindowPages;
-
     /// <summary>A static web assets manifest the pages' files are read through
     /// instead of the head's own web root, or null for that web root. Only a test,
     /// which has no head output to serve from, names one.</summary>
     private readonly string? _staticWebAssetsManifest;
 
+    /// <summary>The link tokens that admit a browser to the pop-out pages, or null
+    /// in a container that registered none, whose listener then admits no page.
+    /// Resolved where the listener is built and not in the constructor, which must
+    /// return without waiting on the head's container.</summary>
+    private volatile WindowLinkTokens? _windowLinkTokens;
+
     public McpServerWorker(
         IServiceProvider services,
         WorkspaceSettingsStore settings,
         ILogger<McpServerWorker>? log = null)
-        : this(services, settings, log, SurfaceWindowPages.ServedByDefault, staticWebAssetsManifest: null)
+        : this(services, settings, log, staticWebAssetsManifest: null)
     {
     }
 
-    /// <summary>The worker with the pop-out pages switched on or off explicitly, and
-    /// their files read through <paramref name="staticWebAssetsManifest"/> when it is
-    /// given — for a test, which cannot depend on the build configuration it runs in
-    /// or on the head's output. Internal, so the container never picks it.</summary>
+    /// <summary>The worker with the pop-out pages' files read through
+    /// <paramref name="staticWebAssetsManifest"/> when it is given — for a test,
+    /// which has no head output to serve them from. Internal, so the container
+    /// never picks it.</summary>
     internal McpServerWorker(
         IServiceProvider services,
         WorkspaceSettingsStore settings,
         ILogger<McpServerWorker>? log,
-        bool servesWindowPages,
         string? staticWebAssetsManifest)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -182,7 +184,6 @@ public sealed class McpServerWorker : IDisposable
         _services = services;
         _settings = settings;
         _log = log ?? NullLogger<McpServerWorker>.Instance;
-        _servesWindowPages = servesWindowPages;
         _staticWebAssetsManifest = staticWebAssetsManifest;
 
         // The port can move while the app is running, and somebody changing it
@@ -587,18 +588,17 @@ public sealed class McpServerWorker : IDisposable
         // The pop-out pages' own services, before the bridge: what the listener
         // composes itself is never forwarded, so a page's IShellWindows is a
         // browser's and not the head's windows.
-        if (_servesWindowPages)
-        {
-            SurfaceWindowPages.AddTo(builder.Services);
+        SurfaceWindowPages.AddTo(builder.Services);
 
-            if (_staticWebAssetsManifest is not null)
-            {
-                builder.WebHost.UseSetting(WebHostDefaults.StaticWebAssetsKey, _staticWebAssetsManifest);
-                builder.WebHost.UseStaticWebAssets();
-            }
+        if (_staticWebAssetsManifest is not null)
+        {
+            builder.WebHost.UseSetting(WebHostDefaults.StaticWebAssetsKey, _staticWebAssetsManifest);
+            builder.WebHost.UseStaticWebAssets();
         }
 
         BridgeToDesktopContainer(builder.Services);
+
+        _windowLinkTokens ??= _services.GetService<WindowLinkTokens>();
 
         var app = builder.Build();
 
@@ -608,9 +608,9 @@ public sealed class McpServerWorker : IDisposable
         app.Use(GuardAsync);
 
         // The pop-out pages and their files (local ADR 0040 §7), behind the same
-        // Use: a page is held to the Origin check, and only the bearer token is
-        // waived for it, because a browser loading a page has none to send.
-        if (_servesWindowPages) SurfaceWindowPages.Map(app);
+        // Use: a page is held to the Origin check, and its bearer token is the link
+        // token's cookie, because a browser loading a page has none to send.
+        SurfaceWindowPages.Map(app);
 
         app.MapMcp(EndpointPath);
 
@@ -783,10 +783,9 @@ public sealed class McpServerWorker : IDisposable
         }
 
         // A page and its files carry no bearer token: a browser loading a page has
-        // none to send, and the link token that is to guard them is the plan's next
-        // step. Only a listener serving the pages — a Debug one, until then — waives
-        // it, and only for their paths; /mcp and the routes beside it never.
-        if (_servesWindowPages && SurfaceWindowPages.IsPagePath(context.Request.Path))
+        // none to send. They carry the link token's cookie instead, and only their
+        // paths do; /mcp and the routes beside it never accept it.
+        if (SurfaceWindowPages.IsPagePath(context.Request.Path))
         {
             // Addressed to loopback by name, or it is a rebound site reading a
             // page with no Origin to refuse it on.
@@ -794,6 +793,16 @@ public sealed class McpServerWorker : IDisposable
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 _log.LogWarning("A pop-out page request was refused: its Host is not loopback.");
+                return;
+            }
+
+            if (!SurfaceWindowPages.Admit(context, _windowLinkTokens))
+            {
+                if (context.Response.StatusCode == StatusCodes.Status401Unauthorized)
+                {
+                    _log.LogWarning("A pop-out page request was refused: no valid link token or cookie.");
+                }
+
                 return;
             }
 
@@ -860,7 +869,7 @@ public sealed class McpServerWorker : IDisposable
         // own view state, as a native window does. A head that registered no
         // snapshot forwards nothing more, and its page fails on the first service
         // it asks for rather than being served by a second composition.
-        if (_servesWindowPages && _services.GetService<DesktopServiceRegistrations>() is { } desktop)
+        if (_services.GetService<DesktopServiceRegistrations>() is { } desktop)
         {
             SurfaceWindowPages.Forward(listenerServices, desktop.Descriptors, _services, _log);
         }

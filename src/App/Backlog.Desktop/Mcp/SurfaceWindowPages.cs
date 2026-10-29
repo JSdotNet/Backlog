@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 
 using Microsoft.AspNetCore.Builder;
@@ -37,21 +38,22 @@ public sealed class DesktopServiceRegistrations(IReadOnlyList<ServiceDescriptor>
 /// compiles this beside it.
 /// </para>
 /// <para>
-/// <b>No guard yet, so Debug only.</b> The link token that is to guard these pages is
-/// the next step of the plan; until it lands, <see cref="ServedByDefault"/> is true
-/// in a Debug build alone, and a Release listener maps none of this.
+/// <b>Guarded by a link token.</b> A browser loading a page has no bearer token to
+/// send, so a page and its files are held instead to the <c>Origin</c> check, a
+/// loopback <c>Host</c>, and the cookie the first load of a tokenized link sets; see
+/// <see cref="Admit"/>.
 /// </para>
 /// </summary>
 internal static class SurfaceWindowPages
 {
-    /// <summary>Whether a listener serves the pages unless told otherwise: in a Debug
-    /// build only, until the link token guards them.</summary>
-    public static bool ServedByDefault =>
-#if DEBUG
-        true;
-#else
-        false;
-#endif
+    /// <summary>The query key a web link carries its link token under.</summary>
+    public const string TokenQueryKey = "t";
+
+    /// <summary>The cookie that stands in for the link token after a page's first
+    /// load. A cookie is scoped to a host and not to a port, so the port is in the
+    /// name: two listeners on loopback — the installed app and a Debug build, say —
+    /// never overwrite each other's.</summary>
+    public static string CookieName(int port) => $"backlog-window-{port}";
 
     /// <summary>
     /// The paths a page and its files are served on. A request for one of them is
@@ -90,9 +92,10 @@ internal static class SurfaceWindowPages
     ];
 
     /// <summary>The head's own plumbing, which a page has no business resolving: the
-    /// listener itself, whose disposal would take the page down with it, and the
-    /// snapshot it forwards from.</summary>
-    private static readonly Type[] HostOnlyTypes = [typeof(McpServerWorker), typeof(DesktopServiceRegistrations)];
+    /// listener itself, whose disposal would take the page down with it, the
+    /// snapshot it forwards from, and the link tokens, which a page that could mint
+    /// one could hand out.</summary>
+    private static readonly Type[] HostOnlyTypes = [typeof(McpServerWorker), typeof(DesktopServiceRegistrations), typeof(WindowLinkTokens)];
 
     /// <summary>The names a request for a page may arrive under: loopback, as the
     /// listener is bound.</summary>
@@ -108,11 +111,77 @@ internal static class SurfaceWindowPages
     /// <c>Origin</c> on a same-origin GET, so the <c>Origin</c> check alone would let
     /// a site whose name was rebound to 127.0.0.1 read a rendered surface; such a
     /// request still carries that site's name as its <c>Host</c>, and is refused on
-    /// it. The bearer token closes this for every other path; the link token is to
-    /// close it for pages.
+    /// it. The bearer token closes this for every other path, and the link token's
+    /// cookie, which the browser keeps under the loopback name, for pages.
     /// </summary>
     public static bool IsLoopbackHost(HostString host) =>
         host.HasValue && LoopbackHosts.Contains(host.Host, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The link token's half of the guard in front of a page and its files, after the
+    /// <c>Origin</c> and <c>Host</c> checks: whether the request goes on to the page.
+    /// When it does not, the response is already written.
+    /// <list type="bullet">
+    /// <item><b>A <c>/window</c> load with a token</b> redeems it, sets the cookie —
+    /// HttpOnly, SameSite=Strict, for this loopback origin — and redirects to the same
+    /// address without the token, so the token never stays in the address bar, the
+    /// history or a reload. A token that does not redeem is 401, unless the request
+    /// already carries the cookie: then it is a page reloaded from a stale address,
+    /// and only the token is dropped.</item>
+    /// <item><b>Any other page request</b> — the page itself, its files and its
+    /// circuit — goes on only with the cookie, and is 401 without it.</item>
+    /// </list>
+    /// A listener without <paramref name="tokens"/> admits nothing.
+    /// </summary>
+    public static bool Admit(HttpContext context, WindowLinkTokens? tokens)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var request = context.Request;
+        var cookieName = CookieName(context.Connection.LocalPort);
+        var hasCookie = tokens is not null && tokens.IsValidCookie(request.Cookies[cookieName]);
+
+        if (request.Path.StartsWithSegments("/window", StringComparison.OrdinalIgnoreCase)
+            && request.Query.TryGetValue(TokenQueryKey, out var presented))
+        {
+            // Spent even when the cookie makes it unnecessary, so a link opened in a
+            // tab that already had a page leaves no live token behind.
+            var cookie = presented.Count == 1 ? tokens?.Redeem(presented[0]) : null;
+
+            if (cookie is not null)
+            {
+                context.Response.Cookies.Append(cookieName, cookie, new CookieOptions
+                {
+                    HttpOnly = true,
+                    SameSite = SameSiteMode.Strict,
+                    Path = "/",
+                    IsEssential = true,
+                });
+            }
+            else if (!hasCookie)
+            {
+                Refuse(context);
+                return false;
+            }
+
+            var rest = QueryString.Create(request.Query.Where(pair => !string.Equals(pair.Key, TokenQueryKey, StringComparison.OrdinalIgnoreCase)));
+            context.Response.Headers.CacheControl = "no-store";
+            context.Response.Redirect(request.PathBase + request.Path + rest);
+            return false;
+        }
+
+        if (hasCookie) return true;
+
+        Refuse(context);
+        return false;
+    }
+
+    private static void Refuse(HttpContext context)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        context.Response.ContentType = "text/plain; charset=utf-8";
+        context.Response.Headers.CacheControl = "no-store";
+    }
 
     /// <summary>
     /// The listener's own half of a page: the Razor components and their circuit,
