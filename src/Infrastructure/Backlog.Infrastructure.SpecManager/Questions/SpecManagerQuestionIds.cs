@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -33,6 +34,22 @@ internal static class SpecManagerQuestionIds
 
         var installation = Version5(UrlNamespace, root.Trim().TrimEnd('/'));
         return Version5(installation, questionId.Trim().ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// The notification id of <paramref name="questionId"/> the <paramref name="round"/>th
+    /// time it reaches the person: round 0 is <see cref="For(string, string)"/>, and each
+    /// later round — the question reassigned back to them after it was withdrawn here — is
+    /// the name <c>round:{n}</c> in round 0's namespace. A notification never reopens, so a
+    /// question that comes back needs an id of its own; deriving it keeps it the same on
+    /// every desktop that held the same earlier rounds.
+    /// </summary>
+    public static Guid For(string root, string questionId, int round)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(round);
+
+        var first = For(root, questionId);
+        return round == 0 ? first : Version5(first, "round:" + round.ToString(CultureInfo.InvariantCulture));
     }
 
     /// <summary>The notification id of the alert that says an answer to
