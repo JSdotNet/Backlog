@@ -377,6 +377,10 @@
                 @foreach (var surface in RegisteredTakeoversOffered)
                 {
                     var surfaceId = surface.Id;
+                    @* Each item the catalog draws pops out (local ADR 0040 §4): a ⧉ button
+                       beside its option, shown on hover and on keyboard focus, and every
+                       press opens one more window. Only where the host opens windows. *@
+                    <span class="header-surface-item" data-testid="@($"{surfaceId}-header-item")">
                     <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
                                   CssClass="@SurfaceOptionCssClass(surface)"
@@ -394,6 +398,16 @@
                                                 TestId="@($"{surfaceId}-feature-status")" />
                         }
                     </ToggleButton>
+                    @if (_shellWindows is not null)
+                    {
+                        var popOutName = PopOutName(surface);
+                        <IconButton BaseClass="header-surface-item__pop"
+                                    AriaLabel="@popOutName"
+                                    Title="@popOutName"
+                                    TestId="@($"{surfaceId}-pop-out")"
+                                    OnClick="() => PopOut(surfaceId)">⧉</IconButton>
+                    }
+                    </span>
                 }
             </div>
 
@@ -864,6 +878,7 @@
     protected override async Task OnInitializedAsync()
     {
         _linkedWork = BuildLinkedWork();
+        _shellWindows = Services.GetService<IShellWindows>();
 
         // Reopen on the surface the reader was last looking at rather than
         // always defaulting to the workspace panes. An unrecognised or absent
@@ -2192,6 +2207,29 @@
     private void ToggleRegisteredSurface(string surfaceId)
     {
         if (WorkspaceSurfaceFor(surfaceId) is { } surface) ToggleSurface(surface);
+    }
+
+    /// <summary>The host's windows, or null where it opens none and the header offers
+    /// no ⧉ (local ADR 0040 §4).</summary>
+    private IShellWindows? _shellWindows;
+
+    /// <summary>The ⧉ button's name: what its press opens, named as the option is.</summary>
+    private string PopOutName(ShellSurface surface) => $"Open {SurfaceOptionName(surface)} in a new window";
+
+    /// <summary>
+    /// ⧉ pressed: one more window on the surface (local ADR 0040 §4). It opens on what
+    /// this window would show of it — the Devbook on the repository or the Brain it
+    /// reads here. Only its scope: the chapter last pressed and the switch's partner
+    /// were this window's, and the new window has a scope of its own.
+    /// </summary>
+    private void PopOut(string surfaceId)
+    {
+        if (_shellWindows is null || !Catalog.TryGet(surfaceId, out var surface)) return;
+
+        var query = SurfaceQuery(surface)
+            .Where(pair => string.Equals(pair.Key, DevbookSurfaceQuery.Scope, StringComparison.Ordinal))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        _shellWindows.Open(surfaceId, query);
     }
 
     /// <summary>A registered surface's word in the header — the Devbook's names what

@@ -1,6 +1,7 @@
 @using Backlog.SharedKernel
 @inject ISurfaceNavigator Navigator
 @inject DevbookSurfaceRequests Requests
+@inject DevbookScope Scope
 @inject IServiceProvider Services
 
 @*
@@ -36,9 +37,14 @@
     public EventCallback OnClose { get; set; }
 
     private IBrainTaskTitles? _taskTitles;
+    private IDevbookWindowScope? _windowScope;
     private DevbookOpenRequest? _openRequest;
 
-    protected override void OnInitialized() => _taskTitles = Services.GetService<IBrainTaskTitles>();
+    protected override void OnInitialized()
+    {
+        _taskTitles = Services.GetService<IBrainTaskTitles>();
+        _windowScope = Services.GetService<IDevbookWindowScope>();
+    }
 
     // A chapter asked with no press token — a popped-out window opened on
     // /window/devbook?chapter=…, or a jump inside one (local ADR 0040 §6) — is a
@@ -50,7 +56,21 @@
 
     private string? Value(string key) => Query is not null && Query.TryGetValue(key, out var value) ? value : null;
 
-    private string? RepositoryAlias => Value(DevbookSurfaceQuery.Scope) is { } scope ? DevbookSurfaceQuery.AliasFor(scope) : null;
+    /// <summary>
+    /// What the Devbook reads (local ADR 0040 §6): <c>scope=brain</c> the Brain, a
+    /// <c>scope</c> naming a repository — by <c>owner/name</c> or by its alias — that
+    /// repository, and no <c>scope</c> the window's own repository scope. A repository
+    /// no longer configured is handed on as named, and the pane says it has nothing.
+    /// </summary>
+    private string? RepositoryAlias => Value(DevbookSurfaceQuery.Scope) is { } scope
+        ? AliasForScope(scope)
+        : _windowScope?.RepositoryAlias;
+
+    private string AliasForScope(string scope)
+    {
+        var alias = DevbookSurfaceQuery.AliasFor(scope);
+        return BrainScope.Is(alias) ? alias : Scope.Repository(alias)?.Alias ?? alias;
+    }
 
     private string? SwitchRepositoryAlias => Value(DevbookSurfaceQuery.Switch);
 
