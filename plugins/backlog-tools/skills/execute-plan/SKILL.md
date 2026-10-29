@@ -83,8 +83,8 @@ another repository to a session there.
    **Manual entries** in `assets/landing-modes.md`. Invoking this skill again resumes from the plan's
    state; nothing is kept in the session but what the pull requests and Backlog hold.
 8. **Report.** Per entry: done before, landed now (pull request, draft or merged), waiting
-   (on what), blocked (why), manual, handed off (where); then the running app's URLs and its worktree. An
-   unattended run ends with a push notification carrying the counts and the links **Manual entries** names.
+   (on what), blocked (why), manual, handed off (where); then the running app's URLs and its worktree, and the plan's tasks as the two links
+   `open_window` answers for `surface: "tasks"`, `plan: <tag>`, `target: "web"` — the web link, which opens in Claude Desktop's browser pane, and the `backlog://` link, which opens a native window; when the server does not answer it, no links and no word of them. An unattended run ends with a push notification carrying the counts and the links **Manual entries** names.
 
 ## Never
 
