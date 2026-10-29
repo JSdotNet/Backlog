@@ -3,6 +3,7 @@
 ```meta
 type: domain
 status: draft
+related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -397,3 +398,75 @@ related: [.devbook/domain/repository-management/requirements.md#archiving-a-repo
 The person's choice, kept per device, to see archived repositories where they are
 otherwise hidden: in the repository scope, the Board's columns, the pickers, and
 the roadmap's open work. It changes what is shown, never what is archived.
+
+### Pull request status
+
+```meta
+type: term
+status: proposed
+aliases: [status, PullRequestStatusModel, GoalPullRequestDto, checks and approvals marks]
+related: [.devbook/domain/repository-management/features.md#pull-request-status, .devbook/domain/repository-management/requirements.md#pull-request-status, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+```
+
+What this context publishes about one pull request of an
+[active repository](#active-repository): its state, its checks, its approvals,
+whether it can merge, how far it is behind its base, whether GitHub holds an
+auto-merge for it, and its [stack parent](#stack-parent). Local ADR 0042 §2 lists
+the fields. A screen shows two marks of it, checks and approvals, beside the pull
+request's number ([Pull request status](features.md#pull-request-status)).
+
+It is the one reading every other context draws a pull request from. Tasks and
+Progress keep a smaller copy of their own, translated from this one, and never read
+GitHub for it.
+
+### Readiness verdict
+
+```meta
+type: term
+status: proposed
+aliases: [verdict, PullRequestVerdict]
+related: [.devbook/domain/repository-management/features.md#one-verdict-per-pull-request, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+```
+
+The one answer to whether an open pull request is ready to merge, and if not, what
+it waits on: Conflicts, Failing checks, Changes requested, Behind, Draft, Checks
+running, Review required or Ready. It is computed from the
+[pull request status](#pull-request-status) alone. Each verdict places the pull
+request in a **lane** and offers its **acts**, the
+[merge commands](#merge-command) that fit it.
+[One verdict per pull request](features.md#one-verdict-per-pull-request) holds the
+precedence.
+
+A merged pull request reads Merged and has no act. One closed without merging has no
+verdict. The pull requests pane, the session card and the task row show the same
+verdict for the same status.
+
+### Stack parent
+
+```meta
+type: term
+status: proposed
+aliases: [stacked pull request, stack, PullRequestStacks]
+related: [.devbook/domain/repository-management/features.md#pull-request-readiness]
+```
+
+The open pull request another one is stacked on: its head branch is the other's
+base. The pull request on top waits on its stack parent, so its verdict names the
+parent and offers no merge act. A **stack** is the chain from the pull request at
+the bottom, whose base is the repository's own branch, up to the one on top.
+
+### Merge command
+
+```meta
+type: term
+status: proposed
+aliases: [act, second act, PullRequestMerge, PullRequestMergeAct]
+related: [.devbook/domain/repository-management/features.md#one-verdict-per-pull-request, .devbook/domain/repository-management/features.md#re-run-failed, .devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+```
+
+A request this context sends GitHub to move a pull request toward its merge: merge,
+auto-merge on, auto-merge off, update branch, mark ready for review, or re-run
+failed. On a screen it is offered as one of a verdict's acts; the other acts, such
+as Open on GitHub, send nothing. Each command reads the pull request's
+repository again once it returns, so every reader sees the new state. Only this
+context sends them (local ADR 0042 §3).
