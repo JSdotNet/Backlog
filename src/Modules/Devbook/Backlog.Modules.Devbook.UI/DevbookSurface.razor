@@ -40,8 +40,13 @@
 
     protected override void OnInitialized() => _taskTitles = Services.GetService<IBrainTaskTitles>();
 
+    // A chapter asked with no press token — a popped-out window opened on
+    // /window/devbook?chapter=…, or a jump inside one (local ADR 0040 §6) — is a
+    // press of its own, keyed by the chapter: followed once in this window.
     protected override void OnParametersSet() =>
-        _openRequest = Requests.For(Value(DevbookSurfaceQuery.Chapter), Value(DevbookSurfaceQuery.Request));
+        _openRequest = Requests.For(
+            Value(DevbookSurfaceQuery.Chapter),
+            Value(DevbookSurfaceQuery.Request) ?? Value(DevbookSurfaceQuery.Chapter));
 
     private string? Value(string key) => Query is not null && Query.TryGetValue(key, out var value) ? value : null;
 

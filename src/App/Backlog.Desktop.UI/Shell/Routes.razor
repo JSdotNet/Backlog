@@ -4,10 +4,24 @@
    shipped app does not: the sample that throws, so the error screen can be
    reached on purpose. The MAUI head registers nothing and routes as it always
    has. Read from the container rather than taken as a parameter — see
-   AdditionalRouteAssemblies for why a parameter cannot carry an assembly here. *@
-<Router AppAssembly="typeof(Routes).Assembly" AdditionalAssemblies="Services.GetService<AdditionalRouteAssemblies>()?.Assemblies">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>
+   AdditionalRouteAssemblies for why a parameter cannot carry an assembly here.
+
+   The window's key is cascaded to the page a popped-out window renders
+   (SurfaceWindow, local ADR 0040 §4), so it can close and retitle its own window.
+   A string, which a root component parameter may carry; null in the main window
+   and wherever no head names its windows. *@
+<CascadingValue Name="@SurfaceWindowRoute.WindowKeyCascade" Value="WindowKey" IsFixed="true">
+    <Router AppAssembly="typeof(Routes).Assembly" AdditionalAssemblies="Services.GetService<AdditionalRouteAssemblies>()?.Assemblies">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+    </Router>
+</CascadingValue>
+
+@code {
+    /// <summary>Which popped-out window this root renders in, as its head named it;
+    /// null in the main window.</summary>
+    [Parameter]
+    public string? WindowKey { get; set; }
+}
