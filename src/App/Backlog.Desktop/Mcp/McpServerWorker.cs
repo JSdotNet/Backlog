@@ -54,6 +54,14 @@ namespace Backlog.Desktop.Mcp;
 /// and a second connection the sync loops do not know" — so it composes none of
 /// them and forwards instead. See <see cref="BridgeToDesktopContainer"/>.
 /// </para>
+/// <para>
+/// <b>Pop-out pages.</b> In a Debug build the listener also serves
+/// <c>/window/{surfaceId}</c> as an interactive server page for Claude Desktop's
+/// browser pane (local ADR 0040 §7), with the files it loads; see
+/// <see cref="SurfaceWindowPages"/>. A page renders this head's panes, so the bridge
+/// forwards everything the head composed, one desktop scope per circuit, and a page
+/// is held to the <c>Origin</c> check alone until the link token guards it.
+/// </para>
 /// </summary>
 public sealed class McpServerWorker : IDisposable
 {
@@ -140,10 +148,33 @@ public sealed class McpServerWorker : IDisposable
 
     private bool _disposed;
 
+    /// <summary>Whether this listener serves the pop-out pages (local ADR 0040 §7);
+    /// see <see cref="SurfaceWindowPages.ServedByDefault"/>.</summary>
+    private readonly bool _servesWindowPages;
+
+    /// <summary>A static web assets manifest the pages' files are read through
+    /// instead of the head's own web root, or null for that web root. Only a test,
+    /// which has no head output to serve from, names one.</summary>
+    private readonly string? _staticWebAssetsManifest;
+
     public McpServerWorker(
         IServiceProvider services,
         WorkspaceSettingsStore settings,
         ILogger<McpServerWorker>? log = null)
+        : this(services, settings, log, SurfaceWindowPages.ServedByDefault, staticWebAssetsManifest: null)
+    {
+    }
+
+    /// <summary>The worker with the pop-out pages switched on or off explicitly, and
+    /// their files read through <paramref name="staticWebAssetsManifest"/> when it is
+    /// given — for a test, which cannot depend on the build configuration it runs in
+    /// or on the head's output. Internal, so the container never picks it.</summary>
+    internal McpServerWorker(
+        IServiceProvider services,
+        WorkspaceSettingsStore settings,
+        ILogger<McpServerWorker>? log,
+        bool servesWindowPages,
+        string? staticWebAssetsManifest)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(settings);
@@ -151,6 +182,8 @@ public sealed class McpServerWorker : IDisposable
         _services = services;
         _settings = settings;
         _log = log ?? NullLogger<McpServerWorker>.Instance;
+        _servesWindowPages = servesWindowPages;
+        _staticWebAssetsManifest = staticWebAssetsManifest;
 
         // The port can move while the app is running, and somebody changing it
         // is watching to see whether the listener followed.
@@ -551,6 +584,20 @@ public sealed class McpServerWorker : IDisposable
 
         builder.Services.AddBacklogMcpServer().WithHttpTransport();
 
+        // The pop-out pages' own services, before the bridge: what the listener
+        // composes itself is never forwarded, so a page's IShellWindows is a
+        // browser's and not the head's windows.
+        if (_servesWindowPages)
+        {
+            SurfaceWindowPages.AddTo(builder.Services);
+
+            if (_staticWebAssetsManifest is not null)
+            {
+                builder.WebHost.UseSetting(WebHostDefaults.StaticWebAssetsKey, _staticWebAssetsManifest);
+                builder.WebHost.UseStaticWebAssets();
+            }
+        }
+
         BridgeToDesktopContainer(builder.Services);
 
         var app = builder.Build();
@@ -559,6 +606,11 @@ public sealed class McpServerWorker : IDisposable
         // requirement rather than a preference: a refusal that happened after
         // dispatch would already have read somebody's backlog.
         app.Use(GuardAsync);
+
+        // The pop-out pages and their files (local ADR 0040 §7), behind the same
+        // Use: a page is held to the Origin check, and only the bearer token is
+        // waived for it, because a browser loading a page has none to send.
+        if (_servesWindowPages) SurfaceWindowPages.Map(app);
 
         app.MapMcp(EndpointPath);
 
@@ -730,6 +782,25 @@ public sealed class McpServerWorker : IDisposable
             return;
         }
 
+        // A page and its files carry no bearer token: a browser loading a page has
+        // none to send, and the link token that is to guard them is the plan's next
+        // step. Only a listener serving the pages — a Debug one, until then — waives
+        // it, and only for their paths; /mcp and the routes beside it never.
+        if (_servesWindowPages && SurfaceWindowPages.IsPagePath(context.Request.Path))
+        {
+            // Addressed to loopback by name, or it is a rebound site reading a
+            // page with no Origin to refuse it on.
+            if (!SurfaceWindowPages.IsLoopbackHost(context.Request.Host))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                _log.LogWarning("A pop-out page request was refused: its Host is not loopback.");
+                return;
+            }
+
+            await next(context).ConfigureAwait(false);
+            return;
+        }
+
         var authorization = context.Request.Headers.Authorization;
 
         if (authorization.Count > 1
@@ -780,6 +851,18 @@ public sealed class McpServerWorker : IDisposable
                 port,
                 request => request.GetRequiredService<IServiceScope>().ServiceProvider.GetRequiredService(port),
                 ServiceLifetime.Scoped));
+        }
+
+        // And, for the pop-out pages, everything else the head composed (local ADR
+        // 0040 §7): a pane injects whatever it needs, so no list read off a few
+        // constructors would do. A Blazor circuit is one scope of this container, so
+        // the desktop scope opened above is one per circuit — a page has a window's
+        // own view state, as a native window does. A head that registered no
+        // snapshot forwards nothing more, and its page fails on the first service
+        // it asks for rather than being served by a second composition.
+        if (_servesWindowPages && _services.GetService<DesktopServiceRegistrations>() is { } desktop)
+        {
+            SurfaceWindowPages.Forward(listenerServices, desktop.Descriptors, _services, _log);
         }
     }
 

@@ -220,6 +220,16 @@ public static class MauiProgram
         }
 #endif
 
+        // What this head composed, for the MCP listener's pop-out pages (local ADR
+        // 0040 §7): a page served there renders this head's panes, and the listener
+        // forwards whatever they inject into this container rather than composing a
+        // second one. Last, so the snapshot holds every registration above; and only
+        // where the listener serves pages at all, a Debug build until the link token.
+        if (SurfaceWindowPages.ServedByDefault)
+        {
+            builder.Services.AddSingleton(new DesktopServiceRegistrations([.. builder.Services]));
+        }
+
         var app = builder.Build();
 
         adoption.Log(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(PackagedAppDataAdoption)));
