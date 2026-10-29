@@ -20,6 +20,9 @@
          and the MSIX properties in a release, and each changes the graph, so no
          one committed file could match them all. -->
     <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <!-- Platforms\Windows\Program.cs is the entry point: it hands a backlog:// link to
+         the instance already running before the XAML framework starts (local ADR 0040 §7). -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
 
   <!--
