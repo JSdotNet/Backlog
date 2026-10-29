@@ -68,6 +68,10 @@ public sealed class AgentSessionGroupTests
     [InlineData(AgentSessionGrouping.None)]
     [InlineData(AgentSessionGrouping.Environment)]
     [InlineData(AgentSessionGrouping.Kind)]
+    [InlineData(AgentSessionGrouping.When)]
+    [InlineData(AgentSessionGrouping.Repository)]
+    [InlineData(AgentSessionGrouping.Plan)]
+    [InlineData(AgentSessionGrouping.Purpose)]
     public void Every_grouping_carries_every_session(AgentSessionGrouping grouping)
     {
         var grouped = AgentSessionGroups.Of(Rows(Sample), grouping)
@@ -179,6 +183,8 @@ public sealed class AgentSessionGroupTests
     [InlineData(AgentSessionGrouping.Kind)]
     [InlineData(AgentSessionGrouping.When)]
     [InlineData(AgentSessionGrouping.Repository)]
+    [InlineData(AgentSessionGrouping.Plan)]
+    [InlineData(AgentSessionGrouping.Purpose)]
     public void Scheduled_rows_close_the_list_in_one_section_of_their_own(AgentSessionGrouping grouping)
     {
         var sections = AgentSessionGroups.ScheduledApart(

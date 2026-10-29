@@ -41,32 +41,49 @@ export function dispatcherName(host) {
 }
 
 // What one answer from the route means: the line to print (or null), the state, and how long
-// to wait before the next call. `printed` holds the ids already printed by this Monitor.
+// to wait before the next call. `printed` holds what this Monitor already printed.
 //
-// The route answers the oldest Requested request until a dispatcher claims it, so a request the
-// Manager holds for capacity comes back on every call. It is printed once: the Manager's /loop
-// tick, not this script, decides when a held queue is looked at again, and a re-armed Monitor
-// starts with nothing printed.
+// The route answers one item, `kind` `delivery` (an answer for a session, local ADR 0041) before
+// `kind` `request` (a session request, its entry-or-plan kind as `requestKind`). It answers the
+// same item until a dispatcher claims it, so each is printed once: the Manager's /loop tick, not
+// this script, decides when a held queue is looked at again, and a re-armed Monitor starts with
+// nothing printed. A delivery is forgotten once the route answers another item or nothing, so
+// one the Manager released is printed again when the route offers it again.
 export function decide(status, body, printed, { retryMs, retryAfterMs }) {
     if (status === 200) {
-        let request;
+        let item;
         try {
-            request = JSON.parse(body);
+            item = JSON.parse(body);
         } catch {
             return { line: "unavailable status=200", state: "unavailable", waitMs: retryMs };
         }
-        if (printed.has(request.id)) return { line: null, state: "seen", waitMs: retryMs };
-        printed.add(request.id);
-        return { line: `request ${request.id} ${request.kind} ${request.repository}`, state: "request", waitMs: 0 };
+        const key = item.kind === "delivery" ? `delivery:${item.id}` : item.id;
+        forgetDeliveriesBut(printed, key);
+        if (printed.has(key)) return { line: null, state: "seen", waitMs: retryMs };
+        printed.add(key);
+        if (item.kind === "delivery") {
+            return { line: `delivery ${item.id} ${item.desktopSessionId}`, state: "delivery", waitMs: 0 };
+        }
+        return { line: `request ${item.id} ${item.requestKind ?? item.kind} ${item.repository}`, state: "request", waitMs: 0 };
     }
-    if (status === 204) return { line: null, state: "idle", waitMs: 0 };
+    if (status === 204) {
+        forgetDeliveriesBut(printed, null);
+        return { line: null, state: "idle", waitMs: 0 };
+    }
     if (status === 404) return { line: "flag-off", state: "flag-off", waitMs: retryMs };
     if (status === 401 || status === 403) return { line: "unauthorized", state: "unauthorized", waitMs: retryMs };
     if (status === 503) return { line: "unavailable", state: "unavailable", waitMs: retryAfterMs ?? retryMs };
     return { line: `unavailable status=${status}`, state: "unavailable", waitMs: retryMs };
 }
 
-// A request is news every time; anything else only when it differs from the previous answer.
+// A request or a delivery is news every time; anything else only when it differs from the
+// previous answer.
 export function isNews(outcome, previousState) {
-    return outcome.state === "request" || (outcome.line !== null && outcome.state !== previousState);
+    return outcome.state === "request" || outcome.state === "delivery" || (outcome.line !== null && outcome.state !== previousState);
+}
+
+function forgetDeliveriesBut(printed, key) {
+    for (const seen of [...printed]) {
+        if (seen.startsWith("delivery:") && seen !== key) printed.delete(seen);
+    }
 }

@@ -1,9 +1,10 @@
 // Tests for brain.mjs, run with `node --test "tools/devbook/*.test.mjs"`.
 //
 // The Brain convention for the database build: the areas `CONVENTIONS.md`
-// declares, with PARA as the fallback, and a Brain built into a database whose
-// folders are those areas, whose notes carry `para`, `repos` and `tasks`, and
-// whose `repo:` links are edges nothing resolves. The C# side is held to the
+// declares, with PARA as the fallback, then every other top folder holding a
+// note, minus the folders its `Ignore` section lists, and a Brain built into a
+// database whose folders are those areas, whose notes carry `para`, `repos` and
+// `tasks`, and whose `repo:` links are edges nothing resolves. The C# side is held to the
 // same answers by `BrainConventionsTests` and `DevbookBuilderParityTests`.
 
 import { after, test } from 'node:test';
@@ -14,7 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
-import { declaredAreas, loadBrainGenerator, parseConventions, PARA_AREAS, repoLinkEdges } from './brain.mjs';
+import { declaredAreas, ignoredFolders, loadBrainGenerator, parseConventions, PARA_AREAS, readBrainAreas, repoLinkEdges, resolveAreas } from './brain.mjs';
 import { buildDatabase } from './build-database.mjs';
 import { loadGenerator } from './generator.mjs';
 
@@ -87,6 +88,88 @@ test('nothing declared is the PARA set', () => {
     }
 });
 
+test('an Ignore section lists folders as list items or a Folder column, once each', () => {
+    const markdown = [
+        '- `not-ignored`',
+        '## Areas',
+        '- `work`',
+        '## Ignore',
+        '- `_templates`',
+        '- Attachments — `attachments`',
+        '- scratch',
+        '- `Scratch`',
+        '- `../escape`',
+        '',
+        '| Folder | Why |',
+        '|---|---|',
+        '| Product | scratch |',
+        '## Notes',
+        '- `notes`',
+    ].join('\n');
+
+    assert.deepEqual(ignoredFolders(markdown), ['_templates', 'attachments', 'scratch', 'Product']);
+    assert.deepEqual(ignoredFolders('## Areas\n- `work`\n'), []);
+    assert.deepEqual(ignoredFolders(null), []);
+});
+
+test('discovered areas follow the declared ones by folder name, as .NET compares it', async () => {
+    const probed = [];
+    const areas = await resolveAreas(
+        declaredAreas('## Areas\n- Work — `work`\n- `missing`\n- `_templates`\n'),
+        ['_TEMPLATES', 'product'],
+        ['zeta', 'WORK', 'Meetings', 'alpha', 'empty', '_drafts', '.obsidian', 'Product', '_templates'],
+        async (folder) => {
+            probed.push(folder);
+            return folder !== 'empty';
+        });
+
+    // Ordinal and case-insensitive by upper case, so an underscore sorts after
+    // the letters, as BrainConventions.Resolve orders them.
+    assert.deepEqual(areas, [
+        { name: 'Work', folder: 'work', order: 1 },
+        { name: 'Missing', folder: 'missing', order: 2 },
+        { name: 'Alpha', folder: 'alpha', order: 3 },
+        { name: 'Meetings', folder: 'Meetings', order: 4 },
+        { name: 'Zeta', folder: 'zeta', order: 5 },
+        { name: 'Drafts', folder: '_drafts', order: 6 },
+    ]);
+    assert.deepEqual(probed.sort(), ['Meetings', '_drafts', 'alpha', 'empty', 'zeta']);
+});
+
+test('dotless ı keeps its case, as .NET ordinal ignore-case keeps it', async () => {
+    const areas = await resolveAreas(declaredAreas('## Areas\n- `work`\n'), ['ILIK'], ['ılık', 'kitap'], async () => true);
+
+    // `ı` (U+0131) is no `I` to .NET: `ılık` is not ignored by `ILIK`, and it
+    // sorts after `kitap`, since U+0131 is above `K`.
+    assert.deepEqual(areas.map((area) => area.folder), ['work', 'kitap', 'ılık']);
+});
+
+test('nothing declared puts the PARA set first; ignoring every declared area does not bring it back', async () => {
+    assert.deepEqual(
+        (await resolveAreas([], [], ['projects', 'meetings'], async () => true)).map((area) => area.folder),
+        [...PARA_AREAS.map((area) => area.folder), 'meetings']);
+    assert.deepEqual(await resolveAreas(declaredAreas('## Areas\n- `work`\n'), ['work'], ['work'], async () => true), []);
+});
+
+test('a top folder is an area once a note sits anywhere below it, outside dot-folders', async () => {
+    const root = await brain({
+        'CONVENTIONS.md': '## Areas\n\n- `_inbox`\n\n## Ignore\n\n- `_templates`\n',
+        'README.md': '# Brain\n',
+        'Meetings/2026/10/standup.md': '# Standup\n',
+        'Demo/readme.txt': 'not a note',
+        'trash-only/.trash/old.md': '# Old\n',
+        'upper/NOTE.MD': '# Upper\n',
+        '_templates/meeting.md': '# Meeting\n',
+        '.obsidian/workspace.md': '# Workspace\n',
+    });
+    await mkdir(join(root, 'empty'));
+
+    assert.deepEqual(await readBrainAreas(root), [
+        { name: 'Inbox', folder: '_inbox', order: 1 },
+        { name: 'Meetings', folder: 'Meetings', order: 2 },
+    ]);
+});
+
 test('repo: links in prose are edges from the chapter that holds them, once each', () => {
     const markdown = [
         '# Plan',
@@ -118,7 +201,7 @@ test('repo: links in prose are edges from the chapter that holds them, once each
 test('a brain builds under its own convention, into the database it is told', async () => {
     const root = await brain({
         'README.md': '# My Brain\n',
-        'CONVENTIONS.md': '## Areas\n\n- Work — `work`\n- `projects`\n- `absent`\n',
+        'CONVENTIONS.md': '## Areas\n\n- Work — `work`\n- `projects`\n- `absent`\n\n## Ignore\n\n- `_templates`\n',
         'work/standup.md': '# Standup\n',
         'projects/plan.md': [
             '# Plan',
@@ -131,7 +214,9 @@ test('a brain builds under its own convention, into the database it is told', as
             '',
             '[link](repo:backlog/.devbook/domain/x.md)',
         ].join('\n'),
-        'loose/ignored.md': '# Ignored\n',
+        'loose/discovered.md': '# Discovered\n',
+        '_templates/meeting.md': '# Meeting\n',
+        '.obsidian/workspace.md': '# Workspace\n',
     });
     const target = join(scratch, 'brain.db');
 
@@ -142,9 +227,10 @@ test('a brain builds under its own convention, into the database it is told', as
     try {
         const all = (sql) => db.prepare(sql).all().map((row) => Object.values(row).join(' '));
 
-        assert.deepEqual(all("SELECT name FROM outline_entry WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal"), ['work', 'projects']);
-        assert.deepEqual(all('SELECT id, folder FROM node ORDER BY id'), ['projects/plan.md projects', 'work/standup.md work']);
+        assert.deepEqual(all("SELECT name FROM outline_entry WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal"), ['work', 'projects', 'loose']);
+        assert.deepEqual(all('SELECT id, folder FROM node ORDER BY id'), ['loose/discovered.md loose', 'projects/plan.md projects', 'work/standup.md work']);
         assert.deepEqual(all('SELECT node_id, name, value FROM node_attribute ORDER BY node_id, name, value'), [
+            'loose/discovered.md para loose',
             'projects/plan.md para projects',
             'projects/plan.md repos backlog',
             'projects/plan.md tasks t-1',
@@ -161,5 +247,5 @@ test('a brain builds under its own convention, into the database it is told', as
     }
 
     // Nothing derived was written into the Brain.
-    assert.deepEqual((await readdir(root)).sort(), ['CONVENTIONS.md', 'README.md', 'loose', 'projects', 'work']);
+    assert.deepEqual((await readdir(root)).sort(), ['.obsidian', 'CONVENTIONS.md', 'README.md', '_templates', 'loose', 'projects', 'work']);
 });

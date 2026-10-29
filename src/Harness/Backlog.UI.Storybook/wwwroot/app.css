@@ -629,6 +629,43 @@ html, body {
     border-radius: 0;
 }
 
+/* A strip narrower than its five tabs, as the Technology page's is at phone
+   width: it scrolls on its own, the way .tech-devbook-pane__tabs does. The
+   second strip scrolls the row around the tabs and its trailing link instead,
+   the way .dashboard-tabs__strip and .tools-tabs__strip do. */
+.sb-scrolling-tabs {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    max-width: 16rem;
+}
+
+.sb-scrolling-tabs__list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+
+.sb-scrolling-tabs__row {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+
+.sb-scrolling-tabs__row > .tabs__list {
+    flex: 1 0 auto;
+    flex-wrap: nowrap;
+}
+
+.sb-scrolling-tabs__list > [role="tab"],
+.sb-scrolling-tabs__row [role="tab"] {
+    flex: none;
+    white-space: nowrap;
+}
+
 /* A pretend host's pill strip, for the Tabs class-hook story. Same reasoning as
    .sb-chip: the library's tabs are an underlined row, so these are filled pills
    in a bare nav — a ListCssClass or TabCssClass that failed to replace the
@@ -965,6 +1002,13 @@ html, body {
 .sb-callout {
     display: block;
     margin-bottom: var(--spacing-sm);
+}
+
+/* A sample that points at the page drawing its subject rather than drawing it
+   twice. The link takes the library's link colour; the browser's default blue
+   does not read on the dark ground. */
+.sb-pointer a {
+    color: var(--color-text-link);
 }
 
 /* The way out of a missing page. A link, not a button: the host's own class

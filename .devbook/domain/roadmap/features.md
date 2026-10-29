@@ -195,7 +195,7 @@ A new item, or one without a tag, has no copy button.
 type: feature
 status: draft
 depends-on: [.devbook/domain/roadmap/features.md#tagging-planned-work]
-related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/devbook/features.md#topic-and-tag-grouping]
+related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/brain/features.md#topic-and-tag-grouping]
 ```
 
 Read, for one planned item, everything that belongs to it and what it all adds up
@@ -918,7 +918,7 @@ import does not move it.
 type: feature
 status: proposed
 depends-on: [.devbook/domain/roadmap/features.md#tagging-planned-work, .devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort]
-related: [.devbook/domain/roadmap/features.md#dependency-planning, .devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .devbook/domain/roadmap/domain.md#planning-lane, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/devbook/features.md#topic-and-tag-grouping]
+related: [.devbook/domain/roadmap/features.md#dependency-planning, .devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .devbook/domain/roadmap/domain.md#planning-lane, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/brain/features.md#topic-and-tag-grouping]
 ```
 
 **An idea, written down to be argued with, not an agreed model.** This folder's

@@ -376,7 +376,8 @@ stateDiagram-v2
 - **The Brain is built the same way, under its own convention** (local ADR
   0026). Its database sits under `_databases/`, keyed by the Brain folder's
   absolute path. Nothing derived is written into the folder, which is often
-  synced. Its folders are the areas its `CONVENTIONS.md` declares.
+  synced. Its folders are the areas its `CONVENTIONS.md` declares, then every
+  other top folder holding a note, minus the folders it lists under `Ignore`.
 - **A OneDrive placeholder is indexed by its name.** While its content is still in
   the cloud it is not opened, since opening it would download it. Once the sync
   client hydrates it, the changed attributes make the database stale, and the next
@@ -564,7 +565,7 @@ latency per project) alongside local queue/backlog health metrics. Telemetry fol
 ## Shared Data Types
 
 ```meta
-related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/technology-stack/domain.md#technology-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/technology-stack/domain.md#technology-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
 Each bounded context in `.devbook/domain` owns the shape, invariants, and lifecycle
@@ -575,7 +576,7 @@ boundaries, which makes them an architectural concern:
 |---|---|
 | **InboxItem** | `.devbook/domain/inbox/domain.md#inbox-item` |
 | **TaskItem** (ubiquitous term: Task) | `.devbook/domain/tasks/domain.md#task` |
-| **KnowledgeNote** | `.devbook/domain/devbook/domain.md#knowledge-note` |
+| **KnowledgeNote** | `.devbook/domain/brain/domain.md#knowledge-note` |
 | **ProgressSignal** (planned; no type in the code yet) | `.devbook/domain/monitoring/domain.md#progress-signal` |
 | **RoutingRule** | Not yet modeled in `.devbook/domain` — tracked in `.devbook/arc42/11-risks-and-technical-debt.md` |
 | **MachineRegistration** | `.devbook/domain/dev-pc-management/domain.md#machine-registry` |

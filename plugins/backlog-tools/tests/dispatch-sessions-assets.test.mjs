@@ -14,10 +14,11 @@ import { fileURLToPath } from "node:url";
 import { dispatcherName } from "../skills/dispatch-sessions/assets/wait-logic.mjs";
 
 const ASSETS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "skills", "dispatch-sessions", "assets");
-const request = (id) => ({ id, kind: "entry", repository: "JSdotNet/Backlog", brief: "/backlog-tools:run-plan-item entry `x`:" });
+const request = (id) => ({ kind: "request", id, requestKind: "entry", repository: "JSdotNet/Backlog", brief: "/backlog-tools:run-plan-item entry `x`:" });
+const delivery = (id) => ({ kind: "delivery", id, sessionId: "cli-1", desktopSessionId: "local_1", question: "Which database?", answer: "Postgres" });
 
-test("the wait script sends the token and prints one line per request", async () => {
-    const answers = [request("r1"), null, request("r1"), request("r2")];
+test("the wait script sends the token and prints one line per delivery and per request", async () => {
+    const answers = [delivery("d1"), delivery("d1"), request("r1"), null, request("r1"), request("r2")];
     const authorizations = [];
     const server = createServer((req, res) => {
         authorizations.push(req.headers.authorization);
@@ -59,6 +60,7 @@ test("the wait script sends the token and prints one line per request", async ()
 
     assert.deepEqual(lines, [
         `ready dispatcher=${dispatcherName(os.hostname())} url=http://127.0.0.1:${port}/session-requests/wait`,
+        "delivery d1 local_1",
         "request r1 entry JSdotNet/Backlog",
         "request r2 entry JSdotNet/Backlog",
         "flag-off",

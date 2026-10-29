@@ -190,7 +190,7 @@ public sealed class SessionsPaneTests
         {
             Assert.Equal("when", pane.Find("[data-testid='sessions-grouping-filter'] select").GetAttribute("value"));
             Assert.Equal(
-                ["When", "Repository", "Machine"],
+                ["When", "Plan", "Purpose", "Repository", "Machine"],
                 pane.FindAll("[data-testid='sessions-grouping-filter'] option").Select(option => option.TextContent.Trim()));
             Assert.Equal("Live now", Assert.Single(pane.FindAll("[data-testid='sessions-group-name']")).TextContent.Trim());
         });
@@ -966,7 +966,9 @@ public sealed class SessionsPaneTests
     /// <summary>
     /// A session the Claude desktop app names in its sidebar is called that here, in its
     /// row and its detail, rather than by the worktree folder its transcript is titled
-    /// after. A session with no sidebar name keeps its own title.
+    /// after. A session with no sidebar name keeps its own title. The row shows the
+    /// name less its prefix, the prefix as a badge, and keeps the whole name in its
+    /// tooltip; the detail keeps the whole name.
     /// </summary>
     [Fact]
     public void A_session_the_desktop_app_names_is_called_by_its_sidebar_name()
@@ -980,10 +982,80 @@ public sealed class SessionsPaneTests
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(
-                ["DESIGN: Finance app design", "JSdotNet/Backlog"],
+                ["Finance app design", "JSdotNet/Backlog"],
                 pane.FindAll(".sessions-row__title").Select(title => title.TextContent.Trim()));
             Assert.Equal("DESIGN: Finance app design", pane.Find(".sessions-row__title").GetAttribute("title"));
+            Assert.Equal("Design", Assert.Single(pane.FindAll("[data-testid='sessions-purpose']")).TextContent.Trim());
             Assert.Equal("DESIGN: Finance app design", pane.Find("[data-testid='sessions-detail-title']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// A plan-family row carries its tag as a control beside the row button, never
+    /// inside it, and pressing it narrows the list to that plan; Clear filters widens
+    /// it back.
+    /// </summary>
+    [Fact]
+    public void A_plan_tag_beside_the_row_narrows_the_list_to_its_plan()
+    {
+        using var context = Context(
+        [
+            Sample[0] with { DesktopTitle = "PLAN: +bots — management bots" },
+            Sample[1] with { DesktopTitle = "bots:1 - first step" },
+            Sample[2] with { DesktopTitle = "something else" }
+        ]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() => Assert.Equal(2, pane.FindAll("[data-testid='sessions-plan-tag']").Count));
+
+        Assert.All(
+            pane.FindAll("[data-testid='sessions-plan-tag']"),
+            chip => Assert.Null(chip.Closest("[data-testid='sessions-row']")));
+        Assert.Equal("Draft", pane.Find("[data-testid='sessions-plan-state']").TextContent.Trim());
+
+        pane.Find("[data-testid='sessions-plan-tag'] button").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count);
+            Assert.Equal("bots", pane.Find("[data-testid='sessions-plan-filter'] select").GetAttribute("value"));
+        });
+
+        pane.Find("[data-testid='sessions-clear-filters']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(3, pane.FindAll("[data-testid='sessions-row']").Count));
+    }
+
+    /// <summary>
+    /// Each purpose option carries how many rows it would keep under the other filters,
+    /// and pressing one narrows the list before it is grouped.
+    /// </summary>
+    [Fact]
+    public void A_purpose_narrows_the_list_and_each_option_counts_its_rows()
+    {
+        using var context = Context(
+        [
+            Sample[0] with { DesktopTitle = "HOLD: waiting" },
+            Sample[1] with { DesktopTitle = "HOLD: also waiting" },
+            Sample[2] with { DesktopTitle = "ARTIFACT: a proposal" }
+        ]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal("2", pane.Find("[data-testid='sessions-purpose-hold'] [data-testid='sessions-purpose-tally']").TextContent.Trim()));
+
+        pane.Find("[data-testid='sessions-purpose-hold']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, pane.FindAll("[data-testid='sessions-row']").Count);
+            Assert.StartsWith("2 of ", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
         });
     }
 

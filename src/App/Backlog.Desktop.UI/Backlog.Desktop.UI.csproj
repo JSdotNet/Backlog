@@ -29,6 +29,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The question relay's hook script (local ADR 0041): embedded so the app can serve it
+         at GET /hooks/ask-backlog.mjs and write the same bytes to <app data>\hooks on every
+         start. The logical name is AskBacklogHook.ResourceName's. -->
+    <None Remove="Mcp\ask-backlog.mjs" />
+    <Content Remove="Mcp\ask-backlog.mjs" />
+    <EmbeddedResource Include="Mcp\ask-backlog.mjs" LogicalName="Backlog.Desktop.UI.Mcp.ask-backlog.mjs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
     <!-- The feature port. The shell renders the catalog of switchable features
          and gates its own chrome on them; what a feature is switched by is a

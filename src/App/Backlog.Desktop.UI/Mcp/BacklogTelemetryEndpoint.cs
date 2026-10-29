@@ -37,10 +37,22 @@ public static class BacklogTelemetryEndpoint
     /// <summary>Reads one hook event from <paramref name="body"/> and records it,
     /// answering the status code to send: 204 when it was taken, 400 for a body that
     /// is not a JSON object, 413 for one over <see cref="MaxBodyBytes"/>.</summary>
+    public static Task<int> AcceptAsync(
+        Stream body,
+        long? contentLength,
+        IDeliveryRunTelemetry telemetry,
+        CancellationToken cancellationToken) =>
+        AcceptAsync(body, contentLength, telemetry, prompts: null, cancellationToken);
+
+    /// <summary>The same, and hands the event to <paramref name="prompts"/> as well,
+    /// which keeps the last <c>UserPromptSubmit</c> per Claude session for the desktop's
+    /// presence (local ADR 0041). The prompts are taken before the run attribution, so a
+    /// prompt counts even in a session no run is attributed to.</summary>
     public static async Task<int> AcceptAsync(
         Stream body,
         long? contentLength,
         IDeliveryRunTelemetry telemetry,
+        SessionPrompts? prompts,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(body);
@@ -74,6 +86,8 @@ public static class BacklogTelemetryEndpoint
         using (document)
         {
             if (document.RootElement.ValueKind is not JsonValueKind.Object) return 400;
+
+            prompts?.Record(document.RootElement);
 
             await telemetry.RecordAsync(document.RootElement, cancellationToken).ConfigureAwait(false);
         }

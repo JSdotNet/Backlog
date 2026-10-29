@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// <summary>
 /// The text of a note written into the Brain — by the pane's Capture, by Inbox
 /// triage's To Brain, and by the capture tool after them
-/// (<c>.devbook/domain/devbook/requirements.md#capture-into-the-brain</c>). Read
+/// (<c>.devbook/domain/brain/requirements.md#capture-into-the-brain</c>). Read
 /// back through the builder's own parse, because "never becomes structure" is a
 /// claim about what that parse finds.
 /// </summary>
@@ -212,6 +212,19 @@ public sealed class BrainNoteTextTests
         IReadOnlyList<BrainArea> areas = [new("Work", "work", 1), new("Home", "home", 2)];
 
         Assert.Equal("_inbox", BrainNoteText.InboxArea(areas).Folder);
+    }
+
+    /// <summary>An ignored folder is never an area, so the PARA inbox is no
+    /// fallback while it is ignored: the first area takes the capture, and with no
+    /// area at all the PARA inbox still does.</summary>
+    [Fact]
+    public void An_ignored_para_inbox_is_no_fallback()
+    {
+        IReadOnlyList<BrainArea> areas = [new("Work", "work", 1), new("Home", "home", 2)];
+
+        Assert.Equal("work", BrainNoteText.InboxArea(areas, ["_INBOX"]).Folder);
+        Assert.Equal("_inbox", BrainNoteText.InboxArea(areas, ["archive"]).Folder);
+        Assert.Equal("_inbox", BrainNoteText.InboxArea([], ["_inbox"]).Folder);
     }
 
     /// <summary>

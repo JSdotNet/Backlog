@@ -2,7 +2,7 @@
 
 ```meta
 status: adopted
-related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/07-deployment-view.md", ".devbook/arc42/09-architecture-decisions.md"]
+related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/07-deployment-view.md", ".devbook/arc42/09-architecture-decisions.md", ".devbook/domain/devbook/features.md#technology-view"]
 ```
 
 > The root view of `.devbook/tech`: which technologies this project is built with, how
@@ -49,13 +49,19 @@ devbook convention pins them, with the layers between them by name.
 
 ## Graph
 
-The application renders this metadata as an interactive atlas. It lays the
-technologies out in depth, one cluster per layer file. Each node is sized by how
-many other technologies depend on it, and marked with where its status sits on
-the ladder below. Selecting one lights its dependencies and opens its chapter
-beside the map. The nodes are also listed beside the picture, in this folder's
-reading order. That list is the surface a keyboard operates; the canvas is a
-pointer shortcut onto the same selection.
+The application reads this metadata into the
+[Technology view](../domain/devbook/features.md#technology-view) of its Devbook
+pane: five views over the same graph, switched from one tab bar. **Overview**
+tables every technology with its measures, **Dependencies** follows one
+technology's edges hop by hop, **Complexity** places each by how many use it
+against how much sits under it, **Clusters** opens the stack layer file by layer
+file, and **Type lenses** reads one technology through the section its type
+chooses. Every measure is computed from `depends-on`: used by, what breaks if it
+changes, what it rests on, its depth, and a complexity band. A technology is
+coloured by its type's family and drawn hollow until it is `adopted`, so its
+place on the ladder below never rests on colour. Every pointer view has a list
+or table companion the keyboard operates, and its status is changed from the
+inspector, written back to its chapter here.
 
 The source Mermaid graph below remains the portable fallback, for reading this
 file anywhere the application is not. It keeps edges pointing from a technology
@@ -487,9 +493,10 @@ Terms below are the dictionary's; the right-hand column is this repository.
   it with `related` instead of restating it.
 - When a node or edge changes, update the Mermaid source graph in the same
   change and run `node .devbook/_tools/devbook-meta/build.mjs --check`.
-- The atlas is generated from the `.devbook/tech` metadata and needs no editing
-  of its own. The app draws it from the devbook database it rebuilds when a
-  chapter changes (local ADR 0015), not from the Markdown.
+- The Technology view is generated from the `.devbook/tech` metadata and needs
+  no editing of its own. The app reads the technologies and their edges from the
+  layer files themselves, so it draws the same graph whether or not the devbook
+  database has been built (local ADR 0004).
 
 Full authoring rules: `.agents/rules/devbook-tech.md`.
 

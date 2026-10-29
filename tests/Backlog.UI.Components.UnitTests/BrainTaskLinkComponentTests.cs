@@ -4,7 +4,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The two library parts of linking Brain notes and tasks (local ADR 0026 §3,
-/// <c>.devbook/domain/devbook/requirements.md#bi-directional-linking</c>): the task
+/// <c>.devbook/domain/brain/requirements.md#bi-directional-linking</c>): the task
 /// chip in a note's Tasks section, and the teal "◆ n note" badge on a task row.
 /// </summary>
 public sealed class BrainTaskLinkComponentTests

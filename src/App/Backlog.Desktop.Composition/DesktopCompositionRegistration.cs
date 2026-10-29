@@ -348,6 +348,35 @@ public static class DesktopCompositionRegistration
         // The Notifications page: send a test alert or question and follow it. Offered
         // behind the notifications switch.
         services.AddNotificationsSettings();
+        // Its question relay timings (local ADR 0041), kept in the workspace settings file
+        // beside the rest of this desktop's settings.
+        services.AddSingleton<INotificationTimingSettings>(sp =>
+            new WorkspaceNotificationTimingSettings(sp.GetRequiredService<WorkspaceSettingsStore>()));
+        // The last prompt per Claude session, which the hook telemetry route feeds and the
+        // head's presence reads (local ADR 0041). Read on this desktop only.
+        services.AddSingleton(_ => new SessionPrompts());
+        // The question relay (local ADR 0041): the waiting questions in backlog.db, the
+        // route from the head's presence — none reads as at the keyboard — and "notify
+        // after" read from the workspace settings on every question. Its escalation timer
+        // is resolved by the head at startup, like BlockedTaskWatcher.
+        services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<WorkspaceSettingsStore>();
+            return new QuestionRelay(
+                sp.GetRequiredService<IWaitingQuestionStore>(),
+                sp.GetService<IPresence>(),
+                () => settings.Presence.NotifyAfter,
+                sp.GetService<INotifications>,
+                sp.GetService<TimeProvider>(),
+                sp.GetService<ILogger<QuestionRelay>>(),
+                () => sp.GetService<IAppFeatureSettings>()?.IsEnabled(NotificationsFeatures.Notifications) ?? true);
+        });
+        // The same relay as the port the MCP ask, get_answer and close tools reach it through.
+        services.AddSingleton<IQuestionRelay>(sp => sp.GetRequiredService<QuestionRelay>());
+        services.AddSingleton(sp => new QuestionRelayEscalation(
+            sp.GetRequiredService<QuestionRelay>(),
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<QuestionRelayEscalation>>()));
         // "Attach to goal" on tasks, plans and pull requests, cascaded to every screen.
         services.AddGoalControls();
         // The band under every route reads the backlog's save state through the
@@ -394,6 +423,11 @@ public static class DesktopCompositionRegistration
         // offered in the scope, the Board and the pickers, kept per device in the same file.
         services.AddSingleton<Backlog.SharedKernel.IShowArchivedRepositories>(sp =>
             new ShowArchivedRepositories(sp.GetService<ShellNavigationStore>()));
+        // Show hidden (local ADR 0026 §2): whether the Brain's ignored folders and
+        // dot-folders show as tabs, kept per device in the same file — never in the
+        // Brain folder, never on the Brain setting whose change reloads the Brain.
+        services.AddSingleton<IBrainShowHidden>(sp =>
+            new BrainShowHidden(sp.GetService<ShellNavigationStore>()));
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
         services.AddToolsAiContentSource();
 

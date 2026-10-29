@@ -12,8 +12,8 @@ related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 The Inbox is the processing queue for all captured input. It decides what
 happens to an item after it arrives. Triage turns it into a
 [Task](../tasks/domain.md#task) or a
-[Knowledge Note](../devbook/domain.md#knowledge-note) in the person's
-[Brain](../devbook/domain.md#brain), defers it, or archives it.
+[Knowledge Note](../brain/domain.md#knowledge-note) in the person's
+[Brain](../brain/domain.md#brain), defers it, or archives it.
 
 Inside the boundary: the Inbox Items that
 [Capture](../capture/domain.md#capture) delivers, their triage,

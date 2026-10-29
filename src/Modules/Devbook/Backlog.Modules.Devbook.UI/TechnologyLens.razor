@@ -1,0 +1,246 @@
+@inherits TechnologyViewBase
+
+@*
+    The section a technology's type chooses, below the facts every technology has
+    (.devbook/domain/devbook/features.md#technology-view, The inspector and its
+    lenses). The inspector draws it for the selection; the Type lenses board draws
+    it on each type's card.
+
+    A lens reads only what the pane already holds: the chapter's version,
+    alternatives and related, and the graph's depends-on in both directions. A row
+    whose fact the chapter does not record is left out, and a lens with no row
+    left is not drawn at all. Nothing is shown empty and nothing is filled in.
+*@
+
+@if (Technology is { } node && Lenses.For(node.Kind) is { } lens && RowsOf(node, lens) is { Count: > 0 } rows)
+{
+    <section class="tech-lens" aria-label="@($"{lens.Name} lens")" data-testid="technology-lens" data-lens="@lens.Key">
+        <h4 class="tech-lens__heading">@($"{lens.Name} lens")</h4>
+        <dl class="tech-lens__rows">
+            @foreach (var row in rows)
+            {
+                <div class="tech-lens__row" data-testid="technology-lens-row" data-row="@row.Key">
+                    <dt>@row.Label</dt>
+                    <dd>@row.Content</dd>
+                </div>
+            }
+        </dl>
+    </section>
+}
+
+@code {
+    /// <summary>The technology whose lens this is — the selection in the
+    /// inspector, a type's most-used technology on the board.</summary>
+    [Parameter, EditorRequired]
+    public TechnologyGraphNode? Technology { get; set; }
+
+    /// <summary>One lens: the types it serves, what it shows and which metadata it
+    /// reads. The board's "Lens per type" table is these, so the table and the
+    /// lenses cannot say two different things.</summary>
+    public sealed record LensDefinition(string Key, string Name, IReadOnlyList<string> Types, string Shows, string ReadsFrom);
+
+    /// <summary>Every lens, in the order the board's table lists them. The last
+    /// has no rows of its own: those types show the common facts only.</summary>
+    public static class Lenses
+    {
+        public static readonly LensDefinition Package = new(
+            "package", "Package", ["package"],
+            "Its version, and the alternatives it was chosen over",
+            "version, alternatives");
+
+        public static readonly LensDefinition Stack = new(
+            "stack", "Stack", ["framework", "platform", "runtime", "language"],
+            "What it is built on and what is built directly on it, grouped by layer, and the decisions and chapters it relates to",
+            "depends-on, related");
+
+        public static readonly LensDefinition Ai = new(
+            "ai", "AI", ["plugin", "skill", "agent"],
+            "Its ai/ chapters and other related chapters, and the technologies that use it",
+            "related, depends-on");
+
+        public static readonly LensDefinition Tool = new(
+            "tool", "Tool", ["tool"],
+            "The alternatives it was chosen over, and what it relates to",
+            "alternatives, related");
+
+        public static readonly LensDefinition Service = new(
+            "service", "Service", ["service"],
+            "What it relates to, and its layer",
+            "related, layer file");
+
+        public static readonly LensDefinition Common = new(
+            "common", "Common", ["library", "format", "protocol"],
+            "The common facts only: status, what it sits on, what uses it",
+            "status, depends-on");
+
+        public static IReadOnlyList<LensDefinition> All { get; } = [Package, Stack, Ai, Tool, Service, Common];
+
+        /// <summary>The lens a type chooses; null for a type with no section of its
+        /// own — the common-facts types, and any word no lens names.</summary>
+        public static LensDefinition? For(string? type)
+        {
+            var normalized = type?.Trim() ?? string.Empty;
+            var lens = All.FirstOrDefault(candidate => candidate.Types.Contains(normalized, StringComparer.OrdinalIgnoreCase));
+            return ReferenceEquals(lens, Common) ? null : lens;
+        }
+    }
+
+    private sealed record LensRow(string Key, string Label, RenderFragment Content);
+
+    /// <summary>The chapter behind a technology, which carries what the graph node
+    /// does not — its version, alternatives and related. A boundary node has none.</summary>
+    private TechnologyNode? ChapterOf(TechnologyGraphNode node) =>
+        View.Layers.SelectMany(layer => layer.Nodes).FirstOrDefault(chapter => string.Equals(chapter.Id, node.Id, StringComparison.Ordinal));
+
+    private List<LensRow> RowsOf(TechnologyGraphNode node, LensDefinition lens)
+    {
+        var chapter = ChapterOf(node);
+        var version = chapter?.Metadata.Version?.Trim();
+        var alternatives = (chapter?.Alternatives ?? []).Where(value => !string.IsNullOrWhiteSpace(value)).ToList();
+        var related = (chapter?.Related ?? []).Where(value => !string.IsNullOrWhiteSpace(value)).ToList();
+        var rows = new List<LensRow>();
+
+        void Add(string key, string label, bool present, RenderFragment content)
+        {
+            if (present) rows.Add(new LensRow(key, label, content));
+        }
+
+        if (ReferenceEquals(lens, Lenses.Package))
+        {
+            Add("version", "Version", !string.IsNullOrEmpty(version), Text(version));
+            Add("alternatives", "Alternatives", alternatives.Count > 0, Text(string.Join(", ", alternatives)));
+        }
+        else if (ReferenceEquals(lens, Lenses.Stack))
+        {
+            var builtOn = Resolve(node.DependencyIds);
+            var builtOnIt = Resolve(node.UserIds);
+            Add("built-on", "Built on", builtOn.Count > 0, ByLayer(builtOn));
+            Add("built-on-it", "Built on it", builtOnIt.Count > 0, ByLayer(builtOnIt));
+            var decisions = related.Where(IsDecision).ToList();
+            var chapters = related.Where(entry => !IsDecision(entry)).ToList();
+            Add("decisions", "Decisions", decisions.Count > 0, References(decisions));
+            Add("chapters", "Chapters", chapters.Count > 0, References(chapters));
+        }
+        else if (ReferenceEquals(lens, Lenses.Ai))
+        {
+            var ai = related.Where(IsAiChapter).ToList();
+            var other = related.Where(entry => !IsAiChapter(entry)).ToList();
+            Add("ai-chapters", "AI chapters", ai.Count > 0, References(ai));
+            Add("chapters", "Other chapters", other.Count > 0, References(other));
+            var users = Resolve(node.UserIds);
+            Add("used-by", "Used by", users.Count > 0, Chips(users));
+        }
+        else if (ReferenceEquals(lens, Lenses.Tool))
+        {
+            Add("alternatives", "Alternatives", alternatives.Count > 0, Text(string.Join(", ", alternatives)));
+            Add("related", "Related", related.Count > 0, References(related));
+        }
+        else if (ReferenceEquals(lens, Lenses.Service))
+        {
+            Add("related", "Related", related.Count > 0, References(related));
+            Add("layer", "Layer", !string.IsNullOrWhiteSpace(node.Layer), Text(TechnologyViews.LayerLabel(node.Layer)));
+        }
+
+        return rows;
+    }
+
+    private static bool IsDecision(string entry) =>
+        DevbookReference.Parse(entry) is { Folder: DevbookFolder.Arc42 } reference
+        && reference.Path.Replace('\\', '/').Contains("/adr/", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAiChapter(string entry) => DevbookReference.Parse(entry) is { Folder: DevbookFolder.Ai };
+
+    private static RenderFragment Text(string? value) => builder => builder.AddContent(0, value);
+
+    /// <summary>The graph's nodes for these ids; an id the graph does not hold is
+    /// dropped, so a row is only drawn when something in it resolves.</summary>
+    private List<TechnologyGraphNode> Resolve(IReadOnlyList<string> ids) => [.. ids.Select(NodeById).OfType<TechnologyGraphNode>()];
+
+    /// <summary>Technologies grouped under the layer each sits in, layers in
+    /// reading order and chapters of other folders last.</summary>
+    private RenderFragment ByLayer(IReadOnlyList<TechnologyGraphNode> nodes) => __builder =>
+    {
+        foreach (var group in nodes
+                     .GroupBy(related => related.Layer)
+                     .OrderBy(group => group.Any(related => related.IsBoundary))
+                     .ThenBy(group => group.Min(related => related.LayerIndex)))
+        {
+            <div class="tech-lens__group" data-testid="technology-lens-layer" data-layer="@TechnologyViews.LayerLabel(group.Key)">
+                <span class="tech-lens__layer">@TechnologyViews.LayerLabel(group.Key)</span>
+                <span class="tech-lens__chips">
+                    @foreach (var related in group)
+                    {
+                        @TechnologyChip(related)
+                    }
+                </span>
+            </div>
+        }
+    };
+
+    private RenderFragment Chips(IReadOnlyList<TechnologyGraphNode> nodes) => __builder =>
+    {
+        <span class="tech-lens__chips">
+            @foreach (var related in nodes)
+            {
+                @TechnologyChip(related)
+            }
+        </span>
+    };
+
+    /// <summary>Related entries: a technology of this folder is selected in place,
+    /// a chapter in a section is followed there, and anything else — prose, a URL,
+    /// a folder this product does not read — stays inert text, never a control
+    /// that goes nowhere.</summary>
+    private RenderFragment References(IReadOnlyList<string> entries) => __builder =>
+    {
+        <span class="tech-lens__chips">
+            @foreach (var entry in entries)
+            {
+                if (NodeById(DevbookLayout.ConventionalPath(entry)) is { IsBoundary: false } related)
+                {
+                    @TechnologyChip(related)
+                }
+                else if (DevbookReference.Parse(entry) is { } reference && DevbookChapterLink.From(reference) is not null)
+                {
+                    <DevbookReferenceLink Reference="@reference"
+                                          Text="@ReferenceText(reference)"
+                                          OnNavigate="NavigateAsync"
+                                          TestId="technology-lens-reference" />
+                }
+                else
+                {
+                    <span data-testid="technology-lens-text">@entry</span>
+                }
+            }
+        </span>
+    };
+
+    private RenderFragment TechnologyChip(TechnologyGraphNode related) => __builder =>
+    {
+        if (related is { IsBoundary: true } && DevbookReference.Parse(related.Id) is { } reference)
+        {
+            <DevbookReferenceLink Reference="@reference"
+                                  Text="@related.Label"
+                                  OnNavigate="NavigateAsync"
+                                  TestId="technology-lens-reference" />
+        }
+        else
+        {
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="technology-lens-technology"
+                       OnClick="() => SelectAsync(related.Id)">@related.Label</AppButton>
+        }
+    };
+
+    /// <summary>A decision reads as its number and title; any other chapter as its
+    /// heading or file name. The full path stays on the link's title.</summary>
+    private static string ReferenceText(DevbookReference reference)
+    {
+        var label = reference.Label.Replace('-', ' ');
+        return IsDecision(reference.Raw) && label.Length > 0 && char.IsDigit(label[0]) ? $"ADR {label}" : label;
+    }
+
+    private Task NavigateAsync(DevbookReference reference) =>
+        DevbookChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
+}

@@ -30,7 +30,9 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <param name="Anchor">The heading slug the reference named, or
 /// <see langword="null"/> when it addresses the file as a whole. Carried because it
 /// is part of what the author wrote. On a scenario page it names the part the pane
-/// marks and scrolls to; on any other chapter nothing scrolls to it yet.</param>
+/// marks and scrolls to; in a document folder — <c>ai/</c>, <c>design/</c> — the
+/// heading the opened file is scrolled to and focus moves to. The other sections
+/// still open their chapter at its top.</param>
 public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anchor)
 {
     /// <summary>The same file as the Devbook menu spells it: beneath the area's
@@ -52,6 +54,28 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
     /// </para>
     /// </summary>
     public bool IsC4View => Path.EndsWith(".dsl", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether this names a section's folder as a whole rather than a
+    /// file in it — what <see cref="ForFolder"/> builds, its path ending in a
+    /// separator. Following it opens the
+    /// section's tab with whatever chapter that section has open.</summary>
+    public bool IsFolder => Anchor is null && Path.EndsWith('/') && !DevbookMenu.IsBrainAreaKey(AreaKey);
+
+    /// <summary>
+    /// A section's folder, for a caller that names a folder rather than a chapter
+    /// in it — the Devbook tab's adopted folders. Null when the name is not a
+    /// section this product reads, so the caller draws it as text.
+    /// </summary>
+    public static DevbookChapterLink? ForFolder(string? folderName)
+    {
+        if (string.IsNullOrWhiteSpace(folderName)) return null;
+
+        var name = folderName.Trim().TrimStart('.').TrimEnd('/');
+        if (name.Length == 0 || name.Contains('/', StringComparison.Ordinal)) return null;
+
+        var path = $"{DevbookFolderSetting.DevbookRoot}/{name}/";
+        return DevbookAreaCatalog.AreaKeyForPath(path) is { } areaKey ? new DevbookChapterLink(areaKey, path, null) : null;
+    }
 
     /// <summary>The path and anchor back together, the way they were authored. What
     /// a C4 view is looked up by: the workspace and the view key are both needed, and

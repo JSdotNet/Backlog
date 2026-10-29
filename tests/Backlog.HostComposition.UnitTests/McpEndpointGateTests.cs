@@ -436,6 +436,38 @@ public class McpEndpointGateTests
         Assert.Equal(0, queue.NextCalls);
     }
 
+    /// <summary>The harness serves the question hook script beside <c>/mcp</c>, byte for
+    /// byte what the app embeds and installs (local ADR 0041).</summary>
+    [Fact]
+    public async Task The_harness_serves_the_question_hook_script_as_embedded()
+    {
+        await using var harness = new Harness();
+        using var client = harness.CreateClient();
+
+        using var response = await client.GetAsync(AskBacklogHook.RoutePath, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/javascript", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(
+            AskBacklogHook.Bytes.ToArray(),
+            await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>And behind the same loopback Origin check.</summary>
+    [Fact]
+    public async Task The_harness_hook_script_route_refuses_a_cross_origin_call()
+    {
+        await using var harness = new Harness();
+        using var client = harness.CreateClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, AskBacklogHook.RoutePath);
+        request.Headers.Add("Origin", "https://evil.example");
+
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     /// <summary>
     /// <c>start_run</c> with its stages sent as the JSON text of the list, as an
     /// execute-plan worker sent them: the run starts, with the stages the text
