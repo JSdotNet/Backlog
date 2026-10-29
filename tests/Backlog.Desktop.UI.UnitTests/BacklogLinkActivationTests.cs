@@ -137,6 +137,12 @@ public sealed class BacklogLinkActivationTests
         public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
             Opened.Add((surfaceId, query ?? new Dictionary<string, string>()));
 
+        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
+        {
+            Open(surfaceId, query);
+            return Task.FromResult(true);
+        }
+
         public void Close(string windowKey) { }
 
         public void SetTitle(string windowKey, string title) { }

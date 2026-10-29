@@ -102,6 +102,30 @@ public sealed class TasksSurfaceQueryTests
         });
     }
 
+    /// <summary>In a long list the editor shows the entry while its row may sit below
+    /// the fold, so the row is scrolled into its list's view — once, not on every
+    /// render after.</summary>
+    [Fact]
+    public async Task Entry_scrolls_its_row_into_view_once()
+    {
+        using var host = await CreateHostAsync();
+        for (var index = 0; index < 30; index++) await host.WriteEntryAsync($"# Filler {index}\n`task` `repo:backlog`\n");
+        var wanted = await host.WriteEntryAsync("# Provision the box\n`task` `repo:backlog`\n");
+        await host.State.SelectAsync(null);
+
+        var surface = Render<TasksSurface>(host, TasksSurfaceQuery.ForEntry(wanted.Id!.Value.ToString()));
+
+        surface.WaitForAssertion(() =>
+        {
+            var reveal = Assert.Single(host.Context.JSInterop.Invocations, call => call.Identifier == "backlogRevealRow");
+            Assert.Equal(TasksSurface.RowSelector(wanted.Id!.Value), Assert.Single(reveal.Arguments));
+        });
+        Assert.NotEmpty(surface.FindAll(TasksSurface.RowSelector(wanted.Id!.Value)));
+
+        surface.Render();
+        Assert.Single(host.Context.JSInterop.Invocations, call => call.Identifier == "backlogRevealRow");
+    }
+
     /// <summary>The entry is in <c>docs</c> and the window is scoped to <c>backlog</c>:
     /// <c>docs</c> joins the scope, and <c>backlog</c> stays.</summary>
     [Fact]

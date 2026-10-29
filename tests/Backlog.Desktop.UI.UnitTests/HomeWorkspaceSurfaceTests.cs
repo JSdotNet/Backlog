@@ -171,6 +171,35 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
+    /// Show in main window from a popped-out Devbook reading a repository this
+    /// window's scope does not hold — here nothing is scoped, so there is no switch
+    /// and no anchor — reads that repository here, not this window's own anchor, and
+    /// leaves the header's scope alone (step 15's QA, D2).
+    /// </summary>
+    [Fact]
+    public async Task Show_in_main_window_from_a_devbook_window_reads_that_windows_repository_here()
+    {
+        var mainWindow = new MainWindowSurfaces();
+        using var harness = CreateHarness(configureServices: services => services.AddSingleton(mainWindow));
+        var component = Render(harness);
+        var alias = Assert.Single(harness.Context.Services.GetRequiredService<GitHubSettingsStore>().Current.Repositories).Alias;
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForAssertion(() => Assert.True(mainWindow.Attached));
+        Assert.Empty(state.SelectedRepositoryAliases);
+
+        Assert.True(await mainWindow.ShowAsync(new SurfaceRequest(
+            "devbook",
+            new Dictionary<string, string> { [DevbookSurfaceQuery.Scope] = alias })));
+
+        component.WaitForAssertion(() =>
+        {
+            var devbook = component.FindComponent<DevbookSurface>();
+            Assert.Equal(alias, devbook.Instance.Query![DevbookSurfaceQuery.Scope]);
+        });
+        Assert.Empty(state.SelectedRepositoryAliases);
+    }
+
+    /// <summary>
     /// The Devbook's ⧉ Open in new window button (local ADR 0041 §4) asks the host
     /// for one more window on every press, and hands that window the one thing of
     /// this window's the Devbook reads by: its scope. This window stays as it was.
@@ -305,6 +334,12 @@ public sealed class HomeWorkspaceSurfaceTests
 
         public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
             Opened.Add((surfaceId, query ?? new Dictionary<string, string>()));
+
+        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
+        {
+            Open(surfaceId, query);
+            return Task.FromResult(true);
+        }
 
         public void Close(string windowKey) => throw new NotSupportedException("Home closes no window.");
 

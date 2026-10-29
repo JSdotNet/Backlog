@@ -48,7 +48,7 @@ public class McpServerCompositionTests
     /// <summary>The harness answers open_window's port, and a browser opens no
     /// native window.</summary>
     [Fact]
-    public void The_desktop_harness_has_no_native_window_for_open_window()
+    public async Task The_desktop_harness_has_no_native_window_for_open_window()
     {
         using var harness = new Harness<DesktopHarness::Program>();
         using var scope = harness.Services.CreateScope();
@@ -57,7 +57,7 @@ public class McpServerCompositionTests
 
         // A browser has tabs and no OS windows, so open_window's target "desktop"
         // answers that none is available here (local ADR 0041 §7).
-        Assert.False(host.TryOpenWindow("tasks", new Dictionary<string, string>()));
+        Assert.False(await host.TryOpenWindowAsync("tasks", new Dictionary<string, string>()));
     }
 
     /// <summary>

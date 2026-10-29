@@ -612,6 +612,8 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         {
         }
 
+        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null) => Task.FromResult(false);
+
         public void Close(string windowKey)
         {
         }

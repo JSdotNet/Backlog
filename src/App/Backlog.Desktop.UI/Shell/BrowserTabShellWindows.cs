@@ -11,7 +11,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// retitle one there.
 /// <para>
 /// Scoped, one per circuit, because it speaks through that circuit's
-/// <see cref="IJSRuntime"/>. Every call is fire and forget, as the interface's are:
+/// <see cref="IJSRuntime"/>. Every call but <see cref="OpenAsync"/> is fire and forget:
 /// a page still prerendering has no browser to speak to yet, and a tab already gone
 /// has none left, and neither is a failure anyone could act on.
 /// </para>
@@ -25,8 +25,26 @@ public sealed class BrowserTabShellWindows(IJSRuntime js) : IShellWindows
     private const string AppTitle = "Backlog";
 
     /// <inheritdoc />
-    public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
-        Run("open", SurfaceWindowRoute.PathFor(surfaceId, query), "_blank");
+    public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) => _ = OpenAsync(surfaceId, query);
+
+    /// <inheritdoc />
+    /// <remarks>False while prerendering, for a tab already gone, and for a pop-up the
+    /// browser blocked.</remarks>
+    public async Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null)
+    {
+        try
+        {
+            return await js.InvokeAsync<bool>("backlogShellWindow.open", SurfaceWindowRoute.PathFor(surfaceId, query)).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or OperationCanceledException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>A tab's title: the surface's, then the app's — what
+    /// <see cref="SetTitle"/> writes and a popped-out page's <c>PageTitle</c> says.</summary>
+    public static string TabTitle(string surfaceTitle) => $"{surfaceTitle} - {AppTitle}";
 
     /// <inheritdoc />
     /// <remarks>A browser closes only a tab a script opened; any other stays open,
@@ -34,7 +52,7 @@ public sealed class BrowserTabShellWindows(IJSRuntime js) : IShellWindows
     public void Close(string windowKey) => Run("backlogShellWindow.close");
 
     /// <inheritdoc />
-    public void SetTitle(string windowKey, string title) => Run("backlogShellWindow.setTitle", $"{title} - {AppTitle}");
+    public void SetTitle(string windowKey, string title) => Run("backlogShellWindow.setTitle", TabTitle(title));
 
     /// <inheritdoc />
     /// <remarks>Nothing: a page in a browser cannot bring the desktop app's window

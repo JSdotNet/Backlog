@@ -21,10 +21,22 @@ public sealed class BrowserTabShellWindowsTests
         windows.Open("devbook", new Dictionary<string, string> { ["chapter"] = "arc42/adr/0040.md", ["scope"] = "JSdotNet/Backlog" });
 
         var call = Assert.Single(context.JSInterop.Invocations);
-        Assert.Equal("open", call.Identifier);
-        Assert.Equal(
-            ["/window/devbook?chapter=arc42%2Fadr%2F0040.md&scope=JSdotNet%2FBacklog", "_blank"],
-            call.Arguments);
+        Assert.Equal("backlogShellWindow.open", call.Identifier);
+        Assert.Equal(["/window/devbook?chapter=arc42%2Fadr%2F0040.md&scope=JSdotNet%2FBacklog"], call.Arguments);
+    }
+
+    /// <summary>OpenAsync answers what the browser did: true for a tab it opened, false
+    /// for a pop-up it blocked.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task OpenAsync_answers_whether_the_browser_opened_the_tab(bool opened)
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Setup<bool>("backlogShellWindow.open", _ => true).SetResult(opened);
+        var windows = new BrowserTabShellWindows(context.JSInterop.JSRuntime);
+
+        Assert.Equal(opened, await windows.OpenAsync("tasks"));
     }
 
     [Fact]
@@ -48,12 +60,22 @@ public sealed class BrowserTabShellWindowsTests
     public void A_refused_or_disconnected_open_is_never_thrown_into_the_renderer()
     {
         using var context = new BunitContext();
-        context.JSInterop.SetupVoid("open", _ => true).SetException(new JSDisconnectedException("The circuit went."));
+        context.JSInterop.Setup<bool>("backlogShellWindow.open", _ => true).SetException(new JSDisconnectedException("The circuit went."));
         var windows = new BrowserTabShellWindows(context.JSInterop.JSRuntime);
 
         windows.Open("devbook");
 
-        Assert.Equal(["/window/devbook", "_blank"], Assert.Single(context.JSInterop.Invocations).Arguments);
+        Assert.Equal(["/window/devbook"], Assert.Single(context.JSInterop.Invocations).Arguments);
+    }
+
+    [Fact]
+    public async Task A_disconnected_open_answers_not_opened()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Setup<bool>("backlogShellWindow.open", _ => true).SetException(new JSDisconnectedException("The circuit went."));
+        var windows = new BrowserTabShellWindows(context.JSInterop.JSRuntime);
+
+        Assert.False(await windows.OpenAsync("devbook"));
     }
 
     [Theory]

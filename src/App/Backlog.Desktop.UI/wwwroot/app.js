@@ -25,7 +25,10 @@ window.backlogDiagrams.renderDevbookAtlas = async (element, id, graph, dotnet) =
 // A surface served as a web page (local ADR 0041 §7) is a browser tab rather than
 // an OS window, so BrowserTabShellWindows retitles and closes the tab through
 // these. A browser closes only a tab a script opened; any other stays open.
+// open answers whether the browser opened the tab: null from window.open is a
+// pop-up the browser blocked.
 window.backlogShellWindow = {
+    open: path => window.open(path, '_blank') !== null,
     setTitle: title => { document.title = title; },
     close: () => window.close(),
 };

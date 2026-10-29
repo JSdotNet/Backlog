@@ -20,6 +20,10 @@
     registers — opens nothing and says so.
 *@
 
+@* The page's title, for a window served as a web page — a harness tab, a browser
+   pane: its HeadOutlet writes it, as a native window's title bar gets SetTitle. *@
+<PageTitle>@BrowserTabShellWindows.TabTitle(Title)</PageTitle>
+
 <div class="shell surface-window" data-testid="surface-window" data-surface-id="@_surface?.Id">
     <header class="app-header surface-window__header" data-testid="surface-window-header">
         <h1 class="surface-window__title" tabindex="-1" data-testid="surface-window-title">@Title</h1>

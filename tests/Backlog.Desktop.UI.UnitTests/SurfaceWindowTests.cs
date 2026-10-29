@@ -45,6 +45,29 @@ public sealed class SurfaceWindowTests
         Assert.Equal("Alpha", host.Windows.Titles[WindowKey]);
     }
 
+    /// <summary>A window served as a web page — a harness tab, a browser pane — has no
+    /// title bar for <c>SetTitle</c>, so the page title names the surface, and follows
+    /// a jump to another.</summary>
+    [Fact]
+    public async Task The_page_title_names_the_surface_and_follows_a_jump()
+    {
+        using var host = await CreateHostAsync();
+        var window = host.Render("alpha");
+
+        Assert.Equal("Alpha - Backlog", PageTitleOf(host, window));
+
+        window.Find("[data-testid='alpha-jump']").Click();
+
+        window.WaitForAssertion(() => Assert.Equal("Beta - Backlog", PageTitleOf(host, window)));
+    }
+
+    private static string PageTitleOf(Host host, IRenderedComponent<SurfaceWindow> window)
+    {
+        var content = window.FindComponent<Microsoft.AspNetCore.Components.Web.PageTitle>().Instance.ChildContent;
+        Assert.NotNull(content);
+        return host.Pane.Context.Render(content).Markup.Trim();
+    }
+
     [Theory]
     [InlineData("no-such-surface")]
     [InlineData("proposals")]
@@ -287,6 +310,9 @@ public sealed class SurfaceWindowTests
         public int Activations { get; private set; }
 
         public void Open(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
+            throw new NotSupportedException("No test here pops a surface out.");
+
+        public Task<bool> OpenAsync(string surfaceId, IReadOnlyDictionary<string, string>? query = null) =>
             throw new NotSupportedException("No test here pops a surface out.");
 
         public void Close(string windowKey) => Closed.Add(windowKey);

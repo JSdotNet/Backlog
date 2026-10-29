@@ -16,7 +16,7 @@ namespace Backlog.Desktop.WebHarness;
 internal sealed class HarnessSurfaceWindowHost(IServer server) : ISurfaceWindowHost
 {
     /// <inheritdoc />
-    public bool TryOpenWindow(string surfaceId, IReadOnlyDictionary<string, string> query) => false;
+    public Task<bool> TryOpenWindowAsync(string surfaceId, IReadOnlyDictionary<string, string> query) => Task.FromResult(false);
 
     /// <inheritdoc />
     public Uri? WebLink(string surfaceId, IReadOnlyDictionary<string, string> query)
