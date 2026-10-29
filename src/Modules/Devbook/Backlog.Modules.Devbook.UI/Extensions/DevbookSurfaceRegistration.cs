@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Backlog.Desktop.UI.Devbook.Extensions;
 
 /// <summary>
-/// Puts the Devbook in the shell as a <see cref="ShellSurface"/> (local ADR 0040 §1).
+/// Puts the Devbook in the shell as a <see cref="ShellSurface"/> (local ADR 0041 §1).
 /// </summary>
 /// <remarks>
 /// <para>

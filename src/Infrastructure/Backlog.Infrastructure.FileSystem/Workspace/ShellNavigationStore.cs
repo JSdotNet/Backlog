@@ -61,15 +61,15 @@ public sealed class ShellNavigationStore
     private static readonly string[] Empty = [];
 
     /// <summary>The main view a file with no <c>lastView</c> reopens on, by its surface
-    /// id (local ADR 0040 §2): before the view switch the workspace's main pane was the
+    /// id (local ADR 0041 §2): before the view switch the workspace's main pane was the
     /// task list.</summary>
     public const string DefaultView = "tasks";
 
-    /// <summary>The surface id the roadmap's view is stored under (local ADR 0040 §2).</summary>
+    /// <summary>The surface id the roadmap's view is stored under (local ADR 0041 §2).</summary>
     private const string RoadmapViewId = "roadmap";
 
     /// <summary>
-    /// The view names a file from before local ADR 0040 holds — the members of the
+    /// The view names a file from before local ADR 0041 holds — the members of the
     /// retired <c>ShellView</c> enum, and <c>InProgress</c>, the Goals view's name before
     /// its rename — each with the surface id it reads as now (§2). Exact names only: the
     /// enum's members were written as they were spelled.
@@ -86,7 +86,7 @@ public sealed class ShellNavigationStore
         };
 
     /// <summary>
-    /// The surface names a file from before local ADR 0040 holds — the members of the
+    /// The surface names a file from before local ADR 0041 holds — the members of the
     /// retired <c>WorkspaceSurface</c> enum — each with the takeover's surface id it reads
     /// as now (§2), and <c>Workspace</c>, the main view alone, as no takeover at all.
     /// <c>Roadmap</c> is not here: it was a takeover once and reads as the Roadmap view
@@ -119,7 +119,7 @@ public sealed class ShellNavigationStore
     /// workspace. Now nothing is written for it.</summary>
     private const string WorkspaceSurfaceName = "Workspace";
 
-    /// <summary>The Inbox's and the Devbook's surface ids (local ADR 0040 §2).</summary>
+    /// <summary>The Inbox's and the Devbook's surface ids (local ADR 0041 §2).</summary>
     private const string InboxId = "inbox";
     private const string DevbookId = "devbook";
 
@@ -195,7 +195,7 @@ public sealed class ShellNavigationStore
 
     /// <summary>The main view the workspace was showing when last set — by its surface
     /// id, <c>tasks</c>, <c>board</c>, <c>calendar</c>, <c>roadmap</c> or <c>goals</c>
-    /// (local ADR 0040 §2) — and <see cref="DefaultView"/> when nothing has been
+    /// (local ADR 0041 §2) — and <see cref="DefaultView"/> when nothing has been
     /// remembered yet. A name the retired enum stored reads as its id
     /// (<see cref="RetiredViewNames"/>); any other value is kept as written, and the
     /// shell reads one it does not offer as Tasks.</summary>

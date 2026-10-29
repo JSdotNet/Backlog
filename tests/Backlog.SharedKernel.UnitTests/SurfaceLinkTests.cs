@@ -1,7 +1,7 @@
 namespace Backlog.SharedKernel.UnitTests;
 
 /// <summary>
-/// The addresses a surface opens at (local ADR 0040 §6, §7): <c>/window/{surfaceId}</c>
+/// The addresses a surface opens at (local ADR 0041 §6, §7): <c>/window/{surfaceId}</c>
 /// and <c>backlog://window/{surfaceId}?…</c>, each key and value escaped, in the order
 /// given.
 /// </summary>

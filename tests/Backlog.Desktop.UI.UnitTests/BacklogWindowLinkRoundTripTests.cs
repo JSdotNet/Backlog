@@ -4,7 +4,7 @@ using Backlog.SharedKernel;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The one <c>backlog://window/…</c> format of local ADR 0040 §7, written by
+/// The one <c>backlog://window/…</c> format of local ADR 0041 §7, written by
 /// <see cref="SurfaceLink"/> (what <c>open_window</c> answers) and read by
 /// <see cref="BacklogWindowLink"/> (what the desktop head activates): a link the
 /// builder writes parses back to the same surface and query.

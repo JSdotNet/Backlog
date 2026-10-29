@@ -175,7 +175,7 @@ public sealed class DesktopCompositionOptions
     /// and triage advisor, and the Devbook's domain store.
     /// <para>
     /// <see cref="ServiceLifetime.Scoped"/> in both heads today. The MAUI head opens a
-    /// scope per window's BlazorWebView and may open several windows (local ADR 0040,
+    /// scope per window's BlazorWebView and may open several windows (local ADR 0041,
     /// §5); the harness has one Blazor Server circuit per visitor. A singleton would
     /// show one window's toasts in every other, and a singleton over the modules'
     /// scoped services is a captive dependency scope validation refuses. Data and

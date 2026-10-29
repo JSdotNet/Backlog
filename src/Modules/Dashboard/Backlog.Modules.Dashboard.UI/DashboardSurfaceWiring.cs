@@ -1,7 +1,7 @@
 namespace Backlog.Modules.Dashboard.UI;
 
 /// <summary>
-/// What the Dashboard surface reads from the window it is shown in (local ADR 0040 §1,
+/// What the Dashboard surface reads from the window it is shown in (local ADR 0041 §1,
 /// §5): the repositories in the window's scope and the hue each wears, and the main
 /// window's Ask AI.
 /// <para>

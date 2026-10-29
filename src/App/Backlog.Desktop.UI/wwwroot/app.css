@@ -3787,7 +3787,7 @@ h1, h2, h3 {
 }
 
 /* The header's options each stand in a header item beside their ⧉ (local ADR
-   0040 §4), so in a fused group the neighbour the hairline follows is the item
+   0041 §4), so in a fused group the neighbour the hairline follows is the item
    before, not the option. A loose option is left out: it draws its whole border
    itself, and this rule's weight would beat its selected colour on the left. */
 .header-surface-item + .header-surface-item > .header-group__option:not(.header-group__option--loose) {
@@ -3889,7 +3889,7 @@ h1, h2, h3 {
 
 /*
   A header item — every option the header draws for a catalog surface, loose or
-  fused — and its ⧉ Open in new window button (local ADR 0040 §4). The button
+  fused — and its ⧉ Open in new window button (local ADR 0041 §4). The button
   sits on the option's bottom-right corner, over it rather than beside it, so
   showing it never moves the header or what the fold measures; the top-right
   corner is the feature flag's. In a fused group that corner is a neighbour's
@@ -10542,7 +10542,7 @@ a.pull-request-detail-checks__name:hover {
 }
 
 /*
-  A popped-out window (local ADR 0040 §4): the slim header — the surface's title,
+  A popped-out window (local ADR 0041 §4): the slim header — the surface's title,
   the repository scope chips, Show in main window — over one surface. The title
   takes the room that is left, so Show in main window sits at the far edge where
   the main window keeps its utilities.

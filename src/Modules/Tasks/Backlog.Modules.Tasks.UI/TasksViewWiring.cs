@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// <summary>
 /// What the Tasks views draw beside the list that only the window's shell holds: the
 /// Brain notes that name a task, the scenario screenshots an entry's body names, and a
-/// task's sessions and pull requests (local ADR 0040 §3).
+/// task's sessions and pull requests (local ADR 0041 §3).
 /// <para>
 /// One per window, with the window's view state. The main window's shell fills it when
 /// it opens, and the Tasks, Board and Calendar surfaces read it as they draw; a window

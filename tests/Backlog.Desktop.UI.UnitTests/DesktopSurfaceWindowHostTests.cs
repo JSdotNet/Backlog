@@ -4,7 +4,7 @@ using Backlog.Desktop.UI.Shell;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// What <c>open_window</c> reaches in the desktop app (local ADR 0040 §7): one more of
+/// What <c>open_window</c> reaches in the desktop app (local ADR 0041 §7): one more of
 /// the head's windows, and a link to the listener's page carrying a token the listener
 /// redeems once.
 /// </summary>

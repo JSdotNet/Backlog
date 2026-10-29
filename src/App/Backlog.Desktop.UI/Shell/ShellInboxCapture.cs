@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Components;
 namespace Backlog.Desktop.UI.Shell;
 
 /// <summary>
-/// The Inbox's Capture, answered for one window (local ADR 0040 §1, §5): one run over
+/// The Inbox's Capture, answered for one window (local ADR 0041 §1, §5): one run over
 /// the sources switched on in Settings, reported back as a sentence the Inbox can print,
 /// and the Capture context's own sources panel for the Inbox's Sources slot. The Inbox
 /// surface reads both through <see cref="InboxSurfaceWiring"/>, so the Inbox stays free

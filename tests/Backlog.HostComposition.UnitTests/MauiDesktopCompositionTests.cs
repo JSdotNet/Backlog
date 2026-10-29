@@ -95,7 +95,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
 
     /// <summary>
     /// With scopes validated too, as a Debug build of the head now builds its provider,
-    /// the head is accepted: window state is scoped (local ADR 0040, §5), and nothing a
+    /// the head is accepted: window state is scoped (local ADR 0041, §5), and nothing a
     /// singleton is constructed from reaches it.
     /// <para>
     /// And every worker and service <c>MauiProgram</c> resolves from the root after
@@ -203,7 +203,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
     }
 
     /// <summary>
-    /// One set of window state per window (local ADR 0040, §5): each scope, as each
+    /// One set of window state per window (local ADR 0041, §5): each scope, as each
     /// window's BlazorWebView opens one, gets its own panes' state, and inside a window
     /// every pane, the footer and the toast tray ask for the same one. The data under
     /// them is the process's: the task change signal is one object for every window.
@@ -591,7 +591,7 @@ public sealed class MauiDesktopCompositionTests : IDisposable
         services.TryAddSingleton<Backlog.Modules.Notifications.UI.NotificationCentreRequests>();
 
         // The link tokens the MCP listener admits a browser to its pop-out pages by,
-        // registered by the head beside McpServerWorker (local ADR 0040 §7).
+        // registered by the head beside McpServerWorker (local ADR 0041 §7).
         services.TryAddSingleton<Backlog.Desktop.UI.Mcp.WindowLinkTokens>();
 
         // What open_window opens and links to, registered by the head beside them: no

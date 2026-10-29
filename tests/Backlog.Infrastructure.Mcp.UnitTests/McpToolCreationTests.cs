@@ -266,7 +266,7 @@ public class McpToolCreationTests
         Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_session_requests")));
 
         // The surface and where to show it are required; the query keys of local ADR
-        // 0040 §6 are each optional, and advertised so a model knows they exist.
+        // 0041 §6 are each optional, and advertised so a model knows they exist.
         Assert.Equal(["surface", "target", "plan", "entry", "chapter", "scope"], schemas["open_window"]);
         Assert.Equal(["surface", "target"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "open_window")));
     }

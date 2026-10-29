@@ -74,7 +74,7 @@ stable contract, not before.
   contracts.
 - **A module's `.UI` project also publishes its shell surface.** Besides its Razor
   components, it registers the `ShellSurface` that puts its screen in the desktop
-  shell and its windows (local ADR 0040).
+  shell and its windows (local ADR 0041).
 - `Devbook`, `DevPc` and `Sessions` have `.UI` and `.Abstractions` projects
   but no module implementation project yet — their logic still sits in the UI
   layer. That is the shape local ADR 0002 corrected for the Tasks module, and

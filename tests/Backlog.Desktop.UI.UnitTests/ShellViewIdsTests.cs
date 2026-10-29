@@ -4,7 +4,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The shell keeps its main view in <c>shell-navigation.json</c> as a surface id now
-/// (local ADR 0040 §2). A file written while the retired <c>ShellView</c> enum named the
+/// (local ADR 0041 §2). A file written while the retired <c>ShellView</c> enum named the
 /// view holds the member's name — or <c>InProgress</c>, the Goals view's name before its
 /// rename (local ADR 0035 §10) — and still reopens on that view.
 /// </summary>

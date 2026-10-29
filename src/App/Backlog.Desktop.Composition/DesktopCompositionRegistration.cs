@@ -122,7 +122,7 @@ public static class DesktopCompositionRegistration
         // resolve the concrete type it attaches to while every caller sees the port.
         services.AddSingleton<SessionsSurfaceActivator>();
         services.AddSingleton<ISessionsSurfaceActivator>(sp => sp.GetRequiredService<SessionsSurfaceActivator>());
-        // How a popped-out window reaches the main window's shell (local ADR 0040 §4):
+        // How a popped-out window reaches the main window's shell (local ADR 0041 §4):
         // process-wide, because each window has a scope of its own.
         services.AddSingleton<MainWindowSurfaces>();
         // Which machine this installation is. Sessions stamps every record with it
@@ -322,7 +322,7 @@ public static class DesktopCompositionRegistration
         // pins from it, over the search and folder ports registered just above.
         services.AddDevbookAiContentSource();
 
-        // The shell's surfaces (local ADR 0040 §1): each module's .UI registers its
+        // The shell's surfaces (local ADR 0041 §1): each module's .UI registers its
         // ShellSurface, one catalog holds them, and each window jumps between them
         // through a navigator of its own (§3). The five views — Tasks, Board and
         // Calendar from Tasks, the Roadmap, Goals — and the takeovers: the Inbox, the

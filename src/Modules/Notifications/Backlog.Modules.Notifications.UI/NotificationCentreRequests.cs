@@ -3,7 +3,7 @@ namespace Backlog.Modules.Notifications.UI;
 /// <summary>
 /// Asks the shell to open the notification centre, from outside it: a Windows notification's body
 /// or its "Open in Backlog" pressed. The host registers one as a singleton. Every window that
-/// listens answers (local ADR 0040 §5): the main window's shell opens the centre on the
+/// listens answers (local ADR 0041 §5): the main window's shell opens the centre on the
 /// notification named, and a centre already on screen in a window of its own opens on it there.
 /// <para>
 /// A press no shell heard — none on screen yet, or the main window away on another page — is kept
