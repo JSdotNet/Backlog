@@ -1790,6 +1790,53 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
+    /// Saves a new task titled <paramref name="title"/> and answers with its id — the Goals
+    /// view's "New task" row, which the shell hands this to because Progress UI may not
+    /// reach Tasks (ADR 0035 §6, local ADR 0028). The Goals view attaches it to the goal
+    /// itself: nothing about a goal is written into the task.
+    /// <para>
+    /// It starts as <see cref="NewRow"/> starts an entry — <c>`task`</c> <c>`*medium`</c>
+    /// <c>`!draft`</c>, filed in the anchored repository so it stays in the scope it was
+    /// typed in — with no plan tag and nothing else. The title comes from a one-line
+    /// search box and is written as one title line, its line breaks folded to spaces, so
+    /// caller text never becomes a step.
+    /// </para>
+    /// <para>
+    /// Saved the way any new entry is, through the self-attributed use cases, so the pane
+    /// knows the write for its own and undo can take it back. The row is in
+    /// <see cref="Rows"/> when this answers: the Goals view maps its reading over the list
+    /// straight after, and a task it does not find there is one it counts but cannot show.
+    /// A refusal is the module's, handed back with no row left behind.
+    /// </para>
+    /// </summary>
+    public async Task<Result<Guid>> CreateTaskAsync(string title)
+    {
+        var line = string.Join(' ', (title ?? string.Empty).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)).Trim();
+
+        var tokens = "`task` `*medium` `!draft`";
+        if (AnchorRepositoryAlias.Length > 0) tokens += $" `repo:{AnchorRepositoryAlias}`";
+        var text = EntryTextParser.WithTitle($"# \n{tokens}\n", line);
+
+        var row = new EntryRow { RawText = text };
+        Rows.Add(row);
+
+        var saved = await ApplySegmentAsync(row, text, rewriteText: true);
+        if (saved.IsFailure || row.Id is not { } id)
+        {
+            Rows.Remove(row);
+            ApplyFilter();
+            Changed?.Invoke();
+            return Result.Failure<Guid>(saved.IsFailure
+                ? saved.Error
+                : Error.Unexpected("entry.save_failed", "The task was not saved."));
+        }
+
+        ApplyFilter();
+        Changed?.Invoke();
+        return id;
+    }
+
+    /// <summary>
     /// Brings in a plan — a block of entry text naming one or more prompts — and
     /// turns it into backlog entries in one step. Per ADR 0007 this is a use case
     /// over the same grammar every entry already goes through, so the only thing

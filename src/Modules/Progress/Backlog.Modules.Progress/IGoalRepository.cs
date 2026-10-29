@@ -14,7 +14,8 @@ namespace Backlog.Modules.Progress;
 /// </summary>
 public interface IGoalRepository
 {
-    /// <summary>Every goal, in the order they were set. Empty, never null, on a first run.</summary>
+    /// <summary>Every goal, in the person's order (<see cref="Abstractions.GoalOrder"/>): the order
+    /// they were set in until one is moved. Empty, never null, on a first run.</summary>
     Task<IReadOnlyList<Goal>> ListAsync(CancellationToken cancellationToken = default);
 
     /// <summary>One goal, or null when none has that id.</summary>

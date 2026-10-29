@@ -22410,6 +22410,23 @@ select.field__input {
     border-radius: var(--border-radius-lg);
 }
 
+.goals-board__no-goal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.goals-board__no-goal-search {
+    flex: 0 1 16rem;
+    min-width: 0;
+}
+
+.goals-board__no-goal-none {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
 .goals-board__no-goal-title {
     margin: 0;
     font-size: var(--font-size-xs);
@@ -22470,6 +22487,49 @@ select.field__input {
 
 .goal-card__chevron--open {
     transform: none;
+}
+
+/* The grip leads the head row: a press origin for the shared pointer reorder, as a task
+   row's grip is, with a target as tall as the guideline's drag affordance. */
+.goal-card__grip {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    min-height: 2.75rem;
+    color: var(--color-text-disabled);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.goal-card__grip:hover {
+    color: var(--color-text-secondary);
+}
+
+/* Move up and Move down sit before the chevron, which then follows them directly. */
+.goal-card__moves {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+}
+
+.goal-card__moves + .goal-card__chevron {
+    margin-left: 0;
+}
+
+.goal-card__move--down svg {
+    transform: rotate(180deg);
+}
+
+/* The goal held in a drag is drawn where it would land, set back so the place reads as
+   the one it is moving to. */
+.goal-card--dragging {
+    opacity: 0.6;
+    outline: var(--border-width-2) dashed var(--color-border-focus);
+    outline-offset: 2px;
 }
 
 .goal-card__head:hover .goal-card__chevron {
@@ -22674,6 +22734,18 @@ select.field__input {
     background: var(--color-background-alt);
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
+}
+
+.goal-card__match:disabled {
+    cursor: default;
+    opacity: 0.6;
+}
+
+/* The "New task" row closes the list, set off from the matches above it. */
+.goal-card__match-row:has(.goal-card__match--new):not(:first-child) {
+    margin-top: var(--spacing-xs);
+    padding-top: var(--spacing-xs);
+    border-top: var(--border-width) solid var(--color-border);
 }
 
 .goal-card__match-kind {
