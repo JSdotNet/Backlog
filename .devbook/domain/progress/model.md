@@ -3,7 +3,7 @@
 ```meta
 type: model
 status: draft
-related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#iteration]
+related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/domain.md#impediment, .devbook/domain/progress/domain.md#holds-back, .devbook/domain/progress/domain.md#iteration]
 ```
 
 > Structural view of the domain model for this bounded context: aggregates,
@@ -51,7 +51,10 @@ classDiagram
     }
 
     class HoldsBack {
+        +HeldBackKind Kind
         +TaskId Task
+        +PullRequestRef PullRequest
+        +PlanTag Plan
     }
 
     class Iteration {
@@ -81,13 +84,19 @@ classDiagram
     GoalAttachment ..> PullRequest : repository and number
     GoalAttachment ..> AgentSession : agent and session id
     HoldsBack ..> Task : task by id
+    HoldsBack ..> PullRequest : repository and number
+    HoldsBack ..> RoadmapTag : plan by tag
 ```
 
 ## Relationship notes
 
 - A Goal owns its attachments, and an Impediment owns its history and its holds-back
   links. Neither aggregate refers to the other: an impediment reaches a goal only
-  through a task the goal counts.
+  through an item the goal counts, which is a held-back task or pull request, or an
+  entry of a held-back plan.
+- A held-back item names a task, a pull request or a plan exactly as a Goal
+  Attachment does, so the two share one search and one way of reading each kind. It
+  names no session.
 - Every arrow out of Progress is a reference by identity. A plan is named by its
   [Roadmap Tag](../roadmap/domain.md#roadmap-tag), a task by its id and a pull request
   by its repository and number, and a session by its agent and session id. None of them
@@ -97,5 +106,8 @@ classDiagram
   them over an [Iteration](domain.md#iteration), which is a window and holds no
   identity of its own.
 - [Goal Assignment](domain.md#goal-assignment) reads every goal to hold an item to one
-  of them, and the [Blocked Task Policy](domain.md#blocked-task-policy) creates an
-  Impediment from a task's blocked mark.
+  of them. Nothing creates an Impediment but a person or an agent: the
+  [Blocked Task Policy](domain.md#blocked-task-policy) that raised one from a task's
+  blocked mark is retired.
+- Whether an impediment is [Ready to resolve](domain.md#ready-to-resolve) is not
+  stored either. Stand-up Reading reads it from the held-back items' current state.

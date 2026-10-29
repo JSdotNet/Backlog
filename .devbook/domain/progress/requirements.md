@@ -99,7 +99,7 @@ status: draft
 tests: [unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.An_open_impediment_puts_a_goal_landing_in_time_at_risk, unit:dotnet:Backlog.Modules.Progress.UnitTests.GoalForecastingTests.Without_an_open_impediment_a_goal_landing_in_time_is_on_track, unit:dotnet:Backlog.Modules.Progress.UnitTests.StandUpTests.A_goal_landing_in_time_with_only_a_resolved_impediment_is_on_track]
 ```
 
-The system SHALL show a goal as At risk while an impediment that is not Resolved holds back one of the items it counts, whatever its landing date.
+The system SHALL show a goal as At risk while an impediment that is not Resolved holds back one of the items it counts, or a plan one of whose entries it counts, whatever its landing date.
 
 #### Scenario: An impediment on a plan's entry
 
@@ -112,6 +112,18 @@ The system SHALL show a goal as At risk while an impediment that is not Resolved
 - **Given** the goal lands before its due date, and "Bank sample files missing" is Resolved
 - **When** the Goals view is read
 - **Then** the goal reads "On track"
+
+#### Scenario: An impediment on the goal's plan
+
+- **Given** the goal lands before its due date, and the open impediment "Bank API contract unsigned" holds back the plan `bank-integration`
+- **When** the Goals view is read
+- **Then** the goal reads "At risk"
+
+#### Scenario: An impediment ready to resolve
+
+- **Given** the goal lands before its due date, and "Bank sample files missing" is Reported and reads Ready to resolve
+- **When** the Goals view is read
+- **Then** the goal reads "At risk" until the person resolves the impediment
 
 ### Requirement: A goal with no recent done rate and open items is At risk
 
@@ -592,6 +604,12 @@ The system SHALL list under Impediments every impediment that is not Resolved, w
 - **When** the stand-up is read
 - **Then** its line reads "Not reported yet"
 
+#### Scenario: An impediment on a pull request
+
+- **Given** "Bank sandbox down" holds back `acme/invoicing#1358` alone, which the task "Bank import mapping" of "Customers get paid faster" links
+- **When** the stand-up is read
+- **Then** its line names "Customers get paid faster"
+
 ### Requirement: Copy for stand-up copies the four blocks
 
 ```meta
@@ -673,11 +691,215 @@ The system SHALL record with each move the day it was made and who the impedimen
 - **When** the person escalates it to the account manager on Friday 16 October
 - **Then** its history reads New Wed 14, Reported · bank support Thu 15, Escalated · account manager Fri 16
 
-### Requirement: A blocked task raises one New impediment
+### Requirement: A person raises an impediment from the stand-up
 
 ```meta
 type: requirement
 status: draft
+related: [.devbook/domain/progress/features.md#raising-an-impediment]
+```
+
+The system SHALL let a person raise an impediment from the desktop stand-up's Impediments block with a title, an optional note and optional first items it holds back.
+
+#### Scenario: Raising with a title alone
+
+- **Given** no impediment is called "Bank API contract unsigned"
+- **When** the person raises "Bank API contract unsigned" on Monday 19 October
+- **Then** it is listed under Impediments, New, holding back nothing, and its history reads New Mon 19
+
+#### Scenario: Raising with a note and a first item
+
+- **Given** the task "Bank import mapping" is in progress
+- **When** the person raises "Bank sample files missing" with the note "Asked Jan on 14 Oct" and links "Bank import mapping" in the same form
+- **Then** it is listed New, shows the note, and holds back "Bank import mapping"
+
+#### Scenario: Raising without a title
+
+- **Given** the raise form is open
+- **When** the person leaves the title blank and confirms
+- **Then** no impediment is raised, and the form says a title is needed
+
+### Requirement: A person links and unlinks what an impediment holds back
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/features.md#linking-what-an-impediment-holds-back]
+```
+
+The system SHALL let a person, on the desktop stand-up, link a task, a pull request or a plan to an open impediment and unlink one, changing nothing on the work it names.
+
+#### Scenario: Linking a pull request no task covers
+
+- **Given** "Bank sandbox down" holds back nothing, and no task links `acme/invoicing#1358`
+- **When** the person links `acme/invoicing#1358` to it
+- **Then** it holds back `acme/invoicing#1358`, and the pull request is unchanged
+
+#### Scenario: Linking a plan
+
+- **Given** "Bank API contract unsigned" holds back nothing
+- **When** the person links the plan `bank-integration`
+- **Then** it holds back the plan, and an entry filed under `+bank-integration` later is held back with it
+
+#### Scenario: Linking an item twice
+
+- **Given** "Bank sample files missing" holds back "Bank import mapping"
+- **When** the person links "Bank import mapping" again
+- **Then** it holds back "Bank import mapping" once, and its history is unchanged
+
+#### Scenario: Unlinking an item
+
+- **Given** "Bank sample files missing" holds back "Bank import mapping" and `acme/invoicing#1358`
+- **When** the person unlinks `acme/invoicing#1358`
+- **Then** it holds back "Bank import mapping" alone, keeps its state, and its history is unchanged
+
+#### Scenario: No session is offered
+
+- **Given** the session "Session abcd1234" is running
+- **When** the person searches for "abcd1234" in an impediment's Link… search
+- **Then** the session is not offered
+
+### Requirement: An agent raises and links impediments through MCP
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/features.md#impediments-for-agents]
+```
+
+The system SHALL let an agent, through MCP, raise an impediment holding back tasks, pull requests and plans, and link or unlink a task, a pull request or a plan on an existing one.
+
+#### Scenario: Raising with a pull request
+
+- **Given** an agent hits a failing bank sandbox while working on `acme/invoicing#1358`
+- **When** it calls `raise_impediment` titled "Bank sandbox down", holding back `acme/invoicing#1358`
+- **Then** a New impediment "Bank sandbox down" holds back that pull request
+
+#### Scenario: Linking a plan
+
+- **Given** the impediment "Bank API contract unsigned" holds back nothing
+- **When** an agent links the plan `bank-integration` to it
+- **Then** it holds back the plan
+
+#### Scenario: A pull request without its repository
+
+- **Given** the impediment "Bank sandbox down" is open
+- **When** an agent links pull request 1358 with no repository
+- **Then** the link is refused, and the impediment is unchanged
+
+### Requirement: A held-back item is settled by its kind
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/domain.md#settled]
+```
+
+The system SHALL count a held-back task as settled when its status is Done or Archived, a pull request when it is merged or closed, and a plan when it gathers at least one entry and every entry is Done or Archived.
+
+#### Scenario: An archived task
+
+- **Given** "Bank sample files missing" holds back "Old CSV import", which was archived on 15 October
+- **When** the stand-up is read
+- **Then** "Old CSV import" counts as settled
+
+#### Scenario: A pull request closed without merging
+
+- **Given** "Bank sandbox down" holds back `acme/invoicing#1344`, which was closed without merging
+- **When** the stand-up is read
+- **Then** `acme/invoicing#1344` counts as settled
+
+#### Scenario: A plan with one open entry left
+
+- **Given** "Bank API contract unsigned" holds back the plan `bank-integration`, eight of whose nine entries are Done and "Payment matching rules" is in progress
+- **When** the stand-up is read
+- **Then** the plan does not count as settled
+
+#### Scenario: A plan with no entries
+
+- **Given** "Bank API contract unsigned" holds back the plan `bank-statements`, which no entry carries
+- **When** the stand-up is read
+- **Then** the plan does not count as settled
+
+#### Scenario: A deleted task
+
+- **Given** "Bank sample files missing" holds back a task that was deleted on 16 October
+- **When** the stand-up is read
+- **Then** that item does not count as settled
+
+#### Scenario: A pull request that cannot be read
+
+- **Given** "Bank sandbox down" holds back `acme/legacy-billing#77`, whose repository is archived
+- **When** the stand-up is read
+- **Then** `acme/legacy-billing#77` does not count as settled
+
+### Requirement: An impediment whose items are all settled reads Ready to resolve
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/progress/domain.md#ready-to-resolve, .devbook/domain/progress/features.md#seeing-an-impediment-ready-to-resolve]
+```
+
+The system SHALL mark an open impediment Ready to resolve, on the desktop and on the phone, while it holds back at least one item and every item it holds back is settled, leaving its state and history unchanged.
+
+#### Scenario: A done task still marked blocked
+
+- **Given** the impediment "Beschikbaarheid van reserveringen" is New and holds back the task of that name alone, which was Done on 20 October and still carries `blocked:2026-10-13`
+- **When** the stand-up is read
+- **Then** the impediment is listed, New, and reads Ready to resolve
+
+#### Scenario: An impediment with no links
+
+- **Given** "Credit note numbering unclear" is New and holds back nothing
+- **When** the stand-up is read
+- **Then** it is listed and does not read Ready to resolve
+
+#### Scenario: One item still open
+
+- **Given** "Bank sample files missing" holds back "Old CSV import", archived, and "Bank import mapping", in progress
+- **When** the stand-up is read
+- **Then** it does not read Ready to resolve
+
+#### Scenario: Work that comes back
+
+- **Given** "Beschikbaarheid van reserveringen" reads Ready to resolve, and its task is moved from Done back to in progress
+- **When** the stand-up is read again
+- **Then** it no longer reads Ready to resolve, and it is still New
+
+#### Scenario: The person resolves it
+
+- **Given** "Beschikbaarheid van reserveringen" reads Ready to resolve
+- **When** the person moves it to Resolved
+- **Then** it leaves the list of open impediments, and its history reads New, Resolved
+
+### Requirement: A task's blocked mark changes no impediment
+
+```meta
+type: requirement
+status: draft
+related: [.devbook/domain/tasks/features.md#marking-a-task-blocked]
+```
+
+The system SHALL raise, move and change no impediment when a task is marked blocked or its mark is removed.
+
+#### Scenario: Marking a task blocked
+
+- **Given** the task "Bank import mapping" is held back by no impediment
+- **When** an agent calls `set_blocked` on it
+- **Then** no impediment is raised
+
+#### Scenario: The token is removed
+
+- **Given** "Bank sample files missing", Being handled, holds back "Bank import mapping", which is marked blocked
+- **When** the `blocked:` token is removed from the task
+- **Then** "Bank sample files missing" is still Being handled
+
+### Requirement: A blocked task raises one New impediment
+
+```meta
+type: requirement
+status: deprecated
 tests: [integration:dotnet:Backlog.HostComposition.UnitTests.BlockedTaskRaisesImpedimentTests.Set_blocked_raises_one_New_impediment_and_unblocking_leaves_it, integration:dotnet:Backlog.HostComposition.UnitTests.BlockedTaskRaisesImpedimentTests.A_blocked_token_in_the_entry_text_raises_one_too]
 ```
 
@@ -706,21 +928,6 @@ When a task is marked blocked, by its `blocked:` token or a `set_blocked` call, 
 - **Given** "Bank import mapping" was marked blocked on 15 October, and the impediment that raised is Resolved on 16 October
 - **When** the task is written again with its mark unchanged
 - **Then** no impediment is raised
-
-### Requirement: Unblocking a task leaves its impediment
-
-```meta
-type: requirement
-status: draft
-```
-
-The system SHALL leave an impediment's state unchanged when a task it holds back is no longer marked blocked.
-
-#### Scenario: The token is removed
-
-- **Given** "Bank sample files missing", Being handled, holds back "Bank import mapping", which is marked blocked
-- **When** the `blocked:` token is removed from the task
-- **Then** "Bank sample files missing" is still Being handled
 
 ## Pull request status
 
@@ -781,6 +988,12 @@ The system SHALL show on the phone the goals, the four stand-up blocks and the i
 - **When** the person opens Stand-up on the phone
 - **Then** it shows the three goals, Finished, Planned and the three impediments
 
+#### Scenario: An impediment ready to resolve on the phone
+
+- **Given** "Bank sandbox down" holds back `acme/invoicing#1344` alone, and a desktop last read it as closed
+- **When** the person opens Stand-up on the phone
+- **Then** "Bank sandbox down" reads Ready to resolve, as it does on the desktop
+
 ### Requirement: The phone changes only an impediment's state, check-again date and note
 
 ```meta
@@ -820,6 +1033,12 @@ The system SHALL let the phone change an impediment's state, check-again date an
 - **When** the person looks for a way to edit it, attach work to it or copy the stand-up
 - **Then** the phone offers none
 
+#### Scenario: No raising or linking on the phone
+
+- **Given** "Bank sample files missing" is open on the phone
+- **When** the person looks for a way to raise an impediment, or to link or unlink what it holds back
+- **Then** the phone offers none
+
 ## Syncing goals and impediments
 
 ```meta
@@ -849,6 +1068,12 @@ The system SHALL carry each goal as one `goal` document and each impediment as o
 - **Given** two paired desktops with sync on
 - **When** the person raises "Bank sample files missing" on the first, holding back one task
 - **Then** the second shows it New, with its note and the task it holds back, after its next pull, without a Refresh
+
+#### Scenario: An impediment holding back all three kinds
+
+- **Given** two paired desktops on the same build, with sync on
+- **When** the person links a task, `acme/invoicing#1358` and the plan `bank-integration` to "Bank sample files missing" on the first
+- **Then** the second shows it holding back all three after its next pull
 
 #### Scenario: A sprint series an older build left
 

@@ -1,15 +1,17 @@
 # ADR 0035: Goals and impediments replace sprints
 
 ```meta
-date: 2026-10-26
+date: 2026-10-29
 status: proposed
 roadmap: [goals-standup]
-related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/features.md#raising-an-impediment-from-a-blocked-task", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
+related: [".devbook/domain/progress/context.md", ".devbook/domain/progress/domain.md#goal", ".devbook/domain/progress/domain.md#goal-forecast", ".devbook/domain/progress/domain.md#impediment", ".devbook/domain/progress/domain.md#holds-back", ".devbook/domain/progress/domain.md#stand-up-reading", ".devbook/domain/progress/domain.invariants.md#impediment", ".devbook/domain/progress/domain.md#iteration", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-stand-up", ".devbook/domain/progress/features.md#tracking-an-impediment", ".devbook/domain/progress/requirements.md#tracking-an-impediment", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/domain/progress/features.md#goals-on-the-phone", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
 ```
 
 Progress stops modelling sprints. It owns two aggregates instead: a **Goal**,
 which gathers plans, tasks and pull requests toward a due date, and an
-**Impediment**, which tracks what holds a task back. An **iteration** is a
+**Impediment**, which tracks what holds back a task, a pull request or a plan.
+A person raises and resolves an impediment, and no policy does either.
+An **iteration** is a
 viewing window over that work, not a thing anyone creates. The In progress view
 becomes the **Goals** view, always on: the `goals` flag that replaced the
 `progress` flag while the plan was built is retired with the In progress view.
@@ -19,7 +21,7 @@ becomes the **Goals** view, always on: the `goals` flag that replaced the
 ```meta
 ```
 
-Proposed, 2026-10-17, and amended on 2026-10-26 ([History](#history)). Not yet built: the plan `+goals-standup` builds it and
+Proposed, 2026-10-17, and amended on 2026-10-26 and 2026-10-29 ([History](#history)). Not yet built: the plan `+goals-standup` builds it and
 removes the sprint code it retires. It awaits acceptance at the Personal
 Validation gate of the flow-spec run that drafted it.
 
@@ -54,6 +56,15 @@ someone is told, perhaps escalated to, and checked on again later. A `blocked:`
 token on a task records that the task cannot move. It does not record who was
 told, when to check again, or how it ended.
 
+**Work waits on more than tasks.** A pull request waits on a review, and a whole
+plan waits on a sample file from a bank. A person names that work the way a goal
+names it, by task, pull request or plan.
+
+**Raising from the mark filled the list with stale impediments.** The first build
+raised an impediment for every `blocked:` token and never resolved one. Within
+eight days the stand-up listed 29 New impediments, several for tasks long Done
+whose mark was never cleared. Nobody had raised them, so nobody resolved them.
+
 **The In progress view's Now board did not earn its place.** Its needs-you
 sessions and pull requests repeat the Sessions and Pull requests lists beside it
 in the header.
@@ -72,7 +83,7 @@ flowchart LR
     Progress["Progress<br/>goals, impediments, iteration windows"]
     Phone["Phone<br/>reads goals and impediments"]
 
-    Tasks -->|task by id, blocked| Progress
+    Tasks -->|task by id, status| Progress
     Roadmap -->|plan tag, pace| Progress
     Repo -->|alias| Progress
     GitHub -->|pull request status| Progress
@@ -118,7 +129,7 @@ A goal is **At risk** when either of two things holds
 
 - the forecast landing date falls after its due date, the forecast being drawn
   from the done rate of the last 4 iterations of the chosen length;
-- an open impediment holds back one of its tasks.
+- an open impediment holds back one of its items (§5).
 
 Otherwise it is **On track**.
 
@@ -181,14 +192,50 @@ stateDiagram-v2
 
 An [Impediment](../../domain/progress/domain.md#impediment) has a title, a state,
 who it was reported or escalated to, who handles it, a check-again date and a
-note. It keeps its state history with dates, and it holds back one or more tasks,
-and through them their goals. Escalated is optional, and any state may move to
-Resolved.
+note. It keeps its state history with dates. Escalated is optional, and any state
+may move to Resolved. Only a person moves it, from the desktop, the phone (§8) or
+the Backlog server's tools.
 
-Marking a task blocked, by the `blocked:` token or the `set_blocked` tool, raises
-a New impediment that holds the task back. It does not when an impediment already
-holds that task back
-([Raising an impediment from a blocked task](../../domain/progress/features.md#raising-an-impediment-from-a-blocked-task)).
+**It holds back items of three kinds**, named as a goal names its attachments
+(§2), so one picker serves both
+([Holds Back](../../domain/progress/domain.md#holds-back)):
+
+| Held-back item | Named by | [Settled](../../domain/progress/domain.md#settled) when |
+| --- | --- | --- |
+| A task | its id | it is `done` or `archived` |
+| A pull request | its repository, `owner/name`, and its number | it is merged or closed |
+| A plan | its plan tag, without the sigil | it gathers at least one entry, and every one is `done` or `archived` |
+
+An impediment holds back each item at most once, by kind and identity. A plan is
+held back by its tag, so an entry filed under the tag later is held back too. A
+deleted task and a pull request no desktop can read are not settled. The goals an
+impediment holds back are the goals that count its items: directly, through a task
+or a session that links the pull request, or through the plan's entries.
+
+**Ready to resolve is a reading, not a state.** An open impediment that holds back
+at least one item, every one of them settled, reads as
+[ready to resolve](../../domain/progress/domain.md#ready-to-resolve).
+[Stand-up Reading](../../domain/progress/domain.md#stand-up-reading) works it out
+on every reading and stores nothing. It moves no state and writes no history step.
+The row says so, and the person resolves the impediment by hand. An impediment that
+holds back nothing never reads as ready. When a held-back item reopens, the reading
+goes. Until the person resolves it the impediment is open everywhere: the stand-up
+lists it, the Backlog server and the Goals AI content see it open, and its goal
+stays At risk (§2).
+
+**A person raises an impediment and links its items.** The desktop Stand-up panel
+raises one with a title, an optional note and optional first items, and links and
+unlinks items on its row
+([Tracking an impediment](../../domain/progress/features.md#tracking-an-impediment)).
+The Backlog server's `raise_impediment` takes items of all three kinds, and it gains
+a tool that links an item and one that unlinks it. The phone raises and links
+nothing (§8).
+
+**The blocked mark raises nothing.** The policy that raised a New impediment for a
+task marked blocked, by the `blocked:` token or the `set_blocked` tool, is retired.
+The mark stays a Tasks fact that Progress does not read. Impediments the policy
+raised stay as they are, and once their tasks are settled they read as ready to
+resolve.
 
 ### 6. Tasks knows no goals or impediments
 
@@ -196,9 +243,10 @@ holds that task back
 ```
 
 ADR 0028 §3 stands in a wider form. No task field, tag, status or entry-text
-token names a goal or an impediment. Progress reacts to a task's blocked state;
-Tasks never calls Progress and never stores an impediment id. Attaching a task
-to a goal, and every impediment change, leave the task as it was.
+token names a goal or an impediment. Progress reads a task's id and status, and
+no longer its blocked mark (§5). Tasks never calls Progress and never stores an
+impediment id. Attaching a task to a goal, holding it back, and every impediment
+change leave the task as it was.
 
 ### 7. Every pull request row shows its status
 
@@ -233,7 +281,9 @@ The words "checks" and "approvals" appear only as screen-reader labels.
 [On the phone](../../domain/progress/features.md#goals-on-the-phone) a person
 reads goals, the stand-up blocks and impediments. The one change it may make is
 to an impediment's state, check-again date and note, through the device outbox.
-Copying the stand-up and attaching work to a goal are desktop only.
+Copying the stand-up, attaching work to a goal, raising an impediment and linking
+or unlinking what it holds back are desktop only, so the outbox gains no command
+kind. The phone shows ready to resolve (§5) by the same rule as the desktop.
 
 The phone reads the stand-up with the desktop's own rule code: the counting and
 stand-up rules live in `Progress.Abstractions` (`GoalItems`, `StandUpReading`),
@@ -251,6 +301,11 @@ The phone offers only the moves `ImpedimentMoves.Allows` permits, the rule the
 aggregate refuses by, published in `Progress.Abstractions` beside `GoalItems`. It
 shows an edit as asked until a copy of the impediment says it, or says what a
 desktop changed since.
+
+The `stand-up-context` document also carries the state of each pull request an
+open impediment holds back, beside the pull requests the goals count. A context
+written by an older desktop leaves those out. The phone then reads them as not
+settled, so it never shows ready to resolve wrongly.
 
 A desktop's tombstone of an edit is its answer to that edit, and the phone
 settles by it. The phone keeps the `impediment-edit` documents the task feed
@@ -278,6 +333,27 @@ arrangement, as the series had, and the two kinds take the place of
 Two more kinds serve the phone (§8): the one `stand-up-context` document under
 a constant id, newest reading wins, and an `impediment-edit` document per edit.
 A desktop never takes either as a task.
+
+**The `impediment` document moves from version 1 to version 2.** Version 1 holds
+back task ids only. Version 2 keeps the task ids where version 1 keeps them, and
+adds the pull requests and the plans beside them, each with its kind and identity.
+The same document is the JSON each `progress_impediments` row of `backlog.db`
+holds, so no column changes.
+
+A version 1 desktop reads a version 2 document, skips the members it does not
+know, and still sees the tasks. The risk is its write. When it saves that
+impediment, by a move, a note or a phone edit it applies, its document carries no
+pull requests or plans. Last write wins, so every other device loses those links.
+
+Two things keep that loss small:
+
+- **A version 2 reader keeps its own pull requests and plans over a version 1
+  write.** A version 1 writer cannot have unlinked them, so the reader takes the
+  incoming fields and keeps the items its copy holds beyond tasks. The one gap: an
+  unlink made on one desktop, overtaken by a version 1 write before a second
+  desktop pulled it, comes back on that second desktop.
+- **Every desktop moves to version 2 before a person links a pull request or a
+  plan.** The person updates their own desktops, so the window is short.
 
 ### 10. The view is Goals, always on
 
@@ -311,7 +387,10 @@ Positive:
 - **A promise is checked against the pace.** At risk comes from the measured done
   rate, not from a person's feeling at a sprint close.
 - **What blocks work is followed through.** An impediment says who knows, who
-  handles it and when to look again, and a blocked task raises one on its own.
+  handles it and when to look again, and which tasks, pull requests and plans it
+  holds back.
+- **The list says what can go.** Once everything an impediment holds back is
+  settled it reads as ready to resolve, and the person resolves it in one move.
 
 Negative:
 
@@ -335,6 +414,15 @@ Negative:
   its count. A token that cannot read a branch's rules leaves the required
   approvals unknown, the same answer as a branch no rule asks an approval of. How
   the row shows that is the build's to settle.
+- **The blocked-task policy goes.** Its code and the adapter that ran it on every
+  task write are removed. The impediments it raised stay open until the person
+  resolves them one by one. There were 29 when the policy was retired.
+- **A ready impediment still counts as open.** Its goal stays At risk, and the
+  stand-up lists it, until the person resolves it.
+- **An older desktop can drop links.** Until every desktop runs version 2, a
+  version 1 write can strip an impediment's pull requests and plans (§9).
+- **The phone needs the impediments' pull requests.** The `stand-up-context`
+  document grows by the pull requests only an impediment names (§8).
 
 Neutral:
 
@@ -358,6 +446,32 @@ Neutral:
 - **Goals as tags in Tasks.** A tag cannot hold a due date, an outcome line or a
   plan attachment. It would also put Progress's facts into the task's entry text,
   which ADR 0028 kept out for reasons that still hold.
+
+The 2026-10-29 amendment weighed how an impediment leaves the list once its work
+is settled:
+
+| Option | Who resolves | One meaning of open | Reopened work | Outcome |
+| --- | --- | --- | --- | --- |
+| Resolve it automatically, as a history step | the system as well as the person | yes | stays resolved and hidden | rejected |
+| Hide it while it stays open | the person | no: hidden but open | shows again | rejected |
+| Read it as ready to resolve, and leave the move to the person | the person | yes | the reading goes | **chosen** |
+
+- **Resolve automatically.** It changes who may resolve, writes a history step for
+  every stale impediment at once, and leaves a task that comes back from Done
+  without a visible blocker.
+- **Hide it.** The person would no longer see an impediment that is still open in
+  the data, the forecast and the Backlog server's tools.
+
+It weighed three more choices:
+
+- **Keep raising from the `blocked:` mark.** Rejected: the mark records that a task
+  cannot move, not that someone was told. The policy filled the list with
+  impediments nobody raised.
+- **Hold back pull requests and plans through tasks.** Rejected: a pull request no
+  task links could not be held back, and a plan resolved to its entries at link
+  time would miss entries filed later.
+- **Hold back a session, as a goal can (local ADR 0037).** Not taken: its tasks and
+  its pull request can be held back directly.
 
 ## Supersedes
 
@@ -391,18 +505,29 @@ Look for tests that show these behaviours:
 2. **One goal per item.** Attaching an item that another goal already holds is
    refused.
 3. **At risk.** A goal is At risk when its forecast lands after its due date, or
-   when an open impediment holds one of its tasks back. A goal without a due date
+   when an open impediment holds one of its items back. A goal without a due date
    is held to the last day of next, and that day is never stored.
 4. **Windows.** Each length gives the window above, and the 2-week window follows
    its anchor date.
-5. **Blocked raises once.** Marking a task blocked raises a New impediment, and
-   marking it again while one holds it back raises none.
+5. **The mark raises nothing.** Marking a task blocked raises no impediment, and
+   the impediments raised before stay as they were.
 6. **Tasks is untouched.** No task field or entry-text token names a goal or an
    impediment.
 7. **The phone's limits.** The phone changes only an impediment's state,
-   check-again date and note, and only through the outbox.
+   check-again date and note, and only through the outbox. It raises nothing and
+   links nothing.
 8. **Goals is always on.** The header offers the Goals view with no flag turned
    on, and with Sessions and Pull requests both off.
+9. **Held-back items.** An impediment holds back a task, a pull request and a
+   plan, each at most once by kind and identity.
+10. **Ready to resolve.** An impediment reads as ready when it holds back a Done
+    task whose `blocked:` mark is still set. It does not when it holds back
+    nothing, a deleted task, a pull request no desktop can read, or a plan with
+    one open entry. A pull request closed without merging counts as settled.
+    The reading changes no state and writes no history step.
+11. **Mixed versions.** A version 1 reader keeps the tasks of a version 2
+    document. A version 2 reader keeps its own pull requests and plans over a
+    version 1 write.
 
 ## History
 
@@ -411,5 +536,6 @@ Look for tests that show these behaviours:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-10-29 | Amended §2, §5, §6, §8, §9 and verification items 3, 5, 7, 9 to 11: an impediment holds back tasks, pull requests and plans, and reads as ready to resolve once all are settled, while resolving stays a person's move. The blocked-task policy is retired, and the `impediment` document moves to version 2. | The policy raised 29 impediments nobody resolved, and the person wants to raise their own and name the work they hold back. |
 | 2026-10-26 | Amended §2 and verification item 3: the due date is optional, and a goal without one is due on the last day of next, derived on every reading and never stored. | A goal already sits in the iteration, so the person should not have to give it a date. |
 | 2026-10-17 | Proposed: goals and impediments in Progress replace sprints. | Sprints asked for more ceremony than the work has. |
