@@ -132,7 +132,7 @@ The subjects a notification can be about, and when each ends:
 | `tasks` / `task` / task id | Tasks | marked Done or Archived, or deleted | "Task done" |
 | `devbook` / `remark` / remark id | Devbook | resolved or deleted | "Remark resolved" |
 | `sync` / `pairing` / pairing id | Sync | its pairing code expires unredeemed, or the question about the device that redeemed it is answered; a pairing from an earlier run stays live | "Pairing finished" |
-| `spec-manager` / `question` / question id | The spec-manager adapter, for a question whose item is no linked task | answered or deleted in spec-manager | "Answered in spec-manager by &lt;name&gt;: &lt;answer&gt;", or "Withdrawn in spec-manager" |
+| `spec-manager` / `question` / question id | The spec-manager adapter, for a question whose item is no linked task | answered, deleted or reassigned away in spec-manager; one that reaches the person again is a new notification | "Answered in spec-manager by &lt;name&gt;: &lt;answer&gt;", or "Withdrawn in spec-manager" |
 
 A spec-manager question whose item is a linked task is about that task instead,
 `tasks` / `task` / the task's id, and closes when the item is finished or archived.

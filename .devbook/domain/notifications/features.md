@@ -102,7 +102,11 @@ besides, and every two minutes while the stream is down. The answer goes back to
 spec-manager. If the product does not take answers from a connected app, or someone
 answered first, an alert says so. While the desktop is signed out, the answer
 waits, and the sign-in line asks the person to sign in. A question answered,
-deleted or reassigned away in spec-manager closes here.
+deleted or reassigned away in spec-manager closes here. One that reaches the
+person again, reassigned back or let in again by turning "Only questions assigned
+to me" off, arrives as a new question. The desktop that held it asks it again,
+under an id every desktop that held the same earlier rounds derives alike; one
+answered never comes back.
 
 The person's other spec-manager notifications arrive as alerts on the same pulls:
 a mention, a reply, a change proposal's or an input item's fate, review work, and

@@ -35,6 +35,11 @@ namespace Backlog.Infrastructure.SpecManager.Questions;
 /// item finished or archived closes its questions through the linked task's own subject
 /// end, which the Tasks context reports.
 /// </para>
+/// <para>
+/// <b>What comes back</b>: a question withdrawn here that reaches the person again —
+/// reassigned back, or "Only questions assigned to me" turned off — is published as a new
+/// notification, the next round of its derived id. One answered never comes back.
+/// </para>
 /// </summary>
 internal sealed class SpecManagerQuestionSync
 {
@@ -137,31 +142,31 @@ internal sealed class SpecManagerQuestionSync
         var open = await _client.GetQuestionsAsync(product, BacklogQuestionStates.Open, since, cancellationToken).ConfigureAwait(false);
         var answered = await _client.GetQuestionsAsync(product, BacklogQuestionStates.Answered, since, cancellationToken).ConfigureAwait(false);
         var held = await HeldAsync(product, cancellationToken).ConfigureAwait(false);
+        var heldByKey = held?.ToLookup(entry => entry.Value, entry => entry.Key, StringComparer.OrdinalIgnoreCase);
 
         foreach (var question in open)
         {
-            var id = SpecManagerQuestionIds.For(_client.Root, question.Id);
+            var key = SpecManagerQuestionMapper.SourceKey(product, question.Id);
 
             if (!SpecManagerQuestionMapper.Concerns(question, me, target.OnlyQuestionsAssignedToMe))
             {
-                if (held is null || held.ContainsKey(id)) await CloseAsync(id, SpecManagerQuestionMapper.WithdrawnReason, cancellationToken).ConfigureAwait(false);
+                await CloseHeldAsync(heldByKey, key, question.Id, SpecManagerQuestionMapper.WithdrawnReason, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
-            if (held?.ContainsKey(id) == true) continue;
+            if (heldByKey?.Contains(key) == true) continue;
 
-            await PublishAsync(question, product, me, cancellationToken).ConfigureAwait(false);
+            if (await RoundAsync(question.Id, cancellationToken).ConfigureAwait(false) is not { } round) continue;
+
+            await PublishAsync(question, product, me, SpecManagerQuestionIds.For(_client.Root, question.Id, round), cancellationToken).ConfigureAwait(false);
         }
 
         foreach (var question in answered)
         {
             if (question.Answer is not { } answer) continue;
 
-            var id = SpecManagerQuestionIds.For(_client.Root, question.Id);
-            if (held is null || held.ContainsKey(id))
-            {
-                await CloseAsync(id, SpecManagerQuestionMapper.AnsweredReason(answer), cancellationToken).ConfigureAwait(false);
-            }
+            var key = SpecManagerQuestionMapper.SourceKey(product, question.Id);
+            await CloseHeldAsync(heldByKey, key, question.Id, SpecManagerQuestionMapper.AnsweredReason(answer), cancellationToken).ConfigureAwait(false);
         }
 
         // Only a whole list says what is gone: a question deleted in spec-manager is in no
@@ -169,10 +174,10 @@ internal sealed class SpecManagerQuestionSync
         if (since is null && held is not null)
         {
             var listed = open.Concat(answered)
-                .Select(question => SpecManagerQuestionIds.For(_client.Root, question.Id))
-                .ToHashSet();
+                .Select(question => SpecManagerQuestionMapper.SourceKey(product, question.Id))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var id in held.Keys.Where(id => !listed.Contains(id)))
+            foreach (var (id, _) in held.Where(entry => !listed.Contains(entry.Value)))
             {
                 await CloseAsync(id, SpecManagerQuestionMapper.WithdrawnReason, cancellationToken).ConfigureAwait(false);
             }
@@ -181,13 +186,13 @@ internal sealed class SpecManagerQuestionSync
         _lastPull[product] = startedAt;
     }
 
-    private async Task PublishAsync(BacklogQuestionDto question, string product, string? me, CancellationToken cancellationToken)
+    private async Task PublishAsync(BacklogQuestionDto question, string product, string? me, Guid id, CancellationToken cancellationToken)
     {
         var linked = question.ItemId is { } itemId
             ? await _linked.FindAsync(itemId, cancellationToken).ConfigureAwait(false)
             : null;
 
-        var draft = SpecManagerQuestionMapper.ToDraft(question, product, _client.Root, _defaultInstallation, me, linked);
+        var draft = SpecManagerQuestionMapper.ToDraft(question, product, _client.Root, _defaultInstallation, me, linked) with { Id = id };
         var published = await _notifications.PublishAsync(draft, cancellationToken).ConfigureAwait(false);
 
         if (published.IsFailure)
@@ -199,6 +204,63 @@ internal sealed class SpecManagerQuestionSync
                 product,
                 published.Error.Code,
                 published.Error.Message);
+        }
+    }
+
+    /// <summary>
+    /// Which round of <paramref name="questionId"/> to publish now that it reaches the
+    /// person and this desktop holds none of its notifications open — or null when it must
+    /// not be published again. Each round this desktop closed as withdrawn is passed over:
+    /// the question came back, and a notification never reopens. The first round it does
+    /// not hold is the one to publish. A round it holds settled any other way ends the walk
+    /// — answered here or in spec-manager, or owned by another desktop that put it on the
+    /// replica first — so an answered question never comes back, and a viewer stays one:
+    /// the owner, which withdrew that round, publishes the next.
+    /// <para>
+    /// The rounds are derived (<see cref="SpecManagerQuestionIds.For(string, string, int)"/>),
+    /// so every desktop that saw the question withdrawn as often names the next round alike,
+    /// and a second one that publishes it finds it held and stays a viewer. A desktop that
+    /// holds none of the earlier rounds starts at the first.
+    /// </para>
+    /// </summary>
+    private async Task<int?> RoundAsync(string questionId, CancellationToken cancellationToken)
+    {
+        if (_held is null) return 0;
+
+        for (var round = 0; round < MaxRounds; round++)
+        {
+            var known = await _held.GetAsync(SpecManagerQuestionIds.For(_client.Root, questionId, round), cancellationToken).ConfigureAwait(false);
+
+            if (known is null) return round;
+
+            var withdrawn = known.State == NotificationState.Closed
+                && string.Equals(known.CloseReason, SpecManagerQuestionMapper.WithdrawnReason, StringComparison.Ordinal);
+
+            if (!withdrawn) return null;
+        }
+
+        _log.LogWarning("spec-manager question {QuestionId} came back more than {Rounds} times; it is not published again.", questionId, MaxRounds);
+        return null;
+    }
+
+    /// <summary>How often one question may come back before it is left alone: a bound on
+    /// the walk, never reached by a person reassigning it.</summary>
+    internal const int MaxRounds = 100;
+
+    /// <summary>Closes every notification this desktop holds open for the question named by
+    /// <paramref name="key"/>, whatever its round; with no list of what it holds, the first
+    /// round's is asked for.</summary>
+    private async Task CloseHeldAsync(ILookup<string, Guid>? held, string key, string questionId, string reason, CancellationToken cancellationToken)
+    {
+        if (held is null)
+        {
+            await CloseAsync(SpecManagerQuestionIds.For(_client.Root, questionId), reason, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        foreach (var id in held[key])
+        {
+            await CloseAsync(id, reason, cancellationToken).ConfigureAwait(false);
         }
     }
 
