@@ -370,7 +370,7 @@ public sealed class NotificationToolsTests
     [Fact]
     public void The_tools_follow_the_notifications_switch_alone()
     {
-        var features = new FakeAppFeatureSettings([.. BacklogMcpTools.Groups.Select(group => group.FeatureKey)]);
+        var features = new FakeAppFeatureSettings([.. BacklogMcpTools.Groups.Select(group => group.FeatureKey).OfType<string>()]);
 
         features.SetEnabled(NotificationsFeatures.Notifications, enabled: false);
 

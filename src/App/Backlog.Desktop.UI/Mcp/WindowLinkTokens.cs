@@ -19,8 +19,8 @@ namespace Backlog.Desktop.UI.Mcp;
 /// <para>
 /// In <c>Backlog.Desktop.UI</c> beside <see cref="McpLoopbackGuard"/>, and for its
 /// reason: the listener lives in a MAUI head no test project can reference, and this
-/// is a security surface to be asserted directly. The MCP tools live in this project
-/// as well, so <c>open_window</c>, which is to mint the links, can reach it.
+/// is a security surface to be asserted directly. <c>open_window</c> mints the links
+/// through <see cref="DesktopSurfaceWindowHost"/>, beside it.
 /// </para>
 /// </summary>
 public sealed class WindowLinkTokens(TimeProvider? clock = null)
@@ -29,6 +29,9 @@ public sealed class WindowLinkTokens(TimeProvider? clock = null)
     /// minted: long enough to read a reply and click its link, short enough that a
     /// link pasted somewhere is dead before anyone else finds it.</summary>
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(10);
+
+    /// <summary>The query key a web link carries its token under.</summary>
+    public const string QueryKey = "t";
 
     /// <summary>256 bits, as the MCP bearer token has.</summary>
     private const int SecretBytes = 32;

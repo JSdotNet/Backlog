@@ -499,6 +499,31 @@ public class McpEndpointGateTests
         Assert.DoesNotContain("needs worktree", body, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// <c>open_window</c> is behind no flag (local ADR 0040 §7): listed with an area
+    /// switched off, and answered end to end through the SDK and both filters. In
+    /// the harness, <c>desktop</c> says no native window is available and still
+    /// carries the <c>backlog://</c> link; an id the catalog does not offer is not
+    /// available.
+    /// </summary>
+    [Fact]
+    public async Task Open_window_is_listed_and_answers_in_the_harness()
+    {
+        await using var harness = new Harness(sessions: false);
+        using var client = harness.CreateClient();
+
+        var list = await ListToolsAsync(client);
+        Assert.Contains("\"open_window\"", list, StringComparison.Ordinal);
+
+        var desktop = await CallToolAsync(client, "open_window", new { surface = "tasks", target = "desktop", plan = "+shell-pop-out-windows" });
+        Assert.Contains("No native window is available", desktop, StringComparison.Ordinal);
+        Assert.Contains("backlog://window/tasks?plan=shell-pop-out-windows", desktop, StringComparison.Ordinal);
+
+        var proposals = await CallToolAsync(client, "open_window", new { surface = "proposals", target = "web" });
+        Assert.Contains("is not available", proposals, StringComparison.Ordinal);
+        Assert.Contains("\"isError\":true", proposals, StringComparison.Ordinal);
+    }
+
     /// <summary>One stateless <c>tools/call</c>, as its body.</summary>
     private static async Task<string> CallToolAsync(HttpClient client, string name, object arguments)
     {
@@ -672,8 +697,9 @@ public class McpEndpointGateTests
     {
         var everythingOff = new AllOff();
 
+        // Every gated group: open_window has no flag (local ADR 0040 §7) and stays.
         Assert.All(
-            BacklogMcpTools.Groups,
+            BacklogMcpTools.Groups.Where(group => group.FeatureKey is not null),
             group => Assert.All(
                 group.ToolNames,
                 name => Assert.False(BacklogMcpTools.IsExposed(name, everythingOff))));

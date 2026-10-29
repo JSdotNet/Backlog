@@ -45,6 +45,21 @@ public class McpServerCompositionTests
     private sealed class Harness<TEntryPoint> : IsolatedHarnessFactory<TEntryPoint>
         where TEntryPoint : class;
 
+    /// <summary>The harness answers open_window's port, and a browser opens no
+    /// native window.</summary>
+    [Fact]
+    public void The_desktop_harness_has_no_native_window_for_open_window()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+        using var scope = harness.Services.CreateScope();
+
+        var host = scope.ServiceProvider.GetRequiredService<ISurfaceWindowHost>();
+
+        // A browser has tabs and no OS windows, so open_window's target "desktop"
+        // answers that none is available here (local ADR 0040 §7).
+        Assert.False(host.TryOpenWindow("tasks", new Dictionary<string, string>()));
+    }
+
     /// <summary>
     /// Every tool class the library publishes can be constructed out of a request
     /// scope of the harness's own container — which is exactly what the SDK does
@@ -111,6 +126,14 @@ public class McpServerCompositionTests
             BacklogMcpTools.Groups,
             group =>
             {
+                // The one group no flag gates — open_window, local ADR 0040 §7 — has
+                // no key to ask about.
+                if (ReferenceEquals(group, BacklogMcpTools.Windows))
+                {
+                    Assert.Null(group.FeatureKey);
+                    return;
+                }
+
                 Assert.False(string.IsNullOrWhiteSpace(group.FeatureKey));
 
                 // The call is the claim, and the discard is deliberate: what is
@@ -121,7 +144,7 @@ public class McpServerCompositionTests
                 // cannot be read as an assertion whose result was dropped, which
                 // is what `group => features.IsEnabled(group.FeatureKey)` was:
                 // Assert.All binds an Action<T> and discards a bool silently.
-                _ = features.IsEnabled(group.FeatureKey);
+                _ = features.IsEnabled(group.FeatureKey!);
             });
     }
 
@@ -154,7 +177,8 @@ public class McpServerCompositionTests
         Assert.All(
             BacklogMcpTools.ToolNames,
             name => Assert.Equal(
-                features.IsEnabled(GroupOf(name).FeatureKey),
+                // An ungated group (open_window, local ADR 0040 §7) is always listed.
+                GroupOf(name).FeatureKey is not { } key || features.IsEnabled(key),
                 BacklogMcpTools.IsExposed(name, features)));
 
         // A name the library does not publish is left alone rather than hidden,
