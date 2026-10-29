@@ -64,7 +64,7 @@ public sealed class HomeInboxWiringTests
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-surface'] [data-testid='inbox-pane']"));
         Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
         Assert.Equal("Inbox", harness.ShellNavigation.LastSurface);
-        Assert.Equal("Tasks", harness.ShellNavigation.LastView);
+        Assert.Equal("tasks", harness.ShellNavigation.LastView);
 
         // The Inbox option returns to the list, which already holds the entry.
         await component.Find("[data-testid='inbox-pane-option']").ClickAsync(new());
@@ -99,7 +99,7 @@ public sealed class HomeInboxWiringTests
         component.WaitForAssertion(() => Assert.Contains(State(harness).Rows, row => row.PreviewTitle == "Route me from the roadmap"));
 
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
-        Assert.Equal("Roadmap", harness.ShellNavigation.LastView);
+        Assert.Equal("roadmap", harness.ShellNavigation.LastView);
 
         await component.Find("[data-testid='inbox-pane-option']").ClickAsync(new());
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view']")));

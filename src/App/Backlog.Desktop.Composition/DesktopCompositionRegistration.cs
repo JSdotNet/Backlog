@@ -1,4 +1,5 @@
 using Backlog.Desktop.UI.Devbook.Extensions;
+using Backlog.Desktop.UI.InProgress;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Desktop.UI.Tasks;
@@ -322,9 +323,26 @@ public static class DesktopCompositionRegistration
 
         // The shell's surfaces (local ADR 0040 §1): each module's .UI registers its
         // ShellSurface, one catalog holds them, and each window jumps between them
-        // through a navigator of its own (§3). The Devbook is the first registered;
-        // the shell still draws the other surfaces itself until they move.
+        // through a navigator of its own (§3). The five views — Tasks, Board and
+        // Calendar from Tasks, the Roadmap, Goals — and the Devbook are registered;
+        // the shell still draws the other takeovers itself until they move.
+        services.AddTasksSurfaces();
+        services.AddRoadmapSurface();
+        services.AddGoalsSurface();
         services.AddDevbookSurface();
+        // What the views read beside the list: the Board's columns and the Calendar's
+        // range from the shell's navigation file, and the Goals view's candidates from
+        // the window's own task list and reader of pull requests.
+        services.AddSingleton<ITasksViewPreferences>(sp =>
+            new ShellTasksViewPreferences(sp.GetRequiredService<ShellNavigationStore>()));
+        services.Add(new ServiceDescriptor(
+            typeof(ShellGoalsViewSource),
+            sp => new ShellGoalsViewSource(sp),
+            options.WindowStateLifetime));
+        services.Add(new ServiceDescriptor(
+            typeof(IGoalsViewSource),
+            sp => sp.GetRequiredService<ShellGoalsViewSource>(),
+            options.WindowStateLifetime));
         services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
         services.Add(new ServiceDescriptor(typeof(ISurfaceNavigator), typeof(SurfaceNavigator), options.WindowStateLifetime));
         // The titles a Brain note's Tasks section draws, from the window's own task list.

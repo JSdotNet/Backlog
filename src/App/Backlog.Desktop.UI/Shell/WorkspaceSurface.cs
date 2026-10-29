@@ -31,7 +31,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// list went back to a segment of its own in the header.
 /// </para>
 /// <para>
-/// Deliberately a field of its own beside the main view (<see cref="ShellView"/>).
+/// Deliberately a field of its own beside the main view (a view-group surface id).
 /// Closing a surface simply reveals the view that was there all along — no save,
 /// no restore, nothing to get wrong. The side panes that once sat beside the view
 /// had a capacity rule the viewport set; each of them, the Inbox and then the
@@ -50,7 +50,7 @@ internal enum WorkspaceSurface
     Dashboard,
 
     /// <summary>The roadmap's name while it was a takeover. It is a
-    /// <see cref="ShellView"/> now, opened by the view switch, and nothing assigns
+    /// view-group surface now, opened by the view switch, and nothing assigns
     /// this member: it stays only because the navigation file stores names, so a
     /// file from then still reads, and <c>ShellNavigationStore</c> migrates it to
     /// the Roadmap view over the workspace. Never written again.</summary>

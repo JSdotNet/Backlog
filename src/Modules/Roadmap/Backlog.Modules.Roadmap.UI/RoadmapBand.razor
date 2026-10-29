@@ -396,6 +396,52 @@
     [Parameter]
     public EventCallback<RoadmapTasksRequest> OnOpenTasks { get; set; }
 
+    /// <summary>
+    /// A plan to open the chart on, by its tag with or without the <c>+</c>: the bar of
+    /// the item that carries it is selected, the way a click marks one, without opening
+    /// the editor (local ADR 0040 §6, <c>plan=</c>). Followed once per value; null
+    /// selects nothing.
+    /// </summary>
+    [Parameter]
+    public string? SelectedPlan { get; set; }
+
+    /// <summary>The <see cref="SelectedPlan"/> last followed, and the one waiting for
+    /// the plan to load.</summary>
+    private string? _planTaken;
+    private string? _planPending;
+
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(SelectedPlan, _planTaken, StringComparison.Ordinal)) return;
+
+        _planTaken = SelectedPlan;
+        _planPending = SelectedPlan;
+        SelectPendingPlan();
+    }
+
+    /// <summary>
+    /// Selects the first bar of the item whose tag is <see cref="SelectedPlan"/>, once
+    /// the plan is on screen. The tag is compared the way <c>PlanTagMatch.Carries</c>
+    /// compares an entry's: one leading <c>+</c> lifted from each, in any case. A plan no
+    /// item carries selects nothing.
+    /// </summary>
+    private void SelectPendingPlan()
+    {
+        if (_planPending is not { } plan || !_loaded) return;
+
+        _planPending = null;
+
+        var slug = plan.StartsWith('+') ? plan[1..] : plan;
+        if (slug.Length == 0) return;
+
+        var item = _plan.Items.FirstOrDefault(candidate =>
+            !string.IsNullOrEmpty(candidate.Tag)
+            && string.Equals(candidate.Tag.StartsWith('+') ? candidate.Tag[1..] : candidate.Tag, slug, StringComparison.OrdinalIgnoreCase));
+        if (item is null) return;
+
+        if (_view.Bars.FirstOrDefault(bar => RoadmapPlanView.NodeIdOf(bar.Id) == item.Id) is { } shown) _selectedId = shown.Id;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         Repositories.Changed += OnRepositoriesChanged;
@@ -426,6 +472,7 @@
         await KeepUpWithWorkAsync();
         await Load();
         _loaded = true;
+        SelectPendingPlan();
     }
 
     /// <summary>

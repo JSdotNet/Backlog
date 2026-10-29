@@ -1248,7 +1248,7 @@ public sealed class HomeWorkspaceSurfaceTests
             component.WaitForAssertion(() => Assert.Equal("Workspace", shellNavigation.LastSurface));
 
             Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
-            Assert.Equal("Roadmap", new ShellNavigationStore(path).LastView);
+            Assert.Equal("roadmap", new ShellNavigationStore(path).LastView);
         }
         finally
         {
@@ -1270,7 +1270,7 @@ public sealed class HomeWorkspaceSurfaceTests
             {
                 var component = Render(harness);
                 OpenTheRoadmap(component);
-                component.WaitForAssertion(() => Assert.Equal("Roadmap", shellNavigation.LastView));
+                component.WaitForAssertion(() => Assert.Equal("roadmap", shellNavigation.LastView));
             }
 
             using var reopened = CreateHarness(shellNavigation: new ShellNavigationStore(path));
@@ -1377,7 +1377,7 @@ public sealed class HomeWorkspaceSurfaceTests
                     Assert.Empty(component.FindAll("[data-testid='entry-list']"));
                     Assert.Equal("true", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed"));
                     Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-                    Assert.Equal("Board", shellNavigation.LastView);
+                    Assert.Equal("board", shellNavigation.LastView);
                     Assert.Equal("Status", shellNavigation.BoardColumns);
                 });
 
@@ -1437,7 +1437,7 @@ public sealed class HomeWorkspaceSurfaceTests
                     Assert.Empty(component.FindAll("[data-testid='entry-list']"));
                     Assert.Equal("true", component.Find("[data-testid='calendar-view-option']").GetAttribute("aria-pressed"));
                     Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
-                    Assert.Equal("Calendar", shellNavigation.LastView);
+                    Assert.Equal("calendar", shellNavigation.LastView);
                 });
 
                 component.Find("[data-testid='tasks-view-option']").Click();
@@ -2827,7 +2827,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("false", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
         });
 
-        Assert.Equal("Goals", harness.Context.Services.GetRequiredService<ShellNavigationStore>().LastView);
+        Assert.Equal("goals", harness.Context.Services.GetRequiredService<ShellNavigationStore>().LastView);
     }
 
     /// <summary>The Goals view needs neither list: with Sessions and Pull requests both
@@ -3208,6 +3208,44 @@ public sealed class HomeWorkspaceSurfaceTests
         var request = Assert.Single(requests);
         Assert.Equal("tasks", request.SurfaceId);
         Assert.Equal(row.Id!.Value.ToString(), request.Value("entry"));
+    }
+
+    /// <summary>
+    /// The main window answers a jump to a view (local ADR 0040 §3, §6): from the
+    /// Roadmap, a request for Tasks with a plan shows the Tasks view, from the catalog,
+    /// with that plan chip pressed; and an entry the backlog does not hold still shows
+    /// Tasks, with a toast saying so.
+    /// </summary>
+    [Fact]
+    public void A_jump_to_a_view_shows_it_from_the_catalog_with_its_query()
+    {
+        using var harness = CreateHarness(seed: "# Wire the importer +plan-a\n`task` `!ready` `repo:backlog`\n");
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        var navigator = harness.Context.Services.GetRequiredService<ISurfaceNavigator>();
+        component.WaitForState(() => state.Rows.Count > 0);
+        OpenTheRoadmap(component);
+
+        component.InvokeAsync(() => navigator.Show("tasks", new Dictionary<string, string> { ["plan"] = "plan-a", ["unregistered"] = "dropped" }));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("+plan-a", state.SelectedPlan);
+        });
+
+        var toasts = harness.Context.Services.GetRequiredService<ToastChannel>();
+        component.InvokeAsync(() => navigator.Show("board", new Dictionary<string, string>()));
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='board-view-option']").GetAttribute("aria-pressed")));
+
+        component.InvokeAsync(() => navigator.Show("tasks", new Dictionary<string, string> { ["entry"] = Guid.NewGuid().ToString() }));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+            Assert.Contains(toasts.Visible, toast => toast.TestId == TasksSurface.EntryMissingTestId);
+        });
     }
 
     /// <summary>

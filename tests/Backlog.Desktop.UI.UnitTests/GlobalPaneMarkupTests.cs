@@ -44,7 +44,8 @@ public sealed class GlobalPaneMarkupTests
         // The Devbook's, from its surface id: devbook-surface.
         Assert.Contains("aria-controls=\"@($\"{surfaceId}-surface\")\"", home, StringComparison.Ordinal);
         Assert.Contains("id=\"@($\"{shown.Id}-surface\")\"", home, StringComparison.Ordinal);
-        Assert.Contains("id=\"roadmap-view\"", home, StringComparison.Ordinal);
+        // The roadmap's view landmark is its surface's own (local ADR 0040 §1).
+        Assert.Contains("id=\"roadmap-view\"", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurface.razor"))), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -112,7 +113,7 @@ public sealed class GlobalPaneMarkupTests
         // own surface.
         Assert.Contains("Pressed=\"@(RegisteredSurfaceOnScreen?.Id == surfaceId)\"", home, StringComparison.Ordinal);
         Assert.Contains(
-            "private bool ViewOptionPressed(ShellView view) => WorkspaceVisible && EffectiveView == view;",
+            "private bool ViewOptionPressed(string viewId) => WorkspaceVisible && EffectiveView == viewId;",
             home,
             StringComparison.Ordinal);
 
@@ -222,9 +223,10 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// The roadmap's option is gated on its feature the way the Inbox option is, and
-    /// it is a view, not a takeover and not a pane: it lives in <c>ShellView</c> beside
-    /// Tasks. <c>WorkspaceSurface.Roadmap</c> stays only as a stored name an older file
-    /// may hold, and nothing assigns it.
+    /// it is a view, not a takeover and not a pane: a view-group surface beside Tasks
+    /// (local ADR 0040 §1), offered while the catalog offers it — which it does while its
+    /// feature is on. <c>WorkspaceSurface.Roadmap</c> stays only as a stored name an
+    /// older file may hold, and nothing assigns it.
     /// </summary>
     [Fact]
     public void Roadmap_option_is_feature_gated_and_is_a_view_not_a_takeover()
@@ -233,13 +235,14 @@ public sealed class GlobalPaneMarkupTests
         var surface = NormalizeLineEndings(File.ReadAllText(FindWorkspaceSurface()));
 
         Assert.Contains("@if (RoadmapViewOffered)", home, StringComparison.Ordinal);
-        Assert.Contains("private bool RoadmapViewOffered => IsFeatureEnabled(RoadmapFeatures.Roadmap);", home, StringComparison.Ordinal);
+        Assert.Contains("private bool RoadmapViewOffered => ViewOffered(RoadmapViewId);", home, StringComparison.Ordinal);
+        Assert.Contains("RoadmapFeatures.Roadmap,", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurfaceRegistration.cs"))), StringComparison.Ordinal);
         Assert.Contains(
             "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !PullRequestsVisible && !InboxVisible && !DevbookVisible && !NotificationsVisible;",
             home,
             StringComparison.Ordinal);
         Assert.Contains(
-            "ShellView.Roadmap when !RoadmapViewOffered => ShellView.Tasks,",
+            "private string EffectiveView => ViewOffered(_view) ? _view : TasksViewId;",
             home,
             StringComparison.Ordinal);
 
@@ -284,10 +287,10 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("if (WorkspaceSurfaceFor(surfaceId) is { } surface) ToggleSurface(surface);", home, StringComparison.Ordinal);
         Assert.Contains("DevbookSurfaceId => WorkspaceSurface.Devbook,", home, StringComparison.Ordinal);
 
-        foreach (var view in new[] { "Tasks", "Roadmap" })
+        foreach (var view in new[] { "TasksViewId", "RoadmapViewId" })
         {
-            Assert.Contains($"Pressed=\"ViewOptionPressed(ShellView.{view})\"", home, StringComparison.Ordinal);
-            Assert.Contains($"OnClick=\"() => ShowView(ShellView.{view})\"", home, StringComparison.Ordinal);
+            Assert.Contains($"Pressed=\"ViewOptionPressed({view})\"", home, StringComparison.Ordinal);
+            Assert.Contains($"OnClick=\"() => ShowView({view})\"", home, StringComparison.Ordinal);
         }
 
         Assert.DoesNotContain("PaneToggleDisabled", home, StringComparison.Ordinal);
@@ -505,15 +508,20 @@ public sealed class GlobalPaneMarkupTests
         // The Devbook is a registered surface: the shell renders it from the catalog
         // and never names its pane (local ADR 0040 §1).
         Assert.Equal(0, CountOccurrences(home, "<DevbookPane "));
-        Assert.Equal(1, CountOccurrences(home, "<DynamicComponent "));
+        Assert.Equal(2, CountOccurrences(home, "<DynamicComponent "));
         var devbookSurface = home.IndexOf("else if (RegisteredSurfaceOnScreen is { } shown)", StringComparison.Ordinal);
         var workspace = home.IndexOf("<main class=\"workspace\"", StringComparison.Ordinal);
         var devbookPane = home.IndexOf("<DynamicComponent ", StringComparison.Ordinal);
         Assert.True(devbookPane > devbookSurface && devbookPane < workspace);
 
-        // The roadmap view is the workspace's main view, directly inside it.
-        Assert.True(home.IndexOf("@if (RoadmapViewVisible)", StringComparison.Ordinal) > workspace);
-        Assert.Contains("<div class=\"roadmap-view\" id=\"roadmap-view\" data-testid=\"roadmap-view\">", home, StringComparison.Ordinal);
+        // The main view — Tasks, Board, Calendar, the Roadmap or Goals — is rendered
+        // from the catalog directly inside the workspace (local ADR 0040 §1), and the
+        // shell names none of their panes.
+        Assert.True(home.IndexOf("<DynamicComponent Type=\"view.Component\"", StringComparison.Ordinal) > workspace);
+        Assert.Equal(0, CountOccurrences(home, "<TasksPane "));
+        Assert.Equal(0, CountOccurrences(home, "<RoadmapBand "));
+        Assert.Equal(0, CountOccurrences(home, "<GoalsHost "));
+        Assert.Contains("<div class=\"roadmap-view\" id=\"roadmap-view\" data-testid=\"roadmap-view\">", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurface.razor"))), StringComparison.Ordinal);
         Assert.DoesNotContain("devbook-layout", home, StringComparison.Ordinal);
     }
 
@@ -630,7 +638,7 @@ public sealed class GlobalPaneMarkupTests
             "private bool DevbookVisible => _surface == WorkspaceSurface.Devbook && DevbookPaneOptionVisible;",
             home,
             StringComparison.Ordinal);
-        Assert.Equal(4, CountOccurrences(home, "        ShowDevbook();\n"));
+        Assert.Equal(3, CountOccurrences(home, "        ShowDevbook();\n"));
     }
 
     [Fact]
@@ -896,16 +904,16 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("<CaptureSourcesPanel OnImported=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
-        Assert.Contains("<TasksPane OnOpenSession=\"OpenSessionAsync\" OnOpenDevbookReference=\"OpenDevbookReferenceAsync\" BrainNotesFor=\"@BrainNotesForTask\" DevbookImagesFor=\"@DevbookImagesForEntry\" OnOpenBrainNote=\"OpenBrainNoteAsync\" Layout=\"@TasksPaneLayout\" BoardGrouping=\"@BoardGrouping\" BoardGroupingChanged=\"OnBoardGroupingChanged\" CalendarRange=\"@CalendarRange\" CalendarRangeChanged=\"OnCalendarRangeChanged\" LinkedWork=\"LinkedWorkFor\" />", home, StringComparison.Ordinal);
+        // The views are their modules' surfaces (local ADR 0040 §1): the shell renders
+        // the one on screen from the catalog, and hands the Tasks views what only it
+        // holds through the window's wiring rather than as the pane's parameters.
+        Assert.Contains("<DynamicComponent Type=\"view.Component\" Parameters=\"ViewParameters(view)\" />", home, StringComparison.Ordinal);
         Assert.Contains("<DynamicComponent Type=\"shown.Component\" Parameters=\"SurfaceParameters(shown)\" />", home, StringComparison.Ordinal);
+        Assert.Contains("wiring.LinkedWork = _linkedWork;", home, StringComparison.Ordinal);
 
-        // The roadmap and the dashboard are composed on the same terms. Their content
-        // belongs to Roadmap and the Dashboard; the shell only decides where it goes.
-        // The roadmap takes one parameter, and it is a way out rather than content: its
-        // "Open in Tasks" asks the shell to show a plan in the task list, because the
-        // view switch and the list's filters are the shell's and the roadmap
-        // references no Tasks module. No plan, item or bar is handed down.
-        Assert.Contains("<RoadmapBand OnOpenTasks=\"OpenPlanTasks\" />", home, StringComparison.Ordinal);
+        // The dashboard is composed on the same terms; its content belongs to the
+        // Dashboard, and the shell only decides where it goes. The roadmap's "Open in
+        // Tasks" is a jump through the window's navigator, from its own surface.
         Assert.Contains("<DashboardPane OnClose=", home, StringComparison.Ordinal);
 
         Assert.DoesNotContain("entry-doc__meta", home, StringComparison.Ordinal);
@@ -1344,6 +1352,9 @@ public sealed class GlobalPaneMarkupTests
     private static string FindInboxPane() => RepositoryRoot.File("src", "Modules", "Inbox", "Backlog.Modules.Inbox.UI", "InboxPane.razor");
 
     private static string FindTasksPane() => RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor");
+
+    private static string FindModuleFile(string module, string file) =>
+        RepositoryRoot.File("src", "Modules", module, $"Backlog.Modules.{module}.UI", file);
 
     private static string FindDevbookPane() => RepositoryRoot.File("src", "Modules", "Devbook", "Backlog.Modules.Devbook.UI", "DevbookPane.razor");
 
