@@ -3,6 +3,7 @@
 ```meta
 type: context-map
 status: draft
+related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
 ```
 
 > Strategic DDD view of the Backlog product domain: bounded-context roles,
@@ -28,7 +29,7 @@ status: draft
 | Environment | Supporting | It provides quick access to named local, cloud, and project environments without becoming the authority for repository or health data. |
 | Monitoring & Dashboard | Supporting | It observes the core flow and turns signals into visibility and follow-up actions rather than owning the work itself. |
 | Technology Stack | Supporting | It supplies portfolio-wide standards, baselines, and deprecation policy to the core work contexts. |
-| Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. |
+| Repository Management | Supporting | It provides repository inventory, health, and dependency visibility used by the core work contexts. It also owns the state of the registered repositories' pull requests: their status, readiness verdict, stacks, and the commands that merge them (local ADR 0042, proposed). |
 | Dev PC Management | Supporting | It provides machine inventory, compliance, and operator support capabilities for the work system. |
 | Progress | Supporting | It keeps the goals a person's work is attached to and the impediments that hold it back, and reads both over an iteration as a stand-up, naming tasks by id, plans by tag and pull requests by number without owning any of them. |
 | Sessions | Supporting | It records what the AI coding agents have been doing on each environment, without owning the work, the machines, or the repositories those sessions touch. |
@@ -109,11 +110,22 @@ flowchart LR
     Repo -->|Customer/Supplier<br/>Repo registry lookup| Tasks
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Roadmap
 
-    %% Progress. All three edges are in-process reads; Progress publishes no
-    %% event. See .devbook/domain/progress/context.md and local ADR 0035.
+    %% Progress. Its edges are in-process reads; Progress publishes no event.
+    %% See .devbook/domain/progress/context.md and local ADR 0035.
     Tasks -->|Customer/Supplier<br/>Task by id: status, due date, effort, blocked mark, linked pull requests| Progress
     Roadmap -->|Customer/Supplier<br/>Plan tag vocabulary, plan order, pace| Progress
     Repo -->|Customer/Supplier<br/>Repo registry lookup by alias| Progress
+
+    %% Pull request state. Not built yet: local ADR 0042. Repository Management
+    %% publishes one contract; Tasks and Progress read it through adapters that
+    %% answer their own ports. The shell is the composition root, not a context:
+    %% it composes the cards and asks Tasks which task a session or a pull
+    %% request belongs to, so Repository Management holds no edge to Tasks.
+    Shell(["Desktop shell<br/>(composition root, not a context)"])
+    Repo -.->|"Customer/Supplier (not built)<br/>Pull request status and verdict, ILinkedPullRequestStates"| Tasks
+    Repo -.->|"Customer/Supplier (not built)<br/>Pull request status, IGoalPullRequestReader"| Progress
+    Repo -.->|"Customer/Supplier (not built)<br/>Verdict on the session card, through the shell"| Sessions
+    Tasks -.->|"OHS + Published Language (not built)<br/>Task by session, task by pull request"| Shell
 
     %% Sync. It carries the documents of the contexts below and reads none of
     %% their payloads. Each downstream context reaches it through an adapter in
@@ -150,6 +162,8 @@ flowchart LR
 | Productivity | `.devbook/domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
 | Environment | `.devbook/domain/environment/domain.md#environment-shortcut-resolution` | Tasks, Dev PC Management |
 | Technology Stack | `Technology Baseline` / `BaselineProvided` contract in `.devbook/domain/technology-stack/domain.md#deprecation-management` | Dev PC Management, Repository Management |
+| Repository Management | The pull request contract: the status at `.devbook/domain/repository-management/domain.md#pull-request-status`, the verdict at `.devbook/domain/repository-management/domain.md#readiness-verdict`, the commands at `.devbook/domain/repository-management/domain.md#merge-command`, and one cache (not built; local ADR 0042) | Tasks and Progress through adapters, Sessions through the shell |
+| Tasks | The lookup from a session id or a pull request to its task, in `Backlog.Modules.Tasks.Abstractions` (not built; local ADR 0042 §9) | The desktop shell, for Repository Management's and Sessions' screens |
 | Notifications | `INotifications`, `INotificationAnswerHandler` and `NotificationDraft` in `Backlog.Modules.Notifications.Abstractions`, under `.devbook/domain/notifications/domain.md#notification` (not built) | Sessions, Sync, Devbook, Tasks |
 | Sync | The replica protocol: the routes and DTOs in `Backlog.Modules.Sync.Abstractions` (`SyncRoutes`, `DataTransferObjects`), under `.devbook/domain/sync/domain.md#change-precedence` | Tasks, Sessions, Devbook, Inbox |
 
@@ -220,6 +234,26 @@ flowchart LR
   That is why those two edges draw solid without a table row. When Monitoring
   consumes Sessions too, or Sessions publishes an event of its own, the event goes
   into `.devbook/domain/sessions/domain.md` and into that table in the same change.
+  Sessions publishes no pull request contract either: the pull requests its
+  sessions open are Repository Management's.
+- `Repository Management` is the single owner of pull request state
+  (`.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md`,
+  proposed and not built). It owns each pull request's
+  [status](repository-management/domain.md#pull-request-status), its
+  [readiness verdict](repository-management/domain.md#readiness-verdict), its stack,
+  the [merge commands](repository-management/domain.md#merge-command) and the one
+  cache, and it is the one place an archived repository's pull requests are skipped.
+  Every reader goes through its contract:
+  - `Tasks` and `Progress` through an adapter that answers their own port, so
+    neither references Repository Management;
+  - the pull requests pane, the session card and a task's side panel through the
+    desktop shell, which composes them.
+
+  No module screen reads pull request state from the GitHub adapter or sends a
+  merge command there. The reverse question, which task a session or a pull request
+  belongs to, is `Tasks`' published lookup, asked by the shell. So no two contexts
+  form a cycle over pull requests. The pull request activity history the dashboard
+  and `Productivity` read answers a different question and stays outside this rule.
 - A `Sessions` [Environment](sessions/domain.md#environment) is not an
   [`Environment`-context Environment](environment/domain.md#environment), and not a
   `Dev PC Management` [Machine](dev-pc-management/domain.md#machine). The two words
@@ -230,8 +264,9 @@ flowchart LR
   (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns. That
   identity is still not Dev PC Management's Machine, so the rule stands unchanged.
 - `Progress` names a task by its id, a plan by its
-  [plan tag](roadmap/domain.md#roadmap-tag) and a session by its agent and session
-  id, and reads each from its owner on every reading. `Tasks` holds no knowledge of goals or impediments: no task
+  [plan tag](roadmap/domain.md#roadmap-tag), a session by its agent and session
+  id and a pull request by its repository and number, and reads each from its owner
+  on every reading. `Tasks` holds no knowledge of goals or impediments: no task
   field, tag, status or entry-text token names one, and attaching a task to a goal
   changes nothing on it. Marking a task blocked raises an impediment because
   Progress reacts to the mark; Tasks does not call Progress and stores no
