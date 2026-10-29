@@ -24,8 +24,21 @@
     private IDisposable? _requests;
 
     /// <summary>The notification a request from outside asked for while this surface
-    /// was on screen; it wins over the query until the next one.</summary>
+    /// was on screen; it wins over the query until a newer query arrives.</summary>
     private Guid? _requested;
+
+    /// <summary>The query last handed in, so a new one — a newer jump — is noticed.</summary>
+    private IReadOnlyDictionary<string, string>? _query;
+
+    /// <summary>A new query is a newer jump than any request heard before it, so the
+    /// request gives way to it. The same query handed again on a redraw is not.</summary>
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(Query, _query)) return;
+
+        _query = Query;
+        _requested = null;
+    }
 
     private Guid? FocusNotificationId =>
         _requested

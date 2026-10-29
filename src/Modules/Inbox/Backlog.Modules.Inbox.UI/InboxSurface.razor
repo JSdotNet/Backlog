@@ -40,11 +40,30 @@
     private EventCallback CaptureCallback =>
         _wiring?.Capture is { } capture ? EventCallback.Factory.Create(this, capture) : default;
 
+    /// <summary>The window states whose first load is out, so a surface that remounts
+    /// before it is back does not start a second one beside it.</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<InboxDesktopState, object> FirstLoads = [];
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
-        if (State.Loaded) await State.OpenedAsync();
-        else await State.InitializeAsync();
+        if (State.Loaded)
+        {
+            await State.OpenedAsync();
+            return;
+        }
+
+        if (!FirstLoads.TryAdd(State, new object())) return;
+
+        try
+        {
+            await State.InitializeAsync();
+        }
+        finally
+        {
+            // A load that failed is tried again on the next opening.
+            if (!State.Loaded) FirstLoads.Remove(State);
+        }
     }
 }

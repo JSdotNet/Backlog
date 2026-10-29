@@ -471,8 +471,8 @@
             </ButtonGroup>
 
             @* The remaining takeovers, loose: the Dashboard and Dev PC Management's
-               Tools, related only by each taking the screen. The takeover on screen is a
-               single enum because a takeover cannot coexist with the workspace or
+               Tools, related only by each taking the screen. The takeover on screen is
+               one field because a takeover cannot coexist with the workspace or
                with another takeover, and a group of pressed states describes that
                exclusivity where independent aria-expanded buttons did not. Ask AI
                keeps aria-expanded further down, because that one really is a
@@ -976,9 +976,6 @@
             }
         }
 
-        // The Inbox loads itself the first time it is on screen in a window, and
-        // runs its resurface sweep on every later opening (its own surface does it).
-
         // The two branches below run on every render, not only the first: a
         // surface can open and close any number of times after it.
         if (WorkspaceVisible)
@@ -996,12 +993,19 @@
         _focusSurfacePending = false;
         try
         {
-            // The Inbox takes focus inside its own pane rather than on the
-            // landmark: its keys — j, k, t and Escape out of triage — are heard
-            // only while focus is within the pane, so landing on the surface
-            // would leave them dead until a click.
-            if (InboxVisible) await JS.InvokeVoidAsync("backlogFocus", InboxPaneId, false);
-            else await _surfaceElement.FocusAsync();
+            // A takeover that keeps Escape for its own keys takes focus inside
+            // itself rather than on the landmark, which it draws without one. The
+            // Inbox's keys — j, k, t and Escape out of triage — are heard only while
+            // focus is within its pane, so landing on the surface would leave them
+            // dead until a click.
+            if (TakeoverOnScreen is { EscapeCloses: false } keepsEscape)
+            {
+                if (keepsEscape.Id == InboxSurfaceId) await JS.InvokeVoidAsync("backlogFocus", InboxPaneId, false);
+            }
+            else
+            {
+                await _surfaceElement.FocusAsync();
+            }
         }
         catch (Exception)
         {
@@ -1348,9 +1352,11 @@
     /// follows the new query.</summary>
     private void OpenTakeover(string surfaceId, IReadOnlyDictionary<string, string> query)
     {
+        // Focus moves onto a takeover as it opens, never onto one already on screen:
+        // a jump that only hands it a new query must not pull focus out of it.
+        _focusSurfacePending = !TakeoverVisible(surfaceId);
         _takeover = surfaceId;
         _takeoverQuery = query;
-        _focusSurfacePending = true;
 
         // A takeover unmounts the main view, and the view it remounts on closing is a
         // new one: the jump's plan or entry it was asked with was followed already,
@@ -1395,7 +1401,7 @@
         return Task.CompletedTask;
     }
 
-    private const string SessionsOffTestId = "tasks-session-sessions-off";
+    private const string SessionsOffTestId = Backlog.Desktop.UI.PullRequests.PullRequestsSurface.SessionsOffTestId;
 
     /// <summary>Whether the host composed the owner's notification centre at all.</summary>
     private bool _notificationCentreComposed;
@@ -1419,15 +1425,14 @@
             return Task.CompletedTask;
         }
 
-        OpenTakeover(PullRequestsSurfaceId, new Dictionary<string, string>(StringComparer.Ordinal) { [PullRequestKey] = key });
+        OpenTakeover(
+            PullRequestsSurfaceId,
+            new Dictionary<string, string>(StringComparer.Ordinal) { [Backlog.Desktop.UI.PullRequests.PullRequestsSurface.PullRequestKey] = key });
 
         return Task.CompletedTask;
     }
 
     private const string PullRequestsOffTestId = "in-progress-pull-requests-off";
-
-    /// <summary>The key the pull requests list reads the pull request to open on from.</summary>
-    private const string PullRequestKey = "pullRequest";
 
     /// <summary>The sessions and open pull requests the Goals view and a task's
     /// side panel draw from, read by either and kept for both. Rebuilt with
@@ -1744,8 +1749,8 @@
     public Task CloseSurfaceOnEscapeAsync()
     {
         // The Roadmap view is the workspace and has no Escape of its own here, and
-        // the Inbox keeps Escape for its own keys.
-        if (WorkspaceVisible || InboxVisible) return Task.CompletedTask;
+        // a takeover registered to keep Escape — the Inbox — keeps it for its own keys.
+        if (TakeoverOnScreen is not { EscapeCloses: true }) return Task.CompletedTask;
 
         CloseSurface();
         StateHasChanged();
@@ -2501,22 +2506,6 @@
     /// </summary>
     private string? RepositoryMarkClass(string alias) =>
         State.RepositoryColours.TryGetValue(alias, out var colour) ? $"repo-mark repo-mark--{colour}" : null;
-
-    /// <summary>
-    /// The hue for a repository named the way a session names one — <c>owner/name</c>,
-    /// or nothing at all. Null for a session whose repository is not configured here,
-    /// which is the ordinary case for work done in a clone this workspace does not
-    /// know about.
-    /// </summary>
-    private int? RepositoryColourFor(string? repository) => State.RepositoryColourFor(repository);
-
-    /// <summary>
-    /// The alias a session's recorded repository goes by here — the sessions list
-    /// matches the header's scope through this, and the scope is aliases. Null for a
-    /// repository this workspace has not configured, and for a session that recorded
-    /// none; the pane treats both as out of any scope.
-    /// </summary>
-    private string? RepositoryAliasFor(string? repository) => State.RepositoryAliasFor(repository);
 
     /// <summary>
     /// Shows or hides the repository identity hues across every surface.

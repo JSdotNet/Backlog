@@ -607,7 +607,7 @@ public sealed class GlobalPaneMarkupTests
 
         // The option toggles the surface; the shell's document-level Escape leaves it alone.
         Assert.Contains("private void ToggleInbox() => ToggleSurface(InboxSurfaceId);", home, StringComparison.Ordinal);
-        Assert.Contains("if (WorkspaceVisible || InboxVisible) return Task.CompletedTask;", home, StringComparison.Ordinal);
+        Assert.Contains("if (TakeoverOnScreen is not { EscapeCloses: true }) return Task.CompletedTask;", home, StringComparison.Ordinal);
     }
 
     /// <summary>

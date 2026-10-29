@@ -28,8 +28,10 @@ public sealed class ShellTaskReferences : IDisposable
     private readonly ISurfaceNavigator _navigator;
     private readonly IToastChannel? _toasts;
 
-    private (PullRequestTaskMatcher Matcher, Dictionary<Guid, EntryRow> Rows)? _pullRequestMatcher;
-    private List<EntryRow>? _pullRequestMatcherRows;
+    /// <summary>The matcher last built, with the list it was built over. A reference,
+    /// written whole: the state announces changes from whichever thread made them,
+    /// and a reader drawing a cell must see either the old matcher or none.</summary>
+    private volatile MatcherOverRows? _pullRequestMatcher;
 
     public ShellTaskReferences(TasksDesktopState state, ISurfaceNavigator navigator, IToastChannel? toasts)
     {
@@ -113,7 +115,7 @@ public sealed class ShellTaskReferences : IDisposable
     /// </summary>
     public DeliveryRunReference? PullRequestTaskFor(PullRequestTaskSubject pull, bool mineOnly)
     {
-        var (matcher, rows) = PullRequestMatcher;
+        var (matcher, rows, _) = PullRequestMatcher;
         return matcher.Match(pull, mineOnly) is { } match && rows.TryGetValue(match.Candidate.EntryId, out var row)
             ? TaskReference(row)
             : null;
@@ -125,33 +127,36 @@ public sealed class ShellTaskReferences : IDisposable
 
     /// <summary>One matcher over every entry, built on first ask and again whenever
     /// the task list changed — not per row the pane draws, which asks once per cell.</summary>
-    private (PullRequestTaskMatcher Matcher, Dictionary<Guid, EntryRow> Rows) PullRequestMatcher
+    private MatcherOverRows PullRequestMatcher
     {
         get
         {
-            if (_pullRequestMatcher is { } built && ReferenceEquals(_pullRequestMatcherRows, _state.Rows)) return built;
+            var source = _state.Rows;
+            if (_pullRequestMatcher is { } built && ReferenceEquals(built.Source, source)) return built;
 
             var rows = new Dictionary<Guid, EntryRow>();
             var candidates = new List<PullRequestTaskCandidate>();
-            foreach (var row in _state.Rows)
+            foreach (var row in source)
             {
                 if (row.Id is not { } id || !rows.TryAdd(id, row)) continue;
 
-                var source = row.SourceRef;
+                var sourceRef = row.SourceRef;
                 candidates.Add(new PullRequestTaskCandidate(
                     id,
                     [.. row.PullRequestLinks.Select(link => new RecordedPullRequest(link.Repository, link.Number))],
-                    source is null ? null : PullRequestTaskMatcher.GitHubIssueOf(source.ConnectorId, source.Target, source.DisplayKey, source.Url),
-                    PullRequestTaskMatcher.ExternalKeysOf(source?.DisplayKey),
+                    sourceRef is null ? null : PullRequestTaskMatcher.GitHubIssueOf(sourceRef.ConnectorId, sourceRef.Target, sourceRef.DisplayKey, sourceRef.Url),
+                    PullRequestTaskMatcher.ExternalKeysOf(sourceRef?.DisplayKey),
                     [.. row.SessionLinks.Select(link => link.SessionId)],
                     IsMine: row.PreviewStatus is not (EntryStatus.Done or EntryStatus.Archived)));
             }
 
-            _pullRequestMatcherRows = _state.Rows;
-            _pullRequestMatcher = (new PullRequestTaskMatcher(candidates), rows);
-            return _pullRequestMatcher.Value;
+            var matcher = new MatcherOverRows(new PullRequestTaskMatcher(candidates), rows, source);
+            _pullRequestMatcher = matcher;
+            return matcher;
         }
     }
+
+    private sealed record MatcherOverRows(PullRequestTaskMatcher Matcher, Dictionary<Guid, EntryRow> Rows, List<EntryRow> Source);
 
     /// <summary>
     /// Whether an entry belongs to the plan a run names: the plan id Import stamps, or

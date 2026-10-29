@@ -65,6 +65,24 @@ public sealed class NotificationCentreRequestsTests
     }
 
     [Fact]
+    public void A_request_only_a_centre_on_screen_heard_is_still_kept_for_the_shell()
+    {
+        var requests = new NotificationCentreRequests();
+        var id = Guid.NewGuid();
+        var poppedOut = new List<Guid?>();
+        using var centre = requests.Listen(poppedOut.Add, takeMissed: false);
+
+        // The main window is away on another page: no shell listens.
+        requests.Open(id);
+
+        var shell = new List<Guid?>();
+        using var shellListener = requests.Listen(shell.Add);
+
+        Assert.Equal([id], poppedOut);
+        Assert.Equal([id], shell);
+    }
+
+    [Fact]
     public void A_request_with_listeners_is_not_kept_for_a_later_one()
     {
         var requests = new NotificationCentreRequests();
