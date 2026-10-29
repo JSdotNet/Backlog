@@ -78,6 +78,11 @@ public class BacklogMcpToolsTests
                 "mark_session_request",
                 "list_session_requests",
 
+                // The Manager's answer deliveries, beside them (local ADR 0041).
+                "claim_delivery",
+                "mark_delivery",
+                "list_deliveries",
+
                 // Notifications' four (local ADR 0039).
                 "notify",
                 "ask",
@@ -272,6 +277,8 @@ public class BacklogMcpToolsTests
             GoalTools.DeleteGoal,
             SessionRequestTools.ClaimSessionRequest,
             SessionRequestTools.MarkSessionRequest,
+            SessionRequestTools.ClaimDelivery,
+            SessionRequestTools.MarkDelivery,
             NotificationTools.Notify,
             NotificationTools.Ask,
             NotificationTools.Close,

@@ -209,7 +209,8 @@ public static class BacklogMcpTools
 
     /// <summary>
     /// The dispatcher tools of local ADR 0038 §4 — claim a session request, report what
-    /// came of it, list the queue — behind <c>session-requests</c>, the key that also
+    /// came of it, list the queue — and the answer delivery tools beside them (local ADR
+    /// 0041, Amends), behind <c>session-requests</c>, the key that also
     /// gates the Start session action and the wait route (§5). Its own key rather than
     /// <c>sessions</c>: the queue is off by default while its dispatchers are built, and
     /// somebody who watches sessions has not thereby asked for sessions to be started.
@@ -220,7 +221,10 @@ public static class BacklogMcpTools
         [
             SessionRequestTools.ClaimSessionRequest,
             SessionRequestTools.MarkSessionRequest,
-            SessionRequestTools.ListSessionRequests
+            SessionRequestTools.ListSessionRequests,
+            SessionRequestTools.ClaimDelivery,
+            SessionRequestTools.MarkDelivery,
+            SessionRequestTools.ListDeliveries
         ]);
 
     /// <summary>

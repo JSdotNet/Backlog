@@ -437,6 +437,11 @@ public sealed record AnnotationsPayload(
 /// <paramref name="Repository"/> and never folded into it: one is a fact about
 /// the session and the other a fact about this machine's Repositories screen, and
 /// they fail differently.</param>
+/// <param name="State">The session's state; <c>Waiting</c> while it holds an open waiting
+/// question (local ADR 0041), which the Manager's capacity count leaves out.</param>
+/// <param name="DesktopSessionId">The Claude desktop app's id for the session — the id its
+/// session tools take — where its session store holds a record on this machine, else null.
+/// What the Manager matches its dispatched sessions against.</param>
 public sealed record SessionPayload(
     string Id,
     string Agent,
@@ -450,7 +455,8 @@ public sealed record SessionPayload(
     DateTimeOffset LastActivityAt,
     string State,
     int? TurnCount,
-    string Origin);
+    string Origin,
+    string? DesktopSessionId = null);
 
 /// <summary>
 /// The sessions this machine can describe.

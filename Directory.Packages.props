@@ -169,6 +169,13 @@
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
 
     <!--
+      The screen lock and unlock events the desktop head's presence reads (local ADR 0041).
+      Part of the Windows Desktop shared framework, which the MAUI head does not take, so
+      it is named here; only Backlog.Desktop references it.
+    -->
+    <PackageVersion Include="Microsoft.Win32.SystemEvents" Version="10.0.13" />
+
+    <!--
       Pinned to the version Microsoft.AspNetCore.Authentication.JwtBearer 10.0.11
       already resolves transitively (via Microsoft.IdentityModel.Protocols.OpenIdConnect
       8.19.2). The sync service issues its own device tokens with JsonWebTokenHandler,

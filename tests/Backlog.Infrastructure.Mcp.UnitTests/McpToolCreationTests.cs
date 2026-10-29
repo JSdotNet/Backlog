@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -56,6 +57,7 @@ public class McpToolCreationTests
         SurfaceTools.GetRun,
         GoalTools.ListGoals,
         SessionRequestTools.ListSessionRequests,
+        SessionRequestTools.ListDeliveries,
         NotificationTools.GetAnswer
     ];
 
@@ -138,6 +140,7 @@ public class McpToolCreationTests
                 NotificationTools.Ask,
                 GoalTools.AttachToGoal,
                 DevbookTools.CaptureNote,
+                SessionRequestTools.ClaimDelivery,
                 SessionRequestTools.ClaimSessionRequest,
                 NotificationTools.Close,
                 TrackerTools.Comment,
@@ -148,6 +151,7 @@ public class McpToolCreationTests
                 SurfaceTools.FinishRun,
                 TrackerTools.LinkChange,
                 TrackerTools.LinkSession,
+                SessionRequestTools.MarkDelivery,
                 SessionRequestTools.MarkSessionRequest,
                 NotificationTools.Notify,
                 SurfaceTools.OpenDashboard,
@@ -208,11 +212,14 @@ public class McpToolCreationTests
         Assert.Equal(["id"], schemas["delete_goal"]);
         Assert.Equal(["title", "summary", "body", "severity", "sessionId"], schemas["notify"]);
         Assert.Equal(
-            ["title", "choices", "allowMultiple", "openAnswer", "placeholder", "summary", "body", "severity", "sessionId"],
+            ["title", "choices", "allowMultiple", "openAnswer", "placeholder", "summary", "body", "severity", "sessionId", "toolUseId", "questions", "kind"],
             schemas["ask"]);
-        Assert.Equal(["id", "sessionId"], schemas["get_answer"]);
-        Assert.Equal(["id", "reason", "sessionId"], schemas["close"]);
-        Assert.Equal(["title"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "ask")));
+        Assert.Equal(["id", "sessionId", "waitSeconds"], schemas["get_answer"]);
+        Assert.Equal(["id", "reason", "sessionId", "answers"], schemas["close"]);
+
+        // A session hook relaying its question passes questions instead of a title (local ADR 0041),
+        // so ask requires neither at the schema level; the tool refuses a call with neither.
+        Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "ask")));
         Assert.Equal(["id"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "get_answer")));
         Assert.Equal(["id", "text"], schemas["comment"]);
         Assert.Equal(["id", "repository", "externalId"], schemas["link_change"]);
@@ -269,6 +276,40 @@ public class McpToolCreationTests
         // 0041 §6 are each optional, and advertised so a model knows they exist.
         Assert.Equal(["surface", "target", "plan", "entry", "chapter", "scope"], schemas["open_window"]);
         Assert.Equal(["surface", "target"], Required(Tools().Single(tool => tool.ProtocolTool.Name == "open_window")));
+        // The delivery tools take a delivery id and a dispatcher, never a message (local ADR 0041).
+        Assert.Equal(["id", "dispatcher"], schemas["claim_delivery"]);
+        Assert.Equal(["id", "outcome", "dispatcher"], schemas["mark_delivery"]);
+        Assert.Equal(["state"], schemas["list_deliveries"]);
+        Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_deliveries")));
+    }
+
+    /// <summary>
+    /// The notification tools build the way the SDK builds them, with the question relay and
+    /// its timings composed or not: a host without them keeps the Notifications-only tools.
+    /// </summary>
+    [Fact]
+    public async Task The_notification_tools_build_with_or_without_the_question_relay()
+    {
+        var port = new FakeNotifications();
+        var relay = new FakeQuestionRelay(TimeProvider.System);
+
+        var bare = ActivatorUtilities.CreateInstance<NotificationTools>(new ServiceCollection()
+            .AddSingleton<INotifications>(port)
+            .AddSingleton<INotificationStatuses>(port)
+            .BuildServiceProvider());
+        var relayed = ActivatorUtilities.CreateInstance<NotificationTools>(new ServiceCollection()
+            .AddSingleton<INotifications>(port)
+            .AddSingleton<INotificationStatuses>(port)
+            .AddSingleton<IQuestionRelay>(relay)
+            .BuildServiceProvider());
+
+        AskQuestion[] questions = [new("What should the module be called?")];
+        await Assert.ThrowsAsync<ModelContextProtocol.McpException>(() =>
+            bare.AskAsync(sessionId: "sess-1", questions: questions, cancellationToken: TestContext.Current.CancellationToken));
+        var payload = await relayed.AskAsync(sessionId: "sess-1", questions: questions, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("session", payload.Route);
+        Assert.Single(relay.Asked);
     }
 
     /// <summary>

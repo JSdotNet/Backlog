@@ -622,6 +622,7 @@ public sealed class McpServerWorker : IDisposable
                 context.Request.Body,
                 context.Request.ContentLength,
                 context.RequestServices.GetRequiredService<IDeliveryRunTelemetry>(),
+                context.RequestServices.GetService<SessionPrompts>(),
                 context.RequestAborted).ConfigureAwait(false);
         });
 
@@ -645,6 +646,10 @@ public sealed class McpServerWorker : IDisposable
             if (reply.Body.Length > 0) await context.Response.Body.WriteAsync(reply.Body, context.RequestAborted).ConfigureAwait(false);
         });
 
+        // And the question relay's hook script (local ADR 0041), the bytes this app embeds
+        // and writes to <app data>\hooks on start, behind the same guard.
+        app.MapGet(AskBacklogHook.RoutePath, () => Results.Bytes(AskBacklogHook.Bytes, AskBacklogHook.ContentType));
+
         // And the long poll a dispatcher waits on for session requests (local ADR 0038
         // §4), behind the same guard: the bearer token is the one /mcp takes. It
         // answers 404 while the session-requests flag is off.
@@ -658,7 +663,9 @@ public sealed class McpServerWorker : IDisposable
                     context.RequestServices.GetRequiredService<ISessionRequestStore>(),
                     context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
                     TimeProvider.System,
-                    context.RequestAborted).ConfigureAwait(false);
+                    context.RequestAborted,
+                    questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
+                    sessions: context.RequestServices.GetService<IAgentSessionSource>()).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
             {
@@ -938,10 +945,13 @@ public sealed class McpServerWorker : IDisposable
     /// filters resolve it from the request, so it appears in no tool's
     /// constructor and would be missed by the reflection below.
     /// <see cref="IDeliveryRunTelemetry"/> is named for the same reason: the
-    /// telemetry route beside <c>/mcp</c> resolves it, and no tool does; and
+    /// telemetry route beside <c>/mcp</c> resolves it, and no tool does, and
+    /// <see cref="SessionPrompts"/> beside it, which the same route feeds; and
     /// <see cref="IClaudeApiRequestStore"/> for the OTLP logs route beside it, and
     /// <see cref="ISessionRequestStore"/> for the session-request wait route, which the
-    /// dispatcher tools would carry across anyway but the route must not depend on.
+    /// dispatcher tools would carry across anyway but the route must not depend on, and
+    /// <see cref="IWaitingQuestionStore"/> and <see cref="IAgentSessionSource"/> beside it
+    /// for the answer deliveries the same route hands out, on the same grounds.
     /// </para>
     /// <para>
     /// The probe is <see cref="IServiceProviderIsService"/>, which every
@@ -959,8 +969,11 @@ public sealed class McpServerWorker : IDisposable
             .Select(parameter => parameter.ParameterType)
             .Append(typeof(IAppFeatureSettings))
             .Append(typeof(IDeliveryRunTelemetry))
+            .Append(typeof(SessionPrompts))
             .Append(typeof(IClaudeApiRequestStore))
             .Append(typeof(ISessionRequestStore))
+            .Append(typeof(IWaitingQuestionStore))
+            .Append(typeof(IAgentSessionSource))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)

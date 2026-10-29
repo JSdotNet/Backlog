@@ -116,6 +116,8 @@
          implicit reference is; why the version is pinned is at its PackageVersion
          in Directory.Packages.props. -->
     <PackageReference Include="Microsoft.AspNetCore.App.Internal.Assets" PrivateAssets="all" />
+    <!-- SessionSwitch: the screen lock and unlock WindowsInputActivity reads. -->
+    <PackageReference Include="Microsoft.Win32.SystemEvents" />
   </ItemGroup>
 
   <ItemGroup>

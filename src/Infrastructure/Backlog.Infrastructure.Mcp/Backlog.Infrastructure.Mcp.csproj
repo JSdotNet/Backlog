@@ -50,7 +50,9 @@
     <!-- IDevbookFolderSource and IDevbookAnnotationStore: where a chapter is,
          and the private reading notes against it (local ADR 0011). -->
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
-    <!-- IAgentSessionSource, for the sessions running on this machine. -->
+    <!-- IAgentSessionSource, for the sessions running on this machine, and
+         IQuestionRelay, the question relay ask, get_answer and close reach
+         for a session's own question (local ADR 0041). -->
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <!-- IImpediments: the impediments raise_impediment and set_impediment_state write. -->
     <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />

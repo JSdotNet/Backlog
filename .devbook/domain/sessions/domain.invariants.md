@@ -89,6 +89,19 @@ type: invariant
 
 Enforced at: `AgentSessionState` (Running, Stalled, Finished)
 
+### Invariant: An open Waiting Question makes a live session Waiting
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.An_open_waiting_question_makes_a_live_session_waiting, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.An_open_question_makes_a_live_session_waiting, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.A_finished_idle_session_keeps_its_question_open]
+```
+
+A session that would read Running or Stalled reads Waiting while it holds a Waiting Question in InSession or Notified, and a Finished session never reads Waiting.
+The relay registers every question a session asks, so the waiting state is derived from that record rather than claimed (local ADR 0041).
+
+Enforced at: `WaitingQuestions.StateWith()`, `WaitingSessionSource` (the session list reads the relay last)
+
 ### Invariant: The log never fills a gap
 
 ```meta
@@ -961,3 +974,115 @@ tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.SessionRequestsTests.A_St
 A Linked or Cancelled request changes no further: it cannot be claimed, reported, linked again or cancelled.
 
 Enforced at: `SessionRequests.Claim()`, `Report()`, `Link()` and `Cancel()` (ADR 0038 §3)
+
+## Question Relay
+
+```meta
+status: draft
+type: invariants
+related: [.devbook/domain/sessions/domain.md#question-relay]
+```
+
+> The rules the relay holds every waiting question and every delivery to (local ADR 0041). `WaitingQuestions` holds the transitions, the delivery's claim among them, `QuestionRelay` the route, the publishing and the answers, `SqliteWaitingQuestionStore` the record, and the session-request tools and the dispatch wait route hand the deliveries to the Manager.
+
+### Invariant: Presence picks the route once
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Asked_at_the_keyboard_it_stays_in_the_session_until_the_notify_delay_passes, unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Asked_while_away_it_is_routed_to_backlog_and_due_at_once, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.A_held_question_is_published_by_the_escalation_timer_once_the_delay_passes]
+```
+
+A Waiting Question's route is set from the person's Presence when it is asked, and never changes: an InSession question becomes Notified only when its escalate at passes.
+The caller passes the question and never a route, because only the desktop knows where the person is.
+
+Enforced at: `WaitingQuestions.Ask()` (the route, set once), `QuestionRelay.AskAsync()` (presence read when asked), `QuestionRelay.EscalateDueAsync()`
+
+### Invariant: Presence never takes a question back
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Publishing_takes_one_notification_per_question_and_never_goes_back]
+```
+
+A Notified question never returns to InSession; only an answer, the session's end or the hook's timeout ends it.
+Opening Backlog to answer is input too, so a question taken back on input would close as the person reached for it.
+
+Enforced at: `WaitingQuestions.Notify()`, `Postpone()` (InSession only); nothing moves a Notified question back
+
+### Invariant: One Waiting Question per tool use
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Registering_the_same_session_and_tool_use_finds_the_first_question, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.Registering_the_same_session_and_tool_use_twice_returns_the_existing_question, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteWaitingQuestionStoreTests.Registering_the_same_session_and_tool_use_twice_returns_the_first]
+```
+
+A second `ask` for the same session and tool use answers the question already registered and publishes nothing new.
+Hooks installed at two scopes both fire for one dialog.
+
+Enforced at: `WaitingQuestions.DuplicateOf()`, `SqliteWaitingQuestionStore.RegisterAsync()` (one immediate transaction)
+
+### Invariant: Answered and Closed are final
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Answered_and_Closed_are_final, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.A_replayed_answer_changes_nothing]
+```
+
+An Answered or Closed question changes no further; an answer that arrives after it closed is not delivered.
+
+Enforced at: `WaitingQuestions.Answer()`, `Close()`, `Notify()`
+
+### Invariant: An answer in the session closes the question everywhere
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.WaitingQuestionsTests.Answered_in_the_session_it_is_answered_with_the_answers_and_gets_no_delivery, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.QuestionRelayTests.Answered_in_the_session_closes_its_notifications_with_the_answers]
+```
+
+A question answered in the session moves to Answered, closes each of its notifications with the answers, and gets no delivery.
+
+Enforced at: `WaitingQuestions.Close()`, `QuestionRelay.CloseAsync()` (each notification closed with its answer)
+
+### Invariant: A delivery carries only the stored question and the accepted answer
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_delivery_carries_the_stored_question_and_the_accepted_answer, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_dialog_of_several_questions_is_delivered_numbered_one_per_line, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_delivery_is_handed_out_before_an_older_session_request]
+```
+
+A delivery holds the session id, the question as the session asked it and the answer the owner accepted, and nothing else the Manager could act on.
+The Manager never answers a question itself, and writes its message from these alone.
+
+Enforced at: `WaitingQuestions.DeliveryText()`, `AnswerDeliveryPayload.From()` (ADR 0041 §3)
+
+### Invariant: Only one Manager holds a delivery
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_second_dispatcher_cannot_claim_a_held_delivery, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_lapsed_claim_reads_as_pending_again_and_can_be_claimed_by_another, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.Delivered_is_final, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.Only_the_holder_marks_a_delivery, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_lapsed_claim_nobody_took_since_is_still_marked_delivered_by_its_claimant, unit:dotnet:Backlog.Modules.Sessions.UnitTests.AnswerDeliveriesTests.A_released_delivery_is_pending_and_held_back_from_the_route_for_one_lease, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.DeliveryToolsTests.A_lapsed_claim_reads_as_pending_and_its_holder_can_no_longer_release_it]
+```
+
+A delivery is claimed only while Pending, under a two-minute lease; a lease that runs out reads as Pending again, and Delivered is final.
+Only the dispatcher holding the claim marks it, but its `delivered` still counts after its lease ran out while nobody else claimed it, because the answer was sent; a release holds the delivery back from the wait route and from a new claim for one lease.
+
+Enforced at: `WaitingQuestions.ClaimDelivery()`, `MarkDelivered()`, `ReleaseDelivery()`, applied in one write by `SqliteWaitingQuestionStore.ChangeAsync()` (ADR 0041, Amends)
+
+### Invariant: Deliveries come before session requests, and only for a session the desktop app holds open
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_delivery_is_handed_out_before_an_older_session_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.Deliveries_are_handed_out_oldest_answer_first, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_delivery_whose_session_the_desktop_app_does_not_hold_open_is_not_handed_out, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionRequestWaitEndpointTests.A_released_delivery_is_held_back_for_one_lease]
+```
+
+The dispatch wait route hands out a due delivery, oldest answer first, before any session request, because its session already holds a worktree.
+A delivery whose session the Claude desktop app holds no open record of is never handed out: a CLI session gets its answer only through the hook or in the session, and an ended one has nobody to send it to.
+
+Enforced at: `SessionRequestWaitEndpoint.WaitAsync()`, `WaitingQuestions.DueDeliveries()`, `DesktopSessionIds` (ADR 0041, Amends)

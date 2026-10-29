@@ -273,6 +273,8 @@ _ = app.Services.GetRequiredService<LinkedTaskSyncWorker>();
 // And the blocked-task watcher, on the same terms and for the same reason the desktop
 // head resolves it.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
+// The question relay's escalation timer (local ADR 0041), as the desktop head starts it.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 
 // And the notifications startup pass, on the same terms and for the same reason the desktop
 // head starts it.
@@ -314,7 +316,9 @@ app.UseWhen(
         // And Claude Code's OTLP logs (local ADR 0024), on the same terms.
         || context.Request.Path.StartsWithSegments(ClaudeCodeLogsEndpoint.RoutePath)
         // And the session-request long poll a dispatcher waits on (local ADR 0038).
-        || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath),
+        || context.Request.Path.StartsWithSegments(SessionRequestWaitEndpoint.RoutePath)
+        // And the question relay's hook script (local ADR 0041).
+        || context.Request.Path.StartsWithSegments(AskBacklogHook.RoutePath),
     branch => branch.Use(async (context, next) =>
     {
         // The same predicate the desktop listener refuses on, and the same
@@ -342,6 +346,10 @@ app.MapRazorComponents<App>()
 // given — read it off the Aspire dashboard, never from a previous session.
 app.MapMcp(BacklogMcpServerRegistration.EndpointPath);
 
+// And the question relay's hook script the desktop app serves beside /mcp (local ADR
+// 0041). Served only: the harness is not the installed app, so it writes no hooks folder.
+app.MapGet(AskBacklogHook.RoutePath, () => Results.Bytes(AskBacklogHook.Bytes, AskBacklogHook.ContentType));
+
 // And the hook telemetry a session forwards, attributed to the run it is driving —
 // into this harness's profile folders, which are the real ones.
 app.MapPost(BacklogTelemetryEndpoint.RoutePath, async context =>
@@ -350,6 +358,7 @@ app.MapPost(BacklogTelemetryEndpoint.RoutePath, async context =>
         context.Request.Body,
         context.Request.ContentLength,
         context.RequestServices.GetRequiredService<IDeliveryRunTelemetry>(),
+        context.RequestServices.GetService<SessionPrompts>(),
         context.RequestAborted);
 });
 
@@ -386,7 +395,9 @@ app.MapGet(SessionRequestWaitEndpoint.RoutePath, async context =>
             context.RequestServices.GetRequiredService<ISessionRequestStore>(),
             context.RequestServices.GetRequiredService<IAppFeatureSettings>(),
             TimeProvider.System,
-            context.RequestAborted);
+            context.RequestAborted,
+            questions: context.RequestServices.GetService<IWaitingQuestionStore>(),
+            sessions: context.RequestServices.GetService<IAgentSessionSource>());
     }
     catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
     {

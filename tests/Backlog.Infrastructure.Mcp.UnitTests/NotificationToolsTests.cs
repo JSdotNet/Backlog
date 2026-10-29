@@ -270,7 +270,7 @@ public sealed class NotificationToolsTests
         var port = new FakeNotifications();
         var id = port.Seed(NotificationState.Open, subject: new NotificationSubject("sessions", "session", "sess-other"));
 
-        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).GetAnswerAsync(id, Session, Cancellation));
+        var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).GetAnswerAsync(id, Session, cancellationToken: Cancellation));
 
         Assert.StartsWith("notification.not_found", failure.Message, StringComparison.Ordinal);
     }
@@ -282,7 +282,7 @@ public sealed class NotificationToolsTests
         var id = port.Seed(NotificationState.Open, subject: new NotificationSubject("sessions", "session", Session));
 
         await Assert.ThrowsAsync<McpException>(() => Tools(port).GetAnswerAsync(id, cancellationToken: Cancellation));
-        Assert.Equal("pending", (await Tools(port).GetAnswerAsync(id, Session, Cancellation)).Status);
+        Assert.Equal("pending", (await Tools(port).GetAnswerAsync(id, Session, cancellationToken: Cancellation)).Status);
     }
 
     [Fact]
@@ -293,7 +293,7 @@ public sealed class NotificationToolsTests
         var id = (await tools.AskAsync("Pick a name", ["Signals", "Pulse"], cancellationToken: Cancellation)).Id;
 
         Assert.Equal("pending", (await tools.GetAnswerAsync(id, cancellationToken: Cancellation)).Status);
-        Assert.Equal("pending", (await tools.GetAnswerAsync(id, Session, Cancellation)).Status);
+        Assert.Equal("pending", (await tools.GetAnswerAsync(id, Session, cancellationToken: Cancellation)).Status);
     }
 
     [Fact]
@@ -312,7 +312,7 @@ public sealed class NotificationToolsTests
         var port = new FakeNotifications();
         var id = port.Seed(NotificationState.Open, subject: new NotificationSubject("sessions", "session", Session));
 
-        var payload = await Tools(port).CloseAsync(id, "Decided without it", Session, Cancellation);
+        var payload = await Tools(port).CloseAsync(id, "Decided without it", Session, cancellationToken: Cancellation);
 
         Assert.Equal((id, "Decided without it"), Assert.Single(port.Closed));
         Assert.Equal(("closed", "Decided without it"), (payload.Status, payload.Reason));

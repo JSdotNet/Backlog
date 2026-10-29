@@ -200,6 +200,19 @@ public static class MauiProgram
         // plan entry), and the channel a press in one opens the shell's centre through.
         builder.Services.TryAddSingleton<Backlog.Modules.Notifications.UI.NotificationCentreRequests>();
         builder.Services.TryAddSingleton<WindowsAppNotifications>();
+        // Whether the person is at this keyboard (local ADR 0041): idle time and the screen
+        // lock from Windows, the last prompt per session from the hook telemetry route, and
+        // "away after" read from the workspace settings on every question. This head's
+        // own, because only it can read Windows input; presence never leaves the desktop.
+        builder.Services.TryAddSingleton<IInputActivity, WindowsInputActivity>();
+        builder.Services.TryAddSingleton<IPresence>(sp =>
+        {
+            var settings = sp.GetRequiredService<WorkspaceSettingsStore>();
+            return new Presence(
+                sp.GetRequiredService<IInputActivity>(),
+                sp.GetRequiredService<SessionPrompts>(),
+                () => settings.Presence.AwayAfter);
+        });
         // What the tools pane asks about that server: the port, the address it
         // makes, and whether the socket was taken. Beside the worker
         // because it reads it — and through a Func, so that resolving the tool
@@ -291,6 +304,9 @@ public static class MauiProgram
         // And the blocked-task watcher, on the same terms: it raises an impediment for a
         // task marked blocked (local ADR 0035), and a watcher nobody resolves hears nothing.
         _ = app.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.BlockedTaskWatcher>();
+        // The question relay's escalation timer (local ADR 0041): it publishes a waiting
+        // question still open in its session once the notify delay passes.
+        _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sessions.QuestionRelayEscalation>();
 
         // And the Windows notifications, before the notifications startup pass below: listening
         // first, so a notification that pass closes takes its Windows notification down with it.
@@ -298,6 +314,10 @@ public static class MauiProgram
         // delivered once it is up, and raising one for every alert or question published from
         // here on.
         app.Services.GetRequiredService<WindowsAppNotifications>().Start();
+
+        // Presence's input reading subscribes to the screen lock on construction, so it is
+        // built now rather than at the first question: a lock before then would be missed.
+        _ = app.Services.GetRequiredService<IInputActivity>();
 
         // And the notifications startup pass (local ADR 0039): it closes the open notifications
         // whose subject ended while the app was closed, and hands every stored answer no handler
@@ -311,6 +331,24 @@ public static class MauiProgram
         // There is no switch in front of it: the MCP server is always on while
         // the app runs.
         _ = app.Services.GetRequiredService<McpServerWorker>();
+
+        // And the question relay's hook script (local ADR 0041), written to <app data>\hooks
+        // on every start so the installed hook is always this app's own. On the thread pool,
+        // never ahead of the first window; a failure is logged and the app carries on.
+        var hookLog = app.Services.GetService<ILoggerFactory>()?.CreateLogger(typeof(AskBacklogHook));
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                AskBacklogHook.Install(WorkspaceSettingsStore.DefaultAppDataDirectory);
+            }
+            catch (Exception ex)
+            {
+                // Whatever it was - a locked file, a missing resource - the app runs without
+                // an up-to-date hook rather than not at all; the served route still answers.
+                hookLog?.LogError(ex, "The question hook script could not be written to the app data folder.");
+            }
+        });
 
         // And the devbook database refresher, which is nothing until something
         // reads a devbook: resolving it configures where every reader looks for a
