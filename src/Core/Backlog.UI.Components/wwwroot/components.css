@@ -7957,6 +7957,135 @@ button.task-panel__check:focus-visible {
     word-break: normal;
 }
 
+/* --- Markdown live editor ------------------------------------------------ */
+/*
+   A document read and edited in one place: every block rendered, except the one
+   holding the caret, which shows its source where the block was.
+
+   Each block keeps the same box whether it is rendered or open — the same
+   padding, the same edge — so opening one changes what is inside the box and
+   not where the box is. The text still reflows, because the source is set in
+   the mono face and the prose is not; the frame around it does not move.
+*/
+.markdown-live {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+/* The edge is there before it is shown: transparent at rest, so hovering a
+   block draws a line rather than pushing everything below it down by one. */
+.markdown-live__block {
+    position: relative;
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid transparent;
+    border-radius: var(--border-radius-sm);
+    cursor: text;
+}
+
+/* A block's own outer margins are the read view's spacing between blocks; here
+   the column's gap is, and both together would double it. */
+.markdown-live__block > :first-child {
+    margin-top: 0;
+}
+
+.markdown-live__block > :last-child {
+    margin-bottom: 0;
+}
+
+.markdown-live__block:hover {
+    border-color: var(--color-border);
+}
+
+.markdown-live__block:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* The open block sits on the deep surface, the way MarkdownEditor's box does:
+   it is source now, and source is what that surface means. */
+.markdown-live__block--active {
+    border-color: var(--color-border);
+    background: var(--color-background);
+    cursor: auto;
+}
+
+.markdown-live__block--active:focus-within {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* Nothing opens, so nothing says it would. */
+.markdown-live--disabled .markdown-live__block {
+    cursor: default;
+}
+
+.markdown-live--disabled .markdown-live__block:hover {
+    border-color: transparent;
+}
+
+/* The grow wrapper, as the box's positioning grid only. `.grow-wrap` pads itself
+   for a field with a border of its own, and the block around this already
+   carries the padding; both would indent the source past the prose it opened
+   from. Declared after `.grow-wrap` and at its weight, so position decides. */
+.markdown-live__grow {
+    padding: 0;
+}
+
+.markdown-live__input {
+    display: block;
+    width: 100%;
+    margin: 0;
+    background: transparent;
+    color: var(--color-text-primary);
+    resize: none;
+    overflow: hidden;
+}
+
+/* Chrome, not content, and set the way editor chrome is set
+   (.devbook/design/content-editing.md#editing-model): it says where to start,
+   and it is not text anyone wrote. */
+.markdown-live__input::placeholder {
+    color: var(--color-text-secondary);
+}
+
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the
+   ring belongs to the open block around the box, `.markdown-live__block--active:focus-within`
+   above, at the same weight and offset as every other ring. A second outline
+   hugging the text inside it would draw a box inside a box. */
+.markdown-live__input:focus-visible {
+    outline: none;
+}
+
+/* Lines the editor does not understand as a block, said to be source before they
+   are read as prose. */
+.markdown-live__raw-label {
+    display: block;
+    margin-bottom: var(--spacing-2xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.markdown-live__raw {
+    margin: 0;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--color-text-secondary);
+}
+
+/* The footnotes, under the blocks and aligned with their text: the same inset a
+   block's padding and edge give it. */
+.markdown-live__notes {
+    padding: 0 calc(var(--spacing-sm) + var(--border-width));
+}
+
 /* --- Markdown syntax colours --------------------------------------------- */
 /*
    The editor is a source view, so it takes the --code-* theme rather than the

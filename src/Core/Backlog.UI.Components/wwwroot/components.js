@@ -980,6 +980,389 @@
         }
     };
 
+    /*
+        The live editor's edges: where a key or a click stops being the
+        textarea's, or a control's, and becomes the document's.
+
+        Blazor cannot decide either. Whether ArrowUp leaves the box depends on
+        where the caret is, and a key can only be kept from the textarea by a
+        handler that runs before the browser acts on it — a preventDefault bound
+        to component state is one key late. Whether a click opens a block depends
+        on what it landed on, and a Blazor click says nothing about that. So both
+        are read here, at the moment they happen, and only the decision crosses
+        to C#:
+
+        - ArrowUp with the caret on the first line, ArrowDown on the last, no
+          selection: the neighbouring block opens. At the first or last block
+          nothing opens, and the caret goes where the key would have taken it.
+        - Backspace at the very start, Delete at the very end: the box grows
+          over the neighbour, so the next key removes the line break.
+        - Escape: the block closes, and focus stays on it.
+        - A click, Enter or Space on a rendered block opens it — on the block
+          itself, never on a control inside it.
+        - Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y (Cmd on a Mac), in the box or on a
+          focused block: the document's undo and redo, never the textarea's.
+
+        Apart from those, a modified key is never taken — Shift extends a selection, and the
+        others belong to the platform.
+
+        Nothing here stops an event. Blazor, its router and every dismiss
+        listener hear events on the document, so a stop on the way up is a stop
+        for all of them, the control's own handler included. The block's handlers
+        in C# stand down instead, for as long as this is watching — which is what
+        `watch` returning true tells them.
+
+        One listener on the editor rather than one on the textarea, because the
+        textarea comes and goes with every block opened and a listener on it
+        would go with it.
+    */
+    const backlogMarkdownLiveWatchers = new Map();
+
+    // What a click or a key inside a rendered block belongs to when it lands on
+    // one of these: the control, not the block. A table's scroll region takes a
+    // tab stop too, but it is part of the table, so a bare tabindex is not here.
+    const backlogMarkdownLiveControls = [
+        'a[href]', 'button', 'input', 'select', 'textarea', 'summary', 'label', 'iframe',
+        '[contenteditable]', '[role="button"]', '[role="checkbox"]', '[role="link"]',
+        '[role="switch"]', '[role="tab"]', '[role="menuitem"]'
+    ].join(', ');
+
+    // How long a move may keep the box's keys before they are given back. A
+    // move ends when its focus lands; this is only for one whose focus never
+    // does — a render the circuit lost.
+    const backlogMarkdownLiveMoveLimit = 1000;
+
+    window.backlogMarkdownLive = {
+        watch(root, dotnet, id) {
+            if (!root || !dotnet) return false;
+
+            this.unwatch(id);
+
+            const isSource = (element) =>
+                element instanceof HTMLTextAreaElement
+                && element.classList.contains('markdown-live__input')
+                && root.contains(element);
+
+            const blockOf = (element) => {
+                const block = element?.closest?.('[data-live-block]');
+                return block && root.contains(block) ? block : null;
+            };
+
+            const onControl = (element, block) => {
+                const control = element?.closest?.(backlogMarkdownLiveControls);
+                return !!control && control !== block && block.contains(control);
+            };
+
+            const call = (method, ...args) =>
+                dotnet.invokeMethodAsync(method, ...args).catch(() => undefined);
+
+            /*
+                A move is a call that puts the box somewhere else: a step, a join,
+                a block opened, Escape, an undo or a redo. Until its render has
+                landed and focus is in the new place, the box on screen is still
+                the old block's — so a key typed into it now would be raised as
+                the old block's text and spliced over the new block's lines. Its
+                keys are kept from it until the move ends, and focus leaving it is
+                not the reader leaving: the render took it away.
+
+                Kept, not lost. A reader who presses ArrowDown and goes straight on
+                typing means the text for the block below, so the printable keys
+                and Enter are held, and when the move ends they go into the box it
+                landed in, at the caret, as one input. When nothing moved — the
+                call answered false, or the backstop ran out — they go back into
+                the box they were typed in. A paste, a drop or an IME composition
+                mid-move is still refused: it is not keys, and replaying it is not
+                ours to do.
+            */
+            let moving = false;
+            let moveTimer = 0;
+            let held = '';
+            let heldIn = null;
+
+            const release = (into) => {
+                const text = held;
+                const from = heldIn;
+                held = '';
+                heldIn = null;
+                if (!text) return;
+
+                const box = [into, from, root.querySelector('textarea.markdown-live__input')].find(isSource);
+                if (!box) return;
+
+                box.setRangeText(text, box.selectionStart ?? 0, box.selectionEnd ?? 0, 'end');
+                box.dispatchEvent(new Event('input', { bubbles: true }));
+            };
+
+            const settle = (into) => {
+                clearTimeout(moveTimer);
+                moving = false;
+                release(into);
+            };
+
+            /*
+                One move at a time. While one is in flight nothing starts another:
+                the keys that would are held or dropped above, and a click is
+                ignored below. So the buffer always belongs to the newest move,
+                and only that move's own end lets it go — the focus its render
+                asks for, its own false answer, or the backstop. A second move
+                that released the buffer on its way in would write it into the
+                old block's box, still on screen, and splice that block's text
+                over the region the first move had already opened.
+
+                `stay` is where the caret goes when nothing moved — where the key
+                would have taken it in one textarea. It is applied before the held
+                keys go back in, and measured on the box as it is then, so they
+                land after it rather than where the caret stood before the key.
+            */
+            let generation = 0;
+
+            const move = (method, args = [], stay = null) => {
+                if (moving) return Promise.resolve(undefined);
+
+                const mine = ++generation;
+                moving = true;
+                moveTimer = setTimeout(() => settle(), backlogMarkdownLiveMoveLimit);
+
+                return call(method, ...args).then((changed) => {
+                    if (changed !== true && moving && mine === generation) {
+                        const box = [heldIn, root.querySelector('textarea.markdown-live__input')].find(isSource);
+                        if (box && stay) stay(box);
+                        settle();
+                    }
+
+                    return changed;
+                });
+            };
+
+            const open = (block) => move('ActivateAsync', [Number(block.dataset.liveBlock)]);
+
+            // Which history command a key is, if any: Ctrl+Z or Cmd+Z undoes,
+            // Ctrl+Shift+Z, Cmd+Shift+Z and Ctrl+Y redo.
+            const historyFor = (event) => {
+                if (!(event.ctrlKey || event.metaKey) || event.altKey) return null;
+
+                const key = event.key.toLowerCase();
+                if (key === 'z') return event.shiftKey ? 'RedoAsync' : 'UndoAsync';
+                if (key === 'y' && event.ctrlKey && !event.shiftKey) return 'RedoAsync';
+                return null;
+            };
+
+            const onKeyDown = (event) => {
+                if (event.defaultPrevented || event.isComposing) return;
+
+                const target = event.target;
+                const modified = event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
+                const ours = isSource(target) || blockOf(target) === target;
+
+                // The document's undo, from the box or from a focused block. The
+                // textarea's own would take back only what was typed since the
+                // box last opened, and never what a tick or another block did.
+                const history = historyFor(event);
+                if (history && ours) {
+                    event.preventDefault();
+                    if (!moving) move(history);
+                    return;
+                }
+
+                if (moving && ours) {
+                    event.preventDefault();
+
+                    // AltGr reports Ctrl and Alt together on Windows, and is how
+                    // half of Europe types @, { and €: a character, not a chord.
+                    const altGraph = event.ctrlKey && event.altKey && !event.metaKey;
+                    const printable = [...event.key].length === 1 && !event.metaKey && (altGraph || (!event.ctrlKey && !event.altKey));
+                    if (printable || event.key === 'Enter') held += printable ? event.key : '\n';
+                    else if (event.key === 'Backspace') held = [...held].slice(0, -1).join('');
+                    if (isSource(target)) heldIn = target;
+                    return;
+                }
+
+                if (!isSource(target)) {
+                    const block = blockOf(target);
+                    if (block === target && !modified && (event.key === 'Enter' || event.key === ' ')) {
+                        // Space would scroll the page; on a block it opens it.
+                        event.preventDefault();
+                        open(block);
+                    }
+                    return;
+                }
+
+                if (modified) return;
+
+                const value = target.value ?? '';
+                const start = target.selectionStart ?? 0;
+                const end = target.selectionEnd ?? start;
+                const collapsed = start === end;
+
+                switch (event.key) {
+                    case 'ArrowUp': {
+                        const firstLine = start === 0 || value.lastIndexOf('\n', start - 1) === -1;
+                        if (!collapsed || !firstLine) return;
+
+                        event.preventDefault();
+                        move('StepAsync', [-1], (box) => box.setSelectionRange(0, 0));
+                        return;
+                    }
+
+                    case 'ArrowDown': {
+                        if (!collapsed || value.indexOf('\n', end) !== -1) return;
+
+                        event.preventDefault();
+                        move('StepAsync', [1], (box) => box.setSelectionRange(box.value.length, box.value.length));
+                        return;
+                    }
+
+                    case 'Backspace':
+                        if (!collapsed || start !== 0) return;
+                        event.preventDefault();
+                        move('JoinAsync', [-1]);
+                        return;
+
+                    case 'Delete':
+                        if (!collapsed || end !== value.length) return;
+                        event.preventDefault();
+                        move('JoinAsync', [1]);
+                        return;
+
+                    case 'Escape':
+                        event.preventDefault();
+                        move('LeaveAsync');
+                        return;
+
+                    default:
+                        return;
+                }
+            };
+
+            // What the keys above cannot catch. The browser's own undo and redo —
+            // the Edit menu, the context menu — are the document's too. A paste,
+            // a drop or an IME composition arriving in the old block's box
+            // mid-move is refused.
+            const onBeforeInput = (event) => {
+                if (!isSource(event.target)) return;
+
+                if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
+                    event.preventDefault();
+                    if (!moving) move(event.inputType === 'historyUndo' ? 'UndoAsync' : 'RedoAsync');
+                    return;
+                }
+
+                if (moving) event.preventDefault();
+            };
+
+            // A click opens the block it landed in, unless it landed on a control
+            // in it, or ended a drag that selected some of the block's text — the
+            // reader was copying, not editing.
+            // Never mid-move: the click would start a second move while the first
+            // still holds keys for a box the reader has not seen yet. Ignored, not
+            // queued — the index it carries is from a render the move is about to
+            // replace — so a click in that window is one to make again.
+            const onClick = (event) => {
+                if (moving) return;
+                if (event.defaultPrevented || event.button !== 0) return;
+
+                const block = blockOf(event.target);
+                if (!block || onControl(event.target, block)) return;
+
+                const selection = window.getSelection?.();
+                if (selection && !selection.isCollapsed && block.contains(selection.anchorNode)) return;
+
+                open(block);
+            };
+
+            /*
+                Focus leaving the editor closes the open block, from wherever in
+                the editor it leaves — the box, or a rendered block Tab reached
+                first. Read a turn later, when the browser has settled where focus
+                went: a click on another block moves it to that block, inside the
+                editor, and that block's click opens it.
+            */
+            const onFocusOut = () => {
+                setTimeout(() => {
+                    if (moving || !root.isConnected) return;
+                    if (root.contains(document.activeElement)) return;
+
+                    call('CloseAsync');
+                }, 0);
+            };
+
+            /*
+                Tab onto another rendered block closes the open one: the caret is
+                no longer in it, and the block it left is read again as what it
+                now is. Only for keyboard focus — a press moves focus to the block
+                too, on its way to the click that opens it, and the click already
+                closes the open block first.
+            */
+            const onFocusIn = (event) => {
+                if (moving) return;
+
+                const block = blockOf(event.target);
+                if (block === event.target && block.matches(':focus-visible')) call('CloseAsync');
+            };
+
+            root.addEventListener('keydown', onKeyDown);
+            root.addEventListener('beforeinput', onBeforeInput);
+            root.addEventListener('click', onClick);
+            root.addEventListener('focusout', onFocusOut);
+            root.addEventListener('focusin', onFocusIn);
+            backlogMarkdownLiveWatchers.set(id, {
+                settle,
+                dispose: () => {
+                    settle();
+                    root.removeEventListener('keydown', onKeyDown);
+                    root.removeEventListener('beforeinput', onBeforeInput);
+                    root.removeEventListener('click', onClick);
+                    root.removeEventListener('focusout', onFocusOut);
+                    root.removeEventListener('focusin', onFocusIn);
+                }
+            });
+
+            return true;
+        },
+
+        unwatch(id) {
+            backlogMarkdownLiveWatchers.get(id)?.dispose();
+            backlogMarkdownLiveWatchers.delete(id);
+        },
+
+        // Into the element `id` — the source box, with the caret at `caret`, or
+        // a rendered block, or, given `task`, that many checkboxes into the block
+        // — and the end of the move that put it there, for the editor `owner`:
+        // the keys held during the move go in at the caret. Waited for a few
+        // frames the way backlogFocus waits, because the element arrives with
+        // the render that asked for it.
+        focus(id, caret, owner, task) {
+            const done = (into) => backlogMarkdownLiveWatchers.get(owner)?.settle(into);
+
+            const attempt = (framesLeft) => {
+                const element = document.getElementById(id);
+                if (!element) {
+                    if (framesLeft > 0) requestAnimationFrame(() => attempt(framesLeft - 1));
+                    else done();
+                    return;
+                }
+
+                // A tick's checkbox, drawn anew with its list: the block when the
+                // checkbox is not there, so focus stays in the editor either way.
+                const target = Number.isInteger(task)
+                    ? element.querySelectorAll('button.md-check')[task] ?? element
+                    : element;
+
+                target.focus();
+
+                if (target === element && typeof element.setSelectionRange === 'function') {
+                    const length = (element.value ?? '').length;
+                    const at = Math.max(0, Math.min(caret ?? length, length));
+                    element.setSelectionRange(at, at);
+                }
+
+                done(element);
+            };
+
+            attempt(focusFrames);
+        }
+    };
+
     window.backlogClipboard = {
         copy: async (text) => {
             const value = text ?? '';

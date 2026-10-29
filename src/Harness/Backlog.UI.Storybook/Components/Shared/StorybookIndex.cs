@@ -255,6 +255,13 @@ internal static class StorybookIndex
             new("markdown/diagrams", "Diagrams in markdown", "What happens when a fenced block names a diagram language: MarkdownView hands it to DiagramView."),
             new("markdown/rich-text", "Rich text editing", "MarkdownEditor: a formatting toolbar over the markdown source, and what each button writes."),
 
+            // Beside Rich text editing, the other way of writing markdown: in
+            // place rather than in a box. By the rule — every block it renders is
+            // MarkdownBlockView from the Markdown page, a diagram fence goes to
+            // DiagramView from Diagrams, and the open block is TextArea from
+            // Input and action, all above.
+            new("markdown/live-editing", "Live editing", "MarkdownLiveEditor: every block rendered but the one holding the caret, which opens as its own source — a paragraph, a list, a table or a diagram at a time."),
+
             // Two more subpages of Markdown, about two inlines the parser gives a
             // class of this product's own rather than a plain element. They are
             // here and not under Devbook because neither is a metadata
