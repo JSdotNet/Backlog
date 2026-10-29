@@ -276,8 +276,13 @@
            underneath and comes back as it was. *@
         <nav class="app-header__nav" aria-label="Workspace views">
             <div class="app-header__workspace" data-testid="workspace-navigation">
+                @* Every header item below stands in a header-surface-item beside its ⧉
+                   Open in new window button (local ADR 0040 §4): PopOutButton draws it,
+                   only where the host opens windows. The wrapper is there either way,
+                   so the header's shape does not depend on the host. *@
                 @if (InboxPaneOptionVisible)
                 {
+                    <span class="header-surface-item" data-testid="@($"{InboxSurfaceId}-header-item")">
                     <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="InboxVisible"
@@ -292,6 +297,8 @@
                                             Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
                                             TestId="inbox-feature-status" />
                     </ToggleButton>
+                    @PopOutButton(InboxSurfaceId)
+                    </span>
                 }
 
                 @* The view switch. Tasks, Board and Calendar are always offered; the
@@ -305,6 +312,7 @@
                 <ButtonGroup CssClass="header-group header-group--views"
                              AriaLabel="View"
                              TestId="view-switch">
+                    <span class="header-surface-item" data-testid="@($"{TasksViewId}-header-item")">
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(TasksViewId)"
@@ -316,9 +324,12 @@
                         <ListIcon />
                         <span class="header-nav-label header-nav-label--tier-4">Tasks</span>
                     </ToggleButton>
+                    @PopOutButton(TasksViewId)
+                    </span>
 
                     @* The Board: the Tasks pane's filtered rows in columns of cards,
                        right after Tasks because it is the same rows read another way. *@
+                    <span class="header-surface-item" data-testid="@($"{BoardViewId}-header-item")">
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(BoardViewId)"
@@ -330,9 +341,12 @@
                         <Columns3Icon />
                         <span class="header-nav-label header-nav-label--tier-4">Board</span>
                     </ToggleButton>
+                    @PopOutButton(BoardViewId)
+                    </span>
 
                     @* The Calendar: the Tasks pane's filtered rows on a month by due
                        date. Board sits between it and Tasks. *@
+                    <span class="header-surface-item" data-testid="@($"{CalendarViewId}-header-item")">
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="ViewOptionPressed(CalendarViewId)"
@@ -344,9 +358,12 @@
                         <CalendarIcon />
                         <span class="header-nav-label header-nav-label--tier-4">Calendar</span>
                     </ToggleButton>
+                    @PopOutButton(CalendarViewId)
+                    </span>
 
                     @if (RoadmapViewOffered)
                     {
+                        <span class="header-surface-item" data-testid="@($"{RoadmapViewId}-header-item")">
                         <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="ViewOptionPressed(RoadmapViewId)"
@@ -361,6 +378,8 @@
                                                 Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
                                                 TestId="roadmap-feature-status" />
                         </ToggleButton>
+                        @PopOutButton(RoadmapViewId)
+                        </span>
                     }
                 </ButtonGroup>
 
@@ -373,9 +392,9 @@
                 @foreach (var surface in RegisteredTakeoversOffered)
                 {
                     var surfaceId = surface.Id;
-                    @* Each item the catalog draws pops out (local ADR 0040 §4): a ⧉ button
-                       beside its option, shown on hover and on keyboard focus, and every
-                       press opens one more window. Only where the host opens windows. *@
+                    @* Each pops out like every other header item (local ADR 0040 §4):
+                       a ⧉ button beside its option, shown on hover and on keyboard
+                       focus, and every press opens one more window. *@
                     <span class="header-surface-item" data-testid="@($"{surfaceId}-header-item")">
                     <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
@@ -394,15 +413,7 @@
                                                 TestId="@($"{surfaceId}-feature-status")" />
                         }
                     </ToggleButton>
-                    @if (_shellWindows is not null)
-                    {
-                        var popOutName = PopOutName(surface);
-                        <IconButton BaseClass="header-surface-item__pop"
-                                    AriaLabel="@popOutName"
-                                    Title="@popOutName"
-                                    TestId="@($"{surfaceId}-pop-out")"
-                                    OnClick="() => PopOut(surfaceId)">⧉</IconButton>
-                    }
+                    @PopOutButton(surfaceId)
                     </span>
                 }
             </div>
@@ -419,6 +430,7 @@
                 @* A main view, not a takeover, though it sits with two: pressing
                    it shows the view as a view-switch option does, and nothing
                    closes it. First, because it is what the work is for. *@
+                <span class="header-surface-item" data-testid="@($"{GoalsViewId}-header-item")">
                 <ToggleButton BaseClass="header-group__option"
                               PressedCssClass="header-group__option--selected"
                               Pressed="ViewOptionPressed(GoalsViewId)"
@@ -430,9 +442,12 @@
                     <TargetIcon />
                     <span class="header-nav-label header-nav-label--tier-2">Goals</span>
                 </ToggleButton>
+                @PopOutButton(GoalsViewId)
+                </span>
 
                 @if (SessionsOffered)
                 {
+                    <span class="header-surface-item" data-testid="@($"{SessionsSurfaceId}-header-item")">
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="SessionsVisible"
@@ -447,12 +462,15 @@
                                             Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
                                             TestId="sessions-feature-status" />
                     </ToggleButton>
+                    @PopOutButton(SessionsSurfaceId)
+                    </span>
                 }
 
                 @* Its own option and its own flag, since it asks GitHub on every
                    opening and the session list asks nothing. *@
                 @if (PullRequestsOffered)
                 {
+                    <span class="header-surface-item" data-testid="@($"{PullRequestsSurfaceId}-header-item")">
                     <ToggleButton BaseClass="header-group__option"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="PullRequestsVisible"
@@ -467,6 +485,8 @@
                                             Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
                                             TestId="pull-requests-feature-status" />
                     </ToggleButton>
+                    @PopOutButton(PullRequestsSurfaceId)
+                    </span>
                 }
             </ButtonGroup>
 
@@ -484,6 +504,7 @@
                              TestId="workspace-surface-switcher">
                     @if (DashboardOffered)
                     {
+                        <span class="header-surface-item" data-testid="@($"{DashboardSurfaceId}-header-item")">
                         <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="DashboardVisible"
@@ -498,6 +519,8 @@
                                                 Title="@FeatureStatusTitle(DashboardFeatures.Dashboard)"
                                                 TestId="dashboard-feature-status" />
                         </ToggleButton>
+                        @PopOutButton(DashboardSurfaceId)
+                        </span>
                     }
 
                     @* The notification centre, with the count of questions waiting
@@ -506,6 +529,7 @@
                        control that answers it rather than a status region. *@
                     @if (NotificationsOffered)
                     {
+                        <span class="header-surface-item" data-testid="@($"{NotificationsSurfaceId}-header-item")">
                         <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="NotificationsVisible"
@@ -521,10 +545,13 @@
                                                 Title="@FeatureStatusTitle(NotificationsFeatures.Notifications)"
                                                 TestId="notifications-feature-status" />
                         </ToggleButton>
+                        @PopOutButton(NotificationsSurfaceId)
+                        </span>
                     }
 
                     @if (ToolsOffered)
                     {
+                        <span class="header-surface-item" data-testid="@($"{ToolsSurfaceId}-header-item")">
                         <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="ToolsVisible"
@@ -537,6 +564,8 @@
                                                 Title="@FeatureStatusTitle(DevPcFeatures.SystemTools)"
                                                 TestId="tools-feature-status" />
                         </ToggleButton>
+                        @PopOutButton(ToolsSurfaceId)
+                        </span>
                     }
                 </ButtonGroup>
             }
@@ -1948,6 +1977,25 @@
     private string PopOutName(ShellSurface surface) => $"Open {SurfaceOptionName(surface)} in a new window";
 
     /// <summary>
+    /// The ⧉ beside a header item's option (local ADR 0040 §4), written once for
+    /// every item the header draws: nothing where the host opens no windows, or
+    /// where the catalog holds no such surface to open one on.
+    /// </summary>
+    private RenderFragment PopOutButton(string surfaceId) =>
+        _shellWindows is not null && Catalog.TryGet(surfaceId, out var surface)
+            ? PopOutButton(surfaceId, PopOutName(surface))
+            : NoPopOut;
+
+    private RenderFragment PopOutButton(string surfaceId, string name) =>
+        @<IconButton BaseClass="header-surface-item__pop"
+                     AriaLabel="@name"
+                     Title="@name"
+                     TestId="@($"{surfaceId}-pop-out")"
+                     OnClick="() => PopOut(surfaceId)">⧉</IconButton>;
+
+    private static readonly RenderFragment NoPopOut = _ => { };
+
+    /// <summary>
     /// ⧉ pressed: one more window on the surface (local ADR 0040 §4). It opens on what
     /// this window would show of it — the Devbook on the repository or the Brain it
     /// reads here. Only its scope: the chapter last pressed and the switch's partner
@@ -2361,46 +2409,30 @@
     /// <para>
     /// On the renderer's dispatcher, because the state raises this on the
     /// writer's thread and a reload replaces the rows the renderer reads. And
-    /// coalesced, because an agent's burst — an import, a run of transitions — is
-    /// one signal per write: a signal that lands while a reload is running marks
-    /// one more as owed instead of starting a second over the first, so at most one
-    /// reload is in flight and the last write is always read. The reload keeps its
-    /// own guard and waits out an open editor; see
+    /// coalesced through <see cref="CoalescedReload"/>, because an agent's burst is
+    /// one signal per write. A popped-out window reloads its own list the same
+    /// way. The reload keeps its own guard and waits out an open editor; see
     /// <c>TasksDesktopState.ReloadFromStoreAsync</c>.
     /// </para></summary>
     private void HandleTasksWrittenElsewhere() => _ = InvokeAsync(async () =>
     {
-        _tasksReloadOwed = true;
-        if (_tasksReloadRunning) return;
-
-        _tasksReloadRunning = true;
-
         try
         {
-            while (_tasksReloadOwed)
+            await _tasksReload.RunAsync(async () =>
             {
-                _tasksReloadOwed = false;
                 await State.ReloadFromStoreAsync();
                 CheckPullRequestsAfterLoad();
-            }
+            });
         }
         catch (Exception ex)
         {
-            _tasksReloadOwed = false;
             Toasts.Publish(ToastMessage.Error($"The backlog could not be refreshed after a change made outside it: {ex.Message}", TasksReloadErrorTestId));
-        }
-        finally
-        {
-            _tasksReloadRunning = false;
         }
     });
 
-    /// <summary>Whether <see cref="HandleTasksWrittenElsewhere"/> has a reload
-    /// running, and whether another is owed behind it. Only touched on the
-    /// renderer's dispatcher.</summary>
-    private bool _tasksReloadRunning;
-
-    private bool _tasksReloadOwed;
+    /// <summary>The reload <see cref="HandleTasksWrittenElsewhere"/> runs, and the
+    /// one owed behind it. Only touched on the renderer's dispatcher.</summary>
+    private readonly CoalescedReload _tasksReload = new();
 
     /// <summary>Where the two discarded reloads report a failure, for a test
     /// to find and a reader to read.</summary>

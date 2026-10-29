@@ -1,0 +1,46 @@
+== before: 3 targets
+0 6794C0F4C2804DB90C9B36D7885446D7 https://0.0.0.1/window/devbook?scope=fincent Backlog.Desktop
+1 289A4363E2905F111110CA0DDEB4710B https://0.0.0.1/window/tasks Backlog.Desktop
+2 690E580ABB0E8B9A74BF7204A5445433 https://0.0.0.1/ Backlog.Desktop
+== open_window goals desktop
+200 {
+ "surface": "goals",
+ "target": "desktop",
+ "opened": true,
+ "backlogLink": "backlog://window/goals",
+ "answer": "Opened Goals in a new window."
+}
+== after: 4 targets
+0 7B35251E03D9310A09FB971F1C561D5C https://0.0.0.1/window/goals Backlog.Desktop
+1 6794C0F4C2804DB90C9B36D7885446D7 https://0.0.0.1/window/devbook?scope=fincent Backlog.Desktop
+2 289A4363E2905F111110CA0DDEB4710B https://0.0.0.1/window/tasks Backlog.Desktop
+3 690E580ABB0E8B9A74BF7204A5445433 https://0.0.0.1/ Backlog.Desktop
+== unknown surface
+200 {
+ "result": {
+  "content": [
+   {
+    "type": "text",
+    "text": "An error occurred invoking 'open_window': window.surface_not_available: The surface 'nope' is not available. Available: tasks, board, calendar, roadmap, goals, inbox, devbook, sessions, pull-requests, dashboard, notifications, tools."
+   }
+  ],
+  "isError": true
+ },
+ "id": 2,
+ "jsonrpc": "2.0"
+}
+== proposals
+200 {
+ "result": {
+  "content": [
+   {
+    "type": "text",
+    "text": "An error occurred invoking 'open_window': window.surface_not_available: The surface 'proposals' is not available. Available: tasks, board, calendar, roadmap, goals, inbox, devbook, sessions, pull-requests, dashboard, notifications, tools."
+   }
+  ],
+  "isError": true
+ },
+ "id": 2,
+ "jsonrpc": "2.0"
+}
+== targets after refusals: 4

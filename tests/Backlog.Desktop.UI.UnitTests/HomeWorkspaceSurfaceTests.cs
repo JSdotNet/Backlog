@@ -171,20 +171,18 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Every header item the catalog draws carries a ⧉ Open in new window button
-    /// (local ADR 0040 §4) with a name of its own, and each press asks the host for
-    /// one more window on that surface while this window stays as it was. The
-    /// Devbook is the only surface registered so far, so it is the one item with one.
+    /// The Devbook's ⧉ Open in new window button (local ADR 0040 §4) asks the host
+    /// for one more window on every press, and hands that window the one thing of
+    /// this window's the Devbook reads by: its scope. This window stays as it was.
     /// </summary>
     [Fact]
-    public void Each_catalog_header_item_pops_out_and_every_press_opens_another_window()
+    public void The_devbooks_pop_out_hands_its_scope_over_and_every_press_opens_another_window()
     {
         var windows = new OpeningShellWindows();
         using var harness = CreateHarness(configureServices: services => services.AddSingleton<IShellWindows>(windows));
         var component = Render(harness);
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-pop-out']")));
-        Assert.Single(component.FindAll(".header-surface-item__pop"));
 
         var item = component.Find("[data-testid='devbook-header-item']");
         Assert.Contains("header-surface-item", item.GetAttribute("class"), StringComparison.Ordinal);
@@ -219,6 +217,75 @@ public sealed class HomeWorkspaceSurfaceTests
         Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
     }
 
+    /// <summary>
+    /// Every header item the window draws for a catalog surface pops out, not the
+    /// Devbook alone (local ADR 0040 §4, "each shell header item"): the Inbox, the
+    /// views, the work in progress and the other takeovers each stand in an item of
+    /// their own beside a ⧉ named as the option is. A press opens a window on that
+    /// surface with no query — only the Devbook hands a scope over — and this window
+    /// keeps its view, with nothing taking its screen.
+    /// </summary>
+    [Fact]
+    public void Every_header_item_pops_out_its_own_surface_and_leaves_this_window_as_it_was()
+    {
+        var windows = new OpeningShellWindows();
+        using var harness = CreateHarness(
+            features => features.SetEnabled(AppFeatures.InboxPane, true),
+            configureServices: services => services.AddSingleton<IShellWindows>(windows));
+        var component = Render(harness);
+
+        (string Surface, string Option, string Name)[] items =
+        [
+            ("inbox", "inbox-pane-option", "Inbox"),
+            ("tasks", "tasks-view-option", "Tasks"),
+            ("board", "board-view-option", "Board"),
+            ("calendar", "calendar-view-option", "Calendar"),
+            ("roadmap", "roadmap-view-option", "Roadmap"),
+            ("devbook", "devbook-pane-option", "Devbook"),
+            ("goals", "goals-view-option", "Goals"),
+            ("sessions", "sessions-toggle-button", "Sessions"),
+            ("pull-requests", "pull-requests-toggle-button", "Pull requests"),
+            ("dashboard", "dashboard-toggle-button", "Dashboard"),
+            ("tools", "tools-toggle-button", "Tools"),
+        ];
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pop-out']")));
+
+        foreach (var (surface, option, name) in items)
+        {
+            var item = component.Find($"[data-testid='{surface}-header-item']");
+            Assert.Contains("header-surface-item", item.ClassList);
+            Assert.Equal(option, item.FirstElementChild?.GetAttribute("data-testid"));
+
+            var popOut = item.QuerySelector($"[data-testid='{surface}-pop-out']");
+            Assert.NotNull(popOut);
+            Assert.Equal("BUTTON", popOut!.TagName);
+            Assert.Equal($"Open {name} in a new window", popOut.GetAttribute("aria-label"));
+            Assert.Equal(popOut.GetAttribute("aria-label"), popOut.GetAttribute("title"));
+        }
+
+        // Nothing the nav draws goes without one: every option stands in an item
+        // that carries its ⧉, and there is one ⧉ per item.
+        var options = component.FindAll(".app-header__nav .header-group__option");
+        Assert.Equal(items.Length, options.Count);
+        Assert.All(options, option =>
+            Assert.NotNull(option.Closest(".header-surface-item")?.QuerySelector(".header-surface-item__pop")));
+        Assert.Equal(items.Length, component.FindAll(".header-surface-item__pop").Count);
+
+        component.Find("[data-testid='roadmap-pop-out']").Click();
+        component.Find("[data-testid='tasks-pop-out']").Click();
+        component.Find("[data-testid='inbox-pop-out']").Click();
+
+        Assert.Equal(["roadmap", "tasks", "inbox"], windows.Opened.Select(opened => opened.SurfaceId));
+        Assert.All(windows.Opened, opened => Assert.Empty(opened.Query));
+
+        // This window is unchanged: Tasks is still its view, and no takeover took it.
+        Assert.Equal("true", component.Find("[data-testid='tasks-view-option']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
+        Assert.Equal("false", component.Find("[data-testid='inbox-pane-option']").GetAttribute("aria-pressed"));
+        Assert.Empty(component.FindAll("[data-testid='inbox-surface']"));
+    }
+
     /// <summary>A host that opens no windows offers no ⧉ at all.</summary>
     [Fact]
     public void A_host_with_no_windows_to_open_offers_no_pop_out()
@@ -227,6 +294,8 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
+        // The items are there all the same, so the header keeps one shape per host.
+        Assert.NotEmpty(component.FindAll("[data-testid='tasks-header-item']"));
         Assert.Empty(component.FindAll(".header-surface-item__pop"));
     }
 
@@ -567,21 +636,23 @@ public sealed class HomeWorkspaceSurfaceTests
 
             var workspace = component.Find("[data-testid='workspace-navigation']").Children
                 .Select(child => child.GetAttribute("data-testid")).ToList();
-            // The Devbook's option stands in its catalog item, beside its ⧉ where the
-            // host opens windows (local ADR 0040 §4).
-            Assert.Equal(["inbox-pane-option", "view-switch", "devbook-header-item"], workspace);
+            // Each option stands in its header item, beside its ⧉ where the host
+            // opens windows (local ADR 0040 §4).
+            Assert.Equal(["inbox-header-item", "view-switch", "devbook-header-item"], workspace);
+            Assert.Equal("inbox-pane-option",
+                component.Find("[data-testid='inbox-header-item']").FirstElementChild?.GetAttribute("data-testid"));
             Assert.Equal("devbook-pane-option",
                 component.Find("[data-testid='devbook-header-item']").FirstElementChild?.GetAttribute("data-testid"));
 
             Assert.Equal(
                 ["tasks-view-option", "board-view-option", "calendar-view-option", "roadmap-view-option"],
-                OptionIds(component, "view-switch"));
+                GroupOptionIds(component, "view-switch"));
             Assert.Equal(
                 ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
-                OptionIds(component, "work-in-progress-switcher"));
+                GroupOptionIds(component, "work-in-progress-switcher"));
             Assert.Equal(
                 ["dashboard-toggle-button", "tools-toggle-button"],
-                OptionIds(component, "workspace-surface-switcher"));
+                GroupOptionIds(component, "workspace-surface-switcher"));
 
             // Fused where the design fuses, loose where it does not.
             Assert.DoesNotContain("header-group--loose", component.Find("[data-testid='view-switch']").ClassName);
@@ -595,9 +666,6 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='roadmap-toggle-button']"));
             Assert.Empty(component.FindAll("[data-testid='workspace-surface-option']"));
         });
-
-        static List<string?> OptionIds(IRenderedComponent<Home> rendered, string group) =>
-            [.. rendered.Find($"[data-testid='{group}']").Children.Select(option => option.GetAttribute("data-testid"))];
     }
 
     /// <summary>
@@ -1719,7 +1787,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
             Assert.Equal(
                 ["tasks-view-option", "board-view-option", "calendar-view-option"],
-                component.Find("[data-testid='view-switch']").Children.Select(option => option.GetAttribute("data-testid")));
+                GroupOptionIds(component, "view-switch"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
     }
@@ -1941,7 +2009,9 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("Roadmap", LabelWithoutFlag(option));
             Assert.False(option.HasAttribute("disabled"));
 
-            Assert.Equal("view-switch", option.ParentElement?.GetAttribute("data-testid"));
+            // In the switch, in its own header item (local ADR 0040 §4).
+            Assert.Equal("roadmap-header-item", option.ParentElement?.GetAttribute("data-testid"));
+            Assert.Equal("view-switch", option.ParentElement?.ParentElement?.GetAttribute("data-testid"));
             Assert.DoesNotContain("header-group__option--loose", option.ClassList);
 
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
@@ -2228,9 +2298,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("true", component.Find("[data-testid='pull-requests-toggle-button']").GetAttribute("aria-pressed"));
 
             // Next to Sessions in the work in progress, as the same context's second list.
-            var options = component.FindAll("[data-testid='work-in-progress-switcher'] > *")
-                .Select(option => option.GetAttribute("data-testid"))
-                .ToList();
+            var options = GroupOptionIds(component, "work-in-progress-switcher");
             Assert.Equal(options.IndexOf("sessions-toggle-button") + 1, options.IndexOf("pull-requests-toggle-button"));
         });
 
@@ -2950,9 +3018,14 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
-    /// <summary>The test ids of a header group's options, in order.</summary>
+    /// <summary>The test ids of a header group's options, in order. Each member of a group is a header
+    /// item (local ADR 0040 §4), and its option leads it.</summary>
     private static List<string?> GroupOptionIds(IRenderedComponent<Home> rendered, string group) =>
-        [.. rendered.Find($"[data-testid='{group}']").Children.Select(option => option.GetAttribute("data-testid"))];
+        [.. rendered.Find($"[data-testid='{group}']").Children.Select(item =>
+        {
+            Assert.Contains("header-surface-item", item.ClassList);
+            return item.FirstElementChild?.GetAttribute("data-testid");
+        })];
 
     /// <summary>Presses the Pull requests segment and waits for the list to take the
     /// screen.</summary>

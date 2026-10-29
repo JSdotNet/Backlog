@@ -1,0 +1,33 @@
+{
+ "firstLoadChain": [
+  "302 http://localhost:5761/window/roadmap?t=<redacted>",
+  "200 http://localhost:5761/window/roadmap",
+  "302 http://localhost:5761/window/roadmap?t=<redacted>",
+  "200 http://localhost:5761/window/roadmap"
+ ],
+ "finalUrl": "http://localhost:5761/window/roadmap",
+ "title": "Roadmap - Backlog",
+ "cookies": [
+  {
+   "name": "backlog-window-5761",
+   "domain": "localhost",
+   "path": "/",
+   "httpOnly": true,
+   "sameSite": "Strict",
+   "session": true
+  },
+  {
+   "name": ".AspNetCore.Antiforgery.yTtaxyLzu2I",
+   "domain": "localhost",
+   "path": "/",
+   "httpOnly": true,
+   "sameSite": "Strict",
+   "session": true
+  }
+ ],
+ "headerText": "Roadmap\nBrain\nbacklog\nweb\napi\nspec-manager\ndevbook\nbudgetbeheer\nai-plugins\nfince",
+ "sameContextReload": "200 -> http://localhost:5761/window/roadmap",
+ "freshContextStatus": 401,
+ "freshContextBody": "",
+ "freshContextNoTokenStatus": 401
+}
