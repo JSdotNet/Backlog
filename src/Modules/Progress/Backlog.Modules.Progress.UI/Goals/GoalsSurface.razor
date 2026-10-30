@@ -1,0 +1,53 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The Goals view as a shell surface (local ADR 0043 §1;
+    .devbook/domain/progress/features.md#the-goals-view): GoalsHost reads and writes
+    through the Progress ports; the window's IGoalsViewSource hands it what only the
+    shell holds — the task list, the plan tags and the open pull requests — as
+    GoalsCandidates. A read landing, or the task list moving, maps the view again
+    without reading the module. A goal's "New task" row creates its task through the
+    source's CreateTask — the window's TasksDesktopState.CreateTaskAsync, To do, no
+    plan tag, the list's own create — which has the task in the list before GoalsHost
+    attaches it and reads again.
+*@
+<div class="goals-view" id="goals-view" data-testid="goals-view">
+    <div class="goals-view__body" data-testid="goals-view-body">
+        <GoalsHost Candidates="Candidates" Revision="_revision" OnRead="Read" CreateTask="@_source?.CreateTask" />
+    </div>
+</div>
+
+@code {
+    /// <summary>The query the surface was shown with; it reads none.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Unused: a view is replaced, never closed.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private IGoalsViewSource? _source;
+    private int _revision;
+
+    protected override void OnInitialized()
+    {
+        _source = Services.GetService(typeof(IGoalsViewSource)) as IGoalsViewSource;
+        if (_source is not null) _source.Changed += OnChanged;
+    }
+
+    private GoalsCandidates Candidates() => _source?.Candidates() ?? GoalsCandidates.Empty;
+
+    private Task Read(bool refresh) => _source?.ReadAsync(refresh) ?? Task.CompletedTask;
+
+    private void OnChanged() => _ = InvokeAsync(() =>
+    {
+        _revision++;
+        StateHasChanged();
+    });
+
+    public void Dispose()
+    {
+        if (_source is not null) _source.Changed -= OnChanged;
+    }
+}

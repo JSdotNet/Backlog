@@ -1,0 +1,114 @@
+@using Backlog.SharedKernel
+@inject ISurfaceNavigator Navigator
+@inject DevbookSurfaceRequests Requests
+@inject DevbookScope Scope
+@inject IServiceProvider Services
+
+@*
+    The Devbook as a shell surface (local ADR 0043 §1, §3): what the shell used to
+    hand the Devbook pane, wired here from the query it is shown with. Which
+    repository it reads, the partner of its Brain | repo switch and the chapter a
+    press asked for arrive as query keys (DevbookSurfaceQuery); every jump out of
+    it — another repository's chapter, the Brain, the switch, a task — goes through
+    the window's ISurfaceNavigator, so it lands in the window it was pressed in.
+*@
+<DevbookPane OnClose="OnClose"
+             RepositoryAlias="@RepositoryAlias"
+             SwitchRepositoryAlias="@SwitchRepositoryAlias"
+             ShowsBrainChanged="ShowSide"
+             OpenSearchResultElsewhere="OpenSearchResult"
+             OpenReference="@_openRequest"
+             OnOpenReferenceFollowed="Requests.Followed"
+             OnOpenRepositoryChapter="OpenRepositoryChapter"
+             TaskTitleFor="@(_taskTitles is null ? null : _taskTitles.TitleFor)"
+             OnOpenTask="OpenTask"
+             OnOpenLobesAtlas="OpenAtlas" />
+
+@code {
+    /// <summary>The surface's id in the catalog.</summary>
+    public const string SurfaceId = DevbookSurfaceQuery.SurfaceId;
+
+    /// <summary>The query the surface was shown with; keys are
+    /// <see cref="DevbookSurfaceQuery"/>'s.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Closes the surface, back to the view underneath.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private IBrainTaskTitles? _taskTitles;
+    private IDevbookWindowScope? _windowScope;
+    private DevbookOpenRequest? _openRequest;
+
+    protected override void OnInitialized()
+    {
+        _taskTitles = Services.GetService<IBrainTaskTitles>();
+        _windowScope = Services.GetService<IDevbookWindowScope>();
+    }
+
+    // A chapter asked with no press token — a popped-out window opened on
+    // /window/devbook?chapter=…, or a jump inside one (local ADR 0043 §6) — is a
+    // press of its own, keyed by the chapter: followed once in this window.
+    protected override void OnParametersSet() =>
+        _openRequest = Requests.For(
+            Value(DevbookSurfaceQuery.Chapter),
+            Value(DevbookSurfaceQuery.Request) ?? Value(DevbookSurfaceQuery.Chapter));
+
+    private string? Value(string key) => Query is not null && Query.TryGetValue(key, out var value) ? value : null;
+
+    /// <summary>
+    /// What the Devbook reads (local ADR 0043 §6): <c>scope=brain</c> the Brain, a
+    /// <c>scope</c> naming a repository — by <c>owner/name</c> or by its alias — that
+    /// repository, and no <c>scope</c> the window's own repository scope. A repository
+    /// no longer configured is handed on as named, and the pane says it has nothing.
+    /// </summary>
+    private string? RepositoryAlias => Value(DevbookSurfaceQuery.Scope) is { } scope
+        ? AliasForScope(scope)
+        : _windowScope?.RepositoryAlias;
+
+    private string AliasForScope(string scope)
+    {
+        var alias = DevbookSurfaceQuery.AliasFor(scope);
+        return BrainScope.Is(alias) ? alias : Scope.Repository(alias)?.Alias ?? alias;
+    }
+
+    private string? SwitchRepositoryAlias => Value(DevbookSurfaceQuery.Switch);
+
+    /// <summary>A side of the Brain | repo switch picked: the Devbook on that side.</summary>
+    private void ShowSide(bool showsBrain)
+    {
+        var side = showsBrain ? DevbookSurfaceQuery.Brain : SwitchRepositoryAlias;
+        if (side is null) return;
+
+        Navigator.Show(SurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [DevbookSurfaceQuery.Scope] = side,
+        });
+    }
+
+    /// <summary>A search result in another devbook — a repository or the Brain.</summary>
+    private void OpenSearchResult(DevbookSearchOpen result) => ShowChapter(result.Source.Key, result.Reference);
+
+    /// <summary>A Brain note's <c>repo:</c> link, followed (local ADR 0027 §6).</summary>
+    private void OpenRepositoryChapter(BrainRepoLink link) => ShowChapter(link.Alias, link.Reference);
+
+    private void ShowChapter(string alias, string reference) =>
+        Navigator.Show(SurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [DevbookSurfaceQuery.Scope] = DevbookSurfaceQuery.ScopeFor(alias),
+            [DevbookSurfaceQuery.Chapter] = reference,
+        });
+
+    /// <summary>The pane's Atlas button, while the Lobes atlas is offered: the atlas on
+    /// the scope the pane reads, over the Devbook, which its way back returns to.</summary>
+    private void OpenAtlas(string scope) =>
+        Navigator.Show(Extensions.AtlasSurfaceRegistration.SurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [Extensions.AtlasSurfaceRegistration.ScopeKey] = scope,
+        });
+
+    /// <summary>A task followed out of a Brain note: the Tasks surface, at that entry.</summary>
+    private void OpenTask(string taskId) =>
+        Navigator.Show("tasks", new Dictionary<string, string>(StringComparer.Ordinal) { ["entry"] = taskId });
+}

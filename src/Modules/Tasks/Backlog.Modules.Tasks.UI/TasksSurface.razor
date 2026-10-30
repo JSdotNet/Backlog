@@ -1,0 +1,249 @@
+@implements IDisposable
+@using Backlog.UI.Components.Brain
+@using Backlog.UI.Components.Feedback
+@using Microsoft.Extensions.DependencyInjection
+@inject TasksDesktopState State
+@inject ISurfaceNavigator Navigator
+@inject IToastChannel Toasts
+@inject IServiceProvider Services
+@inject IJSRuntime JS
+
+@*
+    The Tasks view as a shell surface (local ADR 0043 §1, §3, §6), and the base the
+    Board and the Calendar lay the same list out from. What the shell used to hand
+    the Tasks pane is wired here: a session, a Devbook reference and a Brain note are
+    jumps through the window's ISurfaceNavigator, so each lands in the window it was
+    pressed in or, for a surface only the main window draws, there; what only the
+    window's shell holds comes through TasksViewWiring.
+
+    The query it is shown with is followed once per request: a plan opens on that
+    plan chip, an entry in its editor. A query handed again as the same instance —
+    the shell drawing again — is not a new request.
+*@
+<TasksPane OnOpenSession="OpenSession"
+           OnOpenDevbookReference="OpenDevbookReference"
+           BrainNotesFor="@_wiring?.BrainNotesFor"
+           DevbookImagesFor="@_wiring?.DevbookImagesFor"
+           OnOpenBrainNote="OpenBrainNote"
+           Layout="@Layout"
+           BoardGrouping="@BoardGrouping"
+           BoardGroupingChanged="SetBoardGrouping"
+           CalendarRange="@CalendarRange"
+           CalendarRangeChanged="SetCalendarRange"
+           LinkedWork="@_wiring?.LinkedWork" />
+
+@code {
+    /// <summary>The ids of the surfaces a jump out of the list goes to, and the
+    /// keys they read. Named here as strings: the Tasks module references neither the
+    /// Sessions screens nor the Devbook's.</summary>
+    private const string SessionsSurfaceId = "sessions";
+    private const string SessionKey = "session";
+    private const string DevbookSurfaceId = "devbook";
+    private const string ScopeKey = "scope";
+    private const string ChapterKey = "chapter";
+    private const string BrainScopeValue = "brain";
+
+    /// <summary>The test id of the toast an entry the backlog does not hold raises.</summary>
+    public const string EntryMissingTestId = "tasks-entry-missing";
+
+    /// <summary>The test id of the toast a reference with no repository to open it in
+    /// raises — the one the shell's Devbook raises for a repository it cannot show.</summary>
+    public const string DevbookUnavailableTestId = "tasks-devbook-unavailable";
+
+    /// <summary>The test id of the toast a plan that is no plan tag raises.</summary>
+    public const string PlanInvalidTestId = "tasks-plan-invalid";
+
+    /// <summary>The query the surface was shown with; keys are
+    /// <see cref="TasksSurfaceQuery"/>'s.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? Query { get; set; }
+
+    /// <summary>Unused: a view is replaced, never closed. Declared because the shell
+    /// hands every surface one.</summary>
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    /// <summary>How this view lays the filtered rows out.</summary>
+    protected virtual TasksLayout Layout => TasksLayout.List;
+
+    private TasksViewWiring? _wiring;
+    private ITasksViewPreferences? _preferences;
+    private TaskBoardGrouping _boardGrouping = TaskBoardGrouping.Status;
+    private CalendarRange _calendarRange = CalendarRange.Month;
+
+    /// <summary>The query instance last taken, and the one still waiting for the
+    /// list to load before it is followed.</summary>
+    private IReadOnlyDictionary<string, string>? _taken;
+    private IReadOnlyDictionary<string, string>? _pending;
+
+    private TaskBoardGrouping BoardGrouping => _preferences?.BoardGrouping ?? _boardGrouping;
+
+    private CalendarRange CalendarRange => _preferences?.CalendarRange ?? _calendarRange;
+
+    protected override void OnInitialized()
+    {
+        _wiring = Services.GetService<TasksViewWiring>();
+        _preferences = Services.GetService<ITasksViewPreferences>();
+        // The list is loaded by the window: the main window's shell, or a popped-out
+        // window as it opens. A query asked before it lands waits for it.
+        State.Changed += HandleStateChanged;
+    }
+
+    protected override Task OnParametersSetAsync()
+    {
+        if (!ReferenceEquals(Query, _taken))
+        {
+            _taken = Query;
+            _pending = Query is { Count: > 0 } ? Query : null;
+        }
+
+        return FollowPendingAsync();
+    }
+
+    private void HandleStateChanged()
+    {
+        if (_pending is not null && State.HasLoaded) _ = InvokeAsync(FollowPendingAsync);
+    }
+
+    /// <summary>The query waiting, followed once the list has loaded: a plan first,
+    /// then an entry.</summary>
+    private async Task FollowPendingAsync()
+    {
+        if (_pending is not { } query || !State.HasLoaded) return;
+
+        _pending = null;
+
+        if (Value(query, TasksSurfaceQuery.Plan) is { Length: > 0 } plan) ShowPlan(plan, Value(query, TasksSurfaceQuery.Linked));
+        if (Value(query, TasksSurfaceQuery.Entry) is { Length: > 0 } entry) await OpenEntryAsync(entry);
+    }
+
+    private static string? Value(IReadOnlyDictionary<string, string> query, string key) =>
+        query.TryGetValue(key, out var value) ? value : null;
+
+    /// <summary>
+    /// <c>plan=&lt;tag&gt;</c>: that plan chip pressed, and the list showing every entry
+    /// the plan gathers — by <see cref="TasksDesktopState.ShowPlan"/>, which matches the
+    /// tag with or without its <c>+</c> through <c>PlanTagMatch.Carries</c>. A value that
+    /// is no plan tag is said out loud rather than ignored.
+    /// </summary>
+    private void ShowPlan(string plan, string? linked)
+    {
+        // One leading + lifted, as PlanTagMatch.Carries lifts it; what is left must be a
+        // bare slug — no sigil of its own, no space — or it names no plan.
+        var trimmed = plan.Trim();
+        var slug = trimmed.StartsWith('+') ? trimmed[1..] : trimmed;
+        var tag = "+" + slug;
+        if (slug.Length == 0
+            || slug.Any(char.IsWhiteSpace)
+            || TagText.Kind(slug) is not TagKind.General
+            || slug.StartsWith('#'))
+        {
+            Toasts.Publish(ToastMessage.Warning($"{plan} is not a plan tag, so no plan was opened.", PlanInvalidTestId));
+            return;
+        }
+
+        State.ShowPlan(tag, Guid.TryParse(linked, out var linkedTaskId) ? linkedTaskId : null);
+    }
+
+    /// <summary>
+    /// <c>entry=&lt;id&gt;</c>: the entry in its editor. An entry outside the window's
+    /// scope widens the scope to its repository first — or to the Brain, for one filed
+    /// nowhere — and any other filter in its way is let go, so the list shows the row
+    /// it opened. An id the backlog does not hold is said out loud, over the list.
+    /// </summary>
+    private async Task OpenEntryAsync(string entry)
+    {
+        if (!Guid.TryParse(entry, out var id) || State.Rows.FirstOrDefault(row => row.Id == id) is not { } row)
+        {
+            Toasts.Publish(ToastMessage.Warning($"The entry {entry} is not in this backlog.", EntryMissingTestId));
+            return;
+        }
+
+        State.WidenRepositoryScopeTo(row);
+        State.Reveal(row);
+        await State.SelectAsync(row);
+
+        // The editor shows the entry, but in a long list its row may sit below the
+        // fold: once drawn, the row is scrolled into its list's view.
+        _revealEntry = row.Id;
+        StateHasChanged();
+    }
+
+    /// <summary>The entry an <c>entry=</c> query opened, whose row is still to be
+    /// scrolled into view.</summary>
+    private Guid? _revealEntry;
+
+    /// <summary>The selector the row of <paramref name="id"/> is found by: its list row,
+    /// or its card on the Board.</summary>
+    public static string RowSelector(Guid id) => $"[data-task-id='{id}']";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_revealEntry is not { } id) return;
+        _revealEntry = null;
+
+        try
+        {
+            // The nearest scroll container only, waited for over a few frames while
+            // the row arrives: the pull requests list reveals its focused row the same way.
+            await JS.InvokeVoidAsync("backlogRevealRow", RowSelector(id));
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // The window went, it is still prerendering, or the script refused;
+            // the editor still shows the entry.
+        }
+    }
+
+    private void SetBoardGrouping(TaskBoardGrouping grouping)
+    {
+        _boardGrouping = grouping;
+        _preferences?.SetBoardGrouping(grouping);
+    }
+
+    private void SetCalendarRange(CalendarRange range)
+    {
+        _calendarRange = range;
+        _preferences?.SetCalendarRange(range);
+    }
+
+    /// <summary>A task's session, in the session list.</summary>
+    private void OpenSession(string sessionId) =>
+        Navigator.Show(SessionsSurfaceId, new Dictionary<string, string>(StringComparer.Ordinal) { [SessionKey] = sessionId });
+
+    /// <summary>
+    /// A Devbook page or chapter an entry points at: the Devbook, at that chapter, in
+    /// the entry's repository — or, for an entry filed nowhere, the window's anchor
+    /// repository. Always named, so the reference is never read as a Brain note; with
+    /// no repository to name — nothing scoped, or the Brain as the anchor — it is said
+    /// out loud instead, and the Devbook answers a repository it cannot show the same
+    /// way.
+    /// </summary>
+    private void OpenDevbookReference(DevbookReferenceRequest request)
+    {
+        var alias = string.IsNullOrWhiteSpace(request.RepositoryAlias) ? State.AnchorRepositoryAlias : request.RepositoryAlias;
+        if (string.IsNullOrWhiteSpace(alias))
+        {
+            Toasts.Publish(ToastMessage.Warning(
+                "This entry names no repository, so there is no Devbook to open it in.",
+                DevbookUnavailableTestId));
+            return;
+        }
+
+        Navigator.Show(DevbookSurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [ScopeKey] = alias,
+            [ChapterKey] = request.Reference,
+        });
+    }
+
+    /// <summary>A Brain note a task row's badge names: the Devbook, on the Brain, at the note.</summary>
+    private void OpenBrainNote(BrainNoteLink note) =>
+        Navigator.Show(DevbookSurfaceId, new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [ScopeKey] = BrainScopeValue,
+            [ChapterKey] = note.Path,
+        });
+
+    public void Dispose() => State.Changed -= HandleStateChanged;
+}

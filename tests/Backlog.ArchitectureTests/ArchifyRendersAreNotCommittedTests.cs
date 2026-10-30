@@ -226,12 +226,44 @@ public class ArchifyRendersAreNotCommittedTests
                 RedirectStandardOutput = true
             });
 
-            process?.WaitForExit(10_000);
-            return process is { ExitCode: 0 };
+            if (process is null)
+            {
+                return false;
+            }
+
+            // A node that has not answered within the wait reads as absent: ExitCode
+            // throws until the process exits, and a loaded CI runner can be that slow.
+            if (!process.WaitForExit(10_000))
+            {
+                Kill(process);
+                return false;
+            }
+
+            return process.ExitCode == 0;
         }
         catch (System.ComponentModel.Win32Exception)
         {
             return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static void Kill(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch (InvalidOperationException)
+        {
+            // It exited between the wait and the kill.
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // It could not be ended; the test run outliving it is the lesser harm.
         }
     }
 }

@@ -6,9 +6,32 @@ public partial class MainPage : ContentPage
 {
     private readonly string _contentRoot;
 
+    /// <summary>The main window's page: the shell, at <c>/</c>.</summary>
     public MainPage()
+        : this(startPath: null)
+    {
+    }
+
+    /// <summary>
+    /// A window's page (local ADR 0043 §4): <paramref name="startPath"/> is the route
+    /// its <c>BlazorWebView</c> opens on — <c>/window/{surfaceId}</c> for a popped-out
+    /// window — and <paramref name="windowKey"/> the name the root component hands
+    /// that route, so the page can close and retitle its own window.
+    /// </summary>
+    public MainPage(string? startPath, string? windowKey = null)
     {
         InitializeComponent();
+
+        if (startPath is not null) blazorWebView.StartPath = startPath;
+        if (windowKey is not null)
+        {
+            // The one root component MainPage.xaml declares, Routes, set before the
+            // view loads: a string is a parameter a root component may carry.
+            blazorWebView.RootComponents[0].Parameters = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                [nameof(UI.Shell.Routes.WindowKey)] = windowKey,
+            };
+        }
 
         // MAUI reads app files from the host page's folder under the install
         // directory. AppContext.BaseDirectory is that directory both unpackaged

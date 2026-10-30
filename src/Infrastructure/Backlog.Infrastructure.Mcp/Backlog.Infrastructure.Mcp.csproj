@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The read-only MCP tools local ADR 0012 decided, with no transport under them.
+    The MCP tools local ADR 0012 decided, with no transport under them. What only a
+    host can do - open_window's windows and link tokens - is a port here,
+    ISurfaceWindowHost, that each host answers.
 
     The tool classes and their payloads live here rather than in Backlog.Desktop,
     which is where §2 of that record puts them, for the reason §2 actually cares

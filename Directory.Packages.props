@@ -107,9 +107,11 @@
       any other SDK (a newer runner image, an older local install) rewrites the lock
       file or fails CI's locked restore with NU1004. An explicit PackageReference of
       the same id replaces the implicit one, so the version is this line's.
-      Only the three web projects under src/Harness reference it, PrivateAssets="all"
-      as the implicit one was. The scripts may run a patch apart from the runtime,
-      which these undeployed harnesses can afford; keep the version at the ASP.NET
+      Only the three web projects under src/Harness and the desktop head, whose MCP
+      listener serves the pop-out pages, reference it, PrivateAssets="all" as the
+      implicit one was. The scripts may run a patch apart from the runtime,
+      which these undeployed harnesses can afford, and so can the head while its
+      pages are served in a Debug build only (local ADR 0043 §7); keep the version at the ASP.NET
       Core patch of the SDK CI installs, and regenerate the lock files with it.
     -->
     <PackageVersion Include="Microsoft.AspNetCore.App.Internal.Assets" Version="10.0.13" />

@@ -17,6 +17,7 @@ using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.FileSystem.Progress;
 using Backlog.Infrastructure.FileSystem.Logging;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Mcp;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.SpecManager;
@@ -112,7 +113,10 @@ public static class MauiProgram
             // %LOCALAPPDATA%\Backlog\iteration-settings.json, seeded once from the shell
             // navigation file an earlier build kept the choice in (local ADR 0036).
             IterationSettings = sp => new IterationSettingsStore(sp.GetRequiredService<ShellNavigationStore>()),
-            ShellNavigation = _ => new ShellNavigationStore(),
+            // The head's own app-data folder, like the log and the per-machine files:
+            // a Debug head restoring and writing the installed app's last surface
+            // would move the installed app's windows about.
+            ShellNavigation = _ => new ShellNavigationStore(Path.Combine(appData, ShellNavigationStore.FileName)),
             CaptureSourceSettings = _ => new CaptureSourcesSettingsStore(),
             CaptureRunLog = _ => new CaptureRunLogStore(),
             CaptureTargetLedger = _ => new CaptureTargetLedgerStore(),
@@ -144,20 +148,21 @@ public static class MauiProgram
             AppUpdateService = sp => ActivatorUtilities.CreateInstance<MsixAppUpdateService>(sp),
             CopilotCliLauncher = _ => new ProcessCopilotCliLauncher(),
             SessionRepositoryResolver = sp => new SettingsSessionRepositoryResolver(sp.GetRequiredService<GitHubSettingsStore>()),
-            // One window, one user: the panes' state, the save-state band, the toast
-            // channel, the Report issue channel and the Inbox's plan drafter are each
-            // one object that outlives the page it is drawn on. The drafter is a
-            // singleton because that is the lifetime the chain above it actually has
-            // in this host: InboxDesktopState is a singleton, and everything it
-            // reaches through IInboxItems is resolved once from the root and kept for
-            // the window's life whatever its registration says.
-            WindowStateLifetime = ServiceLifetime.Singleton
+            // One set per window (local ADR 0043, §5): the panes' state, the save-state
+            // band, the toast channel, the Report issue channel, the update window's
+            // requests, the Inbox's drafter and advisor and the Devbook's domain store
+            // live in the scope each window's BlazorWebView opens, the way the harness
+            // keeps one per circuit. Data and change signals stay singletons, so a task
+            // saved in one window reaches the others through ITaskChangeSignal. Nothing
+            // resolved from the root may hold one of these; a Debug build validates
+            // scopes below so a captive dependency fails at start.
+            WindowStateLifetime = ServiceLifetime.Scoped
         });
 
         // The Devbook - its adapters and AddDevbookModule - is in the composition
-        // above since issue #738: one window, so its domain store is a singleton
-        // like the rest of the window's state, and its Copilot offers start the CLI
-        // through the launcher handed in there.
+        // above since issue #738: its domain store is scoped to a window like the
+        // rest of the window's state, and its Copilot offers start the CLI through
+        // the launcher handed in there.
 
         // The loopback MCP listener local ADR 0012 decided. TryAdd rather than
         // Add, the way AddTaskSyncClient registers its own worker: this head
@@ -166,9 +171,33 @@ public static class MauiProgram
         // the listener it builds has a container of its own and forwards every
         // port into this one rather than composing a second ITaskItems.
         builder.Services.TryAddSingleton<McpServerWorker>();
+        // The link tokens that admit a browser to the listener's pop-out pages
+        // (local ADR 0043 §7): one set for the app's life, so a token minted by an
+        // MCP tool is the one the listener redeems.
+        builder.Services.TryAddSingleton<WindowLinkTokens>();
+        // The head's windows (local ADR 0043 §4): the main one App asks for, and every
+        // surface popped out beside it. Twice over, so App reaches the concrete type
+        // that makes the main window while every caller sees the port.
+        // shell-windows.json in the head's own app-data folder - Backlog.Debug for a
+        // debug head - beside shell-navigation.json: where each surface's last
+        // popped-out window stood (local ADR 0043 §5). The head's own, since only its
+        // windows have bounds.
+        builder.Services.TryAddSingleton(_ => new ShellWindowStore(Path.Combine(appData, ShellWindowStore.FileName)));
+        builder.Services.TryAddSingleton<ShellWindows>();
+        builder.Services.TryAddSingleton<IShellWindows>(sp => sp.GetRequiredService<ShellWindows>());
+        // What open_window opens and links to (local ADR 0043 §7): these windows, and a
+        // tokenized link to the listener's page at the port it is listening on now.
+        builder.Services.TryAddSingleton<ISurfaceWindowHost>(sp => new DesktopSurfaceWindowHost(
+            sp.GetRequiredService<IShellWindows>(),
+            sp.GetRequiredService<WindowLinkTokens>(),
+            () => sp.GetService<McpServerWorker>()?.Address?.Port));
+        // What a backlog:// link opens (local ADR 0043 §7): BacklogLinkInstance hands it
+        // the link the app was launched with and every one redirected here later.
+        builder.Services.TryAddSingleton<BacklogLinkActivation>();
         // The Brain card's Browse: this head has a window to open the Windows
-        // folder picker over, so it is the one host that registers one.
-        builder.Services.TryAddSingleton<IBrainFolderPicker, WindowsBrainFolderPicker>();
+        // folder picker over, so it is the one host that registers one. One per
+        // window, so it stands over the window whose Settings asked for it.
+        builder.Services.TryAddScoped<IBrainFolderPicker, WindowsBrainFolderPicker>();
 
         // The owner's Windows app notifications (local ADR 0039, the notification centre's
         // plan entry), and the channel a press in one opens the shell's centre through.
@@ -211,6 +240,17 @@ public static class MauiProgram
         builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Logging.AddDebug();
 
+        // Window state is scoped (above), so a singleton or a root resolution that
+        // reaches it would hold one window's state for every window. Validated here,
+        // where the provider is built, so a captive dependency fails at start in a
+        // Debug build rather than leaking one window's toasts into another. Release
+        // keeps MauiAppBuilder's own provider, unvalidated, as before.
+        builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions
+        {
+            ValidateScopes = true,
+            ValidateOnBuild = true
+        }));
+
         // Which worktree this window came from, for the header. Debug builds are
         // the ones run out of a checkout, often several at once; an installed
         // build registers nothing and the header shows the version.
@@ -219,6 +259,12 @@ public static class MauiProgram
             builder.Services.AddSingleton(new DevelopmentWorkspaceLabel(workspace));
         }
 #endif
+
+        // What this head composed, for the MCP listener's pop-out pages (local ADR
+        // 0043 §7): a page served there renders this head's panes, and the listener
+        // forwards whatever they inject into this container rather than composing a
+        // second one. Last, so the snapshot holds every registration above.
+        builder.Services.AddSingleton(new DesktopServiceRegistrations([.. builder.Services]));
 
         var app = builder.Build();
 
@@ -322,6 +368,11 @@ public static class MauiProgram
         // to: it watches the folder the Brain setting names and follows the
         // setting from here on (local ADR 0026 §4).
         app.Services.GetRequiredService<BrainFolderWatch>().Start();
+
+        // And the backlog:// links (local ADR 0043 §7): the one this launch carried and
+        // any redirected here since the App constructor claimed the instance, held until
+        // the main window is up.
+        BacklogLinkInstance.Attach(app.Services.GetRequiredService<BacklogLinkActivation>());
 
         return app;
     }

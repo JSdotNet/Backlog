@@ -162,10 +162,11 @@ internal static class TasksTestHost
         IShowArchivedRepositories? showArchived = null,
         IMyDayPreferences? myDayPreferences = null,
         ILinkedPullRequestStates? pullRequestStates = null,
-        IPullRequestFinishMemory? finishMemory = null)
+        IPullRequestFinishMemory? finishMemory = null,
+        ITaskChangeSignal? taskWrites = null)
     {
-        var entries = EntriesFor(store);
-        return new(TaskStoreFor(store), storeCalls?.Watch(entries) ?? entries, gitHub, copilot, roadmapTags, toasts, timeProvider: clock, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates, showArchived: showArchived, myDayPreferences: myDayPreferences, pullRequestStates: pullRequestStates ?? PullRequestStatesOver(gitHub, clock), finishMemory: finishMemory);
+        var entries = EntriesFor(RepositoryFor(store, taskWrites));
+        return new(TaskStoreFor(store), storeCalls?.Watch(entries) ?? entries, gitHub, copilot, roadmapTags, toasts, timeProvider: clock, devbookReferences: devbookReferences, linkedSources: linkedSources, sessionStates: sessionStates, showArchived: showArchived, myDayPreferences: myDayPreferences, pullRequestStates: pullRequestStates ?? PullRequestStatesOver(gitHub, clock), finishMemory: finishMemory, taskWrites: taskWrites);
     }
 
     /// <summary>
