@@ -206,17 +206,20 @@ depends-on: [".devbook/tech/ai-development.md#delivery-schedule"]
 date: 2026-09-26
 ```
 
-Three schedules report what happened. Each report is one `schedule-report` issue, and an
+Two schedules report what happened. Each report is one `schedule-report` issue, and an
 unread one is extended rather than joined by another.
 
 | Schedule | Runs | Covers |
 | --- | --- | --- |
-| `morning-brief` | every weekday | the last day, or the weekend on a Monday |
 | `change-report` | every Friday | the week's pull requests, and the ones whose ticket disagrees with them |
 | `weekly-update` | every Friday evening | the week |
 
+A third, `morning-brief`, reported the last day every weekday from 2026-09-25. It was
+dropped on 2026-10-30, when `schedule-morning-brief` left the `delivery-schedule` catalog
+under devbook's branch-true decision.
+
 - **Used for** — the owner's view of the repository without reading every notification.
-- **Adopted by** — the three schedules, since 2026-09-25.
+- **Adopted by** — the two schedules, since 2026-09-25.
 - **Evidence** — `change-report` and `weekly-update` fired on 2026-09-25; no report issue
   was published.
 - **Moves up when** — the first report issue is published.
