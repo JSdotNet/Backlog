@@ -98,6 +98,41 @@ public sealed class PullRequestStacks
             }
         }
 
+        return Build(all, parents);
+    }
+
+    /// <summary>
+    /// The stacks among pull requests already placed (<see cref="PlaceAmong"/>): each sits
+    /// on the one its <see cref="PullRequestStatus.StackParent"/> names, where that one is
+    /// among <paramref name="placed"/>, whatever the branches say — so the tree a screen
+    /// draws is the placing its verdicts read. Pass open pull requests only.
+    /// </summary>
+    public static PullRequestStacks OfPlaced(IEnumerable<PullRequestStatus> placed)
+    {
+        ArgumentNullException.ThrowIfNull(placed);
+
+        var all = placed
+            .GroupBy(pull => pull.Reference.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+        var byKey = all.ToDictionary(pull => pull.Reference.Key, StringComparer.OrdinalIgnoreCase);
+
+        var parents = new Dictionary<string, PullRequestStatus>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pull in all)
+        {
+            if (pull.StackParent is { } parent && byKey.TryGetValue(parent.Key, out var held) && !SameKey(held, pull))
+            {
+                parents[pull.Reference.Key] = held;
+            }
+        }
+
+        return Build(all, parents);
+    }
+
+    /// <summary>The stacks the parent relation <paramref name="parents"/> makes among
+    /// <paramref name="all"/>, bottom first, loops left out.</summary>
+    private static PullRequestStacks Build(List<PullRequestStatus> all, Dictionary<string, PullRequestStatus> parents)
+    {
         // Two pull requests can target each other's branches. Such a loop has no
         // bottom to merge first, so its members are left out of every stack rather
         // than one of them being picked as the bottom at random.
@@ -160,6 +195,96 @@ public sealed class PullRequestStacks
 
         var parent = pull.IsOpen ? ParentOf(pull)?.Reference : null;
         return pull.StackParent == parent ? pull : pull with { StackParent = parent };
+    }
+
+    /// <summary>
+    /// One pull request read by number, placed in its stack — the one rule every screen
+    /// that shows a single pull request (the task row, the session card) places it by, so
+    /// they and the Pull requests pane cannot give it different verdicts (local ADR 0042,
+    /// V2).
+    /// <list type="number">
+    /// <item>Merged or closed: placed, with no parent — it waits on nothing.</item>
+    /// <item>Held by its repository's <paramref name="openList"/> with a parent: that
+    /// parent. One the list holds with none goes on to the rules below.</item>
+    /// <item>Based on its repository's default branch: placed, with no parent, whatever
+    /// the list — which is capped, may be refused, and is not kept for an unregistered or
+    /// archived repository.</item>
+    /// <item>Based on the head of an open pull request <paramref name="openList"/> holds:
+    /// stacked on that one.</item>
+    /// <item>Otherwise, with a list read: placed, with no parent — no open pull request
+    /// the list holds is what it is based on, which is what the Pull requests pane's own
+    /// stacks conclude.</item>
+    /// <item>Otherwise, with no list: null — it might wait on a pull request nobody could
+    /// list, so neither its place nor its verdict can be told.</item>
+    /// </list>
+    /// </summary>
+    /// <param name="pull">The pull request, as read by number.</param>
+    /// <param name="openList">Its repository's open list, placed
+    /// (<see cref="WithParents"/>), or null where it could not be read.</param>
+    public static PullRequestStatus? PlaceAmong(PullRequestStatus pull, IReadOnlyList<PullRequestStatus>? openList)
+    {
+        ArgumentNullException.ThrowIfNull(pull);
+        return Place(pull, openList ?? [], whole: openList is not null);
+    }
+
+    /// <summary>
+    /// The rules of <see cref="PlaceAmong"/> over the rows a list holds, which place
+    /// whatever they show — a listed pull request's own parent, a listed head — with
+    /// <paramref name="whole"/> saying whether the list holds every open pull request of
+    /// the repository, the one thing that lets absence mean "no parent".
+    /// </summary>
+    private static PullRequestStatus? Place(PullRequestStatus pull, IReadOnlyList<PullRequestStatus> rows, bool whole)
+    {
+        if (!pull.IsOpen) return pull.StackParent is null ? pull : pull with { StackParent = null };
+
+        var sameRepository = rows
+            .Where(row => row.IsOpen && string.Equals(row.RepositoryFullName.Trim(), pull.RepositoryFullName.Trim(), StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // A parent the list gives a row it holds is one it read. A listed row with none is
+        // left to the rules below: "none" is read from absence, which only a whole list
+        // can say.
+        if (sameRepository.FirstOrDefault(row => SameKey(row, pull)) is { StackParent: { } listedParent })
+        {
+            return pull with { StackParent = listedParent };
+        }
+
+        if (!string.IsNullOrEmpty(pull.DefaultBranch) && string.Equals(pull.BaseRefName, pull.DefaultBranch, StringComparison.Ordinal))
+        {
+            return pull.StackParent is null ? pull : pull with { StackParent = null };
+        }
+
+        if (Of([.. sameRepository, pull]).ParentOf(pull) is { } parent)
+        {
+            return pull with { StackParent = parent.Reference };
+        }
+
+        // The whole repository was listed and no open pull request in it is what this one
+        // is based on: it waits on none, as the pane's own stacks conclude. Short of the
+        // whole repository it might wait on one the list does not hold, so its place
+        // cannot be told.
+        if (!whole) return null;
+        return pull.StackParent is null ? pull : pull with { StackParent = null };
+    }
+
+    /// <summary>
+    /// <see cref="PlaceAmong"/> over a listing as the contract answers it. What the listing
+    /// holds places whatever it shows, capped or not: a listed pull request's own parent,
+    /// and a listed head a pull request is based on. Only "no parent", which is read from
+    /// absence, needs the listing to hold the repository whole
+    /// (<see cref="PullRequestListing.CompleteRepositories"/>): one it failed, capped, or
+    /// does not list at all may have an open parent beyond it, so a pull request nothing
+    /// it holds explains — and not based on the default branch — cannot be placed. No
+    /// listing at all holds nothing.
+    /// </summary>
+    public static PullRequestStatus? PlaceAmongListing(PullRequestStatus pull, PullRequestListing? openListing)
+    {
+        ArgumentNullException.ThrowIfNull(pull);
+
+        var whole = openListing is not null && openListing.CompleteRepositories.Any(repository =>
+            string.Equals(repository.Trim(), pull.RepositoryFullName.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        return Place(pull, openListing?.PullRequests ?? [], whole);
     }
 
     private static bool SameKey(PullRequestStatus pull, PullRequestStatus other) =>

@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// answers nothing rather than throwing, and nothing an open pull request carries —
 /// checks, reviews, auto-merge, mergeability, how far behind — is ever written.
 /// <para>
-/// Real temp directories, as <see cref="PullRequestStateMemoryTests"/> uses: the
+/// Real temp directories, as <see cref="PullRequestFinishMemoryTests"/> uses: the
 /// behaviour under test is the disk.
 /// </para>
 /// </summary>

@@ -85,6 +85,15 @@ internal sealed class CountingPullRequestSource : IPullRequestSource
         return this;
     }
 
+    /// <summary>The repositories whose open list reached the source's cap.</summary>
+    public CountingPullRequestSource Caps(string repository)
+    {
+        lock (_gate) _capped.Add(repository);
+        return this;
+    }
+
+    private readonly HashSet<string> _capped = new(StringComparer.OrdinalIgnoreCase);
+
     public CountingPullRequestSource Answers(string repository)
     {
         lock (_gate) _refusals.Remove(repository);
@@ -121,7 +130,10 @@ internal sealed class CountingPullRequestSource : IPullRequestSource
                 [.. _pulls.Values
                     .Where(pull => pull.IsOpen && Same(pull.RepositoryFullName, repositoryFullName))
                     .OrderByDescending(pull => pull.UpdatedAt)],
-                null);
+                null)
+            {
+                Truncated = _capped.Contains(repositoryFullName)
+            };
         }
     }
 

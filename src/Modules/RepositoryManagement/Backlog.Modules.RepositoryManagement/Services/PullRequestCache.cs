@@ -55,7 +55,10 @@ internal sealed partial class PullRequestCache(
     private readonly Dictionary<string, Pending<OpenRead>> _openPending = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, MergedRead> _merged = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Pending<MergedRead>> _mergedPending = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _remembered = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The merged pull requests written to the settled-fact memory, and whether
+    /// what was written named the repository's default branch — one written without it
+    /// is written again by the read that names it.</summary>
+    private readonly Dictionary<string, bool> _remembered = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _epochs = new(StringComparer.OrdinalIgnoreCase);
     private bool _seeded;
 
@@ -154,7 +157,10 @@ internal sealed partial class PullRequestCache(
 
         return new PullRequestListing(
             [.. landed.SelectMany(read => read.PullRequests).OrderByDescending(pull => pull.UpdatedAt)],
-            [.. landed.Where(read => read.Failure is not null).Select(read => read.Failure!)]);
+            [.. landed.Where(read => read.Failure is not null).Select(read => read.Failure!)])
+        {
+            CompleteRepositories = [.. landed.Where(read => read.Failure is null && !read.Truncated).Select(read => read.Repository)]
+        };
     }
 
     /// <summary>The recently merged pull requests of each repository named — none
@@ -236,7 +242,7 @@ internal sealed partial class PullRequestCache(
             {
                 if (EpochOf(repository) == epoch && list.Failure is null)
                 {
-                    KeepOpen(repository, new OpenRead(repository, list.PullRequests, null, listedAt), startedAt);
+                    KeepOpen(repository, new OpenRead(repository, list.PullRequests, null, listedAt) { Truncated = list.Truncated }, startedAt);
                 }
             }
 
@@ -374,7 +380,7 @@ internal sealed partial class PullRequestCache(
             async () =>
             {
                 var read = await SafeListAsync(repository).ConfigureAwait(false);
-                return new OpenRead(repository, read.PullRequests, read.Failure, clock.GetUtcNow());
+                return new OpenRead(repository, read.PullRequests, read.Failure, clock.GetUtcNow()) { Truncated = read.Truncated };
             },
             new OpenRead(repository, [], Unfinished(repository), started.StartedAt),
             answer => answer.Failure,
@@ -498,14 +504,38 @@ internal sealed partial class PullRequestCache(
         foreach (var pull in read.PullRequests) Keep(pull.Reference.Key, new Answer(pull, null, read.ReadAt), startedAt);
     }
 
-    /// <summary>Keeps one answer, unless the one kept is merged — it cannot change again —
-    /// or landed after this read began. Called under the gate.</summary>
+    /// <summary>
+    /// How many reads of a merge may come back without the repository's default branch
+    /// before the merge is final as it stands. The source's read by number names it for
+    /// every pull request, so this is the rare case — a server whose answer left it out
+    /// and whose REST read of it was refused. Whether a merge finishes the task that
+    /// recorded it turns on that branch, so such a read is asked again like any other
+    /// answer — but not for as long as the app runs: a branch no read can name costs this
+    /// many reads a launch, and then none.
+    /// </summary>
+    internal const int UnnamedMergeReads = 3;
+
+    /// <summary>
+    /// Keeps one answer, unless the one kept is final (<see cref="Answer.IsFinal"/>) or
+    /// landed after this read began. A merge is never put back by anything but another
+    /// merge — GitHub never un-merges, so an open-list row that still carries it is a list
+    /// lagging the merge — and another read of a merge that still names no default branch
+    /// counts towards <see cref="UnnamedMergeReads"/>. Called under the gate.
+    /// </summary>
     private void Keep(string key, Answer answer, DateTimeOffset startedAt)
     {
-        if (_answers.TryGetValue(key, out var last)
-            && (last.PullRequest?.State == PullRequestState.Merged || last.ReadAt > startedAt))
+        _answers.TryGetValue(key, out var last);
+
+        if (last is not null)
         {
-            return;
+            if (last.IsFinal || last.ReadAt > startedAt) return;
+            if (last.PullRequest?.State == PullRequestState.Merged && answer.PullRequest?.State != PullRequestState.Merged) return;
+        }
+
+        if (answer.PullRequest is { State: PullRequestState.Merged, DefaultBranch: null })
+        {
+            var before = last?.PullRequest is { State: PullRequestState.Merged, DefaultBranch: null } ? last.UnnamedReads : 0;
+            answer = answer with { UnnamedReads = before + 1 };
         }
 
         _answers[key] = answer;
@@ -521,7 +551,15 @@ internal sealed partial class PullRequestCache(
         {
             foreach (var pull in answers.Select(answer => answer.PullRequest).OfType<PullRequestStatus>())
             {
-                if (pull.State == PullRequestState.Merged && _remembered.Add(pull.Reference.Key)) merged.Add(pull);
+                if (pull.State != PullRequestState.Merged) continue;
+
+                // Once, and once more for the read that names the default branch the
+                // first one written did not.
+                var named = pull.DefaultBranch is not null;
+                if (_remembered.TryGetValue(pull.Reference.Key, out var wasNamed) && (wasNamed || !named)) continue;
+
+                _remembered[pull.Reference.Key] = named;
+                merged.Add(pull);
             }
         }
 
@@ -577,7 +615,7 @@ internal sealed partial class PullRequestCache(
             {
                 var key = Normalized(pull.Reference).Key;
                 _answers.TryAdd(key, new Answer(PullRequestStatus.Settled(pull), null, DateTimeOffset.MinValue));
-                _remembered.Add(key);
+                _remembered.TryAdd(key, pull.DefaultBranch is not null);
             }
 
             Volatile.Write(ref _seeded, true);
@@ -623,12 +661,28 @@ internal sealed partial class PullRequestCache(
     /// or neither — answered without it.</summary>
     private sealed record Answer(PullRequestStatus? PullRequest, RepositoryReadFailure? Failure, DateTimeOffset ReadAt)
     {
+        /// <summary>How many reads in a row answered this merge without its default branch.</summary>
+        public int UnnamedReads { get; init; }
+
+        /// <summary>
+        /// Whether nothing a later read could say would change this answer: merged, and
+        /// either a read named the repository's default branch or
+        /// <see cref="UnnamedMergeReads"/> reads in a row could not.
+        /// </summary>
+        public bool IsFinal =>
+            PullRequest is { State: PullRequestState.Merged } pull
+            && (pull.DefaultBranch is not null || UnnamedReads >= UnnamedMergeReads);
+
         public bool Holds(DateTimeOffset now, TimeSpan maxAge) =>
-            PullRequest is null || PullRequest.State is PullRequestState.Merged || now - ReadAt < maxAge;
+            PullRequest is null || IsFinal || now - ReadAt < maxAge;
     }
 
     /// <summary>One repository's open list as it was read.</summary>
-    private sealed record OpenRead(string Repository, IReadOnlyList<PullRequestStatus> PullRequests, RepositoryReadFailure? Failure, DateTimeOffset ReadAt);
+    private sealed record OpenRead(string Repository, IReadOnlyList<PullRequestStatus> PullRequests, RepositoryReadFailure? Failure, DateTimeOffset ReadAt)
+    {
+        /// <summary>The list reached the source's cap, so it may not be whole.</summary>
+        public bool Truncated { get; init; }
+    }
 
     /// <summary>One repository's recently merged list as it was read.</summary>
     private sealed record MergedRead(string Repository, IReadOnlyList<MergedPullRequest> PullRequests, RepositoryReadFailure? Failure, bool Truncated, DateTimeOffset ReadAt);

@@ -320,7 +320,7 @@ public sealed class WorkInProgressReaderTests
         return new WorkInProgressReader(RepositoryManagementChain.For(host.GitHub, clock), new NoSessions(), clock, () => links.SelectMany(link => link()));
     }
 
-    private static GitHubLinkedPullRequest Linked(int number, GitHubItemState state, string author = "someone-else", DateTimeOffset? mergedAt = null, string repository = Repository) =>
+    private static PullRequestByNumber Linked(int number, GitHubItemState state, string author = "someone-else", DateTimeOffset? mergedAt = null, string repository = Repository) =>
         new(number, $"https://github.com/{repository}/pull/{number}", $"Pull request {number}", repository, state, author, mergedAt);
 
     private static GitHubOpenPullRequest Open(int number, string author = "someone-else") =>

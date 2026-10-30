@@ -25,7 +25,7 @@ public sealed class WorkspaceCachesRegistrationTests
     [InlineData(typeof(IAgentSessionRecordStore), typeof(AgentSessionRecordStore))]
     [InlineData(typeof(IUsageReadStatus), typeof(UsageReadLogStore))]
     [InlineData(typeof(IUsageReadRecorder), typeof(UsageReadLogStore))]
-    [InlineData(typeof(IPullRequestStateMemory), typeof(PullRequestStateMemory))]
+    [InlineData(typeof(IPullRequestFinishMemory), typeof(PullRequestFinishMemory))]
     [InlineData(typeof(ISettledPullRequestStore), typeof(SettledPullRequestStore))]
     public void Every_cache_is_a_singleton_answered_from_the_workspace_store(Type port, Type implementation)
     {

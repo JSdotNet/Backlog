@@ -1,8 +1,11 @@
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Infrastructure.FileSystem;
+using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -148,8 +151,8 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.SyncGitHubAsync();
 
         Assert.Null(row.IssueLink);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[merged]);
-        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[open]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[merged]);
+        Assert.Equal(LinkedPullRequestState.Open, row.PullRequestStates[open]);
     }
 
     /// <summary>
@@ -178,8 +181,8 @@ public sealed class GitHubPushFlowTests : IDisposable
 
         var row = Assert.Single(harness.State.Rows);
         Assert.NotSame(written, row);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStatuses[pr].State);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[pr]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStatuses[pr].State);
         Assert.NotNull(row.Snapshot);
         Assert.False(row.PullRequestStates.ContainsKey(new EntryPullRequestLink("JSdotNet/Backlog", 710)));
     }
@@ -222,8 +225,8 @@ public sealed class GitHubPushFlowTests : IDisposable
 
         await harness.State.CheckPullRequestsAsync();
 
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStatuses[pr].State);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[pr]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStatuses[pr].State);
     }
 
     /// <summary>
@@ -244,20 +247,20 @@ public sealed class GitHubPushFlowTests : IDisposable
         harness.Client.PullRequestStates[708] = GitHubItemState.Open;
 
         await harness.State.CheckPullRequestsAsync();
-        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[pr]);
+        Assert.Equal(LinkedPullRequestState.Open, row.PullRequestStates[pr]);
 
         harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
         clock.Advance(TasksDesktopState.PullRequestRecheckInterval - TimeSpan.FromSeconds(1));
         await harness.State.CheckPullRequestsAsync();
 
         Assert.Equal(1, harness.Client.StatusReads);
-        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[pr]);
+        Assert.Equal(LinkedPullRequestState.Open, row.PullRequestStates[pr]);
 
         clock.Advance(TimeSpan.FromSeconds(1));
         await harness.State.CheckPullRequestsAsync();
 
         Assert.Equal(2, harness.Client.StatusReads);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[pr]);
     }
 
     /// <summary>An open state that came across a reload is still re-read: the
@@ -282,7 +285,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.CheckPullRequestsAsync();
 
         var row = harness.State.Rows.Single(r => r.Id == written.Id);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates.Values.Single());
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates.Values.Single());
     }
 
     /// <summary>Merged and closed are where a pull request ends: the check does not
@@ -297,10 +300,10 @@ public sealed class GitHubPushFlowTests : IDisposable
         var merged = new EntryPullRequestLink("JSdotNet/Backlog", 708);
         var closed = new EntryPullRequestLink("JSdotNet/Backlog", 710);
         row.PullRequestLinks = [merged, closed];
-        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState>
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, LinkedPullRequestState>
         {
-            [merged] = GitHubItemState.Merged,
-            [closed] = GitHubItemState.Closed
+            [merged] = LinkedPullRequestState.Merged,
+            [closed] = LinkedPullRequestState.Closed
         };
 
         clock.Advance(TasksDesktopState.PullRequestRecheckInterval * 3);
@@ -327,7 +330,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.CheckPullRequestsAsync();
 
         Assert.Equal(EntryStatus.InProgress, row.Status);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[pr]);
     }
 
     // --- A merge that lands finishes a prompt entry --------------------------
@@ -391,7 +394,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.CheckPullRequestsAsync();
 
         var read = harness.State.Rows.Single(r => r.Id == row.Id);
-        Assert.Equal(state, read.PullRequestStates.Values.Single());
+        Assert.Equal(state.ToString(), read.PullRequestStates.Values.Single().ToString());
         Assert.Equal(expected, read.Status);
     }
 
@@ -508,7 +511,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         harness.State.BeginEdit(row);
         await harness.State.CheckPullRequestsAsync();
 
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates.Values.Single());
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates.Values.Single());
         Assert.Equal(EntryStatus.InProgress, row.Status);
 
         await harness.State.EndEditAsync(row);
@@ -772,16 +775,16 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.Empty(harness.Toasts.Visible);
     }
 
-    /// <summary>A failure nobody anticipated is that pull request's alone: the
-    /// rest are still read, and the check the shell let go of ends cleanly
-    /// rather than as an exception nobody observes.</summary>
+    /// <summary>A failure nobody anticipated is that repository's read's alone: the
+    /// other repositories are still read, and the check the shell let go of ends
+    /// cleanly rather than as an exception nobody observes.</summary>
     [Fact]
-    public async Task An_unexpected_failure_on_one_pull_request_does_not_stop_the_next()
+    public async Task An_unexpected_failure_reading_one_repository_does_not_stop_the_next()
     {
-        var harness = Build("JSdotNet/Backlog");
+        var harness = Build("JSdotNet/Backlog", "JSdotNet/Other");
 
         var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
-        var broken = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        var broken = new EntryPullRequestLink("JSdotNet/Other", 708);
         var fine = new EntryPullRequestLink("JSdotNet/Backlog", 710);
         row.PullRequestLinks = [broken, fine];
         harness.Client.PullRequestFailures[708] = new InvalidOperationException("Unexpected.");
@@ -792,7 +795,7 @@ public sealed class GitHubPushFlowTests : IDisposable
 
         Assert.True(check.IsCompletedSuccessfully);
         Assert.False(row.PullRequestStates.ContainsKey(broken));
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[fine]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[fine]);
         Assert.Null(row.GitHubError);
         Assert.Empty(harness.Toasts.Visible);
     }
@@ -842,7 +845,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         await check;
 
         var row = Assert.Single(harness.State.Rows);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[pr]);
     }
 
     /// <summary>
@@ -871,7 +874,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         await sync;
 
         var current = harness.State.Rows.Single(r => r.Id == id);
-        Assert.Equal(GitHubItemState.Merged, Assert.Contains(pr, current.PullRequestStates));
+        Assert.Equal(LinkedPullRequestState.Merged, Assert.Contains(pr, current.PullRequestStates));
     }
 
     /// <summary>The issue half of the same sweep: the snapshot read before a reload
@@ -937,20 +940,20 @@ public sealed class GitHubPushFlowTests : IDisposable
         await check;
 
         var current = harness.State.Rows.Single(r => r.Id == id);
-        Assert.Equal(GitHubItemState.Merged, Assert.Contains(pr, current.PullRequestStates));
+        Assert.Equal(LinkedPullRequestState.Merged, Assert.Contains(pr, current.PullRequestStates));
     }
 
     /// <summary>
-    /// A list with hundreds of recorded pull requests learns where they stand from one
-    /// read per repository, not one per pull request — which is what left a merged link
-    /// uncoloured for minutes behind every older one. A merged or closed one needs no
-    /// read of its own.
+    /// A list with hundreds of recorded pull requests learns where they stand from a few
+    /// reads per repository, side by side — never one per pull request in list order,
+    /// which is what left a merged link uncoloured for minutes behind every older one.
+    /// The read is Repository Management's (local ADR 0042): batches of 25, each
+    /// answering a pull request's state and status together.
     /// </summary>
     [Fact]
-    public async Task The_background_check_reads_two_hundred_pull_requests_with_one_read_per_repository()
+    public async Task The_background_check_reads_two_hundred_pull_requests_in_a_few_reads_per_repository()
     {
         var harness = Build("JSdotNet/Backlog", "JSdotNet/Other");
-        harness.Client.AnswersLinkedReads = true;
         var row = await WriteEntryAsync(harness.State, "# Many\n`task` `!done` `repo:backlog`\n");
         List<EntryPullRequestLink> links =
         [
@@ -958,28 +961,21 @@ public sealed class GitHubPushFlowTests : IDisposable
             .. Enumerable.Range(2000, 100).Select(number => new EntryPullRequestLink("JSdotNet/Other", number))
         ];
         row.PullRequestLinks = links;
-        foreach (var pr in links)
-        {
-            harness.Client.PullRequestStates[pr.Number] = pr.Number % 2 == 0 ? GitHubItemState.Merged : GitHubItemState.Closed;
-            harness.Client.PullRequestBases[pr.Number] = "main";
-        }
+        foreach (var pr in links) harness.Client.PullRequestStates[pr.Number] = GitHubItemState.Closed;
 
         await harness.State.CheckPullRequestsAsync();
 
-        Assert.Equal(2, harness.Client.LinkedReads);
-        Assert.Equal(0, harness.Client.StatusReads + harness.Client.StateReads);
-        Assert.All(links, pr => Assert.Equal(
-            pr.Number % 2 == 0 ? GitHubItemState.Merged : GitHubItemState.Closed,
-            Assert.Contains(pr, row.PullRequestStates)));
+        Assert.Equal(2 * (100 / 25), harness.Client.StatusReads);
+        Assert.Equal(0, harness.Client.StateReads);
+        Assert.All(links, pr => Assert.Equal(LinkedPullRequestState.Closed, Assert.Contains(pr, row.PullRequestStates)));
     }
 
-    /// <summary>The batched read says where a merge went, so a merge it is the first
-    /// to see still moves its prompt entry to Done — with no read of its own.</summary>
+    /// <summary>The read by number says where a merge went, so a merge it is the first
+    /// to see moves its prompt entry to Done on the same read.</summary>
     [Fact]
-    public async Task A_merge_the_batched_read_finds_moves_its_entry_without_a_read_of_its_own()
+    public async Task A_merge_the_read_finds_moves_its_entry_on_the_same_read()
     {
         var harness = Build("JSdotNet/Backlog");
-        harness.Client.AnswersLinkedReads = true;
         var row = await LinkedEntryAsync(harness, "`prompt` `!in-progress` `repo:backlog`", 708);
         harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
         harness.Client.PullRequestBases[708] = "plan/lobes-atlas";
@@ -987,16 +983,16 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.CheckPullRequestsAsync();
 
         Assert.Equal(EntryStatus.Done, harness.State.Rows.Single(r => r.Id == row.Id).Status);
-        Assert.Equal(0, harness.Client.StatusReads + harness.Client.StateReads);
+        Assert.Equal(1, harness.Client.StatusReads);
     }
 
-    /// <summary>An open pull request is still read on its own for its status: its
-    /// checks and the merge offer need facts the batched read does not carry.</summary>
+    /// <summary>An open pull request's status — its checks, and the merge the row may
+    /// offer — comes in the same read as the merged one beside it: nothing is read on its
+    /// own.</summary>
     [Fact]
-    public async Task An_open_pull_request_the_batched_read_finds_is_still_read_for_its_status()
+    public async Task An_open_pull_requests_status_comes_in_the_same_read()
     {
         var harness = Build("JSdotNet/Backlog");
-        harness.Client.AnswersLinkedReads = true;
         var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
         var merged = new EntryPullRequestLink("JSdotNet/Backlog", 708);
         var open = new EntryPullRequestLink("JSdotNet/Backlog", 710);
@@ -1009,41 +1005,41 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.CheckPullRequestsAsync();
 
         Assert.Equal(1, harness.Client.StatusReads);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[merged]);
-        Assert.Equal(GitHubCheckState.Failing, row.PullRequestStatuses[open].Checks);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[merged]);
+        Assert.Equal(LinkedPullRequestChecks.Failing, row.PullRequestStatuses[open].Checks);
     }
 
-    /// <summary>A repository the batched read cannot read — a refusal, an older
-    /// server — is read the way it was before, one pull request at a time, while the
-    /// others keep their one read.</summary>
+    /// <summary>A repository whose read by number is refused — an older server — has
+    /// each pull request read alone over REST, while the others keep their one read.</summary>
     [Fact]
-    public async Task A_repository_the_batched_read_cannot_read_falls_back_to_one_read_each()
+    public async Task A_repository_whose_read_is_refused_falls_back_to_one_read_each()
     {
         var harness = Build("JSdotNet/Backlog", "JSdotNet/Other");
-        harness.Client.AnswersLinkedReads = true;
-        harness.Client.LinkedReadFailures.Add("JSdotNet/Other");
+        harness.Client.PinnedReadFailures.Add("JSdotNet/Other");
         var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
         var here = new EntryPullRequestLink("JSdotNet/Backlog", 708);
         var there = new EntryPullRequestLink("JSdotNet/Other", 2001);
-        row.PullRequestLinks = [here, there];
-        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
-        harness.Client.PullRequestBases[708] = "main";
+        var alsoThere = new EntryPullRequestLink("JSdotNet/Other", 2002);
+        row.PullRequestLinks = [here, there, alsoThere];
+        harness.Client.PullRequestStates[708] = GitHubItemState.Closed;
         harness.Client.PullRequestStates[2001] = GitHubItemState.Merged;
+        harness.Client.PullRequestStates[2002] = GitHubItemState.Closed;
 
         await harness.State.CheckPullRequestsAsync();
 
-        Assert.Equal(1, harness.Client.StatusReads);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[here]);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[there]);
+        Assert.Equal(2, harness.Client.StatusReads);
+        Assert.Equal(2, harness.Client.StateReads);
+        Assert.Equal(LinkedPullRequestState.Closed, row.PullRequestStates[here]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[there]);
+        Assert.Equal(LinkedPullRequestState.Closed, row.PullRequestStates[alsoThere]);
     }
 
-    /// <summary>The sync button reads its pull requests the same way: one read per
-    /// repository, so a list of long-closed work is checked in one round trip.</summary>
+    /// <summary>The sync button reads its pull requests the same way, so a list of
+    /// long-closed work is checked in a few round trips.</summary>
     [Fact]
-    public async Task Check_GitHub_reads_its_pull_requests_with_one_read_per_repository()
+    public async Task Check_GitHub_reads_its_pull_requests_in_a_few_reads_per_repository()
     {
         var harness = Build("JSdotNet/Backlog");
-        harness.Client.AnswersLinkedReads = true;
         var row = await WriteEntryAsync(harness.State, "# Many\n`task` `!done` `repo:backlog`\n");
         List<EntryPullRequestLink> links = [.. Enumerable.Range(1000, 100).Select(number => new EntryPullRequestLink("JSdotNet/Backlog", number))];
         row.PullRequestLinks = links;
@@ -1051,9 +1047,9 @@ public sealed class GitHubPushFlowTests : IDisposable
 
         await harness.State.SyncGitHubAsync();
 
-        Assert.Equal(1, harness.Client.LinkedReads);
-        Assert.Equal(0, harness.Client.StatusReads + harness.Client.StateReads);
-        Assert.All(links, pr => Assert.Equal(GitHubItemState.Closed, Assert.Contains(pr, row.PullRequestStates)));
+        Assert.Equal(100 / 25, harness.Client.StatusReads);
+        Assert.Equal(0, harness.Client.StateReads);
+        Assert.All(links, pr => Assert.Equal(LinkedPullRequestState.Closed, Assert.Contains(pr, row.PullRequestStates)));
     }
 
     /// <summary>
@@ -1079,57 +1075,28 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
     /// <summary>
-    /// What the batched read settles is on screen before any pull request is read on
-    /// its own: a merged link never waits behind the status reads of the open ones
-    /// listed before it.
-    /// </summary>
-    [Fact]
-    public async Task A_merged_link_is_coloured_before_the_open_pull_requests_are_read_for_their_status()
-    {
-        var harness = Build("JSdotNet/Backlog");
-        harness.Client.AnswersLinkedReads = true;
-        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
-        var open = new EntryPullRequestLink("JSdotNet/Backlog", 710);
-        var merged = new EntryPullRequestLink("JSdotNet/Backlog", 708);
-        row.PullRequestLinks = [open, merged];
-        harness.Client.PullRequestStates[710] = GitHubItemState.Open;
-        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
-        harness.Client.PullRequestBases[708] = "main";
-        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        harness.Client.StatusGates[710] = gate;
-
-        var check = harness.State.CheckPullRequestsAsync();
-
-        Assert.Equal(GitHubItemState.Merged, Assert.Contains(merged, row.PullRequestStates));
-        gate.SetResult();
-        await check;
-        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[open]);
-    }
-
-    /// <summary>
-    /// A merge whose branches no read could say — the batched answer left them out and
-    /// the pull request's own read failed — cannot tell whether it finishes the entry.
-    /// It is not written off for that: it is asked about again at the recheck interval,
-    /// and the read that says where it went moves the entry then.
+    /// A merge whose branches no read could say — the repository's default branch was
+    /// not read — cannot tell whether it finishes the entry. It is not written off for
+    /// that: it is asked about again at the recheck interval, and the read that says
+    /// where it went moves the entry then.
     /// </summary>
     [Fact]
     public async Task A_merge_whose_branches_could_not_be_read_moves_its_entry_once_a_later_read_says_them()
     {
         var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
         var harness = Build(clock, "JSdotNet/Backlog");
-        harness.Client.AnswersLinkedReads = true;
         var row = await LinkedEntryAsync(harness, "`prompt` `!in-progress` `repo:backlog`", 708);
         var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
         harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
-        harness.Client.PullRequestFailures[708] = new GitHubException("GitHub took too long to answer.");
+        harness.Client.PullRequestBases[708] = "main";
+        harness.Client.DefaultBranch = null;
 
         await harness.State.CheckPullRequestsAsync();
         var current = harness.State.Rows.Single(r => r.Id == row.Id);
-        Assert.Equal(GitHubItemState.Merged, Assert.Contains(pr, current.PullRequestStates));
+        Assert.Equal(LinkedPullRequestState.Merged, Assert.Contains(pr, current.PullRequestStates));
         Assert.Equal(EntryStatus.InProgress, current.Status);
 
-        harness.Client.PullRequestFailures.Remove(708);
-        harness.Client.PullRequestBases[708] = "main";
+        harness.Client.DefaultBranch = "main";
         clock.Advance(TasksDesktopState.PullRequestRecheckInterval);
         await harness.State.CheckPullRequestsAsync();
 
@@ -1145,7 +1112,6 @@ public sealed class GitHubPushFlowTests : IDisposable
     public async Task A_pull_request_of_an_archived_repository_is_not_read()
     {
         var harness = Build("JSdotNet/Backlog", "JSdotNet/Other");
-        harness.Client.AnswersLinkedReads = true;
         Assert.Null(harness.Settings.SetRepositoryArchived("JSdotNet/Other", archived: true));
         var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
         var archived = new EntryPullRequestLink("JSdotNet/Other", 2001);
@@ -1156,35 +1122,8 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.CheckPullRequestsAsync();
         await harness.State.SyncGitHubAsync();
 
-        Assert.Equal(0, harness.Client.LinkedReads + harness.Client.StatusReads + harness.Client.StateReads);
+        Assert.Equal(0, harness.Client.StatusReads + harness.Client.StateReads);
         Assert.False(row.PullRequestStates.ContainsKey(archived));
-    }
-
-    /// <summary>
-    /// A remembered close read closed again is remembered as read then, so the next
-    /// launch waits out the recheck interval from that read rather than asking about
-    /// it again straight away.
-    /// </summary>
-    [Fact]
-    public async Task A_remembered_close_read_closed_again_waits_the_interval_from_that_read()
-    {
-        var memory = Memory();
-        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
-        var harness = BuildRemembering(memory, clock, "JSdotNet/Backlog");
-        await LinkedEntryAsync(harness, "`task` `!done` `repo:backlog`", 708);
-        harness.Client.PullRequestStates[708] = GitHubItemState.Closed;
-        await harness.State.CheckPullRequestsAsync();
-
-        clock.Advance(TasksDesktopState.PullRequestRecheckInterval);
-        var second = await RestartAsync(harness, memory, clock);
-        await second.CheckPullRequestsAsync();
-        var readsAfterSecondLaunch = harness.Client.StatusReads;
-
-        clock.Advance(TimeSpan.FromSeconds(30));
-        var third = await RestartAsync(harness, memory, clock);
-        await third.CheckPullRequestsAsync();
-
-        Assert.Equal(readsAfterSecondLaunch, harness.Client.StatusReads);
     }
 
     /// <summary>
@@ -1241,47 +1180,6 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.False(harness.State.Rows.Single(r => r.Id == id).GitHubBusy);
     }
 
-    /// <summary>
-    /// The sync button re-reads every closed pull request. One read closed again
-    /// within the recheck interval of the read the memory holds is not written again:
-    /// a list of a hundred closed pull requests is not a hundred file writes per sync.
-    /// Once that read is older than the interval, the new one is kept.
-    /// </summary>
-    [Fact]
-    public async Task A_close_read_closed_again_is_rewritten_only_once_the_kept_read_is_older_than_the_interval()
-    {
-        var memory = new CountingMemory(Memory());
-        var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
-        var harness = BuildRemembering(memory, clock, "JSdotNet/Backlog");
-        await LinkedEntryAsync(harness, "`task` `!done` `repo:backlog`", 708);
-        harness.Client.PullRequestStates[708] = GitHubItemState.Closed;
-        await harness.State.CheckPullRequestsAsync();
-        Assert.Equal(1, memory.Writes);
-
-        await harness.State.SyncGitHubAsync();
-        Assert.Equal(1, memory.Writes);
-
-        clock.Advance(TasksDesktopState.PullRequestRecheckInterval);
-        await harness.State.SyncGitHubAsync();
-        Assert.Equal(2, memory.Writes);
-    }
-
-    /// <summary>A memory that counts what is written through it.</summary>
-    private sealed class CountingMemory(IPullRequestStateMemory inner) : IPullRequestStateMemory
-    {
-        public int Writes { get; private set; }
-
-        public IReadOnlyList<RememberedPullRequest> ReadAll() => inner.ReadAll();
-
-        public void Remember(RememberedPullRequest pullRequest)
-        {
-            Writes++;
-            inner.Remember(pullRequest);
-        }
-
-        public void Forget(string repository, int number) => inner.Forget(repository, number);
-    }
-
     /// <summary>One check at a time. A reload that asks while one is running is
     /// owed one more pass after it, which is what picks up a pull request recorded
     /// in the meantime — and nothing is read twice.</summary>
@@ -1306,8 +1204,8 @@ public sealed class GitHubPushFlowTests : IDisposable
         await Task.WhenAll(running, asked);
 
         Assert.Equal(2, harness.Client.StatusReads);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[first]);
-        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[second]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[first]);
+        Assert.Equal(LinkedPullRequestState.Open, row.PullRequestStates[second]);
     }
 
     /// <summary>A workspace closed while a read is in flight ends the check
@@ -1353,9 +1251,9 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.SyncGitHubAsync();
 
         var status = row.PullRequestStatuses[pr];
-        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[pr]);
-        Assert.Equal(GitHubCheckState.Failing, status.Checks);
-        Assert.True(status.AutoMergeEnabled);
+        Assert.Equal(LinkedPullRequestState.Open, row.PullRequestStates[pr]);
+        Assert.Equal(LinkedPullRequestChecks.Failing, status.Checks);
+        Assert.True(status.AutoMerge);
     }
 
     /// <summary>
@@ -1377,8 +1275,9 @@ public sealed class GitHubPushFlowTests : IDisposable
 
         await harness.State.SyncGitHubAsync();
 
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
-        Assert.False(row.PullRequestStatuses.ContainsKey(pr));
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[pr]);
+        Assert.Null(row.PullRequestStatuses[pr].VerdictLabel);
+        Assert.Equal(LinkedPullRequestChecks.None, row.PullRequestStatuses[pr].Checks);
         Assert.Null(harness.State.MergeOfferFor(row));
         Assert.Empty(harness.Toasts.Visible);
 
@@ -1389,7 +1288,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         harness.Client.PullRequestStates[709] = GitHubItemState.Open;
         await harness.State.SyncGitHubAsync();
 
-        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[open]);
+        Assert.Equal(LinkedPullRequestState.Open, row.PullRequestStates[open]);
         Assert.Null(harness.State.MergeOfferFor(row));
     }
 
@@ -1420,18 +1319,18 @@ public sealed class GitHubPushFlowTests : IDisposable
 
         var offer = harness.State.MergeOfferFor(row)!;
         Assert.Equal(latest, offer.PullRequest);
-        Assert.Equal(PullRequestMergeAct.MergeWhenChecksPass, offer.Act);
+        Assert.Equal(LinkedPullRequestMerge.MergeWhenReady, offer.Act);
         Assert.Equal("Merge #710 when checks pass", offer.Label);
 
         harness.Client.MergeReady.Add(710);
         await harness.State.SyncGitHubAsync();
-        Assert.Equal(PullRequestMergeAct.MergeNow, harness.State.MergeOfferFor(row)!.Act);
+        Assert.Equal(LinkedPullRequestMerge.MergeNow, harness.State.MergeOfferFor(row)!.Act);
         Assert.Equal("Merge #710 now", harness.State.MergeOfferFor(row)!.Label);
 
         harness.Client.MergeReady.Clear();
         harness.Client.AutoMergeOn.Add(710);
         await harness.State.SyncGitHubAsync();
-        Assert.Equal(PullRequestMergeAct.CancelAutoMerge, harness.State.MergeOfferFor(row)!.Act);
+        Assert.Equal(LinkedPullRequestMerge.CancelAutoMerge, harness.State.MergeOfferFor(row)!.Act);
         Assert.Equal("Cancel auto-merge for #710", harness.State.MergeOfferFor(row)!.Label);
 
         // Merged is no longer anything to merge.
@@ -1449,7 +1348,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.SetAutoMergeAsync(row, pr, enable: true);
 
         Assert.Equal(["enable PR_710 Squash"], harness.Client.MergeCalls);
-        Assert.True(row.PullRequestStatuses[pr].AutoMergeEnabled);
+        Assert.True(row.PullRequestStatuses[pr].AutoMerge);
         Assert.False(row.GitHubBusy);
         Assert.Empty(harness.Toasts.Visible);
     }
@@ -1462,7 +1361,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.SetAutoMergeAsync(row, pr, enable: false);
 
         Assert.Equal(["disable PR_710"], harness.Client.MergeCalls);
-        Assert.False(row.PullRequestStatuses[pr].AutoMergeEnabled);
+        Assert.False(row.PullRequestStatuses[pr].AutoMerge);
     }
 
     [Fact]
@@ -1474,7 +1373,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         await harness.State.MergeNowAsync(row, pr);
 
         Assert.Equal(["merge PR_710 Squash"], harness.Client.MergeCalls);
-        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+        Assert.Equal(LinkedPullRequestState.Merged, row.PullRequestStates[pr]);
     }
 
     /// <summary>A refusal is said out loud, naming the entry and what would fix it,
@@ -1497,7 +1396,7 @@ public sealed class GitHubPushFlowTests : IDisposable
 
         Assert.False(row.GitHubBusy);
         Assert.Null(row.GitHubError);
-        Assert.False(row.PullRequestStatuses[pr].AutoMergeEnabled);
+        Assert.False(row.PullRequestStatuses[pr].AutoMerge);
     }
 
     /// <summary>
@@ -1526,13 +1425,13 @@ public sealed class GitHubPushFlowTests : IDisposable
 
         // Meanwhile #700 is handed to auto-merge and read back as on.
         await harness.State.SetAutoMergeAsync(row, first, enable: true);
-        Assert.True(row.PullRequestStatuses[first].AutoMergeEnabled);
+        Assert.True(row.PullRequestStatuses[first].AutoMerge);
 
         gate.SetResult();
         await sync;
 
-        Assert.True(row.PullRequestStatuses[first].AutoMergeEnabled);
-        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[second]);
+        Assert.True(row.PullRequestStatuses[first].AutoMerge);
+        Assert.Equal(LinkedPullRequestState.Open, row.PullRequestStates[second]);
     }
 
     /// <summary>
@@ -1554,7 +1453,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         var restarted = await RestartAsync(harness, memory, clock: null);
 
         var current = restarted.Rows.Single(r => r.Id == row.Id);
-        Assert.Equal(GitHubItemState.Merged, Assert.Contains(pr, current.PullRequestStates));
+        Assert.Equal(LinkedPullRequestState.Merged, Assert.Contains(pr, current.PullRequestStates));
     }
 
     /// <summary>Merged is final, so a remembered merge is never asked about again —
@@ -1682,13 +1581,12 @@ public sealed class GitHubPushFlowTests : IDisposable
     }
 
     /// <summary>
-    /// Closed is not final — GitHub lets a closed pull request be reopened — so a
-    /// remembered close draws closed at launch and is asked about again once the
-    /// recheck interval has passed since it was read. Read open again, it is
-    /// forgotten.
+    /// Closed is not final — GitHub lets a closed pull request be reopened — and only a
+    /// merge is a settled fact (local ADR 0042 §3), so a close is not kept across a
+    /// restart: the link draws unread at launch, and the first check reads it, once.
     /// </summary>
     [Fact]
-    public async Task A_remembered_close_is_asked_about_again_after_the_recheck_interval()
+    public async Task A_close_is_not_kept_across_a_restart_and_is_read_once_after_it()
     {
         var memory = Memory();
         var clock = new FakeTimeProvider(DateTimeOffset.UtcNow);
@@ -1700,17 +1598,68 @@ public sealed class GitHubPushFlowTests : IDisposable
         var readsBefore = harness.Client.StatusReads;
 
         var restarted = await RestartAsync(harness, memory, clock);
-        Assert.Equal(GitHubItemState.Closed, Assert.Contains(pr, restarted.Rows.Single(r => r.Id == row.Id).PullRequestStates));
+        Assert.False(restarted.Rows.Single(r => r.Id == row.Id).PullRequestStates.ContainsKey(pr));
         await restarted.CheckPullRequestsAsync();
-        Assert.Equal(readsBefore, harness.Client.StatusReads);
-
-        harness.Client.PullRequestStates[708] = GitHubItemState.Open;
         clock.Advance(TasksDesktopState.PullRequestRecheckInterval);
         await restarted.CheckPullRequestsAsync();
 
         Assert.Equal(readsBefore + 1, harness.Client.StatusReads);
-        Assert.Equal(GitHubItemState.Open, restarted.Rows.Single(r => r.Id == row.Id).PullRequestStates[pr]);
-        Assert.Empty(memory.ReadAll());
+        Assert.Equal(LinkedPullRequestState.Closed, restarted.Rows.Single(r => r.Id == row.Id).PullRequestStates[pr]);
+        Assert.Empty(memory.Settled.ReadAll());
+    }
+
+    /// <summary>
+    /// An entry the task list's old outcome memory settled stays settled when the merge
+    /// itself is not among Repository Management's settled facts yet — the first launch
+    /// after the move to them (local ADR 0042, OQ-5): the merge is read once more and
+    /// drawn merged, but the entry the person took back out of Done is not moved again.
+    /// </summary>
+    [Fact]
+    public async Task An_entry_settled_before_the_merge_was_a_settled_fact_is_not_moved_again()
+    {
+        var memory = Memory();
+        var harness = BuildRemembering(memory, clock: null, "JSdotNet/Backlog");
+        var row = await LinkedEntryAsync(harness, "`prompt` `!in-progress` `repo:backlog`", 708);
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+        harness.Client.PullRequestBases[708] = "main";
+        memory.Finishes.Settle("JSdotNet/Backlog", 708, row.Id!.Value);
+
+        var restarted = await RestartAsync(harness, memory, clock: null);
+        await restarted.CheckPullRequestsAsync();
+
+        var current = restarted.Rows.Single(r => r.Id == row.Id);
+        Assert.Equal(LinkedPullRequestState.Merged, Assert.Contains(pr, current.PullRequestStates));
+        Assert.Equal(EntryStatus.InProgress, current.Status);
+    }
+
+    /// <summary>
+    /// A host that composes no Repository Management gives the task list a port that
+    /// answers nothing (V5): the badge draws with no state, the row offers no merge, and
+    /// GitHub is asked nothing about the pull request.
+    /// </summary>
+    [Fact]
+    public async Task Without_repository_management_the_badge_has_no_state_and_no_merge_is_offered()
+    {
+        var harness = Build("JSdotNet/Backlog");
+        var port = new ServiceCollection()
+            .AddTasksCrossContextAdapters()
+            .BuildServiceProvider()
+            .GetRequiredService<ILinkedPullRequestStates>();
+        var state = TasksTestHost.StateFor(harness.Store, harness.Integration, toasts: harness.Toasts, pullRequestStates: port);
+        _states.Add(state);
+        await state.ReloadFromStoreAsync();
+        var row = await LinkedEntryAsync(harness with { State = state }, "`prompt` `!in-progress` `repo:backlog`", 710);
+        harness.Client.PullRequestStates[710] = GitHubItemState.Open;
+        harness.Client.MergeReady.Add(710);
+
+        await state.CheckPullRequestsAsync();
+        await state.SyncGitHubAsync();
+
+        var current = state.Rows.Single(r => r.Id == row.Id);
+        Assert.Empty(current.PullRequestStates);
+        Assert.Null(state.MergeOfferFor(current));
+        Assert.Equal(0, harness.Client.StatusReads + harness.Client.StateReads);
     }
 
     /// <summary>The sync button re-reads what can still change. A pull request already
@@ -1758,7 +1707,7 @@ public sealed class GitHubPushFlowTests : IDisposable
 
         Assert.Equal(["merge PR_710 Squash"], harness.Client.MergeCalls);
         var current = harness.State.Rows.Single(r => r.Id == id);
-        Assert.Equal(GitHubItemState.Merged, Assert.Contains(pr, current.PullRequestStates));
+        Assert.Equal(LinkedPullRequestState.Merged, Assert.Contains(pr, current.PullRequestStates));
     }
 
     /// <summary>The row stays busy until the read that follows the act has come
@@ -1781,7 +1730,7 @@ public sealed class GitHubPushFlowTests : IDisposable
         await act;
 
         Assert.False(row.GitHubBusy);
-        Assert.True(row.PullRequestStatuses[pr].AutoMergeEnabled);
+        Assert.True(row.PullRequestStatuses[pr].AutoMerge);
     }
 
     [Fact]
@@ -2182,33 +2131,51 @@ public sealed class GitHubPushFlowTests : IDisposable
         return new Harness(StateFor(store, integration, toasts, clock, storeCalls), client, store, integration, new FeedbackReporter(integration), toasts, settings);
     }
 
-    /// <summary>As <see cref="Build(TimeProvider?, string[])"/>, with the pull-request
-    /// outcomes kept in <paramref name="memory"/>.</summary>
-    private Harness BuildRemembering(IPullRequestStateMemory memory, TimeProvider? clock, params string[] repositories)
+    /// <summary>As <see cref="Build(TimeProvider?, string[])"/>, with Repository
+    /// Management's settled facts and the task list's settled finishes kept in
+    /// <paramref name="memory"/> — what a restart reads back.</summary>
+    private Harness BuildRemembering(DeviceMemory memory, TimeProvider? clock, params string[] repositories)
     {
         var harness = BuildWatchingStore(clock, storeCalls: null, repositories);
-        var state = TasksTestHost.StateFor(harness.Store, harness.Integration, toasts: harness.Toasts, clock: clock, pullRequestMemory: memory);
-        _states.Add(state);
+        var state = Launch(harness, memory, clock);
         return harness with { State = state };
     }
 
-    /// <summary>The app launched again over the same workspace, GitHub and outcome
-    /// memory: a fresh list state, loaded.</summary>
-    private async Task<TasksDesktopState> RestartAsync(Harness harness, IPullRequestStateMemory memory, TimeProvider? clock)
+    /// <summary>The app launched again over the same workspace, GitHub and device
+    /// memory: a fresh contract with an empty cache, and a fresh list state, loaded.</summary>
+    private async Task<TasksDesktopState> RestartAsync(Harness harness, DeviceMemory memory, TimeProvider? clock)
     {
-        var state = TasksTestHost.StateFor(harness.Store, harness.Integration, toasts: harness.Toasts, clock: clock, pullRequestMemory: memory);
-        _states.Add(state);
+        var state = Launch(harness, memory, clock);
         await state.ReloadFromStoreAsync();
         return state;
     }
 
-    /// <summary>An outcome memory over a folder of its own, removed with the test's.</summary>
-    private PullRequestStateMemory Memory()
+    private TasksDesktopState Launch(Harness harness, DeviceMemory memory, TimeProvider? clock)
+    {
+        var state = TasksTestHost.StateFor(
+            harness.Store,
+            harness.Integration,
+            toasts: harness.Toasts,
+            clock: clock,
+            pullRequestStates: TasksTestHost.PullRequestStatesOver(harness.Integration, clock, memory.Settled),
+            finishMemory: memory.Finishes);
+        _states.Add(state);
+        return state;
+    }
+
+    /// <summary>What this device keeps about pull requests across a restart, over
+    /// folders of its own, removed with the test's: Repository Management's settled
+    /// facts and the task list's settled finishes.</summary>
+    private DeviceMemory Memory()
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-github-flow", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
-        return new PullRequestStateMemory(() => root);
+        return new DeviceMemory(
+            new SettledPullRequestStore(() => Path.Combine(root, SettledPullRequestStore.FolderName)),
+            new PullRequestFinishMemory(() => Path.Combine(root, PullRequestFinishMemory.FolderName)));
     }
+
+    private sealed record DeviceMemory(ISettledPullRequestStore Settled, IPullRequestFinishMemory Finishes);
 
     /// <summary>The list state, remembered so <see cref="Dispose"/> can hand back
     /// the timed saves it arms.</summary>
@@ -2309,8 +2276,10 @@ public sealed class GitHubPushFlowTests : IDisposable
         public Dictionary<int, GitHubItemState> PullRequestStates { get; } = [];
         public Exception? PullRequestFailure { get; set; }
 
-        /// <summary>How many times a pull request's status, and its state over REST,
-        /// were asked for.</summary>
+        /// <summary>How many reads by number were sent — the pinned read Repository
+        /// Management's source asks, one per repository asked — and how many pull
+        /// requests were read alone over REST: the fallback for a refused read, and the
+        /// default branch of a merge.</summary>
         public int StatusReads { get; private set; }
         public int StateReads { get; private set; }
 
@@ -2339,48 +2308,6 @@ public sealed class GitHubPushFlowTests : IDisposable
                 BaseRefName = PullRequestBases.GetValueOrDefault(number),
                 DefaultBranch = DefaultBranch
             });
-        }
-
-        /// <summary>Whether the batched read by number answers. Off, it refuses as a
-        /// client that cannot read linked pull requests does, so a test that does not ask
-        /// for it reads one pull request at a time, as before the batched read.</summary>
-        public bool AnswersLinkedReads { get; set; }
-
-        /// <summary>How many batched reads were sent — one per repository asked.</summary>
-        public int LinkedReads { get; private set; }
-
-        /// <summary>The repositories whose batched read is refused.</summary>
-        public HashSet<string> LinkedReadFailures { get; } = new(StringComparer.OrdinalIgnoreCase);
-
-        public Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestsAsync(
-            GitHubRepositoryRef repository,
-            IReadOnlyCollection<int> numbers,
-            CancellationToken cancellationToken = default)
-        {
-            if (!AnswersLinkedReads) throw new GitHubException("This GitHub client cannot read linked pull requests.");
-
-            LinkedReads++;
-            if (LinkedReadFailures.Contains(repository.FullName)) throw new GitHubException("GitHub refused the read.");
-
-            IReadOnlyList<GitHubLinkedPullRequest> answer =
-            [
-                .. numbers
-                    .Where(PullRequestStates.ContainsKey)
-                    .Select(number => new GitHubLinkedPullRequest(
-                        number,
-                        $"https://github.com/{repository.FullName}/pull/{number}",
-                        "A pull request",
-                        repository.FullName,
-                        PullRequestStates[number],
-                        AuthorLogin: null,
-                        MergedAt: null)
-                    {
-                        BaseRefName = PullRequestBases.GetValueOrDefault(number),
-                        DefaultBranch = DefaultBranch
-                    })
-            ];
-
-            return Task.FromResult(answer);
         }
 
         /// <summary>The branch each pull request merges into; absent is unknown, the
@@ -2412,39 +2339,94 @@ public sealed class GitHubPushFlowTests : IDisposable
         /// <summary>Every merge act asked for, as "act node method".</summary>
         public List<string> MergeCalls { get; } = [];
 
-        /// <summary>Status reads held open until the test releases them, by number —
-        /// how a test puts a read in flight while something else happens.</summary>
+        /// <summary>The repositories whose read by number GitHub refuses whole, while a
+        /// pull request read alone over REST still answers — an older server.</summary>
+        public HashSet<string> PinnedReadFailures { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Reads by number held open until the test releases them, by number —
+        /// how a test puts a read in flight while something else happens. A read that
+        /// asks for a held number waits for it.</summary>
         public Dictionary<int, TaskCompletionSource> StatusGates { get; } = [];
 
-        public async Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
+        /// <summary>
+        /// The read by number with each pull request's status, as the pinned read
+        /// answers it: its state, checks, auto-merge request, merge state and the node
+        /// the merge acts name it by. One per repository asked. Refused whole — as
+        /// GitHub refuses a query — when any number asked fails, when every read fails,
+        /// or when the status fields are what the server cannot answer
+        /// (<see cref="StatusFailure"/>); Repository Management then reads each number
+        /// alone over REST. A number GitHub does not know is left out.
+        /// </summary>
+        public async Task<IReadOnlyList<GitHubOpenPullRequest>> ListPullRequestsAsync(
             GitHubRepositoryRef repository,
-            int number,
+            IReadOnlyCollection<int> numbers,
             CancellationToken cancellationToken = default)
         {
             StatusReads++;
 
-            if (PullRequestFailures.TryGetValue(number, out var failure)) throw failure;
+            foreach (var number in numbers)
+            {
+                if (PullRequestFailures.TryGetValue(number, out var failure)) throw failure;
+            }
 
-            if (StatusGates.Remove(number, out var gate)) await gate.Task;
+            foreach (var number in numbers.Where(StatusGates.ContainsKey).ToList())
+            {
+                if (StatusGates.Remove(number, out var gate)) await gate.Task;
+            }
 
             if (PullRequestFailure is not null) throw PullRequestFailure;
             if (StatusFailure is not null) throw StatusFailure;
-            if (!PullRequestStates.TryGetValue(number, out var state)) throw new GitHubException("Not Found");
+            if (PinnedReadFailures.Contains(repository.FullName)) throw new GitHubException("GitHub refused the read.");
 
-            return new GitHubPullRequestStatus(
+            return [.. numbers.Where(PullRequestStates.ContainsKey).Select(number => Pinned(repository, number))];
+        }
+
+        /// <summary>The repository's open list: every pull request a test holds open or
+        /// as a draft — what a task row's place in a stack is read from, and what a merge
+        /// act's re-read lists. Held, like the read by number, while a gate on one of its
+        /// pull requests is (<see cref="StatusGates"/>).</summary>
+        public async Task<IReadOnlyList<GitHubOpenPullRequest>> ListOpenPullRequestsAsync(
+            GitHubRepositoryRef repository,
+            CancellationToken cancellationToken = default)
+        {
+            var open = PullRequestStates
+                .Where(held => held.Value is GitHubItemState.Open or GitHubItemState.Draft)
+                .Select(held => held.Key)
+                .ToList();
+
+            foreach (var number in open.Where(StatusGates.ContainsKey).ToList())
+            {
+                if (StatusGates.Remove(number, out var gate)) await gate.Task;
+            }
+
+            return [.. open.Where(PullRequestStates.ContainsKey).Select(number => Pinned(repository, number))];
+        }
+
+        private GitHubOpenPullRequest Pinned(GitHubRepositoryRef repository, int number) =>
+            new GitHubOpenPullRequest(
                 number,
+                $"https://github.com/{repository.FullName}/pull/{number}",
+                "A pull request",
                 repository.FullName,
                 $"PR_{number}",
-                state,
-                PullRequestChecks.GetValueOrDefault(number),
-                AutoMergeOn.Contains(number),
-                MergeReady.Contains(number),
-                GitHubMergeMethod.Squash)
+                IsDraft: PullRequestStates[number] is GitHubItemState.Draft,
+                HeadRefName: $"feature-{number}",
+                HeadSha: null,
+                BaseRefName: PullRequestBases.GetValueOrDefault(number) ?? string.Empty,
+                AuthorLogin: null,
+                ViewerDidAuthor: false,
+                Checks: PullRequestChecks.GetValueOrDefault(number),
+                AutoMergeEnabled: AutoMergeOn.Contains(number),
+                MergeReady: MergeReady.Contains(number),
+                IsBehind: false,
+                HasConflicts: false,
+                MergeStateStatus: MergeReady.Contains(number) ? "CLEAN" : null,
+                PreferredMergeMethod: GitHubMergeMethod.Squash,
+                UpdatedAt: null)
             {
-                BaseRefName = PullRequestBases.GetValueOrDefault(number),
-                DefaultBranch = DefaultBranch
+                IsMerged = PullRequestStates[number] is GitHubItemState.Merged,
+                IsClosed = PullRequestStates[number] is GitHubItemState.Closed
             };
-        }
 
         public Task EnableAutoMergeAsync(GitHubRepositoryRef repository, string pullRequestId, GitHubMergeMethod method, CancellationToken cancellationToken = default)
         {

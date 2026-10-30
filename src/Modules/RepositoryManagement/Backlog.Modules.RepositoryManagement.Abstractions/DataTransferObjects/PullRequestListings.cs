@@ -19,6 +19,15 @@ public sealed record PullRequestListing(
     IReadOnlyList<RepositoryReadFailure> Failures)
 {
     public static PullRequestListing Empty { get; } = new([], []);
+
+    /// <summary>
+    /// For an open list: the repositories, by <c>owner/name</c>, whose every open pull
+    /// request it holds — read without a failure and short of the source's cap. A
+    /// repository it does not name may have open pull requests it does not hold: one it
+    /// failed, capped, or does not list at all (unregistered, archived). Empty for a read
+    /// by number, which lists no repository.
+    /// </summary>
+    public IReadOnlyCollection<string> CompleteRepositories { get; init; } = [];
 }
 
 /// <summary>The recently merged pull requests of several repositories, read together,

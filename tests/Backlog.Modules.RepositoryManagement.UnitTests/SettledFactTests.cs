@@ -20,6 +20,75 @@ public sealed class SettledFactTests
     private readonly InMemorySettledStore _settled = new();
     private readonly FakeRegisteredRepositories _registry = new(BacklogRepository);
 
+    /// <summary>
+    /// A merge read without the repository's default branch — the source's read of it
+    /// was refused — is still merged, and still kept, but not for good: whether it
+    /// finishes the task that recorded it turns on that branch (local ADR 0042 §3), so
+    /// once it is older than the reader's age it is asked again, and the read that names
+    /// the branch replaces it, in memory and in the settled facts. One that names it is
+    /// final, as before.
+    /// </summary>
+    [Fact]
+    public async Task A_merge_read_without_its_default_branch_is_asked_again_until_a_read_names_it()
+    {
+        var github = new CountingPullRequestSource().Holds(Pull(3, PullRequestState.Merged) with { DefaultBranch = null });
+        var module = new PullRequests(github, _registry, _settled, _clock);
+
+        var first = await module.ReadAsync([Ref(3)], cancellationToken: TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromSeconds(30));
+        await module.ReadAsync([Ref(3)], cancellationToken: TestContext.Current.CancellationToken);
+        github.Holds(Pull(3, PullRequestState.Merged));
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        var named = await module.ReadAsync([Ref(3)], cancellationToken: TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromMinutes(5));
+        await module.ReadAsync([Ref(3)], PullRequestReadOptions.Fresh, TestContext.Current.CancellationToken);
+
+        Assert.Equal(PullRequestState.Merged, Assert.Single(first.PullRequests).State);
+        Assert.Equal("main", Assert.Single(named.PullRequests).DefaultBranch);
+        Assert.Equal([$"read {BacklogRepository} 3", $"read {BacklogRepository} 3"], github.Calls);
+        Assert.Equal("main", Assert.Single(_settled.ReadAll()).DefaultBranch);
+    }
+
+    /// <summary>
+    /// A merge no read can name the default branch of — the source's REST read of it is
+    /// refused every time — is not asked about for as long as the app runs: after a few
+    /// reads that could not name it, the merge is final as it stands, and no reader sends
+    /// GitHub anything more for it.
+    /// </summary>
+    [Fact]
+    public async Task A_merge_no_read_can_name_the_default_branch_of_is_final_after_a_few_reads()
+    {
+        var github = new CountingPullRequestSource().Holds(Pull(3, PullRequestState.Merged) with { DefaultBranch = null });
+        var module = new PullRequests(github, _registry, _settled, _clock);
+
+        for (var read = 0; read < 6; read++)
+        {
+            await module.ReadAsync([Ref(3)], cancellationToken: TestContext.Current.CancellationToken);
+            _clock.Advance(TimeSpan.FromMinutes(2));
+        }
+
+        Assert.Equal(3, github.Calls.Count(call => call == $"read {BacklogRepository} 3"));
+        Assert.Equal(PullRequestState.Merged, Assert.Single(module.Kept([Ref(3)]).PullRequests).State);
+    }
+
+    /// <summary>
+    /// A merge kept without its default branch is still a merge: an open list that still
+    /// carries the pull request — GitHub's list lagging the merge — never puts it back to
+    /// open.
+    /// </summary>
+    [Fact]
+    public async Task An_open_list_row_never_replaces_a_kept_merge()
+    {
+        var github = new CountingPullRequestSource().Holds(Pull(3, PullRequestState.Merged) with { DefaultBranch = null });
+        var module = new PullRequests(github, _registry, _settled, _clock);
+        await module.ReadAsync([Ref(3)], cancellationToken: TestContext.Current.CancellationToken);
+
+        github.Holds(Pull(3));
+        await module.ListOpenAsync([BacklogRepository], PullRequestReadOptions.Fresh, TestContext.Current.CancellationToken);
+
+        Assert.Equal(PullRequestState.Merged, Assert.Single(module.Kept([Ref(3)]).PullRequests).State);
+    }
+
     [Fact]
     public async Task A_merged_pull_request_reads_merged_after_a_restart_with_github_out_of_reach()
     {

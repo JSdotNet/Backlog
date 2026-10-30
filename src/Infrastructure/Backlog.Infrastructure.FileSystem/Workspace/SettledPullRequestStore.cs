@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// merged pull requests, remembered across a restart in app storage and never in a
 /// repository (local ADR 0004, 0015, 0042 §3).
 /// <para>
-/// Laid out as <see cref="PullRequestStateMemory"/> lays out its files — one small JSON
+/// Laid out as <see cref="PullRequestFinishMemory"/> lays out its files — one small JSON
 /// file per pull request, under one folder per repository named in lower case —
 /// because the folder is shared by every process on the machine that runs the app, and
 /// one file per repository rewritten by each would lose the other's entry. Each file is

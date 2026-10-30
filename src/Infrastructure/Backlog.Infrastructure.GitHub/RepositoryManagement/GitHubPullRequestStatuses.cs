@@ -35,6 +35,7 @@ public static class GitHubPullRequestStatuses
         {
             MergedAt = pull.MergedAt,
             ClosedAt = pull.ClosedAt,
+            DefaultBranch = pull.DefaultBranch,
             Checks = Map(pull.Checks),
             CheckCounts = pull.CheckCounts is { } counts ? new PullRequestCheckCounts(counts.Passed, counts.Failed, counts.Pending) : null,
             HeadChecks = [.. pull.HeadChecks.Select(check => new PullRequestCheck(check.Name, Map(check.State), check.Duration, check.Url, check.WorkflowRunId))],
@@ -163,6 +164,7 @@ public static class GitHubPullRequestStatuses
             IsClosed = pull.State == PullRequestState.Closed,
             MergedAt = pull.MergedAt,
             ClosedAt = pull.ClosedAt,
+            DefaultBranch = pull.DefaultBranch,
             Labels = pull.Labels,
             CheckCounts = pull.CheckCounts is { } counts ? new GitHubCheckCounts(counts.Passed, counts.Failed, counts.Pending) : null,
             HeadChecks = [.. pull.HeadChecks.Select(check => new GitHubCheck(check.Name, ToGitHub(check.State), check.Duration, check.Url, check.WorkflowRunId))],

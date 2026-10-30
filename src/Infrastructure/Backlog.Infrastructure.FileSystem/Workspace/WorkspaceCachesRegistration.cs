@@ -50,16 +50,17 @@ public static class WorkspaceCachesRegistration
         services.AddSingleton<IUsageReadStatus>(sp => sp.GetRequiredService<UsageReadLogStore>());
         services.AddSingleton<IUsageReadRecorder>(sp => sp.GetRequiredService<UsageReadLogStore>());
 
-        // How the backlog's pull requests ended, so a merged link draws merged from the
-        // first frame after a restart. GitHub's answers about pull requests, so beside
-        // the other two under the activity cache; a folder of its own inside it, so it
-        // never meets a repository's folder there.
-        services.AddSingleton<IPullRequestStateMemory>(sp => new PullRequestStateMemory(
-            () => Path.Combine(sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory, PullRequestStateMemory.FolderName)));
+        // Which entries a merged pull request's finish is settled for, so a restart
+        // neither moves an entry to Done twice nor forgets a move still owed (local ADR
+        // 0042 §3). The folder the task list's outcome memory kept, unchanged, so what
+        // it settled stays settled; under the activity cache, in a folder of its own
+        // inside it, so it never meets a repository's folder there.
+        services.AddSingleton<IPullRequestFinishMemory>(sp => new PullRequestFinishMemory(
+            () => Path.Combine(sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory, PullRequestFinishMemory.FolderName)));
 
         // Repository Management's merged pull requests, a settled fact the one cache
-        // reads back after a restart (local ADR 0042 §3). Beside the memory above for
-        // the same reason, in a folder of its own. In place of the in-memory one the
+        // reads back after a restart (local ADR 0042 §3) — what draws a merged link
+        // merged from the first frame. Beside the memory above, in a folder of its own. In place of the in-memory one the
         // module registers, so the module may be composed before or after this.
         services.Replace(ServiceDescriptor.Singleton<ISettledPullRequestStore>(sp => new SettledPullRequestStore(
             () => Path.Combine(sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory, SettledPullRequestStore.FolderName))));

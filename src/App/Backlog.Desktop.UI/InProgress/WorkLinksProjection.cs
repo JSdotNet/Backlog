@@ -1,7 +1,6 @@
 using System.Globalization;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sessions.Abstractions;
@@ -257,7 +256,7 @@ public sealed class WorkLinksProjection
 
         if (row.PullRequestStatuses.TryGetValue(link, out var status))
         {
-            return new WorkPullRequest(key, link.Number, title, Map(status.State), Map(status.ReviewState), Map(status.Checks));
+            return new WorkPullRequest(key, link.Number, title, Map(status.State), Map(status.Review), Map(status.Checks));
         }
 
         return row.PullRequestStates.TryGetValue(link, out var state)
@@ -329,29 +328,30 @@ public sealed class WorkLinksProjection
         _ => IntegrationCheckState.None
     };
 
-    // The task list's own record of a link, which still carries GitHub's states.
-    private static IntegrationArtifactState Map(GitHubItemState state) => state switch
+    // The task list's own read of a link, in Tasks' words (its port onto Repository
+    // Management's contract, local ADR 0042 §4).
+    private static IntegrationArtifactState Map(LinkedPullRequestState state) => state switch
     {
-        GitHubItemState.Draft => IntegrationArtifactState.Draft,
-        GitHubItemState.Open => IntegrationArtifactState.Open,
-        GitHubItemState.Merged => IntegrationArtifactState.Merged,
-        GitHubItemState.Closed => IntegrationArtifactState.Closed,
+        LinkedPullRequestState.Draft => IntegrationArtifactState.Draft,
+        LinkedPullRequestState.Open => IntegrationArtifactState.Open,
+        LinkedPullRequestState.Merged => IntegrationArtifactState.Merged,
+        LinkedPullRequestState.Closed => IntegrationArtifactState.Closed,
         _ => IntegrationArtifactState.Unknown
     };
 
-    private static IntegrationReviewState Map(GitHubReviewState review) => review switch
+    private static IntegrationReviewState Map(LinkedPullRequestReview review) => review switch
     {
-        GitHubReviewState.Approved => IntegrationReviewState.Approved,
-        GitHubReviewState.ChangesRequested => IntegrationReviewState.ChangesRequested,
-        GitHubReviewState.ReviewRequired => IntegrationReviewState.ReviewRequired,
+        LinkedPullRequestReview.Approved => IntegrationReviewState.Approved,
+        LinkedPullRequestReview.ChangesRequested => IntegrationReviewState.ChangesRequested,
+        LinkedPullRequestReview.ReviewRequired => IntegrationReviewState.ReviewRequired,
         _ => IntegrationReviewState.None
     };
 
-    private static IntegrationCheckState Map(GitHubCheckState checks) => checks switch
+    private static IntegrationCheckState Map(LinkedPullRequestChecks checks) => checks switch
     {
-        GitHubCheckState.Passing => IntegrationCheckState.Passing,
-        GitHubCheckState.Failing => IntegrationCheckState.Failing,
-        GitHubCheckState.Pending => IntegrationCheckState.Pending,
+        LinkedPullRequestChecks.Passing => IntegrationCheckState.Passing,
+        LinkedPullRequestChecks.Failing => IntegrationCheckState.Failing,
+        LinkedPullRequestChecks.Pending => IntegrationCheckState.Pending,
         _ => IntegrationCheckState.None
     };
 }

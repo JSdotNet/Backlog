@@ -241,7 +241,7 @@ public sealed class LinkPullRequestByReferenceTests
         return new(RepositoryManagementChain.For(host.GitHub, clock), new NoSessions(), clock);
     }
 
-    private static GitHubLinkedPullRequest Linked(int number, GitHubItemState state, DateTimeOffset? mergedAt = null, string repository = Repository) =>
+    private static PullRequestByNumber Linked(int number, GitHubItemState state, DateTimeOffset? mergedAt = null, string repository = Repository) =>
         new(number, $"https://github.com/{repository}/pull/{number}", $"Pull request {number}", repository, state, "someone-else",
             state is GitHubItemState.Merged ? mergedAt ?? Noon.AddHours(-1) : null);
 

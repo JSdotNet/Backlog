@@ -14,9 +14,11 @@ namespace Backlog.Infrastructure.GitHub.RepositoryManagement;
 /// The read by number is the pinned read, because only it carries what the verdict
 /// and the acts need — the node id, the head, the merge state, auto-merge. It is asked
 /// at most <see cref="ReadBatchSize"/> numbers a query, since the query names each one.
-/// A merged answer it gives without the repository's default branch is read once more
-/// over REST for it, because a task's auto-Done tells a merge into a stacked parent's
-/// branch by it. A server that refuses the pinned query — an older GitHub Enterprise —
+/// It names the repository's default branch for every pull request it answers, which a
+/// task's auto-Done tells a merge into a stacked parent's branch by, and which places an
+/// open pull request based on it. Only a merged answer that came back without it — a
+/// server that left it out — is read once more over REST for it. A server that refuses
+/// the pinned query — an older GitHub Enterprise —
 /// has each number read over REST instead: its state and branches, with no verdict
 /// facts.
 /// </para>
@@ -31,13 +33,21 @@ public sealed class GitHubPullRequestSource(GitHubIntegration gitHub) : IPullReq
     /// <summary>The most numbers one pinned query names.</summary>
     public const int ReadBatchSize = GitHubClient.LinkedStatusBatchSize;
 
+    /// <summary>The most open pull requests one repository's open list holds — the open
+    /// query's <c>first: 50</c>, newest update first, with no second page. A list that
+    /// long may have stopped short of the oldest.</summary>
+    public const int OpenListCap = 50;
+
     public async Task<PullRequestSourceRead> ListOpenAsync(string repositoryFullName, CancellationToken cancellationToken)
     {
         if (RepositoryOf(repositoryFullName) is not { } repository) return NotAPair(repositoryFullName);
 
         var listing = GitHubPullRequestStatuses.Map(
             await gitHub.ListOpenPullRequestsAsync([repository], cancellationToken).ConfigureAwait(false));
-        return new PullRequestSourceRead(listing.PullRequests, listing.Failures.FirstOrDefault());
+        return new PullRequestSourceRead(listing.PullRequests, listing.Failures.FirstOrDefault())
+        {
+            Truncated = listing.PullRequests.Count >= OpenListCap
+        };
     }
 
     public async Task<PullRequestSourceRead> ReadAsync(string repositoryFullName, IReadOnlyCollection<int> numbers, CancellationToken cancellationToken)

@@ -376,6 +376,12 @@ public class WebHarnessHostTests
         // Progress reads pull requests through the same contract (V6).
         Assert.IsType<Backlog.Infrastructure.FileSystem.Progress.RepositoryManagementGoalPullRequests>(
             harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IGoalPullRequestReader>());
+        // And so does the task row, through Tasks' own port (V5, V10); which entries a
+        // merge's finish is settled for stays Tasks' fact, in the folder it always had.
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates>(
+            harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ILinkedPullRequestStates>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.PullRequestFinishMemory>(
+            harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IPullRequestFinishMemory>());
     }
 
     /// <summary>

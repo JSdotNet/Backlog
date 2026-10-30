@@ -239,12 +239,27 @@ internal sealed class TasksPaneHost : IDisposable
             Task.FromResult<IReadOnlyDictionary<string, int?>>(
                 branches.Where(RequiredApprovals.ContainsKey).ToDictionary(branch => branch, branch => RequiredApprovals[branch], StringComparer.Ordinal));
 
+        /// <summary>How many open lists were read, across every repository.</summary>
+        public int OpenReads { get; private set; }
+
         public Task<IReadOnlyList<GitHubOpenPullRequest>> ListOpenPullRequestsAsync(
             GitHubRepositoryRef repository,
             CancellationToken cancellationToken = default)
         {
+            OpenReads++;
+
+            // The open list GitHub keeps: what a test listed, and every open or draft
+            // pull request whose status a test set, so a task row's pull request takes
+            // its place in a stack from it as the pane's does.
             IReadOnlyList<GitHubOpenPullRequest> answer =
-                [.. OpenPullRequests.Where(pull => string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))];
+            [
+                .. OpenPullRequests.Where(pull => string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase)),
+                .. PullRequestStatuses.Values
+                    .Where(status => status.State is GitHubItemState.Open or GitHubItemState.Draft
+                        && string.Equals(status.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase)
+                        && !OpenPullRequests.Any(pull => pull.Number == status.Number && string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase)))
+                    .Select(Pinned)
+            ];
 
             return OpenGate is { } gate ? gate.Task.ContinueWith(_ => answer, TaskScheduler.Default) : Task.FromResult(answer);
         }
@@ -255,33 +270,14 @@ internal sealed class TasksPaneHost : IDisposable
 
         /// <summary>What a read by number answers, whatever state each is in — the
         /// pull requests tasks link, merged and closed among them.</summary>
-        public List<GitHubLinkedPullRequest> PullRequestsByNumber { get; } = [];
-
-        /// <summary>Every read by number asked, as <c>owner/name 1,2</c>.</summary>
-        public List<string> ReadByNumber { get; } = [];
-
-        public Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestsAsync(
-            GitHubRepositoryRef repository,
-            IReadOnlyCollection<int> numbers,
-            CancellationToken cancellationToken = default)
-        {
-            ReadByNumber.Add($"{repository.FullName} {string.Join(",", numbers.Order())}");
-
-            IReadOnlyList<GitHubLinkedPullRequest> answer =
-                [.. PullRequestsByNumber.Where(pull =>
-                    numbers.Contains(pull.Number)
-                    && string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))];
-
-            return ByNumberGate is { } gate ? gate.Task.ContinueWith(_ => answer, TaskScheduler.Default) : Task.FromResult(answer);
-        }
+        public List<PullRequestByNumber> PullRequestsByNumber { get; } = [];
 
         /// <summary>Set, a read by number answers only once it completes — how a test
         /// holds that read back while the rest lands.</summary>
         public TaskCompletionSource? ByNumberGate { get; set; }
 
         /// <summary>Every pinned read asked — the read by number Repository Management's
-        /// source sends (local ADR 0042) — as <c>owner/name 1,2</c>; kept apart from
-        /// <see cref="ReadByNumber"/>, the task list's own slim read.</summary>
+        /// source sends (local ADR 0042) — as <c>owner/name 1,2</c>.</summary>
         public List<string> PinnedReadByNumber { get; } = [];
 
         /// <summary>The pinned read answers what <see cref="PullRequestsByNumber"/> holds,
@@ -300,15 +296,54 @@ internal sealed class TasksPaneHost : IDisposable
             }
 
             IReadOnlyList<GitHubOpenPullRequest> answer =
-                [.. PullRequestsByNumber
+            [
+                .. PullRequestsByNumber
                     .Where(pull => numbers.Contains(pull.Number) && string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))
-                    .Select(Pinned)];
+                    .Select(Pinned),
+                .. PullRequestStatuses.Values
+                    .Where(status => numbers.Contains(status.Number) && string.Equals(status.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))
+                    .Where(status => !PullRequestsByNumber.Any(pull => pull.Number == status.Number && string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase)))
+                    .Select(Pinned)
+            ];
 
             return ByNumberGate is { } gate ? gate.Task.ContinueWith(_ => answer, TaskScheduler.Default) : Task.FromResult(answer);
         }
 
+        /// <summary>A pull request whose status a test set, as the pinned read gives it:
+        /// the node a merge act names it by, its checks, the auto-merge request and the
+        /// merge state, and a conflict where <see cref="ConflictingPullRequests"/> says.</summary>
+        private GitHubOpenPullRequest Pinned(GitHubPullRequestStatus status) =>
+            new(
+                status.Number,
+                $"https://github.com/{status.RepositoryFullName}/pull/{status.Number}",
+                $"Pull request {status.Number}",
+                status.RepositoryFullName,
+                status.NodeId,
+                IsDraft: status.State is GitHubItemState.Draft,
+                HeadRefName: $"feature-{status.Number}",
+                HeadSha: null,
+                BaseRefName: status.BaseRefName ?? "main",
+                AuthorLogin: null,
+                ViewerDidAuthor: false,
+                Checks: status.Checks,
+                AutoMergeEnabled: status.AutoMergeEnabled,
+                MergeReady: status.MergeReady,
+                IsBehind: false,
+                HasConflicts: ConflictingPullRequests.Contains(status.Number),
+                MergeStateStatus: status.MergeReady ? "CLEAN" : null,
+                PreferredMergeMethod: status.PreferredMergeMethod,
+                UpdatedAt: null)
+            {
+                IsMerged = status.State is GitHubItemState.Merged,
+                IsClosed = status.State is GitHubItemState.Closed,
+                Reviews = new GitHubReviewSummary(status.ReviewState, 0, 0)
+            };
+
+        /// <summary>The pull requests whose branch conflicts with its base.</summary>
+        public HashSet<int> ConflictingPullRequests { get; } = [];
+
         /// <summary>A pull request read by number as the pinned read gives it.</summary>
-        private static GitHubOpenPullRequest Pinned(GitHubLinkedPullRequest pull) =>
+        private static GitHubOpenPullRequest Pinned(PullRequestByNumber pull) =>
             new(
                 pull.Number,
                 pull.Url,
@@ -344,35 +379,9 @@ internal sealed class TasksPaneHost : IDisposable
                 Reviews = pull.Reviews
             };
 
-        /// <summary>Every status read by number asked, as <c>owner/name 1,2</c> — kept apart
-        /// from <see cref="ReadByNumber"/>, so a test tells the status read from the slim one.</summary>
-        public List<string> StatusReadByNumber { get; } = [];
-
-        /// <summary>The repositories whose status read GitHub refuses — a typo, or one the
-        /// token cannot read.</summary>
+        /// <summary>The repositories whose read by number GitHub refuses — a typo, or one
+        /// the token cannot read.</summary>
         public HashSet<string> RefusedStatusReads { get; } = new(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>The status read answers what <see cref="PullRequestsByNumber"/> holds,
-        /// status facts and all, and records itself in <see cref="StatusReadByNumber"/>.</summary>
-        public Task<IReadOnlyList<GitHubLinkedPullRequest>> ReadLinkedPullRequestStatusesAsync(
-            GitHubRepositoryRef repository,
-            IReadOnlyCollection<int> numbers,
-            CancellationToken cancellationToken = default)
-        {
-            StatusReadByNumber.Add($"{repository.FullName} {string.Join(",", numbers.Order())}");
-
-            if (RefusedStatusReads.Contains(repository.FullName))
-            {
-                return Task.FromException<IReadOnlyList<GitHubLinkedPullRequest>>(new GitHubException($"{repository.FullName} refused."));
-            }
-
-            IReadOnlyList<GitHubLinkedPullRequest> answer =
-                [.. PullRequestsByNumber.Where(pull =>
-                    numbers.Contains(pull.Number)
-                    && string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase))];
-
-            return Task.FromResult(answer);
-        }
 
         public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
@@ -416,9 +425,9 @@ internal sealed class TasksPaneHost : IDisposable
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new GitHubUploadedFile(path, $"https://github.com/{repository.FullName}/blob/{branch}/{path}"));
 
-        /// <summary>What GitHub holds for each pull request, by number. A merge act
-        /// moves the entry the way GitHub would, so the re-read that follows it
-        /// sees the result; a number not here answers not found.</summary>
+        /// <summary>What GitHub holds for each pull request, by number, answered by the
+        /// read by number. A merge act moves the entry the way GitHub would, so the
+        /// re-read that follows it sees the result; a number not here answers not found.</summary>
         public Dictionary<int, GitHubPullRequestStatus> PullRequestStatuses { get; } = [];
 
         /// <summary>What every merge act throws, when set.</summary>
@@ -426,6 +435,45 @@ internal sealed class TasksPaneHost : IDisposable
 
         /// <summary>Every merge act asked for, as "act number".</summary>
         public List<string> MergeCalls { get; } = [];
+
+        /// <summary>How many pull requests were read alone over REST — the default branch
+        /// of a merge the read by number did not name.</summary>
+        public int RestReads { get; private set; }
+
+        /// <summary>One pull request over REST, from <see cref="PullRequestStatuses"/> or
+        /// <see cref="PullRequestsByNumber"/>: its state and the branches a merge is judged
+        /// by — the base branch the fixture names, else <c>main</c>, which is the
+        /// repository's default branch here unless a status names another.</summary>
+        public Task<GitHubPullRequest> GetPullRequestAsync(
+            GitHubRepositoryRef repository,
+            int number,
+            CancellationToken cancellationToken = default)
+        {
+            RestReads++;
+
+            if (PullRequestStatuses.TryGetValue(number, out var status))
+            {
+                return Task.FromResult(new GitHubPullRequest(
+                    number,
+                    $"https://github.com/{repository.FullName}/pull/{number}",
+                    $"Pull request {number}",
+                    status.State,
+                    repository.FullName)
+                {
+                    BaseRefName = status.BaseRefName ?? "main",
+                    DefaultBranch = status.DefaultBranch
+                });
+            }
+
+            return PullRequestsByNumber.FirstOrDefault(pull =>
+                    pull.Number == number && string.Equals(pull.RepositoryFullName, repository.FullName, StringComparison.OrdinalIgnoreCase)) is { } linked
+                ? Task.FromResult(new GitHubPullRequest(number, linked.Url, linked.Title, linked.State, repository.FullName)
+                {
+                    BaseRefName = linked.BaseRefName ?? "main",
+                    DefaultBranch = linked.DefaultBranch ?? "main"
+                })
+                : Task.FromException<GitHubPullRequest>(new GitHubException("Not Found"));
+        }
 
         public Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
             GitHubRepositoryRef repository,

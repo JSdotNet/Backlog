@@ -15,19 +15,21 @@ namespace Backlog.Desktop.UI.PullRequests;
 /// <para>
 /// Read by number rather than from the open list, because a session's pull request may
 /// since have merged or closed, and the open list would not hold it. One pull request
-/// per call: the panel asks for the row it shows. An open one then takes the parent it
-/// is stacked on from its repository's open list, which the contract places
-/// (<see cref="PullRequestStatus.StackParent"/>), so a stacked one names the pull
-/// request it waits on, as the pane does. Both reads go through the contract's one
-/// cache, so the card costs nothing the pane or a task's row read within the minute.
+/// per call: the panel asks for the row it shows. An open one is then placed in its
+/// stack by the rule a task's row places it by (<see cref="PullRequestStacks.PlaceAmong"/>),
+/// over its repository's open list, so a stacked one names the pull request it waits on,
+/// as the pane does, and the card and the row never give one pull request two verdicts.
+/// Both reads go through the contract's one cache, so the card costs nothing the pane or a
+/// task's row read within the minute.
 /// </para>
 /// </summary>
 internal static partial class SessionPullRequestStatuses
 {
     /// <summary>The verdict on one pull request, or null where it cannot be placed on
-    /// GitHub, the contract is not composed or has no repository, or the read failed. A
-    /// reading that finds it merged or closed is reported to <paramref name="subjects"/>,
-    /// so the notifications about it close.</summary>
+    /// GitHub, the contract is not composed or has no repository, the read failed, or its
+    /// place in a stack cannot be told — then it might be stacked, and a verdict could be
+    /// wrong. A reading that finds it merged or closed is reported to
+    /// <paramref name="subjects"/>, so the notifications about it close.</summary>
     public static async Task<SessionPullRequestStatus?> ReadAsync(
         IPullRequests? pullRequests,
         DeliveryRunReference pull,
@@ -42,23 +44,30 @@ internal static partial class SessionPullRequestStatuses
 
         if (subjects is not null) await subjects.ObserveAsync(found);
 
-        return Of(await PlacedAsync(pullRequests, found));
+        return await PlacedAsync(pullRequests, found) is { } placed ? Of(placed) : null;
     }
 
     /// <summary>
-    /// The pull request with the parent it is stacked on, as its repository's open list
-    /// places it — the pane's own placing — so a stacked pull request's reason names its
-    /// parent on the card as it does in the pane. Unchanged for one merged or closed, and
-    /// for one its repository's list does not hold.
+    /// The pull request with the parent it is stacked on, by the one placing rule
+    /// (<see cref="PullRequestStacks.PlaceAmong"/>) over its repository's open list — or
+    /// no list, where that read failed — so a stacked pull request's reason names its
+    /// parent on the card as it does in the pane. Null where its place cannot be told.
     /// </summary>
-    private static async Task<PullRequestStatus> PlacedAsync(IPullRequests pullRequests, PullRequestStatus pull)
+    private static async Task<PullRequestStatus?> PlacedAsync(IPullRequests pullRequests, PullRequestStatus pull)
     {
-        if (!pull.IsOpen) return pull;
+        if (!pull.IsOpen) return PullRequestStacks.PlaceAmong(pull, null);
 
-        var open = await pullRequests.ListOpenAsync([pull.RepositoryFullName]);
-        var listed = open.PullRequests.FirstOrDefault(candidate => candidate.Reference.Names(pull.RepositoryFullName, pull.Number));
+        PullRequestListing? open;
+        try
+        {
+            open = await pullRequests.ListOpenAsync([pull.RepositoryFullName]);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            open = null;
+        }
 
-        return listed is null ? pull : pull with { StackParent = listed.StackParent };
+        return PullRequestStacks.PlaceAmongListing(pull, open);
     }
 
     /// <summary>A pull request as the session list's card draws it: its verdict's label

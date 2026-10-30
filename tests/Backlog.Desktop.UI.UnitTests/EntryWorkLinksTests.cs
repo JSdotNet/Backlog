@@ -155,7 +155,7 @@ public sealed class EntryWorkLinksTests
         var row = await host.WriteEntryAsync(Entry);
         var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
         row.PullRequestLinks = [pr];
-        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState> { [pr] = GitHubItemState.Merged };
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, LinkedPullRequestState> { [pr] = LinkedPullRequestState.Merged };
 
         var pane = host.Render();
 
@@ -174,7 +174,7 @@ public sealed class EntryWorkLinksTests
         var row = await host.WriteEntryAsync(Entry);
         var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
         row.PullRequestLinks = [pr];
-        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState> { [pr] = GitHubItemState.Closed };
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, LinkedPullRequestState> { [pr] = LinkedPullRequestState.Closed };
 
         var link = host.Render().Find("[data-testid='entry-pull-request']");
 
@@ -206,7 +206,7 @@ public sealed class EntryWorkLinksTests
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
-        var pr = WithStatus(row, 708, GitHubCheckState.Passing, autoMerge: true);
+        var pr = WithStatus(row, 708, LinkedPullRequestChecks.Passing, autoMerge: true);
 
         var pane = host.Render();
 
@@ -222,10 +222,97 @@ public sealed class EntryWorkLinksTests
         }
     }
 
+    /// <summary>
+    /// The task row wears the verdict the Pull requests pane gives the same pull request
+    /// (local ADR 0042, V2, OQ-4): read through the list's port over Repository
+    /// Management's contract, the verdict's label leads the tooltip — the badge's
+    /// accessible name — and its tone is a modifier on the badge. The words after it say
+    /// only what the verdict does not: not the state, and not the checks when the verdict
+    /// is about them.
+    /// </summary>
     [Theory]
-    [InlineData(GitHubCheckState.Pending, "pending", "checks pending")]
-    [InlineData(GitHubCheckState.Failing, "failing", "checks failing")]
-    public async Task Each_check_state_is_its_own_mark_and_its_own_words(GitHubCheckState checks, string slug, string words)
+    [InlineData(GitHubCheckState.Failing, false, "Failing checks", "fault")]
+    [InlineData(GitHubCheckState.Pending, false, "Checks running", "live")]
+    [InlineData(GitHubCheckState.Passing, true, "Ready to merge · checks passing", "settled")]
+    public async Task An_open_pull_request_wears_its_verdict_on_the_row(GitHubCheckState checks, bool mergeReady, string words, string tone)
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        host.Client.PullRequestStatuses[708] = new GitHubPullRequestStatus(
+            708, pr.Repository, "PR_708", GitHubItemState.Open, checks,
+            AutoMergeEnabled: false, MergeReady: mergeReady, GitHubMergeMethod.Merge);
+        row.PullRequestLinks = [pr];
+        await host.State.SyncGitHubAsync();
+
+        var pane = host.Render();
+
+        var link = pane.Find("[data-testid='row-pull-request']");
+        Assert.Equal($"Pull request {pr.Repository}#708 — {words}", link.GetAttribute("title"));
+        Assert.Contains($"entry-doc__work-link--tone-{tone}", link.ClassList);
+    }
+
+    /// <summary>
+    /// The accessible name never says a fact twice: a draft's verdict is the draft, and a
+    /// review the verdict names is not worded again after it — while a review it does not
+    /// name, and the auto-merge request, still are.
+    /// </summary>
+    [Theory]
+    [InlineData(LinkedPullRequestVerdictKind.Draft, "Draft", LinkedPullRequestState.Draft, LinkedPullRequestReview.None, "Draft")]
+    [InlineData(LinkedPullRequestVerdictKind.ReviewRequired, "Review required", LinkedPullRequestState.Open, LinkedPullRequestReview.ReviewRequired, "Review required · checks passing")]
+    [InlineData(LinkedPullRequestVerdictKind.Ready, "Ready to merge", LinkedPullRequestState.Open, LinkedPullRequestReview.Approved, "Ready to merge · approved · checks passing")]
+    public async Task A_verdict_is_not_said_twice_in_the_accessible_name(
+        LinkedPullRequestVerdictKind kind, string verdict, LinkedPullRequestState state, LinkedPullRequestReview review, string words)
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        var checks = state == LinkedPullRequestState.Draft ? LinkedPullRequestChecks.None : LinkedPullRequestChecks.Passing;
+        WithStatus(row, 708, checks, state: state, review: review, verdict: verdict, tone: LinkedPullRequestTone.Quiet, kind: kind);
+
+        var pane = host.Render();
+
+        Assert.Equal($"Pull request JSdotNet/Backlog#708 — {words}", pane.Find("[data-testid='row-pull-request']").GetAttribute("title"));
+    }
+
+    /// <summary>The words leave out what the verdict names, never the marks: a pull
+    /// request whose verdict is the changes a reviewer asked for keeps its review and
+    /// checks marks.</summary>
+    [Fact]
+    public async Task A_verdict_about_the_review_keeps_the_review_mark()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, LinkedPullRequestChecks.Passing, review: LinkedPullRequestReview.ChangesRequested,
+            verdict: "Changes requested", tone: LinkedPullRequestTone.Fault, kind: LinkedPullRequestVerdictKind.ChangesRequested);
+
+        var pane = host.Render();
+
+        Assert.Equal("Pull request JSdotNet/Backlog#708 — Changes requested · checks passing", pane.Find("[data-testid='row-pull-request']").GetAttribute("title"));
+        Assert.Contains("integration-link__review--changes-requested", pane.Find("[data-testid='row-pull-request-review']").ClassList);
+        Assert.NotNull(pane.Find("[data-testid='row-pull-request-checks']"));
+    }
+
+    /// <summary>A merged pull request keeps its own ink and wears no verdict tone: the
+    /// merged colour already says it, and its checks no longer gate anything.</summary>
+    [Fact]
+    public async Task A_merged_pull_request_wears_no_verdict_tone()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, LinkedPullRequestChecks.Passing, state: LinkedPullRequestState.Merged, verdict: "Merged", tone: LinkedPullRequestTone.Settled);
+
+        var pane = host.Render();
+
+        var link = pane.Find("[data-testid='row-pull-request']");
+        Assert.Contains("entry-doc__work-link--merged", link.ClassList);
+        Assert.DoesNotContain(link.ClassList, cls => cls.StartsWith("entry-doc__work-link--tone-", StringComparison.Ordinal));
+        Assert.Equal("Pull request JSdotNet/Backlog#708 — merged", link.GetAttribute("title"));
+    }
+
+    [Theory]
+    [InlineData(LinkedPullRequestChecks.Pending, "pending", "checks pending")]
+    [InlineData(LinkedPullRequestChecks.Failing, "failing", "checks failing")]
+    public async Task Each_check_state_is_its_own_mark_and_its_own_words(LinkedPullRequestChecks checks, string slug, string words)
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
@@ -246,7 +333,7 @@ public sealed class EntryWorkLinksTests
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
-        WithStatus(row, 708, GitHubCheckState.None);
+        WithStatus(row, 708, LinkedPullRequestChecks.None);
 
         var pane = host.Render();
 
@@ -261,7 +348,7 @@ public sealed class EntryWorkLinksTests
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
-        WithStatus(row, 708, GitHubCheckState.Passing, autoMerge: true, state: GitHubItemState.Merged);
+        WithStatus(row, 708, LinkedPullRequestChecks.Passing, autoMerge: true, state: LinkedPullRequestState.Merged);
 
         var pane = host.Render();
 
@@ -277,7 +364,7 @@ public sealed class EntryWorkLinksTests
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
-        WithStatus(row, 708, GitHubCheckState.Passing, autoMerge: true);
+        WithStatus(row, 708, LinkedPullRequestChecks.Passing, autoMerge: true);
         host.Features.SetEnabled(TasksFeatures.GitHubIntegration, enabled: false);
 
         var pane = host.Render();
@@ -292,7 +379,7 @@ public sealed class EntryWorkLinksTests
     {
         using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(Entry);
-        WithStatus(row, 708, GitHubCheckState.Passing, autoMerge: true);
+        WithStatus(row, 708, LinkedPullRequestChecks.Passing, autoMerge: true);
 
         var pane = host.Render();
 
@@ -304,15 +391,15 @@ public sealed class EntryWorkLinksTests
     /// the row and the open entry hand <see cref="IntegrationLink"/>, and worded in
     /// its tooltip after the state.</summary>
     [Theory]
-    [InlineData(GitHubReviewState.ReviewRequired, IntegrationReviewState.ReviewRequired, " · review required")]
-    [InlineData(GitHubReviewState.Approved, IntegrationReviewState.Approved, " · approved")]
-    [InlineData(GitHubReviewState.ChangesRequested, IntegrationReviewState.ChangesRequested, " · changes requested")]
-    [InlineData(GitHubReviewState.None, IntegrationReviewState.None, "")]
-    public async Task An_open_pull_requests_review_state_rides_on_its_link(GitHubReviewState review, IntegrationReviewState expected, string words)
+    [InlineData(LinkedPullRequestReview.ReviewRequired, IntegrationReviewState.ReviewRequired, " · review required")]
+    [InlineData(LinkedPullRequestReview.Approved, IntegrationReviewState.Approved, " · approved")]
+    [InlineData(LinkedPullRequestReview.ChangesRequested, IntegrationReviewState.ChangesRequested, " · changes requested")]
+    [InlineData(LinkedPullRequestReview.None, IntegrationReviewState.None, "")]
+    public async Task An_open_pull_requests_review_state_rides_on_its_link(LinkedPullRequestReview review, IntegrationReviewState expected, string words)
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
-        WithStatus(row, 708, GitHubCheckState.Passing, review: review);
+        WithStatus(row, 708, LinkedPullRequestChecks.Passing, review: review);
 
         var pane = host.Render();
 
@@ -330,13 +417,13 @@ public sealed class EntryWorkLinksTests
     /// <summary>A verdict is a mark beside the checks, on the row and the open
     /// entry, in its own ink; review required and no review draw nothing.</summary>
     [Theory]
-    [InlineData(GitHubReviewState.Approved, "approved")]
-    [InlineData(GitHubReviewState.ChangesRequested, "changes-requested")]
-    public async Task A_review_verdict_is_a_mark_beside_the_checks(GitHubReviewState review, string slug)
+    [InlineData(LinkedPullRequestReview.Approved, "approved")]
+    [InlineData(LinkedPullRequestReview.ChangesRequested, "changes-requested")]
+    public async Task A_review_verdict_is_a_mark_beside_the_checks(LinkedPullRequestReview review, string slug)
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
-        WithStatus(row, 708, GitHubCheckState.Failing, review: review);
+        WithStatus(row, 708, LinkedPullRequestChecks.Failing, review: review);
 
         var pane = host.Render();
 
@@ -352,13 +439,13 @@ public sealed class EntryWorkLinksTests
     }
 
     [Theory]
-    [InlineData(GitHubReviewState.ReviewRequired)]
-    [InlineData(GitHubReviewState.None)]
-    public async Task No_verdict_draws_no_review_mark(GitHubReviewState review)
+    [InlineData(LinkedPullRequestReview.ReviewRequired)]
+    [InlineData(LinkedPullRequestReview.None)]
+    public async Task No_verdict_draws_no_review_mark(LinkedPullRequestReview review)
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
-        WithStatus(row, 708, GitHubCheckState.Passing, review: review);
+        WithStatus(row, 708, LinkedPullRequestChecks.Passing, review: review);
 
         var pane = host.Render();
 
@@ -373,7 +460,7 @@ public sealed class EntryWorkLinksTests
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
-        WithStatus(row, 1018, GitHubCheckState.Failing, review: GitHubReviewState.ChangesRequested);
+        WithStatus(row, 1018, LinkedPullRequestChecks.Failing, review: LinkedPullRequestReview.ChangesRequested);
 
         var pane = host.Render();
 
@@ -537,7 +624,7 @@ public sealed class EntryWorkLinksTests
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
-        WithStatus(row, 708, GitHubCheckState.Passing, state: GitHubItemState.Merged, review: GitHubReviewState.Approved);
+        WithStatus(row, 708, LinkedPullRequestChecks.Passing, state: LinkedPullRequestState.Merged, review: LinkedPullRequestReview.Approved);
 
         var pane = host.Render();
 
@@ -551,7 +638,7 @@ public sealed class EntryWorkLinksTests
     {
         using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
         var row = await host.WriteEntryAsync(Entry);
-        WithStatus(row, 708, GitHubCheckState.Passing, review: GitHubReviewState.Approved);
+        WithStatus(row, 708, LinkedPullRequestChecks.Passing, review: LinkedPullRequestReview.Approved);
         host.Features.SetEnabled(TasksFeatures.GitHubIntegration, enabled: false);
 
         var pane = host.Render();
@@ -584,20 +671,20 @@ public sealed class EntryWorkLinksTests
     private static EntryPullRequestLink WithStatus(
         EntryRow row,
         int number,
-        GitHubCheckState checks,
+        LinkedPullRequestChecks checks,
         bool autoMerge = false,
-        GitHubItemState state = GitHubItemState.Open,
-        GitHubReviewState review = GitHubReviewState.None)
+        LinkedPullRequestState state = LinkedPullRequestState.Open,
+        LinkedPullRequestReview review = LinkedPullRequestReview.None,
+        string? verdict = null,
+        LinkedPullRequestTone? tone = null,
+        LinkedPullRequestVerdictKind? kind = null)
     {
         var pr = new EntryPullRequestLink("JSdotNet/Backlog", number);
         row.PullRequestLinks = [pr];
-        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState> { [pr] = state };
-        row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus>
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, LinkedPullRequestState> { [pr] = state };
+        row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, LinkedPullRequest>
         {
-            [pr] = new(number, pr.Repository, $"PR_{number}", state, checks, autoMerge, MergeReady: false, GitHubMergeMethod.Merge)
-            {
-                ReviewState = review
-            }
+            [pr] = new(state) { Checks = checks, AutoMerge = autoMerge, Review = review, VerdictLabel = verdict, VerdictTone = tone, VerdictKind = kind }
         };
         return pr;
     }

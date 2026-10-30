@@ -1,6 +1,7 @@
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Tests;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -100,6 +101,42 @@ public sealed class SessionPullRequestStatusesTests
         Assert.NotNull(status);
         Assert.EndsWith("and it waits on #41, which has to merge first.", status.Reason, StringComparison.Ordinal);
         Assert.Equal(["read acme/app#42", "list acme/app"], contract.Calls);
+    }
+
+    /// <summary>
+    /// The card and the task row place a pull request by one rule
+    /// (<see cref="PullRequestStacks.PlaceAmong"/>), so they give it one verdict (local
+    /// ADR 0042, V2) — the same label, or none on both where its place cannot be told —
+    /// whether or not its repository's open list holds it.
+    /// </summary>
+    [Theory]
+    [InlineData("main", false)]
+    [InlineData("feature/gone", false)]
+    [InlineData("feature/base", true)]
+    public async Task The_card_and_the_task_row_give_a_pull_request_one_verdict(string baseRef, bool listed)
+    {
+        var parent = Pull() with { Number = 41, HeadRefName = "feature/base" };
+        var pull = Pull() with { BaseRefName = baseRef, DefaultBranch = "main", MergeReady = true };
+        var contract = new InMemoryPullRequests().Holds(parent, pull);
+        if (!listed) contract.Unlisted.Add("acme/app");
+        var row = new Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates(contract);
+
+        var card = await SessionPullRequestStatuses.ReadAsync(contract, Reference("PR #42", url: null, repository: "acme/app"));
+        var read = await row.StatesOfAsync([new LinkedPullRequestKey("acme/app", 42)], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(card?.Label, read.States[new LinkedPullRequestKey("acme/app", 42)].VerdictLabel);
+    }
+
+    /// <summary>A pull request off the default branch whose repository's open list could
+    /// not be read might be stacked: the card draws no verdict rather than one that might
+    /// be wrong.</summary>
+    [Fact]
+    public async Task A_pull_request_whose_place_cannot_be_told_draws_no_verdict()
+    {
+        var contract = new InMemoryPullRequests().Holds(Pull() with { BaseRefName = "feature/gone", DefaultBranch = "main" });
+        contract.ListRefuses.Add("acme/app");
+
+        Assert.Null(await SessionPullRequestStatuses.ReadAsync(contract, Reference("PR #42", url: null, repository: "acme/app")));
     }
 
     /// <summary>A merged pull request is in no open list, so none is read for it.</summary>

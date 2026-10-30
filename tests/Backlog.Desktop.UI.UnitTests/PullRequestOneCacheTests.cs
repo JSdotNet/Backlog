@@ -25,7 +25,7 @@ public sealed class PullRequestOneCacheTests
     {
         using var host = await TasksPaneHost.CreateAsync(Repository);
         host.Client.OpenPullRequests.Add(Open(700));
-        host.Client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(
+        host.Client.PullRequestsByNumber.Add(new PullRequestByNumber(
             656, $"https://github.com/{Repository}/pull/656", "Pull request 656", Repository, GitHubItemState.Closed, "octocat", null));
         var clock = new FakeTimeProvider(Noon);
         var contract = RepositoryManagementChain.For(host.GitHub, clock);
@@ -50,7 +50,7 @@ public sealed class PullRequestOneCacheTests
     public async Task Past_the_minute_progress_reads_it_again()
     {
         using var host = await TasksPaneHost.CreateAsync(Repository);
-        host.Client.PullRequestsByNumber.Add(new GitHubLinkedPullRequest(
+        host.Client.PullRequestsByNumber.Add(new PullRequestByNumber(
             656, $"https://github.com/{Repository}/pull/656", "Pull request 656", Repository, GitHubItemState.Closed, "octocat", null));
         var clock = new FakeTimeProvider(Noon);
         var contract = RepositoryManagementChain.For(host.GitHub, clock);

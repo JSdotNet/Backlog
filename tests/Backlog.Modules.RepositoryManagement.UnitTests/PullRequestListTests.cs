@@ -94,6 +94,20 @@ public sealed class PullRequestListTests
     }
 
     [Fact]
+    public async Task A_listing_names_the_repositories_it_holds_whole()
+    {
+        _github.Holds(Pull(1), Pull(2, repository: ArchifyRepository)).Caps(ArchifyRepository);
+        var module = Module();
+
+        var listing = await module.ListOpenAsync(cancellationToken: TestContext.Current.CancellationToken);
+        _github.Refuses(BacklogRepository, "Refused.");
+        var refused = await module.ListOpenAsync([BacklogRepository], PullRequestReadOptions.Fresh, TestContext.Current.CancellationToken);
+
+        Assert.Equal([BacklogRepository], listing.CompleteRepositories);
+        Assert.Empty(refused.CompleteRepositories);
+    }
+
+    [Fact]
     public async Task A_repository_that_refused_is_its_own_failure_and_the_others_still_come_back()
     {
         _github.Holds(Pull(1, repository: ArchifyRepository)).Refuses(BacklogRepository, "Could not resolve to a Repository.");

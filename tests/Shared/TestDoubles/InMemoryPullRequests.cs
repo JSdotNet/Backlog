@@ -26,8 +26,30 @@ internal sealed class InMemoryPullRequests : IPullRequests
     /// <summary>When set, every read throws it.</summary>
     public Exception? Throws { get; set; }
 
+    /// <summary>When set, every open-list read throws it, while a read by number answers.</summary>
+    public Exception? ListThrows { get; set; }
+
+    /// <summary>The repositories an open-list read leaves out with no failure, as the
+    /// module leaves out one nobody registered, or one archived.</summary>
+    public HashSet<string> Unlisted { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The repositories whose open list alone is refused — a failure in the
+    /// listing — while a read by number of them still answers.</summary>
+    public HashSet<string> ListRefuses { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The repositories whose open list reached the source's cap: listed, but
+    /// not whole.</summary>
+    public HashSet<string> Capped { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Pull requests an open list leaves out of a repository it still lists
+    /// whole — one opened after the list was read.</summary>
+    public HashSet<string> ListedWithout { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>When set, a read by number answers only once it completes.</summary>
     public TaskCompletionSource? ReadGate { get; set; }
+
+    /// <summary>What every command answers: success unless a test says GitHub refused.</summary>
+    public Result ActsWith { get; set; } = Result.Success();
 
     /// <summary>Every call, in order: <c>list owner/name,…</c> (<c>list *</c> for every
     /// repository), <c>read owner/name#1 owner/name#2</c>, <c>merged</c>, or the command
@@ -84,21 +106,35 @@ internal sealed class InMemoryPullRequests : IPullRequests
     {
         Record(repositories is null ? "list *" : $"list {string.Join(",", repositories)}");
         if (Throws is { } thrown) return Task.FromException<PullRequestListing>(thrown);
+        if (ListThrows is { } listThrown) return Task.FromException<PullRequestListing>(listThrown);
 
         lock (_gate)
         {
             var named = repositories?.Select(repository => repository.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var open = _pulls
                 .Where(pull => pull.IsOpen && (named is null || named.Contains(pull.RepositoryFullName.Trim())))
+                .Where(pull => !Unlisted.Contains(pull.RepositoryFullName.Trim()))
+                .Where(pull => !ListRefuses.Contains(pull.RepositoryFullName.Trim()))
+                .Where(pull => !ListedWithout.Contains(pull.Reference.Key))
                 .Where(pull => !_refusals.ContainsKey(pull.RepositoryFullName.Trim()))
                 .OrderByDescending(pull => pull.UpdatedAt)
                 .ToList();
             var failures = _refusals
                 .Where(refusal => named is null || named.Contains(refusal.Key))
                 .Select(refusal => new RepositoryReadFailure(refusal.Key, refusal.Value))
+                .Concat(ListRefuses
+                    .Where(repository => named is null || named.Contains(repository))
+                    .Select(repository => new RepositoryReadFailure(repository, "The open list was refused.")))
                 .ToList();
 
-            return Task.FromResult(new PullRequestListing(PullRequestStacks.WithParents(open), failures));
+            // Whole: each repository asked — or held, for every repository — that was
+            // neither refused, left out, nor capped.
+            var whole = (named ?? _pulls.Select(pull => pull.RepositoryFullName.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase))
+                .Where(repository => !_refusals.ContainsKey(repository) && !ListRefuses.Contains(repository)
+                    && !Unlisted.Contains(repository) && !Capped.Contains(repository))
+                .ToList();
+
+            return Task.FromResult(new PullRequestListing(PullRequestStacks.WithParents(open), failures) { CompleteRepositories = whole });
         }
     }
 
@@ -173,7 +209,7 @@ internal sealed class InMemoryPullRequests : IPullRequests
     {
         Record($"{act} {pullRequest.Key}");
         Changed?.Invoke(new PullRequestsChanged([pullRequest.RepositoryFullName], [pullRequest]));
-        return Task.FromResult(Result.Success());
+        return Task.FromResult(ActsWith);
     }
 
     private void Record(string call)

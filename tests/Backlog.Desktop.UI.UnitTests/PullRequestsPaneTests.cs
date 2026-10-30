@@ -887,6 +887,194 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>
+    /// One pull request, one verdict, on all three screens (local ADR 0042, V2): the Pull
+    /// requests pane, a task's row and a session's card place it by one rule
+    /// (<see cref="PullRequestStacks.PlaceAmong"/>) over its repository's whole open
+    /// list, so they agree on its label and on whether it waits on another —
+    /// <list type="bullet">
+    /// <item>a pinned pull request its repository's list does not hold, on a base no
+    /// listed head explains: it waits on nothing, so all three give its verdict;</item>
+    /// <item>a pin outside the pane's scope whose parent its repository's list holds: all
+    /// three stack it on that parent, and none offers its merge;</item>
+    /// <item>a pin whose repository's list could not be read, on a base other than the
+    /// default branch: its place cannot be told, so none gives a verdict.</item>
+    /// </list>
+    /// </summary>
+    [Theory]
+    [InlineData("unlisted, no listed parent", "Ready to merge", false)]
+    [InlineData("out-of-scope pin, listed parent", "Ready to merge", true)]
+    [InlineData("list read failed", null, false)]
+    [InlineData("capped list, parent beyond it", null, false)]
+    [InlineData("capped list, listed parent", "Ready to merge", true)]
+    public async Task All_three_screens_give_a_pull_request_one_verdict(string situation, string? label, bool stacked)
+    {
+        var client = new StubClient().Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 3));
+        GitHubOpenPullRequest pinned;
+        string[]? scope = null;
+        switch (situation)
+        {
+            case "unlisted, no listed parent":
+                pinned = Pull("JSdotNet/Backlog", 9, mergeReady: true, baseRef: "plan/foo") with { DefaultBranch = "main" };
+                client.Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1));
+                break;
+            case "out-of-scope pin, listed parent":
+                pinned = Pull("JSdotNet/Backlog", 9, mergeReady: true, baseRef: "feature-6") with { DefaultBranch = "main" };
+                client.Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 6), pinned);
+                scope = ["archify"];
+                break;
+            case "capped list, listed parent":
+                // Fifty open pull requests fill the list, #6 and #9 among them.
+                pinned = Pull("JSdotNet/Backlog", 9, mergeReady: true, baseRef: "feature-6") with { DefaultBranch = "main" };
+                client.Lists("JSdotNet/Backlog", [.. Enumerable.Range(100, 48).Select(number => Pull("JSdotNet/Backlog", number)), Pull("JSdotNet/Backlog", 6), pinned]);
+                break;
+            case "capped list, parent beyond it":
+                // Fifty open pull requests fill the list; #8, whose head #9 is based on,
+                // is open but older than all of them.
+                pinned = Pull("JSdotNet/Backlog", 9, mergeReady: true, baseRef: "feature-8") with { DefaultBranch = "main" };
+                client.Lists("JSdotNet/Backlog", [.. Enumerable.Range(100, 50).Select(number => Pull("JSdotNet/Backlog", number))]);
+                break;
+            default:
+                pinned = Pull("JSdotNet/Backlog", 9, mergeReady: true, baseRef: "plan/foo") with { DefaultBranch = "main" };
+                client.Refuses("JSdotNet/Backlog", "GitHub refused the list.");
+                break;
+        }
+
+        client.Finds(pinned);
+        using var context = Context(client, pins: Pins(("JSdotNet/Backlog", 9)));
+        var pane = scope is null
+            ? context.Render<PullRequestsPane>()
+            : context.Render<PullRequestsPane>(parameters => parameters.Add(p => p.RepositoryScope, scope));
+        var contract = context.Services.GetRequiredService<IPullRequests>();
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            label ?? "Open",
+            Row(pane, "JSdotNet/Backlog#9").QuerySelector("[data-testid='pull-request-verdict']")!.TextContent.Trim()));
+        var row = (await new Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates(contract)
+            .StatesOfAsync([new Backlog.Modules.Tasks.Abstractions.Services.LinkedPullRequestKey("JSdotNet/Backlog", 9)], cancellationToken: TestContext.Current.CancellationToken))
+            .States.Single().Value;
+        var card = await SessionPullRequestStatuses.ReadAsync(
+            contract,
+            new DeliveryRunReference(DeliveryRunReferenceKind.PullRequest, "PR #9", Title: null, Url: null, Repository: "JSdotNet/Backlog"));
+
+        Assert.Equal(label, row.VerdictLabel);
+        Assert.Equal(label, card?.Label);
+        Assert.Equal(stacked, Row(pane, "JSdotNet/Backlog#9").QuerySelector("[data-testid='pull-request-waits-on']") is not null);
+        Assert.Equal(stacked, card?.Reason?.Contains("waits on #6", StringComparison.Ordinal) == true);
+        Assert.Equal(label is null || stacked, row.MergeOffer is null);
+    }
+
+    /// <summary>
+    /// An open pull request whose place cannot be told — its repository's list was
+    /// refused — is no closed one: its chip and banner wear the quiet tone, and the banner
+    /// says why it has no verdict. An auto-merge GitHub holds for it can still be
+    /// withdrawn, and that is the only act offered.
+    /// </summary>
+    [Fact]
+    public async Task An_unplaced_pull_request_is_quiet_and_offers_only_the_withdrawal_of_its_auto_merge()
+    {
+        var client = new StubClient().Refuses("JSdotNet/Backlog", "GitHub refused the list.");
+        client.Finds(Pull("JSdotNet/Backlog", 9, autoMerge: true, baseRef: "plan/foo") with { DefaultBranch = "main" });
+        using var context = Context(client, pins: Pins(("JSdotNet/Backlog", 9)));
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Contains("badge--tone-quiet", Row(pane, "JSdotNet/Backlog#9").QuerySelector("[data-testid='pull-request-verdict']")!.ClassList));
+        Select(pane, "JSdotNet/Backlog#9");
+
+        pane.WaitForAssertion(() =>
+        {
+            var banner = pane.Find("[data-testid='pull-request-banner']");
+            Assert.Contains("pull-request-banner--quiet", banner.ClassList);
+            Assert.Contains("could not be read", banner.TextContent, StringComparison.Ordinal);
+            Assert.Equal(["Cancel auto-merge"], banner.QuerySelectorAll("button").Select(button => button.TextContent.Trim()));
+        });
+        var row = (await new Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates(context.Services.GetRequiredService<IPullRequests>())
+            .StatesOfAsync([new Backlog.Modules.Tasks.Abstractions.Services.LinkedPullRequestKey("JSdotNet/Backlog", 9)], cancellationToken: TestContext.Current.CancellationToken))
+            .States.Single().Value;
+        Assert.Equal(Backlog.Modules.Tasks.Abstractions.Services.LinkedPullRequestMerge.CancelAutoMerge, row.MergeOffer);
+    }
+
+    /// <summary>Before the first open list has landed the pane draws no board — no row,
+    /// no banner — so no pinned pull request is said to have a list that could not be
+    /// read while that list is still out; once it lands, the pin is placed against it.</summary>
+    [Fact]
+    public void Before_the_first_list_lands_no_pinned_row_or_banner_is_drawn()
+    {
+        var gate = new TaskCompletionSource();
+        var client = new StubClient().Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1));
+        client.Finds(Pull("JSdotNet/Backlog", 9, mergeReady: true, baseRef: "plan/foo") with { DefaultBranch = "main" });
+        client.OpenListGate = gate;
+        var pins = Pins();
+        using var context = Context(client, pins: pins);
+
+        var pane = context.Render<PullRequestsPane>();
+        pins.Pin("JSdotNet/Backlog", 9);
+
+        try
+        {
+            pane.WaitForAssertion(() => Assert.NotNull(pane.Find("[data-testid='pull-requests-loading']")));
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-row']"));
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-banner']"));
+        }
+        finally
+        {
+            gate.SetResult();
+        }
+
+        pane.WaitForAssertion(() => Assert.Equal(
+            "Ready to merge",
+            Row(pane, "JSdotNet/Backlog#9").QuerySelector("[data-testid='pull-request-verdict']")!.TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// A listed pull request whose place cannot be told — its repository's list is capped
+    /// and holds no head its base names — stays on the board in a group of its own, in the
+    /// quiet tone, so the count above it and the rows below agree.
+    /// </summary>
+    [Fact]
+    public void A_listed_pull_request_whose_place_is_unknown_stays_on_the_board()
+    {
+        var client = new StubClient().Lists(
+            "JSdotNet/Backlog",
+            [.. Enumerable.Range(100, 49).Select(number => Pull("JSdotNet/Backlog", number)), Pull("JSdotNet/Backlog", 7, baseRef: "plan/foo") with { DefaultBranch = "main" }]);
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = Row(pane, "JSdotNet/Backlog#7");
+            Assert.Contains("badge--tone-quiet", row.QuerySelector("[data-testid='pull-request-verdict']")!.ClassList);
+            Assert.Equal(50, pane.FindAll("[data-testid='pull-request-row']").Count);
+            Assert.Contains(Groups(pane), group => group.Lane == "unplaced" && group.Rows == 1);
+        });
+    }
+
+    /// <summary>A pinned pull request whose parent is out of the pane's scope says what it
+    /// waits on but is drawn flat: there is no parent row on screen for its indent to hang
+    /// under.</summary>
+    [Fact]
+    public void A_child_whose_parent_is_not_shown_waits_on_it_at_depth_zero()
+    {
+        var child = Pull("JSdotNet/Backlog", 7, mergeReady: true, baseRef: "feature-6");
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 6), child)
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 3));
+        client.Finds(child);
+        using var context = Context(client, pins: Pins(("JSdotNet/Backlog", 7)));
+
+        var pane = context.Render<PullRequestsPane>(parameters => parameters.Add(p => p.RepositoryScope, ["archify"]));
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = Row(pane, "JSdotNet/Backlog#7");
+            Assert.NotNull(row.QuerySelector("[data-testid='pull-request-waits-on']"));
+            Assert.Equal("0", row.GetAttribute("data-stack-depth"));
+            Assert.DoesNotContain("--chain-depth", row.GetAttribute("style") ?? string.Empty, StringComparison.Ordinal);
+            Assert.Empty(pane.FindAll("[data-testid='pull-request-row'][data-pull-request='JSdotNet/Backlog#6']"));
+        });
+    }
+
     // --- Lanes ----------------------------------------------------------------
 
     /// <summary>Each tile counts its lane over what Mine leaves, and says why in a
@@ -2663,7 +2851,11 @@ public sealed class PullRequestsPaneTests : IDisposable
             HasConflicts: conflicts,
             MergeStateStatus: behind ? "BEHIND" : mergeReady ? "CLEAN" : "BLOCKED",
             PreferredMergeMethod: GitHubMergeMethod.Squash,
-            UpdatedAt: updated ?? Noon.AddMinutes(-number));
+            UpdatedAt: updated ?? Noon.AddMinutes(-number))
+        {
+            // The open list and the read by number both name it (local ADR 0042).
+            DefaultBranch = "main"
+        };
 
     private static GitHubMergedPullRequest MergedPull(
         string repository,
@@ -2857,7 +3049,11 @@ public sealed class PullRequestsPaneTests : IDisposable
             return this;
         }
 
-        public Task<IReadOnlyList<GitHubOpenPullRequest>> ListOpenPullRequestsAsync(GitHubRepositoryRef repository, CancellationToken cancellationToken = default)
+        /// <summary>When set, every open-list read waits on it — how a test sees the pane
+        /// before its first list has landed.</summary>
+        public TaskCompletionSource? OpenListGate { get; set; }
+
+        public async Task<IReadOnlyList<GitHubOpenPullRequest>> ListOpenPullRequestsAsync(GitHubRepositoryRef repository, CancellationToken cancellationToken = default)
         {
             lock (Listed)
             {
@@ -2865,14 +3061,9 @@ public sealed class PullRequestsPaneTests : IDisposable
                 if (_firstReadSize == 0 && Listed.Count == _lists.Count) _firstReadSize = Listed.Count;
             }
 
-            try
-            {
-                return Task.FromResult(_lists[repository.FullName]());
-            }
-            catch (GitHubException exception)
-            {
-                return Task.FromException<IReadOnlyList<GitHubOpenPullRequest>>(exception);
-            }
+            if (OpenListGate is { } gate) await gate.Task;
+
+            return _lists[repository.FullName]();
         }
 
         public Task UpdateBranchAsync(GitHubRepositoryRef repository, int number, string? expectedHeadSha, CancellationToken cancellationToken = default) =>

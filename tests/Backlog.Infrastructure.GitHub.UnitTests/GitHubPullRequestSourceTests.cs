@@ -64,6 +64,36 @@ public sealed class GitHubPullRequestSourceTests : IDisposable
         Assert.Equal([7], _client.RestReads);
     }
 
+    /// <summary>A merged answer whose read by number named the default branch needs no
+    /// REST read: REST is only the fallback for a server that did not say it.</summary>
+    [Fact]
+    public async Task A_merged_answer_that_names_its_default_branch_is_not_read_over_rest()
+    {
+        _client.Finds(Open(7) with { IsMerged = true, MergedAt = Now.AddHours(-1), DefaultBranch = "main" });
+        var source = new GitHubPullRequestSource(Integration());
+
+        var read = await source.ReadAsync(Repository, [7], TestContext.Current.CancellationToken);
+
+        Assert.Equal("main", Assert.Single(read.PullRequests).DefaultBranch);
+        Assert.Empty(_client.RestReads);
+    }
+
+    /// <summary>An open list that came back as long as the query asks for may have
+    /// stopped short of the repository's oldest open pull requests, and says so.</summary>
+    [Fact]
+    public async Task An_open_list_that_reaches_the_cap_says_it_may_be_incomplete()
+    {
+        _client.Lists = [.. Enumerable.Range(1, GitHubPullRequestSource.OpenListCap).Select(number => Open(number))];
+        var source = new GitHubPullRequestSource(Integration());
+
+        var capped = await source.ListOpenAsync(Repository, TestContext.Current.CancellationToken);
+        _client.Lists = [Open(1), Open(2)];
+        var whole = await source.ListOpenAsync(Repository, TestContext.Current.CancellationToken);
+
+        Assert.True(capped.Truncated);
+        Assert.False(whole.Truncated);
+    }
+
     [Fact]
     public async Task An_open_answer_is_not_read_again_over_rest()
     {
