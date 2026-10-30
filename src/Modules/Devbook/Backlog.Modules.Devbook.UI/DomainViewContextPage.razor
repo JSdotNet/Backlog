@@ -134,20 +134,21 @@ else if (_read?.Problem is { } problem)
             .Select(d => DomainDevbookStore.ReadText(view, d) is { } text ? new DomainContextFile(d.Path, text) : null)
             .OfType<DomainContextFile>();
 
-        var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies);
-        var neighbours = dependencies is not null
-            ? DomainNeighbours.Read(DomainDevbookStore.ReadText(view, dependencies), dependencies.Path)
-            : root is not null
-                ? DomainNeighbours.Read(DependenciesChapter(rootText), root.Path)
-                : DomainNeighbourhood.Empty;
-
         // Each neighbour that is a context is named as its context.md heads it and
-        // tagged Core when the context map's Subdomain landscape says so.
+        // tagged Core when the context map's Subdomain landscape says so; a row that
+        // names one without linking it is that context too.
         var kinds = Kinds(view);
         var named = view.Contexts.ToDictionary(
             c => c.Slug,
             c => new DomainNeighbourContext(c.DisplayName, kinds.TryGetValue(c.Slug, out var mapped) && mapped.IsCore),
             StringComparer.OrdinalIgnoreCase);
+
+        var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies);
+        var neighbours = dependencies is not null
+            ? DomainNeighbours.Read(DomainDevbookStore.ReadText(view, dependencies), dependencies.Path, named)
+            : root is not null
+                ? DomainNeighbours.Read(DependenciesChapter(rootText), root.Path, named)
+                : DomainNeighbourhood.Empty;
 
         return new ContextReading(
             context.DisplayName,

@@ -253,6 +253,66 @@ public sealed class DomainNeighboursTests
         Assert.True(gitHub.External);
     }
 
+    /// <summary>The Sessions table's shape: a row that names a context without a
+    /// link, and a second row for the same context that links it and says what for.
+    /// The first is that context, not an outside system, and the two are one card.</summary>
+    [Fact]
+    public void A_row_naming_a_context_without_a_link_is_that_context()
+    {
+        const string tables = """
+            ## Outbound dependencies
+
+            | Depends on | DDD pattern | Why |
+            |---|---|---|
+            | Repository Management | Conformist | The repository string is held as written. |
+            | [Repository Management](../repository-management/domain.md#readiness-verdict), for pull request state | Customer/Supplier (Sessions = customer) | The shell asks for the verdict. |
+            | Collections MCP | ACL (Sessions = customer) | Activity is appended there. |
+            """;
+        var contexts = new Dictionary<string, DomainNeighbourContext>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["repository-management"] = new("Repository Management", false),
+        };
+
+        var neighbours = DomainNeighbours.Read(tables, ".devbook/domain/sessions/dependencies.md", contexts).Describe(contexts);
+
+        Assert.Equal(["Repository Management", "Collections MCP"], neighbours.ListensTo.Select(n => n.Name));
+        var repositories = neighbours.ListensTo[0];
+        Assert.Equal("repository-management", repositories.Context);
+        Assert.False(repositories.External);
+        Assert.Equal("The repository string is held as written", repositories.Line);
+        Assert.True(neighbours.ListensTo[1].External);
+    }
+
+    /// <summary>A first cell may say what part of the relation the row is about —
+    /// <c>GitHub (external), for pull request state</c>. The card is named for who
+    /// the neighbour is; the row's reason says the rest.</summary>
+    [Fact]
+    public void A_neighbours_name_leaves_out_what_the_row_is_for()
+    {
+        const string tables = """
+            ## Outbound dependencies
+
+            | Depends on | DDD pattern | Contract | Why |
+            |---|---|---|---|
+            | GitHub (external), for pull request state | ACL | `#pull-request-status` | Pull requests are read from GitHub. |
+
+            ## Inbound dependents (known)
+
+            | Consumer | DDD pattern | What it relies on |
+            |---|---|---|
+            | [Progress](../progress/features.md#pull-request-status), for pull request state | Customer/Supplier (Tasks = supplier) | A goal shows its pull requests. |
+            """;
+
+        var neighbours = DomainNeighbours.Read(tables, Path);
+
+        var gitHub = Assert.Single(neighbours.ListensTo);
+        Assert.Equal("GitHub", gitHub.Name);
+        Assert.True(gitHub.External);
+        var progress = Assert.Single(neighbours.ListenTo);
+        Assert.Equal("Progress", progress.Name);
+        Assert.Equal("progress", progress.Context);
+    }
+
     [Fact]
     public void No_tables_is_no_neighbours()
     {

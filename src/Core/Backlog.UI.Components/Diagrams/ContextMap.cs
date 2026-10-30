@@ -79,7 +79,9 @@ public sealed record ContextMapSource(string Slug, string Name, string? Dependen
 /// chapters as written. No pattern name from an edge label is kept.
 /// </summary>
 /// <param name="Contexts">Every context in reading order: the Subdomain landscape
-/// table's rows as written, then each node of the fence the table does not list.</param>
+/// table's rows as written, then each node of the fence the table does not list —
+/// with a table, only one a domain folder holds; any other node, the composition
+/// root among them, is no context, and its lines are not read.</param>
 /// <param name="Lines">One per pair of contexts, in the order the pair's first edge
 /// is written.</param>
 /// <param name="Languages">The published-languages chapter's body, or the empty string.</param>
@@ -153,7 +155,9 @@ public static partial class ContextMaps
         var (nodes, edges) = Graph(mermaid);
 
         // Reading order: the landscape table's rows as written, then any node the
-        // fence declares that the table does not list.
+        // fence declares that the table does not list. Once there is a table, such
+        // a node is a context only where a domain folder holds it: the map may draw
+        // what is not a bounded context — the composition root — and that is no card.
         var contexts = new List<ContextMapContext>();
         foreach (var row in landscape)
         {
@@ -166,7 +170,9 @@ public static partial class ContextMaps
         foreach (var (id, name) in nodes)
         {
             if (contexts.Any(c => c.Id == id)) continue;
-            contexts.Add(new ContextMapContext(id, name, "supporting", string.Empty, Folder(id, name, sources)?.Slug));
+            var folder = Folder(id, name, sources);
+            if (landscape.Count > 0 && folder is null) continue;
+            contexts.Add(new ContextMapContext(id, name, "supporting", string.Empty, folder?.Slug));
         }
 
         var rowsBySlug = new Dictionary<string, IReadOnlyList<DomainNeighbourRow>>(StringComparer.OrdinalIgnoreCase);
@@ -176,6 +182,7 @@ public static partial class ContextMaps
         foreach (var edge in edges)
         {
             if (string.Equals(edge.From, edge.To, StringComparison.Ordinal)) continue;
+            if (!contexts.Any(c => c.Id == edge.From) || !contexts.Any(c => c.Id == edge.To)) continue;
             var index = lines.FindIndex(l =>
                 (l.From == edge.From && l.To == edge.To) || (l.From == edge.To && l.To == edge.From));
             if (index >= 0)

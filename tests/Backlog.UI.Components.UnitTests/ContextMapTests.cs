@@ -106,6 +106,45 @@ public sealed class ContextMapTests
         Assert.Equal("It owns the forward plan.", map.Context("Roadmap")!.Why);
     }
 
+    /// <summary>The repository's own map draws the desktop shell, the composition
+    /// root, beside the contexts: a node the Subdomain landscape table does not list
+    /// and no domain folder holds is not a bounded context, so it is no card and its
+    /// lines are not drawn.</summary>
+    [Fact]
+    public void A_node_neither_the_landscape_nor_a_folder_names_is_no_context()
+    {
+        var markdown = Map.Replace(
+            "    DevPC -.->",
+            "    Shell([\"Desktop shell<br/>(composition root, not a context)\"])\n    Tasks -.->|\"OHS (not built)<br/>Task by session\"| Shell\n    DevPC -.->",
+            StringComparison.Ordinal);
+
+        var map = ContextMaps.Read(markdown, Sources);
+
+        Assert.Equal(["Inbox", "Tasks", "Roadmap", "Sessions", "DevPC"], map.Contexts.Select(c => c.Id));
+        Assert.Equal(4, map.Lines.Count);
+        Assert.DoesNotContain(map.Lines, line => line.Touches("Shell"));
+    }
+
+    /// <summary>Without a landscape table the fence alone says what the contexts
+    /// are, folder or not.</summary>
+    [Fact]
+    public void Without_a_landscape_every_node_of_the_fence_is_a_context()
+    {
+        var map = ContextMaps.Read("""
+            # Map
+
+            ## Context map
+
+            ```mermaid
+            flowchart LR
+                A[Alpha] --> B[Beta]
+            ```
+            """, []);
+
+        Assert.Equal(["A", "B"], map.Contexts.Select(c => c.Id));
+        Assert.Single(map.Lines);
+    }
+
     [Fact]
     public void One_line_per_pair_with_two_heads_when_it_points_both_ways_and_dashed_when_not_built()
     {
@@ -363,7 +402,7 @@ public sealed class ContextMapTests
 
         var layout = ContextMapLayout.Arrange(map);
 
-        Assert.Equal(15, layout.Cards.Count);
+        Assert.Equal(16, layout.Cards.Count);
         Assert.Equal(map.Lines.Count, layout.Strokes.Count);
         var ids = map.Contexts.Select(c => c.Id).ToList();
         var pairs = map.Lines.Select(l => (ids.IndexOf(l.From), ids.IndexOf(l.To))).ToList();
@@ -382,8 +421,10 @@ public sealed class ContextMapTests
         // Every contract reads by its short name, and every rule is a card.
         Assert.Equal(
             ["ItemCaptured", "ItemTriaged", "StatusChanged", "TaskProjected", "TaskCompleted", "AIWorkLogged", "RoadmapItemScheduled",
-             "Roadmap Item", "Roadmap Tag", "FollowUpCaptured", "MachineStatusChanged", "ComplianceUpdated", "ProductivityRecorded",
-             "Environment Shortcut Resolution", "Technology Baseline", "BaselineProvided",
+             "Roadmap Item", "Roadmap Tag", "The devbook convention (local ADR 0016) and the planning fields a chapter carries",
+             "FollowUpCaptured", "MachineStatusChanged", "ComplianceUpdated", "ProductivityRecorded",
+             "Environment Shortcut Resolution", "Technology Baseline", "BaselineProvided", "The pull request contract",
+             "The lookup from a session id or a pull request to its task, in Backlog.Modules.Tasks.Abstractions (not built; local ADR 0042 §9)",
              "INotifications", "INotificationAnswerHandler", "NotificationDraft", "Backlog.Modules.Notifications.Abstractions", "The replica protocol"],
             map.Contracts.SelectMany(c => c.Names).Select(n => n.Name));
         Assert.Equal("Backlog", map.Title);

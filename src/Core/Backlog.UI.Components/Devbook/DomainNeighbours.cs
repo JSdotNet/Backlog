@@ -32,6 +32,10 @@ public sealed record DomainNeighbour(string Name, string Line, string? Context, 
     /// Core.</summary>
     public bool Core { get; init; }
 
+    /// <summary>Whether the first cell says <c>(external)</c> itself, so no context
+    /// of the same name makes it one of the domain's.</summary>
+    internal bool MarkedExternal { get; init; }
+
     /// <summary>The reference that opens the neighbour's own context page, or
     /// <see langword="null"/> when the row names no context.</summary>
     public string? Reference => Context is null ? null : $".devbook/domain/{Context}/context.md";
@@ -104,7 +108,10 @@ public static partial class DomainNeighbours
 
     /// <summary>The neighbours the dependency tables in <paramref name="markdown"/>
     /// name. <paramref name="path"/> is the file's path as the host spells it, so a
-    /// first cell's relative link resolves to the context folder it names.</summary>
+    /// first cell's relative link resolves to the context folder it names.
+    /// <paramref name="contexts"/>, keyed by folder, are the domain's contexts: a
+    /// first cell that names one without linking it is that context, not an outside
+    /// system, as the dependency table's template writes it.</summary>
     /// <remarks>
     /// A neighbour stands by the way information goes between the two, so the
     /// arrows agree with the legend. The pattern's role mark decides —
@@ -116,9 +123,13 @@ public static partial class DomainNeighbours
     /// the first row's; and outside systems on one side that share a contract are
     /// one card.
     /// </remarks>
-    public static DomainNeighbourhood Read(string? markdown, string path)
+    public static DomainNeighbourhood Read(
+        string? markdown,
+        string path,
+        IReadOnlyDictionary<string, DomainNeighbourContext>? contexts = null)
     {
         var rows = Rows(markdown, path);
+        if (contexts is { Count: > 0 }) rows = [.. rows.Select(row => row with { Neighbour = Resolved(row.Neighbour, contexts) })];
         if (rows.Count == 0) return DomainNeighbourhood.Empty;
 
         var partners = new List<DomainNeighbour>();
@@ -163,6 +174,19 @@ public static partial class DomainNeighbours
     }
 
     private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A neighbour whose first cell names one of <paramref name="contexts"/>
+    /// — by its heading or its folder — without linking it, as that context.</summary>
+    private static DomainNeighbour Resolved(DomainNeighbour neighbour, IReadOnlyDictionary<string, DomainNeighbourContext> contexts)
+    {
+        if (neighbour.Context is not null || neighbour.MarkedExternal) return neighbour;
+        foreach (var (slug, context) in contexts)
+        {
+            if (Same(neighbour.Name, context.Name) || Same(neighbour.Name.Replace(' ', '-'), slug))
+                return neighbour with { Context = slug, External = false };
+        }
+        return neighbour;
+    }
 
     /// <summary>Whether two rows name the same neighbour: by name, or by the context
     /// folder both link to.</summary>
@@ -284,7 +308,11 @@ public static partial class DomainNeighbours
 
     private static DomainNeighbour Neighbour(string nameCell, string reasonCell, string path)
     {
+        // What the row is about, after the name — "GitHub (external), for pull
+        // request state" — is the row's to say, not the card's name.
         var name = DomainUnits.Plain(nameCell);
+        var qualifier = name.IndexOf(", for ", StringComparison.Ordinal);
+        if (qualifier > 0) name = name[..qualifier].TrimEnd();
         var marked = External().IsMatch(name);
         if (marked) name = External().Replace(name, string.Empty).Trim();
 
@@ -299,7 +327,7 @@ public static partial class DomainNeighbours
         }
 
         var sentence = DomainUnits.FirstSentence(reasonCell);
-        return new DomainNeighbour(name, Phrase(sentence), context, marked || context is null) { Sentence = sentence };
+        return new DomainNeighbour(name, Phrase(sentence), context, marked || context is null) { Sentence = sentence, MarkedExternal = marked };
     }
 
     /// <summary>A table row's cells, trimmed, without the outer pipes. A pipe

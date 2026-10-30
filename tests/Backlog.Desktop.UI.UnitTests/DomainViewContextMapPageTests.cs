@@ -153,7 +153,8 @@ public sealed class DomainViewContextMapPageTests : IDisposable
         var read = DomainViewContextMapPage.Read(view);
 
         Assert.Null(read.Problem);
-        Assert.Equal(15, read.Map.Contexts.Count);
+        Assert.Equal(16, read.Map.Contexts.Count);
+        Assert.Contains(read.Map.Contexts, context => context.Slug == "brain");
         Assert.All(read.Map.Contexts, context => Assert.NotNull(context.Slug));
         var unworded = read.Map.Lines.Where(line => line.Wording.Length == 0).Select(read.Map.Describe).ToList();
         Assert.True(unworded.Count == 0, "Lines no dependency row words: " + string.Join("; ", unworded));
