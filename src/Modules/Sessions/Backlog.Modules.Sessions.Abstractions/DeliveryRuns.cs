@@ -441,6 +441,12 @@ public sealed record DeliveryRunContext(long CurrentTokens, long TokenLimit, lon
     /// number a fraction can be taken of. A gauge that reported 0 of 0 is not empty,
     /// it is unsampled.</summary>
     public decimal? PeakShare => TokenLimit > 0 ? (decimal)PeakTokens / TokenLimit : null;
+
+    /// <summary>How many times the owner session's context was compacted while the run
+    /// was open, as the file's <c>compactions</c> list records them — a run outgrowing
+    /// its window. Zero where the file lists none, which every writer before the
+    /// telemetry also means; a lower bound past the hundred the telemetry keeps.</summary>
+    public int Compactions { get; init; }
 }
 
 /// <summary>

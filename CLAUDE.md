@@ -50,7 +50,7 @@ plugin, which `.claude/settings.json` enables with `delivery-schedule` and `devb
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its nine skills, nor its hooks,
+auto-enabled — see `plugins/backlog-tools/README.md`. None of its ten skills, nor its hooks,
 changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
 calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
@@ -76,6 +76,8 @@ is no flow and adds no execution path beside the gate.
 `tend-brain` is model- or user-invoked and changes only the Brain folder it runs in, outside every
 repository, by the rules that folder carries, plus the Backlog `task` entries it files for the
 follow-ups the person routes there — so it is no flow and never meets the gate.
+`weekly-cost-analysis` is model-invoked and changes nothing: it reads the `backlog` server's
+`list_run_usage` and ends on a report of what the window's runs cost, so it is no flow.
 
 `.agents/rules/context-loading.md` says how a change confined to `.devbook/` is verified.
 
@@ -189,3 +191,5 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   dispatches the app's session requests (local ADR 0038); user-invoked only, no flow.
 - `plugins/backlog-tools/skills/tend-brain/SKILL.md` — tends a person's Brain folder (local
   ADR 0026) by its own root rules, once or under `/loop`; no flow.
+- `plugins/backlog-tools/skills/weekly-cost-analysis/SKILL.md` — reports what the delivery runs
+  on this machine cost in tokens, across every repository, from `list_run_usage`; no flow.

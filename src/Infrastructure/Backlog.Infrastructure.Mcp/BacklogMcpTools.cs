@@ -195,6 +195,24 @@ public static class BacklogMcpTools
         DeliverySurfaceOperations.All);
 
     /// <summary>
+    /// <c>list_run_usage</c>, the measured token figures of every run in a window, behind
+    /// <c>sessions</c> — the third group on that key, for the same argument as
+    /// <see cref="Surface"/>: it reads the run files and sessions the Sessions area shows,
+    /// and somebody switching that area off has switched off what it reads.
+    /// <para>
+    /// A group of its own rather than a tool on <see cref="SurfaceTools"/> because
+    /// <c>get_run</c> leaves these figures out on purpose (<see cref="RunPayload"/>), and a
+    /// tool beside it on the surface would hand them to the flow driving the run — the
+    /// reader that must not have them. A class of its own also keeps its three ports off
+    /// <see cref="SessionTools"/>, which needs none of them.
+    /// </para>
+    /// </summary>
+    public static McpToolGroup Usage { get; } = new(
+        SessionFeatures.Sessions,
+        typeof(UsageTools),
+        [UsageTools.ListRunUsage]);
+
+    /// <summary>
     /// The impediment tools beside <c>set_blocked</c>: Progress's own, so their own group
     /// (local ADR 0035 §5). Behind <c>backlog</c>, the always-on Tasks key, since Progress
     /// has no switch of its own: goals, impediments and the stand-up are always on (§10).
@@ -274,7 +292,7 @@ public static class BacklogMcpTools
         [WindowTools.OpenWindow]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Impediments, Goals, SessionRequests, Notifications, Windows];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface, Usage, Impediments, Goals, SessionRequests, Notifications, Windows];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>
