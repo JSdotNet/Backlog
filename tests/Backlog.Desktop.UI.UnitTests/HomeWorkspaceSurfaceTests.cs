@@ -5,6 +5,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
@@ -2163,7 +2164,7 @@ public sealed class HomeWorkspaceSurfaceTests
             shellNavigation.SetLastSurface("PullRequests");
 
             using var harness = CreateHarness(
-                features => features.SetEnabled(SessionFeatures.PullRequests, false),
+                features => features.SetEnabled(RepositoryManagementFeatures.PullRequests, false),
                 shellNavigation);
             var component = Render(harness);
 
@@ -2732,7 +2733,7 @@ public sealed class HomeWorkspaceSurfaceTests
             features =>
             {
                 features.SetEnabled(SessionFeatures.Sessions, false);
-                features.SetEnabled(SessionFeatures.PullRequests, false);
+                features.SetEnabled(RepositoryManagementFeatures.PullRequests, false);
             });
         var component = Render(harness);
 
@@ -3603,7 +3604,7 @@ public sealed class HomeWorkspaceSurfaceTests
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
-        _ = featureSettings.SetEnabled(SessionFeatures.PullRequests, true);
+        _ = featureSettings.SetEnabled(RepositoryManagementFeatures.PullRequests, true);
         _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);

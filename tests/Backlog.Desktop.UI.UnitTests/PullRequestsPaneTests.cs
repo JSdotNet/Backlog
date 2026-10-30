@@ -796,6 +796,32 @@ public sealed class PullRequestsPaneTests : IDisposable
         });
     }
 
+    /// <summary>One status, one verdict (local ADR 0042): the row's chip wears the label
+    /// and the tone Repository Management's verdict gives the pull request's status —
+    /// the same the session card and a task's row wear for it.</summary>
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
+    public void The_row_wears_the_label_and_tone_of_the_modules_verdict(bool draft, bool behind, bool failing)
+    {
+        var pull = Pull("JSdotNet/Backlog", 1, draft: draft, behind: behind, mergeReady: !draft && !behind && !failing)
+            with { Checks = failing ? GitHubCheckState.Failing : GitHubCheckState.Passing };
+        var verdict = Backlog.Modules.RepositoryManagement.Abstractions.PullRequestVerdict.Of(
+            Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubPullRequestStatuses.Map(pull))!;
+        using var context = Context(new StubClient().Lists("JSdotNet/Backlog", pull));
+
+        var pane = context.Render<PullRequestsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var chip = Row(pane, "JSdotNet/Backlog#1").QuerySelector("[data-testid='pull-request-verdict']")!;
+            Assert.Equal(verdict.Label, chip.TextContent.Trim());
+            Assert.Contains($"badge--tone-{verdict.Tone.ToString().ToLowerInvariant()}", chip.ClassList);
+        });
+    }
+
     // --- Lanes ----------------------------------------------------------------
 
     /// <summary>Each tile counts its lane over what Mine leaves, and says why in a

@@ -1,12 +1,16 @@
-using Backlog.Desktop.UI.PullRequests;
-using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.RepositoryManagement.UnitTests;
 
 /// <summary>
 /// The one readiness verdict a pull request gets: which of the eight applies when several
 /// do, the lane and tone each puts it in, the acts each offers, how a stacked pull request
 /// names the one it waits on, and that a merged one is Merged and a closed one has none.
+/// <para>
+/// Moved from the shell with the verdict (local ADR 0042), the cases unchanged and the
+/// fixtures written as the module's <see cref="PullRequestStatus"/>.
+/// </para>
 /// </summary>
 public sealed class PullRequestVerdictTests
 {
@@ -36,62 +40,57 @@ public sealed class PullRequestVerdictTests
 
     /// <summary>An open pull request with exactly the given conditions: with none, it is
     /// up to date with <c>main</c>, its five checks pass and one reviewer approved.</summary>
-    private static GitHubOpenPullRequest Pull(params Condition[] conditions)
+    private static PullRequestStatus Pull(params Condition[] conditions)
     {
         var has = conditions.ToHashSet();
         var failing = has.Contains(Condition.FailingChecks);
         var running = has.Contains(Condition.ChecksRunning);
 
-        return new GitHubOpenPullRequest(
+        return new PullRequestStatus(
+            RepositoryFullName: "acme/app",
             Number: 42,
             Url: "https://github.com/acme/app/pull/42",
             Title: "Add the thing",
-            RepositoryFullName: "acme/app",
-            NodeId: "PR_42",
-            IsDraft: has.Contains(Condition.Draft),
+            State: has.Contains(Condition.Draft) ? PullRequestState.Draft : PullRequestState.Open,
             HeadRefName: "feature/thing",
-            HeadSha: "abc123",
             BaseRefName: "main",
             AuthorLogin: "octocat",
             ViewerDidAuthor: true,
-            Checks: failing ? GitHubCheckState.Failing : running ? GitHubCheckState.Pending : GitHubCheckState.Passing,
-            AutoMergeEnabled: false,
-            MergeReady: has.Count == 0,
-            IsBehind: has.Contains(Condition.Behind),
-            HasConflicts: has.Contains(Condition.Conflicts),
-            MergeStateStatus: null,
-            PreferredMergeMethod: GitHubMergeMethod.Squash,
-            UpdatedAt: DateTimeOffset.Parse("2026-10-08T10:00:00Z"))
+            UpdatedAt: DateTimeOffset.Parse("2026-10-08T10:00:00Z", System.Globalization.CultureInfo.InvariantCulture))
         {
-            CheckCounts = new GitHubCheckCounts(
+            Checks = failing ? PullRequestCheckState.Failing : running ? PullRequestCheckState.Pending : PullRequestCheckState.Passing,
+            MergeReady = has.Count == 0,
+            IsBehind = has.Contains(Condition.Behind),
+            HasConflicts = has.Contains(Condition.Conflicts),
+            CheckCounts = new PullRequestCheckCounts(
                 Passed: 5 - (failing ? 2 : 0) - (running ? 1 : 0),
                 Failed: failing ? 2 : 0,
                 Pending: running ? 1 : 0),
-            Reviews = has.Contains(Condition.ChangesRequested)
-                ? new GitHubReviewSummary(
-                    has.Contains(Condition.ReviewRequired) ? GitHubReviewState.ReviewRequired : GitHubReviewState.ChangesRequested,
+            Approvals = has.Contains(Condition.ChangesRequested)
+                ? new PullRequestApprovals(
+                    has.Contains(Condition.ReviewRequired) ? PullRequestReviewDecision.ReviewRequired : PullRequestReviewDecision.ChangesRequested,
                     Approvals: 0,
                     ChangesRequested: 1)
                 : has.Contains(Condition.ReviewRequired)
-                    ? new GitHubReviewSummary(GitHubReviewState.ReviewRequired, 0, 0)
-                    : new GitHubReviewSummary(GitHubReviewState.Approved, 1, 0)
+                    ? new PullRequestApprovals(PullRequestReviewDecision.ReviewRequired, 0, 0)
+                    : new PullRequestApprovals(PullRequestReviewDecision.Approved, 1, 0)
         };
     }
 
-    private static GitHubOpenPullRequest Parent() =>
-        Pull() with { Number = 41, HeadRefName = "feature/base", BaseRefName = "main" };
+    /// <summary>The pull request stacked on #41, the parent the reason names.</summary>
+    private static PullRequestStatus StackedOnParent(PullRequestStatus pull) =>
+        pull with { StackParent = new PullRequestReference("acme/app", 41) };
 
-    private static PullRequestVerdict Open(GitHubOpenPullRequest pull, GitHubOpenPullRequest? waitsOn = null) =>
-        PullRequestVerdict.Of(pull, waitsOn)!;
+    private static PullRequestVerdict Open(PullRequestStatus pull) => PullRequestVerdict.Of(pull)!;
 
     /// <summary>The pull request with one failed check that is a GitHub Actions run, so
-    /// <see cref="GitHubOpenPullRequest.CanRerunFailed"/> holds.</summary>
-    private static GitHubOpenPullRequest WithFailedActionsRun(GitHubOpenPullRequest pull) =>
-        pull with { HeadChecks = [new GitHubCheck("build", GitHubCheckState.Failing, null, null, WorkflowRunId: 101)] };
+    /// <see cref="PullRequestStatus.CanRerunFailed"/> holds.</summary>
+    private static PullRequestStatus WithFailedActionsRun(PullRequestStatus pull) =>
+        pull with { HeadChecks = [new PullRequestCheck("build", PullRequestCheckState.Failing, null, null, WorkflowRunId: 101)] };
 
     /// <summary>The pull request whose only failed check another service set.</summary>
-    private static GitHubOpenPullRequest WithFailedExternalCheck(GitHubOpenPullRequest pull) =>
-        pull with { HeadChecks = [new GitHubCheck("ci/external", GitHubCheckState.Failing, null, null, WorkflowRunId: null)] };
+    private static PullRequestStatus WithFailedExternalCheck(PullRequestStatus pull) =>
+        pull with { HeadChecks = [new PullRequestCheck("ci/external", PullRequestCheckState.Failing, null, null, WorkflowRunId: null)] };
 
     // ---- Every verdict ----------------------------------------------------------------
 
@@ -149,7 +148,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void A_failed_check_counts_as_failing_while_others_still_run()
     {
-        var pull = Pull(Condition.ChecksRunning) with { CheckCounts = new GitHubCheckCounts(3, 1, 1) };
+        var pull = Pull(Condition.ChecksRunning) with { CheckCounts = new PullRequestCheckCounts(3, 1, 1) };
 
         Assert.Equal(PullRequestVerdictKind.FailingChecks, Open(pull).Kind);
     }
@@ -172,7 +171,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void Changes_requested_without_a_review_rule_still_counts()
     {
-        var pull = Pull() with { Reviews = new GitHubReviewSummary(GitHubReviewState.None, 0, 1) };
+        var pull = Pull() with { Approvals = new PullRequestApprovals(PullRequestReviewDecision.None, 0, 1) };
 
         Assert.Equal(PullRequestVerdictKind.ChangesRequested, Open(pull).Kind);
     }
@@ -222,7 +221,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void Checks_running_counts_in_the_plural()
     {
-        var pull = Pull(Condition.ChecksRunning) with { CheckCounts = new GitHubCheckCounts(2, 0, 3) };
+        var pull = Pull(Condition.ChecksRunning) with { CheckCounts = new PullRequestCheckCounts(2, 0, 3) };
 
         Assert.Equal("3 checks still running", Open(pull).Headline);
     }
@@ -258,7 +257,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void Ready_without_checks_says_none_stand_in_its_way()
     {
-        var verdict = Open(Pull() with { Checks = GitHubCheckState.None, CheckCounts = null });
+        var verdict = Open(Pull() with { Checks = PullRequestCheckState.None, CheckCounts = null });
 
         Assert.Equal(PullRequestVerdictKind.Ready, verdict.Kind);
         Assert.Equal("No checks stand in its way and it is up to date with main with one approval.", verdict.Reason);
@@ -270,7 +269,10 @@ public sealed class PullRequestVerdictTests
     [InlineData(2, "Checks pass and it is up to date with main with 2 approvals.")]
     public void Ready_counts_its_approvals(int approvals, string reason)
     {
-        var pull = Pull() with { Reviews = new GitHubReviewSummary(approvals == 0 ? GitHubReviewState.None : GitHubReviewState.Approved, approvals, 0) };
+        var pull = Pull() with
+        {
+            Approvals = new PullRequestApprovals(approvals == 0 ? PullRequestReviewDecision.None : PullRequestReviewDecision.Approved, approvals, 0)
+        };
 
         Assert.Equal(reason, Open(pull).Reason);
     }
@@ -330,7 +332,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void A_stacked_pull_request_behind_by_keeps_Update_branch()
     {
-        var verdict = Open(Pull() with { BehindBy = 2 }, waitsOn: Parent());
+        var verdict = Open(StackedOnParent(Pull() with { BehindBy = 2 }));
 
         Assert.Equal(PullRequestAct.UpdateBranch, verdict.PrimaryAct);
         Assert.Null(verdict.SecondaryAct);
@@ -350,7 +352,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void A_merged_pull_request_is_Merged_settled_with_no_act()
     {
-        var verdict = Open(Pull() with { IsMerged = true });
+        var verdict = Open(Pull() with { State = PullRequestState.Merged });
 
         Assert.Equal(PullRequestVerdictKind.Merged, verdict.Kind);
         Assert.Null(verdict.Lane);
@@ -366,7 +368,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void A_merged_pull_request_is_Merged_whatever_it_last_reported()
     {
-        var pull = Pull(Condition.Conflicts, Condition.FailingChecks, Condition.Draft) with { IsMerged = true };
+        var pull = Pull(Condition.Conflicts, Condition.FailingChecks, Condition.Draft) with { State = PullRequestState.Merged };
 
         Assert.Equal(PullRequestVerdictKind.Merged, Open(pull).Kind);
     }
@@ -374,9 +376,11 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void A_pull_request_from_the_merged_list_is_Merged_by_whoever_merged_it()
     {
-        var merged = new GitHubMergedPullRequest(
-            7, "https://github.com/acme/app/pull/7", "Done", "acme/app", "feature/done", "main",
-            "octocat", ViewerDidAuthor: true, MergedAt: DateTimeOffset.Parse("2026-10-07T10:00:00Z"), MergedByLogin: "hubot");
+        var merged = new MergedPullRequest(
+            "acme/app", 7, "https://github.com/acme/app/pull/7", "Done", "feature/done", "main",
+            "octocat", ViewerDidAuthor: true,
+            MergedAt: DateTimeOffset.Parse("2026-10-07T10:00:00Z", System.Globalization.CultureInfo.InvariantCulture),
+            MergedByLogin: "hubot");
 
         var verdict = PullRequestVerdict.Of(merged);
 
@@ -390,7 +394,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void A_closed_pull_request_has_no_verdict()
     {
-        Assert.Null(PullRequestVerdict.Of(Pull() with { IsClosed = true }));
+        Assert.Null(PullRequestVerdict.Of(Pull() with { State = PullRequestState.Closed }));
     }
 
     [Fact]
@@ -398,7 +402,7 @@ public sealed class PullRequestVerdictTests
     {
         var verdicts = Enum.GetValues<Condition>().Select(condition => Open(Pull(condition)))
             .Append(Open(Pull()))
-            .Append(Open(Pull() with { IsMerged = true }));
+            .Append(Open(Pull() with { State = PullRequestState.Merged }));
 
         foreach (var verdict in verdicts)
         {
@@ -475,7 +479,7 @@ public sealed class PullRequestVerdictTests
     {
         var pull = (condition is { } c ? Pull(c) : Pull()) with { BaseRefName = "feature/base" };
 
-        var verdict = Open(pull, waitsOn: Parent());
+        var verdict = Open(StackedOnParent(pull));
 
         Assert.Contains("#41", verdict.Reason, StringComparison.Ordinal);
         AssertOneSentence(verdict.Reason);
@@ -485,7 +489,7 @@ public sealed class PullRequestVerdictTests
     public void A_stack_keeps_the_verdict_and_changes_the_reason()
     {
         var alone = Open(Pull(Condition.Draft));
-        var stacked = Open(Pull(Condition.Draft), waitsOn: Parent());
+        var stacked = Open(StackedOnParent(Pull(Condition.Draft)));
 
         Assert.Equal(alone with { Reason = stacked.Reason }, stacked);
         Assert.NotEqual(alone.Reason, stacked.Reason);
@@ -503,7 +507,7 @@ public sealed class PullRequestVerdictTests
     {
         var pull = condition is { } c ? Pull(c) : Pull();
 
-        var verdict = Open(pull, waitsOn: Parent());
+        var verdict = Open(StackedOnParent(pull));
 
         Assert.Equal(primary, (object?)verdict.PrimaryAct);
         Assert.Null(verdict.SecondaryAct);
@@ -512,7 +516,7 @@ public sealed class PullRequestVerdictTests
     [Fact]
     public void A_stacked_pull_request_keeps_its_other_acts()
     {
-        var verdict = Open(WithFailedActionsRun(Pull(Condition.FailingChecks)), waitsOn: Parent());
+        var verdict = Open(StackedOnParent(WithFailedActionsRun(Pull(Condition.FailingChecks))));
 
         Assert.Equal(PullRequestAct.RerunFailed, verdict.PrimaryAct);
         Assert.Equal(PullRequestAct.OpenOnGitHub, verdict.SecondaryAct);

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Repository Management's rules, tested at its published surface (local ADR 0042):
+    the one verdict per pull request, its stack, its merge offer, the label filter
+    and the feature key.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

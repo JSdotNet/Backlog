@@ -443,8 +443,8 @@
                                   PressedChanged="TogglePullRequests">
                         <GitPullRequestIcon />
                         <span class="header-nav-label header-nav-label--tier-2">Pull requests</span>
-                        <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.PullRequests)"
-                                            Title="@FeatureStatusTitle(SessionFeatures.PullRequests)"
+                        <FeatureStatusBadge Status="@FeatureStatusSlug(RepositoryManagementFeatures.PullRequests)"
+                                            Title="@FeatureStatusTitle(RepositoryManagementFeatures.PullRequests)"
                                             TestId="pull-requests-feature-status" />
                     </ToggleButton>
                 }
@@ -1149,7 +1149,7 @@
     /// and the same context as the session list, under a flag of its own.</summary>
     private bool PullRequestsVisible => _surface == WorkspaceSurface.PullRequests && PullRequestsOffered;
 
-    private bool PullRequestsOffered => IsFeatureEnabled(SessionFeatures.PullRequests);
+    private bool PullRequestsOffered => IsFeatureEnabled(RepositoryManagementFeatures.PullRequests);
 
     /// <summary>Whether the notification centre is on screen. The same shape again, for
     /// the Notifications context, and only where the host composed the owner's centre —

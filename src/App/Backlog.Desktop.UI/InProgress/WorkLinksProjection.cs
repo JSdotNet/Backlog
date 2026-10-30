@@ -242,7 +242,9 @@ public sealed class WorkLinksProjection
             ReadState = Map(pull.State),
             Author = pull.AuthorLogin,
             MergedAt = pull.MergedAt,
-            Status = PullRequestStatusLines.Of(pull)
+            // Mapped at the edge until this projection reads Repository Management's
+            // status itself (local ADR 0042).
+            Status = PullRequestStatusLines.Of(Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubPullRequestStatuses.Map(pull))
         };
 
     /// <summary>A linked pull request the open read did not list: drawn from the task

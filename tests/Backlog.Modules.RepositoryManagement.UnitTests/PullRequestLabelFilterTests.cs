@@ -1,6 +1,6 @@
-using Backlog.Desktop.UI.PullRequests;
+using Backlog.Modules.RepositoryManagement.Abstractions;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Modules.RepositoryManagement.UnitTests;
 
 /// <summary>
 /// Which pull requests a repository's label filter lets onto the list: any of the

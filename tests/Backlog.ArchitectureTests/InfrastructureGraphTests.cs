@@ -41,11 +41,13 @@ public class InfrastructureGraphTests
             + "Planning, the Inbox, Sessions, Progress and Notifications — each answering that module's own repository "
             + "port. The tables share a file, not a schema (inherited ADR 0014). The task store also closes the "
             + "notifications about a task that ends, through Notifications' published port it already sees."),
-        ("Backlog.Infrastructure.GitHub", 5,
+        ("Backlog.Infrastructure.GitHub", 6,
             "The repository registry and its GitHub client answer each context that asks about a "
             + "repository: the Tasks issues connector, the Dashboard's activity and drift issues, the "
             + "Devbook folders a repository keeps, the Sessions repository resolver and the Sync replica "
-            + "of the settings. Splitting it by context would mean one registry per context."),
+            + "of the settings, and Repository Management's published surface, whose pull-request source "
+            + "and registry it answers (local ADR 0042). Splitting it by context would mean one registry "
+            + "per context."),
         ("Backlog.Infrastructure.Sync", 8,
             "The sync client carries every synchronised context's records — Tasks, Inbox, Roadmap, Progress, "
             + "Devbook, Sessions and Notifications — over the Sync module's own contract, so it sees each "

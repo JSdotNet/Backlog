@@ -87,6 +87,11 @@
     <!-- Inbox's published surface, for one record: the shell hears that an item
          was routed and reloads the Tasks pane on it. It reads nothing else. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- Repository Management's published surface (local ADR 0042): the status
+         every pull request reader draws, its one verdict, its stacks and merge
+         offer, and the pull-requests feature key. The pull requests pane is that
+         context's screen, kept in the shell until the module has a UI project. -->
+    <ProjectReference Include="..\..\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
     <!-- Settings and the home page speak to these adapters directly: the AI
          assistant panel and its endpoint settings, the Claude usage report, and
          the GitHub repository/devbook-folder settings plus the local clone

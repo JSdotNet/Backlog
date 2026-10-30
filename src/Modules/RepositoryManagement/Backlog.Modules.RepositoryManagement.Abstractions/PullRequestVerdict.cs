@@ -1,13 +1,13 @@
-using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 
-namespace Backlog.Desktop.UI.PullRequests;
+namespace Backlog.Modules.RepositoryManagement.Abstractions;
 
 /// <summary>
 /// The one thing standing between a pull request and its merge, ranked: where several
 /// apply, the first member wins. <see cref="Merged"/> is outside the ranking — it is what
 /// a pull request with nothing left to get ready reads as.
 /// </summary>
-internal enum PullRequestVerdictKind
+public enum PullRequestVerdictKind
 {
     /// <summary>GitHub cannot merge it until its conflicts with the base are resolved.</summary>
     Conflicts,
@@ -39,7 +39,7 @@ internal enum PullRequestVerdictKind
 
 /// <summary>Which of the four lane tiles a pull request counts under. A merged pull
 /// request is in none.</summary>
-internal enum PullRequestLane
+public enum PullRequestLane
 {
     /// <summary>Waiting on the reader: conflicts, failing checks, changes requested,
     /// behind.</summary>
@@ -59,9 +59,9 @@ internal enum PullRequestLane
 /// <summary>
 /// The badge tone scale of <c>.devbook/design/color-scheme.md</c>, the five tones a
 /// verdict wears. Its own type here because no shared one carries the scale in code yet;
-/// the names are the scale's, so the chip's class can be read straight off them.
+/// the names are the scale's, so a chip's class can be read straight off them.
 /// </summary>
-internal enum PullRequestTone
+public enum PullRequestTone
 {
     /// <summary>Nothing has happened to it yet.</summary>
     Quiet,
@@ -79,10 +79,10 @@ internal enum PullRequestTone
     Settled
 }
 
-/// <summary>An act a verdict offers. Which merge act a <see cref="MergeWhenReady"/> or a
+/// <summary>An act a verdict offers. Which merge a <see cref="MergeWhenReady"/> or a
 /// <see cref="Merge"/> becomes, against the auto-merge GitHub may already hold, is
-/// <see cref="PullRequestMerge"/>'s question, not the verdict's.</summary>
-internal enum PullRequestAct
+/// <see cref="PullRequestMerges"/>' question, not the verdict's.</summary>
+public enum PullRequestAct
 {
     /// <summary>Open the pull request on GitHub.</summary>
     OpenOnGitHub,
@@ -112,17 +112,18 @@ internal enum PullRequestAct
 /// with at most one more — that fits it.
 /// <para>
 /// One verdict rather than a row of badges, because a reader acts on one thing at a time
-/// (<c>.devbook/domain/sessions/features.md#one-verdict-per-pull-request</c>). Derived
-/// from nothing but what GitHub already reported, so the same pull request reads the
-/// same everywhere it appears.
+/// (<c>.devbook/domain/repository-management/features.md#one-verdict-per-pull-request</c>).
+/// Derived from nothing but the status Repository Management reports, and published with
+/// it as a pure rule (local ADR 0042), so the same pull request reads the same on the
+/// pull requests pane, the session card and a task's row.
 /// </para>
 /// </summary>
 /// <param name="Lane">Null only for <see cref="PullRequestVerdictKind.Merged"/>.</param>
 /// <param name="PrimaryAct">Null for <see cref="PullRequestVerdictKind.Merged"/>, and for a
 /// stacked pull request whose only act would have been a merge: merged now, it would land
 /// on its parent's branch rather than where the stack is going, so the reason names the
-/// parent instead — the rule the pane's <c>OfferedMergeFor</c> already keeps.</param>
-internal sealed record PullRequestVerdict(
+/// parent instead — the rule <see cref="PullRequestMerges.For"/> keeps too.</param>
+public sealed record PullRequestVerdict(
     PullRequestVerdictKind Kind,
     PullRequestLane? Lane,
     PullRequestTone Tone,
@@ -133,32 +134,29 @@ internal sealed record PullRequestVerdict(
     PullRequestAct? SecondaryAct)
 {
     /// <summary>
-    /// The verdict on a pull request GitHub reported as open, or merged by a pinned read.
+    /// The verdict on a pull request in any state. A stacked one — its
+    /// <see cref="PullRequestStatus.StackParent"/> set — names its parent in the reason
+    /// and is offered no merge.
     /// </summary>
-    /// <param name="pull">The pull request.</param>
-    /// <param name="waitsOn">The open pull request it is stacked on —
-    /// <see cref="PullRequestStacks.ParentOf"/> — named in the reason; null for one at
-    /// the bottom of a stack or in none.</param>
     /// <returns>Null for a pull request closed without merging: there is nothing left
     /// to get ready, and nothing to merge.</returns>
-    public static PullRequestVerdict? Of(
-        GitHubOpenPullRequest pull,
-        GitHubOpenPullRequest? waitsOn = null)
+    public static PullRequestVerdict? Of(PullRequestStatus pull)
     {
         ArgumentNullException.ThrowIfNull(pull);
 
-        if (pull.IsMerged)
+        switch (pull.State)
         {
-            return Merged(pull.BaseRefName, mergedBy: null);
-        }
-
-        if (pull.IsClosed)
-        {
-            return null;
+            case PullRequestState.Merged:
+                return Merged(pull.BaseRefName, mergedBy: null);
+            case PullRequestState.Closed:
+                return null;
+            case PullRequestState.Open:
+            case PullRequestState.Draft:
+                break;
         }
 
         var verdict = Open(pull);
-        if (waitsOn is null)
+        if (pull.StackParent is not { } waitsOn)
         {
             return verdict with { Reason = $"{verdict.Reason}." };
         }
@@ -179,7 +177,7 @@ internal sealed record PullRequestVerdict(
     private static bool IsMerge(PullRequestAct act) => act is PullRequestAct.Merge or PullRequestAct.MergeWhenReady;
 
     /// <summary>The verdict on a pull request from the Recently merged list.</summary>
-    public static PullRequestVerdict Of(GitHubMergedPullRequest pull)
+    public static PullRequestVerdict Of(MergedPullRequest pull)
     {
         ArgumentNullException.ThrowIfNull(pull);
         return Merged(pull.BaseRefName, pull.MergedByLogin);
@@ -187,10 +185,11 @@ internal sealed record PullRequestVerdict(
 
     /// <summary>The verdict by precedence, its reason still a clause without its stop so
     /// a stack can be named in the same sentence.</summary>
-    private static PullRequestVerdict Open(GitHubOpenPullRequest pull)
+    private static PullRequestVerdict Open(PullRequestStatus pull)
     {
         var counts = pull.CheckCounts;
         var baseRef = pull.BaseRefName;
+        var reviews = pull.Approvals;
 
         if (pull.HasConflicts)
         {
@@ -204,7 +203,7 @@ internal sealed record PullRequestVerdict(
 
         // The roll-up can still read pending while one check has already failed; the
         // failure is what decides, so a failed count is enough.
-        if (pull.Checks == GitHubCheckState.Failing || counts is { Failed: > 0 })
+        if (pull.Checks == PullRequestCheckState.Failing || counts is { Failed: > 0 })
         {
             // Re-run failed only where a failed check is a GitHub Actions run, the only
             // kind GitHub can be asked to run again.
@@ -221,7 +220,7 @@ internal sealed record PullRequestVerdict(
 
         // A repository that asks for no review has no decision, but a reviewer who asked
         // for changes still did.
-        if (pull.Reviews.Decision == GitHubReviewState.ChangesRequested || pull.Reviews.ChangesRequested > 0)
+        if (reviews.Decision == PullRequestReviewDecision.ChangesRequested || reviews.ChangesRequested > 0)
         {
             return new(
                 PullRequestVerdictKind.ChangesRequested, PullRequestLane.NeedsYou, PullRequestTone.Fault,
@@ -251,7 +250,7 @@ internal sealed record PullRequestVerdict(
                 PullRequestAct.ReadyForReview, null);
         }
 
-        if (pull.Checks == GitHubCheckState.Pending || counts is { Pending: > 0 })
+        if (pull.Checks == PullRequestCheckState.Pending || counts is { Pending: > 0 })
         {
             var pending = counts is { Pending: > 0 } ? counts.Pending : (int?)null;
             return new(
@@ -267,7 +266,7 @@ internal sealed record PullRequestVerdict(
                 PullRequestAct.MergeWhenReady, null);
         }
 
-        if (pull.Reviews.Decision == GitHubReviewState.ReviewRequired)
+        if (reviews.Decision == PullRequestReviewDecision.ReviewRequired)
         {
             return new(
                 PullRequestVerdictKind.ReviewRequired, PullRequestLane.Waiting, PullRequestTone.Live,
@@ -277,8 +276,8 @@ internal sealed record PullRequestVerdict(
                 PullRequestAct.MergeWhenReady, null);
         }
 
-        var checks = pull.Checks == GitHubCheckState.Passing ? "Checks pass" : "No checks stand in its way";
-        var approvals = pull.Reviews.Approvals switch
+        var checks = pull.Checks == PullRequestCheckState.Passing ? "Checks pass" : "No checks stand in its way";
+        var approvals = reviews.Approvals switch
         {
             0 => "",
             1 => " with one approval",
@@ -287,7 +286,7 @@ internal sealed record PullRequestVerdict(
 
         // GitHub can still hold back a pull request none of the above describes — a rule
         // this read does not name. Merge now would be refused there, so the act hands it
-        // to auto-merge instead, as the pane's merge act already does.
+        // to auto-merge instead, as PullRequestMerges.For does.
         var merge = pull.MergeReady ? PullRequestAct.Merge : PullRequestAct.MergeWhenReady;
 
         // Behind is GitHub's BEHIND state, set only where the repository requires an

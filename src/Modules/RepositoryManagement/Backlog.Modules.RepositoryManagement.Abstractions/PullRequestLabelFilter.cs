@@ -1,9 +1,8 @@
-namespace Backlog.Desktop.UI.PullRequests;
+namespace Backlog.Modules.RepositoryManagement.Abstractions;
 
 /// <summary>
-/// A repository's pull request label filter, applied to one pull request:
-/// <see cref="Backlog.Infrastructure.GitHub.GitHubRepositoryRef.PullRequestLabels"/>
-/// against the labels the pull request carries.
+/// A repository's pull request label filter, applied to one pull request: the labels a
+/// registered repository lets through, against the labels the pull request carries.
 /// <para>
 /// Any of the filter's labels lets a pull request through, because a filter of
 /// "frontend, design" is somebody naming the pull requests they review, not a set
@@ -13,7 +12,7 @@ namespace Backlog.Desktop.UI.PullRequests;
 /// me", which no filter set before or after it overrides.
 /// </para>
 /// </summary>
-internal static class PullRequestLabelFilter
+public static class PullRequestLabelFilter
 {
     public static bool Passes(IReadOnlyCollection<string> labels, IReadOnlyCollection<string> filter, bool pinned)
     {
