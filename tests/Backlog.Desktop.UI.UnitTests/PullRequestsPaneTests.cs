@@ -1,5 +1,10 @@
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.GitHub.RepositoryManagement;
+using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.RepositoryManagement.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.UI.Components.Feedback;
 using Bunit;
@@ -9,18 +14,18 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The pull requests pane reads every registered repository through the GitHub
-/// adapter and triages it: lane tiles, a list grouped by lane, and the detail of the
-/// pull request the reader picked. What is asserted here is the pane's own part: that
-/// it opens on the reader's own pull requests and Everyone's widens it, that the
-/// header's scope and a pressed lane narrow it, that the detail offers exactly the
-/// acts its verdict names and each reaches GitHub, that a repository GitHub would not
-/// answer for is named without taking the others with it, and that the detail leads
-/// back to the task and the session a pull request came from.
+/// The pull requests pane reads every registered repository through Repository
+/// Management's contract and triages it: lane tiles, a list grouped by lane, and the
+/// detail of the pull request the reader picked. What is asserted here is the pane's
+/// own part: that it opens on the reader's own pull requests and Everyone's widens it,
+/// that the header's scope and a pressed lane narrow it, that the detail offers exactly
+/// the acts its verdict names and each reaches GitHub, that a repository GitHub would
+/// not answer for is named without taking the others with it, and that the detail
+/// leads back to the task and the session a pull request came from.
 /// <para>
-/// The adapter is the real <see cref="GitHubIntegration"/> over a client double, so
-/// the per-repository failure handling and the refusal wording under test are the
-/// ones the app runs. bUnit swallows an exception thrown from a click handler, so
+/// The contract is the real module over the real <see cref="GitHubIntegration"/> and a
+/// client double, so the per-repository failure handling and the refusal wording under
+/// test are the ones the app runs. bUnit swallows an exception thrown from a click handler, so
 /// every act is asserted by its effect — what the client was asked, what the toast
 /// said, what the list shows after the re-read — never by the absence of a throw.
 /// </para>
@@ -454,6 +459,66 @@ public sealed class PullRequestsPaneTests : IDisposable
             Assert.Equal(2, RowKeys(pane).Count);
 
             Assert.Contains(Toasts(context), toast => toast.Message == "Asked GitHub to update the branch of JSdotNet/Backlog#1.");
+        });
+    }
+
+    /// <summary>A merge from the pane is Repository Management's command, which reads
+    /// the repository again itself; the rows the pane then takes, and the merged pull
+    /// request's answer by number, come from that one re-read and send nothing of their
+    /// own (local ADR 0042, V10).</summary>
+    [Fact]
+    public async Task A_merge_from_the_pane_reads_its_repository_once_and_the_pane_takes_its_rows_from_that_read()
+    {
+        var merged = Pull("JSdotNet/Backlog", 1, mergeReady: true) with { IsMerged = true, MergedAt = Noon };
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, mergeReady: true))
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Equal(2, RowKeys(pane).Count));
+
+        client.Lists("JSdotNet/Backlog").Finds(merged);
+        Select(pane, "JSdotNet/Backlog#1");
+        pane.Find("[data-testid='pull-request-merge']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["merge PR_1 Squash"], client.Acts);
+            Assert.Equal(["JSdotNet/Archify#2"], RowKeys(pane));
+        });
+
+        var read = await context.Services.GetRequiredService<IPullRequests>()
+            .ReadAsync([new PullRequestReference("JSdotNet/Backlog", 1)], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(PullRequestState.Merged, Assert.Single(read.PullRequests).State);
+        Assert.Equal(["JSdotNet/Backlog"], client.ListedAfterFirstRead);
+        lock (client.PinnedListed) Assert.Equal(["JSdotNet/Backlog 1"], client.PinnedListed);
+    }
+
+    /// <summary>A merge from somewhere else — a task's row — is said through the
+    /// contract's Changed, and the pane takes that repository's rows again from the
+    /// command's re-read, with no read of its own.</summary>
+    [Fact]
+    public async Task A_merge_from_a_tasks_row_takes_the_row_out_of_the_pane_with_no_read_of_its_own()
+    {
+        var client = new StubClient()
+            .Lists("JSdotNet/Backlog", Pull("JSdotNet/Backlog", 1, mergeReady: true))
+            .Lists("JSdotNet/Archify", Pull("JSdotNet/Archify", 2));
+        using var context = Context(client);
+
+        var pane = context.Render<PullRequestsPane>();
+        pane.WaitForAssertion(() => Assert.Equal(2, RowKeys(pane).Count));
+
+        client.Lists("JSdotNet/Backlog").Finds(Pull("JSdotNet/Backlog", 1) with { IsMerged = true, MergedAt = Noon });
+        var result = await context.Services.GetRequiredService<IPullRequests>()
+            .MergeAsync(new PullRequestReference("JSdotNet/Backlog", 1), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["JSdotNet/Archify#2"], RowKeys(pane));
+            Assert.Equal(["JSdotNet/Backlog"], client.ListedAfterFirstRead);
         });
     }
 
@@ -2329,10 +2394,12 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() => Assert.Equal("Their task", Text(Detail(pane), "pull-request-task")));
     }
 
-    /// <summary>Two pins made while the first one's read is still out send two reads.
-    /// The newer, which has both pins, lands first; the older, which has only the first,
-    /// lands after it and must not become the last word, or the second pin never reaches
-    /// the open view.</summary>
+    /// <summary>Two pins made while the first one's read is still out send one read
+    /// each: the second asks GitHub only for the new pin and waits on the first's read for
+    /// the other, since the cache never asks for a number twice. The pane's own read with
+    /// both pins then lands with the older one, and the older one, which has only the
+    /// first, must not become the last word, or the second pin never reaches the open
+    /// view.</summary>
     [Fact]
     public void An_older_pinned_read_landing_last_does_not_overwrite_a_newer_one()
     {
@@ -2344,7 +2411,7 @@ public sealed class PullRequestsPaneTests : IDisposable
             Pull("JSdotNet/Backlog", 11) with { IsMerged = true, MergedAt = Noon.AddHours(-11) });
         var older = new TaskCompletionSource();
         var newer = new TaskCompletionSource();
-        client.PinnedGate = numbers => numbers.Count == 1 ? older.Task : newer.Task;
+        client.PinnedGate = numbers => numbers.Contains(11) ? newer.Task : older.Task;
         using var context = Context(client, pins: Pins());
 
         var pane = OnMergedView(context);
@@ -2365,7 +2432,7 @@ public sealed class PullRequestsPaneTests : IDisposable
         pane.WaitForAssertion(() => Assert.Equal("JSdotNet/Backlog#11", Detail(pane).GetAttribute("data-pull-request")));
         pane.Find("[data-testid='pull-request-pin']").Click();
         Assert.True(SpinWait.SpinUntil(() => Asked().Length == 2, TimeSpan.FromSeconds(5)));
-        Assert.Equal(["JSdotNet/Backlog 10", "JSdotNet/Backlog 10,11"], Asked());
+        Assert.Equal(["JSdotNet/Backlog 10", "JSdotNet/Backlog 11"], Asked());
 
         pane.InvokeAsync(newer.SetResult);
         pane.InvokeAsync(older.SetResult);
@@ -2542,6 +2609,12 @@ public sealed class PullRequestsPaneTests : IDisposable
         var clock = new FakeTimeProvider(Noon);
         context.Services.AddSingleton<TimeProvider>(clock);
         context.Services.AddSingleton(new GitHubIntegration(settings, client, new Backlog.Tests.StubProbe(new GitHubConnection(true, "Connected.")), time: clock));
+        // The pane reads and acts through Repository Management's contract, composed the
+        // way the hosts compose it: the real module, with GitHub — the stub client here —
+        // behind it, so what each test says GitHub holds is still what the pane draws.
+        context.Services.AddSingleton(settings);
+        context.Services.AddRepositoryManagementModule();
+        context.Services.AddRepositoryManagementGitHubAdapters();
         context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource(sessions ?? []));
         if (toasts) TasksTestHost.AddToastChannel(context.Services);
         if (pins is not null) context.Services.AddSingleton(pins);

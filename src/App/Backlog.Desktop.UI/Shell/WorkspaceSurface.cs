@@ -63,8 +63,8 @@ internal enum WorkspaceSurface
     Sessions,
 
     /// <summary>The open pull requests of every registered repository, taking the
-    /// whole screen — the Sessions context's second surface, what its sessions
-    /// shipped. Appended, as <see cref="Roadmap"/> and <see cref="Sessions"/> were:
+    /// whole screen — Repository Management's screen (local ADR 0042), beside the
+    /// sessions that opened them. Appended, as <see cref="Roadmap"/> and <see cref="Sessions"/> were:
     /// the navigation file stores names, so every surface an earlier build wrote
     /// reopens unchanged, and a new name is simply one no earlier file holds. The
     /// header orders its segments for itself; this order is nobody's layout.</summary>

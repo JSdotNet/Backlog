@@ -50,6 +50,7 @@
       "src\\Modules\\Progress\\Backlog.Modules.Progress.UI\\Backlog.Modules.Progress.UI.csproj",
       "src\\Modules\\Progress\\Backlog.Modules.Progress\\Backlog.Modules.Progress.csproj",
       "src\\Modules\\RepositoryManagement\\Backlog.Modules.RepositoryManagement.Abstractions\\Backlog.Modules.RepositoryManagement.Abstractions.csproj",
+      "src\\Modules\\RepositoryManagement\\Backlog.Modules.RepositoryManagement\\Backlog.Modules.RepositoryManagement.csproj",
       "src\\Modules\\Notifications\\Backlog.Modules.Notifications.Abstractions\\Backlog.Modules.Notifications.Abstractions.csproj",
       "src\\Modules\\Notifications\\Backlog.Modules.Notifications.UI\\Backlog.Modules.Notifications.UI.csproj",
       "src\\Modules\\Notifications\\Backlog.Modules.Notifications\\Backlog.Modules.Notifications.csproj",

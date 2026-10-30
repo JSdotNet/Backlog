@@ -353,6 +353,29 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// Every reader of a pull request goes through Repository Management's one contract
+    /// (local ADR 0042): the harness composes the module, one instance for the process,
+    /// with GitHub behind it rather than the module's not-configured fallbacks, and the
+    /// settled-fact memory on disk rather than in memory.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_reads_pull_requests_through_repository_managements_one_contract()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        var pullRequests = harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequests>();
+
+        Assert.Equal("Backlog.Modules.RepositoryManagement", pullRequests.GetType().Assembly.GetName().Name);
+        Assert.Same(pullRequests, harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequests>());
+        Assert.IsType<Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubPullRequestSource>(
+            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequestSource>());
+        Assert.IsType<Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubRegisteredRepositories>(
+            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IRegisteredRepositories>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.SettledPullRequestStore>(
+            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.ISettledPullRequestStore>());
+    }
+
+    /// <summary>
     /// Every context that asks questions registers an answer handler for its source, and
     /// the port resolves with them: the MCP tools, the Settings page's test question
     /// (Notifications), a run's Personal Validation (Sessions), a spec-manager question

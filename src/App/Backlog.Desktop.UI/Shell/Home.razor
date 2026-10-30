@@ -1145,8 +1145,9 @@
 
     private bool SessionsOffered => IsFeatureEnabled(SessionFeatures.Sessions);
 
-    /// <summary>Whether the pull requests list is on screen. The same shape again,
-    /// and the same context as the session list, under a flag of its own.</summary>
+    /// <summary>Whether the pull requests list is on screen. The same shape again, for
+    /// another context: the flag it reads is Repository Management's, because the pane
+    /// is that context's screen (local ADR 0042).</summary>
     private bool PullRequestsVisible => _surface == WorkspaceSurface.PullRequests && PullRequestsOffered;
 
     private bool PullRequestsOffered => IsFeatureEnabled(RepositoryManagementFeatures.PullRequests);

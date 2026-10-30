@@ -1,8 +1,10 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.RepositoryManagement.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -20,7 +22,7 @@ namespace Backlog.Infrastructure.FileSystem;
 public static class WorkspaceCachesRegistration
 {
     /// <summary>
-    /// Registers the seven stores and the usage read log, each a singleton over its folder, read per call so
+    /// Registers the eight stores and the usage read log, each a singleton over its folder, read per call so
     /// a folder that moves is followed. Every folder is beside the per-user settings
     /// and never under the backlog root: ADR 0005 syncs the workspace, and a
     /// per-machine cache travelling to another device is exactly the hazard.
@@ -54,6 +56,13 @@ public static class WorkspaceCachesRegistration
         // never meets a repository's folder there.
         services.AddSingleton<IPullRequestStateMemory>(sp => new PullRequestStateMemory(
             () => Path.Combine(sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory, PullRequestStateMemory.FolderName)));
+
+        // Repository Management's merged pull requests, a settled fact the one cache
+        // reads back after a restart (local ADR 0042 §3). Beside the memory above for
+        // the same reason, in a folder of its own. In place of the in-memory one the
+        // module registers, so the module may be composed before or after this.
+        services.Replace(ServiceDescriptor.Singleton<ISettledPullRequestStore>(sp => new SettledPullRequestStore(
+            () => Path.Combine(sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory, SettledPullRequestStore.FolderName))));
 
         // What a transcript's parsed runs are kept in, so an activity read parses
         // only the transcripts that have changed, and the other pass over the same

@@ -1,6 +1,7 @@
 using System.Globalization;
 
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 
 namespace Backlog.Desktop.UI.PullRequests;
 
@@ -43,7 +44,7 @@ internal sealed record RecordedPullRequest(string RepositoryFullName, int Number
 internal sealed record PullRequestTaskCandidate(
     Guid EntryId,
     IReadOnlyList<RecordedPullRequest> PullRequests,
-    GitHubIssueReference? GitHubIssue,
+    IssueReference? GitHubIssue,
     IReadOnlyList<string> ExternalKeys,
     IReadOnlyList<string> SessionIds,
     bool IsMine);
@@ -56,16 +57,16 @@ public sealed record PullRequestTaskSubject(
     int Number,
     string Title,
     string HeadRefName,
-    IReadOnlyList<GitHubIssueReference> ClosingIssues,
+    IReadOnlyList<IssueReference> ClosingIssues,
     string? SessionId)
 {
-    public static PullRequestTaskSubject From(GitHubOpenPullRequest pull, string? sessionId = null)
+    public static PullRequestTaskSubject From(PullRequestStatus pull, string? sessionId = null)
     {
         ArgumentNullException.ThrowIfNull(pull);
         return new(pull.RepositoryFullName, pull.Number, pull.Title, pull.HeadRefName, pull.ClosingIssues, sessionId);
     }
 
-    public static PullRequestTaskSubject From(GitHubMergedPullRequest pull, string? sessionId = null)
+    public static PullRequestTaskSubject From(MergedPullRequest pull, string? sessionId = null)
     {
         ArgumentNullException.ThrowIfNull(pull);
         return new(pull.RepositoryFullName, pull.Number, pull.Title, pull.HeadRefName, pull.ClosingIssues, sessionId);
@@ -132,7 +133,7 @@ internal sealed class PullRequestTaskMatcher(IEnumerable<PullRequestTaskCandidat
     /// connector: the connected repository, and the number from the <c>#n</c> display
     /// key or else the issue URL. Null for any other connector.
     /// </summary>
-    public static GitHubIssueReference? GitHubIssueOf(string? connectorId, string? target, string? displayKey, string? url)
+    public static IssueReference? GitHubIssueOf(string? connectorId, string? target, string? displayKey, string? url)
     {
         if (!string.Equals(connectorId, GitHubConnector.ConnectorId, StringComparison.OrdinalIgnoreCase)) return null;
         if (string.IsNullOrWhiteSpace(target)) return null;
@@ -140,14 +141,14 @@ internal sealed class PullRequestTaskMatcher(IEnumerable<PullRequestTaskCandidat
         var key = (displayKey ?? string.Empty).Trim();
         if (key.StartsWith('#') && int.TryParse(key[1..], NumberStyles.None, CultureInfo.InvariantCulture, out var fromKey) && fromKey > 0)
         {
-            return new GitHubIssueReference(target.Trim(), fromKey);
+            return new IssueReference(target.Trim(), fromKey);
         }
 
         var segments = (url ?? string.Empty).TrimEnd('/').Split('/');
         return segments is [.., "issues", var last]
             && int.TryParse(last, NumberStyles.None, CultureInfo.InvariantCulture, out var fromUrl)
             && fromUrl > 0
-                ? new GitHubIssueReference(target.Trim(), fromUrl)
+                ? new IssueReference(target.Trim(), fromUrl)
                 : null;
     }
 

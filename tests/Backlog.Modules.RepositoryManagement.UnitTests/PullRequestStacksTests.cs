@@ -125,6 +125,24 @@ public sealed class PullRequestStacksTests
         Assert.All(placed, pull => Assert.Null(pull.StackParent));
     }
 
+    /// <summary>Placing one pull request in stacks derived elsewhere — the pane derives
+    /// its own over the rows in scope — sets the parent those stacks name, clears one
+    /// they do not, and leaves a merged one waiting on nothing.</summary>
+    [Fact]
+    public void Placing_a_pull_request_sets_the_parent_its_stacks_name_and_clears_a_stale_one()
+    {
+        var bottom = Pull(1, "feature/a", "main");
+        var top = Pull(2, "feature/b", "feature/a");
+        var stacks = PullRequestStacks.Of([bottom, top]);
+        var stale = Pull(3, "feature/z", "main") with { StackParent = new PullRequestReference("acme/app", 1) };
+        var merged = top with { State = PullRequestState.Merged };
+
+        Assert.Equal(new PullRequestReference("acme/app", 1), stacks.Place(top).StackParent);
+        Assert.Null(stacks.Place(stale).StackParent);
+        Assert.Null(stacks.Place(merged).StackParent);
+        Assert.Same(bottom, stacks.Place(bottom));
+    }
+
     /// <summary>The verdict a stacked pull request gets once placed is the one that names
     /// its parent — the pane, the card and a task's row all place it this way.</summary>
     [Fact]

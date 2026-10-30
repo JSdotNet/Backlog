@@ -129,7 +129,8 @@ public sealed record PullRequestStatus(
 
     /// <summary>The open pull request this one is stacked on — its base branch is that
     /// one's head branch — or null for one at the bottom of a stack or in none. Set by
-    /// <see cref="PullRequestStacks.WithParents"/>, never by the source that read it.</summary>
+    /// <see cref="PullRequestStacks.Place"/> — every open list the contract answers is
+    /// placed so — never by the source that read it.</summary>
     public PullRequestReference? StackParent { get; init; }
 
     /// <summary>The label names, as GitHub spells them.</summary>
@@ -181,4 +182,35 @@ public sealed record PullRequestStatus(
             .Where(check => check.State == PullRequestCheckState.Failing)
             .Select(check => check.Name)
             .Distinct(StringComparer.Ordinal)];
+
+    /// <summary>
+    /// A merged pull request as it was remembered across a restart: merged, with its
+    /// merge day, branches, closing issues and labels, and nothing a verdict is ranked
+    /// from — so <see cref="StatusRead"/> is false. A branch the memory does not hold is
+    /// empty.
+    /// </summary>
+    public static PullRequestStatus Settled(SettledPullRequest pullRequest)
+    {
+        ArgumentNullException.ThrowIfNull(pullRequest);
+
+        return new PullRequestStatus(
+            pullRequest.RepositoryFullName,
+            pullRequest.Number,
+            pullRequest.Url,
+            pullRequest.Title,
+            PullRequestState.Merged,
+            pullRequest.HeadRefName,
+            BaseRefName: pullRequest.BaseRefName ?? "",
+            pullRequest.AuthorLogin,
+            ViewerDidAuthor: false,
+            UpdatedAt: null)
+        {
+            MergedAt = pullRequest.MergedAt,
+            ClosedAt = pullRequest.MergedAt,
+            DefaultBranch = pullRequest.DefaultBranch,
+            ClosingIssues = pullRequest.ClosingIssues,
+            Labels = pullRequest.Labels,
+            StatusRead = false
+        };
+    }
 }

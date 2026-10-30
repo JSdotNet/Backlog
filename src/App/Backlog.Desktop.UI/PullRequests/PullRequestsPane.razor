@@ -1,14 +1,17 @@
 @using Backlog.Modules.Sessions.Abstractions
 @using Backlog.Modules.RepositoryManagement.Abstractions
 @using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects
-@using Backlog.Infrastructure.GitHub.RepositoryManagement
+@using Backlog.Modules.RepositoryManagement.Abstractions.Services
 @using Backlog.UI.Components.Integrations
 @using Backlog.UI.Components.Progress
 @using Backlog.UI.Components.Goals
 @* The status line component and Repository Management's status share a name; in
-   code the name is the module's record, and in markup the tag is the component. *@
+   code the name is the module's record, and in markup the tag is the component. The
+   component library's reference record shares one too, and is not used here. *@
 @using PullRequestStatus = Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects.PullRequestStatus
+@using PullRequestReference = Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects.PullRequestReference
 @using Backlog.SharedKernel
+@using Backlog.SharedKernel.Results
 @inject IServiceProvider Services
 @inject IJSRuntime JS
 @implements IDisposable
@@ -31,16 +34,18 @@
 
     It is Repository Management's screen (local ADR 0042): the pull requests of every
     registered repository, drawn from that context's status and verdict, which the
-    session card and a task's row read too. It lives in the shell project for now
-    because that context has no UI project yet and the list still reads and acts
-    through the GitHub adapter, mapping each record to the module's status at the
-    read; the shell already takes that adapter for Settings and the Tasks merge menu.
+    session card and a task's row read too. It reads and acts only through that
+    context's contract, IPullRequests, so the pane, a task's row and Progress share
+    one read of each pull request. It lives in the shell project for now because that
+    context has no UI project yet; the GitHub adapter is still asked for the
+    registry's aliases, colours and label filters, which are no pull request's.
 
     Like the sessions pane it owns its own loading and is not a monitor: it reads
-    GitHub when it opens, when somebody presses Refresh, and — for one repository —
-    after an act, and never on a timer. A list that re-read itself would spend a
-    GraphQL query per repository every few seconds to tell a reader what they could
-    have asked for.
+    when it opens — from the cache when another reader read within the minute —
+    when somebody presses Refresh, and — for one repository — after an act, its own
+    or one from a task's row, and never on a timer. A list that re-read itself would
+    spend a GraphQL query per repository every few seconds to tell a reader what they
+    could have asked for.
 
     It has two views. Open is the one it opens on, with the lanes and the acts.
     Recently merged is what the open list cannot show — a pull request merged from it
@@ -296,6 +301,7 @@
     /// needs the reader first.</summary>
     private static readonly PullRequestLane[] Lanes = Enum.GetValues<PullRequestLane>();
 
+    private IPullRequests? _pullRequests;
     private GitHubIntegration? _gitHub;
     private IAgentSessionSource? _sessionSource;
     private IToastChannel? _toasts;
@@ -449,7 +455,7 @@
     /// <summary>Whether a row is the one the list was opened on. Let through the
     /// scope and the label filters the way a pin is, because a card asked for it by
     /// name and a list without it would be no answer.</summary>
-    private bool IsFocused(PullRequestStatus pull) => IsFocused(Key(pull));
+    private bool IsFocused(PullRequestStatus pull) => IsFocused(pull.Reference.Key);
 
     private bool IsFocused(string key) =>
         !string.IsNullOrWhiteSpace(FocusPullRequest)
@@ -477,19 +483,19 @@
 
     /// <summary>Reads the focused pull request by number when neither the open read
     /// nor the pinned one holds it — a merged or closed one, from a task's card.</summary>
-    private async Task ReadFocusedAsync()
+    private async Task ReadFocusedAsync(PullRequestReadOptions? options = null)
     {
-        if (_gitHub is not { IsConfigured: true } gitHub || FocusPin() is not { } pin) return;
+        if (_pullRequests is not { IsConfigured: true } pullRequests || FocusReference() is not { } reference) return;
 
         var held = _listing.PullRequests.Concat(_pinned.PullRequests)
-            .Any(pull => string.Equals(Key(pull), FocusPullRequest, StringComparison.OrdinalIgnoreCase));
+            .Any(pull => string.Equals(pull.Reference.Key, FocusPullRequest, StringComparison.OrdinalIgnoreCase));
         if (held) return;
 
         var focus = FocusPullRequest;
         _reads++;
         try
         {
-            var listing = GitHubPullRequestStatuses.Map(await Task.Run(() => gitHub.ListPinnedPullRequestsAsync([pin])));
+            var listing = await Task.Run(() => pullRequests.ReadAsync([reference], options));
             if (!string.Equals(focus, FocusPullRequest, StringComparison.OrdinalIgnoreCase)) return;
 
             _focused = listing;
@@ -504,15 +510,15 @@
         }
     }
 
-    /// <summary>The focused key, <c>owner/name#number</c>, as a pin to read it by.</summary>
-    private PullRequestPin? FocusPin()
+    /// <summary>The focused key, <c>owner/name#number</c>, as a reference to read it by.</summary>
+    private PullRequestReference? FocusReference()
     {
         var key = FocusPullRequest;
         var hash = key?.LastIndexOf('#') ?? -1;
         if (key is null || hash <= 0) return null;
 
         return int.TryParse(key.AsSpan(hash + 1), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number) && number > 0
-            ? new PullRequestPin(key[..hash], number)
+            ? new PullRequestReference(key[..hash], number)
             : null;
     }
 
@@ -530,15 +536,18 @@
         }
     }
 
-    /// <summary>Whether there is anything to read: the adapter composed, and at least
-    /// one repository registered with it.</summary>
-    private bool Configured => _gitHub is { IsConfigured: true };
+    /// <summary>Whether there is anything to read: Repository Management composed, and
+    /// at least one repository registered.</summary>
+    private bool Configured => _pullRequests is { IsConfigured: true };
 
     protected override async Task OnInitializedAsync()
     {
         // Each one optional, the way the session list resolves its record keeper: a
-        // host without GitHub is the not-configured state, a host without sessions
-        // simply links no session, and a host without toasts gets the inline line.
+        // host without Repository Management is the not-configured state, a host
+        // without sessions simply links no session, and a host without toasts gets the
+        // inline line. The GitHub adapter is still asked for the registry's aliases,
+        // colours and label filters, which are no pull request's.
+        _pullRequests = Services.GetService<IPullRequests>();
         _gitHub = Services.GetService<GitHubIntegration>();
         _sessionSource = Services.GetService<IAgentSessionSource>();
         _toasts = Services.GetService<IToastChannel>();
@@ -546,20 +555,41 @@
         _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
 
         // A pin or a label filter changed — here or in Settings — redraws the rows
-        // from what was read; only a pin nothing read yet costs a read.
+        // from what was read; only a pin nothing read yet costs a read. A pull request
+        // acted on elsewhere — merged from a task's row — redraws its repository's rows
+        // from what that act's re-read left in the cache.
         if (_pins is not null) _pins.Changed += OnPinsChanged;
         if (_gitHub is not null) _gitHub.Settings.Changed += OnSettingsChanged;
+        if (_pullRequests is not null) _pullRequests.Changed += OnPullRequestsChanged;
 
-        await ReadOpenAsync();
+        await ReadOpenAsync(PullRequestReadOptions.Default);
     }
 
     public void Dispose()
     {
         if (_pins is not null) _pins.Changed -= OnPinsChanged;
         if (_gitHub is not null) _gitHub.Settings.Changed -= OnSettingsChanged;
+        if (_pullRequests is not null) _pullRequests.Changed -= OnPullRequestsChanged;
     }
 
     private void OnSettingsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>
+    /// A command acted on pull requests and its repository has been read again. One
+    /// this pane's own act is still running on is left to that act, which takes the
+    /// same rows itself; any other — a merge from a task's row — has its repository's
+    /// rows taken again, from the cache the command's re-read just filled.
+    /// </summary>
+    private void OnPullRequestsChanged(PullRequestsChanged changed) => _ = InvokeAsync(async () =>
+    {
+        if (changed.PullRequests.All(pull => _busy.ContainsKey(pull.Key))) return;
+
+        InvalidateMerged();
+        foreach (var repository in changed.Repositories) await RereadAsync(repository);
+        if (Merged) await EnsureMergedAsync();
+
+        StateHasChanged();
+    });
 
     private void OnPinsChanged() => _ = InvokeAsync(async () =>
     {
@@ -593,7 +623,7 @@
     {
         if (_pins is null) return false;
 
-        var read = _listing.PullRequests.Concat(_pinned.PullRequests).Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var read = _listing.PullRequests.Concat(_pinned.PullRequests).Select(pull => pull.Reference.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return _pins.Pins.Any(pin => !read.Contains(Key(pin.RepositoryFullName, pin.Number)));
     }
 
@@ -604,24 +634,26 @@
     private int _pinnedGeneration;
 
     /// <summary>One pinned read, kept only if no newer one started while it was out.</summary>
-    private async Task ReadPinnedAsync()
+    private async Task ReadPinnedAsync(PullRequestReadOptions? options = null)
     {
         var generation = ++_pinnedGeneration;
-        var listing = await ReadPinsAsync();
+        var listing = await ReadPinsAsync(options);
 
         if (generation == _pinnedGeneration) _pinned = listing;
     }
 
-    /// <summary>Every pin, read by number. No pins, no request.</summary>
-    private async Task<PullRequestListing> ReadPinsAsync()
+    /// <summary>Every pin, read by number through Repository Management's cache, so a
+    /// pin the open list or an act's re-read already answered costs nothing. No pins,
+    /// no request.</summary>
+    private async Task<PullRequestListing> ReadPinsAsync(PullRequestReadOptions? options)
     {
-        if (_gitHub is not { } gitHub || _pins is not { Pins.Count: > 0 } pins) return PullRequestListing.Empty;
+        if (_pullRequests is not { } pullRequests || _pins is not { Pins.Count: > 0 } pins) return PullRequestListing.Empty;
 
         // On the pool for the reason the open list's read is: the CLI transport
         // starts gh before its first await. The pins are taken here, on the
         // dispatcher, and the caller's generation check stays there too.
-        var asked = pins.Pins.ToList();
-        return GitHubPullRequestStatuses.Map(await Task.Run(() => gitHub.ListPinnedPullRequestsAsync(asked)));
+        PullRequestReference[] asked = [.. pins.Pins.Select(pin => new PullRequestReference(pin.RepositoryFullName, pin.Number))];
+        return await Task.Run(() => pullRequests.ReadAsync(asked, options));
     }
 
     private bool IsPinned(string repositoryFullName, int number) => _pins?.IsPinned(repositoryFullName, number) == true;
@@ -662,7 +694,7 @@
         if (_merged is not null) return Task.CompletedTask;
         if (_mergedRead is { IsCompleted: false } inFlight) return inFlight;
 
-        return _mergedRead = ReadMergedAsync();
+        return _mergedRead = ReadMergedAsync(PullRequestReadOptions.Default);
     }
 
     /// <summary>Drops the merged view's copy and any read still out for it: something
@@ -679,15 +711,19 @@
     /// than it now and is read again when next shown.</summary>
     private Task RefreshViewAsync()
     {
-        if (Merged) return _mergedRead = ReadMergedAsync();
+        if (Merged) return _mergedRead = ReadMergedAsync(PullRequestReadOptions.Fresh);
 
         InvalidateMerged();
-        return ReadOpenAsync();
+        return ReadOpenAsync(PullRequestReadOptions.Fresh);
     }
 
-    private async Task ReadOpenAsync()
+    /// <summary>The open list, the pins and the focused pull request, read through
+    /// Repository Management's cache: at <see cref="PullRequestReadOptions.Default"/>
+    /// on open, so a list another reader read within the minute costs nothing, and at
+    /// <see cref="PullRequestReadOptions.Fresh"/> on Refresh.</summary>
+    private async Task ReadOpenAsync(PullRequestReadOptions options)
     {
-        if (_gitHub is not { IsConfigured: true } gitHub) return;
+        if (_pullRequests is not { IsConfigured: true } pullRequests) return;
 
         _reads++;
 
@@ -698,11 +734,11 @@
             // is started on the pool: the CLI transport starts its gh process before
             // its first real await, which on the UI thread would hold Refresh's busy
             // state back until the process was up.
-            var listing = Task.Run(() => gitHub.ListOpenPullRequestsAsync(gitHub.ActiveRepositories));
-            var pinned = ReadPinnedAsync();
+            var listing = Task.Run(() => pullRequests.ListOpenAsync(null, options));
+            var pinned = ReadPinnedAsync(options);
             var sessions = ReadSessionsAsync();
 
-            _listing = GitHubPullRequestStatuses.Map(await listing);
+            _listing = await listing;
             await pinned;
             _sessions = await sessions;
             _read = true;
@@ -711,7 +747,7 @@
             // one again too; the first read leaves it to OnParametersSetAsync.
             if (_focusApplied is not null && string.Equals(_focusApplied, FocusPullRequest, StringComparison.OrdinalIgnoreCase))
             {
-                await ReadFocusedAsync();
+                await ReadFocusedAsync(options);
             }
         }
         finally
@@ -722,9 +758,9 @@
 
     /// <summary>One merged read. Its answer is kept only if nothing superseded it while
     /// it was out — a newer read, or an act or open-list refresh that invalidated it.</summary>
-    private async Task ReadMergedAsync()
+    private async Task ReadMergedAsync(PullRequestReadOptions options)
     {
-        if (_gitHub is not { IsConfigured: true } gitHub) return;
+        if (_pullRequests is not { IsConfigured: true } pullRequests) return;
 
         var generation = ++_mergedGeneration;
         _reads++;
@@ -732,10 +768,10 @@
         try
         {
             // On the pool for the reason the open list's read is.
-            var merged = Task.Run(() => gitHub.ListMergedPullRequestsAsync(gitHub.ActiveRepositories));
+            var merged = Task.Run(() => pullRequests.ListMergedAsync(null, options));
             var sessions = ReadSessionsAsync();
 
-            var listing = GitHubPullRequestStatuses.Map(await merged);
+            var listing = await merged;
             var read = await sessions;
 
             if (generation != _mergedGeneration) return;
@@ -772,29 +808,25 @@
     }
 
     /// <summary>
-    /// Reads one repository again and puts its rows in place of the old ones. After
-    /// an act, because only that repository can have moved because of it — and a
-    /// merged pull request leaves the list here, which is the act's own answer.
+    /// Takes one repository's rows, and its pins, again from Repository Management and
+    /// puts them in place of the old ones. After an act — the pane's own or one from
+    /// elsewhere — because only that repository can have moved because of it, and a
+    /// merged pull request leaves the list here, which is the act's own answer. The
+    /// command already read the repository again, so both are answered from its cache.
     /// </summary>
     private async Task RereadAsync(string repositoryFullName)
     {
-        if (_gitHub is not { } gitHub) return;
+        if (_pullRequests is not { } pullRequests) return;
 
-        var repository = gitHub.Repositories.FirstOrDefault(candidate =>
-                string.Equals(candidate.FullName, repositoryFullName, StringComparison.OrdinalIgnoreCase))
-            ?? RepositoryOf(gitHub, repositoryFullName);
+        // A pin in this repository is taken again beside it: a pinned pull request the
+        // act merged leaves the open list, and only the read by number says it merged.
+        var hasPins = _pins?.Pins.Any(pin => string.Equals(pin.RepositoryFullName.Trim(), repositoryFullName.Trim(), StringComparison.OrdinalIgnoreCase)) == true;
+        var rereadPins = hasPins ? ReadPinnedAsync(PullRequestReadOptions.Default) : null;
 
-        if (repository is null) return;
-
-        // A pin in this repository is read again beside it: a pinned pull request the
-        // act merged leaves the open list, and only the pinned read says it merged.
-        var hasPins = _pins?.Pins.Any(pin => string.Equals(pin.RepositoryFullName, repositoryFullName, StringComparison.OrdinalIgnoreCase)) == true;
-        var rereadPins = hasPins ? ReadPinnedAsync() : null;
-
-        var reread = GitHubPullRequestStatuses.Map(await Task.Run(() => gitHub.ListOpenPullRequestsAsync([repository])));
+        var reread = await Task.Run(() => pullRequests.ListOpenAsync([repositoryFullName], PullRequestReadOptions.Default));
         if (rereadPins is not null) await rereadPins;
 
-        bool Other(string fullName) => !string.Equals(fullName, repositoryFullName, StringComparison.OrdinalIgnoreCase);
+        bool Other(string fullName) => !string.Equals(fullName.Trim(), repositoryFullName.Trim(), StringComparison.OrdinalIgnoreCase);
 
         _listing = new PullRequestListing(
             [.. _listing.PullRequests.Where(pull => Other(pull.RepositoryFullName))
@@ -803,65 +835,52 @@
             [.. _listing.Failures.Where(failure => Other(failure.RepositoryFullName)).Concat(reread.Failures)]);
     }
 
-    private static GitHubRepositoryRef? RepositoryOf(GitHubIntegration gitHub, string fullName)
-    {
-        var parts = fullName.Split('/', 2);
-        return parts.Length == 2 ? gitHub.RepositoryFor(parts[0], parts[1]) : null;
-    }
-
-    // The acts still go through the GitHub adapter, handed the record it reads back
-    // from the status (GitHubPullRequestStatuses.ToGitHub), until Repository
-    // Management's own commands take them over (local ADR 0042).
+    // Every act is one of Repository Management's commands (local ADR 0042 §3), which
+    // acts on the status it keeps for the pull request and reads its repository again.
 
     private Task UpdateBranchAsync(PullRequestStatus pull) =>
-        ActAsync(pull, PullRequestAct.UpdateBranch, gitHub => gitHub.UpdateBranchAsync(GitHubPullRequestStatuses.ToGitHub(pull)), $"Asked GitHub to update the branch of {Subject(pull)}.");
+        ActAsync(pull, PullRequestAct.UpdateBranch, (pullRequests, reference) => pullRequests.UpdateBranchAsync(reference), $"Asked GitHub to update the branch of {Subject(pull)}.");
 
     private Task RerunFailedAsync(PullRequestStatus pull) =>
-        ActAsync(pull, PullRequestAct.RerunFailed, gitHub => gitHub.RerunFailedChecksAsync(GitHubPullRequestStatuses.ToGitHub(pull)), $"Asked GitHub to re-run the failed checks of {Subject(pull)}.");
+        ActAsync(pull, PullRequestAct.RerunFailed, (pullRequests, reference) => pullRequests.RerunFailedAsync(reference), $"Asked GitHub to re-run the failed checks of {Subject(pull)}.");
 
     private Task MarkReadyAsync(PullRequestStatus pull) =>
-        ActAsync(pull, PullRequestAct.ReadyForReview, gitHub => gitHub.MarkReadyForReviewAsync(GitHubPullRequestStatuses.ToGitHub(pull)), $"{Subject(pull)} is ready for review.");
+        ActAsync(pull, PullRequestAct.ReadyForReview, (pullRequests, reference) => pullRequests.MarkReadyForReviewAsync(reference), $"{Subject(pull)} is ready for review.");
 
     /// <summary>The merge act, re-derived at the click from the row as it stands —
     /// the same answer as when the button was drawn unless a read landed in between,
     /// and then the newer one is the one to act on.</summary>
-    private Task MergeAsync(PullRequestStatus pull)
+    private Task MergeAsync(PullRequestStatus pull) => OfferedMergeFor(pull) switch
     {
-        var status = GitHubPullRequestStatuses.ToGitHub(pull).ToStatus();
-
-        return OfferedMergeFor(pull) switch
-        {
-            PullRequestMergeChoice.Now => ActAsync(pull, PullRequestAct.Merge, gitHub => gitHub.MergePullRequestAsync(status), $"Merged {Subject(pull)}."),
-            PullRequestMergeChoice.WhenReady => ActAsync(pull, PullRequestAct.Merge, gitHub => gitHub.EnableAutoMergeAsync(status), $"{Subject(pull)} will merge when it is ready."),
-            PullRequestMergeChoice.CancelAutoMerge => ActAsync(pull, PullRequestAct.Merge, gitHub => gitHub.DisableAutoMergeAsync(status), $"Cancelled auto-merge for {Subject(pull)}."),
-            null => Task.CompletedTask
-        };
-    }
+        PullRequestMergeChoice.Now => ActAsync(pull, PullRequestAct.Merge, (pullRequests, reference) => pullRequests.MergeAsync(reference), $"Merged {Subject(pull)}."),
+        PullRequestMergeChoice.WhenReady => ActAsync(pull, PullRequestAct.Merge, (pullRequests, reference) => pullRequests.SetAutoMergeAsync(reference, enable: true), $"{Subject(pull)} will merge when it is ready."),
+        PullRequestMergeChoice.CancelAutoMerge => ActAsync(pull, PullRequestAct.Merge, (pullRequests, reference) => pullRequests.SetAutoMergeAsync(reference, enable: false), $"Cancelled auto-merge for {Subject(pull)}."),
+        null => Task.CompletedTask
+    };
 
     /// <summary>
-    /// One act, and the read that follows it whether it worked or not. After a
-    /// success the read is what shows the result; after a refusal it is what corrects
+    /// One act, and the rows taken again after it whether it worked or not. After a
+    /// success they are what shows the result; after a refusal they are what corrects
     /// a row that had moved on since it was drawn. The refusal itself arrives already
-    /// worded by the adapter, naming the act and the pull request.
+    /// worded, naming the act and the pull request.
     /// </summary>
-    private async Task ActAsync(PullRequestStatus pull, PullRequestAct pressed, Func<GitHubIntegration, Task> act, string done)
+    private async Task ActAsync(
+        PullRequestStatus pull,
+        PullRequestAct pressed,
+        Func<IPullRequests, PullRequestReference, Task<Result>> act,
+        string done)
     {
-        if (_gitHub is not { } gitHub || !_busy.TryAdd(Key(pull), pressed)) return;
+        if (_pullRequests is not { } pullRequests || !_busy.TryAdd(pull.Reference.Key, pressed)) return;
 
         try
         {
-            try
-            {
-                // Started on the pool: the CLI transport starts a gh process before its
-                // first real await, and on the UI thread that would hold the window
-                // still before the pressed button could show it is busy.
-                await Task.Run(() => act(gitHub));
-                Publish(ToastMessage.Info(done, "pull-requests-act-done"));
-            }
-            catch (Exception exception) when (exception is GitHubException or GitHubNotConfiguredException or HttpRequestException)
-            {
-                Publish(ToastMessage.Error(exception.Message, "pull-requests-act-failed"));
-            }
+            // Started on the pool: the CLI transport starts a gh process before its
+            // first real await, and on the UI thread that would hold the window still
+            // before the pressed button could show it is busy.
+            var result = await Task.Run(() => act(pullRequests, pull.Reference));
+            Publish(result.IsSuccess
+                ? ToastMessage.Info(done, "pull-requests-act-done")
+                : ToastMessage.Error(result.Error.Message, "pull-requests-act-failed"));
 
             // A merge — now, or by auto-merge while the reader looks elsewhere — is
             // something the merged view's copy cannot know about.
@@ -875,7 +894,7 @@
         }
         finally
         {
-            _busy.Remove(Key(pull));
+            _busy.Remove(pull.Reference.Key);
         }
     }
 
@@ -890,7 +909,7 @@
         _notice = message.Message;
     }
 
-    private bool Busy(PullRequestStatus pull) => _busy.ContainsKey(Key(pull));
+    private bool Busy(PullRequestStatus pull) => _busy.ContainsKey(pull.Reference.Key);
 
     /// <summary>The aria-disabled value of a control a running act blocks: "true", or
     /// null to leave the attribute off.</summary>
@@ -899,12 +918,13 @@
     /// <summary>Whether this act is the one running on the row — the merge acts as
     /// one, since the button's label is whichever merge GitHub would accept.</summary>
     private bool Pressed(PullRequestStatus pull, PullRequestAct act) =>
-        _busy.TryGetValue(Key(pull), out var pressed)
+        _busy.TryGetValue(pull.Reference.Key, out var pressed)
         && (pressed == act || (IsMergeAct(pressed) && IsMergeAct(act)));
 
-    private static string Key(PullRequestStatus pull) => Key(pull.RepositoryFullName, pull.Number);
-
-    private static string Key(string repositoryFullName, int number) => $"{repositoryFullName}#{number}";
+    /// <summary>A pull request's key by repository and number — the one Repository
+    /// Management keeps and stacks it under, so a row, a pin, the busy map and the
+    /// stacks never disagree on a padded or re-cased repository name.</summary>
+    private static string Key(string repositoryFullName, int number) => new PullRequestReference(repositoryFullName, number).Key;
 
     private static string Subject(PullRequestStatus pull) => $"{pull.RepositoryFullName}#{pull.Number}";
 
@@ -921,11 +941,7 @@
     /// every row, because those are derived over the scope and the pins only, and a
     /// parent out of scope has never made a row wait here.
     /// </summary>
-    private PullRequestStatus Placed(PullRequestStatus pull)
-    {
-        var parent = pull.IsOpen ? Stacks.ParentOf(pull)?.Reference : null;
-        return pull.StackParent == parent ? pull : pull with { StackParent = parent };
-    }
+    private PullRequestStatus Placed(PullRequestStatus pull) => Stacks.Place(pull);
 
     /// <summary>The merge button's words. Handing it to auto-merge reads "Merge when
     /// ready", the verdict table's word in <c>features.md#one-verdict-per-pull-request</c>:
@@ -1007,7 +1023,7 @@
             number,
             title,
             headRefName,
-            [.. closingIssues.Select(issue => new GitHubIssueReference(issue.RepositoryFullName, issue.Number))],
+            closingIssues,
             SessionFor(url, headRefName, repositoryFullName)?.Id);
 
     /// <summary>Mine: the reader opened it, or it is related to one of their tasks.</summary>
@@ -1024,11 +1040,11 @@
         {
             if (_pinned.PullRequests.Count == 0 && _focused.PullRequests.Count == 0) return _listing.PullRequests;
 
-            var listed = _listing.PullRequests.Select(Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var pinned = _pinned.PullRequests.Where(pull => !listed.Contains(Key(pull)) && IsPinned(pull)).ToList();
-            listed.UnionWith(pinned.Select(Key));
+            var listed = _listing.PullRequests.Select(pull => pull.Reference.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var pinned = _pinned.PullRequests.Where(pull => !listed.Contains(pull.Reference.Key) && IsPinned(pull)).ToList();
+            listed.UnionWith(pinned.Select(pull => pull.Reference.Key));
 
-            return [.. _listing.PullRequests, .. pinned, .. _focused.PullRequests.Where(pull => !listed.Contains(Key(pull)) && IsFocused(pull))];
+            return [.. _listing.PullRequests, .. pinned, .. _focused.PullRequests.Where(pull => !listed.Contains(pull.Reference.Key) && IsFocused(pull))];
         }
     }
 
@@ -1339,10 +1355,10 @@
         var parent = pull.IsOpen ? stacks.ParentOf(pull) : null;
 
         return new BoardRow(
-            Key(pull),
+            pull.Reference.Key,
             pull,
             null,
-            PullRequestVerdict.Of(pull with { StackParent = parent?.Reference }),
+            PullRequestVerdict.Of(stacks.Place(pull)),
             parent,
             stacks.DepthOf(pull),
             pinned);
@@ -1655,10 +1671,10 @@
                         <ol class="pull-request-stack">
                             @foreach (var member in stack.Members)
                             {
-                                var current = string.Equals(Key(member), Key(pull), StringComparison.OrdinalIgnoreCase);
+                                var current = string.Equals(member.Reference.Key, pull.Reference.Key, StringComparison.OrdinalIgnoreCase);
                                 <li class="@(current ? "pull-request-stack__member pull-request-stack__member--current" : "pull-request-stack__member")"
                                     aria-current="@(current ? "true" : null)"
-                                    data-pull-request="@Key(member)">
+                                    data-pull-request="@member.Reference.Key">
                                     <span class="pull-request-stack__number">#@member.Number</span>
                                     <span class="pull-request-stack__title">@member.Title</span>
                                     <Badge Kind="tone" Slug="@ToneSlug(MemberVerdict(member))">@VerdictLabel(MemberVerdict(member))</Badge>

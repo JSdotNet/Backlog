@@ -6,6 +6,11 @@
       DataTransferObjects/  a pull request's status as every reader receives it —
                             the pane, the session card, a task's row, Progress —
                             and the listings that carry it
+      Services/             IPullRequests, the one contract every reader and every
+                            act goes through, and the ports the module asks of
+                            its host: IPullRequestSource (GitHub),
+                            IRegisteredRepositories and ISettledPullRequestStore
+      PullRequestErrors     the errors a command fails with
       Enums                 the vocabulary those DTOs are written in
       PullRequestVerdict, PullRequestStacks, PullRequestMerges,
       PullRequestLabelFilter

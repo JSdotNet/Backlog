@@ -1,5 +1,5 @@
 using Backlog.Desktop.UI.PullRequests;
-using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -34,7 +34,7 @@ public sealed class PullRequestTaskMatcherTests
     {
         var matcher = new PullRequestTaskMatcher([Candidate(Issue, gitHubIssue: new("JSdotNet/Backlog", 42))]);
 
-        var match = matcher.Match(Subject(closing: [new GitHubIssueReference("jsdotnet/backlog", 42)]));
+        var match = matcher.Match(Subject(closing: [new IssueReference("jsdotnet/backlog", 42)]));
 
         Assert.Equal(Issue, match?.Candidate.EntryId);
         Assert.Equal(PullRequestTaskRelation.ClosesIssue, match?.Relation);
@@ -47,7 +47,7 @@ public sealed class PullRequestTaskMatcherTests
     {
         var matcher = new PullRequestTaskMatcher([Candidate(Issue, gitHubIssue: new("JSdotNet/Archify", 42))]);
 
-        Assert.Null(matcher.Match(Subject(closing: [new GitHubIssueReference("JSdotNet/Backlog", 42)])));
+        Assert.Null(matcher.Match(Subject(closing: [new IssueReference("JSdotNet/Backlog", 42)])));
     }
 
     [Theory]
@@ -112,7 +112,7 @@ public sealed class PullRequestTaskMatcherTests
             Candidate(Issue, gitHubIssue: new("JSdotNet/Backlog", 42)),
             Candidate(Recorded, pullRequests: [new("JSdotNet/Backlog", 712)]),
         };
-        var subject = Subject(title: "FIN-8428 total", closing: [new GitHubIssueReference("JSdotNet/Backlog", 42)], sessionId: "session-1");
+        var subject = Subject(title: "FIN-8428 total", closing: [new IssueReference("JSdotNet/Backlog", 42)], sessionId: "session-1");
 
         Assert.Equal(Recorded, new PullRequestTaskMatcher(candidates).Match(subject)?.Candidate.EntryId);
         Assert.Equal(Issue, new PullRequestTaskMatcher(candidates[..3]).Match(subject)?.Candidate.EntryId);
@@ -168,7 +168,7 @@ public sealed class PullRequestTaskMatcherTests
     private static PullRequestTaskCandidate Candidate(
         Guid id,
         IReadOnlyList<RecordedPullRequest>? pullRequests = null,
-        GitHubIssueReference? gitHubIssue = null,
+        IssueReference? gitHubIssue = null,
         IReadOnlyList<string>? externalKeys = null,
         IReadOnlyList<string>? sessionIds = null,
         bool isMine = true) =>
@@ -177,7 +177,7 @@ public sealed class PullRequestTaskMatcherTests
     private static PullRequestTaskSubject Subject(
         string title = "Pull requests page",
         string branch = "claude/pr-page",
-        IReadOnlyList<GitHubIssueReference>? closing = null,
+        IReadOnlyList<IssueReference>? closing = null,
         string? sessionId = null) =>
         new("JSdotNet/Backlog", 712, title, branch, closing ?? [], sessionId);
 }

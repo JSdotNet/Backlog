@@ -1,13 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Repository Management's rules, tested at its published surface (local ADR 0042):
-    the one verdict per pull request, its stack, its merge offer, the label filter
-    and the feature key.
+    Repository Management, tested at its published surface (local ADR 0042): the one
+    verdict per pull request, its stack, its merge offer, the label filter and the
+    feature key; and the IPullRequests contract over its one cache and its commands,
+    against fakes of the ports GitHub, the registry and the settled-fact memory answer.
   -->
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement\Backlog.Modules.RepositoryManagement.csproj" />
     <ProjectReference Include="..\..\src\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The cache's minute is measured on a clock the tests move. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <!-- AddRepositoryManagementModule() is resolved through a real container once. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 
 </Project>

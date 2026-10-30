@@ -146,11 +146,20 @@ public sealed class PullRequestStacks
 
         var stacks = Of(pulls.Where(pull => pull.IsOpen));
 
-        return [.. pulls.Select(pull =>
-        {
-            var parent = pull.IsOpen ? stacks.ParentOf(pull)?.Reference : null;
-            return pull.StackParent == parent ? pull : pull with { StackParent = parent };
-        })];
+        return [.. pulls.Select(stacks.Place)];
+    }
+
+    /// <summary>
+    /// The pull request with <see cref="PullRequestStatus.StackParent"/> set to the
+    /// parent these stacks name for it — or cleared, where they name none or it is
+    /// merged or closed. The same instance when that is what it already says.
+    /// </summary>
+    public PullRequestStatus Place(PullRequestStatus pull)
+    {
+        ArgumentNullException.ThrowIfNull(pull);
+
+        var parent = pull.IsOpen ? ParentOf(pull)?.Reference : null;
+        return pull.StackParent == parent ? pull : pull with { StackParent = parent };
     }
 
     private static bool SameKey(PullRequestStatus pull, PullRequestStatus other) =>
