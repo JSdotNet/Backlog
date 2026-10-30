@@ -67,8 +67,8 @@ depends-on: [.devbook/domain/sync/features.md#pairing-a-device]
 ```
 
 Each paired device pushes what changed on it and pulls what changed elsewhere, in
-the background. It carries three feeds: tasks and the kinds that ride with them,
-session records, and Devbook remarks. Each device keeps its own store as the
+the background. It carries four feeds: tasks and the kinds that ride with them,
+session records, Devbook remarks, and the state of devbook subjects. Each device keeps its own store as the
 canonical copy. The replica between them is a courier, and working offline costs
 only how soon the other devices find out.
 

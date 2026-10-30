@@ -235,6 +235,20 @@ internal static class SyncRequestLimits
     internal const int MaximumAnnotationBody = AnnotationRecordLimits.BodyLength;
 
     /// <summary>
+    /// The most devbook subject changes one push may carry — the annotation
+    /// cap, for its reason; the device batches at 200.
+    /// </summary>
+    internal const int MaximumPushDevbookSubjects = 500;
+
+    /// <summary>
+    /// The most a devbook subject push body may weigh: 4 MB, as for annotations.
+    /// Every field of a subject state is bounded in
+    /// <see cref="DevbookSubjectRecordLimits"/>, so the count cap bounds what
+    /// reaches the store and this bounds what reaches the parser.
+    /// </summary>
+    internal const long DevbookSubjectPushBodyBytes = 4L * 1024 * 1024;
+
+    /// <summary>
     /// The most notifications one push may carry. Lower than the other containers'
     /// cap because one notification may weigh up to
     /// <see cref="NotificationRecordLimits.DocumentBytes"/>: this many at that size

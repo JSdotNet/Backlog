@@ -133,39 +133,6 @@ public sealed class DomainDevbookStoreTests : IDisposable
         Assert.EndsWith(Path.Combine("knowledge", ".domain"), view.RootPath);
     }
 
-
-    [Fact]
-    public async Task Updates_document_status_metadata()
-    {
-        var repo = TempDir();
-        WriteDomain(repo);
-        var settings = ConfiguredSettings(repo);
-        var store = new DomainDevbookStore(new DevbookFolderSource(settings));
-
-        await store.UpdateStatusAsync("backlog", ".domain/inbox/features.md", "accepted", TestContext.Current.CancellationToken);
-        var view = await store.LoadAsync("backlog", TestContext.Current.CancellationToken);
-
-        var features = Assert.Single(Assert.Single(view.Contexts).Documents, d => d.Kind == DomainDevbookDocumentKind.Features);
-        Assert.Equal("accepted", features.Status);
-        Assert.Contains("status: accepted", File.ReadAllText(Path.Combine(repo, ".domain", "inbox", "features.md")));
-    }
-
-    [Fact]
-    public async Task Updates_section_status_metadata()
-    {
-        var repo = TempDir();
-        WriteDomain(repo);
-        var settings = ConfiguredSettings(repo);
-        var store = new DomainDevbookStore(new DevbookFolderSource(settings));
-
-        await store.UpdateStatusAsync("backlog", ".domain/inbox/features.md#feature-inbox-capture", "adopted", TestContext.Current.CancellationToken);
-        var view = await store.LoadAsync("backlog", TestContext.Current.CancellationToken);
-
-        var section = Assert.Single(Assert.Single(view.Contexts).Documents.Single(d => d.Kind == DomainDevbookDocumentKind.Features).Sections);
-        Assert.Equal("adopted", section.Status);
-        Assert.Contains("status: adopted", File.ReadAllText(Path.Combine(repo, ".domain", "inbox", "features.md")));
-    }
-
     public void Dispose()
     {
         foreach (var dir in _tempDirs.Where(Directory.Exists))

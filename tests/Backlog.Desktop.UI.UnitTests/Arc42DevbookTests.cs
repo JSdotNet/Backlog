@@ -225,39 +225,6 @@ public class Arc42DevbookTests
 
 
     [Fact]
-    public async Task Updates_arc42_chapter_status_metadata()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-tests", Guid.NewGuid().ToString("N"));
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(root, ".arc42"));
-            File.WriteAllText(Path.Combine(root, ".arc42", "04-solution-strategy.md"), """
-                # Solution Strategy
-
-                ```meta
-                status: active
-                related: [.tech/shared.md]
-                ```
-
-                Strategy text.
-                """);
-            var store = ConfiguredSettings(root);
-            var knowledge = new Arc42DevbookStore(new DevbookFolderSource(store));
-
-            await knowledge.UpdateStatusAsync("backlog", ".arc42/04-solution-strategy.md", "adopted", TestContext.Current.CancellationToken);
-            var catalog = await knowledge.LoadAsync("backlog");
-
-            var document = Assert.Single(catalog.Documents);
-            Assert.Equal("adopted", document.Status);
-            Assert.Contains("status: adopted", File.ReadAllText(Path.Combine(root, ".arc42", "04-solution-strategy.md")));
-        }
-        finally
-        {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        }
-    }
-
-    [Fact]
     public void Parses_ordinary_architecture_prose_as_readable_blocks()
     {
         var document = DevbookMarkdownParser.Parse(".arc42/08-crosscutting-concepts.md", "# Concepts\n\nA **safe** [link](https://example.com).\n\n- one\n- two");

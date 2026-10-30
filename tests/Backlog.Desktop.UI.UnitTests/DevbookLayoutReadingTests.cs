@@ -271,7 +271,7 @@ public sealed class DevbookLayoutReadingTests : IDisposable
         var file = Path.Combine(folder, "01-author.md");
         File.WriteAllText(file, "# Author\n\n```meta\nstatus: trial\n```\n\nWriting with AI.\n");
 
-        DevbookMarkdownStatusWriter.UpdateStatus(folder, DocumentDevbookFolder.Ai.DocumentPath("01-author.md"), DocumentDevbookFolder.Ai.PathPrefix, "adopted");
+        DevbookMarkdownRatingWriter.UpdateRating(folder, DocumentDevbookFolder.Ai.DocumentPath("01-author.md"), DocumentDevbookFolder.Ai.PathPrefix, "adopted");
 
         Assert.Contains("status: adopted", File.ReadAllText(file));
         Assert.False(Directory.Exists(Path.Combine(_root, ".ai")));

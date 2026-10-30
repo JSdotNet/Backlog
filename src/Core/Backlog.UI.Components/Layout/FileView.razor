@@ -112,6 +112,8 @@
                 CanEditStatus="@CanEditDevbookStatus"
                 ShowStatus="@ShowDevbookStatus"
                 OnStatusChanged="ReportFileStatusAsync"
+                Subject="@DevbookSubject"
+                OnSubjectStateChanged="@OnDevbookSubjectStateChanged"
                 OnNavigate="@OnDevbookNavigate"
                 HrefFor="@DevbookHrefFor"
                 AllowCopy="@AllowCopy"
@@ -382,6 +384,27 @@
     /// </summary>
     [Parameter]
     public bool ShowDevbookStatus { get; set; } = true;
+
+    /// <summary>
+    /// The file's subject state, when it is a decision or debt record and the
+    /// host keeps one: read from the subject store, never from the file, and drawn
+    /// beside the file's name with its status — so <see cref="ShowDevbookStatus"/>
+    /// off takes it away too.
+    /// <para>
+    /// Not held to <see cref="CanEditDevbookStatus"/>. Setting a subject's state
+    /// writes no file, so a branch snapshot — which takes the status select away
+    /// because the next fetch would discard the write — still offers the state's
+    /// options. Whether it offers any is the state's own
+    /// <see cref="MetadataSubjectState.Options"/>.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public MetadataSubjectState? DevbookSubject { get; set; }
+
+    /// <summary>Raised with the subject state a reader picked for the file. The
+    /// host writes it to the subject store.</summary>
+    [Parameter]
+    public EventCallback<string> OnDevbookSubjectStateChanged { get; set; }
 
     /// <summary>
     /// Whether the file's leading YAML frontmatter is drawn as a strip under the

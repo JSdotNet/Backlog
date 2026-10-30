@@ -1,6 +1,7 @@
 using System.Net;
 
 using Backlog.Infrastructure.Sync.Annotations;
+using Backlog.Infrastructure.Sync.DevbookSubjects;
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sync.Abstractions;
@@ -35,6 +36,7 @@ public sealed class SyncCompatibilityRegistrationTests
     [InlineData(nameof(InboxAttachmentSyncSource))]
     [InlineData(nameof(SessionSyncClient))]
     [InlineData(nameof(AnnotationSyncClient))]
+    [InlineData(nameof(DevbookSubjectSyncClient))]
     public async Task A_sync_client_sends_nothing_to_a_newer_service(string client)
     {
         using var host = Host.Create(service: "9.0.0");
@@ -132,6 +134,7 @@ public sealed class SyncCompatibilityRegistrationTests
             services.AddTaskSyncClient(SyncAddress);
             services.AddSessionSyncClient(SyncAddress);
             services.AddAnnotationSyncClient(SyncAddress);
+            services.AddDevbookSubjectSyncClient(SyncAddress);
             services.AddHttpClient(HostDataClient, http => http.BaseAddress = SyncAddress).AddSyncPipeline();
 
             foreach (var name in new[]
@@ -142,6 +145,7 @@ public sealed class SyncCompatibilityRegistrationTests
                 nameof(InboxAttachmentSyncSource),
                 nameof(SessionSyncClient),
                 nameof(AnnotationSyncClient),
+                nameof(DevbookSubjectSyncClient),
                 HostDataClient
             })
             {
@@ -158,6 +162,7 @@ public sealed class SyncCompatibilityRegistrationTests
             nameof(InboxAttachmentSyncSource) => (Result)await Provider.GetRequiredService<InboxAttachmentSyncSource>().FetchAsync(Guid.NewGuid(), Cancellation),
             nameof(SessionSyncClient) => (Result)await Provider.GetRequiredService<SessionSyncClient>().PushAsync([], Cancellation),
             nameof(AnnotationSyncClient) => (Result)await Provider.GetRequiredService<AnnotationSyncClient>().PushAsync([], Cancellation),
+            nameof(DevbookSubjectSyncClient) => (Result)await Provider.GetRequiredService<DevbookSubjectSyncClient>().PushAsync([], Cancellation),
             _ => throw new ArgumentOutOfRangeException(nameof(client), client, null)
         };
 

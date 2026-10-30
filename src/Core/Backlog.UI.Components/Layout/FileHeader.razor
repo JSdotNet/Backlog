@@ -93,6 +93,8 @@
                               CanEditStatus="@CanEditStatus"
                               ShowStatus="@ShowStatus"
                               OnStatusChanged="@OnStatusChanged"
+                              Subject="@Subject"
+                              OnSubjectStateChanged="@OnSubjectStateChanged"
                               OnNavigate="@OnNavigate"
                               HrefFor="@HrefFor"
                               AriaLabel="@($"{Name} metadata")"
@@ -415,6 +417,17 @@
     /// and reports it as the change it is.</summary>
     [Parameter]
     public EventCallback<string?> OnStatusChanged { get; set; }
+
+    /// <summary>The file's subject state — a decision or debt record's, from the
+    /// subject store — drawn beside the name with the status. Forwarded verbatim
+    /// to <see cref="MetadataFileView.Subject"/>.</summary>
+    [Parameter]
+    public MetadataSubjectState? Subject { get; set; }
+
+    /// <summary>Raised with the subject state a reader picked. Nothing here
+    /// writes it.</summary>
+    [Parameter]
+    public EventCallback<string> OnSubjectStateChanged { get; set; }
 
     /// <summary>Whether the file's status may be changed here. False draws the
     /// static badge in place of the select — the status is still stated, only

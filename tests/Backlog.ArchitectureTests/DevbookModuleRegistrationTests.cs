@@ -60,7 +60,9 @@ public sealed partial class DevbookModuleRegistrationTests
         "DevbookChapterWriter",
         "DomainDevbookStore",
         "IDevbookAnnotationStore",
-        "DevbookAnnotationStore"
+        "DevbookAnnotationStore",
+        "IDevbookSubjectStateStore",
+        "DevbookSubjectStateStore"
     ];
 
     [Fact]
@@ -153,17 +155,19 @@ public sealed partial class DevbookModuleRegistrationTests
     /// <summary>
     /// The second slice: a chapter's way on and off the disk. The resolver that finds
     /// its file, the reader the panels load it through, the writer the editor saves it
-    /// with, the status writer the stores set and clear a status with, and the
-    /// reference the resolver and the writer take. None of them renders anything, so
-    /// they sit in the adapter's <c>Chapters/</c> folder, and the four that open a file
-    /// left <see cref="ModuleUiIoTests.AllowedUiIo"/> with them.
+    /// with, the heading helpers every fence write finds its heading with, the rating
+    /// writer the tech/ and ai/ stores set a rating with, and the reference the
+    /// resolver and the writer take. None of them renders anything, so they sit in the
+    /// adapter's <c>Chapters/</c> folder, and the four that open a file left
+    /// <see cref="ModuleUiIoTests.AllowedUiIo"/> with them.
     /// </summary>
     [Theory]
     [InlineData("DevbookChapterRef.cs")]
     [InlineData("DevbookChapterResolver.cs")]
     [InlineData("DevbookChapterFileReader.cs")]
     [InlineData("DevbookChapterWriter.cs")]
-    [InlineData("DevbookMarkdownStatusWriter.cs")]
+    [InlineData("DevbookHeadingDocument.cs")]
+    [InlineData("DevbookMarkdownRatingWriter.cs")]
     public void The_devbook_chapter_readers_and_writers_live_in_the_adapter(string moved)
     {
         var chapters = Path.Combine(
@@ -204,7 +208,7 @@ public sealed partial class DevbookModuleRegistrationTests
     /// Their provider and parser, and the folder descriptor they are built on, sit in
     /// the adapter's <c>Documents/</c> folder; the <c>sync</c> field's writer and the
     /// reading the provider hands a pane went with them into <c>Chapters/</c>, beside
-    /// the status writer they are built on, and so did the guard every store's write
+    /// the heading helpers they are built on, and so did the guard every store's write
     /// checks the folder with first. The screen keeps the one member that built a UI
     /// type, <c>DevbookSyncReading.Scope</c>, as an extension of its own.
     /// </summary>

@@ -133,41 +133,6 @@ public sealed class DomainDevbookStore : IDisposable
         }, cancellationToken).ConfigureAwait(false);
     }
 
-    public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-        if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
-
-        var location = source.Resolve(".domain", repositoryAlias);
-        var folderPath = location.WritablePath("Domain");
-
-        DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".domain/", status);
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Remove the item's <c>status</c> field, leaving its <c>meta</c> fence and
-    /// every other field intact.
-    ///
-    /// <para>A separate method rather than <see cref="UpdateStatusAsync"/> taking a
-    /// null: the guard above is right to refuse a blank, because a blank is not one
-    /// of <c>.domain</c>'s words, and a folder that must keep its status is then
-    /// exempt by having no such method at all rather than by a guard someone can
-    /// copy wrongly.</para>
-    /// </summary>
-    public Task ClearStatusAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-
-        var location = source.Resolve(".domain", repositoryAlias);
-        var folderPath = location.WritablePath("Domain");
-
-        DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".domain/");
-        return Task.CompletedTask;
-    }
-
     /// <summary>
     /// The <c>sync</c> state of every block in one document, its page, its context and the context map: where each
     /// sits and the direction in force there, read with the blocks above it. Read

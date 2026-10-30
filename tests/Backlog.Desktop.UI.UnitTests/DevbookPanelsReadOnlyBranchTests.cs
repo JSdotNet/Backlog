@@ -110,6 +110,73 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
     }
 
+    // --- A debt record's state (the subject store) --------------------------------
+
+    /// <summary>
+    /// The flip the status writer's retirement makes: on a branch snapshot, where
+    /// the chapter cannot be edited, a debt record's state is still offered — it
+    /// is the subject store's, so no file changes and nothing is left for the next
+    /// fetch to discard. The pick lands in the store, by this host, and is drawn.
+    /// </summary>
+    [Fact]
+    public void The_arc42_panel_sets_a_debt_records_state_on_a_branch_and_writes_no_file()
+    {
+        using var harness = Arc42Harness(DevbookSourceKind.Branch, out var subjects, out var record);
+        var before = File.ReadAllBytes(record);
+
+        var component = harness.Context.Render<Arc42DevbookPanel>(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, "backlog")
+            .Add(panel => panel.SelectedPath, DebtPath));
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='devbook-subject-state-select']")));
+        Assert.Empty(component.FindAll("[data-testid='arc42-chapter-file-edit']"));
+
+        component.Find("[data-testid='devbook-subject-state-select'] select").Change("planned");
+
+        // The pick lands through the panel's async handler, so the store and the
+        // re-render are awaited rather than read straight after Change().
+        component.WaitForAssertion(() =>
+        {
+            var stored = subjects.Get("backlog", DevbookSubject.Debt(DebtPath));
+            Assert.NotNull(stored);
+            Assert.Equal("planned", stored.State);
+            Assert.Equal(DevbookLocalAuthor.Name, stored.By);
+        });
+        component.WaitForAssertion(() =>
+        {
+            Assert.StartsWith(
+                "debt state set by You on ",
+                component.Find("[data-testid='devbook-state-subject']").TextContent.Trim(),
+                StringComparison.Ordinal);
+            Assert.Equal("planned", component.Find("[data-testid='devbook-subject-state-select'] select").GetAttribute("value"));
+        });
+        Assert.Equal(before, File.ReadAllBytes(record));
+    }
+
+    /// <summary>An archived repository is read-only all the way through (local
+    /// ADR 0029 §4): a state kept from before the archive reads, and none is
+    /// offered.</summary>
+    [Fact]
+    public void The_arc42_panel_shows_a_debt_records_state_read_only_on_an_archived_repository()
+    {
+        using var harness = Arc42Harness(DevbookSourceKind.LocalFolder, out var subjects, out _, archived: true);
+        var kept = new DateTimeOffset(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
+        var debt = DevbookSubject.Debt(DebtPath);
+        subjects.Apply(new DevbookSubjectState(DevbookSubject.IdFor("backlog", debt), "backlog", debt, "identified", "someone", kept, null, null, kept));
+
+        var component = harness.Context.Render<Arc42DevbookPanel>(parameters => parameters
+            .Add(panel => panel.RepositoryAlias, "backlog")
+            .Add(panel => panel.SelectedPath, DebtPath));
+
+        component.WaitForAssertion(() => Assert.Equal(
+            "identified",
+            component.Find("[data-testid='devbook-subject-state']").TextContent.Trim()));
+        Assert.Equal(
+            "debt state set by someone on 2026-10-30",
+            component.Find("[data-testid='devbook-state-subject']").TextContent.Trim());
+        Assert.Empty(component.FindAll("[data-testid='devbook-subject-state-select']"));
+    }
+
     // --- Design ----------------------------------------------------------------
 
     [Fact]
@@ -223,6 +290,38 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
         context.Services.AddSingleton(new DomainDevbookStore(folders));
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
+
+        return new Harness(context, folders);
+    }
+
+    private const string DebtPath = ".arc42/tdr/0001-sync-lag.md";
+
+    /// <summary>An architecture folder holding one debt record, listed in the
+    /// folder's index — the reader walks only the top of the folder on its own —
+    /// with a session subject store the panel finds.</summary>
+    private Harness Arc42Harness(DevbookSourceKind source, out SessionDevbookSubjectStateStore subjects, out string record, bool archived = false)
+    {
+        var root = TempDir();
+        var arc42 = Path.Combine(root, ".arc42");
+        Directory.CreateDirectory(Path.Combine(arc42, "tdr"));
+        Directory.CreateDirectory(Path.Combine(arc42, "_meta"));
+        record = Path.Combine(arc42, "tdr", "0001-sync-lag.md");
+        File.WriteAllText(record, "# TDR 0001: Sync lag\n\n```meta\nstatus: draft\n```\n\nThe deployed service lags.\n");
+        File.WriteAllText(Path.Combine(arc42, "_meta", "index.json"), $$"""
+            {
+              "schemaVersion": 1,
+              "entries": [
+                { "type": "file", "path": "{{DebtPath}}" }
+              ]
+            }
+            """);
+
+        var (context, folders) = Context(root, source);
+        folders.Archived = archived;
+
+        subjects = new SessionDevbookSubjectStateStore();
+        context.Services.AddSingleton<IDevbookSubjectStateStore>(subjects);
+        context.Services.AddSingleton(new Arc42DevbookStore(folders));
 
         return new Harness(context, folders);
     }

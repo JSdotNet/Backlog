@@ -166,6 +166,22 @@ public static class SyncErrorCodes
     /// so it has to be visible as the caller's to fix.</summary>
     public const string AnnotationTooLarge = "sync.annotation_too_large";
 
+    /// <summary>More devbook subject changes in one push than the service will
+    /// take. Its own code for the reason <see cref="AnnotationBatchTooLarge"/> has
+    /// one.</summary>
+    public const string DevbookSubjectBatchTooLarge = "sync.devbook_subject_batch_too_large";
+
+    /// <summary>A devbook subject change the service will not store — no
+    /// repository alias, a kind or state <c>devbook.decision@1</c> does not have,
+    /// a decision on anything but a proposal, or a field past its bound. Refused
+    /// at the edge and for the whole batch, so the device's watermark never moves
+    /// past a state nobody stored.</summary>
+    public const string DevbookSubjectInvalid = "sync.devbook_subject_invalid";
+
+    /// <summary>One devbook subject document is larger than the store will take.
+    /// Mapped to 413 for the reason <see cref="TaskTooLarge"/> is.</summary>
+    public const string DevbookSubjectTooLarge = "sync.devbook_subject_too_large";
+
     /// <summary>More notifications in one push than the service will take.</summary>
     public const string NotificationBatchTooLarge = "sync.notification_batch_too_large";
 

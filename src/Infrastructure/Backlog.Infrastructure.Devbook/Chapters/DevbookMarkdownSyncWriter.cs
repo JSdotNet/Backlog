@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.Devbook.Chapters;
 /// Writes the <c>sync</c> field of the <c>meta</c> fence belonging to one devbook
 /// heading — a chapter's, addressed by <c>&lt;path&gt;#&lt;slug&gt;</c>, or a file's
 /// own, addressed by the bare path. The address, the file and its newline are
-/// <see cref="DevbookMarkdownStatusWriter"/>'s, so a direction and a status are
+/// <see cref="DevbookHeadingDocument"/>'s, so a direction and a status are
 /// found in a file the same way.
 ///
 /// <para>Two verbs, for the reason the status writer gives: setting a direction and
@@ -39,7 +39,7 @@ internal static class DevbookMarkdownSyncWriter
         }
 
         var folder = DevbookFolders.FromPath(folderPrefix);
-        var document = DevbookMarkdownStatusWriter.Open(folderRoot, itemPath, folderPrefix);
+        var document = DevbookHeadingDocument.Open(folderRoot, itemPath, folderPrefix);
         var block = DevbookSyncReading.BlockAt(document.Lines, document.HeadingIndex);
 
         var place = DevbookSync.Place(
@@ -70,9 +70,9 @@ internal static class DevbookMarkdownSyncWriter
         ArgumentException.ThrowIfNullOrWhiteSpace(itemPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(folderPrefix);
 
-        var document = DevbookMarkdownStatusWriter.Open(folderRoot, itemPath, folderPrefix);
-        var fence = DevbookMarkdownStatusWriter.FindFence(document.Lines, document.HeadingIndex);
-        if (DevbookMarkdownStatusWriter.RemoveFields(document.Lines, fence, [Field]) == 0) return;
+        var document = DevbookHeadingDocument.Open(folderRoot, itemPath, folderPrefix);
+        var fence = DevbookHeadingDocument.FindFence(document.Lines, document.HeadingIndex);
+        if (DevbookHeadingDocument.RemoveFields(document.Lines, fence, [Field]) == 0) return;
 
         document.Save();
     }
@@ -82,7 +82,7 @@ internal static class DevbookMarkdownSyncWriter
     /// first — or open a fence holding only it.</summary>
     private static void Upsert(List<string> lines, int headingIndex, string value)
     {
-        var fence = DevbookMarkdownStatusWriter.FindFence(lines, headingIndex);
+        var fence = DevbookHeadingDocument.FindFence(lines, headingIndex);
         if (fence < 0)
         {
             lines.InsertRange(headingIndex + 1, [string.Empty, "```meta", $"{Field}: {value}", "```"]);
@@ -179,7 +179,7 @@ public sealed class DevbookSyncReading
     /// </summary>
     public string ItemPath(string documentPath, DevbookMetadataLevel level, string? heading) =>
         Find(level, heading) is { Level: > 1 } chapter
-            ? $"{documentPath}#{DevbookMarkdownStatusWriter.Slug(chapter.Title)}"
+            ? $"{documentPath}#{DevbookHeadingDocument.Slug(chapter.Title)}"
             : documentPath;
 
     /// <summary>The state of the block at <paramref name="level"/> with heading
@@ -211,7 +211,7 @@ public sealed class DevbookSyncReading
     /// without its inline marks still finds its block.</summary>
     private static bool SameHeading(string title, string? heading) =>
         !string.IsNullOrWhiteSpace(heading)
-        && string.Equals(DevbookMarkdownStatusWriter.Slug(title), DevbookMarkdownStatusWriter.Slug(heading.Trim()), StringComparison.OrdinalIgnoreCase);
+        && string.Equals(DevbookHeadingDocument.Slug(title), DevbookHeadingDocument.Slug(heading.Trim()), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>The statements a block's direction is read from, nearest first:
     /// itself, then — for a unit chapter — its page, the file it sits in, then
@@ -233,8 +233,8 @@ public sealed class DevbookSyncReading
     /// the writer needs it to place the block.</summary>
     internal static MetaBlock BlockAt(IReadOnlyList<string> lines, int headingIndex)
     {
-        var match = DevbookMarkdownStatusWriter.Heading.Match(lines[headingIndex]);
-        var fields = Fields(lines, DevbookMarkdownStatusWriter.FindFence(lines, headingIndex));
+        var match = DevbookHeadingDocument.Heading.Match(lines[headingIndex]);
+        var fields = Fields(lines, DevbookHeadingDocument.FindFence(lines, headingIndex));
         return new MetaBlock(match.Groups[1].Value.Length, match.Groups[2].Value.Trim(), fields);
     }
 
@@ -272,7 +272,7 @@ public sealed class DevbookSyncReading
                 continue;
             }
 
-            if (inFence || !DevbookMarkdownStatusWriter.Heading.IsMatch(lines[i])) continue;
+            if (inFence || !DevbookHeadingDocument.Heading.IsMatch(lines[i])) continue;
 
             blocks.Add(BlockAt(lines, i));
         }

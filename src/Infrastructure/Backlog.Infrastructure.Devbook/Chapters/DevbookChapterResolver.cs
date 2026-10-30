@@ -14,10 +14,10 @@ namespace Backlog.Infrastructure.Devbook.Chapters;
 /// showing what they can read.
 /// </para>
 /// <para>
-/// The shape is <see cref="DevbookMarkdownStatusWriter"/>'s: a folder root, an
+/// The shape is <see cref="DevbookHeadingDocument.Open"/>'s: a folder root, an
 /// item path that may or may not carry its area prefix, and a containment check
-/// before the path is believed. What differs is the leniency — that writer serves
-/// stores whose document paths are always prefixed, while a selection here can
+/// before the path is believed. What differs is the leniency — that one serves
+/// writers whose item paths are always prefixed, while a selection here can
 /// also come straight from the menu, which names a chapter relative to the area
 /// folder. <see cref="DevbookPath.Matches"/>, which the panels select by, already treats the two
 /// spellings as one selection; refusing either here would make an area editable

@@ -258,6 +258,9 @@ _ = app.Services.GetRequiredService<SessionSyncWorker>();
 // And annotation replication's loop, the third sibling, on the same terms.
 _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
+// And devbook subject state's loop, the annotations' sibling, on the same terms.
+_ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.DevbookSubjects.DevbookSubjectSyncWorker>();
+
 // And the notification exchange's loop (local ADR 0039), on the same terms.
 _ = app.Services.GetRequiredService<Backlog.Infrastructure.Sync.Notifications.NotificationSyncWorker>();
 

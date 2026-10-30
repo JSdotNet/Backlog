@@ -3,7 +3,7 @@
 ```meta
 date: 2026-10-15
 status: proposed
-related: [".devbook/domain/repository-management/requirements.md#archiving-a-repository", ".devbook/domain/repository-management/domain.md#repository", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/repository-management/domain.md#removal-record", ".devbook/domain/repository-management/features.md#repository-registry-configuration", ".devbook/domain/repository-management/features.md#following-a-repository-rename", ".devbook/domain/repository-management/features.md#github-integration", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/tasks/features.md#linked-tasks", ".devbook/domain/roadmap/features.md#reading-the-plan-by-repository", ".devbook/domain/devbook/features.md#area-selection-and-scope", ".devbook/domain/devbook/features.md#the-devbook-on-the-repositorys-latest-version", ".devbook/domain/repository-management/features.md#pull-request-readiness", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/domain/productivity/features.md#personal-productivity-dashboard", ".devbook/domain/progress/features.md#pull-request-status"]
+related: [".devbook/domain/repository-management/requirements.md#archiving-a-repository", ".devbook/domain/repository-management/domain.md#repository", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/repository-management/domain.md#removal-record", ".devbook/domain/repository-management/features.md#repository-registry-configuration", ".devbook/domain/repository-management/features.md#following-a-repository-rename", ".devbook/domain/repository-management/features.md#github-integration", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/tasks/features.md#linked-tasks", ".devbook/domain/roadmap/features.md#reading-the-plan-by-repository", ".devbook/domain/devbook/features.md#area-selection-and-scope", ".devbook/domain/devbook/features.md#the-devbook-on-the-repositorys-latest-version", ".devbook/domain/repository-management/features.md#pull-request-readiness", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/domain/productivity/features.md#personal-productivity-dashboard", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
 ```
 
 A person can mark a registered repository **Archived**. It stays in the registry
@@ -170,6 +170,12 @@ before, with every edit refused.
   readable. The `handle-remarks` skill refuses to write `annotation` fences
   there, and the MCP `resolve_annotation` tool refuses with
   `repository.archived`.
+- **A subject's workflow state is read-only.** *(Added 2026-10-30 with
+  [local ADR 0044](0044-devbook-subject-state-lives-in-backlogs-own-store.md).)* The arc42 panel shows a decision or
+  debt record's state and offers no pick, though a branch snapshot of an active
+  repository does. The MCP tools `devbook_set_state`, `devbook_approve` and
+  `devbook_accept` refuse with `repository.archived`; `devbook_get_state`
+  still reads.
 - **The Instructions area is read-only too.** It reads the clone's instruction
   files as before and offers no edit.
 

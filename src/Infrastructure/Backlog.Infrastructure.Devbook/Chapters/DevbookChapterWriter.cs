@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.Devbook.Chapters;
 /// The write is atomic — temp sibling, then a replacing swap. A torn status line
 /// is a bad afternoon; a torn chapter is lost work, and this surface saves on a
 /// debounce while somebody types, so the window is open far more often than the
-/// status writer's is. <see cref="DevbookMarkdownStatusWriter"/> deliberately
+/// rating writer's is. <see cref="DevbookMarkdownRatingWriter"/> deliberately
 /// stays as it is: widening it is a separate change with its own tests.
 /// </para>
 /// </summary>
@@ -114,7 +114,7 @@ public sealed class DevbookChapterWriter
     /// </para>
     /// <para>
     /// Per fence rather than per chapter because that is how the field is
-    /// addressed: the status writer upserts under the heading it was given, and
+    /// addressed: the fence writers upsert under the heading they are given, and
     /// the domain and technology panels do address headings inside the very file
     /// the editor is holding — a domain section as <c>document.md#slug</c>, a
     /// technology node as <c>.tech/layer.md#slug</c>. A merge that reconciled only
@@ -132,7 +132,7 @@ public sealed class DevbookChapterWriter
     /// </para>
     /// <para>
     /// Fences are paired between the two texts by the heading that owns them,
-    /// because a heading is what the status writer addresses and because the body
+    /// because a heading is what the fence writers address and because the body
     /// around a fence may have been edited out of all recognition in the meantime.
     /// Four cases follow from that pairing, and every one resolves in favour of the
     /// buffer unless the buffer is still carrying the baseline:
@@ -161,11 +161,11 @@ public sealed class DevbookChapterWriter
     /// the rename case above, seen from the other side, and is left alone.</item>
     /// </list>
     /// <para>
-    /// A status merged in goes through the folder's rules on the way, as it would
-    /// through the status writer: <c>active</c> in a folder that rests by omission
+    /// A status merged in goes through the folder's rules on the way, as the
+    /// devbook rules have them: <c>active</c> in a folder that rests by omission
     /// is a removal rather than a line, and in <c>domain/</c> the decision record
     /// that no longer stands beside the merged status comes out with it — otherwise
-    /// the buffer would write back the record the status writer had just deleted.
+    /// the buffer would write back the record a status change had just deleted.
     /// </para>
     /// </summary>
     private static string MergeStatuses(string body, string onDisk, DevbookChapterStatus? baseline, DevbookFolder folder)
@@ -357,7 +357,7 @@ public sealed record DevbookChapterWriteResult(string Text, DevbookChapterStatus
 /// Per fence, because a chapter file holds more than the chapter's own metadata:
 /// the domain panel addresses a section as <c>document.md#slug</c> and the
 /// technology panel a node as <c>.tech/layer.md#slug</c>, and
-/// <see cref="DevbookMarkdownStatusWriter"/> upserts into the fence under
+/// <see cref="DevbookMarkdownRatingWriter"/> upserts into the fence under
 /// whichever heading it was handed. A single value could not tell those apart, and
 /// the merge that keeps a status change from being reverted by the next keystroke
 /// needs to know which fence moved.
@@ -417,9 +417,9 @@ public sealed class DevbookChapterStatus
 /// about.
 /// <para>
 /// The fence format, the heading a fence belongs to and the slug that names that
-/// heading are all <see cref="DevbookMarkdownStatusWriter"/>'s, down to the
-/// duplicated <c>Slug</c>. Duplicated rather than shared because that writer
-/// deliberately stays as it is, and the two have to agree exactly: an anchor these
+/// heading are all <see cref="DevbookHeadingDocument"/>'s, down to the
+/// duplicated <c>Slug</c>. Duplicated rather than shared because those helpers
+/// deliberately stay as they are, and the two have to agree exactly: an anchor these
 /// two spelled differently would be a fence this merge could not find and that one
 /// had already written to.
 /// </para>
@@ -427,7 +427,7 @@ public sealed class DevbookChapterStatus
 /// What <em>is</em> shared is the decision-record rule — which fields cannot stand
 /// beside a status, and how they are cut out of one fence — because that is a
 /// contract fact rather than a parsing habit, and the two writers disagreeing about
-/// it would have the merge write back a record the status writer had just deleted.
+/// it would have the merge write back a record a status change had just deleted.
 /// </para>
 /// </summary>
 internal static class DevbookChapterStatusText
@@ -471,7 +471,7 @@ internal static class DevbookChapterStatusText
     /// and it is not this one.
     /// </para>
     /// <para>
-    /// Through the folder's rules, as the status writer applies them: the resting
+    /// Through the folder's rules, as the devbook rules have them: the resting
     /// value in a folder that rests by omission is <see cref="WithoutStatus"/>
     /// instead, and in <c>domain/</c> the decision record that cannot stand beside
     /// <paramref name="status"/> leaves the fence with the old status.
@@ -498,7 +498,7 @@ internal static class DevbookChapterStatusText
 
             if (DevbookSchema.AllowsDecisionRungs(folder))
             {
-                DevbookMarkdownStatusWriter.RemoveFields(lines, fence.Open, DevbookMarkdownStatusWriter.RecordFieldsThatNoLongerStand(status));
+                DevbookHeadingDocument.RemoveFields(lines, fence.Open, DevbookHeadingDocument.RecordFieldsThatNoLongerStand(status));
             }
 
             return string.Join('\n', lines);
@@ -531,8 +531,8 @@ internal static class DevbookChapterStatusText
     /// The same text with the <c>status</c> line under <paramref name="heading"/>
     /// deleted — and, in <c>domain/</c>, the decision record with it, since no
     /// status is not a rung. The fence stays even when that empties it, for the
-    /// reason <see cref="DevbookMarkdownStatusWriter.RemoveStatus"/> gives: it is
-    /// what keeps the heading an addressable chapter. Unchanged when the heading
+    /// reason the index generator gives it: a heading carrying a <c>meta</c> block
+    /// is an addressable chapter, and one without is not. Unchanged when the heading
     /// has no fence here, or its fence states nothing to remove.
     /// </summary>
     internal static string WithoutStatus(string lineFeedText, string heading, DevbookFolder folder = DevbookFolder.Unknown)
@@ -549,7 +549,7 @@ internal static class DevbookChapterStatusText
 
         if (DevbookSchema.AllowsDecisionRungs(folder))
         {
-            changed |= DevbookMarkdownStatusWriter.RemoveFields(lines, fence.Open, DevbookMarkdownStatusWriter.RecordFieldsThatNoLongerStand(null)) > 0;
+            changed |= DevbookHeadingDocument.RemoveFields(lines, fence.Open, DevbookHeadingDocument.RecordFieldsThatNoLongerStand(null)) > 0;
         }
 
         return changed ? string.Join('\n', lines) : lineFeedText;
@@ -576,12 +576,12 @@ internal static class DevbookChapterStatusText
     /// Every <c>meta</c> fence in the text, with the heading that owns it.
     /// <para>
     /// Owned by the nearest heading above it, and only the first fence under a
-    /// heading is ever reconciled, because that is the one the status writer
-    /// addresses: it skips blank lines under the heading and upserts into what it
-    /// finds there. Nothing but a <c>```meta</c> line opens a fence here either —
-    /// the same blind spot as the status writer's, and agreeing with it about which
-    /// fence is which matters more than being cleverer than it about a metadata
-    /// block quoted inside a code sample.
+    /// heading is ever reconciled, because that is the one the fence writers
+    /// address: they skip blank lines under the heading and upsert into what they
+    /// find there. Nothing but a <c>```meta</c> line opens a fence here either —
+    /// the same blind spot as <see cref="DevbookHeadingDocument.FindFence"/>'s,
+    /// and agreeing with it about which fence is which matters more than being
+    /// cleverer than it about a metadata block quoted inside a code sample.
     /// </para>
     /// </summary>
     private static List<MetaFence> MetaFences(IReadOnlyList<string> lines)
@@ -634,7 +634,7 @@ internal static class DevbookChapterStatusText
     }
 
     /// <summary>The anchor a panel would use for a heading. Character for
-    /// character <see cref="DevbookMarkdownStatusWriter"/>'s, for the reason
+    /// character <see cref="DevbookHeadingDocument"/>'s, for the reason
     /// given on this class.</summary>
     private static string Slug(string heading)
     {

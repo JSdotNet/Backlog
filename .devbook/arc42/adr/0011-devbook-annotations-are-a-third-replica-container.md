@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-09-16
-related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/domain/devbook/features.md"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/domain/devbook/features.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
 ```
 
 ## Status
@@ -60,6 +60,18 @@ endpoints and the desktop exchange landed together on 2026-09-16.
 > stamps the remark past the watermark again, so it is offered once more then.
 > A tombstone now travels with an empty body, so a remark whose body grew past
 > the bound can still be deleted on every device.
+>
+> **Amended, 2026-10-30 — a second Devbook record takes this arrangement.** A
+> devbook subject's workflow state (local ADR 0044) is kept and replicated the way
+> this record keeps a remark: one JSON file per repository under the storage
+> folder, in `devbook-subjects/`, and a container of its own, `devbookSubjects`,
+> with its own route, `/api/sync/devbook-subjects`. Three things differ, and ADR
+> 0044 §7 gives the reasons. The id is derived from the repository and the
+> subject, so two devices converge on one document. A tie in `updatedAt` changes
+> nothing. Nothing is deleted, so there is no tombstone and the container has no
+> TTL. `DevbookSubjectSyncWorker` is one more copy of this record's loop, so the
+> extraction deferred under **Consequences** now faces five copies. It is still
+> deferred. Nothing about remarks changed.
 
 A **local** decision, numbered in the local sequence. It **extends** local ADR
 0005 — a third replica container beside `tasks` and `sessions`, on that
@@ -255,7 +267,9 @@ Negative, and accepted:
   `AnnotationSyncWorker` share a mechanism by copy. A third copy is where an
   extraction normally pays; it is deferred because the two existing loops were
   out of scope to refactor and the copy keeps their "fail separately" property
-  by construction.
+  by construction. *(Amended 2026-10-30: `NotificationSyncWorker`, local ADR
+  0039, and `DevbookSubjectSyncWorker`, local ADR 0044, make five copies. The
+  extraction is still deferred, on the same reasoning.)*
 - **~~No re-anchoring.~~** *Resolved.* This originally read: a chapter edited
   above a remark moves the block the remark points at, and the read view shows
   an orphan at the end rather than dropping it. `BlockHash` on the record and

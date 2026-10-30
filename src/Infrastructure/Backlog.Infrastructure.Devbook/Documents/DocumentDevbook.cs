@@ -98,16 +98,18 @@ public abstract class DocumentDevbookProvider : IDisposable
     }
 
     /// <summary>
-    /// Writes a status into the <c>meta</c> fence under the addressed heading —
+    /// Writes a rating into the <c>meta</c> fence under the addressed heading —
     /// the file's own when the path names a file, a chapter's when it carries an
-    /// anchor.
+    /// anchor — in <c>ai/</c>, where the field is a rating and stays in the
+    /// Markdown.
     /// <para>
-    /// Through the same writer the architecture, domain and technology folders
-    /// use, and deliberately: where a status lives in a Markdown file is one fact
-    /// about this repository's documentation, not five. All this method adds is
-    /// which folder is being written and where that folder currently is.
+    /// <c>design/</c>'s status was workflow state, which is the tool's now and not
+    /// the file's, so a write there is refused by the rating writer before the
+    /// file is opened; the design view offers no control that would ask. A rating
+    /// is never cleared — <c>ai/</c> requires one — so there is no clearing verb.
     /// </para>
     /// </summary>
+    /// <exception cref="ArgumentException">The folder keeps no rating.</exception>
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -117,30 +119,7 @@ public abstract class DocumentDevbookProvider : IDisposable
         var location = _source.Resolve(Folder.Key, repositoryAlias);
         var folderPath = location.WritablePath(Folder.DisplayName);
 
-        DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, Folder.PathPrefix, status);
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Remove the item's <c>status</c> field, leaving its <c>meta</c> fence and
-    /// every other field intact. <c>.design</c> states a status only while a
-    /// guideline is unsettled or superseded; a guideline that is simply current
-    /// says so by saying nothing. Offered for every folder this provider reads
-    /// and only ever reached in one whose vocabulary allows an absent status —
-    /// <c>.ai</c> requires one, and its record view offers no way to clear it.
-    ///
-    /// <para>A separate method rather than <see cref="UpdateStatusAsync"/> taking a
-    /// null — see the same method on the domain store for why.</para>
-    /// </summary>
-    public Task ClearStatusAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-
-        var location = _source.Resolve(Folder.Key, repositoryAlias);
-        var folderPath = location.WritablePath(Folder.DisplayName);
-
-        DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, Folder.PathPrefix);
+        DevbookMarkdownRatingWriter.UpdateRating(folderPath, itemPath, Folder.PathPrefix, status);
         return Task.CompletedTask;
     }
 

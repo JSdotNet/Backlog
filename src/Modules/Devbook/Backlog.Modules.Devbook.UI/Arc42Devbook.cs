@@ -65,38 +65,43 @@ public sealed class Arc42DevbookStore : IDisposable
         return catalog with { CanEdit = location.CanEdit, RepositoryArchived = location.RepositoryArchived };
     }
 
-    public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
-        if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
-
-        var location = _source.Resolve(".arc42", repositoryAlias);
-        var folderPath = location.WritablePath("Architecture");
-
-        DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".arc42/", status);
-        return Task.CompletedTask;
-    }
-
     /// <summary>
-    /// Remove the item's <c>status</c> field, leaving its <c>meta</c> fence and
-    /// every other field intact. An <c>.arc42</c> chapter describing standing
-    /// structure states a status only while it is still being agreed, or once it
-    /// has been superseded.
-    ///
-    /// <para>A separate method rather than <see cref="UpdateStatusAsync"/> taking a
-    /// null — see the same method on the domain store for why.</para>
+    /// Set a decision or debt record's state, which is the subject store's and
+    /// not the chapter's: under devbook's branch-true decision a record's workflow
+    /// state is kept by the tool, so no file is written and no status writer is
+    /// asked.
+    /// <para>
+    /// That is also why a branch snapshot takes it. A file written there would be
+    /// gone at the next fetch, and the folder refuses it; a state in the store is
+    /// not in the snapshot to be discarded, as a remark is not. An archived
+    /// repository refuses it all the same (local ADR 0029 §4) — before the store is
+    /// asked, so nothing is kept to replicate.
+    /// </para>
+    /// <para>
+    /// The store is handed in rather than held, so the panel's own resolution —
+    /// the host's store, or a session one where the host composed none — is the one
+    /// written to. Who set it is this host; the caller never says.
+    /// </para>
+    /// <para>
+    /// Every no is an outcome, never a throw (guideline ADR 0004): the contract's
+    /// refusals as <see cref="DevbookSubjectOutcome.Refused"/>, and an archived
+    /// repository as <see cref="DevbookSubjectOutcome.Archived"/> — the host's own
+    /// refusal, outside the contract's closed set. Either makes
+    /// <see cref="DevbookSubjectOutcome.IsRefused"/> true, so a caller that branches
+    /// on that alone reports it.
+    /// </para>
     /// </summary>
-    public Task ClearStatusAsync(string? repositoryAlias, string itemPath, CancellationToken cancellationToken = default)
+    public DevbookSubjectOutcome SetSubjectState(IDevbookSubjectStateStore subjects, string? repositoryAlias, DevbookSubject subject, string state)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
+        ArgumentNullException.ThrowIfNull(subjects);
+        ArgumentNullException.ThrowIfNull(subject);
 
-        var location = _source.Resolve(".arc42", repositoryAlias);
-        var folderPath = location.WritablePath("Architecture");
+        if (_source.Resolve(".arc42", repositoryAlias).RepositoryArchived)
+        {
+            return DevbookSubjectOutcome.Archived(DevbookWriteGuard.ArchivedMessage("Architecture"));
+        }
 
-        DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".arc42/");
-        return Task.CompletedTask;
+        return subjects.SetState(repositoryAlias, subject, state, DevbookLocalAuthor.Name);
     }
 
     /// <summary>
