@@ -16,6 +16,7 @@ related: [.devbook/domain/progress/domain.md#goal, .devbook/domain/progress/doma
 ```mermaid
 classDiagram
     class Goal {
+        <<aggregate root>>
         +GoalId Id
         +string Title
         +string Outcome
@@ -24,6 +25,7 @@ classDiagram
     }
 
     class GoalAttachment {
+        <<value object>>
         +AttachmentKind Kind
         +PlanTag Plan
         +TaskId Task
@@ -33,6 +35,7 @@ classDiagram
     }
 
     class Impediment {
+        <<aggregate root>>
         +ImpedimentId Id
         +string Title
         +ImpedimentState State
@@ -45,32 +48,31 @@ classDiagram
     }
 
     class StateChange {
+        <<entity>>
         +ImpedimentState State
         +DateOnly On
         +string With
     }
 
     class HoldsBack {
+        <<value object>>
         +TaskId Task
     }
 
     class Iteration {
+        <<value object>>
         +IterationLength Length
         +DateOnly FirstDay
         +DateOnly LastDay
     }
 
     class Task {
-        <<Tasks>>
     }
     class RoadmapTag {
-        <<Roadmap Planning>>
     }
     class PullRequest {
-        <<GitHub>>
     }
     class AgentSession {
-        <<Sessions>>
     }
 
     Goal "1" *-- "0..*" GoalAttachment
@@ -91,7 +93,8 @@ classDiagram
 - Every arrow out of Progress is a reference by identity. A plan is named by its
   [Roadmap Tag](../roadmap/domain.md#roadmap-tag), a task by its id and a pull request
   by its repository and number, and a session by its agent and session id. None of them
-  is copied.
+  is copied, and none carries a stereotype here: `Task` is Tasks', `RoadmapTag`
+  Roadmap Planning's, `PullRequest` GitHub's and `AgentSession` Sessions'.
 - [Goal Progress](domain.md#goal-progress) and [Goal Forecast](domain.md#goal-forecast)
   are not stored. The [Stand-up Reading](domain.md#stand-up-reading) service computes
   them over an [Iteration](domain.md#iteration), which is a window and holds no

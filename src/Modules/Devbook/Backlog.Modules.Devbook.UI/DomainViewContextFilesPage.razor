@@ -1,0 +1,144 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The read behind the Domain view's Features and Requirements pages (local ADR
+    0044): the file the menu row names, and every other file of its context the
+    page resolves a reference against — its domain, invariants, features,
+    requirements, model and context files — read whole through the domain store
+    and parsed by the library's DomainUnits. What the page draws from them is
+    the ChildContent's; a split file reads exactly as its base file does.
+*@
+
+@if (_read?.Page is not null)
+{
+    @ChildContent(_read)
+}
+else if (_read?.Problem is { } problem)
+{
+    <EmptyState BaseClass="devbook-empty"
+                TitleCssClass="devbook-empty__title"
+                DescriptionCssClass="@(null)"
+                Title="@Title"
+                Description="@problem"
+                TestId="domain-view-context-problem"
+                role="status" />
+}
+
+@code {
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The file, relative to the Domain folder: <c>tasks/features.md</c>.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    /// <summary>The page's name, which heads the sentence a failed read shows.</summary>
+    [Parameter]
+    public string Title { get; set; } = "Page";
+
+    [Parameter, EditorRequired]
+    public RenderFragment<DomainViewContextRead> ChildContent { get; set; } = default!;
+
+    private DomainDevbookStore? _store;
+    private DomainViewContextRead? _read;
+    private (string? Alias, string? Path)? _loaded;
+    private bool _disposed;
+    private int _version;
+
+    /// <summary>The kinds of file a Features or Requirements page names.</summary>
+    private static readonly HashSet<DomainDevbookDocumentKind> ContextKinds =
+    [
+        DomainDevbookDocumentKind.Context,
+        DomainDevbookDocumentKind.Domain,
+        DomainDevbookDocumentKind.Invariants,
+        DomainDevbookDocumentKind.Features,
+        DomainDevbookDocumentKind.Requirements,
+        DomainDevbookDocumentKind.Model
+    ];
+
+    protected override void OnInitialized()
+    {
+        // Resolved rather than injected, as the pane resolves its stores.
+        _store = Services.GetService<DomainDevbookStore>();
+        if (_store is not null) _store.Changed += OnStoreChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded == (RepositoryAlias, SelectedPath)) return;
+        _loaded = (RepositoryAlias, SelectedPath);
+        await LoadAsync(clear: true);
+    }
+
+    private async Task LoadAsync(bool clear)
+    {
+        var version = ++_version;
+        var alias = RepositoryAlias;
+        var path = SelectedPath;
+        if (_store is null)
+        {
+            _read = DomainViewContextRead.Failed("This host has no domain folder to read from.");
+            return;
+        }
+
+        if (clear) _read = null;
+
+        DomainViewContextRead read;
+        try
+        {
+            var view = await _store.LoadAsync(alias);
+            if (_disposed || version != _version) return;
+
+            // On the pool: a context's documents are read on first access, and
+            // the desktop host's dispatcher is the UI thread.
+            read = await Task.Run(() => Read(view, path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            read = DomainViewContextRead.Failed($"The file could not be read: {ex.Message}");
+        }
+
+        if (_disposed || version != _version) return;
+        _read = read;
+    }
+
+    /// <summary>The file the menu path names and its context's files, or why
+    /// there is nothing to show.</summary>
+    internal static DomainViewContextRead Read(DomainDevbookView view, string? selectedPath)
+    {
+        if (view.Error is { } error) return DomainViewContextRead.Failed(error);
+
+        var relative = (selectedPath ?? string.Empty).Replace('\\', '/').Trim('/');
+        var slug = relative.Split('/')[0];
+        var context = view.Contexts.FirstOrDefault(c => string.Equals(c.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        var document = context?.Documents.FirstOrDefault(d =>
+            string.Equals(d.Path, ".domain/" + relative, StringComparison.OrdinalIgnoreCase));
+
+        if (context is null || document is null) return DomainViewContextRead.Failed($"No file at {relative}.");
+
+        var files = context.Documents
+            .Where(d => ContextKinds.Contains(d.Kind) || ReferenceEquals(d, document))
+            .Select(d => DomainUnits.Parse(DomainDevbookStore.ReadText(view, d), d.Path))
+            .ToList();
+        var page = files.First(file => string.Equals(file.Path, document.Path, StringComparison.OrdinalIgnoreCase));
+
+        return new DomainViewContextRead(page, files, context.DisplayName, null);
+    }
+
+    private void OnStoreChanged()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync(clear: false);
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_store is not null) _store.Changed -= OnStoreChanged;
+    }
+}

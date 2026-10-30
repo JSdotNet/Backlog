@@ -1,0 +1,253 @@
+@*
+    A unit's Always true tab in the Domain view (local ADR 0044): the rules its
+    invariants subpage writes, one claim each, as a card per group. A group is
+    one the chapter writes itself — a `type: invariants` heading inside the
+    aggregate's chapter, its words the card's heading and what its `related`
+    names linked beside them — or, for a rule outside every such group, the
+    concept its `Enforced at:` line names, else the unit.
+
+    Each claim is marked by what stands behind it: ✓ a test the chapter names, ○
+    no test yet, ? nothing enforces it yet (`Enforced at: open`), and the bar
+    counts each. The mark is a glyph for the eye and words for a listener, never
+    colour alone; an open rule also says so in words on its row.
+
+    A row reads as the rule's heading, the short claim. Its first sentence and
+    where it is enforced name fields and code, so they stay folded until "Show
+    where each is enforced" is pressed.
+*@
+
+<div class="domain-rules" data-testid="domain-always-true">
+    @if (Groups.Count == 0)
+    {
+        <EmptyState Title="No rules written"
+                    Description="@($"No invariants chapter says what {UnitTitle} always keeps.")"
+                    TestId="domain-always-true-empty"
+                    role="status" />
+    }
+    else
+    {
+        <p class="domain-rules__intro" data-testid="domain-rules-intro">@Intro</p>
+
+        <div class="domain-rules__bar">
+            @* A mark no rule carries is left out of the bar. *@
+            @foreach (var proof in Proofs.Where(proof => Count(proof) > 0))
+            {
+                <span class="domain-rules__count" data-testid="domain-rules-count" data-proof="@ProofName(proof)"><span class="domain-rules__mark domain-rules__mark--@ProofName(proof)" aria-hidden="true">@Glyph(proof)</span> @CountText(proof) · @Count(proof)</span>
+            }
+            <ToggleButton Pressed="@_showEnforced"
+                          PressedChanged="value => _showEnforced = value"
+                          CssClass="domain-rules__toggle"
+                          TestId="domain-rules-show-enforced">
+                Show where each is enforced
+            </ToggleButton>
+        </div>
+
+        <div class="domain-rules__groups">
+            @foreach (var group in Groups)
+            {
+                <section @key="group.Reference" class="domain-rules__group" data-testid="domain-rule-group" data-concept="@group.Title" aria-labelledby="@HeadingId(group)">
+                    <div class="domain-rules__header">
+                        <h3 class="domain-rules__heading" id="@HeadingId(group)">
+                            @if (group.Type is { } type)
+                            {
+                                <DevbookTypeMarker Value="@type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />
+                                @if (DevbookReference.Parse(group.Reference) is { } reference)
+                                {
+                                    <DevbookReferenceLink Reference="@reference"
+                                                          Text="@group.Title"
+                                                          OnNavigate="OnNavigate"
+                                                          TestId="domain-rule-group-link" />
+                                }
+                                else
+                                {
+                                    @group.Title
+                                }
+                            }
+                            else
+                            {
+                                @group.Title
+                            }
+                        </h3>
+                        @if (group.Links.Count > 0)
+                        {
+                            <span class="domain-rules__about">
+                                @foreach (var link in group.Links)
+                                {
+                                    @if (DevbookReference.Parse(link.Reference) is { } about)
+                                    {
+                                        <DevbookReferenceLink Reference="@about"
+                                                              Text="@link.Text"
+                                                              OnNavigate="OnNavigate"
+                                                              TestId="domain-rule-group-about" />
+                                    }
+                                }
+                            </span>
+                        }
+                    </div>
+                    <ul class="domain-rules__list">
+                        @foreach (var rule in group.Rules)
+                        {
+                            var focused = IsFocused(rule);
+                            <li class="@RowClass(rule, focused)"
+                                data-testid="domain-rule"
+                                data-proof="@ProofName(rule.Proof)"
+                                data-rule="@(rule.Reference.Length > 0 ? rule.Reference : null)"
+                                data-focused="@(focused ? "true" : null)"
+                                tabindex="@(focused ? "-1" : null)"
+                                @ref="_rows[rule]">
+                                <span class="domain-rules__mark domain-rules__mark--@ProofName(rule.Proof)" aria-hidden="true">@Glyph(rule.Proof)</span>
+                                <span class="sr-only">@ProofText(rule.Proof): </span>
+                                <span class="domain-rules__line"><span class="domain-rules__claim">@Headline(rule)</span>@if (rule.Proof == DomainRuleProof.Open)
+                                {
+                                    @(" ")<span class="domain-rules__unsettled">Open — not built until someone decides.</span>
+                                }</span>
+                                @if (_showEnforced)
+                                {
+                                    @if (!string.Equals(rule.Claim, Headline(rule), StringComparison.Ordinal))
+                                    {
+                                        <span class="domain-rules__sentence" data-testid="domain-rule-sentence">@rule.Claim</span>
+                                    }
+                                    @if (rule.EnforcedAt is { } enforcedAt)
+                                    {
+                                        <span class="domain-rules__enforced" data-testid="domain-rule-enforced">Enforced at: @Inline(enforcedAt)</span>
+                                    }
+                                }
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The unit's rules, grouped — <see cref="DomainUnits.RulesOf"/>.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainRuleGroup> Groups { get; set; } = [];
+
+    /// <summary>The unit's heading, which the intro and the empty state name.</summary>
+    [Parameter]
+    public string UnitTitle { get; set; } = "this unit";
+
+    /// <summary>Whether the unit is a shared grouping — Shared Value Objects —
+    /// whose rules several values keep, rather than one aggregate.</summary>
+    [Parameter]
+    public bool Shared { get; set; }
+
+    /// <summary>A group's heading or link the reader followed to its concept.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    /// <summary>The rule a link elsewhere opened the tab on, by its reference
+    /// (<see cref="DomainRule.Reference"/>): its row is marked and takes focus,
+    /// so the reader lands on it.</summary>
+    [Parameter]
+    public string? FocusRule { get; set; }
+
+    private static readonly DomainRuleProof[] Proofs = [DomainRuleProof.Proved, DomainRuleProof.Unproved, DomainRuleProof.Open];
+
+    private bool _showEnforced;
+    private readonly string _id = $"domain-rules-{Guid.NewGuid():N}";
+
+    private int Total => Groups.Sum(group => group.Rules.Count);
+
+    private int Count(DomainRuleProof proof) => Groups.Sum(group => group.Rules.Count(rule => rule.Proof == proof));
+
+    /// <summary>What the tab is, in the words the design gives it.</summary>
+    private string Intro
+    {
+        get
+        {
+            var rules = Total == 1 ? "rule" : "rules";
+            var who = Shared ? $"the {UnitTitle} keep, whoever changes them" : $"{Article(UnitTitle)} {UnitTitle} keeps, whoever changes it";
+            return $"The {Total} {rules} {who}, grouped by the concept they are about. "
+                + "Each is one claim that is either true or false. "
+                + "A requirement is a promise to a person; these are what the model makes impossible to break.";
+        }
+    }
+
+    private static string Article(string word) =>
+        word.Length > 0 && "AEIOUaeiou".Contains(word[0], StringComparison.Ordinal) ? "an" : "a";
+
+    private string HeadingId(DomainRuleGroup group) => $"{_id}-{Groups.ToList().IndexOf(group)}";
+
+    private static string Headline(DomainRule rule) => DomainRuleText.Headline(rule);
+
+    private static string Glyph(DomainRuleProof proof) => DomainRuleText.Glyph(proof);
+
+    private static string ProofText(DomainRuleProof proof) => DomainRuleText.ProofText(proof);
+
+    private static string ProofName(DomainRuleProof proof) => DomainRuleText.ProofName(proof);
+
+    private static string CountText(DomainRuleProof proof) => proof switch
+    {
+        DomainRuleProof.Proved => "proved by a unit test",
+        DomainRuleProof.Open => "open, nobody settled it",
+        _ => "no test linked"
+    };
+
+    // Each row by its rule, so the one a link asked for can take focus.
+    private readonly Dictionary<DomainRule, ElementReference> _rows = [];
+    private IReadOnlyList<DomainRuleGroup>? _rowsOf;
+    private string? _focusedOn;
+
+    protected override void OnParametersSet()
+    {
+        // Other rules draw other rows; a rule asked for again, or after another,
+        // takes focus again.
+        if (!ReferenceEquals(_rowsOf, Groups))
+        {
+            _rowsOf = Groups;
+            _rows.Clear();
+        }
+        if (!string.Equals(_focusedOn, FocusRule, StringComparison.Ordinal)) _focusedOn = null;
+    }
+
+    private static string RowClass(DomainRule rule, bool focused) =>
+        "domain-rules__rule"
+        + (rule.Proof == DomainRuleProof.Open ? " domain-rules__rule--open" : string.Empty)
+        + (focused ? " domain-rules__rule--focused" : string.Empty);
+
+    private bool IsFocused(DomainRule rule) =>
+        FocusRule is { Length: > 0 } focus && string.Equals(DomainUnits.Normalize(rule.Reference), DomainUnits.Normalize(focus), StringComparison.Ordinal);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Focused once per rule asked for: a re-render must not pull the reader back.
+        if (FocusRule is not { Length: > 0 } focus || string.Equals(_focusedOn, focus, StringComparison.Ordinal)) return;
+        var rule = Groups.SelectMany(group => group.Rules).FirstOrDefault(IsFocused);
+        if (rule is null || !_rows.TryGetValue(rule, out var row)) return;
+        _focusedOn = focus;
+        try
+        {
+            await row.FocusAsync();
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or JSException or TaskCanceledException)
+        {
+            // Prerendered or torn down: the row stays marked, unfocused.
+        }
+    }
+
+    /// <summary>The line as written, its code spans drawn as code.</summary>
+    internal static RenderFragment Inline(string text) => builder =>
+    {
+        var parts = text.Split('`');
+        for (var i = 0; i < parts.Length; i++)
+        {
+            if (parts[i].Length == 0) continue;
+            // An odd part sits between two backticks, unless the last tick is unpaired.
+            var code = i % 2 == 1 && !(parts.Length % 2 == 0 && i == parts.Length - 1);
+            if (code)
+            {
+                builder.OpenElement(0, "code");
+                builder.AddContent(1, parts[i]);
+                builder.CloseElement();
+            }
+            else
+            {
+                builder.AddContent(2, (i % 2 == 1 ? "`" : string.Empty) + parts[i]);
+            }
+        }
+    };
+}

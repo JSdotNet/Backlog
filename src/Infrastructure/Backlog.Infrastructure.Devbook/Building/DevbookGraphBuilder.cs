@@ -218,7 +218,13 @@ internal static partial class DevbookGraphBuilder
 
         // The list attributes the database keeps as rows, in the writer's order:
         // `feature-flag` and `roadmap` only when non-empty (the generator's
-        // asList), `aliases` and `alternatives` whenever stated.
+        // asList), `aliases` and `alternatives` whenever stated, then `tests`
+        // only when non-empty — the test identifiers a requirement or invariant
+        // is proved by, which the Domain view reads (local ADR 0044). Only the
+        // authored entries: the generator also appends an `e2e:playwright` entry
+        // for each `Proved by:` pointer whose scenario page a spec implements,
+        // and that derivation is not ported — this corpus has no such spec yet,
+        // and DevbookBuilderParityTests goes red the day one lands.
         if (node.References.TryGetValue("feature-flag", out var flags)) node.Attributes.Add(("feature-flag", flags));
 
         var roadmap = DevbookMarkdown.AsList(meta.GetValueOrDefault("roadmap"));
@@ -228,6 +234,9 @@ internal static partial class DevbookGraphBuilder
         {
             if (meta.GetValueOrDefault(name) is { } value) node.Attributes.Add((name, DevbookMarkdown.AsList(value)));
         }
+
+        var tests = DevbookMarkdown.AsList(meta.GetValueOrDefault("tests"));
+        if (tests.Count > 0) node.Attributes.Add(("tests", tests));
 
         // The workspace elements a block names: edges, drawn once the model is read.
         foreach (var field in DevbookC4Graph.Fields)

@@ -1,0 +1,286 @@
+@*
+    The Domain view's Model page (local ADR 0044): a Diagram | Fields | Events
+    switch that opens on Diagram. Diagram is headed by the model's name, a sentence
+    on how to read the drawing and its legend, and draws each classDiagram fence of
+    the model file with DomainModelDiagram, the context's domain-service chapters
+    beneath as a strip, whether or not a fence could be arranged.
+    Fields is headed by the root's kind, status and aliases over its name, its
+    chapter's first sentence and the type legend, and lists the root's fields in
+    the model file's purpose groups beside what it owns (DomainModelFieldsView);
+    the relationship notes and how each domain service runs follow. Events is
+    headed "What <context> tells other contexts" and reads each domain-event
+    chapter as a contract, then what the context listens to (DomainEventContracts).
+
+    The switch is the library's Tabs drawn as one fused set, right of the heading,
+    per design/interaction-guidelines.md's "Fused means one set".
+*@
+
+<section class="domain-model-view" data-testid="@TestId" aria-label="@AriaLabel">
+    <Tabs AriaLabel="Model views"
+          TestId="domain-model-tabs"
+          StripCssClass="domain-model-view__strip"
+          ListCssClass="domain-model-view__switch"
+          TabCssClass="domain-model-view__view"
+          ActiveTabCssClass="domain-model-view__view domain-model-view__view--active"
+          ActiveId="@_tab"
+          ActiveIdChanged="@(id => _tab = id)">
+        <ListLeading>
+            @if (_tab == "diagram")
+            {
+                <h2 class="domain-model-view__title" data-testid="domain-model-title">@Heading</h2>
+            }
+            else if (_tab == "fields" && _roots.Count == 1)
+            {
+                <div class="domain-model-view__heading" data-testid="domain-model-fields-heading">
+                    <div class="domain-model-view__chips">
+                        <span class="domain-model-view__chip domain-model-view__chip--root"><span aria-hidden="true">■</span> Aggregate root</span>
+                        @if (RootProfile?.Status is { Length: > 0 } status)
+                        {
+                            <span class="domain-model-view__chip domain-model-view__chip--status" data-testid="domain-model-status">@Sentence(status)</span>
+                        }
+                        @if (RootProfile is { Aliases.Count: > 0 } aliased)
+                        {
+                            <span class="domain-model-view__aliases" data-testid="domain-model-aliases">
+                                Also called
+                                @foreach (var alias in aliased.Aliases)
+                                {
+                                    <code class="domain-model-view__alias">@alias</code>
+                                }
+                            </span>
+                        }
+                    </div>
+                    <h2 class="domain-model-view__title domain-model-view__title--fields" data-testid="domain-model-title">@RootTitle</h2>
+                </div>
+            }
+            else if (_tab == "events" && (Chapters.Events.Count > 0 || Chapters.Listens.Count > 0))
+            {
+                <h2 class="domain-model-view__title domain-model-view__title--events" data-testid="domain-model-title">What @ContextName tells other contexts</h2>
+            }
+            else
+            {
+                <span class="domain-model-view__title-space"></span>
+            }
+        </ListLeading>
+        <ChildContent>
+            <TabPanel Id="diagram" Title="Diagram" TabTestId="domain-model-tab-diagram" TestId="domain-model-diagram-panel">
+                @if (Fences.Count == 0)
+                {
+                    <EmptyState Title="No class diagram"
+                                Description="This model file holds no classDiagram fence to draw."
+                                TestId="domain-model-empty" />
+                }
+                else
+                {
+                    @if (_roots.Count > 0)
+                    {
+                        <p class="domain-model-view__intro" data-testid="domain-model-intro">@Intro</p>
+                        <ul class="domain-model-view__legend" data-testid="domain-model-legend" aria-label="Legend">
+                            <li><span class="domain-model-view__legend-owns" aria-hidden="true"></span>owns</li>
+                            <li><span class="domain-model-view__legend-id" aria-hidden="true"></span>names by id</li>
+                            <li>0..1 · 0..* how many @(_roots.Count == 1 ? $"a {_roots[0]}" : "one") holds</li>
+                        </ul>
+                    }
+                    @foreach (var fence in Fences)
+                    {
+                        <DomainModelDiagram Source="@fence.Source"
+                                            Title="@fence.Title"
+                                            ChapterReferences="@ChapterReferences"
+                                            Identities="@Identities"
+                                            Services="@Chapters.Services"
+                                            RulesAbout="@(RuleCatalog is null ? null : PartRules)"
+                                            OnOpenRule="OnOpenAlwaysTrue"
+                                            OnAllFields="@(() => _tab = "fields")" />
+                    }
+                }
+                @if (Chapters.Services.Count > 0)
+                {
+                    <section class="domain-model__services" data-testid="domain-model-services" aria-label="Domain services">
+                        <span class="domain-model__group-label">@ServicesLabel</span>
+                        <ul class="domain-model__service-list">
+                            @foreach (var service in Chapters.Services)
+                            {
+                                <li class="domain-model__service" data-testid="domain-model-service" data-name="@service.Title">
+                                    <span class="domain-model__service-name">@service.Title</span>
+                                    @if (!string.IsNullOrWhiteSpace(service.Summary))
+                                    {
+                                        <span class="domain-model__service-summary">@DomainUnits.Plain(service.Summary)</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                }
+            </TabPanel>
+            <TabPanel Id="fields" Title="Fields" TabTestId="domain-model-tab-fields" TestId="domain-model-fields-panel">
+                @if (Fences.Count == 0)
+                {
+                    <EmptyState Title="No class diagram"
+                                Description="This model file holds no classDiagram fence to read fields from."
+                                TestId="domain-model-fields-empty" />
+                }
+                else
+                {
+                    @if (_roots.Count == 1)
+                    {
+                        @if (RootProfile is { Summary.Length: > 0 } profile)
+                        {
+                            <p class="domain-model-view__lead" data-testid="domain-model-lead">@DomainUnits.Plain(profile.Summary)</p>
+                        }
+                        <ul class="domain-model-view__legend domain-model-view__legend--fields" data-testid="domain-fields-legend" aria-label="Legend">
+                            <li><span class="domain-field-type domain-field-type--date">date</span>read on a local calendar</li>
+                            <li><span class="domain-field-type domain-field-type--instant">instant</span>a moment in UTC</li>
+                            <li><span class="domain-field-type domain-field-type--id">id</span>a plain id, not an object</li>
+                            <li><span class="domain-field-rules">2 rules</span>invariants on the field, opened in place</li>
+                        </ul>
+                    }
+                    @foreach (var fence in Fences)
+                    {
+                        <DomainModelFieldsView Source="@fence.Source"
+                                               Title="@fence.Title"
+                                               Purposes="@_purposes"
+                                               Rules="@Rules"
+                                               RuleCatalog="@RuleCatalog"
+                                               OnOpenRule="OnOpenAlwaysTrue"
+                                               Profiles="@Profiles"
+                                               Services="@Chapters.Services" />
+                    }
+                }
+                @if (!string.IsNullOrWhiteSpace(RelationshipNotes))
+                {
+                    <section class="domain-model-view__notes" data-testid="domain-model-relationship-notes" aria-labelledby="@_notesHeadingId">
+                        <h3 class="domain-model-view__section-title" id="@_notesHeadingId">Relationship notes</h3>
+                        <MarkdownView Blocks="@MarkdownPreview.ParseDocument(RelationshipNotes)" />
+                    </section>
+                }
+                <DomainServiceInvocations Services="@Chapters.Services" />
+            </TabPanel>
+            <TabPanel Id="events" Title="Events" TabTestId="domain-model-tab-events" TestId="domain-model-events-panel">
+                <DomainEventContracts Events="@Chapters.Events" Listens="@Chapters.Listens" Context="@ContextName" Root="@(_roots.Count == 1 ? RootTitle : null)" />
+            </TabPanel>
+        </ChildContent>
+    </Tabs>
+</section>
+
+@code {
+    /// <summary>The model file's <c>classDiagram</c> fences, in the order the file
+    /// holds them, each with the heading it sits under.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainModelFence> Fences { get; set; } = [];
+
+    /// <summary>The model file's relationship notes, as markdown without their
+    /// heading — shown beneath the fields.</summary>
+    [Parameter]
+    public string? RelationshipNotes { get; set; }
+
+    /// <summary>The context's domain services and events, read from its domain
+    /// chapters.</summary>
+    [Parameter]
+    public DomainChapterReading Chapters { get; set; } = DomainChapterReading.Empty;
+
+    /// <summary>The domain chapter each class of the diagram is, by the name the
+    /// model gives it — where a part's Brain notes badge looks its notes up.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string>? ChapterReferences { get; set; }
+
+    /// <summary>The chapters an id attribute can point at, the ones to prefer
+    /// first — what names the types the diagram draws outside the boundary.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainModelIdentity>? Identities { get; set; }
+
+    /// <summary>The bounded context's name as its map writes it — what Events says
+    /// tells other contexts and listens to. The model file's title when not given.</summary>
+    [Parameter]
+    public string? Context { get; set; }
+
+    /// <summary>The model file as written: where its Fields chapter — the purpose
+    /// groups the root's fields stand in — is read from.</summary>
+    [Parameter]
+    public string? Markdown { get; set; }
+
+    /// <summary>The context's invariants by the link a Fields bullet writes
+    /// (<see cref="DomainFieldBoards.RuleIndex"/>): what a field's rule count counts.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, IReadOnlyList<string>>? Rules { get; set; }
+
+    /// <summary>Every rule of the context with its mark and its place on Always
+    /// true: what a field's or a part's rule count opens in place.</summary>
+    [Parameter]
+    public DomainRuleCatalog? RuleCatalog { get; set; }
+
+    /// <summary>A rule's link to its row on Always true, followed: the host
+    /// opens that unit there.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
+    /// <summary>The context's class chapters by model name
+    /// (<see cref="DomainFieldBoards.Profiles"/>): the Fields header's heading,
+    /// status, aliases and lead, and the side column's names.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, DomainModelProfile>? Profiles { get; set; }
+
+    /// <summary>The model file's own title — the heading when the diagrams hold
+    /// more than one aggregate root, or none.</summary>
+    [Parameter]
+    public string Title { get; set; } = "Model";
+
+    [Parameter]
+    public string? AriaLabel { get; set; } = "Model";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-model-view";
+
+    private string _tab = "diagram";
+    private readonly string _notesHeadingId = $"domain-model-notes-{Guid.NewGuid():N}";
+    private IReadOnlyList<DomainModelFence>? _read;
+    private IReadOnlyList<string> _roots = [];
+    private string? _markdownRead;
+    private IReadOnlyList<DomainFieldChapter> _purposes = [];
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(_markdownRead, Markdown))
+        {
+            _markdownRead = Markdown;
+            _purposes = DomainFieldPurposes.Read(Markdown);
+        }
+
+        if (ReferenceEquals(_read, Fences)) return;
+        _read = Fences;
+        _roots =
+        [
+            .. Fences
+                .Select(fence => DomainModelArrangement.TryArrange(fence.Source))
+                .OfType<DomainModelArrangement>()
+                .SelectMany(arrangement => arrangement.Boundaries.Select(b => b.Root.Name))
+                .Distinct(StringComparer.Ordinal)
+        ];
+    }
+
+    /// <summary>The rules about a part of the diagram: those about the domain
+    /// chapter its name is (<see cref="ChapterReferences"/>).</summary>
+    private IReadOnlyList<DomainRule> PartRules(string name) =>
+        RuleCatalog is { } catalog && ChapterReferences is not null && ChapterReferences.TryGetValue(name, out var reference)
+            ? catalog.About(reference)
+            : [];
+
+    private DomainModelProfile? RootProfile =>
+        _roots.Count == 1 && Profiles is not null && Profiles.TryGetValue(_roots[0], out var profile) ? profile : null;
+
+    /// <summary>The root as its chapter heads it, on Fields.</summary>
+    private string RootTitle => _roots.Count == 1 ? DomainFieldBoards.Title(_roots[0], Profiles) : Title;
+
+    private string ContextName => Context is { Length: > 0 } context ? context : Title;
+
+    private static string Sentence(string word) => word.Length == 0 ? word : char.ToUpperInvariant(word[0]) + word[1..];
+
+    /// <summary>The context's domain-service chapters, beneath every diagram: on
+    /// the one root when there is one.</summary>
+    private string ServicesLabel => _roots.Count == 1 ? $"Domain services that act on the {_roots[0]}" : "Domain services";
+
+    /// <summary>"Task model" for one aggregate root; the file's own title for several.</summary>
+    private string Heading => _roots.Count == 1 ? $"{_roots[0]} model" : Title;
+
+    private string Intro => _roots.Count == 1
+        ? $"What the {_roots[0]} owns sits inside the boundary and changes only through it. What it only names by id sits outside — the reader resolves it, nothing navigates to it."
+        : "What an aggregate owns sits inside its boundary and changes only through it. What it only names by id sits outside — the reader resolves it, nothing navigates to it.";
+}

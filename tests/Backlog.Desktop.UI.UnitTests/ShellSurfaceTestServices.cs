@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.InProgress;
 using Backlog.Desktop.UI.PullRequests;
@@ -44,6 +45,7 @@ internal static class ShellSurfaceTestServices
         services.AddSingleton<ISurfaceCatalog, SurfaceCatalog>();
         services.AddScoped<ISurfaceNavigator, SurfaceNavigator>();
         services.AddScoped<IBrainTaskTitles>(sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()));
+        services.AddScoped<IDevbookTaskReferences>(sp => new ShellDevbookTaskReferences(sp.GetRequiredService<TasksDesktopState>()));
         services.AddScoped<IDevbookWindowScope>(sp => new ShellDevbookWindowScope(sp.GetRequiredService<TasksDesktopState>()));
         services.AddShellSurfaceWiring(ServiceLifetime.Scoped);
         return services;

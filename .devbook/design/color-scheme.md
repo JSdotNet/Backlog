@@ -39,7 +39,8 @@ related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
 All tokens below are the **dark-mode** values. These are the only color values
-the product uses.
+the product uses, beside the seven values
+[Domain View Element Tones](#domain-view-element-tones) adds.
 
 ### Brand
 
@@ -288,7 +289,8 @@ The code theme spends a few hues of its own; the band set and the role tokens ad
 no value the palette and the code theme do not already carry. `components.css`
 declares exactly the palette, plus the code theme in
 [Syntax Highlighting Tokens](#syntax-highlighting-tokens), the band identity set
-in [Band Identity Tokens](#band-identity-tokens), and the derived role tokens in
+in [Band Identity Tokens](#band-identity-tokens), the Domain view's element tones in
+[Domain View Element Tones](#domain-view-element-tones), and the derived role tokens in
 [Role Tokens](#role-tokens). Anything else in product code is a literal and MUST
 be replaced by a token.
 
@@ -543,6 +545,8 @@ repository's devbook*.
 | An unresolved `repo:` link chip | the `quiet` tone inside a dashed `color-border-strong` edge, with *not on this machine* in words |
 | The **Tasks** section of a Brain note, and the **◆ n note** badge on a task row naming the Brain notes that link to it | the band painting: 4px `color-band-2` leading border, its 24% surface, `color-text-primary` ink |
 | A task chip in a note's Tasks section | gold, the `live` tone, when this backlog holds the task, since following it opens the task; the `quiet` tone inside a dashed `color-border-strong` edge, with *not in this backlog* in words, when it does not |
+| The **From your Brain** box under a unit, feature or glossary term of the Domain view, and the **◆ n note** badge on a model part or a glossary term | the band painting, as the box under a chapter and the badge on a task row; nothing else on the Domain view is teal |
+| A task chip on a feature or requirement of the Domain view | as a task chip in a note's Tasks section: gold when this backlog holds the task, dashed with *not in this backlog* when it does not |
 
 Rules:
 
@@ -560,6 +564,106 @@ Rules:
   it is a followable badge, and the scope's active fill is gold because it is
   `color-primary`. Neither names which repository: the alias written on the chip
   does.
+- **Teal stays the Brain's.** Outside a code block, teal `#7FD1C1` means the
+  Brain or a repository's band 2 and nothing else. A view that colours its own
+  elements, such as the Domain view's
+  [element tones](#domain-view-element-tones), picks another value rather than
+  borrowing teal.
+
+## Domain View Element Tones
+
+```meta
+related: [".devbook/domain/devbook/features.md#domain-view-by-unit", ".devbook/arc42/adr/0044-the-domain-view-reads-by-unit.md", ".devbook/design/accessibility.md#contrast"]
+```
+
+The [Domain view by unit](../domain/devbook/features.md#domain-view-by-unit)
+marks a model element by its kind on the Model page's diagram and beside its
+name, a relation between two core contexts on the Context map, the requirement
+kind on the Requirements page, a domain service in the Domain page's chapter
+bar, an enumeration's name on Model's Fields tab, and a domain event's name on
+Model's Events tab. These are the seven values this file adds outside the
+palette. The kind's glyph and word
+always say what the element is, and the tone only helps the eye group the same
+kind across a diagram.
+
+| Token | Value | Element | Against `color-background` / `-alt` / `-raised` |
+| --- | --- | --- | --- |
+| `color-domain-entity` | `#E5A15F` | Entity: its kind line and its card's top edge | 8.55:1 / 7.42:1 / 5.58:1 |
+| `color-domain-value-object` | `#C3D96B` | Value object: its kind line and its card's top edge | 11.99:1 / 10.41:1 / 7.83:1 |
+| `color-domain-core-line` | `#F0A33A` | A Context map line between two core contexts, a core context's card edge, and the words that say core on its card and over List's Core group | 8.91:1 / 7.74:1 / 5.82:1 |
+| `color-domain-requirement` | `#8FB4F0` | The requirement kind on Requirements: the summary card's top edge, the word SHALL, the open feature's edge and its tested bar; on Features, a card's requirement tally and the tested part of the detail's promises bar | 8.87:1 / 7.70:1 / 5.79:1 |
+| `color-domain-enumeration` | `#B39DDB` | An enumeration where a field takes one on Fields, and the Enums card's label | 7.81:1 / 6.78:1 / 5.10:1 |
+| `color-domain-event` | `#EC8E97` | A domain event's name on Events: the index's Event column, the open contract's heading, the dashed *event* step and the picked row's edge | 7.91:1 / 6.87:1 / 5.17:1 |
+| `color-domain-service` | `#86C98F` | A domain service's outlined square in the Domain page's chapter bar | 9.59:1 / 8.33:1 / 6.26:1 |
+
+Value objects take `#C3D96B`, a yellow-green between `color-band-3` and
+`color-primary`. Teal, the value the code theme spends as `code-type`, is not
+available to it, because teal is reserved for [the Brain](#the-brains-accent).
+Entities take `#E5A15F`, a clay that sits apart from the value objects'
+yellow-green and from the root's `color-primary` gold, which the root card's
+edge and the gold *owns* diamond keep. Every other model element keeps the
+neutral `color-border-strong` edge.
+
+The Context map's lines between two core contexts take `#F0A33A`, an amber of
+their own. `color-primary` is the gold that says a thing is followable, and a
+line is not a control; every other line takes `color-border-strong`. The card
+says core in words, in the same amber, and so does the heading over List's Core
+group; the legend names both colours, so the amber is never the only thing that
+says which contexts are core. The card a pick would open says *zoom in* in
+`color-primary`, because that is followable.
+
+The Requirements page marks the requirement kind in `#8FB4F0`, a soft blue of
+its own: the top edge of the card that says what a requirement is, the word
+*SHALL* in each requirement's sentence, the edge of the open feature in the
+feature list and the tested part of each feature's bar. The Features page spends
+it the same way: a card's *n req · m tested* tally, and the tested part of the
+bar in the picked feature's *What it promises* pane. It is not gold, because
+none of these is followable, and not teal, which is the Brain's. Each sits beside
+the words *Requirement*, *SHALL*, *req* or *n / m* tested, so the blue is never
+the only thing that says it.
+
+The Domain page's chapter bar leads each aggregate with a square filled in
+`color-primary`, the gold the Model diagram already gives an aggregate root, and
+each domain service with a square outlined in `#86C98F`, a green of its own. It is
+not `color-success-text`, which says something went well, and not teal, the
+Brain's. The square sits beside the unit's name, which says what it is, so a
+listener is not told the colour at all.
+
+Model's Fields tab names an enumeration in `#B39DDB`, a lavender apart from the
+entity clay, the value-object yellow-green and the gold. The Enums card beside it
+names the same enumeration with its values, so the lavender is never the only
+thing that says a field takes a fixed vocabulary. Events names each event in
+`#EC8E97`, a rose, always in the mono face under the *Event* column or beside the
+word *event*. It shares its value with `color-error-text` but never paints a
+surface or an outline of an input, so it does not read as an error. A field's
+rule count, its *date*, *instant* and *id* badges and the root's status are
+information about the chapter, so they stay neutral outlines like the badges
+below: *instant* on the raised surface inside its edge, *id* and the status
+dashed.
+
+**Information badges are neutral outlines.** On the Domain view's pages, the
+`DEV` mark, a chapter's date, a chapter's feature switch, a feature's flag or
+setting chip on Features, a feature's
+*Proposed* or *Deprecated* mark on Features, a term's *proposed* or
+*deprecated* mark on the Glossary, a requirement's *Test linked* or
+dashed *No test linked* mark on Requirements and an event's *Documented* or *Emitted* mark on
+Model's Events tab are information about the
+chapter, not something the product acts on. Each is drawn as a neutral
+outline: a transparent surface inside a 1px `color-border-strong` edge, with
+`color-text-secondary` ink. The rule that filled means the product acts on it
+([Badge and chip tones](#badge-and-chip-tones)) therefore holds on these pages
+too.
+
+Rules:
+
+- **Never the sole carrier.** An element's tone always sits beside its type
+  marker and its kind in words.
+- **The Domain view only.** These tones are for the Domain view behind the
+  [New domain view](../domain/devbook/context.md#new-domain-view) switch. The
+  type marker stays monochrome everywhere else.
+- **A new tone is argued here.** A kind that needs a tone gains a row in the
+  table above, with its contrast, and never borrows a band or a semantic token.
+
 
 ## Role Tokens
 

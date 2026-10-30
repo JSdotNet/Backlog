@@ -126,6 +126,42 @@
     --color-band-4: #F0A868;
     --color-band-5: #8595AD;
 
+    /* Domain view element tones.
+       The one value .devbook/design/color-scheme.md#domain-view-element-tones adds
+       outside the palette: value objects on the Domain view's Model diagram, beside
+       their glyph and their kind in words, never alone. Not teal, which is the
+       Brain's. */
+    --color-domain-value-object: #C3D96B;
+
+    /* Entities on the Model diagram: the kind line and the card's top edge, beside
+       the glyph and the word entity, never alone. A clay of its own, apart from the
+       value objects' yellow-green and the root's gold. */
+    --color-domain-entity: #E5A15F;
+
+    /* The Context map's line between two core contexts, and a core card's edge,
+       beside the word Core on the card and the legend's words, never alone. An
+       amber of its own rather than color-primary, which says "followable". */
+    --color-domain-core-line: #F0A33A;
+
+    /* The requirement kind on the Requirements page: the summary card's edge,
+       the SHALL word, the open feature's edge and its tested bar, always beside
+       the words that say requirement, SHALL or tested. */
+    --color-domain-requirement: #8FB4F0;
+
+    /* An enumeration's name where a field takes one on Model's Fields tab, beside
+       the Enums list that names it with its values. A lavender of its own. */
+    --color-domain-enumeration: #B39DDB;
+
+    /* A domain event's name on Model's Events tab, always in the mono face beside
+       the word event or the Event column. A rose of its own; it never paints a
+       surface, so it does not read as color-error-text's alarm. */
+    --color-domain-event: #EC8E97;
+
+    /* A domain service's square in the Domain page's chapter bar, an outline
+       beside the service's name, never alone. A green of its own: not the
+       success ink, which says a thing went well, and not teal, the Brain's. */
+    --color-domain-service: #86C98F;
+
     /* Chart roles.
        A chart needs role names the twenty-two palette tokens do not provide: a
        series colour, a track, a gridline, a baseline. Like the code theme this
@@ -228,6 +264,7 @@
     --font-size-lg: 1.125rem;
     --font-size-xl: 1.25rem;
     --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
     --font-size-4xl: 2.25rem;
 
     /* Weights share a table with the line heights below, but were the one
@@ -245,6 +282,10 @@
 
     --line-height-tight: 1.25;
     --line-height-normal: 1.5;
+
+    /* Letter spacing, from the scale typography-and-layout.md tabulates; declared
+       as a rule first asks for a step. Widest tracks the caps labels. */
+    --letter-spacing-widest: 0.1em;
 
     /* Spacing (4px base scale) */
     /* Twelve rules across this file already asked for a step below xs and none
@@ -3105,6 +3146,42 @@ button.devbook-chip__label:focus-visible {
     background: color-mix(in srgb, var(--color-band-2) 24%, var(--color-background));
 }
 
+/* The Domain view's Brain and task links (local ADR 0026 §3, ADR 0027 §6). The
+   notes badge on a model part or a glossary term and the From your Brain box
+   under a unit, feature or term are the Brain's own teal; the task chips on a
+   feature or requirement are gold (TaskLinkChip, the `live` tone), dashed when
+   this backlog does not hold the task. Nothing else on the view is teal — see
+   color-scheme.md#the-brains-accent. */
+.domain-model__element .brain-notes-badge {
+    align-self: flex-start;
+}
+
+.domain-chapter-notes {
+    margin-block-start: var(--spacing-sm);
+}
+
+.domain-chapter-tasks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    margin-block: var(--spacing-xs);
+}
+
+.domain-chapter-tasks__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-chapter-tasks__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
 /* A plain string field — an alias, a kind, a version, an issue shorthand. It
    names something with no chapter to point at, so it borrows neither the pill
    nor the link: it is simply the value, set in the same mono face as the
@@ -3370,6 +3447,17 @@ button.devbook-chip__label:focus-visible {
     flex: none;
     align-items: center;
     color: var(--color-text-secondary);
+}
+
+/* What a row shows after its label — a kind row's count in the New domain view —
+   pushed to the row's far edge so a column of them lines up. */
+.devbook-menu__trail,
+.folder-tree__trail {
+    flex: none;
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
 }
 
 /* --- Scenario pages ---------------------------------------------------- */
@@ -21453,6 +21541,2388 @@ select.field__input {
     line-height: var(--line-height-normal);
 }
 
+/* --- Domain view: one unit at a time --------------------------------------- */
+/*
+  The Domain page of the Domain view (local ADR 0044). An unsplit domain.md
+  offers its units in a chapter bar, each tab led by its type marker; a unit
+  then reads as prose, cards for what it holds, rows of values, and one plain
+  line per event. Monochrome: the marker and the words say the kind.
+*/
+
+.domain-units {
+    display: grid;
+    /* One column no wider than the pane: a chapter bar of many units wraps
+       rather than stretching the page, and the cards below with it. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* The chapter bar of an unsplit domain.md (local ADR 0044 §4): a caption that
+   names the file, over a segmented bar — the open unit filled and bold — with
+   each aggregate or domain service led by a square in its kind's tone
+   (color-scheme.md#domain-view-element-tones). The name says the kind; the
+   square only helps the eye. */
+.domain-units__caption {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-units__caption code {
+    font-family: var(--font-family-mono);
+    font-size: inherit;
+}
+
+.domain-units__bar-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    width: fit-content;
+    max-width: 100%;
+    padding: var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-units__bar-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: none;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.domain-units__bar-tab:hover {
+    color: var(--color-text-primary);
+}
+
+.domain-units__bar-tab--active {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-units__bar-tab:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.domain-units__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.domain-units__kind {
+    flex: none;
+    box-sizing: border-box;
+    width: var(--spacing-sm);
+    height: var(--spacing-sm);
+    border-radius: var(--spacing-2xs);
+}
+
+.domain-units__kind--aggregate {
+    background: var(--color-primary);
+}
+
+.domain-units__kind--domain-service {
+    border: var(--border-width-2) solid var(--color-domain-service);
+}
+
+.domain-unit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-unit__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    line-height: var(--line-height-tight);
+}
+
+/* Always true's own title, under the About / Always true tabs. */
+.domain-unit__title--page {
+    margin-bottom: var(--spacing-sm);
+    font-size: 2rem;
+    line-height: 2.5rem;
+    font-weight: var(--font-weight-semibold);
+}
+
+/* About / Always true sit straight under the chapter bar, the open one bold,
+   with no rule across the page. */
+.domain-unit__tabs > .tabs__list {
+    gap: var(--spacing-md);
+    border-bottom: none;
+}
+
+.domain-unit__tabs > .tabs__list > .tabs__tab {
+    padding: var(--spacing-xs) var(--spacing-2xs);
+}
+
+.domain-unit__tabs > .tabs__list > .tabs__tab--active {
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-about {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* About and a domain service's page: a composed summary of the chapter. */
+.domain-about--summary {
+    gap: var(--spacing-lg);
+}
+
+.domain-about__hero {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-about__intro {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-about__headline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.domain-about__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-about__kicker {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* On a service's page the kicker sits above the title, close to it. */
+.domain-about__intro > .domain-about__kicker {
+    margin-bottom: calc(var(--spacing-sm) - var(--spacing-md));
+}
+
+.domain-about__lead {
+    max-width: 48rem;
+    margin: 0;
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-normal);
+}
+
+.domain-about__tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-about__tile {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-sm);
+}
+
+.domain-about__tile-title {
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-about__tile-body {
+    color: var(--color-text-secondary);
+}
+
+.domain-about__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-lg);
+}
+
+/* A link out of the page is a button — it turns a tab or opens another page of
+   the view — drawn as the product's links are: gold and underlined. */
+.domain-about__link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.domain-about__link:hover {
+    color: var(--color-primary-light);
+}
+
+.domain-about__link:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.domain-about__section {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.domain-about__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-about__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-md);
+}
+
+.domain-about__section-title {
+    margin: 0 0 var(--spacing-xs);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-about__subheading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-about__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-about__card-item {
+    display: grid;
+}
+
+/* The library's Card, its body a column so the foot sits at the bottom. */
+.domain-about__card.card--compact {
+    padding: var(--spacing-md);
+}
+
+.domain-about__card > .card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    height: 100%;
+}
+
+/* A proposed member is not built yet: information about the chapter, so a
+   neutral dashed outline and the word on its foot
+   (color-scheme.md#domain-view-element-tones), never gold. */
+.domain-about__card--proposed {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+}
+
+.domain-about__card-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-about__card-summary {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-about__card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin: auto 0 0;
+    padding-top: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+}
+
+.domain-about__card-model {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+}
+
+.domain-about__card-status {
+    color: var(--color-text-secondary);
+}
+
+.domain-about__card-foot .domain-about__link {
+    font-size: var(--font-size-xs);
+}
+
+/* Enums: a bordered list, a row each — the enum's heading, its values as words,
+   and the sentence after them at the right. */
+.domain-about__enums {
+    display: grid;
+    margin: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-about__terms {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.domain-about__enum {
+    display: grid;
+    grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr) minmax(0, 18rem);
+    gap: var(--spacing-md);
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.domain-about__enum + .domain-about__enum {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-about__term {
+    display: grid;
+    grid-template-columns: minmax(8rem, 14rem) 1fr;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.domain-about__enum-title,
+.domain-about__term-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-about__enum-values,
+.domain-about__term-summary {
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-about__enum-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: right;
+}
+
+.domain-about__values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* A value is information about the enum, so it is a neutral outline
+   (color-scheme.md#domain-view-element-tones), never a filled chip. */
+.domain-about__value {
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+/* Events: a bordered table of what happened and who hears it. */
+.domain-about__events {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    list-style: none;
+}
+
+.domain-about__event {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 16rem);
+    gap: var(--spacing-md);
+    align-items: baseline;
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.domain-about__event + .domain-about__event {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-about__event-consumers {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-about__promises {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.domain-about__guarantees {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.domain-about__guarantee {
+    font-size: var(--font-size-sm);
+}
+
+/* A requirement is named in words, so its link reads as prose rather than as
+   the path a reference otherwise shows. */
+.domain-about__guarantee .devbook-ref {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+@media (max-width: 40rem) {
+    .domain-about__enum,
+    .domain-about__term,
+    .domain-about__event {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-2xs);
+    }
+
+    .domain-about__enum-note {
+        text-align: left;
+    }
+}
+
+/*
+  Always true: a unit's rules as a card per group (a group the invariants
+  chapter writes, or the concept a rule is enforced at), one claim per row
+  behind its mark: ✓ proved by a test, ○ no test yet, ? not enforced yet. The
+  glyph and the words carry the meaning; the tone only helps the eye — ✓ takes
+  the success ink, and an open rule sits on the warning surface and says so.
+*/
+
+.domain-rules {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-rules__intro {
+    max-width: 50rem;
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.domain-rules__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm) var(--spacing-lg);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-rules__toggle {
+    margin-left: auto;
+}
+
+.domain-rules__groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 27.5rem), 1fr));
+    gap: var(--spacing-md);
+    align-items: start;
+}
+
+.domain-rules__group {
+    min-width: 0;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-rules__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.domain-rules__heading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* A concept is named in words, so its link reads as a heading rather than as
+   the path a reference otherwise shows. */
+.domain-rules__heading .devbook-ref,
+.domain-rules__about .devbook-ref {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.domain-rules__about {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.domain-rules__about .devbook-ref::after {
+    content: " \2192";
+}
+
+.domain-rules__list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-rules__rule {
+    display: grid;
+    grid-template-columns: 1.25rem 1fr;
+    column-gap: var(--spacing-sm);
+    align-items: baseline;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--font-size-sm);
+}
+
+.domain-rules__rule + .domain-rules__rule {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-rules__rule--open {
+    background: color-mix(in srgb, var(--color-warning) 65%, var(--color-background-alt));
+}
+
+.domain-rules__mark {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+    text-align: center;
+}
+
+.domain-rules__mark--proved {
+    color: var(--color-success-text);
+}
+
+.domain-rules__mark--open {
+    color: var(--color-primary);
+}
+
+.domain-rules__line {
+    grid-column: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.domain-rules__unsettled {
+    color: var(--color-primary);
+}
+
+.domain-rules__sentence {
+    grid-column: 2;
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.domain-rules__enforced {
+    grid-column: 2;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.domain-rules__enforced code {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* The row a link from another page opened Always true on: ringed, so the
+   reader sees where they landed. */
+.domain-rules__rule--focused {
+    box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.domain-rules__rule--focused:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+/* --- Domain view: rules in place ------------------------------------------ */
+/*
+  A unit's rules shown where the reader meets what they constrain (Requirements,
+  Features, Model, About, a domain service, the Glossary, Flow): Always true's
+  rows — the mark, then the short claim — in a card of their own. A row opens in
+  place on where the rule is enforced and a link to its row on Always true; past
+  a few rules the rest wait behind "n more".
+*/
+
+.domain-rule-list {
+    display: grid;
+    min-width: 0;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-rule-list__rules {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-rule-list__rule {
+    display: grid;
+    min-width: 0;
+}
+
+.domain-rule-list__rule + .domain-rule-list__rule {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-rule-list__rule--open {
+    background: color-mix(in srgb, var(--color-warning) 65%, var(--color-background-alt));
+}
+
+.domain-rule-list__toggle {
+    display: grid;
+    grid-template-columns: 1.25rem minmax(0, 1fr) 0.75rem;
+    column-gap: var(--spacing-sm);
+    align-items: baseline;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border: 0;
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-rule-list__toggle:hover {
+    background: color-mix(in srgb, var(--color-border) 35%, transparent);
+}
+
+.domain-rule-list__toggle:focus-visible,
+.domain-rule-list__more:focus-visible,
+.domain-rule-list__open:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.domain-rule-list__line {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.domain-rule-list__chevron {
+    align-self: center;
+    fill: none;
+    stroke: var(--color-text-secondary);
+    stroke-width: 1.5;
+    transition: transform var(--transition-fast);
+}
+
+.domain-rule-list__toggle[aria-expanded="true"] .domain-rule-list__chevron {
+    transform: rotate(90deg);
+}
+
+.domain-rule-list__detail {
+    display: grid;
+    gap: var(--spacing-2xs);
+    padding: 0 var(--spacing-lg) var(--spacing-sm) calc(var(--spacing-lg) + 1.25rem + var(--spacing-sm));
+    font-size: var(--font-size-sm);
+}
+
+.domain-rule-list__open {
+    justify-self: start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    text-decoration: underline;
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.domain-rule-list__open:hover,
+.domain-rule-list__more:hover {
+    color: var(--color-primary-light);
+}
+
+.domain-rule-list__more {
+    justify-self: stretch;
+    min-height: 2.5rem;
+    padding: 0 var(--spacing-lg);
+    border: 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: none;
+    color: var(--color-text-link);
+    text-decoration: underline;
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+/* Where a host draws the list: under a field's row, a part's card, a member's
+   card, a Glossary row, a flow card, a lifecycle and a feature's promises. */
+.domain-field-row__rules {
+    flex: 1 1 100%;
+}
+
+.domain-model__rule-list,
+.domain-about__card-rules,
+.domain-glossary__rule-list {
+    margin-top: var(--spacing-xs);
+}
+
+.domain-flows__rules {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.domain-flows__rules-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-feature-detail__rules-label {
+    margin-top: var(--spacing-md);
+}
+
+/* A rule count that opens the rules in place: a link, as the boards draw it. */
+.domain-glossary__rules,
+.domain-flow-card__rules,
+.domain-model__rules {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.domain-glossary__rules:hover,
+.domain-flow-card__rules:hover,
+.domain-model__rules:hover {
+    color: var(--color-primary-light);
+}
+
+.domain-glossary__rules:focus-visible,
+.domain-flow-card__rules:focus-visible,
+.domain-model__rules:focus-visible,
+.domain-field-rules:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+/* --- Domain view: Glossary ------------------------------------------------- */
+/*
+  The Glossary unit of the Domain page (local ADR 0044). A fixed lead, then a
+  labelled find box that fills the row beside the Show pills — All, Model, Terms,
+  Borrowed, one choice, each with its count. Under them two columns that wrap
+  under each other on a narrow pane: the A–Z card, a bordered list of divided
+  rows (mark, heading, kind in words, status badge, borrowed link, notes and
+  alias chips on one line, the first sentence below), and the aside, whose
+  Easily confused cards set each group of terms side by side as tiles and whose
+  dashed Across contexts card links each borrowed term to its counterpart.
+  Monochrome but for the value-object kind word, which color-scheme.md gives its
+  own tone beside its name.
+*/
+
+/* The unit's title on this page reads as the page's heading, and the Glossary
+   says what it is in words, so its type marker is not drawn here. */
+.domain-unit--ubiquitous-language > .domain-unit__title {
+    font-family: var(--font-family-heading);
+    font-size: 2rem;
+    line-height: 2.5rem;
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-unit--ubiquitous-language > .domain-unit__title .devbook-type-marker {
+    display: none;
+}
+
+.domain-glossary__lead {
+    margin: 0;
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.domain-glossary__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.domain-glossary__find {
+    display: grid;
+    gap: var(--spacing-xs);
+    flex: 1 1 20rem;
+    min-width: 0;
+}
+
+.domain-glossary__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-glossary__search {
+    width: 100%;
+}
+
+.domain-glossary__show {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+/* Pills rather than a joined strip: each choice stands alone with its count. */
+.domain-glossary__show.btn-group > .btn.domain-glossary__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+}
+
+/* The chosen pill is filled with the brand, as a primary button is. */
+.domain-glossary__show.btn-group > .btn.domain-glossary__pill.btn--pressed {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-glossary__count {
+    font-variant-numeric: tabular-nums;
+}
+
+.domain-glossary__layout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+}
+
+.domain-glossary__main {
+    flex: 999 1 36rem;
+    min-width: 0;
+}
+
+.domain-glossary__list {
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    overflow: hidden;
+}
+
+.domain-glossary__list-heading {
+    margin: 0;
+    padding: 0.875rem 1.25rem;
+    border-bottom: var(--border-width) solid var(--color-border-strong);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.domain-glossary__entries {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-glossary__entry {
+    display: grid;
+    gap: var(--spacing-xs);
+    padding: 0.875rem 1.25rem;
+}
+
+.domain-glossary__entry + .domain-glossary__entry {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-glossary__entry--deprecated {
+    background: var(--color-background);
+}
+
+.domain-glossary__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-glossary__name {
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-glossary__entry--deprecated .domain-glossary__name,
+.domain-glossary__side s {
+    color: var(--color-text-secondary);
+}
+
+.domain-glossary__kind {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-glossary__entry[data-kind="value-object"] .domain-glossary__kind {
+    color: var(--color-domain-value-object);
+}
+
+.domain-glossary__borrowed .devbook-ref {
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+}
+
+.domain-glossary__aliases {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* An alias is information about the chapter, so it is a neutral outline
+   (color-scheme.md#domain-view-element-tones), never a filled chip. */
+.domain-glossary__alias {
+    padding: 0 var(--spacing-xs);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.domain-glossary__summary {
+    margin: 0;
+}
+
+.domain-glossary__more {
+    display: block;
+    width: 100%;
+    padding: 0.875rem 1.25rem;
+    border: 0;
+    border-top: var(--border-width) solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-glossary__more:hover {
+    color: var(--color-text-primary);
+}
+
+.domain-glossary__more:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.domain-glossary__aside {
+    display: grid;
+    gap: var(--spacing-md);
+    flex: 1 1 22rem;
+    min-width: 0;
+}
+
+.domain-glossary__confused {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.domain-glossary__aside-heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-glossary__aside-intro {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-glossary__pairs {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-glossary__pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: var(--spacing-sm);
+    padding: 1.125rem 1.25rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-glossary__side {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: 0.625rem;
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    overflow-wrap: anywhere;
+}
+
+.domain-glossary__side .domain-glossary__summary {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-glossary__hint {
+    justify-self: start;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* proposed / deprecated are information about the chapter: a neutral outline
+   (color-scheme.md, Information badges are neutral outlines). The Across
+   contexts card is not a control, so its dashed edge is not gold either. */
+.badge--tone.domain-glossary__status {
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+.domain-glossary__across {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: 1.125rem 1.25rem;
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-glossary__across-heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+    font-weight: var(--font-weight-normal);
+}
+
+.domain-glossary__across-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-glossary__across-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    padding-block: var(--spacing-sm);
+}
+
+.domain-glossary__across-row + .domain-glossary__across-row {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-glossary__across-row .devbook-ref {
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+}
+
+/* --- Domain view: Flow ----------------------------------------------------- */
+/*
+  The Flow page of the Domain view (local ADR 0044): a stateDiagram-v2 drawn as
+  one row of states, each a box with its description. A move to the next state
+  runs straight to it on top, a move back underneath in a dimmer tone; other
+  forward arcs run in lanes above, other ways back in lanes below, the restore
+  loop round the outside on top. The drawing scales down to the column rather
+  than scrolling sideways, down to 85% of its size; past that it scrolls, so
+  its words never shrink further. An event is a neutral chip under its transition,
+  dashed while documented but not yet emitted (color-scheme.md: information
+  badges are neutral outlines); a way in from several states is one note card.
+*/
+
+.domain-flows {
+    display: grid;
+    gap: var(--spacing-xl);
+    min-width: 0;
+}
+
+.domain-flows__section {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-flows__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+/* The board's page title: larger than the scale's 2xl. */
+.domain-flows__title--page {
+    font-size: 2rem;
+}
+
+.domain-flows__lead {
+    max-width: 56rem;
+    color: var(--color-text-secondary);
+}
+
+.domain-flows__lead p {
+    margin: 0 0 var(--spacing-xs);
+}
+
+.domain-flows__lead > :last-child,
+.domain-flows__lead p:last-child {
+    margin-bottom: 0;
+}
+
+.domain-flows__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-flows__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.domain-flows__key {
+    display: inline-block;
+    width: 24px;
+    height: 0;
+    border-top: 2px solid var(--color-text-secondary);
+}
+
+.domain-flows__key--back {
+    border-top-color: var(--color-border-strong);
+}
+
+.domain-flows__key--documented {
+    height: 12px;
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+}
+
+.domain-flows__key--emitted {
+    height: 12px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+}
+
+.domain-flow {
+    display: grid;
+    gap: var(--spacing-md);
+    margin: 0;
+    min-width: 0;
+}
+
+/* The drawing and the chips laid over it share one box, so a chip's share of
+   the box is its place on the drawing at any width. */
+.domain-flow__canvas {
+    position: relative;
+    container-type: inline-size;
+    width: 100%;
+    min-width: calc(var(--domain-flow-width, 0) * 0.85px);
+}
+
+/* A flowchart and a sequence scroll sideways at their own size; the row
+   scrolls only once it has shrunk as far as it may. */
+.domain-flow__scroll {
+    overflow-x: auto;
+    padding-bottom: var(--spacing-2xs);
+}
+
+.domain-flow__svg {
+    display: block;
+    max-width: none;
+}
+
+.domain-flow__svg--fit {
+    width: 100%;
+    height: auto;
+}
+
+.domain-flow__box {
+    fill: var(--color-background-raised);
+    stroke: var(--color-border-strong);
+    stroke-width: 1;
+}
+
+.domain-flow__state--active .domain-flow__box {
+    stroke: var(--color-text-primary);
+    stroke-width: 2;
+}
+
+.domain-flow__state--ended .domain-flow__box {
+    fill: var(--color-background-alt);
+    stroke: var(--color-border);
+}
+
+.domain-flow__name {
+    fill: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-flow__svg--fit .domain-flow__name {
+    font-size: 15px;
+}
+
+.domain-flow__description {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: 12px;
+}
+
+.domain-flow__pseudo {
+    fill: var(--color-text-primary);
+}
+
+.domain-flow__pseudo-ring {
+    fill: none;
+    stroke: var(--color-text-primary);
+    stroke-width: 1.5;
+}
+
+.domain-flow__line {
+    fill: none;
+    stroke: var(--color-text-secondary);
+    stroke-width: 2;
+}
+
+/* A reply in a sequence is dashed; on the row a way back is told by where it
+   runs and its dimmer tone, as the board draws it. */
+.domain-flow__transition--back .domain-flow__line {
+    stroke-dasharray: 5 3;
+}
+
+.domain-flow__svg--fit .domain-flow__transition--back .domain-flow__line,
+.domain-flow__svg--fit .domain-flow__transition--restore .domain-flow__line {
+    stroke: var(--color-border-strong);
+    stroke-dasharray: none;
+}
+
+.domain-flow__arrow {
+    fill: var(--color-text-secondary);
+}
+
+.domain-flow__arrow--back {
+    fill: var(--color-border-strong);
+}
+
+.domain-flow__label {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    paint-order: stroke;
+    stroke: var(--color-background);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+}
+
+.domain-flow__svg--fit .domain-flow__label {
+    font-size: 13px;
+}
+
+/* Chips and captions scale with the drawing: 12px at its own width, less when
+   the column is narrower than the drawing. */
+.domain-flow__event {
+    position: absolute;
+    box-sizing: border-box;
+    font-size: min(12px, calc(1200cqw / var(--domain-flow-width, 1000)));
+    line-height: 1.5;
+    display: flex;
+    justify-content: center;
+    padding: 0 0.5em;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    white-space: nowrap;
+}
+
+.domain-flow__event--documented {
+    border-style: dashed;
+}
+
+.domain-flow__event .devbook-ref {
+    font: inherit;
+}
+
+.domain-flow__caption {
+    position: absolute;
+    box-sizing: border-box;
+    color: var(--color-text-secondary);
+    font-size: min(13px, calc(1300cqw / var(--domain-flow-width, 1000)));
+    line-height: 1.5;
+}
+
+.domain-flow__caption-code {
+    font-family: var(--font-family-mono);
+    font-size: 0.92em;
+}
+
+.domain-flow__drop {
+    margin: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-flow__drop strong {
+    color: var(--color-text-primary);
+}
+
+/* What sits beside the status rather than in it: one card per sub-chapter. */
+.domain-flows__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+    gap: var(--spacing-lg);
+}
+
+.domain-flow-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-flow-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+}
+
+.domain-flow-card__title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-flow-card__tag {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-flow-card__tag p,
+.domain-flow-card__footer p {
+    margin: 0;
+}
+
+.domain-flow-card__body {
+    font-size: var(--font-size-sm);
+}
+
+.domain-flow-card__footer {
+    margin-top: auto;
+    padding-top: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+/*
+  A flowchart and a sequence on the Flow page wear the row's cards, lines,
+  arrowhead and labels; a dotted link and a reply are dashed.
+*/
+
+.domain-flow__text {
+    fill: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-sm);
+}
+
+.domain-flow__link--dotted .domain-flow__line {
+    stroke-dasharray: 5 3;
+}
+
+.domain-flow__link--thick .domain-flow__line {
+    stroke-width: 3.5;
+}
+
+.domain-flow__lifeline,
+.domain-flow__divider {
+    fill: none;
+    stroke: var(--color-border);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+}
+
+.domain-flow__note {
+    fill: var(--color-background-raised);
+    stroke: var(--color-border);
+    stroke-width: 1;
+}
+
+.domain-flow__note-text {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+}
+
+.domain-flow__frame-label {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    paint-order: stroke;
+    stroke: var(--color-background);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+}
+
+.domain-flow__frame {
+    fill: none;
+    stroke: var(--color-border);
+    stroke-width: 1;
+}
+
+.domain-flow__frame-tag {
+    fill: var(--color-background-raised);
+    stroke: var(--color-border);
+    stroke-width: 1;
+}
+
+.domain-flow__frame-keyword {
+    fill: var(--color-text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* --- Domain view: Features and Requirements -------------------------------- */
+/*
+  The Features page reads a context's features in columns by what they build
+  on, one card each; the Requirements page reads one feature's requirements
+  with their scenarios as Given / When / Then rows (local ADR 0044). Monochrome,
+  as the Domain page is: a proposed card is dashed and a deprecated feature
+  struck through in the box that gathers them, and each also says so in words.
+  The flag and the status are information about the chapter, so each is a
+  neutral outline; only the requirement tally and the tested bar take the
+  requirement tone (color-scheme.md#domain-view-element-tones).
+*/
+
+.domain-features {
+    display: grid;
+    gap: var(--spacing-xl);
+    min-width: 0;
+}
+
+/* The page opens on its title, a lead and a legend, as the design board
+   "Tasks — features" does; the title follows the Requirements page's but a
+   step larger, at the H3 size of the type scale. */
+.domain-features__intro {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.domain-features__page-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.domain-features__lead {
+    max-width: 50rem;
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.domain-features__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    list-style: none;
+}
+
+.domain-features__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.domain-features__board {
+    display: grid;
+    grid-auto-columns: minmax(14rem, 1fr);
+    grid-auto-flow: column;
+    gap: var(--spacing-md);
+    overflow-x: auto;
+    padding-bottom: var(--spacing-2xs);
+}
+
+.domain-features__column {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-features__column-title,
+.domain-features__deprecated-title,
+.domain-feature-detail__promises-label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--letter-spacing-widest);
+    text-transform: uppercase;
+}
+
+.domain-requirements__feature-list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-features__cards {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-features__card-item {
+    display: grid;
+}
+
+/* A card is compact: its title, one line of facts and, past the first column,
+   what it comes after. It sits on the alternate surface so the picked one can
+   lift onto the raised surface. */
+.domain-feature-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-height: 2.75rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-feature-card:hover {
+    border-color: var(--color-border-strong);
+}
+
+.domain-feature-card:focus-visible,
+.domain-requirements__feature:focus-visible,
+.domain-features__deprecated-item:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.domain-feature-card--proposed {
+    border-style: dashed;
+}
+
+/* The picked card: a solid 2px brand edge — the 1px border plus a 1px inset
+   ring, so the card does not move — on the raised surface. Written after hover
+   and proposed, and as two classes, so it outranks both: hover is a class and
+   a pseudo-class, and a picked card that is hovered or proposed still reads as
+   picked. */
+.domain-feature-card.domain-feature-card--selected,
+.domain-feature-card.domain-feature-card--selected:hover {
+    border-style: solid;
+    border-color: var(--color-primary);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-primary);
+    background: var(--color-background-raised);
+}
+
+.domain-feature-card__name {
+    font-weight: var(--font-weight-bold);
+    overflow-wrap: anywhere;
+}
+
+.domain-feature-card__facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-feature-card__after {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+/* The requirement tally, in the requirement tone beside the words that say
+   req and tested (color-scheme.md#domain-view-element-tones). */
+.domain-feature-card__tally {
+    color: var(--color-domain-requirement);
+    font-size: var(--font-size-xs);
+}
+
+.badge--tone.domain-feature-card__mark,
+.badge--tone.domain-feature-card__gate {
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+.badge--tone.domain-feature-card__mark.domain-features__legend-proposed {
+    border-style: dashed;
+}
+
+/* The deprecated features, gathered at the end of the last column on the
+   sunken surface: struck titles that still open their detail. */
+.domain-features__deprecated {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.domain-features__deprecated-list {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Each is a full target (accessibility.md#target-sizes-and-text); the picked
+   one takes the selected card's brand ring, so the pick is not weight or ink
+   alone. */
+.domain-features__deprecated-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0 var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: none;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    text-decoration: line-through;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+.domain-features__deprecated-item:hover {
+    color: var(--color-text-primary);
+}
+
+.domain-features__deprecated-item--selected {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    box-shadow: inset 0 0 0 var(--border-width-2) var(--color-primary);
+}
+
+.domain-features__deprecated-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The detail: what the feature is on the left, what it promises on the
+   right on the sunken surface, stacking under it when the two do not fit. */
+.domain-feature-detail {
+    display: flex;
+    flex-wrap: wrap;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-feature-detail__main {
+    display: flex;
+    flex: 999 1 32rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+}
+
+.domain-feature-detail__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.domain-requirements__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.domain-feature-detail__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
+}
+
+.domain-feature-detail__summary {
+    max-width: 42.5rem;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
+}
+
+.domain-feature-detail__facts {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.domain-feature-detail__fact {
+    display: grid;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    gap: var(--spacing-md);
+}
+
+.domain-feature-detail__label {
+    color: var(--color-text-secondary);
+}
+
+.domain-feature-detail__value {
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-feature-detail__chapters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xs) var(--spacing-sm);
+}
+
+.domain-feature-detail__chapters--chips {
+    gap: var(--spacing-xs);
+}
+
+/* The model chapters as small neutral filled chips holding their links. */
+.domain-feature-detail__chip {
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+}
+
+.domain-feature-detail__gate-word {
+    color: var(--color-text-secondary);
+}
+
+.domain-feature-detail__unsaid {
+    color: var(--color-text-secondary);
+}
+
+.domain-feature-detail__promises {
+    display: flex;
+    flex: 1 1 20rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    background: var(--color-background);
+}
+
+.domain-feature-detail__promise {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.domain-feature-detail__promise-count {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-feature-detail__bar {
+    display: flex;
+    height: var(--spacing-sm);
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border);
+}
+
+.domain-feature-detail__fill {
+    background: var(--color-domain-requirement);
+}
+
+.domain-feature-detail__promise-proof {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-feature-detail__promise-link {
+    font-size: var(--font-size-sm);
+}
+
+/* A chapter is named in words, so its link reads as prose. */
+.domain-feature-detail .devbook-ref,
+.domain-requirements__feature-link .devbook-ref {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+/* The Requirements page, as the design board "Requirements — requirements.md"
+   lays it out: the page's title and summary cards, then the features beside
+   the open feature's requirement cards. The requirement tone marks the kind —
+   the summary card's top edge, the SHALL word, the open feature's edge and
+   the tested bars — beside the words that say it, never alone
+   (.devbook/design/color-scheme.md#domain-view-element-tones). */
+.domain-requirements {
+    display: grid;
+    gap: var(--spacing-xl);
+    min-width: 0;
+}
+
+.domain-requirements__page {
+    display: grid;
+    gap: var(--spacing-md);
+}
+
+.domain-requirements__page-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: 2rem;
+    font-weight: var(--font-weight-semibold);
+    line-height: 2.5rem;
+}
+
+.domain-requirements__summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+    gap: var(--spacing-sm);
+}
+
+.domain-requirements__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+}
+
+.domain-requirements__card--requirement {
+    border-top: 3px solid var(--color-domain-requirement);
+}
+
+/* What is always true under a feature's heading: the rules its requirements
+   lean on, shown in place as a list of their own. */
+.domain-requirements__rules {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.domain-requirements__rules-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.domain-requirements__rules-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-requirements__rules-unit {
+    margin-top: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-requirements__card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.domain-requirements__card-meta,
+.domain-requirements__card-text {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-requirements__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    min-width: 0;
+}
+
+.domain-requirements__features {
+    display: flex;
+    flex: 1 1 14rem;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.domain-requirements__features-label {
+    padding: 0 var(--spacing-sm) var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.domain-requirements__feature {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    width: 100%;
+    min-height: 2.75rem;
+    padding: var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-requirements__feature:hover {
+    background: var(--color-background-alt);
+}
+
+.domain-requirements__feature--selected {
+    background: var(--color-background-alt);
+    box-shadow: inset 3px 0 0 var(--color-domain-requirement);
+}
+
+.domain-requirements__feature-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.domain-requirements__feature-name {
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-requirements__feature-tally {
+    flex: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
+.domain-requirements__feature--selected .domain-requirements__feature-name {
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-requirements__feature-bar {
+    display: flex;
+    height: 4px;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-border);
+}
+
+.domain-requirements__feature-fill {
+    background: var(--color-domain-requirement);
+}
+
+.domain-requirements__group {
+    display: flex;
+    flex: 999 1 32rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-requirements__header,
+.domain-requirement__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.domain-requirements__feature-link {
+    font-size: var(--font-size-sm);
+}
+
+.domain-requirements__list {
+    display: grid;
+    gap: var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-requirements__rows {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    gap: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    list-style: none;
+}
+
+.domain-requirements__rows > li + li {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-requirement {
+    display: grid;
+    min-width: 0;
+}
+
+.domain-requirement__card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+/* A requirement past the first two: a fold whose heading reads its title and
+   Show, the chevron's place taken by the word as the design draws it. */
+.domain-requirement-fold {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.domain-requirement-fold__heading {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-normal);
+}
+
+.domain-requirement-fold .fold__trigger {
+    display: flex;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.domain-requirement-fold .fold__trigger:hover {
+    background: var(--color-background-alt);
+}
+
+.domain-requirement-fold .fold__trigger:focus-visible {
+    outline-offset: -2px;
+}
+
+.domain-requirement-fold .fold__chevron {
+    display: none;
+}
+
+.domain-requirement-fold .fold__label {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.domain-requirement-fold > .fold__region {
+    padding: 0 var(--spacing-sm) var(--spacing-sm);
+}
+
+.domain-requirement__header--untitled {
+    justify-content: flex-end;
+}
+
+.domain-requirement__statement {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.domain-requirement__title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+/* Information about the chapter, so a neutral outline; a requirement with no
+   test linked says so in words inside a dashed edge, never in a tone. */
+.badge--tone.domain-requirement__proof {
+    border-radius: var(--border-radius-full);
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+.badge--tone.domain-requirement__proof--none {
+    border-style: dashed;
+}
+
+/* The SHALL sentence is the requirement: it reads first and larger, its SHALL
+   in the requirement tone. */
+.domain-requirement__shall {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-normal);
+}
+
+.domain-requirement__shall-word {
+    color: var(--color-domain-requirement);
+    letter-spacing: 0.04em;
+}
+
+.domain-requirement__prose,
+.domain-requirements__intro {
+    color: var(--color-text-secondary);
+}
+
+.domain-requirement__statement .domain-chapter-tasks {
+    margin-block: 0;
+}
+
+.domain-requirements__more-button {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: 2.75rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 0;
+    background: none;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-requirements__more-button:hover {
+    background: var(--color-background-alt);
+}
+
+.domain-requirements__more-button:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.domain-requirement__toggle-word {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-requirement__toggle-title {
+    overflow-wrap: anywhere;
+}
+
+/* The scenario sits on the card's sunken foot. */
+.domain-scenario {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
+}
+
+.domain-scenario__title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+}
+
+.domain-scenario__word {
+    color: var(--color-text-secondary);
+}
+
+.domain-scenario__steps {
+    display: grid;
+    grid-template-columns: 4rem minmax(0, 1fr);
+    gap: var(--spacing-sm) var(--spacing-sm);
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.domain-scenario__step {
+    display: contents;
+}
+
+.domain-scenario__keyword {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    line-height: var(--line-height-normal);
+    text-transform: uppercase;
+}
+
+.domain-scenario__clauses {
+    margin: 0;
+    min-width: 0;
+    color: var(--color-text-secondary);
+}
+
+.domain-scenario__bullets {
+    margin: 0;
+    padding-left: var(--spacing-md);
+    list-style: disc;
+}
+
+@media (max-width: 40rem) {
+    .domain-requirement__statement,
+    .domain-scenario {
+        padding-inline: var(--spacing-md);
+    }
+
+    .domain-feature-detail__fact {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-2xs);
+    }
+
+    .domain-feature-detail__main,
+    .domain-feature-detail__promises {
+        padding: var(--spacing-md);
+    }
+}
+
 /* --- Notes ----------------------------------------------------------------- */
 /*
   A note row is one link: the title and its time on the first line, the
@@ -23124,6 +25594,2813 @@ select.field__input {
     display: flex;
     align-items: center;
     min-width: 0;
+}
+
+/* The Domain view's context page (local ADR 0044), one page with no tabs: its
+   dependency tables drawn as a board on top, then the Overview after its board —
+   the context's badges, name and lead, the boundary as an Inside and an Outside
+   card, what it holds as tiles, how well it is proved as two cards, how settled
+   it is as one stacked bar, its switches, and its pages read through a
+   question. A rule parts the two. */
+.domain-context-page {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.domain-context-page__overview {
+    display: grid;
+    gap: var(--spacing-xl);
+    padding: var(--spacing-lg) 0;
+    border-top: 1px solid var(--color-border);
+    min-width: 0;
+}
+
+.domain-context-page__section {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-context-page__heading,
+.domain-neighbours__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* The Overview's section headings are the board's: a heading face, not a label. */
+.domain-context-page__overview .domain-context-page__heading {
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+}
+
+.domain-context-page__none,
+.domain-neighbours__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__intro {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-context-page__badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* Information about the context, not something the product acts on: a neutral
+   outline (color-scheme.md#domain-view-element-tones). The word says Core. */
+.domain-context-page__badge {
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-context-page__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-4xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-context-page__lead {
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.domain-context-page__lead > :first-child p:first-child,
+.domain-context-page__lead > :first-child > p:first-of-type {
+    font-size: var(--font-size-lg);
+}
+
+.domain-context-page__intro .domain-chapter-notes {
+    max-width: 48rem;
+}
+
+.domain-context-page__boundary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+    gap: var(--spacing-md);
+}
+
+.domain-context-page__card {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-context-page__card-label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.domain-context-page__questions {
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-context-page__question {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--spacing-md);
+}
+
+.domain-context-page__question-text p,
+.domain-context-page__outside-note p {
+    margin: 0;
+}
+
+/* A clause is written mid-sentence; the card raises its first letter without
+   rewriting the chapter's words. */
+.domain-context-page__question-text p::first-letter,
+.domain-context-page__outside-note > :first-child p:first-child::first-letter,
+.domain-context-page__card > .domain-context-page__card-label + * p:first-child::first-letter {
+    text-transform: uppercase;
+}
+
+.domain-context-page__more {
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.domain-context-page__answers {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+/* A link drawn as a button: the Outside card's answers are bold, the
+   Switches table's gates are underlined, like a link in prose. */
+.domain-context-page__answer {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-weight: var(--font-weight-semibold);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__gate {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    text-align: left;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.domain-context-page__answer:hover,
+.domain-context-page__gate:hover {
+    color: var(--color-primary-light);
+}
+
+.domain-context-page__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(7.5rem, 100%), 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* A tile's top edge is its kind's tone where the view already gives the kind
+   one — the aggregate root's gold on Model, the value object's own tone
+   (color-scheme.md#domain-view-element-tones) — and the strong border
+   otherwise; its label says the kind, so the tone is never the only thing that
+   does. */
+.domain-context-page__count {
+    --domain-context-tone: var(--color-border-strong);
+    display: grid;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    height: 100%;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-top: 3px solid var(--domain-context-tone);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__count[data-type="aggregate"] { --domain-context-tone: var(--color-primary); }
+.domain-context-page__count[data-type="value-object"] { --domain-context-tone: var(--color-domain-value-object); }
+
+.domain-context-page__count:hover:not([aria-disabled="true"]),
+.domain-context-page__proof-card:hover:not([aria-disabled="true"]),
+.domain-context-page__lens:hover {
+    border-color: var(--color-border-strong);
+    background: var(--color-background-raised);
+}
+
+.domain-context-page__count[aria-disabled="true"],
+.domain-context-page__proof-card[aria-disabled="true"] {
+    cursor: default;
+}
+
+.domain-context-page__count-value {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
+.domain-context-page__count-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__proof {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+    gap: var(--spacing-md);
+}
+
+.domain-context-page__proof-card {
+    --domain-context-tone: var(--color-domain-requirement);
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__proof-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-md);
+}
+
+.domain-context-page__proof-facts {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__proof-bar,
+.domain-context-page__bar {
+    display: flex;
+    height: 0.625rem;
+    overflow: hidden;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background);
+}
+
+.domain-context-page__proof-fill {
+    background: var(--domain-context-tone);
+}
+
+.domain-context-page__proof-caption {
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__settled {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md) var(--spacing-xl);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-context-page__settled .domain-context-page__bar {
+    flex: 1 1 20rem;
+}
+
+/* Each part wears the fill of the status badge its status wears
+   (color-scheme.md#badge-and-chip-tones), so a part and the pill under the bar
+   read as one; a strong edge keeps the dark fills apart, and the pill's word
+   says the status, so the tone is never the only thing that does. */
+.domain-context-page__bar-part {
+    flex-basis: 0;
+    min-width: 4px;
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-border-strong);
+}
+
+.domain-context-page__tone--draft { background: var(--color-background-raised); }
+.domain-context-page__tone--ready { background: var(--color-info); }
+.domain-context-page__tone--active { background: var(--color-primary); }
+.domain-context-page__tone--done { background: var(--color-success); }
+.domain-context-page__tone--blocked { background: var(--color-error); }
+.domain-context-page__tone--archived { background: transparent; }
+
+.domain-context-page__statuses {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.domain-context-page__status-count {
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.domain-context-page__table-scroll {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+}
+
+.domain-context-page__table {
+    width: 100%;
+    min-width: 40rem;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.domain-context-page__table th,
+.domain-context-page__table td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+    text-align: left;
+    vertical-align: top;
+}
+
+.domain-context-page__table thead th {
+    border-top: 0;
+    background: var(--color-background-alt);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.domain-context-page__table tbody th {
+    font-weight: normal;
+}
+
+.domain-context-page__switch-name {
+    display: block;
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-context-page__switch-summary {
+    display: block;
+    max-width: 28rem;
+    color: var(--color-text-secondary);
+}
+
+.domain-context-page__lenses {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(14rem, 100%), 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-context-page__lens {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-xs);
+    width: 100%;
+    height: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-context-page__lens-title {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-neighbours {
+    container-type: inline-size;
+    display: grid;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md) 0;
+    min-width: 0;
+    /* The lines between the cards: grey for listening, amber for hand in hand
+       (color-scheme.md#domain-view-element-tones). */
+    --domain-neighbours-line: var(--color-border-strong);
+    --domain-neighbours-partner-line: var(--color-domain-core-line);
+    --domain-neighbours-line-width: 2px;
+    --domain-neighbours-stub: var(--spacing-lg);
+    --domain-neighbours-join: 4rem;
+    --domain-neighbours-head: 8px;
+    /* A side heading's block. The middle card and the joins step down by it, so
+       their middle line meets the middle of each side's cards. */
+    --domain-neighbours-heading-block: calc(1.25rem + var(--spacing-sm));
+}
+
+/* The sides and the middle card on the first row, the hand-in-hand partners on
+   the second. The two join columns are fixed and equal, so the middle column is
+   the board's centre whatever each side holds. */
+.domain-neighbours__board {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--domain-neighbours-join) minmax(16rem, auto) var(--domain-neighbours-join) minmax(0, 1fr);
+    grid-template-rows: auto;
+}
+
+.domain-neighbours__board--hand-in-hand {
+    grid-template-rows: auto auto;
+}
+
+.domain-neighbours__side {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-neighbours__side--listens-to {
+    grid-row: 1;
+    grid-column: 1;
+    align-self: center;
+    gap: 0;
+}
+
+.domain-neighbours__side--listen-to {
+    grid-row: 1;
+    grid-column: 5;
+    align-self: center;
+    gap: 0;
+}
+
+.domain-neighbours__side--listens-to > .domain-neighbours__heading,
+.domain-neighbours__side--listen-to > .domain-neighbours__heading {
+    height: var(--domain-neighbours-heading-block);
+    line-height: 1.25rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.domain-neighbours__cards {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* One card and its stub. The items sit edge to edge, spaced by padding, so the
+   bus each one draws on its inner edge runs unbroken from the first card's
+   middle to the last one's. */
+.domain-neighbours__card-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding-block: calc(var(--spacing-sm) / 2);
+}
+
+.domain-neighbours__card-item > .domain-neighbours__card {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.domain-neighbours__stub {
+    position: relative;
+    flex: 0 0 var(--domain-neighbours-stub);
+    align-self: stretch;
+}
+
+.domain-neighbours__stub::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    height: var(--domain-neighbours-line-width);
+    transform: translateY(-50%);
+    background: var(--domain-neighbours-line);
+}
+
+/* The bus: on the inner edge of each item, towards the middle card. */
+.domain-neighbours__side--listens-to .domain-neighbours__card-item::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: var(--domain-neighbours-line-width);
+    background: var(--domain-neighbours-line);
+}
+
+.domain-neighbours__side--listen-to .domain-neighbours__card-item::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--domain-neighbours-line-width);
+    background: var(--domain-neighbours-line);
+}
+
+.domain-neighbours__side--listens-to .domain-neighbours__card-item:first-child::after,
+.domain-neighbours__side--listen-to .domain-neighbours__card-item:first-child::after {
+    top: 50%;
+}
+
+.domain-neighbours__side--listens-to .domain-neighbours__card-item:last-child::after,
+.domain-neighbours__side--listen-to .domain-neighbours__card-item:last-child::after {
+    bottom: 50%;
+}
+
+/* Listen to: the stub stands before the card and its arrowhead points at it. */
+.domain-neighbours__side--listen-to .domain-neighbours__stub {
+    order: -1;
+}
+
+.domain-neighbours__side--listen-to .domain-neighbours__stub::after,
+.domain-neighbours__join--in::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    border-left: var(--domain-neighbours-head) solid var(--domain-neighbours-line);
+    border-block: calc(var(--domain-neighbours-head) * 0.65) solid transparent;
+}
+
+.domain-neighbours__side--listen-to .domain-neighbours__stub::before {
+    right: calc(var(--domain-neighbours-head) - 1px);
+}
+
+/* The one line from a side's bus to the middle card: in, with its head on the
+   card; out, from the card to the bus. */
+.domain-neighbours__join {
+    position: relative;
+    grid-row: 1;
+    align-self: center;
+    margin-top: var(--domain-neighbours-heading-block);
+    height: calc(var(--domain-neighbours-head) * 1.3);
+}
+
+.domain-neighbours__join--in {
+    grid-column: 2;
+}
+
+.domain-neighbours__join--out {
+    grid-column: 4;
+}
+
+.domain-neighbours__join::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: var(--domain-neighbours-line-width);
+    transform: translateY(-50%);
+    background: var(--domain-neighbours-line);
+}
+
+/* The line stops short of its head, so the arrow keeps its point. */
+.domain-neighbours__join--in::before {
+    right: calc(var(--domain-neighbours-head) - 1px);
+}
+
+/* The middle card stays on the row's middle line, where both joins meet it,
+   between two equal spacers: the one above, and below it the drop to the
+   partners or, with none, an empty spacer. */
+.domain-neighbours__centre {
+    grid-column: 3;
+    grid-row: 1;
+    padding-top: var(--domain-neighbours-heading-block);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 0;
+}
+
+.domain-neighbours__centre::before,
+.domain-neighbours__centre::after {
+    content: "";
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.domain-neighbours__board--hand-in-hand .domain-neighbours__centre::after {
+    content: none;
+}
+
+.domain-neighbours__board--hand-in-hand .domain-neighbours__centre::before {
+    min-height: 3rem;
+}
+
+.domain-neighbours__drop {
+    flex: 1 1 0;
+    min-height: 3rem;
+    width: var(--domain-neighbours-line-width);
+    background: var(--domain-neighbours-partner-line);
+}
+
+.domain-neighbours__self {
+    display: grid;
+    justify-items: center;
+    gap: var(--spacing-2xs);
+    width: 100%;
+    box-sizing: border-box;
+    max-width: 20rem;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: 2px solid var(--color-primary);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    text-align: center;
+}
+
+.domain-neighbours__self-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-neighbours__self-counts {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* Hand in hand: one amber bar under the drop, a riser to each partner. */
+.domain-neighbours__side--hand-in-hand {
+    position: relative;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 0;
+}
+
+.domain-neighbours__heading--hand-in-hand {
+    position: absolute;
+    bottom: 100%;
+    left: calc(50% + var(--spacing-sm));
+    margin-bottom: var(--spacing-sm);
+    color: var(--domain-neighbours-partner-line);
+    white-space: nowrap;
+}
+
+.domain-neighbours__side--hand-in-hand .domain-neighbours__cards {
+    display: flex;
+    justify-content: center;
+}
+
+.domain-neighbours__side--hand-in-hand .domain-neighbours__card-item {
+    flex: 0 1 16rem;
+    flex-direction: column;
+    align-items: stretch;
+    padding-block: 0;
+    padding-inline: calc(var(--spacing-md) / 2);
+    min-width: 0;
+}
+
+.domain-neighbours__side--hand-in-hand .domain-neighbours__stub {
+    order: -1;
+    flex: 0 0 var(--spacing-lg);
+}
+
+.domain-neighbours__side--hand-in-hand .domain-neighbours__stub::before {
+    inset-inline: auto;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: var(--domain-neighbours-line-width);
+    height: auto;
+    transform: translateX(-50%);
+    background: var(--domain-neighbours-partner-line);
+}
+
+.domain-neighbours__side--hand-in-hand .domain-neighbours__card-item::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--domain-neighbours-line-width);
+    background: var(--domain-neighbours-partner-line);
+}
+
+.domain-neighbours__side--hand-in-hand .domain-neighbours__card-item:first-child::after {
+    left: 50%;
+}
+
+.domain-neighbours__side--hand-in-hand .domain-neighbours__card-item:last-child::after {
+    right: 50%;
+}
+
+.domain-neighbours__card--external {
+    border-style: dashed;
+    border-color: var(--color-border-strong);
+    background: transparent;
+}
+
+.domain-neighbours__card-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+/* A neighbour that is a context is a link, but it reads as the card's title,
+   the same as an outside system's name beside it. */
+.domain-neighbours__card-title .devbook-ref {
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    text-decoration: none;
+}
+
+.domain-neighbours__card-title .devbook-ref:hover,
+.domain-neighbours__card-title .devbook-ref:focus-visible {
+    text-decoration: underline;
+}
+
+/* Core and external after the name, as small words rather than badges. */
+.domain-neighbours__tag {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+}
+
+.domain-neighbours__tag--core {
+    color: var(--color-primary);
+}
+
+/* The relation as a short phrase: two lines at most, the whole sentence on hover. */
+.domain-neighbours__card-line {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    margin: var(--spacing-2xs) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-tight);
+}
+
+.domain-neighbours__side--hand-in-hand .domain-neighbours__card {
+    border-color: var(--domain-neighbours-partner-line);
+}
+
+.domain-neighbours__intro {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.domain-neighbours__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.domain-neighbours__lede {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-neighbours__self-summary {
+    color: var(--color-primary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-neighbours__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-xl);
+    margin: 0;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-raised);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-neighbours__legend-item {
+    margin: 0;
+}
+
+.domain-neighbours__legend-item strong {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-neighbours__legend-item--wide {
+    flex-basis: 100%;
+}
+
+.domain-neighbours__legend .domain-neighbours__legend-amber {
+    color: var(--domain-neighbours-partner-line);
+}
+
+/* One column on a narrow pane: listens to, the context, then listen to, then
+   hand in hand. The lines go, and the headings say which way each side points. */
+@container (max-width: 48rem) {
+    .domain-neighbours__board,
+    .domain-neighbours__board--hand-in-hand {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: none;
+        row-gap: var(--spacing-lg);
+    }
+
+    .domain-neighbours__side--listens-to,
+    .domain-neighbours__side--listen-to,
+    .domain-neighbours__side--hand-in-hand,
+    .domain-neighbours__centre {
+        grid-column: 1;
+        grid-row: auto;
+        grid-template-rows: none;
+        margin-top: 0;
+    }
+
+    .domain-neighbours__join,
+    .domain-neighbours__drop,
+    .domain-neighbours__stub,
+    .domain-neighbours__centre::before,
+    .domain-neighbours__centre::after,
+    .domain-neighbours__card-item::after,
+    .domain-neighbours__side--hand-in-hand .domain-neighbours__card-item::after {
+        display: none;
+    }
+
+    .domain-neighbours__heading--hand-in-hand {
+        position: static;
+        margin: 0 0 var(--spacing-sm);
+        color: var(--color-text-secondary);
+    }
+
+    .domain-neighbours__centre {
+        padding-top: 0;
+    }
+
+    .domain-neighbours__side--hand-in-hand .domain-neighbours__cards {
+        display: grid;
+        justify-content: stretch;
+        gap: var(--spacing-sm);
+    }
+
+    .domain-neighbours__side--hand-in-hand .domain-neighbours__card-item {
+        padding-inline: 0;
+    }
+}
+
+/* The Domain view's Context map page (local ADR 0044): Map draws every bounded
+   context as a card on an ellipse with one line per pair of contexts; List names
+   them in reading order. A line between two core contexts is amber, any other
+   grey, a relation named and not built dashed. Pointing at or focusing a card
+   fades every line that does not touch it. */
+.context-map-page {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.context-map-page__header {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.context-map-page__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+}
+
+.context-map-page__intro {
+    margin: 0;
+    max-width: 48rem;
+    color: var(--color-text-secondary);
+}
+
+.context-map-page__intro strong {
+    color: var(--color-text-primary);
+}
+
+.context-map {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+    min-width: 0;
+}
+
+/* The map keeps its shape: below its least width it scrolls inside the page,
+   and List is the reading for a narrow pane. */
+.context-map__scroll {
+    overflow-x: auto;
+    min-width: 0;
+}
+
+.context-map__canvas {
+    position: relative;
+    min-width: 52rem;
+    width: 100%;
+}
+
+.context-map__lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.context-map__line {
+    transition: opacity var(--transition-fast);
+}
+
+.context-map__stroke {
+    fill: none;
+    stroke: var(--color-border-strong);
+    stroke-width: 1.5;
+    pointer-events: none;
+}
+
+.context-map__line--core .context-map__stroke {
+    stroke: var(--color-domain-core-line);
+    stroke-width: 2;
+}
+
+.context-map__line--not-built .context-map__stroke {
+    stroke-dasharray: 6 5;
+}
+
+/* A wide transparent stroke under the drawn one, so the tooltip answers a
+   pointer anywhere near the line. */
+.context-map__hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 12;
+    pointer-events: stroke;
+}
+
+.context-map__line--lit .context-map__stroke {
+    stroke-width: 2.5;
+}
+
+.context-map__line--faded {
+    opacity: 0.12;
+}
+
+.context-map__head path {
+    fill: var(--color-border-strong);
+}
+
+.context-map__head--core path {
+    fill: var(--color-domain-core-line);
+}
+
+.context-map__cards {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    pointer-events: none;
+}
+
+.context-map__slot {
+    position: absolute;
+    display: flex;
+}
+
+.context-map__card {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-2xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: opacity var(--transition-fast);
+}
+
+.context-map__card--core {
+    border-color: var(--color-domain-core-line);
+}
+
+.context-map__card:hover:not([aria-disabled="true"]),
+.context-map__card--active {
+    background: var(--color-background-raised);
+}
+
+/* The card a pick would open: a followable edge and its "zoom in" words. */
+.context-map__card--active:not([aria-disabled="true"]) {
+    border-color: var(--color-primary);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-background-alt));
+}
+
+.context-map__zoom {
+    display: none;
+    color: var(--color-primary);
+}
+
+.context-map__card--active .context-map__zoom {
+    display: inline;
+}
+
+.context-map__card:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.context-map__card[aria-disabled="true"] {
+    cursor: default;
+}
+
+.context-map__card--faded {
+    opacity: 0.55;
+}
+
+.context-map__name {
+    overflow: hidden;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.context-map__facts {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.context-map__card--core .context-map__facts {
+    color: var(--color-domain-core-line);
+}
+
+.context-map__legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-lg);
+    padding-top: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.context-map__legend-lines {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.context-map__legend-lines li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.context-map__legend-note {
+    margin: 0;
+}
+
+.context-map__swatch {
+    display: inline-block;
+    width: 1.25rem;
+    border-top: 2px solid var(--color-border-strong);
+}
+
+.context-map__swatch--core {
+    border-top-color: var(--color-domain-core-line);
+}
+
+.context-map__swatch--dashed {
+    border-top-style: dashed;
+}
+
+.context-map-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md) 0;
+    min-width: 0;
+}
+
+.context-map-list__group,
+.context-map-list__section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.context-map-list__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* A group's kind and count in small capitals, with what the kind is for. */
+.context-map-list__kind {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-md);
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+}
+
+.context-map-list__kind-name {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.context-map-list__kind--core .context-map-list__kind-name {
+    color: var(--color-domain-core-line);
+}
+
+.context-map-list__tagline {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.context-map-list__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.context-map-list__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.context-map-list__item {
+    display: grid;
+}
+
+/* Name, why, and the count at the foot, however long the why runs. */
+.context-map-list__card {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    align-content: start;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.context-map-list__card--core {
+    border-top: 3px solid var(--color-domain-core-line);
+}
+
+.context-map-list__card:hover:not([aria-disabled="true"]) {
+    border-color: var(--color-primary);
+    background: var(--color-background-raised);
+}
+
+.context-map-list__open {
+    display: none;
+    color: var(--color-primary);
+}
+
+.context-map-list__card:hover .context-map-list__open,
+.context-map-list__card:focus-visible .context-map-list__open {
+    display: inline;
+}
+
+.context-map-list__card:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.context-map-list__card[aria-disabled="true"] {
+    cursor: default;
+}
+
+.context-map-list__name {
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.context-map-list__count {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.context-map-list__why {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* The published languages: who owns each contract, its short names, who conforms. */
+.context-map-contracts {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.context-map-contracts__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.context-map-contracts__table th {
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.context-map-contracts__table td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+    vertical-align: top;
+}
+
+.context-map-contracts__name {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.context-map-contracts__name:hover {
+    text-decoration: underline;
+}
+
+.context-map-contracts__name:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.context-map-contracts__dot {
+    color: var(--color-text-secondary);
+}
+
+/* The strategic rules: a card each, its first sentence the title. */
+.context-map-rules {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.context-map-rules__card {
+    display: grid;
+    align-content: start;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    font-size: var(--font-size-sm);
+}
+
+.context-map-rules__title {
+    font-weight: var(--font-weight-semibold);
+}
+
+.context-map-rules__body {
+    color: var(--color-text-secondary);
+}
+
+.context-map-rules__title > *,
+.context-map-rules__body > * {
+    margin: 0;
+}
+
+/* The Domain view's Model page (local ADR 0044): a class diagram drawn as each
+   aggregate's consistency-boundary band — the root in the middle, its composed
+   parts as a tree above and below it joined by lines with the gold "owns" diamond
+   on the root, what it names by id in a column outside the band on a dashed line,
+   and the domain services that act on it beneath. The lines are the stylesheet's:
+   the markup stays boxes in reading order, each part saying its kind and
+   multiplicity in words. Under 56rem the tree folds into rows with no lines. */
+.domain-model-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* The heading on the left, the Diagram | Fields | Events switch on the right. */
+.domain-model-view__strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+
+.domain-model-view__title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: calc(var(--font-size-2xl) * 4 / 3);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.25;
+}
+
+/* One fused set (interaction-guidelines.md, "Fused means one set"): the options
+   flush inside one border with hairlines between them, the chosen one tinted and
+   underlined on the group's shared bottom edge. */
+.domain-model-view__switch {
+    display: inline-flex;
+    margin-left: auto;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-model-view__view {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.domain-model-view__view:hover {
+    color: var(--color-text-primary);
+}
+
+.domain-model-view__view + .domain-model-view__view {
+    border-left: var(--border-width) solid var(--color-border);
+}
+
+.domain-model-view__view:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.domain-model-view__view--active {
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-background-raised));
+    box-shadow: inset 0 calc(var(--border-width-2) * -1) 0 var(--color-primary);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model-view__intro {
+    max-width: 60rem;
+    margin: 0 0 var(--spacing-xs);
+    color: var(--color-text-secondary);
+}
+
+.domain-model-view__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    list-style: none;
+}
+
+.domain-model-view__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.domain-model-view__legend-owns {
+    width: 0.625rem;
+    height: 0.625rem;
+    background: var(--color-primary);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.domain-model-view__legend-id {
+    width: 1.5rem;
+    border-top: var(--border-width-2) dashed var(--color-border-strong);
+}
+
+.domain-model {
+    --domain-model-gap: var(--spacing-md);
+    --domain-model-stem: var(--spacing-xl);
+    --domain-model-line: var(--border-width-2) solid var(--color-border-strong);
+    --domain-model-id-line: var(--border-width-2) dashed var(--color-border-strong);
+    --domain-model-band-pad: var(--spacing-lg);
+    --domain-model-outside: 15rem;
+    --domain-model-column-gap: var(--spacing-md);
+    --domain-model-spine: calc(var(--domain-model-gap) * 2);
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    margin: 0;
+    padding: var(--spacing-md) 0;
+    min-width: 0;
+}
+
+.domain-model--fallback {
+    padding: 0;
+}
+
+.domain-model__aggregate {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    column-gap: var(--domain-model-column-gap);
+    row-gap: var(--domain-model-gap);
+}
+
+.domain-model__aggregate--references {
+    grid-template-columns: minmax(0, 1fr) var(--domain-model-outside);
+}
+
+/* The consistency boundary: what changes together, in one transaction. */
+.domain-model__band {
+    position: relative;
+    display: grid;
+    grid-column: 1;
+    grid-row: 1 / 4;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: subgrid;
+    row-gap: 0;
+    min-width: 0;
+    padding: calc(var(--domain-model-band-pad) + var(--spacing-md)) var(--domain-model-band-pad) var(--domain-model-band-pad);
+    border: var(--border-width) dashed var(--color-primary);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-model__band-label {
+    position: absolute;
+    top: var(--spacing-sm);
+    left: var(--domain-model-band-pad);
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.domain-model__group-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* A row of parts: equal columns, one bar joining their centres, one stem per part. */
+.domain-model__tier {
+    --domain-model-columns: 1;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(var(--domain-model-columns), minmax(0, 1fr));
+    gap: var(--domain-model-gap);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-model__tier::after {
+    content: "";
+    position: absolute;
+    left: calc((100% - (var(--domain-model-columns) - 1) * var(--domain-model-gap)) / var(--domain-model-columns) / 2);
+    right: calc((100% - (var(--domain-model-columns) - 1) * var(--domain-model-gap)) / var(--domain-model-columns) / 2);
+    border-top: var(--domain-model-line);
+}
+
+.domain-model__tier--above {
+    grid-row: 1;
+}
+
+.domain-model__tier--below {
+    grid-row: 3;
+}
+
+.domain-model__tier--above::after {
+    bottom: 0;
+}
+
+.domain-model__tier--below::after {
+    top: 0;
+}
+
+.domain-model__part {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.domain-model__tier > .domain-model__part::before,
+.domain-model__tier > .domain-model__part::after {
+    align-self: center;
+    border-left: var(--domain-model-line);
+}
+
+.domain-model__tier--above > .domain-model__part::after {
+    content: "";
+    flex: 1 0 var(--domain-model-stem);
+}
+
+.domain-model__tier--below > .domain-model__part::before {
+    content: "";
+    flex: 0 0 var(--domain-model-stem);
+}
+
+.domain-model__subparts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0 0 0 var(--spacing-md);
+    border-left: var(--domain-model-line);
+    list-style: none;
+}
+
+/* The root row: the card centred between a spacer and the dashed line out to
+   what it names by id. The line runs on past the band's padding, its border and
+   the column gap to the column's spine — lengths this stylesheet sets, so it
+   ends exactly there. The stems fill the row above and below the card. */
+.domain-model__root {
+    display: grid;
+    grid-row: 2;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 20rem) minmax(0, 1fr);
+    align-items: center;
+}
+
+.domain-model__root-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    align-self: stretch;
+    justify-content: center;
+    grid-column: 2;
+}
+
+.domain-model__root--above .domain-model__root-stack::before,
+.domain-model__root--below .domain-model__root-stack::after {
+    content: "";
+    flex: 1 0 var(--domain-model-stem);
+    border-left: var(--domain-model-line);
+}
+
+.domain-model__id-line {
+    grid-column: 3;
+    margin-right: calc(-1 * (var(--domain-model-band-pad) + var(--border-width) + var(--domain-model-column-gap)));
+    border-top: var(--domain-model-id-line);
+}
+
+.domain-model__owns {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    background: var(--color-primary);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.domain-model__owns--above {
+    margin-bottom: -0.5rem;
+}
+
+.domain-model__owns--below {
+    margin-top: -0.5rem;
+}
+
+.domain-model__element {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-top: var(--border-width-4) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.domain-model__element--entity {
+    border-top-color: var(--color-domain-entity);
+}
+
+.domain-model__element--value-object {
+    border-top-color: var(--color-domain-value-object);
+}
+
+.domain-model__element.domain-model__element--root {
+    position: relative;
+    gap: var(--spacing-xs);
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width-2) solid var(--color-primary);
+    border-radius: var(--border-radius-lg);
+}
+
+.domain-model__element-title {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.domain-model__element-name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-model__element--root .domain-model__element-name {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    line-height: 1.3;
+}
+
+.domain-model__element-kind {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-model__element--root .domain-model__element-kind,
+.domain-model__element--root .domain-model__element-glyph {
+    color: var(--color-primary);
+}
+
+.domain-model__element--entity .domain-model__element-kind {
+    color: var(--color-domain-entity);
+}
+
+.domain-model__element--value-object .domain-model__element-kind {
+    color: var(--color-domain-value-object);
+}
+
+.domain-model__element-fields {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-model__key-fields {
+    display: flex;
+    flex-direction: column;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+.domain-model__root-links {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.domain-model__all-fields {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.domain-model__all-fields:hover {
+    color: var(--color-primary-light);
+}
+
+.domain-model__all-fields:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.domain-model__edge-owner {
+    color: var(--color-text-primary);
+}
+
+.domain-model__multiplicity {
+    font-family: var(--font-family-mono);
+}
+
+/* Named by id: a column outside the band, in the root's row, each type on a
+   dashed arrow off one dashed spine at the column's left edge, which the root's
+   line reaches. The heading sits above the list so the list's middle is the
+   row's middle. */
+.domain-model__references {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-model__aggregate--references .domain-model__references {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    padding-left: var(--domain-model-spine);
+}
+
+.domain-model__aggregate--references .domain-model__references > .domain-model__group-label {
+    position: absolute;
+    bottom: calc(100% + var(--spacing-sm));
+    left: var(--domain-model-spine);
+}
+
+.domain-model__reference-list {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* From the first card's middle to the last's — and through the row's middle,
+   where the root's line arrives, since the list is centred on it. */
+.domain-model__aggregate--references .domain-model__reference-list::before {
+    content: "";
+    position: absolute;
+    top: 1.75rem;
+    bottom: 1.75rem;
+    left: calc(var(--domain-model-spine) * -1);
+    border-left: var(--domain-model-id-line);
+}
+
+.domain-model__reference {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.domain-model__aggregate--references .domain-model__reference::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--domain-model-spine) * -1);
+    width: calc(var(--domain-model-spine) - var(--spacing-xs));
+    border-top: var(--domain-model-id-line);
+}
+
+.domain-model__aggregate--references .domain-model__reference::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--spacing-xs) * -1 - 1px);
+    width: 0.375rem;
+    height: 0.5rem;
+    background: var(--color-border-strong);
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+    transform: translateY(-50%);
+}
+
+.domain-model__reference-head {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+}
+
+.domain-model__reference-name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model__reference-head .domain-model__multiplicity,
+.domain-model__reference-owner {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-model__reference-via {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.domain-model__services {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.domain-model__service-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-model__service {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.domain-model__service-name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model__service-summary {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-model__unplaced {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* Narrow: the column of ids goes under the band and the rows of parts wrap, so
+   the lines that would no longer meet are not drawn. */
+@container (max-width: 56rem) {
+    .domain-model__aggregate--references {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto auto auto;
+    }
+
+    .domain-model__aggregate--references .domain-model__references {
+        grid-column: 1;
+        grid-row: 4;
+        padding-left: 0;
+    }
+
+    .domain-model__aggregate--references .domain-model__references > .domain-model__group-label {
+        position: static;
+    }
+
+    .domain-model__id-line,
+    .domain-model__owns,
+    .domain-model__root--above .domain-model__root-stack::before,
+    .domain-model__root--below .domain-model__root-stack::after {
+        display: none;
+    }
+
+    .domain-model__tier {
+        grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    }
+
+    .domain-model__tier::after,
+    .domain-model__tier > .domain-model__part::before,
+    .domain-model__tier > .domain-model__part::after,
+    .domain-model__aggregate--references .domain-model__reference-list::before,
+    .domain-model__aggregate--references .domain-model__reference::before,
+    .domain-model__aggregate--references .domain-model__reference::after {
+        display: none;
+    }
+
+    .domain-model__tier--above {
+        padding-bottom: var(--spacing-md);
+    }
+
+    .domain-model__tier--below {
+        padding-top: var(--spacing-md);
+    }
+}
+
+/* The Model page's Fields and Events tabs (local ADR 0044 §6): the technical half
+   of a context — each class's fields grouped by kind, the relationship notes, how
+   each domain service runs, and each domain event as a contract. Cards on the
+   raised surface, labels in the band's small caps, types in the mono face. */
+.domain-model-view__section-title {
+    margin: 0 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.domain-model-view__notes,
+.domain-services {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+    min-width: 0;
+}
+
+.domain-fields__unread {
+    margin: var(--spacing-md) 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-fields__class,
+.domain-services__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.domain-fields__class--root {
+    border-color: var(--color-border-strong);
+}
+
+.domain-fields__class-header,
+.domain-event__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-sm);
+}
+
+.domain-fields__class-name,
+.domain-event__name {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-fields__class-kind {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-fields__class-kind.domain-model__element--root .domain-model__element-glyph {
+    color: var(--color-primary);
+}
+
+.domain-fields__class-kind.domain-model__element--entity {
+    color: var(--color-domain-entity);
+}
+
+.domain-fields__class-kind.domain-model__element--value-object {
+    color: var(--color-domain-value-object);
+}
+
+.domain-fields__group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.domain-fields__group-label,
+.domain-event__label {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.domain-fields__list,
+.domain-event__facts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.domain-fields__field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-fields__name {
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-fields__type {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--spacing-xs);
+    margin: 0;
+    min-width: 0;
+}
+
+.domain-fields__type-name {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.domain-fields__detail,
+.domain-fields__empty,
+.domain-services__unsaid,
+.domain-event__unsaid {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-services__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-events {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+}
+
+.domain-services__name {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+}
+
+.domain-services__summary,
+.domain-event__summary {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-services__invocation {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+}
+
+.domain-event__fact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--spacing-sm);
+}
+
+.domain-event__value {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-event__part {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding-top: var(--spacing-sm);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+/* Documented and Emitted are information about the chapter, so both are the
+   Domain view's neutral outline (color-scheme.md#domain-view-element-tones): a
+   transparent surface inside the strong edge, secondary ink, the word saying which. */
+.badge--tone.domain-event__delivery {
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+/* Fields' header in the switch's strip: the root's kind, status and aliases over
+   its name. The kind is the root's gold outline; the status a dashed neutral
+   outline (color-scheme.md#domain-view-element-tones: information badges are
+   neutral outlines); each alias in the mono face. */
+.domain-model-view__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.domain-model-view__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-model-view__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 0.125rem var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    color: var(--color-text-secondary);
+}
+
+.domain-model-view__chip--root {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-model-view__chip--status {
+    border-style: dashed;
+}
+
+.domain-model-view__aliases {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.domain-model-view__alias {
+    padding: 0.125rem var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.domain-model-view__lead {
+    max-width: 48rem;
+    margin: var(--spacing-xs) 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-lg);
+    line-height: 1.55;
+}
+
+.domain-model-view__legend--fields {
+    margin-bottom: var(--spacing-lg);
+}
+
+/* A field's type: the three kinds of time and the plain id as the legend's
+   neutral badges (date outlined, instant filled, id dashed), a type of the model
+   in its kind's tone, anything else in words. */
+.domain-field-type {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.domain-field-type--date,
+.domain-field-type--local-time {
+    padding: 0 0.375rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-primary);
+}
+
+.domain-field-type--instant {
+    padding: 0 0.375rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.domain-field-type--id {
+    padding: 0 0.375rem;
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    color: var(--color-text-secondary);
+}
+
+.domain-field-type--enumeration {
+    color: var(--color-domain-enumeration);
+    font-size: var(--font-size-sm);
+}
+
+.domain-field-type--value-object {
+    color: var(--color-domain-value-object);
+    font-size: var(--font-size-sm);
+}
+
+.domain-field-type--entity {
+    color: var(--color-domain-entity);
+    font-size: var(--font-size-sm);
+}
+
+/* The groups in one column, what the root owns in a narrower one beside them;
+   under the width of both the side column drops beneath. */
+.domain-fields-board {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-lg);
+    min-width: 0;
+    padding-bottom: var(--spacing-md);
+}
+
+.domain-fields-board__groups {
+    display: flex;
+    flex: 999 1 36rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-fields-group {
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-fields-group__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-xs) var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.domain-fields-group__title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-fields-group__question {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-fields-group__rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-field-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs) var(--spacing-md);
+    padding: 0.75rem var(--spacing-lg);
+}
+
+.domain-field-row + .domain-field-row {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-field-row__name {
+    flex: 0 0 11rem;
+    min-width: 0;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.domain-field-row__type {
+    flex: 0 0 8rem;
+    min-width: 0;
+}
+
+.domain-field-row__meaning {
+    flex: 1 1 16rem;
+    min-width: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.domain-field-row__meaning p {
+    margin: 0;
+}
+
+.domain-field-row--derived {
+    background: var(--color-background);
+}
+
+.domain-field-row--derived .domain-field-row__name {
+    color: var(--color-text-secondary);
+    font-style: italic;
+}
+
+/* How many invariants the field's bullet points at: information about the
+   chapter, so a neutral outline. */
+.domain-field-rules {
+    padding: 0 0.375rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-sm);
+    background: none;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* On a row, the count opens the field's rules in place. */
+button.domain-field-rules {
+    cursor: pointer;
+}
+
+button.domain-field-rules:hover,
+button.domain-field-rules[aria-expanded="true"] {
+    border-color: var(--color-text-secondary);
+    color: var(--color-text-primary);
+}
+
+.domain-fields-owned {
+    display: flex;
+    flex: 1 1 16rem;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.domain-fields-owned__title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-fields-owned__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    font-size: var(--font-size-sm);
+}
+
+.domain-fields-owned__label {
+    display: inline-flex;
+    gap: var(--spacing-xs);
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.domain-fields-owned__card--entity .domain-fields-owned__label {
+    color: var(--color-domain-entity);
+}
+
+.domain-fields-owned__card--value-object .domain-fields-owned__label {
+    color: var(--color-domain-value-object);
+}
+
+.domain-fields-owned__card--enumeration .domain-fields-owned__label {
+    color: var(--color-domain-enumeration);
+}
+
+.domain-fields-owned__name {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-fields-owned__note {
+    color: var(--color-text-secondary);
+}
+
+.domain-fields-owned__many,
+.domain-fields-owned__enum > .domain-fields-owned__note {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+}
+
+.domain-fields-owned__summary {
+    margin: 0;
+}
+
+.domain-fields-owned__also {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.domain-fields-owned__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-fields-owned__values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-xs) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-fields-owned__values code {
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+/* Events: the "All events" index, the picked event's contract beneath it, and
+   what the context listens to. An event's name is the rose, in the mono face. */
+.domain-events__intro {
+    max-width: 48rem;
+    margin: var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+}
+
+.domain-events__index {
+    overflow-x: auto;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-events__table {
+    width: 100%;
+    min-width: 40rem;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+}
+
+.domain-events__table th,
+.domain-events__table td {
+    padding: 0.75rem var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-normal);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.domain-events__table thead th {
+    border-top: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.domain-events__row--selected {
+    background: var(--color-background-raised);
+    box-shadow: inset 3px 0 0 var(--color-domain-event);
+}
+
+.domain-events__pick {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-domain-event);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.domain-events__pick:hover {
+    text-decoration: underline;
+}
+
+.domain-events__pick:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.domain-event {
+    container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 0;
+    padding: 0;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+}
+
+.domain-event__lead {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.domain-event .domain-event__header {
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.domain-event .domain-event__name {
+    color: var(--color-domain-event);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-medium);
+}
+
+.domain-event__flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--spacing-sm) var(--spacing-xl);
+    margin: var(--spacing-sm) 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-event__step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+    font-size: var(--font-size-sm);
+}
+
+.domain-event__step + .domain-event__step::before {
+    content: "→";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--spacing-xl) / -2);
+    transform: translate(-50%, -50%);
+    color: var(--color-text-secondary);
+}
+
+/* Narrow: the steps stack, and the arrows that joined them side by side go. */
+@container (max-width: 36rem) {
+    .domain-event__flow {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+
+    .domain-event__step + .domain-event__step::before {
+        content: none;
+    }
+}
+
+.domain-event__step--event {
+    border-style: dashed;
+    border-color: var(--color-domain-event);
+}
+
+.domain-event__step-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.domain-event__step--event .domain-event__step-label {
+    color: var(--color-domain-event);
+}
+
+.domain-event__body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg);
+}
+
+.domain-event__body .domain-event__part {
+    padding-top: 0;
+    border-top: 0;
+}
+
+.domain-event__part--payload {
+    flex: 2 1 24rem;
+}
+
+.domain-event__part--rules {
+    flex: 1 1 14rem;
+}
+
+.domain-event__payload {
+    width: 100%;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+}
+
+.domain-event__payload td {
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-normal);
+    text-align: left;
+    vertical-align: baseline;
+}
+
+.domain-event__payload tr + tr th,
+.domain-event__payload tr + tr td {
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.domain-event__payload th {
+    width: 35%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-weight: var(--font-weight-normal);
+    text-align: left;
+    vertical-align: baseline;
+}
+
+.domain-event__payload td p,
+.domain-event__rules p {
+    margin: 0;
+}
+
+.domain-event__rules {
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+}
+
+.domain-events__listens {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
+.domain-events__listens-title {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+}
+
+.domain-events__listens-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+    gap: var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.domain-events__feed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    background: var(--color-background-alt);
+    font-size: var(--font-size-sm);
+}
+
+.domain-events__feed-name {
+    color: var(--color-domain-event);
+    font-family: var(--font-family-mono);
+}
+
+.domain-events__feed-text {
+    margin: 0;
+}
+
+.domain-events__feed-why {
+    margin: 0;
+    color: var(--color-text-secondary);
 }
 
 /* --- Notifications ---------------------------------------------------------

@@ -127,6 +127,12 @@ public static class AppFeatures
             "Show the status every devbook file and each of its chapters state, Brain notes included, beside the file's name and beside each heading, with who signed it off. Off, no status or decision state is shown there; a chapter's other fields still are, and the AI loop's usage pills and the atlas badges are not affected.",
             EnabledByDefault: false),
         new(
+            DevbookFeatures.DomainView,
+            "New domain view",
+            "Read the Devbook's Domain area one unit at a time: the context map, each bounded context, and each file inside it, on a page drawn for the kind of file it is. Turned off, the Domain area reads as it always has.",
+            EnabledByDefault: false,
+            Status: AppFeatureStatus.Dev),
+        new(
             DevPcFeatures.SystemTools,
             "System tools",
             "Check, update, enable, and disable what this machine is configured to have: Copilot and Claude plugins, marketplaces, MCP servers, and the applications and checks the setup guide asks for.",

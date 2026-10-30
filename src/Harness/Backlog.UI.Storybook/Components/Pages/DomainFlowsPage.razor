@@ -1,0 +1,345 @@
+@page "/devbook/domain-flows"
+
+<PageTitle>Domain flows — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Domain flows"
+           Summary="A subpage of Devbook: the Flow page of the Domain view, which reads a bounded context's `flow.md` (local ADR 0044). The first chapter titles the page, its lead and a legend above the drawing. A `stateDiagram-v2` is drawn as one row of states that scales to the column: each state a box with its description, the move to the next state on top and the move back underneath, other arcs in lanes above and below, the restore loop — the way from the last state back to the first — round the outside on top, each event a chip under its transition, and a way in from several states under one label as one note. A chapter of untyped sub-chapters reads as cards. A `flowchart` and a `sequenceDiagram` are drawn in the same cards, lines, arrowheads and type; a Mermaid diagram none of the three can read keeps the rendering it has everywhere else."
+           Guidelines="@Rules">
+
+    <Story Name="Lifecycle row"
+           Description="A task's lifecycle as its board draws it: five states in one row, each with its description, In progress set apart and Done and Archived sunk. Refined, started, finished and archived run forward on top; revise, paused and reopened run back underneath in a dimmer tone; restored loops round the outside on top. TaskProjected and TaskCompleted are dashed chips — documented, not yet emitted — and the drop with an archived repository is one note under the row. A screen reader hears the list of transitions instead of the drawing."
+           Code="@RowCode"
+           Source="@TaskLifecycle"
+           SourceLanguage="text">
+        <DomainFlowRow Diagram="@TaskDiagram" AriaLabel="Task lifecycle" />
+    </Story>
+
+    <Story Name="Start, end and self loops"
+           Description="The end pseudo-state sits at the row's end as a ring; the start is not drawn when its one way in leads to the first state, which already says where an item begins. A transition from a state to itself is a small loop above it, and every label the source gives one pair of states is joined with a slash."
+           Code="@RowCode"
+           Source="@InboxLifecycle"
+           SourceLanguage="text">
+        <DomainFlowRow Diagram="@InboxDiagram" AriaLabel="Inbox item lifecycle" />
+    </Story>
+
+    <Story Name="Flowchart down the page"
+           Description="A `flowchart TD` in ranks: each node a rank below every node linking to it, a question drawn as a card with pointed ends, every line turning between the ranks with the row's arrowhead, its label on the stretch into its node. A link back to an earlier rank — More accepted proposals? yes — runs round the outside on the right."
+           Code="@ChartCode"
+           Source="@ApplyChart"
+           SourceLanguage="text">
+        <DomainFlowchart Diagram="@ApplyDiagram" AriaLabel="AI triage pass Apply" />
+    </Story>
+
+    <Story Name="Flowchart across the page"
+           Description="A `flowchart LR`: the ranks run left to right and each label sits above the stretch into its node. A dotted link — a supplier — is dashed."
+           Code="@ChartCode"
+           Source="@AdoptionChart"
+           SourceLanguage="text">
+        <DomainFlowchart Diagram="@AdoptionDiagram" AriaLabel="Adoption tracking" />
+    </Story>
+
+    <Story Name="Sequence"
+           Description="A `sequenceDiagram`: a card per participant with its lifeline beneath, each message a line between two lifelines with its text above it, a reply dashed, a message to itself a small loop. A note is a card of its own; an alt, opt, loop or par block is a frame round its steps, its keyword in a tag and a dashed line before each further branch."
+           Code="@SequenceCode"
+           Source="@IntakeSequence"
+           SourceLanguage="text">
+        <DomainSequence Diagram="@IntakeDiagram" AriaLabel="Capture intake" />
+    </Story>
+
+    <Story Name="Flow page"
+           Description="A whole `flow.md`: the lifecycle titles the page with its lead and legend, the row and its prose beneath; what sits beside the status as cards; the intake as a sequence, readiness as a flowchart. The model chapter's class diagram is none of the three, so it stays in the prose and renders as Mermaid always does. Where the invariants name a chapter, its rules show in place: How a task moves under the lifecycle's row, and Readiness's behind its card's rule count."
+           Code="@PageCode"
+           Source="@FlowFile">
+        <DomainFlowPage File="@File" RulesAbout="@Catalog.About" TestId="story-domain-flows-page" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#domain-view-element-tones", "Why the drawings are monochrome and an event chip is a neutral outline: on the row, where a transition runs and its arrowhead say which way it goes, the way back in a dimmer tone; in a flowchart the dash marks a dotted link, in a sequence a reply."),
+        new("accessibility.md#iconography-accessibility", "Why each drawing is hidden from a screen reader and its transitions, links or steps are read as a list instead.")
+    ];
+
+    private const string TaskLifecycle = """
+        stateDiagram-v2
+            state "In progress" as InProgress
+            Draft : every new task
+            Ready : actionable
+            InProgress : stamps started_on once
+            Done : work is over
+            Archived : out of default views
+            [*] --> Draft : created
+            Draft --> Ready : refined
+            Ready --> InProgress : started (TaskProjected, not yet emitted)
+            InProgress --> Done : finished (TaskCompleted, not yet emitted)
+            Done --> Archived : archived
+            Archived --> Draft : restored
+            Ready --> Draft : revise
+            InProgress --> Ready : paused
+            Done --> InProgress : reopened
+            Draft --> Archived : drop straight there when their repository is archived. The task keeps its filing and nothing is deleted
+            Ready --> Archived : drop straight there when their repository is archived. The task keeps its filing and nothing is deleted
+            InProgress --> Archived : drop straight there when their repository is archived. The task keeps its filing and nothing is deleted
+            note right of Draft : StatusChanged on every move
+            classDef active stroke-width:2px
+            classDef ended stroke-width:1px
+            class InProgress active
+            class Done,Archived ended
+        """;
+
+    private const string InboxLifecycle = """
+        stateDiagram-v2
+            [*] --> Unprocessed : Captured
+            Unprocessed --> Routed : Route to Tasks
+            Unprocessed --> Routed : To Brain
+            Unprocessed --> Deferred : Defer
+            Deferred --> Deferred : Change the review date
+            Deferred --> Unprocessed : Review date reached
+            Routed --> [*]
+        """;
+
+    private const string FlowFile = """
+        # Tasks
+
+        ```meta
+        type: flow
+        ```
+
+        ## Task lifecycle
+
+        Three recorded states. Forward moves on top, the ways back underneath.
+
+        ```mermaid
+        stateDiagram-v2
+            Draft : every new task
+            Ready : actionable
+            Done : work is over
+            [*] --> Draft : created
+            Draft --> Ready : refined
+            Ready --> Done : finished (TaskCompleted, not yet emitted)
+            Done --> Draft : restored
+            Ready --> Draft : revise
+        ```
+
+        - Restoring a done task returns it to `Draft`, so it is refined again.
+
+        ## Beside the status, not states
+
+        ### The tick
+
+        `completed_on`
+
+        - Ticking an open task also moves it to Done.
+        - Unticking clears only the tick.
+
+        [2 requirements →](requirements.md#requirement-ticking-an-open-task-off-moves-it-to-done)
+
+        ### Readiness
+
+        *derived on read*
+
+        - `ready` — nothing it waits on is open.
+        - `blocked` — it waits on an open task.
+
+        [Rules →](domain.invariants.md#readiness-and-dependencies)
+
+        ## Capture intake
+
+        ```mermaid
+        sequenceDiagram
+            participant P as Phone
+            participant I as Inbox
+            P->>I: capture
+            I-->>P: acknowledged
+        ```
+
+        The intake decides by id and status and parses no token.
+
+        ## Readiness derivation
+
+        ```mermaid
+        flowchart TD
+            A{"ticked off (completed)?"} -->|yes| D["Readiness: done"]
+            A -->|no| B{"does every id in depends_on resolve to a completed task?"}
+            B -->|yes| R["Readiness: ready"]
+            B -->|"no, or an id resolves to nothing"| K["Readiness: blocked"]
+        ```
+
+        Readiness is derived on read and never stored.
+
+        ## Task model
+
+        ```mermaid
+        classDiagram
+            class Task {
+                title
+                status
+            }
+        ```
+        """;
+
+    private const string ApplyChart = """
+        flowchart TD
+            A["Apply"] --> B["Take the next accepted proposal, in list order"]
+            B --> C{"Refused?"}
+            C -->|no| D["The decision lands as one undo step"]
+            D --> E{"More accepted proposals?"}
+            E -->|yes| B
+            E -->|no| F["Screen closes, a toast counts decisions and items left"]
+            C -->|yes| G["Stop. What already landed stays"]
+            G --> H["Screen keeps the proposals not taken, a note names the refused item and why"]
+        """;
+
+    private const string AdoptionChart = """
+        flowchart LR
+            DevPC[Dev PC Management] -->|tool-version reports| AT
+            Repo[Repository Management] -->|tech-stack scans| AT
+            Reg["Public package registries<br/>(supplier)"] -.->|latest versions| AT
+            AT[Adoption Tracking] -->|daily snapshots| AA[Adoption Analytics]
+            AA -->|adoption metrics feed| Mon[Monitoring & Dashboard]
+            AA -->|adoption gaps as tech-upgrade tasks| Tasks
+        """;
+
+    private const string IntakeSequence = """
+        sequenceDiagram
+            participant P as Phone / IDE
+            participant S as Sync Service (replica)
+            participant M as Desktop sync client
+            participant I as Inbox intake
+            P->>S: POST /api/sync/inbox (title, source, attachments)
+            S->>S: write document, type = capture
+            M->>S: GET /api/sync/tasks?since=cursor
+            S-->>M: documents, captures among them
+            M->>I: ReceiveAsync(capture)
+            alt unknown id, live
+                I->>I: create item with the capture's id, save (Received)
+                loop each attachment still waiting
+                    I->>S: GET /api/sync/attachments/{id}
+                    S-->>I: bytes
+                end
+            else otherwise
+                I-->>M: AlreadyKnown / Ignored
+            end
+            Note over I,M: later — the reader routes or archives the item
+        """;
+
+    private static readonly DomainFlowchartDiagram ApplyDiagram = DomainFlowcharts.Parse(ApplyChart)!;
+    private static readonly DomainFlowchartDiagram AdoptionDiagram = DomainFlowcharts.Parse(AdoptionChart)!;
+    private static readonly DomainSequenceDiagram IntakeDiagram = DomainSequences.Parse(IntakeSequence)!;
+
+    private const string ChartCode = """
+        @if (DomainFlowcharts.Parse(mermaidSource) is { } chart)
+        {
+            <DomainFlowchart Diagram="@chart" AriaLabel="AI triage pass Apply" />
+        }
+        """;
+
+    private const string SequenceCode = """
+        @if (DomainSequences.Parse(mermaidSource) is { } sequence)
+        {
+            <DomainSequence Diagram="@sequence" AriaLabel="Capture intake" />
+        }
+        """;
+
+    private static readonly DomainFlowDiagram TaskDiagram = DomainFlows.Parse(TaskLifecycle)!;
+    private static readonly DomainFlowDiagram InboxDiagram = DomainFlows.Parse(InboxLifecycle)!;
+    private static readonly DomainChapterFile File = DomainUnits.Parse(FlowFile, ".devbook/domain/tasks/flow.md");
+
+    // The rules the invariants write about the lifecycle and the Readiness card,
+    // by the group's related.
+    private const string TaskDomain = """
+        # Tasks
+
+        ## Task
+
+        ```meta
+        type: aggregate
+        ```
+
+        A refined, actionable item.
+        """;
+
+    private const string TaskInvariants = """
+        # Invariants
+
+        ## Task
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/tasks/domain.md#task]
+        ```
+
+        ### How a task moves
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/flow.md#task-lifecycle]
+        ```
+
+        #### Invariant: A new task starts in draft
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskTests.A_new_task_is_draft]
+        ```
+
+        A task is created in `draft`.
+
+        Enforced at: constructor
+
+        #### Invariant: Status changes follow the lifecycle
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskTests.Status_moves_along_the_lifecycle]
+        ```
+
+        `ChangeStatus()` refuses a move the lifecycle does not draw.
+
+        Enforced at: `ChangeStatus()`
+
+        ### Readiness and dependencies
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/flow.md#readiness]
+        ```
+
+        #### Invariant: Readiness is derived and never stored
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Tasks.TaskChainTests.Readiness_is_derived]
+        ```
+
+        Readiness is worked out on every read.
+
+        Enforced at: `TaskChain.Resolve()`
+
+        #### Invariant: A dependency naming no task still blocks
+
+        ```meta
+        type: invariant
+        ```
+
+        A missing task still blocks the one waiting on it.
+
+        Enforced at: `TaskChain.Resolve()`
+        """;
+
+    private static readonly DomainRuleCatalog Catalog = DomainRuleCatalog.Of(
+        [DomainUnits.Parse(TaskDomain, ".devbook/domain/tasks/domain.md")],
+        [DomainUnits.Parse(TaskInvariants, ".devbook/domain/tasks/domain.invariants.md")]);
+
+    private const string RowCode = """
+        <DomainFlowRow Diagram="@DomainFlows.Parse(mermaidSource)" AriaLabel="Task lifecycle" />
+        """;
+
+    private const string PageCode = """
+        <DomainFlowPage File="@DomainUnits.Parse(markdown, ".devbook/domain/tasks/flow.md")"
+                        RulesAbout="@DomainRuleCatalog.Of(domainFiles, invariantFiles).About"
+                        OnOpenRule="OpenAlwaysTrueAsync"
+                        OnNavigate="OpenAsync" />
+        """;
+}

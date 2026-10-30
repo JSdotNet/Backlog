@@ -126,7 +126,7 @@ flowchart TB
 ## Desktop App
 
 ```meta
-related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/domain/sync/features.md#pairing-a-device"]
+related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md", ".devbook/arc42/adr/0030-stored-credentials-go-through-the-os-protected-envelope.md", ".devbook/arc42/adr/0033-the-dashboard-sends-its-figures-to-foundry-whichever-part-was-pressed.md", ".devbook/arc42/adr/0044-the-domain-view-reads-by-unit.md", ".devbook/domain/sync/features.md#pairing-a-device"]
 ```
 
 The desktop app is the local-first Windows client, and the one channel that serves
@@ -257,8 +257,12 @@ names. The `demo` and `demo_link` tables (schema 5) pair each
 `*.demo.html` with its page by name and with every chapter whose `demo` field
 names it. The pairing rule itself lives in `DevbookReadingConvention`, in the
 Devbook module's Abstractions, so the builder, the MCP chapter read and the
-Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes the
-same tables, and `DevbookBuilderParityTests` compares the two writers.
+Domain devbook pane apply one rule. Each identifier a chapter's `tests` field
+names is a `tests` row of `node_attribute` (schema 6), read through
+`DevbookDatabase.Attributes("tests")`, so the Domain view can tell a proved
+requirement from one no test is linked to (local ADR 0044).
+`tools/devbook/build-database.mjs` writes the same tables, and
+`DevbookBuilderParityTests` compares the two writers.
 
 The same builder reads the Brain (local ADR 0026) under `DevbookCorpusKind.Brain`.
 This is how the Brain is built and kept current:

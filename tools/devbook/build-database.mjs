@@ -75,8 +75,10 @@ export const GENERATOR = 'tools/devbook/build-database.mjs';
  *  node data rather than turning into edges — `roadmap` in particular holds
  *  roadmap item tag slugs and not chapter addresses, so it must never become
  *  one — plus `aliases` and `alternatives`, which name things rather than
- *  address them. One row per value, so a reader filters instead of splitting. */
-const LIST_ATTRIBUTES = ['feature-flag', 'roadmap', 'aliases', 'alternatives'];
+ *  address them — and `tests`, the `<level>:<runner>:<selector>` identifiers a
+ *  chapter is proved by, which name tests rather than chapters. One row per
+ *  value, so a reader filters instead of splitting. */
+const LIST_ATTRIBUTES = ['feature-flag', 'roadmap', 'aliases', 'alternatives', 'tests'];
 
 /** Generated output and vendored trees hold no authored Markdown. */
 const SKIPPED_DIRECTORIES = new Set(['_meta', '_archify', 'node_modules', '.git']);

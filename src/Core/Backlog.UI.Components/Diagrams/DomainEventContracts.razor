@@ -1,0 +1,259 @@
+@*
+    The Model page's Events tab (local ADR 0044): what the bounded context tells
+    other contexts and what it listens to. Each domain-event chapter is a row of
+    the "All events" index — who raises it, when, who consumes it, and whether the
+    chapters say it is emitted or only documented — and the picked row's contract
+    shows beneath: raised by, the event, consumed by; its payload as rows; the
+    published-language rules consumers conform to. "What <context> listens to"
+    reads the dependency tables' published languages another context supplies.
+    The words are the chapters'; a section the chapter does not write is named as
+    missing rather than left out.
+*@
+
+@if (Events.Count == 0 && Listens.Count == 0)
+{
+    <EmptyState Title="No domain events"
+                Description="This context's domain chapters hold no domain-event chapter."
+                TestId="domain-events-empty"
+                role="status" />
+}
+else
+{
+    <div class="domain-events" data-testid="@TestId">
+        @if (Events.Count == 0)
+        {
+            <p class="domain-events__intro" data-testid="domain-events-none">This context's domain chapters hold no domain-event chapter.</p>
+        }
+        else
+        {
+            var selected = Selected;
+            <p class="domain-events__intro" data-testid="domain-events-intro">@Intro</p>
+            <div class="domain-events__index">
+                <table class="domain-events__table" data-testid="domain-events-index" aria-label="All events">
+                    <thead>
+                        <tr>
+                            <th scope="col">Event</th>
+                            <th scope="col">Raised by</th>
+                            <th scope="col">When</th>
+                            <th scope="col">Consumers</th>
+                            <th scope="col">State</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var contract in Events)
+                        {
+                            var picked = ReferenceEquals(contract, selected);
+                            <tr class="@($"domain-events__row{(picked ? " domain-events__row--selected" : "")}")" data-testid="domain-event-row" data-name="@contract.Title" data-selected="@(picked ? "true" : "false")">
+                                <th scope="row">
+                                    <button type="button"
+                                            class="domain-events__pick"
+                                            data-testid="domain-event-pick"
+                                            aria-current="@(picked ? "true" : null)"
+                                            @onclick="@(() => _selected = contract.Anchor)">@contract.Title</button>
+                                </th>
+                                <td>@RaisedBy(contract)</td>
+                                <td>@DomainEventIndex.When(contract)</td>
+                                <td>@string.Join(", ", DomainEventIndex.Consumers(contract).Select(c => c.Name))</td>
+                                <td>@Delivery(contract)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (selected is not null)
+            {
+                var consumers = DomainEventIndex.Consumers(selected);
+                var payload = DomainEventIndex.Payload(selected);
+                <article class="domain-event" data-testid="domain-event" data-name="@selected.Title" data-delivery="@DeliveryKey(selected)" aria-label="@selected.Title">
+                    <div class="domain-event__lead">
+                        <header class="domain-event__header">
+                            <h3 class="domain-event__name">@selected.Title</h3>
+                            @Delivery(selected)
+                        </header>
+                        @if (selected.Summary.Length > 0)
+                        {
+                            <div class="domain-event__summary"><MarkdownView Blocks="@MarkdownPreview.ParseDocument(selected.Summary)" /></div>
+                        }
+                        <ol class="domain-event__flow" aria-label="How it travels">
+                            <li class="domain-event__step" data-testid="domain-event-raised-by">
+                                <span class="domain-event__step-label">raised by</span>
+                                @if (selected.RaisedBy.Count == 0)
+                                {
+                                    <span class="domain-event__unsaid">Not named</span>
+                                }
+                                else
+                                {
+                                    <strong>@string.Join(", ", selected.RaisedBy)</strong>
+                                }
+                            </li>
+                            <li class="domain-event__step domain-event__step--event">
+                                <span class="domain-event__step-label">event</span>
+                                <strong>@(payload is null ? selected.Title : $"{payload.Count} payload {(payload.Count == 1 ? "field" : "fields")}")</strong>
+                            </li>
+                            <li class="domain-event__step" data-testid="domain-event-consumers">
+                                <span class="domain-event__step-label">consumed by</span>
+                                @if (consumers.Count == 0 && selected.Consumers is { } prose)
+                                {
+                                    <MarkdownView Blocks="@MarkdownPreview.ParseDocument(prose)" />
+                                }
+                                else if (consumers.Count == 0)
+                                {
+                                    <span class="domain-event__unsaid">The chapter does not say.</span>
+                                }
+                                else
+                                {
+                                    @foreach (var consumer in consumers)
+                                    {
+                                        <span class="domain-event__consumer"><strong>@consumer.Name</strong>@if (consumer.What is { Length: > 0 } what)
+                                            {
+                                                <text> — @what</text>
+                                            }</span>
+                                    }
+                                }
+                            </li>
+                        </ol>
+                    </div>
+                    <div class="domain-event__body">
+                        <section class="domain-event__part domain-event__part--payload" data-testid="domain-event-payload">
+                            <h4 class="domain-event__label">Payload</h4>
+                            @if (payload is not null)
+                            {
+                                <table class="domain-event__payload" aria-label="@($"{selected.Title} payload")">
+                                    <tbody>
+                                        @foreach (var field in payload)
+                                        {
+                                            <tr>
+                                                <th scope="row"><code>@field.Name</code></th>
+                                                <td><MarkdownView Blocks="@MarkdownPreview.ParseDocument(field.Meaning)" /></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                            else if (selected.Payload is { } written)
+                            {
+                                <MarkdownView Blocks="@MarkdownPreview.ParseDocument(written)" />
+                            }
+                            else
+                            {
+                                <p class="domain-event__unsaid">The chapter does not say.</p>
+                            }
+                        </section>
+                        <section class="domain-event__part domain-event__part--rules" data-testid="domain-event-rules">
+                            <h4 class="domain-event__label">Published language rules</h4>
+                            @if (selected.Rules is { } rules)
+                            {
+                                <div class="domain-event__rules"><MarkdownView Blocks="@MarkdownPreview.ParseDocument(rules)" /></div>
+                            }
+                            else
+                            {
+                                <p class="domain-event__unsaid">The chapter does not say.</p>
+                            }
+                        </section>
+                    </div>
+                </article>
+            }
+        }
+        @if (Listens.Count > 0)
+        {
+            <section class="domain-events__listens" data-testid="domain-events-listens" aria-labelledby="@_listensId">
+                <h3 class="domain-events__listens-title" id="@_listensId">What @Context listens to</h3>
+                <ul class="domain-events__listens-list">
+                    @foreach (var feed in Listens)
+                    {
+                        <li class="domain-events__feed" data-testid="domain-events-feed" data-context="@feed.Context">
+                            @if (feed.Name is { } name)
+                            {
+                                <code class="domain-events__feed-name">@name</code>
+                            }
+                            @if (feed.Name is null)
+                            {
+                                <p class="domain-events__feed-text">from <strong>@feed.Context</strong> — @feed.How</p>
+                            }
+                            else
+                            {
+                                <p class="domain-events__feed-text">from <strong>@feed.Context</strong></p>
+                            }
+                            @if (feed.Why.Length > 0)
+                            {
+                                <p class="domain-events__feed-why">@feed.Why</p>
+                            }
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<DomainEventContract> Events { get; set; } = [];
+
+    /// <summary>What the context listens to (<see cref="DomainEventIndex.Listens"/>).</summary>
+    [Parameter]
+    public IReadOnlyList<DomainEventSubscription> Listens { get; set; } = [];
+
+    /// <summary>The context's name, as the heading and "What … listens to" say it.</summary>
+    [Parameter]
+    public string Context { get; set; } = "this context";
+
+    /// <summary>The context's one aggregate root, when it has one — what the
+    /// intro says consumers read nothing else of.</summary>
+    [Parameter]
+    public string? Root { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-events";
+
+    private string? _selected;
+    private readonly string _listensId = $"domain-events-listens-{Guid.NewGuid():N}";
+
+    /// <summary>The picked event, or the first when none is picked or the picked
+    /// one is gone.</summary>
+    private DomainEventContract? Selected =>
+        Events.FirstOrDefault(e => e.Anchor == _selected) ?? Events.FirstOrDefault();
+
+    private string Intro
+    {
+        get
+        {
+            var count = Events.Count;
+            var emitted = Events.Count(e => e.Delivery == DomainEventDelivery.Emitted);
+            var subject = Root is { Length: > 0 } root ? $"the {root}" : "the context";
+            var state = (count, emitted) switch
+            {
+                (1, 0) => "It is documented; it is not emitted yet.",
+                (1, 1) => "It is emitted.",
+                (_, 1) => $"One of {Number(count)} is emitted; the rest are documented.",
+                (_, 0) => $"All {Number(count)} are documented; none is emitted yet.",
+                _ when emitted == count => $"All {Number(count)} are emitted.",
+                _ => $"{Sentence(Number(emitted))} of {Number(count)} are emitted; the rest are documented."
+            };
+            return $"Each event is a published contract: consumers read its payload and nothing else of {subject}. {state}";
+        }
+    }
+
+    private static string RaisedBy(DomainEventContract contract) =>
+        contract.RaisedBy.Count == 0 ? "Not named" : string.Join(", ", contract.RaisedBy);
+
+    private static string DeliveryKey(DomainEventContract contract) =>
+        contract.Delivery == DomainEventDelivery.Emitted ? "emitted" : "documented";
+
+    private static RenderFragment Delivery(DomainEventContract contract) => __builder =>
+    {
+        <Badge Kind="tone"
+               CssClass="domain-event__delivery"
+               TestId="domain-event-delivery"
+               Title="@(contract.Delivery == DomainEventDelivery.Emitted ? "The chapter that raises it says it emits it." : "Described as a contract; no chapter says it is emitted yet.")">@(contract.Delivery == DomainEventDelivery.Emitted ? "Emitted" : "Documented")</Badge>
+    };
+
+    private static string Number(int n) => n switch
+    {
+        1 => "one", 2 => "two", 3 => "three", 4 => "four", 5 => "five",
+        6 => "six", 7 => "seven", 8 => "eight", 9 => "nine", 10 => "ten",
+        _ => n.ToString(System.Globalization.CultureInfo.InvariantCulture)
+    };
+
+    private static string Sentence(string word) => word.Length == 0 ? word : char.ToUpperInvariant(word[0]) + word[1..];
+}

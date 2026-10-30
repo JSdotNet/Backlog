@@ -421,6 +421,20 @@ public sealed class DomainDevbookStore : IDisposable
         return SplittableFiles.TryGetValue(stem[..dot], out var kind) ? kind : null;
     }
 
+    /// <summary>
+    /// The Markdown of a document <paramref name="view"/> listed, as it is on disk
+    /// — for a page that reads its chapters whole rather than as this store's
+    /// excerpts: the Domain view's Domain page (local ADR 0044). Read from the
+    /// folder the view was prepared from, so a branch snapshot reads the branch.
+    /// </summary>
+    public static string ReadText(DomainDevbookView view, DomainDevbookDocument document)
+    {
+        var within = document.Path.StartsWith(".domain/", StringComparison.OrdinalIgnoreCase)
+            ? document.Path[".domain/".Length..]
+            : document.Path;
+        return File.ReadAllText(Path.Combine(view.RootPath, within.Replace('/', Path.DirectorySeparatorChar)));
+    }
+
     private DomainDevbookDocument ReadDocument(string path, string root, DomainDevbookDocumentKind kind) =>
         _documents.GetOrAdd(path, () => ParseDocument(path, root, kind));
 
@@ -671,6 +685,29 @@ public sealed class DomainDevbookStore : IDisposable
         var name when name.EndsWith(".md", StringComparison.Ordinal) => SplitBase(name) ?? DomainDevbookDocumentKind.Page,
         _ => DomainDevbookDocumentKind.Other
     };
+
+    /// <summary>
+    /// A document's text as written, by the path a <see cref="DomainDevbookDocument"/>
+    /// spells it with (<c>.domain/tasks/domain.md</c>) under the folder the view was
+    /// read from — or null when it is not there. The parsed document keeps only an
+    /// excerpt of each chapter; the Domain view's Model page reads the whole of the
+    /// domain chapters and the model's relationship notes through this.
+    /// </summary>
+    public static string? ReadText(DomainDevbookView view, string documentPath)
+    {
+        const string Prefix = ".domain/";
+        if (view.Error is not null || !documentPath.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) return null;
+
+        var file = Path.Combine(view.RootPath, documentPath[Prefix.Length..].Replace('/', Path.DirectorySeparatorChar));
+        try
+        {
+            return File.Exists(file) ? File.ReadAllText(file) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
 
     private static string MermaidKind(IReadOnlyList<string> lines)
     {

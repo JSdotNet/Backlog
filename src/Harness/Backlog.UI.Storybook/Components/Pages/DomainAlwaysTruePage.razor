@@ -1,0 +1,298 @@
+@page "/devbook/domain-always-true"
+
+<PageTitle>Always true — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Always true"
+           Summary="A subpage of Devbook: an aggregate's Always true tab on the Domain page of the Domain view (local ADR 0044). It reads the invariants file beside the domain file — `domain.invariants.md`, or `domain.<name>.invariants.md` beside a split — and shows each rule as its heading, the short claim, marked ✓ when its chapter names a test, ○ when it names none, and ? when its `Enforced at:` line is `open`; the bar counts each mark and the tab's title counts the rules. Rules sit in a card per group: a group the chapter writes itself — a `### <group>` heading of `type: invariants` inside the aggregate's chapter, its rules as `#### Invariant:` beneath it, what its `related` names linked beside its heading — and, for a rule outside every such group, the concept its `Enforced at:` line names, falling back to the aggregate. A rule's first sentence and where it is enforced name fields and code, so they stay folded until asked for. Always true is the full list; every other page shows the rules about what it draws in place, through DomainRuleList, each linking back to its row here."
+           Guidelines="@Rules">
+
+    <Story Name="Grouped by the chapter"
+           Description="The rules as the design board draws them: the chapter writes its groups — How an order moves, Lines and money — and each is a card headed by its words, what its `related` names linked beside the heading. The aggregate every group also names, which pairs it with the aggregate, is not linked. An open rule sits on the warning surface and says nobody has settled it. Press Show where each is enforced to read each rule's first sentence and its line beneath its claim."
+           Code="@AlwaysTrueCode"
+           Source="@GroupedInvariants">
+        <DomainAlwaysTrue Groups="@DomainUnits.RulesOf(GroupedOrder, Page, GroupedFiles, [Page])" UnitTitle="Order" />
+    </Story>
+
+    <Story Name="Grouped by concept"
+           Description="A chapter that writes no groups: the rules enforced on the aggregate itself come first, then those its `Enforced at:` line places on an entity it owns. A method of the aggregate, a type the domain does not name and an `open` line all keep the rule with the aggregate, and the card's heading opens the concept."
+           Code="@AlwaysTrueCode"
+           Source="@Invariants">
+        <DomainAlwaysTrue Groups="@DomainUnits.RulesOf(Order, Page, InvariantFiles, [Page])" UnitTitle="Order" />
+    </Story>
+
+    <Story Name="On the unit page"
+           Description="The same rules as the aggregate's second tab, beside About. A shared grouping with rules of its own — Shared Value Objects here — joins the chapter bar of the base page, and is its Always true alone."
+           Code="@PageCode"
+           Source="@Domain">
+        <DomainUnitPage File="@Page" InvariantFiles="@InvariantFiles" TestId="story-domain-rules-page" />
+    </Story>
+
+    <Story Name="Rules in place"
+           Description="DomainRuleList, the one list every page draws a unit's rules with where the reader meets what they constrain — under a feature on Requirements and Features, behind a field's or a part's rule count on Model, a member's card on About, a domain service, a Glossary row, a lifecycle or a card on Flow. Each row is Always true's: the mark, then the short claim, an open rule saying so. Press a row to read its first sentence, where it is enforced and a link to its own row on Always true. Past three rules the rest wait behind n more; a list one past the limit shows them all."
+           Code="@ListCode">
+        <DomainRuleList Rules="@InPlace"
+                        OnOpen="@(link => _opened = link.Rule)"
+                        AriaLabel="What is always true about Order"
+                        TestId="story-domain-rule-list" />
+        @if (_opened is { } opened)
+        {
+            <p class="story-followed">Opened Always true on <code>@opened</code>.</p>
+        }
+    </Story>
+
+    <Story Name="Landed on a rule"
+           Description="Followed from a list elsewhere, Always true opens on its unit with the rule's row ringed and focused, so the reader lands where they were sent."
+           Code="@FocusCode">
+        <DomainAlwaysTrue Groups="@DomainUnits.RulesOf(GroupedOrder, Page, GroupedFiles, [Page])" UnitTitle="Order" FocusRule="@($"{InvariantsPath}#invariant-a-line-has-a-quantity")" />
+    </Story>
+
+    <Story Name="No rules written"
+           Description="An aggregate no invariants chapter is about says so, in a sentence, instead of drawing an empty list."
+           Code="@EmptyCode">
+        <DomainAlwaysTrue Groups="@([])" UnitTitle="Invoice" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("color-scheme.md#semantic-soft-surface-tokens", "The success ink ✓ takes, and the warning surface an open rule sits on."),
+        new("color-scheme.md#domain-view-element-tones", "Why a tone is never the sole carrier: the glyph and the words say what stands behind a rule."),
+        new("accessibility.md#iconography-accessibility", "Why each mark is read out in words and not left to its glyph.")
+    ];
+
+    private const string DomainPath = ".devbook/domain/ordering/domain.md";
+    private const string InvariantsPath = ".devbook/domain/ordering/domain.invariants.md";
+
+    private const string Domain = """
+        # Ordering
+
+        ```meta
+        type: domain
+        ```
+
+        ## Order
+
+        ```meta
+        type: aggregate
+        ```
+
+        A customer's request for goods, and the consistency boundary for its lines.
+
+        ### Order Line
+
+        ```meta
+        type: entity
+        aliases: [OrderLine]
+        ```
+
+        One product and its quantity on the order.
+
+        ## Shared Value Objects
+
+        ```meta
+        type: shared-value-objects
+        ```
+
+        ### Money
+
+        ```meta
+        type: value-object
+        ```
+
+        An amount in one currency, compared by value.
+        """;
+
+    private const string Invariants = """
+        # Invariants
+
+        ```meta
+        type: invariants
+        ```
+
+        What each aggregate enforces, one chapter per aggregate.
+
+        ## Order
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        ### Invariant: An order is placed once
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Placing_twice_is_refused]
+        ```
+
+        A placed order cannot be placed again. Placing it twice would bill twice.
+
+        Enforced at: `Place()`
+
+        ### Invariant: A cancelled order stays on record
+
+        ```meta
+        type: invariant
+        ```
+
+        Cancelling an order keeps it, marked cancelled.
+
+        Enforced at: open
+
+        ### Invariant: A line has a quantity
+
+        ```meta
+        type: invariant
+        ```
+
+        Every order line holds one or more of its product.
+
+        Enforced at: `OrderLine.SetQuantity()`
+
+        ### Invariant: Lines change through the order
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Lines_are_read_only]
+        ```
+
+        A line changes only through its order.
+
+        Enforced at: all mutations (`OrderLine`'s setters are internal)
+
+        ## Money
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#money]
+        ```
+
+        ### Invariant: An amount has one currency
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.MoneyTests.Adding_across_currencies_is_refused]
+        ```
+
+        An amount names exactly one currency, and two currencies never add.
+
+        Enforced at: `Money`
+        """;
+
+    private const string GroupedInvariants = """
+        # Invariants
+
+        ```meta
+        type: invariants
+        ```
+
+        What each aggregate enforces, one chapter per aggregate.
+
+        ## Order
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order]
+        ```
+
+        ### How an order moves
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order, .devbook/domain/ordering/flow.md#order-lifecycle]
+        ```
+
+        #### Invariant: An order is placed once
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Placing_twice_is_refused]
+        ```
+
+        A placed order cannot be placed again. Placing it twice would bill twice.
+
+        Enforced at: `Place()`
+
+        #### Invariant: A cancelled order stays on record
+
+        ```meta
+        type: invariant
+        ```
+
+        Cancelling an order keeps it, marked cancelled.
+
+        Enforced at: open
+
+        ### Lines and money
+
+        ```meta
+        type: invariants
+        related: [.devbook/domain/ordering/domain.md#order, .devbook/domain/ordering/domain.md#order-line, .devbook/domain/ordering/domain.md#money]
+        ```
+
+        #### Invariant: A line has a quantity
+
+        ```meta
+        type: invariant
+        ```
+
+        Every order line holds one or more of its product.
+
+        Enforced at: `OrderLine.SetQuantity()`
+
+        #### Invariant: Lines change through the order
+
+        ```meta
+        type: invariant
+        tests: [unit:dotnet:Ordering.OrderTests.Lines_are_read_only]
+        ```
+
+        A line changes only through its order.
+
+        Enforced at: all mutations (`OrderLine`'s setters are internal)
+        """;
+
+    private static readonly DomainChapterFile Page = DomainUnits.Parse(Domain, DomainPath);
+    private static readonly IReadOnlyList<DomainChapterFile> InvariantFiles = [DomainUnits.Parse(Invariants, InvariantsPath)];
+
+    private static DomainUnit Order => DomainUnits.Of(Page, InvariantFiles)[0];
+    private static readonly IReadOnlyList<DomainChapterFile> GroupedFiles = [DomainUnits.Parse(GroupedInvariants, InvariantsPath)];
+
+    private static DomainUnit GroupedOrder => DomainUnits.Of(Page, GroupedFiles)[0];
+
+    private const string AlwaysTrueCode = """
+        <DomainAlwaysTrue Groups="@DomainUnits.RulesOf(order, page, invariantFiles, domainFiles)"
+                          UnitTitle="@order.Label"
+                          OnNavigate="OpenAsync" />
+        """;
+
+    private const string PageCode = """
+        <DomainUnitPage File="@page"
+                        DomainFiles="@domainFiles"
+                        InvariantFiles="@invariantFiles"
+                        OnNavigate="OpenAsync" />
+        """;
+
+    // Every rule of the grouped chapter, as a page elsewhere would ask for the
+    // rules about the Order.
+    private static IReadOnlyList<DomainRule> InPlace => DomainRuleCatalog.Of([Page], GroupedFiles).About($"{DomainPath}#order");
+
+    private string? _opened;
+
+    private const string ListCode = """
+        <DomainRuleList Rules="@DomainRuleCatalog.Of(domainFiles, invariantFiles).About(reference)"
+                        OnOpen="OpenAlwaysTrueAsync"
+                        AriaLabel="What is always true about Order" />
+        """;
+
+    private const string FocusCode = """
+        <DomainAlwaysTrue Groups="@DomainUnits.RulesOf(order, page, invariantFiles, domainFiles)"
+                          UnitTitle="@order.Label"
+                          FocusRule="@link.Rule" />
+        """;
+
+    private const string EmptyCode = """
+        <DomainAlwaysTrue Groups="@([])" UnitTitle="Invoice" />
+        """;
+}

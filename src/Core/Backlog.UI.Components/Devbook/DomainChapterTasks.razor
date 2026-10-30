@@ -1,0 +1,56 @@
+@*
+    On a feature or a requirement of the Domain view, the tasks whose Devbook
+    references name it, each a TaskLinkChip (local ADR 0026 §3): gold, the `live`
+    tone, when this backlog holds the task, and pressing it opens the task; the
+    `quiet` tone inside a dashed edge, reading "not in this backlog", when it does
+    not. Gold says a repository's devbook and its work; nothing here is teal, which
+    is the Brain's alone (.devbook/design/color-scheme.md#the-brains-accent).
+    Drawn only when a task names one of the chapters.
+*@
+
+@if (_tasks.Count > 0)
+{
+    <div class="domain-chapter-tasks" data-testid="@TestId">
+        <span class="domain-chapter-tasks__label">@Label</span>
+        <ul class="domain-chapter-tasks__list" aria-label="Tasks naming this chapter">
+            @foreach (var task in _tasks)
+            {
+                <li @key="task.TaskId">
+                    <TaskLinkChip Label="@(task.Title ?? task.TaskId)"
+                                  Reference="@task.TaskId"
+                                  Resolved="@(task.Title is not null)"
+                                  OnOpen="@(Links.OnOpenTask.HasDelegate ? _open : default)"
+                                  TestId="domain-chapter-task" />
+                </li>
+            }
+        </ul>
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    public DomainChapterLinks? Cascaded { get; set; }
+
+    /// <summary>The chapters whose tasks are listed, by reference.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> References { get; set; } = [];
+
+    [Parameter]
+    public string TestId { get; set; } = "domain-chapter-tasks";
+
+    /// <summary>The word before the chips: <c>Tasks</c>, or <c>Referenced by</c>
+    /// under a requirement's sentence.</summary>
+    [Parameter]
+    public string Label { get; set; } = "Tasks";
+
+    private IReadOnlyList<DomainTaskLink> _tasks = [];
+
+    private DomainChapterLinks Links => Cascaded ?? DomainChapterLinks.None;
+
+    private EventCallback<string?> _open;
+
+    protected override void OnInitialized() =>
+        _open = EventCallback.Factory.Create<string?>(this, id => id is null ? Task.CompletedTask : Links.OnOpenTask.InvokeAsync(id));
+
+    protected override void OnParametersSet() => _tasks = Links.TasksOn(References);
+}

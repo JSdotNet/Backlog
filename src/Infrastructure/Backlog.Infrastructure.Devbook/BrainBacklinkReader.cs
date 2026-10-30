@@ -51,12 +51,25 @@ public sealed class BrainBacklinkReader : IBrainBacklinks
         return Task.Run(() => Read(root, repositoryAlias, chapterPath), cancellationToken);
     }
 
-    private IReadOnlyList<BrainBacklink> Read(string root, string repositoryAlias, string chapterPath)
+    public Task<IReadOnlyList<BrainChapterBacklink>> ChapterLinksAsync(string repositoryAlias, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(repositoryAlias) || _brainRoot() is not { Length: > 0 } root)
+        {
+            return Task.FromResult<IReadOnlyList<BrainChapterBacklink>>([]);
+        }
+
+        return Task.Run(() => Read(root, database => ChapterLinks(database, repositoryAlias)), cancellationToken);
+    }
+
+    private IReadOnlyList<BrainBacklink> Read(string root, string repositoryAlias, string chapterPath) =>
+        Read(root, database => LinksTo(database, repositoryAlias, chapterPath));
+
+    private IReadOnlyList<T> Read<T>(string root, Func<DevbookDatabase, IReadOnlyList<T>> query)
     {
         try
         {
             using var database = DevbookDatabase.TryOpen(_databaseFor(root));
-            return database is null ? [] : LinksTo(database, repositoryAlias, chapterPath);
+            return database is null ? [] : query(database);
         }
         catch (Exception exception) when (exception is SqliteException or IOException or UnauthorizedAccessException)
         {
@@ -64,6 +77,40 @@ public sealed class BrainBacklinkReader : IBrainBacklinks
             // is not worth failing over the Brain's index; the next read retries.
             return [];
         }
+    }
+
+    /// <summary>
+    /// Every link into the repository, over a database already open: one entry per
+    /// note, chapter file and heading, in note then line order, each naming the
+    /// chapter of the note it is first written in — none when that is the note's
+    /// own <c>related</c> or prose outside every chapter, as <see cref="LinksTo"/>
+    /// decides.
+    /// </summary>
+    internal static IReadOnlyList<BrainChapterBacklink> ChapterLinks(DevbookDatabase database, string repositoryAlias)
+    {
+        var links = new List<BrainChapterBacklink>();
+        var seen = new Dictionary<(string Note, string Path, string Slug), int>();
+
+        foreach (var row in database.RepoLinks())
+        {
+            if (BrainRepoLink.Parse(row.Target) is not { } link || !string.Equals(link.Alias, repositoryAlias, StringComparison.OrdinalIgnoreCase)) continue;
+
+            var title = string.IsNullOrWhiteSpace(row.NoteTitle) ? Path.GetFileNameWithoutExtension(row.NotePath) : row.NoteTitle;
+            var heading = row.SourceType == "file" ? null : row.SourceLabel;
+            var key = (row.NotePath.ToLowerInvariant(), DevbookLayout.ConventionalPath(link.Path).ToLowerInvariant(), link.Slug?.ToLowerInvariant() ?? string.Empty);
+
+            if (!seen.TryGetValue(key, out var at))
+            {
+                seen[key] = links.Count;
+                links.Add(new BrainChapterBacklink(link.Path, link.Slug, new BrainBacklink(row.NotePath, title, heading)));
+            }
+            else if (links[at].Note.Heading is not null && heading is null)
+            {
+                links[at] = links[at] with { Note = links[at].Note with { Heading = null } };
+            }
+        }
+
+        return links;
     }
 
     /// <summary>

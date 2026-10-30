@@ -1,0 +1,192 @@
+@*
+    A context's neighbours, at the top of its page in the Domain view (local ADR
+    0044): the contexts it listens to on the left, the context in the middle, the
+    contexts that listen to it on the right, and the ones it works hand in hand
+    with below. Lines join every card to the middle one, an arrowhead pointing
+    the way information goes: from a context it listens to into it, and from it
+    into a context that listens to it.
+    Hand-in-hand partners hang off the middle card on an amber line. Each card is a
+    neighbour's name, a Core or external tag, and its row's reason cut to a short
+    phrase, the whole first sentence as its tooltip; the relationship pattern is the
+    table's, never the card's. A system outside the domain is a dashed card. A title
+    and an intro open the section, and a short legend closes it in plain words.
+
+    The lines are drawn by the stylesheet around the cards, never measured: a bus
+    joins one side's cards, one line joins the bus to the middle card. On a narrow
+    pane the board is one column and the headings alone say which way each side
+    points.
+*@
+
+<section class="domain-neighbours" data-testid="@TestId" aria-label="@($"Neighbours of {ContextName}")">
+    <header class="domain-neighbours__intro">
+        <h2 class="domain-neighbours__title" data-testid="domain-neighbours-title">@ContextName and its neighbours</h2>
+        @if (!Neighbours.IsEmpty)
+        {
+            <p class="domain-neighbours__lede" data-testid="domain-neighbours-lede">@Lede</p>
+        }
+    </header>
+
+    @if (Neighbours.IsEmpty)
+    {
+        <EmptyState Title="No neighbours"
+                    Description="This context's dependency tables name no other context or system."
+                    TestId="domain-neighbours-empty" />
+    }
+    else
+    {
+        <div class="@BoardClass" data-testid="domain-neighbours-board">
+            <section class="domain-neighbours__side domain-neighbours__side--listens-to" data-testid="domain-neighbours-listens-to" aria-labelledby="@($"{_id}-listens-to")">
+                <h3 class="domain-neighbours__heading" id="@($"{_id}-listens-to")" title="@($"{ContextName} listens to")">@ContextName listens to</h3>
+                @Cards(Neighbours.ListensTo, "listens-to")
+            </section>
+
+            @if (Neighbours.ListensTo.Count > 0)
+            {
+                <span class="domain-neighbours__join domain-neighbours__join--in" data-testid="domain-neighbours-join" data-side="listens-to" aria-hidden="true"></span>
+            }
+
+            <div class="domain-neighbours__centre">
+                <div class="domain-neighbours__self" data-testid="domain-neighbours-self">
+                    <span class="domain-neighbours__self-name">@ContextName</span>
+                    @if (!string.IsNullOrWhiteSpace(ContextSummary))
+                    {
+                        <span class="domain-neighbours__self-summary" data-testid="domain-neighbours-summary">@ContextSummary</span>
+                    }
+                    <span class="domain-neighbours__self-counts" data-testid="domain-neighbours-counts">@Counts</span>
+                </div>
+                @if (Neighbours.HandInHand.Count > 0)
+                {
+                    <span class="domain-neighbours__drop" data-testid="domain-neighbours-drop" aria-hidden="true"></span>
+                }
+            </div>
+
+            @if (Neighbours.ListenTo.Count > 0)
+            {
+                <span class="domain-neighbours__join domain-neighbours__join--out" data-testid="domain-neighbours-join" data-side="listen-to" aria-hidden="true"></span>
+            }
+
+            <section class="domain-neighbours__side domain-neighbours__side--listen-to" data-testid="domain-neighbours-listen-to" aria-labelledby="@($"{_id}-listen-to")">
+                <h3 class="domain-neighbours__heading" id="@($"{_id}-listen-to")" title="@($"Listen to {ContextName}")">Listen to @ContextName</h3>
+                @Cards(Neighbours.ListenTo, "listen-to")
+            </section>
+
+            @if (Neighbours.HandInHand.Count > 0)
+            {
+                <section class="domain-neighbours__side domain-neighbours__side--hand-in-hand" data-testid="domain-neighbours-hand-in-hand" aria-labelledby="@($"{_id}-hand-in-hand")">
+                    <h3 class="domain-neighbours__heading domain-neighbours__heading--hand-in-hand" id="@($"{_id}-hand-in-hand")" title="@($"Hand in hand with {ContextName}")">Hand in hand</h3>
+                    @Cards(Neighbours.HandInHand, "hand-in-hand")
+                </section>
+            }
+        </div>
+
+        <div class="domain-neighbours__legend" data-testid="domain-neighbours-legend">
+            <p class="domain-neighbours__legend-item">Arrows point the way information goes.</p>
+            @if (Neighbours.HandInHand.Count > 0)
+            {
+                <p class="domain-neighbours__legend-item"><strong class="domain-neighbours__legend-amber">Amber</strong>: the two work hand in hand and keep only each other's ids.</p>
+            }
+            <p class="domain-neighbours__legend-item"><strong>Dashed card</strong>: outside this domain — another system, or shared code.</p>
+            <p class="domain-neighbours__legend-item domain-neighbours__legend-item--wide">The exact contract of each line is in the dependency table and on the Model of the part that owns it.</p>
+        </div>
+    }
+</section>
+
+@code {
+    /// <summary>The context's neighbours, read from its dependency tables.</summary>
+    [Parameter]
+    public DomainNeighbourhood Neighbours { get; set; } = DomainNeighbourhood.Empty;
+
+    /// <summary>The context's name as its <c>context.md</c> heads it.</summary>
+    [Parameter]
+    public string ContextName { get; set; } = "This context";
+
+    /// <summary>The middle card's line under the name — the context's subdomain type
+    /// and its status, <c>Core · draft</c> — or nothing.</summary>
+    [Parameter]
+    public string? ContextSummary { get; set; }
+
+    /// <summary>A neighbour's name the reader followed to its own context page.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-neighbours";
+
+    private readonly string _id = $"domain-neighbours-{Guid.NewGuid():N}";
+
+    private string BoardClass => Neighbours.HandInHand.Count > 0
+        ? "domain-neighbours__board domain-neighbours__board--hand-in-hand"
+        : "domain-neighbours__board";
+
+    /// <summary>How many neighbours stand on each side of the middle card, as the
+    /// design words them: <c>6 upstream · 4 downstream · 2 partners</c>. A side
+    /// with nobody on it is left out.</summary>
+    private string Counts
+    {
+        get
+        {
+            var parts = new List<string>(3);
+            if (Neighbours.ListensTo.Count > 0) parts.Add($"{Neighbours.ListensTo.Count} upstream");
+            if (Neighbours.ListenTo.Count > 0) parts.Add($"{Neighbours.ListenTo.Count} downstream");
+            if (Neighbours.HandInHand.Count > 0)
+                parts.Add(Neighbours.HandInHand.Count == 1 ? "1 partner" : $"{Neighbours.HandInHand.Count} partners");
+            return string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>The intro the design opens with, without the hand-in-hand clause
+    /// when nobody stands below.</summary>
+    private string Lede => Neighbours.HandInHand.Count > 0
+        ? $"Who {ContextName} listens to on the left, who listens to {ContextName} on the right, and who it works hand in hand with below."
+        : $"Who {ContextName} listens to on the left, and who listens to {ContextName} on the right.";
+
+    private RenderFragment Cards(IReadOnlyList<DomainNeighbour> neighbours, string side) => __builder =>
+    {
+        if (neighbours.Count == 0)
+        {
+            <p class="domain-neighbours__none" data-testid="domain-neighbours-none">None.</p>
+            return;
+        }
+
+        <ul class="domain-neighbours__cards">
+            @foreach (var neighbour in neighbours)
+            {
+                <li class="domain-neighbours__card-item">
+                    <Card Compact="true"
+                          CssClass="@(neighbour.External ? "domain-neighbours__card domain-neighbours__card--external" : "domain-neighbours__card")"
+                          TestId="domain-neighbour"
+                          data-name="@neighbour.Name"
+                          data-side="@side"
+                          data-external="@(neighbour.External ? "true" : "false")">
+                        <h4 class="domain-neighbours__card-title">
+                            @if (OnNavigate.HasDelegate && neighbour.Reference is { } target && DevbookReference.Parse(target) is { } reference)
+                            {
+                                <DevbookReferenceLink Reference="@reference"
+                                                      Text="@neighbour.Name"
+                                                      OnNavigate="OnNavigate"
+                                                      TestId="domain-neighbour-link" />
+                            }
+                            else
+                            {
+                                @neighbour.Name
+                            }
+                            @if (neighbour.Core)
+                            {
+                                <span class="domain-neighbours__tag domain-neighbours__tag--core" data-testid="domain-neighbour-core">Core</span>
+                            }
+                            else if (neighbour.External)
+                            {
+                                <span class="domain-neighbours__tag" data-testid="domain-neighbour-external" title="Not one of this domain's contexts">external</span>
+                            }
+                        </h4>
+                        @if (neighbour.Line.Length > 0)
+                        {
+                            <p class="domain-neighbours__card-line" data-testid="domain-neighbour-line" title="@(neighbour.Cut ? neighbour.Sentence : null)">@neighbour.Line</p>
+                        }
+                    </Card>
+                    <span class="domain-neighbours__stub" aria-hidden="true"></span>
+                </li>
+            }
+        </ul>
+    };
+}

@@ -1,0 +1,216 @@
+@implements IDisposable
+@inject IServiceProvider Services
+
+@*
+    The Domain view's page for one bounded context — its folder's row, which the
+    menu, a followed reference to its context.md or dependencies.md and a Context
+    map card all select (local ADR 0044). It reads the context's files through the
+    domain store and hands them to the library's DomainContextView, one page
+    however it was reached: the neighbours from dependencies.md or, failing that,
+    context.md's own Dependencies chapter, and below them the Overview from
+    context.md and the chapters of every file beside it.
+*@
+
+@if (_read is { Problem: null } read)
+{
+    <DomainContextView @key="@_loaded"
+                       ContextName="@read.ContextName"
+                       ContextSummary="@read.Summary"
+                       Overview="@read.Overview"
+                       Neighbours="@read.Neighbours"
+                       DocumentPath="@read.DocumentPath"
+                       OnNavigate="NavigateAsync"
+                       OnOpenAlwaysTrue="OnOpenAlwaysTrue" />
+}
+else if (_read?.Problem is { } problem)
+{
+    <EmptyState BaseClass="devbook-empty"
+                TitleCssClass="devbook-empty__title"
+                DescriptionCssClass="@(null)"
+                Title="Context"
+                Description="@problem"
+                TestId="domain-view-context-problem"
+                role="status" />
+}
+
+@code {
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    /// <summary>The context's folder or a file in it, relative to the Domain
+    /// folder: <c>tasks</c>, <c>tasks/context.md</c>.</summary>
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    /// <summary>A link in the boundary, or a neighbour, the reader followed.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    /// <summary>The Invariants card followed: the unit whose Always true tab
+    /// holds the context's rules.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
+    private DomainDevbookStore? _store;
+    private ContextReading? _read;
+    private (string? Alias, string? Path)? _loaded;
+    private bool _disposed;
+    private int _version;
+
+    protected override void OnInitialized()
+    {
+        // Resolved rather than injected, as the pane resolves its stores: a host
+        // composing no domain store gets a sentence, not a render failure.
+        _store = Services.GetService<DomainDevbookStore>();
+        if (_store is not null) _store.Changed += OnStoreChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded == (RepositoryAlias, SelectedPath)) return;
+        _loaded = (RepositoryAlias, SelectedPath);
+        _read = null;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var version = ++_version;
+        var alias = RepositoryAlias;
+        var path = SelectedPath;
+        if (_store is null)
+        {
+            _read = ContextReading.Failed("This host has no domain folder to read the context from.");
+            return;
+        }
+
+        ContextReading read;
+        try
+        {
+            var view = await _store.LoadAsync(alias);
+            if (_disposed || version != _version) return;
+
+            // On the pool: a context's documents are read on first access, and
+            // the desktop host's dispatcher is the UI thread.
+            read = await Task.Run(() => Read(view, path));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            read = ContextReading.Failed($"The context could not be read: {ex.Message}");
+        }
+
+        if (_disposed || version != _version) return;
+        _read = read;
+    }
+
+    /// <summary>What the context page shows, or why there is nothing to show.</summary>
+    internal sealed record ContextReading(
+        string ContextName,
+        DomainContextOverview Overview,
+        DomainNeighbourhood Neighbours,
+        string? DocumentPath,
+        string? Problem,
+        string? Summary = null)
+    {
+        public static ContextReading Failed(string problem) =>
+            new("the context", DomainContextOverview.Empty, DomainNeighbourhood.Empty, null, problem);
+    }
+
+    /// <summary>The context the menu path names, read into its neighbours and its
+    /// Overview.</summary>
+    internal static ContextReading Read(DomainDevbookView view, string? selectedPath)
+    {
+        if (view.Error is { } error) return ContextReading.Failed(error);
+
+        var relative = (selectedPath ?? string.Empty).Replace('\\', '/').Trim('/');
+        var slug = relative.Split('/')[0];
+        var context = view.Contexts.FirstOrDefault(c => string.Equals(c.Slug, slug, StringComparison.OrdinalIgnoreCase));
+        if (context is null) return ContextReading.Failed($"No bounded context at {slug}.");
+
+        var root = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Context);
+        var rootText = root is null ? null : DomainDevbookStore.ReadText(view, root);
+        var others = context.Documents
+            .Where(d => d.Kind is not (DomainDevbookDocumentKind.Context or DomainDevbookDocumentKind.Dependencies))
+            .Select(d => DomainDevbookStore.ReadText(view, d) is { } text ? new DomainContextFile(d.Path, text) : null)
+            .OfType<DomainContextFile>();
+
+        // Each neighbour that is a context is named as its context.md heads it and
+        // tagged Core when the context map's Subdomain landscape says so; a row that
+        // names one without linking it is that context too.
+        var kinds = Kinds(view);
+        var named = view.Contexts.ToDictionary(
+            c => c.Slug,
+            c => new DomainNeighbourContext(c.DisplayName, kinds.TryGetValue(c.Slug, out var mapped) && mapped.IsCore),
+            StringComparer.OrdinalIgnoreCase);
+
+        var dependencies = context.Documents.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Dependencies);
+        var neighbours = dependencies is not null
+            ? DomainNeighbours.Read(DomainDevbookStore.ReadText(view, dependencies), dependencies.Path, named)
+            : root is not null
+                ? DomainNeighbours.Read(DependenciesChapter(rootText), root.Path, named)
+                : DomainNeighbourhood.Empty;
+
+        return new ContextReading(
+            context.DisplayName,
+            DomainContextOverview.Read(rootText, root?.Path, others) with { Subdomain = kinds.GetValueOrDefault(context.Slug)?.Kind },
+            neighbours.Describe(named),
+            root?.Path,
+            null,
+            Summary(kinds.GetValueOrDefault(context.Slug)?.Kind, context.Status));
+    }
+
+    /// <summary>Each context folder as the context map classifies it, its subdomain
+    /// type from the Subdomain landscape table. Empty when there is no map.</summary>
+    internal static IReadOnlyDictionary<string, ContextMapContext> Kinds(DomainDevbookView view)
+    {
+        var kinds = new Dictionary<string, ContextMapContext>(StringComparer.OrdinalIgnoreCase);
+        var mapPath = view.ContextMap.Path;
+        var markdown = string.IsNullOrEmpty(mapPath) ? null : DomainDevbookStore.ReadText(view, mapPath);
+        if (markdown is null) return kinds;
+
+        var sources = view.Contexts.Select(c => new ContextMapSource(c.Slug, c.DisplayName, null, string.Empty)).ToList();
+        foreach (var mapped in ContextMaps.Read(markdown, sources).Contexts)
+        {
+            if (mapped.Slug is { } slug) kinds.TryAdd(slug, mapped);
+        }
+        return kinds;
+    }
+
+    /// <summary>The middle card's line: the subdomain type and the context's
+    /// status, <c>Core · draft</c>, each left out when unknown.</summary>
+    internal static string? Summary(string? kind, string? status)
+    {
+        var parts = new List<string>(2);
+        if (!string.IsNullOrWhiteSpace(kind)) parts.Add(char.ToUpperInvariant(kind[0]) + kind[1..]);
+        if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "none", StringComparison.OrdinalIgnoreCase)) parts.Add(status);
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
+    /// <summary>The <c>## Dependencies</c> chapter of a <c>context.md</c> that
+    /// keeps its dependency tables inline, or null when it has none.</summary>
+    internal static string? DependenciesChapter(string? contextMarkdown) =>
+        MarkdownChapters.Split(contextMarkdown)
+            .FirstOrDefault(c => c.Level == 2 && string.Equals(c.Title.Trim(), "Dependencies", StringComparison.OrdinalIgnoreCase))
+            ?.Text;
+
+    private Task NavigateAsync(DevbookReference reference) =>
+        DevbookChapterLink.From(reference) is { } target
+            ? OnNavigateToChapter.InvokeAsync(target)
+            : Task.CompletedTask;
+
+    private void OnStoreChanged()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_store is not null) _store.Changed -= OnStoreChanged;
+    }
+}

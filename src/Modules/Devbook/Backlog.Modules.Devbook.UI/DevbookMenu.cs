@@ -1,10 +1,14 @@
 using Backlog.Infrastructure.GitHub;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.SharedKernel;
 
 namespace Backlog.Desktop.UI.Devbook;
 
-public sealed class DevbookMenu(IDevbookFolderSource source)
+/// <param name="features">Where the New domain view switch is read
+/// (<see cref="DevbookFeatures.DomainView"/>). Optional: a host that composes no
+/// feature settings lists the Domain area as it always has.</param>
+public sealed partial class DevbookMenu(IDevbookFolderSource source, IAppFeatureSettings? features = null)
 {
     /// <summary>Re-published from the folder source so an open pane can rebuild
     /// its menu when the configured folder moves. The four knowledge stores
@@ -17,6 +21,10 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         add => source.Changed += value;
         remove => source.Changed -= value;
     }
+
+    /// <summary>Whether the Domain area lists a bounded context by unit (local ADR
+    /// 0044) rather than as the flat list of its files.</summary>
+    private bool DomainUnitsEnabled => features?.IsEnabled(DevbookFeatures.DomainView) == true;
 
     /// <summary>
     /// The rail, area by area.
@@ -180,6 +188,9 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         var tree = source.FileTree(location);
         var fullPath = location.FullPath;
 
+        // Read once per load, so one walk never lists half its contexts one way.
+        var domainUnits = string.Equals(areaKey, "domain", StringComparison.Ordinal) && DomainUnitsEnabled;
+
         // The walk itself on the pool. It is a directory listing plus one read of
         // the outline per area, which is small — but the pane awaits it on the
         // dispatcher, and in the desktop host that is the UI thread, so even a
@@ -195,7 +206,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
             // Once per area, not once per directory: the folder's convention and
             // the generated titles are both settled here and handed down the walk.
             var outline = DevbookMenuOutline.Read(fullPath, areaKey);
-            var children = EnumerateChildren(tree, fullPath, fullPath, areaKey, outline, cancellationToken);
+            var children = EnumerateChildren(tree, fullPath, fullPath, areaKey, outline, cancellationToken, domainUnits: domainUnits);
             return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, children, true);
         }, cancellationToken).ConfigureAwait(false);
     }
@@ -307,7 +318,8 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         DevbookMenuOutline outline,
         CancellationToken cancellationToken,
         bool includeAllFiles = false,
-        bool skipDotEntries = false)
+        bool skipDotEntries = false,
+        bool domainUnits = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -327,7 +339,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
                     DirectoryNodePath(tree, areaKey, root, path),
                     DevbookMenuNodeKind.Folder,
                     areaKey,
-                    EnumerateChildren(tree, root, path, areaKey, outline, cancellationToken, includeAllFiles, skipDotEntries),
+                    EnumerateChildren(tree, root, path, areaKey, outline, cancellationToken, includeAllFiles, skipDotEntries, domainUnits),
                     true)));
 
             // The file the directory's own row opens is not listed again beneath it.
@@ -348,6 +360,11 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
             // The node's own Path is not the name to look either answer up by: a
             // directory holding an index.md reports that file as its path, so the
             // name on disk is carried alongside it.
+            if (domainUnits && IsBoundedContextDirectory(root, directory))
+            {
+                return ContextUnits(root, directory, areaKey, outline, [.. directories], [.. files]);
+            }
+
             var relativeDirectory = RelativeDirectory(root, directory);
             var entries = directories.Concat(files).ToList();
             var names = entries.Select(entry => Path.GetFileName(entry.DiskPath)).ToList();
@@ -553,7 +570,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         {
             var files = tree.EnumerateFiles(directory, "*.md").ToList();
             var isBoundedContext = string.Equals(areaKey, "domain", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(directory)), Path.TrimEndingDirectorySeparator(root), StringComparison.OrdinalIgnoreCase);
+                && IsBoundedContextDirectory(root, directory);
 
             return (isBoundedContext ? files.FirstOrDefault(IsContextMarkdown) : null)
                 ?? files.FirstOrDefault(IsIndexMarkdown);
@@ -635,6 +652,10 @@ public sealed record DevbookMenuNode(
     string? Message = null)
 {
     public bool HasChildren => Children.Count > 0;
+
+    /// <summary>The number the row shows beside its label, or null for none —
+    /// how many pages a kind's row holds in the New domain view (local ADR 0044).</summary>
+    public int? Count { get; init; }
 }
 
 public enum DevbookMenuNodeKind

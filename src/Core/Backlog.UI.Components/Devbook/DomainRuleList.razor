@@ -1,0 +1,145 @@
+@*
+    A list of rules shown in place (local ADR 0044): wherever a page draws the
+    thing a unit's invariants constrain — a requirement's feature, a field, a
+    part of the model, a member of an aggregate, a domain service, a Glossary
+    term, a flow — the rules about it, without sending the reader to Always true.
+    Always true itself stays the full list (DomainAlwaysTrue).
+
+    A row is drawn as Always true draws it: the mark — ✓ a test the chapter
+    names, ○ no test yet, ? nothing enforces it yet — then the rule's short
+    claim, and an open rule says so in words. The glyph is for the eye and the
+    words beside it for a listener, never colour alone. Each row opens in place
+    on its first sentence, where it is enforced and a link to its own row on
+    Always true; the list shows its first few rules and the rest behind
+    "n more", so a page stays readable however many rules a thing has.
+
+    Pure: the host hands over the rules DomainRuleCatalog found.
+*@
+
+@if (Rules.Count > 0)
+{
+    <div class="@($"domain-rule-list{(CssClass is { Length: > 0 } extra ? " " + extra : string.Empty)}")" data-testid="@TestId" @attributes="AdditionalAttributes">
+        <ul class="domain-rule-list__rules" id="@($"{_id}-rules")" aria-label="@AriaLabel">
+            @for (var i = 0; i < Shown; i++)
+            {
+                var index = i;
+                var rule = Rules[index];
+                var open = _open.Contains(index);
+                var detail = $"{_id}-{index}";
+                <li @key="@(rule.Reference.Length > 0 ? rule.Reference : index.ToString(System.Globalization.CultureInfo.InvariantCulture))"
+                    class="@($"domain-rule-list__rule{(rule.Proof == DomainRuleProof.Open ? " domain-rule-list__rule--open" : string.Empty)}")"
+                    data-testid="domain-rule-list-rule"
+                    data-proof="@(rule.Marked ? DomainRuleText.ProofName(rule.Proof) : null)">
+                    <AppButton Variant="ButtonVariant.None"
+                               BaseClass="domain-rule-list__toggle"
+                               TestId="domain-rule-list-toggle"
+                               OnClick="@(() => Toggle(index))"
+                               aria-expanded="@(open ? "true" : "false")"
+                               aria-controls="@detail">
+                        @if (rule.Marked)
+                        {
+                            <span class="@($"domain-rules__mark domain-rules__mark--{DomainRuleText.ProofName(rule.Proof)}")" aria-hidden="true">@DomainRuleText.Glyph(rule.Proof)</span>
+                            <span class="sr-only">@DomainRuleText.ProofText(rule.Proof): </span>
+                        }
+                        else
+                        {
+                            <span class="domain-rules__mark" aria-hidden="true"></span>
+                        }
+                        <span class="domain-rule-list__line"><span class="domain-rule-list__claim" data-testid="domain-rule-list-claim">@DomainRuleText.Headline(rule)</span>@if (rule.Proof == DomainRuleProof.Open)
+                        {
+                            @(" ")<span class="domain-rules__unsettled">Open — not built until someone decides.</span>
+                        }</span>
+                        <svg class="domain-rule-list__chevron" aria-hidden="true" width="12" height="12" viewBox="0 0 12 12"><path d="M4 2 L8 6 L4 10"></path></svg>
+                    </AppButton>
+                    @if (open)
+                    {
+                        <div class="domain-rule-list__detail" id="@detail" data-testid="domain-rule-list-detail">
+                            @if (!string.Equals(rule.Claim, DomainRuleText.Headline(rule), StringComparison.Ordinal))
+                            {
+                                <span class="domain-rules__sentence" data-testid="domain-rule-list-sentence">@rule.Claim</span>
+                            }
+                            @if (rule.EnforcedAt is { } enforcedAt)
+                            {
+                                <span class="domain-rules__enforced" data-testid="domain-rule-list-enforced">Enforced at: @DomainAlwaysTrue.Inline(enforcedAt)</span>
+                            }
+                            else
+                            {
+                                <span class="domain-rules__enforced" data-testid="domain-rule-list-enforced">No <i>Enforced at:</i> line written.</span>
+                            }
+                            @if (rule.Place is { } place && OnOpen.HasDelegate)
+                            {
+                                <AppButton Variant="ButtonVariant.None"
+                                           BaseClass="domain-rule-list__open"
+                                           TestId="domain-rule-list-open"
+                                           OnClick="@(() => OnOpen.InvokeAsync(place))">On @(place.Title)'s Always true<span aria-hidden="true"> →</span></AppButton>
+                            }
+                        </div>
+                    }
+                </li>
+            }
+        </ul>
+        @if (Rules.Count > Limit)
+        {
+            <AppButton Variant="ButtonVariant.None"
+                       BaseClass="domain-rule-list__more"
+                       TestId="domain-rule-list-more"
+                       OnClick="@(() => _all = !_all)"
+                       aria-expanded="@(_all ? "true" : "false")"
+                       aria-controls="@($"{_id}-rules")">@(_all ? "Show fewer" : $"{Rules.Count - Limit} more {(Rules.Count - Limit == 1 ? "rule" : "rules")}")</AppButton>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>The rules to show, in the order they are read.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainRule> Rules { get; set; } = [];
+
+    /// <summary>How many rows show before the rest wait behind "n more": three
+    /// by default. A list one longer shows all of them, since "1 more" would
+    /// cost a row of its own.</summary>
+    [Parameter]
+    public int Visible { get; set; } = 3;
+
+    /// <summary>A rule's link to its own row on Always true, followed: the
+    /// host opens its unit there. Unset, the rows link nowhere.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpen { get; set; }
+
+    /// <summary>What the list is, for a listener: "Rules about Agenda Time".</summary>
+    [Parameter]
+    public string AriaLabel { get; set; } = "Rules";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-rule-list";
+
+    /// <summary>Any other attribute, on the list's wrapper.</summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private readonly string _id = $"domain-rule-list-{Guid.NewGuid():N}";
+    private readonly HashSet<int> _open = [];
+    private IReadOnlyList<DomainRule>? _read;
+    private bool _all;
+
+    private int Limit => Rules.Count <= Visible + 1 ? Rules.Count : Math.Max(1, Visible);
+
+    private int Shown => _all ? Rules.Count : Limit;
+
+    protected override void OnParametersSet()
+    {
+        // Other rules are another list: nothing stays open or unfolded.
+        if (ReferenceEquals(_read, Rules) || (_read is not null && _read.SequenceEqual(Rules))) return;
+        _read = Rules;
+        _open.Clear();
+        _all = false;
+    }
+
+    private void Toggle(int index)
+    {
+        if (!_open.Remove(index)) _open.Add(index);
+    }
+}

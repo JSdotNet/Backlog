@@ -1,0 +1,485 @@
+@*
+    The Domain page of the Domain view (local ADR 0044): one unit of a `.domain`
+    file at a time.
+
+    A file holding more than one unit — an unsplit `domain.md`, with its
+    aggregates, domain services and Glossary — offers them as a chapter bar
+    inside the page (§4): a segmented bar under the caption that names the file,
+    each unit led by a square in its kind's tone — filled for an aggregate,
+    outlined for a domain service — beside its name. A split `domain.<name>.md` holds one aggregate and opens on it with no
+    bar: the menu row was the picking.
+
+    What a unit shows is the unit's kind. An aggregate opens on About with Always
+    true beside it, its rules read from the invariants file beside the page; a
+    domain service is one page; Glossary is its terms; a shared grouping with rules
+    — Shared Value Objects, Shared Enums — is its Always true alone. Nothing
+    here names a field type, an invocation detail or an event payload — those are
+    Model's (§6). The Glossary reads every domain file of the context, so a split
+    context's aggregates are listed beside its terms.
+
+    Pure: the host hands over the files it read, so the storybook draws the same
+    page from a sample string.
+*@
+
+<article class="domain-units" data-testid="@TestId" aria-label="@AriaLabel">
+    @if (_units.Count == 0)
+    {
+        <EmptyState Title="No units"
+                    Description="This file holds no aggregate, domain service or Glossary to show."
+                    TestId="domain-units-empty"
+                    role="status" />
+    }
+    else if (_units.Count == 1)
+    {
+        @Unit(_units[0])
+    }
+    else
+    {
+        <p class="domain-units__caption" data-testid="domain-units-caption">Chapters in <code>@FileName</code> · each one is a page of its own once split out</p>
+        <Tabs ActiveId="@ActiveTabId"
+              ActiveIdChanged="SelectAsync"
+              AriaLabel="@($"Chapters in {FileName}")"
+              CssClass="domain-units__bar"
+              ListCssClass="domain-units__bar-list"
+              TabCssClass="domain-units__bar-tab"
+              ActiveTabCssClass="domain-units__bar-tab domain-units__bar-tab--active"
+              ListTestId="domain-units-bar"
+              TestId="domain-units-tabs">
+            @foreach (var unit in _units)
+            {
+                <TabPanel @key="unit.Key"
+                          Id="@TabId(unit)"
+                          Title="@unit.Label"
+                          TitleContent="@BarLabel(unit)"
+                          TabTestId="@($"domain-unit-tab-{unit.Key}")">
+                    @Unit(unit)
+                </TabPanel>
+            }
+        </Tabs>
+    }
+</article>
+
+@code {
+    /// <summary>The file the menu row opened.</summary>
+    [Parameter, EditorRequired]
+    public DomainChapterFile File { get; set; } = default!;
+
+    /// <summary>Every domain file of the context, the opened one included — where
+    /// the events a unit raises are looked for. Empty means the opened file
+    /// alone.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainChapterFile> DomainFiles { get; set; } = [];
+
+    /// <summary>The context's requirements files, which a domain service's "You
+    /// can count on" is read from.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainChapterFile> RequirementFiles { get; set; } = [];
+
+    /// <summary>The context's invariants files. The one beside <see cref="File"/>
+    /// — <c>domain.invariants.md</c>, or <c>domain.&lt;name&gt;.invariants.md</c>
+    /// beside a split — is where Always true reads its rules.</summary>
+    [Parameter]
+    public IReadOnlyList<DomainChapterFile> InvariantFiles { get; set; } = [];
+
+    /// <summary>The unit the chapter bar has picked, by its anchor. Unset, or an
+    /// anchor the file does not hold, is the first unit.</summary>
+    [Parameter]
+    public string? ActiveUnit { get; set; }
+
+    [Parameter]
+    public EventCallback<string> ActiveUnitChanged { get; set; }
+
+    /// <summary>The page an aggregate opens on: <see cref="AboutPage"/> or
+    /// <see cref="AlwaysTruePage"/>. Unset is About; the reader's own pick wins
+    /// until the host changes it.</summary>
+    [Parameter]
+    public string? ActiveUnitPage { get; set; }
+
+    /// <summary>The rule the aggregate's Always true tab opens on, by its
+    /// reference (<see cref="DomainRule.Reference"/>) — the one a rule shown on
+    /// another page linked to. Its row is marked and takes focus.</summary>
+    [Parameter]
+    public string? ActiveRule { get; set; }
+
+    /// <summary>A rule shown here whose Always true is another file's, followed:
+    /// the host opens that unit there. Unset, such a rule links nowhere.</summary>
+    [Parameter]
+    public EventCallback<DomainAlwaysTrueLink> OnOpenAlwaysTrue { get; set; }
+
+    /// <summary>An aggregate's About tab, as <see cref="ActiveUnitPage"/> names it.</summary>
+    public const string AboutPage = "about";
+
+    /// <summary>An aggregate's Always true tab, as <see cref="ActiveUnitPage"/> names it.</summary>
+    public const string AlwaysTruePage = "always-true";
+
+    /// <summary>A reference the reader followed: a requirement, or a link in the
+    /// prose.</summary>
+    [Parameter]
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
+
+    /// <summary>The context's Model file — <c>.devbook/domain/tasks/model.md</c> —
+    /// which the "on Model" links open, where field types, invocation and
+    /// contracts are. Unset leaves those links out.</summary>
+    [Parameter]
+    public string? ModelPath { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Domain";
+
+    [Parameter]
+    public string? TestId { get; set; } = "domain-units";
+
+    private IReadOnlyList<DomainUnit> _units = [];
+    private DomainChapterFile? _read;
+    private IReadOnlyList<DomainChapterFile>? _readRules;
+    private string? _active;
+    private string? _activeParameter;
+    private string? _unitPageParameter;
+    private string? _ruleParameter;
+
+    // The rule each unit's Always true is focused on, when a link asked for one.
+    private readonly Dictionary<string, string?> _focusOf = [];
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(_read, File) || !ReferenceEquals(_readRules, InvariantFiles))
+        {
+            _read = File;
+            _readRules = InvariantFiles;
+            _units = DomainUnits.Of(File, InvariantFiles);
+        }
+
+        // Taken from the host only when the host changed it: a host that does not
+        // bind the pick keeps the reader's across its own re-renders.
+        var asked = false;
+        if (!string.Equals(_activeParameter, ActiveUnit, StringComparison.Ordinal))
+        {
+            _activeParameter = ActiveUnit;
+            _active = ActiveUnit;
+            asked = true;
+        }
+
+        if (!string.Equals(_unitPageParameter, ActiveUnitPage, StringComparison.Ordinal))
+        {
+            _unitPageParameter = ActiveUnitPage;
+            asked = true;
+        }
+
+        // The host asked for a page of the unit it opened: that aggregate turns to
+        // it, and the reader's own pick wins again from there.
+        if (asked && ActiveUnitPage is { } page && OpenUnit is { Kind: DomainUnitKind.Aggregate } open)
+            _pageOf[open.Key] = $"{TabId(open)}-{page}";
+
+        if (!string.Equals(_ruleParameter, ActiveRule, StringComparison.Ordinal))
+        {
+            _ruleParameter = ActiveRule;
+            if (OpenUnit is { } focused) _focusOf[focused.Key] = ActiveRule;
+        }
+    }
+
+    private string? ActiveTabId =>
+        _units.FirstOrDefault(unit => string.Equals(unit.Key, _active, StringComparison.Ordinal)) is { } active
+            ? TabId(active)
+            : null;
+
+    private static string TabId(DomainUnit unit) => $"domain-unit-{unit.Key}";
+
+    // The unit the page shows: the one picked, else the first.
+    private DomainUnit? OpenUnit =>
+        _units.FirstOrDefault(unit => string.Equals(unit.Key, _active, StringComparison.Ordinal)) ?? _units.FirstOrDefault();
+
+    private static string AboutId(DomainUnit unit) => $"domain-unit-{unit.Key}-about";
+
+    private static string AlwaysTrueId(DomainUnit unit) => $"domain-unit-{unit.Key}-always-true";
+
+    /// <summary>The file's name, as the chapter bar's caption reads it.</summary>
+    private string FileName => File.Path[(File.Path.Replace('\\', '/').LastIndexOf('/') + 1)..];
+
+    // The aggregate page each unit has open — About or Always true — kept so a
+    // link into the unit can turn it back to About.
+    private readonly Dictionary<string, string> _pageOf = [];
+
+    /// <summary>
+    /// A reference the reader followed. One into this file opens the unit that
+    /// holds the chapter it names — an aggregate on About, where the chapter's
+    /// card is — rather than leaving the page; any other goes to the host.
+    /// </summary>
+    private async Task NavigateAsync(DevbookReference reference)
+    {
+        if (reference.Slug is { } slug
+            && DomainUnits.Normalize(reference.Path) == DomainUnits.Normalize(File.Path)
+            && _units.FirstOrDefault(unit => unit.Chapter.Anchor == slug || unit.Chapter.Descendants().Any(chapter => chapter.Anchor == slug)) is { } target)
+        {
+            if (target.Kind == DomainUnitKind.Aggregate) _pageOf[target.Key] = AboutId(target);
+            if (!string.Equals(_active, target.Key, StringComparison.Ordinal))
+            {
+                _active = target.Key;
+                await ActiveUnitChanged.InvokeAsync(target.Key);
+            }
+            return;
+        }
+
+        await OnNavigate.InvokeAsync(reference);
+    }
+
+    private async Task SelectAsync(string tabId)
+    {
+        var unit = _units.FirstOrDefault(candidate => TabId(candidate) == tabId);
+        if (unit is null) return;
+
+        _active = unit.Key;
+        await ActiveUnitChanged.InvokeAsync(unit.Key);
+    }
+
+    // One list per opened file, so a unit's renderers see the same list on every
+    // render and their caches hold.
+    private (DomainChapterFile? File, IReadOnlyList<DomainChapterFile> Files) _alone = (null, []);
+
+    private IReadOnlyList<DomainChapterFile> EventFiles
+    {
+        get
+        {
+            if (DomainFiles.Count > 0) return DomainFiles;
+            if (!ReferenceEquals(_alone.File, File)) _alone = (File, [File]);
+            return _alone.Files;
+        }
+    }
+
+    // Read once per set of files, so a re-render hands the same lists down and the
+    // unit's renderers do not read their chapters again.
+    private readonly Dictionary<string, IReadOnlyList<DomainEventLine>> _events = [];
+    private readonly Dictionary<string, IReadOnlyList<DomainGuarantee>> _guarantees = [];
+    private readonly Dictionary<string, IReadOnlyList<DomainRuleGroup>> _rules = [];
+    private (DomainChapterFile?, IReadOnlyList<DomainChapterFile>?, IReadOnlyList<DomainChapterFile>?, IReadOnlyList<DomainChapterFile>?) _readFrom;
+
+    private IReadOnlyList<DomainEventLine> EventsOf(DomainUnit unit)
+    {
+        Reset();
+        if (!_events.TryGetValue(unit.Key, out var events)) _events[unit.Key] = events = DomainUnits.EventsRaisedBy(unit.Reference, EventFiles);
+        return events;
+    }
+
+    private IReadOnlyList<DomainGuarantee> GuaranteesOf(DomainUnit unit)
+    {
+        Reset();
+        if (!_guarantees.TryGetValue(unit.Key, out var guarantees)) _guarantees[unit.Key] = guarantees = DomainUnits.Guarantees(unit, RequirementFiles);
+        return guarantees;
+    }
+
+    /// <summary>The Always true tab's title, with how many rules it holds.</summary>
+    private string AlwaysTrueTitle(DomainUnit unit)
+    {
+        var count = RulesOf(unit).Sum(group => group.Rules.Count);
+        return count == 0 ? "Always true" : $"Always true · {count}";
+    }
+
+    private IReadOnlyList<DomainRuleGroup> RulesOf(DomainUnit unit)
+    {
+        Reset();
+        if (!_rules.TryGetValue(unit.Key, out var rules)) _rules[unit.Key] = rules = DomainUnits.RulesOf(unit, File, InvariantFiles, EventFiles);
+        return rules;
+    }
+
+    // Turns the aggregate to its Always true tab.
+    private Task ShowAlwaysTrue(DomainUnit unit)
+    {
+        _pageOf[unit.Key] = AlwaysTrueId(unit);
+        _focusOf.Remove(unit.Key);
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// A rule shown in place, followed to its row on Always true: a unit of this
+    /// file turns to that tab and lands on the rule, without leaving the page;
+    /// any other file's unit goes to the host.
+    /// </summary>
+    private async Task OpenRuleAsync(DomainAlwaysTrueLink place)
+    {
+        var unit = DomainUnits.Normalize(place.DocumentPath) == DomainUnits.Normalize(File.Path)
+            ? _units.FirstOrDefault(candidate => candidate.Key == place.UnitKey)
+            : null;
+        if (unit is null)
+        {
+            await OnOpenAlwaysTrue.InvokeAsync(place);
+            return;
+        }
+
+        if (unit.Kind == DomainUnitKind.Aggregate) _pageOf[unit.Key] = AlwaysTrueId(unit);
+        _focusOf[unit.Key] = place.Rule;
+        if (!string.Equals(_active, unit.Key, StringComparison.Ordinal))
+        {
+            _active = unit.Key;
+            await ActiveUnitChanged.InvokeAsync(unit.Key);
+        }
+        StateHasChanged();
+    }
+
+    // Every unit's rules in the context, read once per set of files: what a
+    // member, a domain service or a Glossary term shows in place.
+    private DomainRuleCatalog? _catalog;
+
+    private DomainRuleCatalog Catalog
+    {
+        get
+        {
+            Reset();
+            return _catalog ??= DomainRuleCatalog.Of(EventFiles, InvariantFiles);
+        }
+    }
+
+    /// <summary>What a domain service shows as always true: the rules of each
+    /// unit its <c>related</c> names, and those enforced at the service.</summary>
+    private IReadOnlyList<DomainRule> ServiceRules(DomainUnit unit) =>
+        Catalog.About(DomainUnits.RelatedOf(unit, File.Path).Prepend(unit.Reference));
+
+    // Opens another unit of the file from a link row, an aggregate on About.
+    private async Task OpenUnitAsync(DomainUnit unit)
+    {
+        if (unit.Kind == DomainUnitKind.Aggregate) _pageOf[unit.Key] = AboutId(unit);
+        if (string.Equals(_active, unit.Key, StringComparison.Ordinal))
+        {
+            StateHasChanged();
+            return;
+        }
+        _active = unit.Key;
+        await ActiveUnitChanged.InvokeAsync(unit.Key);
+        // Followed from a link row, which re-renders itself only.
+        StateHasChanged();
+    }
+
+    private DomainPageLink? Follow(string text, string testId, string? reference) =>
+        reference is not null && DevbookReference.Parse(reference) is { } target
+            ? new DomainPageLink(text, testId, async () =>
+            {
+                await NavigateAsync(target);
+                StateHasChanged();
+            })
+            : null;
+
+    private DomainPageLink? ModelLink(string text, string testId) => Follow(text, testId, ModelPath);
+
+    /// <summary>An aggregate's links out: its rules on Always true, the lifecycle
+    /// in the flow file a group of its rules or its own <c>related</c> names, and
+    /// the file's Glossary.</summary>
+    private IReadOnlyList<DomainPageLink> AggregateLinks(DomainUnit unit)
+    {
+        var links = new List<DomainPageLink>();
+        var count = RulesOf(unit).Sum(group => group.Rules.Count);
+        if (count > 0) links.Add(new DomainPageLink($"What is always true · {count}", "domain-unit-link-always-true", () => ShowAlwaysTrue(unit)));
+
+        var flow = DomainUnits.RelatedOf(unit, File.Path)
+            .Concat(RulesOf(unit).SelectMany(group => group.Links).Select(link => link.Reference))
+            .FirstOrDefault(DomainUnits.IsFlowReference);
+        if (Follow("How it moves", "domain-unit-link-flow", flow) is { } moves) links.Add(moves);
+
+        if (_units.Count > 1 && _units.FirstOrDefault(other => other.Kind == DomainUnitKind.Glossary) is { } glossary)
+            links.Add(new DomainPageLink("Glossary", "domain-unit-link-glossary", () => OpenUnitAsync(glossary)));
+        return links;
+    }
+
+    /// <summary>A domain service's links out: its promises on Requirements, the
+    /// aggregates of this file it names, and how it runs on Model.</summary>
+    private IReadOnlyList<DomainPageLink> ServiceLinks(DomainUnit unit)
+    {
+        var links = new List<DomainPageLink>();
+        var related = DomainUnits.RelatedOf(unit, File.Path);
+        var guarantees = GuaranteesOf(unit);
+        if (guarantees.Count > 0)
+        {
+            var group = related.FirstOrDefault(DomainUnits.IsRequirementsReference) ?? guarantees[0].Reference;
+            if (Follow($"{guarantees.Count} {(guarantees.Count == 1 ? "promise" : "promises")}", "domain-unit-link-promises", group) is { } promises)
+                links.Add(promises);
+        }
+
+        var named = related.Select(DomainUnits.Normalize).ToHashSet(StringComparer.Ordinal);
+        foreach (var aggregate in _units.Where(other => other.Kind == DomainUnitKind.Aggregate && named.Contains(DomainUnits.Normalize(other.Reference))))
+            links.Add(new DomainPageLink(aggregate.Label, $"domain-unit-link-unit-{aggregate.Key}", () => OpenUnitAsync(aggregate)));
+
+        if (ModelLink("How it runs, on Model", "domain-unit-link-model") is { } model) links.Add(model);
+        return links;
+    }
+
+    /// <summary>Always true's rules about <paramref name="member"/>, as every
+    /// other page finds them (<see cref="DomainRuleCatalog.About(string)"/>): the
+    /// group that is the member, every group whose <c>related</c> names it, and
+    /// each rule whose <c>Enforced at:</c> line names its type — the unit's own.</summary>
+    private IReadOnlyList<DomainRule> RulesAbout(DomainUnit unit, DomainMember member) =>
+        member.Anchor.Length == 0
+            ? []
+            : [.. Catalog.About($"{DomainUnits.PathOf(unit.Reference)}#{member.Anchor}").Where(rule => rule.Place?.UnitKey == unit.Key)];
+
+    private void Reset()
+    {
+        if (_readFrom.Item1 == File && _readFrom.Item2 == DomainFiles && _readFrom.Item3 == RequirementFiles && _readFrom.Item4 == InvariantFiles) return;
+        _readFrom = (File, DomainFiles, RequirementFiles, InvariantFiles);
+        _events.Clear();
+        _guarantees.Clear();
+        _rules.Clear();
+        _catalog = null;
+    }
+
+    // A square in the kind's tone leads an aggregate or a domain service; the
+    // Glossary and a shared grouping have none. The name says what the unit is,
+    // so the square is for the eye alone.
+    private static RenderFragment BarLabel(DomainUnit unit) =>
+        @<span class="domain-units__tab">@if (unit.Kind is DomainUnitKind.Aggregate or DomainUnitKind.DomainService)
+            {
+                <span class="domain-units__kind domain-units__kind--@unit.Type" data-kind="@unit.Type" aria-hidden="true"></span>
+            }@unit.Label</span>;
+
+    private RenderFragment Unit(DomainUnit unit) =>
+        @<section @key="@($"{File.Path}#{unit.Key}")" class="domain-unit domain-unit--@unit.Type" data-testid="domain-unit" data-unit="@unit.Key" aria-label="@unit.Label">
+            @switch (unit.Kind)
+            {
+                case DomainUnitKind.Aggregate:
+                    <Tabs AriaLabel="@($"{unit.Label} pages")"
+                          ActiveId="@_pageOf.GetValueOrDefault(unit.Key)"
+                          ActiveIdChanged="@(id => { _pageOf[unit.Key] = id; _focusOf.Remove(unit.Key); })"
+                          CssClass="domain-unit__tabs"
+                          ListTestId="domain-unit-tabs">
+                        <TabPanel Id="@AboutId(unit)" Title="About" TabTestId="domain-unit-about-tab">
+                            <DomainAggregateAbout Chapter="@unit.Chapter"
+                                                  Events="@EventsOf(unit)"
+                                                  Rules="@RulesOf(unit)"
+                                                  Links="@AggregateLinks(unit)"
+                                                  Model="@ModelLink("Contracts on Model", "domain-unit-link-model-events")"
+                                                  RulesOf="@(member => RulesAbout(unit, member))"
+                                                  OnOpenRule="OpenRuleAsync"
+                                                  HeroFooter="@Notes(unit)" />
+                        </TabPanel>
+                        <TabPanel Id="@AlwaysTrueId(unit)" Title="@AlwaysTrueTitle(unit)" TabTestId="domain-unit-always-true-tab">
+                            <h2 class="domain-unit__title domain-unit__title--page" data-testid="domain-unit-title">@unit.Label · always true</h2>
+                            <DomainAlwaysTrue Groups="@RulesOf(unit)" UnitTitle="@unit.Label" FocusRule="@_focusOf.GetValueOrDefault(unit.Key)" OnNavigate="NavigateAsync" />
+                        </TabPanel>
+                    </Tabs>
+                    break;
+                case DomainUnitKind.Shared:
+                    <h2 class="domain-unit__title"><DevbookTypeMarker Value="@unit.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@unit.Label</h2>
+                    <DomainAlwaysTrue Groups="@RulesOf(unit)" UnitTitle="@unit.Label" Shared="true" FocusRule="@_focusOf.GetValueOrDefault(unit.Key)" OnNavigate="NavigateAsync" />
+                    @Notes(unit)
+                    break;
+                case DomainUnitKind.DomainService:
+                    <DomainServiceAbout Chapter="@unit.Chapter"
+                                        Guarantees="@GuaranteesOf(unit)"
+                                        Events="@EventsOf(unit)"
+                                        Links="@ServiceLinks(unit)"
+                                        Rules="@ServiceRules(unit)"
+                                        OnOpenRule="OpenRuleAsync"
+                                        Model="@ModelLink("Contracts on Model", "domain-unit-link-model-events")"
+                                        HeroFooter="@Notes(unit)"
+                                        OnNavigate="NavigateAsync" />
+                    break;
+                default:
+                    <h2 class="domain-unit__title"><DevbookTypeMarker Value="@unit.Type" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />@unit.Label</h2>
+                    <DomainGlossary Chapter="@unit.Chapter" Files="@EventFiles" DocumentPath="@File.Path" OnNavigate="NavigateAsync" RulesAbout="@Catalog.About" OnOpenRule="OpenRuleAsync" />
+                    @Notes(unit)
+                    break;
+            }
+        </section>;
+
+    // The notes linking to the unit or to a chapter inside it. The Glossary's
+    // own terms each carry theirs, so its box is the grouping's alone.
+    private static RenderFragment Notes(DomainUnit unit) =>
+        @<DomainChapterNotes References="@(unit.Kind == DomainUnitKind.Glossary ? [unit.Reference] : DomainChapterLinks.Covering(unit.Reference, unit.Chapter))" />;
+}

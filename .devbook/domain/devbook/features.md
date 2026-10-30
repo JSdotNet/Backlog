@@ -775,6 +775,211 @@ Every view a pointer operates has a list or table companion, on screen, that
 operates the same selection. A reader without a mouse, or with a screen reader,
 picks a technology from the companion and loses nothing but the picture.
 
+## Domain view by unit
+
+```meta
+type: feature
+status: draft
+feature-flag: .devbook/domain/devbook/context.md#new-domain-view
+roadmap: [devbook-domain-view]
+depends-on: [.devbook/domain/devbook/features.md#rendered-devbook-documents]
+related: [.devbook/domain/devbook/requirements.md#domain-view-by-unit, .devbook/arc42/adr/0044-the-domain-view-reads-by-unit.md, .devbook/design/color-scheme.md#domain-view-element-tones]
+```
+
+Read a repository's domain one unit at a time: the context map, then each bounded
+context, then each file inside it. Every row in the Domain area's menu is a unit,
+and the page it opens is drawn for the kind of file the unit is. A reader who
+wants to know what a context does reads its functional pages. A reader who wants
+field types reads Model.
+
+| Menu row | The file | The page |
+| --- | --- | --- |
+| Context map | `context-map.md` | **Map** draws the contexts and their relations; **List** names them in reading order |
+| A context | `context.md` | One page with no tabs: its neighbours, from `dependencies.md`, then its **Overview** — the context's boundary, what it holds, how well it is proved and settled, its switches and its pages |
+| Domain | `domain.md` and its splits | A unit picker. An aggregate opens **About** and **Always true**; a domain service opens one page; the **Glossary**, from the Ubiquitous Language chapter, is the bar's last tab |
+| Features | `features.md` | The features and their sub-features |
+| Requirements | `requirements.md` | Each requirement and its scenarios |
+| Model | `model.md` | **Diagram**, **Fields** and **Events** |
+| Flow | `flow.md` | The context's lifecycles |
+
+The menu lists files in the devbook reading order, and a split file nests under
+its kind's row. A rules file, a click demo and `dependencies.md` get no row of
+their own. Each one shows on the page it belongs to: the rules as the **Always
+true** tab, the demo as a **Demo** button, the dependencies as the neighbours at
+the top of the context's page. A
+file whose name starts with `_` stays hidden, and so does the `assets` folder,
+whose images the chapters show. How each file maps to a row is
+local [ADR 0044](../../arc42/adr/0044-the-domain-view-reads-by-unit.md).
+
+A kind's row is titled by its base file's heading, so Fincent's `actors.md`
+reads *Actoren* and its `flow.md` *Flows*, and it counts the rows under it at
+its far edge. A heading that only repeats the context's name keeps the kind's
+own name, as every row does before the devbook database is built.
+
+**Wording comes from the chapters.** A page shows the headings as written, and a
+row's summary is its chapter's first sentence. A relation among the neighbours reads
+the "Why" column of the dependency tables. No chapter gains a field for the view,
+so a devbook reads the same in the app and in a Markdown viewer.
+
+**A context reads one way however it is reached.** The Context map, a related
+link, a link to its `dependencies.md` and its menu row all open the same page. It
+opens on the neighbours diagram and the Overview follows below it, so no tab
+decides what the reader sees first.
+
+**A context's Overview reads its `context.md` as the board draws it.** The
+name and the boundary's lead come first, under its subdomain, deployment and
+status. The *Inside the boundary:* paragraph becomes the Inside card. The
+*Outside it:* paragraph becomes the Outside card, one question per clause, each
+linked to the contexts its sentence says answer it. Tiles count the domain and
+feature chapters; two cards say how many requirements and invariants name a
+test; one bar shows how settled the chapters are; the switches table links the
+features each switch gates. The page's own words are its section headings, the
+two card labels, the line under Switches, the note under How settled, and the question beside each page it
+offers; every other word is a chapter's.
+
+**Technical detail lives on Model.** Field types, how a domain service is invoked
+and what an event carries are shown on Model only. The functional pages, from the
+context's Overview to its Glossary, say what the domain does in its own
+language.
+
+**Diagram reads the model file's stereotypes.** Each class of a `classDiagram`
+carries the building block its `domain.md` chapter names, as one of five
+stereotypes: `<<aggregate root>>`, `<<entity>>`, `<<value object>>`,
+`<<enumeration>>` and `<<domain service>>`. A type another context owns carries
+none. A stereotype is never a list of names: a type's variants are written in
+the relationship notes. Composition (`*--`) draws a part inside its root's
+boundary, a dashed line (`..>`) a type held by id outside it. A class no
+aggregate holds, such as a shared value object or another context's type, is a
+card outside every boundary. Only a diagram that does not parse, or names no
+aggregate root, is drawn with mermaid.
+
+**Fields reads the model file's own groups.** Fields heads the aggregate root
+with its kind, its chapter's status and aliases, its name and its chapter's first
+sentence. It then lists the root's fields in the purpose groups the model file's
+`## Fields` chapter writes: one `###` per group, its first paragraph the question
+the group answers, and one bullet per field naming it in backticks with what it
+means. A bullet that ends in `Rules:` and links to invariants shows how many it
+points at, and the count opens them under the row. A field no group names stands under *Other fields*. A model file with
+no `## Fields` chapter is grouped by what the types say. Beside the groups,
+*Owned by the …* lists the root's entities, value objects, enums with their
+values, and domain services.
+
+**Events is an index with one contract open.** Events heads the page *What
+‹context› tells other contexts*. It lists every event with who raises it, when,
+who consumes it and whether it is emitted, and shows the picked event's contract
+beneath. *What ‹context› listens to* reads the dependency tables' rows in which
+another context supplies a published language.
+
+**The Domain page reads one unit at a time.** An unsplit `domain.md` offers its
+aggregates, domain services and Glossary in a chapter bar inside the page, under
+a caption naming the file: a segmented bar, the open unit filled, each aggregate
+led by a filled square and each domain service by an outlined one; a split
+`domain.<name>.md` opens on its one aggregate. An aggregate's **About** is a
+summary of its chapter, not its prose. A card at the top holds the kind and
+status, the heading, the chapter's first sentence, a tile per group of its rules,
+and links to **Always true**, the lifecycle on Flow and the Glossary. Below it
+sit a card per entity or value object it owns, with its first sentence and how
+many rules are about it, a count that opens them on the card, its enums as rows
+of values read as words, and the
+events it raises with who hears them. A summary that closes on a list of fields
+reads as far as the colon, so no field shows.
+**Always true** sits beside it, read from the invariants file beside the page
+(`domain.invariants.md`, or `domain.<name>.invariants.md` beside a split). Each
+rule reads as its heading, marked ✓ when its chapter names a test, ○ when it
+names none, and ? when its `Enforced at:` line is `open`; the tab's title counts
+the rules and the bar counts each mark. The rules sit in a card per group. A
+group is one the chapter writes itself, a `type: invariants` heading inside the
+aggregate's chapter with its rules beneath it, headed by its words with what its
+`related` names linked beside them. A rule outside every such group sits under
+the entity, value object or enum its `Enforced at:` line names, else under the
+aggregate, and that card's heading opens the concept on About. A rule's first
+sentence and where it is enforced name fields and code, so they show only once
+**Show where each is enforced** is pressed. A
+shared value object's or enum's rules show on the base page, as a **Shared Value
+Objects** or **Shared Enums** unit in its chapter bar. A domain service's page is its kind and status, its
+heading and first sentence, the requirements it is held to under **You can count
+on**, each opening on Requirements, what is always true of the units its
+`related` names, links to its promises, the aggregate it names
+and how it runs on Model, and the events it raises. The rest of its prose says how
+it is invoked, which is Model's. A unit's events are the domain-event
+chapters whose `related` names it, and a service's requirements are those whose
+`related` names it or that its own `related` names.
+
+**A unit's rules show wherever they apply.** Always true is the full list; every
+other page that draws a thing the invariants constrain shows the rules about it
+in place, in one list. A rule is about a thing when a group of the invariants
+names it in `related`, when its `Enforced at:` line names its type, or when the
+thing is the unit itself. Features shows them under a feature's promises,
+Requirements under a feature's heading, Model behind a field's rule count on
+Fields and a part's on Diagram, About behind a member card's count, a domain
+service's page for the units it names, the Glossary behind a row's count, and
+Flow under a lifecycle and behind a card's count. Each rule reads as Always true
+draws it, its claim behind its ✓, ○ or ? mark; pressing it shows its first
+sentence and where it is enforced, and a link to its row on its unit's Always
+true tab, which opens with the row marked and focused. A list shows three rules
+and the rest behind *n more*, or all four when there are four.
+
+**Flow draws each lifecycle as one row.** A `stateDiagram-v2` in a flow file is
+drawn as one row of states. The forward transitions run above the row, the ways
+back run below it, and the way from the last state back to the first loops round
+the outside. The chapter's prose follows the row. Every other Mermaid diagram in
+the file renders as it does elsewhere, and so does a state diagram the row cannot
+hold, such as one with composite states.
+
+**The Glossary is the context's words, A to Z.** The chapter bar's Glossary
+lists every term under `## Ubiquitous Language` and every model chapter of the
+context's domain files in one card, under a lead that says so. Each row shows
+its kind, a `proposed` or `deprecated` badge, its aliases as code chips and its
+first sentence, and a `deprecated` chapter is struck through. A find box matches
+a heading or an alias. Beside it, one-choice pills with counts show All, Model,
+Terms or Borrowed, the last only when a term is borrowed. A term is **borrowed**
+when its `related` names its own heading in another context; its row links
+there. With All picked and nothing typed, a list of more than twenty rows shows
+its first fifteen and the rest behind *n more*. Beside the list, **Easily
+confused** gives one card to each group of terms that name each other in
+`related`, and **Across contexts** lists the borrowed words.
+
+**Features stand by what they build on.** The Features page sets a context's
+features in columns by how many of its features each builds on through
+`depends-on`. The page opens on its title, *What* the context *lets a person
+do*, a lead counting its features, and a legend. A card shows the feature's
+title, its sub-feature count, its flag or setting, *n req · m tested* when it
+has requirements and, past the first column, what it comes after. A proposed
+feature is dashed, and the deprecated ones are gathered, struck through, in one
+box at the end of the last column. Picking a card shows what it builds on, the
+flag it is gated by or the setting it is configured by, the model chapters its
+`related` names and its sub-features, and beside them what it promises: its
+requirement count, how many a test proves as a bar, a link to Requirements, and
+what is always true of what it uses — the rules its requirements lean on.
+
+**Requirements read per feature.** The Requirements page shows each requirement
+with its SHALL sentence set apart and whether it is proved, and each scenario as
+Given, When and Then rows, a row that joins clauses with ", and" read as one
+bullet each. Where a feature's requirements rest on an aggregate's rules — they
+name the aggregate, a chapter inside it, or a concept its rules are about —
+**What is always true** lists those rules under the feature's heading, counted,
+instead of a sentence explaining them.
+A split `features.<name>.md` or `requirements.<name>.md` reads the same way for
+its one feature. The page opens on a card saying what a requirement is, with
+how many are tested; each requirement is a card with a *Test linked* or dashed
+*No test linked* mark and its scenarios on its foot, and a feature with more
+than three requirements opens the first two and lists the rest as rows that
+open in place.
+
+**The Brain and the tasks show where they link.** Under each unit, feature and
+glossary term, the [From your Brain](../brain/features.md#repo-links-and-backlinks) box lists the
+owner's Brain notes linking to that chapter or to one inside it, and a model
+part and a glossary term carry a **◆ n note** badge counting them. A note
+linking to the whole file names no unit, and shows only in the box under the
+page, which still lists every note linking anywhere in the file. A feature's
+detail and each requirement show the tasks whose Devbook references name the
+chapter as task chips: gold when this backlog holds the task, which pressing
+opens, and dashed, reading *not in this backlog*, when it does not. The box and
+the badge are the only teal on the view.
+
+The view is built behind the [New domain view](context.md#new-domain-view)
+switch. Until the switch is on, the Domain area reads as it always has.
+
 ## Instruction optimization
 
 ```meta

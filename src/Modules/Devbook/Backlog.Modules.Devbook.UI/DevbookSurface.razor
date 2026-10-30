@@ -21,6 +21,7 @@
              OnOpenReferenceFollowed="Requests.Followed"
              OnOpenRepositoryChapter="OpenRepositoryChapter"
              TaskTitleFor="@(_taskTitles is null ? null : _taskTitles.TitleFor)"
+             TaskReferencesFor="@(_taskReferences is null ? null : _taskReferences.For)"
              OnOpenTask="OpenTask"
              OnOpenLobesAtlas="OpenAtlas" />
 
@@ -38,12 +39,14 @@
     public EventCallback OnClose { get; set; }
 
     private IBrainTaskTitles? _taskTitles;
+    private IDevbookTaskReferences? _taskReferences;
     private IDevbookWindowScope? _windowScope;
     private DevbookOpenRequest? _openRequest;
 
     protected override void OnInitialized()
     {
         _taskTitles = Services.GetService<IBrainTaskTitles>();
+        _taskReferences = Services.GetService<IDevbookTaskReferences>();
         _windowScope = Services.GetService<IDevbookWindowScope>();
     }
 

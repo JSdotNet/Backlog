@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.InProgress;
 using Backlog.Desktop.UI.PullRequests;
@@ -372,6 +373,11 @@ public static class DesktopCompositionRegistration
         services.Add(new ServiceDescriptor(
             typeof(IBrainTaskTitles),
             sp => new ShellBrainTaskTitles(sp.GetRequiredService<TasksDesktopState>()),
+            options.WindowStateLifetime));
+        // The Devbook references the Domain view shows on its features and requirements.
+        services.Add(new ServiceDescriptor(
+            typeof(IDevbookTaskReferences),
+            sp => new ShellDevbookTaskReferences(sp.GetRequiredService<TasksDesktopState>()),
             options.WindowStateLifetime));
         // The window's repository scope, for a Devbook opened with no scope of its own (§6).
         services.Add(new ServiceDescriptor(
