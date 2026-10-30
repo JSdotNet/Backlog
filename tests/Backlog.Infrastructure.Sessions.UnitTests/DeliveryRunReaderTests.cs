@@ -279,6 +279,36 @@ public sealed class DeliveryRunReaderTests : IDisposable
     }
 
     /// <summary>
+    /// The compactions the telemetry listed are counted, and a context with no list is
+    /// a run that was never compacted rather than one whose count is unknown — every
+    /// writer before the telemetry kept no list and no compaction either.
+    /// </summary>
+    [Fact]
+    public async Task The_context_counts_the_compactions_it_lists()
+    {
+        GivenRun("backlog", "Backlog-43b9057e", "run-compacted.json", """
+            {
+              "id": "run-compacted",
+              "skillId": "flow-code",
+              "status": "done",
+              "context": {
+                "currentTokens": 90000, "tokenLimit": 200000, "peakTokens": 198000,
+                "compactions": [ { "reason": "auto", "at": "2026-10-28T09:00:00Z" }, { "reason": "auto", "at": "2026-10-28T10:00:00Z" } ]
+              },
+              "stages": []
+            }
+            """);
+        GivenRun("backlog", "Backlog-43b9057e", "run-whole.json", """
+            { "id": "run-whole", "skillId": "flow-code", "status": "done", "context": { "currentTokens": 1, "tokenLimit": 2, "peakTokens": 1 }, "stages": [] }
+            """);
+
+        var runs = (await ReadAsync()).Runs.ToDictionary(run => run.Id);
+
+        Assert.Equal(2, runs["run-compacted"].Context!.Compactions);
+        Assert.Equal(0, runs["run-whole"].Context!.Compactions);
+    }
+
+    /// <summary>
     /// The thousand-record list becomes two short ones. By category every insight
     /// counts — a delegated agent, which the dashboard files without a category, is
     /// its own — and by server only the MCP calls do, because a built-in tool has no

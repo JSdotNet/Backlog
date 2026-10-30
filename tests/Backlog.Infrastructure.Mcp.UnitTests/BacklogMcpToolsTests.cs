@@ -61,6 +61,9 @@ public class BacklogMcpToolsTests
                 "list_runs",
                 "get_run",
 
+                // The measured usage of every run, beside the surface rather than on it.
+                "list_run_usage",
+
                 // Progress's impediments, beside set_blocked (local ADR 0035).
                 "raise_impediment",
                 "set_impediment_state",
@@ -110,6 +113,7 @@ public class BacklogMcpToolsTests
         Assert.Equal(DevbookFeatures.RepositoryDevbook, BacklogMcpTools.Devbook.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
+        Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Usage.FeatureKey);
         // Progress has no switch: its impediment and goal tools ride the always-on Tasks key.
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Impediments.FeatureKey);
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Goals.FeatureKey);
@@ -121,7 +125,7 @@ public class BacklogMcpToolsTests
     }
 
     /// <summary>
-    /// Two pairs of groups read one key each, and that is the decision rather
+    /// Two keys are read by several groups each, and that is the decision rather
     /// than a duplicate to be cleaned up.
     /// <para>
     /// This used to assert that every group's key was distinct, which read §7's
@@ -134,17 +138,19 @@ public class BacklogMcpToolsTests
     /// is for, which is what a model reads.
     /// </para>
     /// <para>
-    /// The sessions key is the second pair and the same argument: reading what
+    /// The sessions key is the second and the same argument: reading what
     /// agents left on this machine and recording what a flow is doing on it now
     /// are one area, drawn in one pane, behind one switch. Somebody switching
     /// sessions off means "Backlog is not where I watch my agents work", which
-    /// does not stop at the reads.
+    /// does not stop at the reads. The usage tool is the third group on it: it reads
+    /// the same runs and sessions, apart from the surface so the flow driving a run
+    /// is never handed its measured figures.
     /// </para>
     /// <para>
     /// No key crosses a bounded context but one: the Tasks key also gates Progress's
     /// impediment and goal tools, because Progress has no switch of its own — goals are
     /// always on (local ADR 0035 §10) — and the Tasks key cannot be turned off either. The
-    /// keys the ten groups name are six: the session request queue's dispatcher tools
+    /// keys the eleven groups name are six: the session request queue's dispatcher tools
     /// have <c>session-requests</c> to themselves, and the notification tools
     /// <c>notifications</c>.
     /// </para>
@@ -169,11 +175,11 @@ public class BacklogMcpToolsTests
             byKey[TasksFeatures.Tasks]);
 
         Assert.Equal(
-            [BacklogMcpTools.Sessions, BacklogMcpTools.Surface],
+            [BacklogMcpTools.Sessions, BacklogMcpTools.Surface, BacklogMcpTools.Usage],
             byKey[SessionFeatures.Sessions]);
 
-        // Every other key is one group's. Named as the two pairs rather than
-        // asserted as "at most two share", so adding a third group to a key is a
+        // Every other key is one group's. Named as the two shared keys rather than
+        // asserted as "a few may share", so adding another group to a key is a
         // failing test that asks for the reason to be written down here — which
         // is the whole of what this assertion is for.
         Assert.All(
