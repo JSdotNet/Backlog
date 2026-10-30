@@ -188,25 +188,27 @@ public sealed class C4DevbookPanelTests : IDisposable
         Assert.NotEmpty(component.FindAll("[data-testid='c4-breadcrumb']"));
     }
 
-    // ---- the C4 zoom tab --------------------------------------------------------
+    // ---- the architecture surface (c4-zoom on) --------------------------------
 
-    /// <summary>Both switches on: the zoom tab sits after the C4 tab, and the C4 tab
-    /// is the one it was.</summary>
+    /// <summary>Both switches on: the pane is the architecture surface — no Chapters,
+    /// C4 or C4 zoom tab — opening on the model, with the zoom bar and the left
+    /// navigation (plan c4-zoom-navigation, entry 15b).</summary>
     [Fact]
-    public async Task With_both_keys_on_the_tabs_read_chapters_C4_and_C4_zoom()
+    public async Task With_both_keys_on_the_pane_is_one_surface_rather_than_tabs()
     {
         await using var harness = CreateHarness(c4Enabled: true, c4ZoomEnabled: true);
 
         var component = harness.Render(null);
         harness.Settle(component);
 
-        var tabs = component.FindAll("[role='tab']").Select(tab => tab.TextContent.Trim()).ToList();
-        Assert.Equal(["Chapters", "C4", "C4 zoom"], tabs);
-
-        await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
-
-        Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-explorer']"));
-        Assert.Empty(component.FindAll("[data-testid='arc42-c4-zoom-explorer']"));
+        Assert.Empty(component.FindAll("[role='tab']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-tabs']"));
+        Assert.Single(component.FindAll("[data-testid='arc42-surface']"));
+        Assert.Single(component.FindAll("[data-testid='arc42-surface-explorer']"));
+        Assert.Single(component.FindAll("[data-testid='c4-zoom-bar']"));
+        Assert.Single(component.FindAll("[data-testid='arc42-surface-nav']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-c4-explorer']"));
+        Assert.Empty(component.FindAll("[data-testid='arc42-document']"));
     }
 
     /// <summary>The zoom key alone offers nothing: it is another reading of the model
@@ -233,6 +235,10 @@ public sealed class C4DevbookPanelTests : IDisposable
 
         Assert.NotEmpty(component.FindAll("[data-testid='arc42-c4-tab']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-c4-zoom-tab']"));
+
+        // And no surface: the pane is the tabs it always was.
+        Assert.Equal(["Chapters", "C4"], component.FindAll("[role='tab']").Select(tab => tab.TextContent.Trim()));
+        Assert.Empty(component.FindAll("[data-testid='arc42-surface']"));
     }
 
     /// <summary>
@@ -241,15 +247,13 @@ public sealed class C4DevbookPanelTests : IDisposable
     /// the view alone.
     /// </summary>
     [Fact]
-    public async Task The_zoom_tab_opens_on_the_context_view_and_its_hint_is_dismissed_per_user()
+    public async Task The_surface_opens_on_the_context_view_and_its_hint_is_dismissed_per_user()
     {
         var preferences = new RememberedViewPreferences();
         await using var harness = CreateHarness(c4Enabled: true, c4ZoomEnabled: true, preferences: preferences);
 
         var component = harness.Render(null);
         harness.Settle(component);
-
-        await component.Find("[data-testid='arc42-c4-zoom-tab']").ClickAsync(new());
 
         Assert.Equal("context-backlog", component.Find("[data-testid='c4-zoom-key']").TextContent);
         Assert.NotEmpty(component.FindAll("[data-testid='c4-zoom-hint']"));
@@ -263,21 +267,18 @@ public sealed class C4DevbookPanelTests : IDisposable
         var reopened = again.Render(null);
         again.Settle(reopened);
 
-        await reopened.Find("[data-testid='arc42-c4-zoom-tab']").ClickAsync(new());
-
         Assert.Equal("context-backlog", reopened.Find("[data-testid='c4-zoom-key']").TextContent);
         Assert.Empty(reopened.FindAll("[data-testid='c4-zoom-hint']"));
     }
 
     /// <summary>
-    /// The zoom tab's inspector is handed what the folder says about the selected
+    /// The surface's inspector is handed what the folder says about the selected
     /// element: the chapter the views map lists against the view it is on, and the
     /// decision whose <c>c4</c> names it — proposed, so chipped. Picking the decision
-    /// asks the host for it and brings the Chapters tab back, the way a chapter
-    /// reference from the C4 tab does.
+    /// asks the host for it and opens it in the surface, in place of the picture.
     /// </summary>
     [Fact]
-    public async Task The_zoom_tabs_inspector_lists_the_records_and_opens_one_in_the_chapters()
+    public async Task The_surface_inspector_lists_the_records_and_opens_one_in_the_surface()
     {
         const string Decision =
             "# ADR 0030: Stored credentials go through the OS envelope\n\n```meta\nstatus: proposed\nc4: [backlog.desktop]\n```\n\nText.\n";
@@ -289,10 +290,9 @@ public sealed class C4DevbookPanelTests : IDisposable
             extraFiles: new Dictionary<string, string> { ["adr/0030-stored-credentials.md"] = Decision });
 
         var asked = new List<DevbookChapterLink>();
-        var component = harness.Render(ChapterPath, asked);
+        var component = harness.Render(null, asked);
         harness.Settle(component);
 
-        await component.Find("[data-testid='arc42-c4-zoom-tab']").ClickAsync(new());
         var explorer = component.FindComponent<C4ZoomExplorer>();
         await explorer.InvokeAsync(() => explorer.Instance.ZoomIn(C4MermaidWriter.AliasOf("backlog"), "context-backlog"));
         await explorer.InvokeAsync(() => explorer.Instance.NodeSelected(C4MermaidWriter.AliasOf("backlog.desktop"), "containers-backlog"));

@@ -51,7 +51,7 @@
                                Variant="ButtonVariant.None"
                                title="@map.ViewTitle"
                                TestId="arc42-record-open-zoom"
-                               OnClick="() => OnOpenInZoom.InvokeAsync(new C4ZoomOpen(map.ViewKey, map.FocusId))">Open in C4 zoom →</AppButton>
+                               OnClick="() => OnOpenInZoom.InvokeAsync(new C4ZoomOpen(map.ViewKey, map.FocusId))">Open in the C4 model →</AppButton>
                 }
             </div>
 
@@ -66,7 +66,7 @@
                         {
                             <AppButton BaseClass="devbook-record-model__tile-button"
                                        Variant="ButtonVariant.None"
-                                       aria-label="@($"{tile.Name}, {RoleClass(tile.Role)}. Open in C4 zoom")"
+                                       aria-label="@($"{tile.Name}, {RoleClass(tile.Role)}. Open in the C4 model")"
                                        OnClick="() => OnOpenInZoom.InvokeAsync(new C4ZoomOpen(map.ViewKey, tile.ElementId))">
                                 <span>@tile.Name</span>
                                 <span class="devbook-record-model__role">@RoleClass(tile.Role)</span>

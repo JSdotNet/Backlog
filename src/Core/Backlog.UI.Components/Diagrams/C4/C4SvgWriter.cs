@@ -51,6 +51,16 @@ public sealed record C4SvgOptions(
     /// named here is drawn as it always was. Null, the default, is no overlay.
     /// </summary>
     public IReadOnlyDictionary<string, C4CardRecords>? RecordChips { get; init; }
+
+    /// <summary>
+    /// Whether every relationship says which cards it joins: <c>data-c4-from</c> and
+    /// <c>data-c4-to</c> on its line and on its label, by alias, and a second arrowhead,
+    /// <c>&lt;svg id&gt;-arrow-related</c>, drawn in the primary colour. The zoom tab's
+    /// viewer reads them to light the relationships into and out of the selected card
+    /// and dim the rest. False, the default, writes neither, so the C4 tab's picture is
+    /// what it always was.
+    /// </summary>
+    public bool EdgeEnds { get; init; }
 }
 
 /// <summary>What the overlay counts on one card: the decision records (ADRs) and the
@@ -101,7 +111,18 @@ public static class C4SvgWriter
         // own id so two diagrams on a page cannot borrow each other's arrowhead.
         svg.Append(Invariant($"<defs><marker id=\"{Escape(id)}-arrow\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\""))
             .Append(" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\">")
-            .Append("<path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"c4-diagram__arrowhead\" /></marker></defs>");
+            .Append("<path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"c4-diagram__arrowhead\" /></marker>");
+
+        // The arrowhead a related line wears while its card is selected. A marker is
+        // shared by every line that names it, so the lit one is a marker of its own.
+        if (options?.EdgeEnds == true)
+        {
+            svg.Append(Invariant($"<marker id=\"{Escape(id)}-arrow-related\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\""))
+                .Append(" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\">")
+                .Append("<path d=\"M 0 0 L 10 5 L 0 10 z\" class=\"c4-diagram__arrowhead c4-diagram__arrowhead--related\" /></marker>");
+        }
+
+        svg.Append("</defs>");
 
         if (!diagram.HasContent)
         {
@@ -165,7 +186,7 @@ public static class C4SvgWriter
         svg.Append("<g class=\"c4-diagram__edge").Append(StepModifiers(edge, options, "c4-diagram__edge"))
             .Append(edge.Group is null ? string.Empty : " c4-diagram__edge--group").Append('"')
             .Append(edge.Group is null ? string.Empty : Invariant($" data-c4-group=\"{Escape(edge.Group)}\""))
-            .Append(StepAttribute(edge, options)).Append('>')
+            .Append(StepAttribute(edge, options)).Append(EndAttributes(edge, options)).Append('>')
             .Append(Invariant($"<path d=\"{Escape(edge.Path)}\" marker-end=\"url(#{Escape(id)}-arrow)\" />"))
             .Append("</g>");
     }
@@ -175,7 +196,7 @@ public static class C4SvgWriter
         if (string.IsNullOrWhiteSpace(edge.Label) && edge.Order is null) return;
 
         svg.Append("<g class=\"c4-diagram__edge-label").Append(StepModifiers(edge, options, "c4-diagram__edge-label")).Append('"')
-            .Append(StepAttribute(edge, options))
+            .Append(StepAttribute(edge, options)).Append(EndAttributes(edge, options))
             .Append(Invariant($" transform=\"translate({edge.LabelX:0.##}, {edge.LabelY:0.##})\">"));
 
         // The badge sits above the label's first line, centred on it like the label,
@@ -215,6 +236,12 @@ public static class C4SvgWriter
             ? $" {block}--step {block}--current"
             : $" {block}--step";
     }
+
+    /// <summary>The cards a relationship joins, by alias, when the options ask for them.</summary>
+    private static string EndAttributes(C4PlacedEdge edge, C4SvgOptions options) =>
+        options.EdgeEnds
+            ? Invariant($" data-c4-from=\"{Escape(edge.FromAlias)}\" data-c4-to=\"{Escape(edge.ToAlias)}\"")
+            : string.Empty;
 
     private static string StepAttribute(C4PlacedEdge edge, C4SvgOptions options) =>
         options.NumberSteps && edge.Order is { } order ? Invariant($" data-c4-step=\"{order}\"") : string.Empty;

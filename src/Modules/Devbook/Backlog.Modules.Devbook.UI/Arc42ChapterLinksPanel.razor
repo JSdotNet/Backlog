@@ -1,0 +1,85 @@
+@*
+    The right-hand panel beside an open arc42 chapter on the architecture surface (the
+    design's arc42 screen): the C4 views the chapter documents, the decisions that cite
+    it, and the debt on the elements its views draw. Each line is a way there — a view
+    opens in the model, a record opens in the surface. Read by Arc42Surface.ChapterLinks;
+    a section with nothing in it says so rather than vanishing, so the three always
+    stand in the same places.
+*@
+
+<aside class="arc42-chapter-links" aria-label="Chapter links" data-testid="arc42-chapter-links">
+    <section class="arc42-chapter-links__section" data-testid="arc42-chapter-links-views">
+        <h2 class="arc42-chapter-links__heading">C4 views this chapter documents · @Links.Views.Count</h2>
+        @if (Links.Views.Count == 0)
+        {
+            <p class="arc42-chapter-links__none">No C4 view names this chapter.</p>
+        }
+        @foreach (var view in Links.Views)
+        {
+            <AppButton @key="view.View.Reference"
+                       BaseClass="arc42-chapter-links__item"
+                       Variant="ButtonVariant.None"
+                       title="@view.View.Reference"
+                       TestId="arc42-chapter-links-view"
+                       OnClick="() => OnOpenView.InvokeAsync(view.View)">
+                <span class="arc42-chapter-links__label">@view.View.Title</span>
+                @if (view.Section is not null)
+                {
+                    <span class="arc42-chapter-links__detail">§ @view.Section</span>
+                }
+            </AppButton>
+        }
+    </section>
+
+    <section class="arc42-chapter-links__section" data-testid="arc42-chapter-links-decisions">
+        <h2 class="arc42-chapter-links__heading">Decisions citing this chapter · @Links.Decisions.Count</h2>
+        @if (Links.Decisions.Count == 0)
+        {
+            <p class="arc42-chapter-links__none">No decision cites this chapter.</p>
+        }
+        @foreach (var record in Links.Decisions)
+        {
+            @Record(record, false)
+        }
+    </section>
+
+    <section class="arc42-chapter-links__section" data-testid="arc42-chapter-links-debt">
+        <h2 class="arc42-chapter-links__heading">Debt on its elements · @Links.Debt.Count</h2>
+        @if (Links.Debt.Count == 0)
+        {
+            <p class="arc42-chapter-links__none">No debt is recorded on them.</p>
+        }
+        @foreach (var record in Links.Debt)
+        {
+            @Record(record, true)
+        }
+    </section>
+</aside>
+
+@code {
+    [Parameter, EditorRequired]
+    public Arc42ChapterLinks Links { get; set; } = Arc42ChapterLinks.None;
+
+    [Parameter]
+    public EventCallback<C4ViewEntry> OnOpenView { get; set; }
+
+    /// <summary>A record, by its path.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenRecord { get; set; }
+
+    private RenderFragment Record(Arc42SurfaceRecord record, bool debt) =>
+        @<AppButton @key="record.Path"
+                    BaseClass="arc42-chapter-links__item"
+                    CssClass="@(debt ? "arc42-chapter-links__item--debt" : null)"
+                    Variant="ButtonVariant.None"
+                    title="@record.Path"
+                    TestId="@(debt ? "arc42-chapter-links-tdr" : "arc42-chapter-links-adr")"
+                    OnClick="() => OnOpenRecord.InvokeAsync(record.Path)">
+            <span class="arc42-chapter-links__number">@record.Number</span>
+            <span class="arc42-chapter-links__label">@record.Title</span>
+            @if (record.Note is not null)
+            {
+                <span class="arc42-chapter-links__detail">@record.Note</span>
+            }
+        </AppButton>;
+}

@@ -953,7 +953,25 @@
         _brainWriter = Services.GetService<IBrainNoteWriter>();
         _review = Services.GetService<DevbookBranchReview>();
         _overview = Services.GetService<DevbookBranchOverview>();
+        _c4Store = Services.GetService<C4DevbookStore>();
     }
+
+    /// <summary>The C4 model's store, resolved like the other optional stores: only
+    /// asked whether <c>c4-zoom</c> is on.</summary>
+    private C4DevbookStore? _c4Store;
+
+    /// <summary>
+    /// Whether the Architecture section draws its own left navigation: while
+    /// <c>c4-zoom</c> is on it is the architecture surface (plan c4-zoom-navigation),
+    /// whose design has one left navigation on every screen — the C4 views, the
+    /// chapters that document the open view, the records — so this pane's chapter
+    /// menu stands down for that section rather than stand beside a second one. The
+    /// surface lists every chapter itself, with the badges the menu never had.
+    /// </summary>
+    private bool SurfaceOwnsMenu =>
+        !BrainMode
+        && string.Equals(EffectiveSection, "arc42", StringComparison.Ordinal)
+        && _c4Store is { ZoomEnabled: true };
 
     /// <summary>The writer behind Capture, when the host composes one.</summary>
     private IBrainNoteWriter? _brainWriter;
@@ -1827,7 +1845,7 @@
     /// search results are both readings of the whole area rather than of the one
     /// chapter a menu selects, so neither shares the width with it — and Technology
     /// never had a menu to begin with.</summary>
-    private bool ShowMenu => SectionUsesMenu && !_atlasOpen && !_searchOpen && !_reviewOpen && !(BrainMode && VisibleAreas.Count == 0);
+    private bool ShowMenu => SectionUsesMenu && !SurfaceOwnsMenu && !_atlasOpen && !_searchOpen && !_reviewOpen && !(BrainMode && VisibleAreas.Count == 0);
 
     private string? SelectedChapterPath =>
         SectionUsesMenu && _selectedChapterPaths.TryGetValue(EffectiveSection, out var path) ? path : null;
@@ -2481,6 +2499,10 @@
     {
         var root = ActiveMenuRoot;
         if (root is null) return;
+
+        // The architecture surface opens on the model, not on a chapter: a chapter is
+        // selected only when the reader, a reference or a search asks for one.
+        if (SurfaceOwnsMenu) return;
 
         var selectedPath = SelectedChapterPath;
         if (selectedPath is null || !ContainsPath(root, selectedPath))

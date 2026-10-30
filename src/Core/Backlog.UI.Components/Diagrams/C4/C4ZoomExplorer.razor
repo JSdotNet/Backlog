@@ -35,7 +35,15 @@
     it; Backspace on it, or any other step, leaves it.
 *@
 
-<div class="c4-zoom-explorer@(_playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty)" data-testid="@TestId" role="region" aria-label="C4 zoom">
+@*
+    The surface (Navigation set — the architecture surface, plan c4-zoom-navigation):
+    the bar across the top, and under it three columns — the host's navigation, the
+    picture, the inspector. A host Document stands in for the picture and the inspector
+    while it is open; the bar stays, drawn with no step current, and any press on it
+    hands the reader back to the model through OnNavigate. Without Navigation the
+    explorer draws exactly what the C4 zoom tab always drew.
+*@
+<div class="@ExplorerClass" data-testid="@TestId" role="region" aria-label="C4 zoom">
     @if (_view is null)
     {
         <EmptyState Title="No C4 views here yet" role="status">
@@ -44,9 +52,61 @@
             </DescriptionContent>
         </EmptyState>
     }
+    else if (Surface)
+    {
+        <C4ZoomBar State="@BarState" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
+
+        <div class="c4-zoom-explorer__surface@(Document is null ? string.Empty : " c4-zoom-explorer__surface--document")" data-testid="c4-zoom-surface">
+            <div class="c4-zoom-explorer__nav">@Navigation</div>
+
+            @if (Document is not null)
+            {
+                <div class="c4-zoom-explorer__document" data-testid="c4-zoom-document">@Document</div>
+            }
+            else
+            {
+                <div class="c4-zoom-explorer__main@(_playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty)">
+                    @{ RenderPicture(__builder); }
+                </div>
+
+                <div class="c4-zoom-explorer__aside" data-testid="c4-zoom-aside">
+                    @if (_inspected is not null)
+                    {
+                        @Inspector
+                    }
+                    else
+                    {
+                        <EmptyState Title="Nothing selected"
+                                    role="status"
+                                    TestId="c4-zoom-aside-empty">
+                            <DescriptionContent>
+                                Select an element to see what it is, the chapters that document it, and the decisions and debt on it.
+                            </DescriptionContent>
+                        </EmptyState>
+                    }
+                </div>
+            }
+        </div>
+    }
     else
     {
-        <C4ZoomBar State="@_bar" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
+        RenderPicture(__builder);
+    }
+</div>
+
+@code {
+    /// <summary>The open view: the bar (off the surface), the hint, and either the Code
+    /// level or the picture with everything under it. Off the surface the inspector is
+    /// drawn beside the picture, as the C4 zoom tab always drew it; on the surface it is
+    /// the right-hand column instead.</summary>
+    private void RenderPicture(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder)
+    {
+        if (_view is null) return;
+
+        @if (!Surface)
+        {
+            <C4ZoomBar State="@BarState" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
+        }
 
         @if (!HintDismissed && !_hintClosed)
         {
@@ -80,8 +140,48 @@
         else
         {
         <header class="c4-zoom-explorer__head">
-            <p class="c4-zoom-explorer__title" data-testid="c4-zoom-title">@C4Exploration.Label(Workspace, _view)</p>
-            <p class="c4-zoom-explorer__key" data-testid="c4-zoom-key">@_view.Key</p>
+            @if (Surface)
+            {
+                @* The surface's view heading: its title, where it is read from and
+                   what documents it, and the − / Fit / + that size the picture. *@
+                <div class="c4-zoom-explorer__heading">
+                    <h2 class="c4-zoom-explorer__title c4-zoom-explorer__title--surface" data-testid="c4-zoom-title">@C4Exploration.Label(Workspace, _view)</h2>
+                    <p class="c4-zoom-explorer__key" data-testid="c4-zoom-key-line">
+                        <code class="c4-zoom-explorer__source" data-testid="c4-zoom-key">@_view.Key</code>
+                        @if (ViewCaption is not null)
+                        {
+                            @ViewCaption(_view)
+                        }
+                    </p>
+                </div>
+
+                <ButtonGroup CssClass="c4-zoom-explorer__scale" AriaLabel="Zoom" TestId="c4-zoom-scale">
+                    <AppButton Size="ButtonSize.Small"
+                               Variant="ButtonVariant.Secondary"
+                               aria-label="Zoom out"
+                               title="Zoom out"
+                               Disabled="@(_scaleIndex == 0)"
+                               TestId="c4-zoom-scale-out"
+                               OnClick="() => Scale(-1)">−</AppButton>
+                    <AppButton Size="ButtonSize.Small"
+                               Variant="ButtonVariant.Secondary"
+                               title="Fit the picture to its frame"
+                               TestId="c4-zoom-scale-fit"
+                               OnClick="Fit">Fit</AppButton>
+                    <AppButton Size="ButtonSize.Small"
+                               Variant="ButtonVariant.Secondary"
+                               aria-label="Zoom in"
+                               title="Zoom in"
+                               Disabled="@(_scaleIndex == Scales.Length - 1)"
+                               TestId="c4-zoom-scale-in"
+                               OnClick="() => Scale(1)">+</AppButton>
+                </ButtonGroup>
+            }
+            else
+            {
+                <p class="c4-zoom-explorer__title" data-testid="c4-zoom-title">@C4Exploration.Label(Workspace, _view)</p>
+                <p class="c4-zoom-explorer__key" data-testid="c4-zoom-key">@_view.Key</p>
+            }
 
             @* The overlay switch: which records the cards carry. Offered only by a
                host with records to count, as the inspector's record sections are. *@
@@ -115,11 +215,15 @@
              role="group"
              aria-label="@($"{C4Exploration.Label(Workspace, _view)}. Enter zooms into the focused element, Backspace zooms out.")"
              data-testid="c4-zoom-frame">
-            <C4DiagramView Diagram="@DiagramFor(_view)"
-                           Id="@_svgId"
-                           AriaLabel="@C4Exploration.Label(Workspace, _view)"
-                           Options="@_options"
-                           TestId="c4-zoom-diagram" />
+            @* The canvas is what − and + size: a picture larger than the frame
+               scrolls inside it, and Fit puts it back to the frame's own size. *@
+            <div class="c4-zoom-explorer__canvas" style="@CanvasStyle" data-scale="@ScalePercent">
+                <C4DiagramView Diagram="@DiagramFor(_view)"
+                               Id="@_svgId"
+                               AriaLabel="@C4Exploration.Label(Workspace, _view)"
+                               Options="@_options"
+                               TestId="c4-zoom-diagram" />
+            </div>
         </div>;
 
         @* A deployment view whose scope is deployed to more than one environment puts
@@ -158,15 +262,9 @@
         }
         </div>
 
-        @if (_inspected is not null)
+        @if (_inspected is not null && !Surface)
         {
-            <C4ElementInspector Element="@_inspected"
-                                ZoomLabel="@_zoomLabel"
-                                OnZoomIn="ZoomIntoSelectedAsync"
-                                Deployment="@_deploymentNode"
-                                OnOpenContainer="OpenContainerAsync"
-                                Records="@_records"
-                                OnOpenRecord="OpenRecordAsync" />
+            @Inspector
         }
         </div>
 
@@ -223,7 +321,16 @@
         </footer>
         }
     }
-</div>
+
+    /// <summary>The selected element, as the inspector shows it.</summary>
+    private RenderFragment Inspector => @<C4ElementInspector Element="@_inspected"
+                                                            ZoomLabel="@_zoomLabel"
+                                                            OnZoomIn="ZoomIntoSelectedAsync"
+                                                            Deployment="@_deploymentNode"
+                                                            OnOpenContainer="OpenContainerAsync"
+                                                            Records="@_records"
+                                                            OnOpenRecord="OpenRecordAsync" />;
+}
 
 @code {
     private readonly string _frameId = "c4-zoom-frame-" + Guid.NewGuid().ToString("N");
@@ -356,6 +463,106 @@
 
     private C4ZoomOpen? _openedRequest;
 
+    // ---- the surface -----------------------------------------------------------
+
+    /// <summary>
+    /// The architecture surface's left navigation. Set, the explorer draws as the
+    /// surface: the bar across the top, then this, the picture and the inspector as
+    /// three columns. Null — the C4 zoom tab — draws the explorer as it always was.
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Navigation { get; set; }
+
+    /// <summary>
+    /// What the surface shows in place of the picture and the inspector — an arc42
+    /// chapter, an ADR or a TDR the host opened inside the surface. Only read on the
+    /// surface. The bar stays, drawn with no step current; a press on it raises
+    /// <see cref="OnNavigate"/> so the host closes the document.
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Document { get; set; }
+
+    /// <summary>Drawn after the open view's key on the surface: what documents the
+    /// view, which only the host knows.</summary>
+    [Parameter]
+    public RenderFragment<C4View>? ViewCaption { get; set; }
+
+    /// <summary>The reader pressed the bar — a step or a view under Also. The move is
+    /// made; a host showing a <see cref="Document"/> closes it.</summary>
+    [Parameter]
+    public EventCallback OnNavigate { get; set; }
+
+    /// <summary>The open view or Code level changed: raised once per change, after the
+    /// render that shows it, and once for the first view.</summary>
+    [Parameter]
+    public EventCallback<C4ZoomLocation> OnLocationChanged { get; set; }
+
+    private bool Surface => Navigation is not null;
+
+    private string ExplorerClass =>
+        "c4-zoom-explorer"
+        + (Surface ? " c4-zoom-explorer--surface" : _playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty);
+
+    private C4ZoomBarState? _documentBar;
+    private C4ZoomBarState? _documentBarOf;
+
+    /// <summary>The bar as drawn: with a document open on the surface no step is
+    /// current — the reader is on no view — so every step with a view to open is a
+    /// way back to the model, the one they came from included.</summary>
+    private C4ZoomBarState BarState
+    {
+        get
+        {
+            if (!Surface || Document is null) return _bar;
+
+            if (!ReferenceEquals(_documentBarOf, _bar))
+            {
+                _documentBarOf = _bar;
+                _documentBar = new C4ZoomBarState(
+                    [.. _bar.Steps.Select(step => step with { Current = false })],
+                    [.. _bar.Also.Select(also => also with { Current = false })]);
+            }
+
+            return _documentBar!;
+        }
+    }
+
+    /// <summary>The sizes − and + step through, as a share of the frame.</summary>
+    private static readonly double[] Scales = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+    private const int FitIndex = 2;
+    private int _scaleIndex = FitIndex;
+
+    /// <summary>How large the picture is drawn now, as a percentage of its frame. For
+    /// the host and for tests.</summary>
+    public int ScalePercent => (int)Math.Round(Scales[_scaleIndex] * 100);
+
+    private string? CanvasStyle => _scaleIndex == FitIndex
+        ? null
+        : FormattableString.Invariant($"width: {ScalePercent}%; height: {ScalePercent}%;");
+
+    private void Scale(int step) => _scaleIndex = Math.Clamp(_scaleIndex + step, 0, Scales.Length - 1);
+
+    private void Fit() => _scaleIndex = FitIndex;
+
+    private C4ZoomLocation? _reported;
+
+    /// <summary>Tells the host where the explorer is, when that changed.</summary>
+    private async Task ReportLocationAsync()
+    {
+        if (_view is null || !OnLocationChanged.HasDelegate) return;
+
+        var location = new C4ZoomLocation(
+            _view.Key,
+            C4Exploration.Label(Workspace, _view),
+            _codeFor,
+            _codeFor is null ? null : Workspace.Element(_codeFor)?.Name ?? _codeFor);
+        if (location == _reported) return;
+
+        _reported = location;
+        await OnLocationChanged.InvokeAsync(location);
+    }
+
     /// <summary>Honours a new <see cref="OpenView"/> after the workspace is loaded.
     /// Its own override, so the load above it reads as it did.</summary>
     protected override Task OnParametersSetAsync()
@@ -370,6 +577,8 @@
 
         _openedRequest = request;
         Open(request.ViewKey, request.SelectId);
+
+        if (request.OpenCode && request.SelectId is { } component) OpenCode(component, focus: false);
     }
 
     /// <summary>The element selected now, by its model identifier. For the host and
@@ -447,7 +656,7 @@
             || _options.CurrentStep != currentStep
             || !SameChips(_options.RecordChips, chips))
         {
-            _options = new C4SvgOptions(zoomable, numberSteps, currentStep) { SelectableBoundaryAliases = frames, RecordChips = chips };
+            _options = new C4SvgOptions(zoomable, numberSteps, currentStep) { SelectableBoundaryAliases = frames, RecordChips = chips, EdgeEnds = true };
         }
 
         _environments = C4ZoomDeployment.Environments(Workspace, _view);
@@ -947,31 +1156,41 @@
         if (Workspace.View(viewKey) is not { } next) return;
 
         CloseCodeLevel();
+        if (!string.Equals(_view?.Key, next.Key, StringComparison.OrdinalIgnoreCase)) _scaleIndex = FitIndex;
         _view = next;
         _selectedId = selectId;
         Refresh();
     }
 
-    private Task OpenStepAsync(C4ZoomStep step)
+    private async Task OpenStepAsync(C4ZoomStep step)
     {
-        if (!step.Enabled) return Task.CompletedTask;
+        // Read off the bar as drawn: with a document open, the step the reader came
+        // from is no longer current, and pressing it is the way back to it.
+        var drawn = BarState.Steps.FirstOrDefault(candidate => candidate.Level == step.Level) ?? step;
+        if (!drawn.Enabled) return;
 
-        if (step.Level == C4ZoomLevel.Code)
+        if (drawn.Level == C4ZoomLevel.Code)
         {
-            if (step.SelectId is { } component) OpenCode(component, focus: false);
-            return Task.CompletedTask;
+            if (drawn.SelectId is { } component)
+            {
+                if (!string.Equals(_codeFor, component, StringComparison.OrdinalIgnoreCase)) OpenCode(component, focus: false);
+            }
+        }
+        else
+        {
+            Open(drawn.ViewKey, drawn.SelectId);
         }
 
-        Open(step.ViewKey, step.SelectId);
-        return Task.CompletedTask;
+        await OnNavigate.InvokeAsync();
     }
 
-    private Task OpenAlsoAsync(C4ZoomAlso also)
+    private async Task OpenAlsoAsync(C4ZoomAlso also)
     {
-        if (also.Current) return Task.CompletedTask;
+        var drawn = BarState.Also.FirstOrDefault(candidate => string.Equals(candidate.ViewKey, also.ViewKey, StringComparison.OrdinalIgnoreCase)) ?? also;
+        if (drawn.Current) return;
 
-        Open(also.ViewKey, null);
-        return Task.CompletedTask;
+        Open(drawn.ViewKey, null);
+        await OnNavigate.InvokeAsync();
     }
 
     /// <summary>A card was clicked or focused on the view named.</summary>
@@ -1168,9 +1387,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // The Code level draws no C4 picture. The viewer is handed the picture again
-        // when the reader comes back to it.
-        if (_codeFor is not null)
+        await ReportLocationAsync();
+
+        // The Code level draws no C4 picture, and neither does the surface while a
+        // document stands in for it. The viewer is handed the picture again when the
+        // reader comes back to it.
+        if (_codeFor is not null || (Surface && Document is not null))
         {
             _attachedDiagram = null;
             return;

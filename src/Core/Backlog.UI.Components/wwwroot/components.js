@@ -7559,6 +7559,28 @@
             group.classList.toggle('c4-selected', selected);
             group.setAttribute('aria-pressed', selected ? 'true' : 'false');
         });
+
+        markRelated(svg, alias);
+    }
+
+    // The relationships into and out of the selected card, lit in the primary
+    // colour with their own arrowhead, and the rest dimmed while a card is
+    // selected. Only a picture written with C4SvgOptions.EdgeEnds names the ends
+    // of its lines, so any other picture is left exactly as drawn.
+    function markRelated(svg, alias) {
+        const ends = svg.querySelectorAll('[data-c4-from]');
+        if (ends.length === 0) return;
+
+        const plain = `url(#${svg.id}-arrow)`;
+        const lit = `url(#${svg.id}-arrow-related)`;
+        ends.forEach(element => {
+            const related = !!alias
+                && (element.getAttribute('data-c4-from') === alias || element.getAttribute('data-c4-to') === alias);
+            element.classList.toggle('c4-diagram__edge--related', related);
+            element.querySelector(':scope > path[marker-end]')?.setAttribute('marker-end', related ? lit : plain);
+        });
+
+        svg.classList.toggle('c4-diagram--focused', !!alias);
     }
 
     window.backlogC4Zoom = {

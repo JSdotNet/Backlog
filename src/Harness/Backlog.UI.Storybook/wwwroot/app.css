@@ -1359,6 +1359,25 @@ html, body {
     height: auto;
 }
 
+/* The surface stories' stand-in for a host's left navigation: one line per view,
+   indented by level, as the Architecture pane's own navigation draws them. */
+.sb-c4-surface-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-2xs);
+}
+
+.sb-c4-surface-nav__line--depth-1 { margin-left: 1rem; }
+.sb-c4-surface-nav__line--depth-2 { margin-left: 2rem; }
+.sb-c4-surface-nav__line--depth-3 { margin-left: 3rem; }
+
+.sb-c4-surface-document {
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+}
+
 /* The three zoom bar moments, each under the name the design's board gives it. */
 .sb-c4-zoom-moments {
     display: grid;

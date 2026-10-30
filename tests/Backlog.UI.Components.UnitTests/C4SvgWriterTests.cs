@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
@@ -391,6 +393,43 @@ public sealed class C4SvgWriterTests
             Assert.Equal(plain, C4SvgWriter.Write(Layout(key), "diag", "A view", new C4SvgOptions(new HashSet<string>())));
             Assert.DoesNotContain("data-c4-zoom-in", plain, StringComparison.Ordinal);
         }
+    }
+
+    /// <summary>Without the edge-ends option no line names its cards and there is no
+    /// second arrowhead: the C4 tab's picture never gets them.</summary>
+    [Fact]
+    public void Without_edge_ends_no_line_names_its_cards()
+    {
+        foreach (var key in new[] { "landscape", "context", "containers", "components" })
+        {
+            var plain = Svg(key);
+            Assert.DoesNotContain("data-c4-from", plain, StringComparison.Ordinal);
+            Assert.DoesNotContain("arrow-related", plain, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// With edge ends every relationship's line and label name the cards it joins, by
+    /// the alias the cards' ids end in, and the picture carries the lit arrowhead the
+    /// viewer swaps in for the selected card's relationships.
+    /// </summary>
+    [Fact]
+    public void With_edge_ends_each_line_and_label_name_the_cards_it_joins()
+    {
+        var diagram = Layout("containers");
+        var svg = C4SvgWriter.Write(diagram, "diag", "A view", new C4SvgOptions { EdgeEnds = true });
+
+        Assert.Contains("<marker id=\"diag-arrow-related\"", svg, StringComparison.Ordinal);
+        Assert.Contains("c4-diagram__arrowhead--related", svg, StringComparison.Ordinal);
+
+        var desktop = C4MermaidWriter.AliasOf("backlog.desktop");
+        var store = C4MermaidWriter.AliasOf("backlog.store");
+        var ends = $"data-c4-from=\"{desktop}\" data-c4-to=\"{store}\"";
+
+        Assert.Equal(2, Regex.Count(svg, Regex.Escape(ends)));
+        Assert.Contains($"<g class=\"c4-diagram__edge\" {ends}>", svg, StringComparison.Ordinal);
+        Assert.Contains($"<g class=\"c4-diagram__edge-label\" {ends} transform=", svg, StringComparison.Ordinal);
+        Assert.Equal(diagram.Edges.Count, Regex.Count(svg, "<g class=\"c4-diagram__edge[^-][^>]*data-c4-from="));
     }
 
     /// <summary>The chip goes on the named cards and only on them, inside the card's own
