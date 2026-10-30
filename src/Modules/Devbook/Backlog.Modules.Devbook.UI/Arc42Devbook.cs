@@ -340,16 +340,50 @@ public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IRea
     /// <summary>Whether the path is an ADR or TDR, in either layout: the
     /// catalog spells paths relative to the repository, so a folder under
     /// <c>.devbook/</c> names them <c>.devbook/arc42/adr/…</c>.</summary>
-    public static bool IsDecisionRecord(string path)
+    public static bool IsDecisionRecord(string path) =>
+        Within(path).StartsWith(".arc42/adr/", StringComparison.OrdinalIgnoreCase) ||
+        Within(path).StartsWith(".arc42/tdr/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether the path is an ADR, in either layout. The index beside the
+    /// records is not one.</summary>
+    public static bool IsArchitectureDecision(string path)
+    {
+        var within = Within(path);
+        return within.StartsWith(".arc42/adr/", StringComparison.OrdinalIgnoreCase)
+            && !within.EndsWith("/README.md", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Whether the path is a TDR, in either layout. The index beside the
+    /// records is not one.</summary>
+    public static bool IsDebtRecord(string path)
+    {
+        var within = Within(path);
+        return within.StartsWith(".arc42/tdr/", StringComparison.OrdinalIgnoreCase)
+            && !within.EndsWith("/README.md", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Whether the path is a building block's own file,
+    /// <c>arc42/building-blocks/&lt;slug&gt;.md</c>, in either layout — the one file
+    /// whose <c>code</c> field the model reads. The folder's index is not one.</summary>
+    public static bool IsBuildingBlock(string path)
+    {
+        var within = Within(path);
+        const string folder = ".arc42/building-blocks/";
+        return within.StartsWith(folder, StringComparison.OrdinalIgnoreCase)
+            && within.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+            && !within[folder.Length..].Contains('/', StringComparison.Ordinal)
+            && !within.EndsWith("/README.md", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A path folded to the legacy spelling, <c>.arc42/…</c>, whichever
+    /// layout wrote it.</summary>
+    private static string Within(string path)
     {
         var normalized = path.Replace('\\', '/');
         var devbook = DevbookFolderSetting.DevbookRoot + "/";
-        var within = normalized.StartsWith(devbook, StringComparison.OrdinalIgnoreCase)
+        return normalized.StartsWith(devbook, StringComparison.OrdinalIgnoreCase)
             ? "." + normalized[devbook.Length..]
             : normalized;
-
-        return within.StartsWith(".arc42/adr/", StringComparison.OrdinalIgnoreCase) ||
-               within.StartsWith(".arc42/tdr/", StringComparison.OrdinalIgnoreCase);
     }
 }
 
@@ -362,6 +396,28 @@ public sealed record DevbookDocument(
     int DiagramCount)
 {
     public string? Status => Metadata.Status;
+
+    /// <summary>The rows of the <c>## History</c> table — headed
+    /// <c>| Date | Change | Why |</c>, as <c>devbook-arc42.md</c> fixes it — newest
+    /// first. Empty for a record with no such table, or another header: the check
+    /// reports those as a warning, and there is no column to read a date from.</summary>
+    public IReadOnlyList<DevbookHistoryRow> History { get; init; } = [];
+
+    /// <summary>The concern's standing choice: the newest history row.</summary>
+    public DevbookHistoryRow? StandingChoice => History.Count > 0 ? History[0] : null;
+
+    /// <summary>Every earlier choice, each superseded by the row above it, newest
+    /// first.</summary>
+    public IEnumerable<DevbookHistoryRow> Superseded => History.Skip(1);
+
+    /// <summary>Where this is a debt record, its place on the debt ladder;
+    /// otherwise null, because no other record's status means a rung.</summary>
+    public DevbookDebtLifecycle? DebtLifecycle =>
+        Arc42DevbookCatalog.IsDebtRecord(Path) ? Metadata.DebtLifecycle : null;
+
+    /// <summary>Where this is a debt record, its severity; otherwise null.</summary>
+    public DevbookDebtSeverity? Severity =>
+        Arc42DevbookCatalog.IsDebtRecord(Path) ? Metadata.DebtSeverity : null;
 
     /// <summary>The body without its title heading. Computed once: the panel
     /// hands this to the file view on every render, and a fresh list per render
@@ -376,10 +432,88 @@ public sealed record DevbookDocument(
     private IReadOnlyList<DevbookBlock>? _contentBlocks;
 }
 
+/// <summary>
+/// One block's <c>meta</c> fields, as far as the panels read them.
+/// <para>
+/// Beyond <see cref="Status"/> and <see cref="Related"/>, the fields devbook 1.28.0
+/// added for the C4 model (<c>devbook-chapter-metadata.md</c>): <see cref="C4"/> and
+/// <see cref="C4Touches"/>, the workspace elements a block is about and the ones its
+/// consequences name; <see cref="Code"/>, a building block's folders; and
+/// <see cref="Severity"/>, a debt record's cost. Each is kept as written — an
+/// identifier is resolved against the workspace by <see cref="C4DevbookStore"/>, which
+/// is the only place that knows the model.
+/// </para>
+/// </summary>
 public sealed record DevbookMeta(string? Status, IReadOnlyList<string> Related)
 {
     public static DevbookMeta Empty { get; } = new(null, []);
+
+    /// <summary>The <c>c4</c> field: the elements this block is about.</summary>
+    public IReadOnlyList<string> C4 { get; init; } = [];
+
+    /// <summary>The <c>c4-touches</c> field: the elements this block's consequences
+    /// name but its decision is not about.</summary>
+    public IReadOnlyList<string> C4Touches { get; init; } = [];
+
+    /// <summary>The <c>code</c> field: the repository-relative folders a building
+    /// block's code sits in. Read on any block; only a
+    /// <c>building-blocks/&lt;slug&gt;.md</c> file's is the model's.</summary>
+    public IReadOnlyList<string> Code { get; init; } = [];
+
+    /// <summary>The <c>severity</c> field, as written. Required on a debt record and
+    /// defined nowhere else.</summary>
+    public string? Severity { get; init; }
+
+    /// <summary><see cref="Severity"/> on the convention's scale, or null when it is
+    /// missing or off it.</summary>
+    public DevbookDebtSeverity? DebtSeverity => Severity?.Trim().ToLowerInvariant() switch
+    {
+        "low" => DevbookDebtSeverity.Low,
+        "medium" => DevbookDebtSeverity.Medium,
+        "high" => DevbookDebtSeverity.High,
+        "critical" => DevbookDebtSeverity.Critical,
+        _ => null
+    };
+
+    /// <summary>
+    /// <see cref="Status"/> read as a rung of the debt ladder — what a debt record's
+    /// status means, and nothing else's. A missing status is
+    /// <see cref="DevbookDebtLifecycle.Identified"/>, the ladder's resting value, which
+    /// the convention writes by omitting the field. A value off the ladder is null
+    /// rather than a guess: a <c>statuses.json</c> rule may replace the ladder.
+    /// </summary>
+    public DevbookDebtLifecycle? DebtLifecycle => Status?.Trim().ToLowerInvariant() switch
+    {
+        null or "" or "identified" => DevbookDebtLifecycle.Identified,
+        "planned" => DevbookDebtLifecycle.Planned,
+        "in-progress" => DevbookDebtLifecycle.InProgress,
+        "resolved" => DevbookDebtLifecycle.Resolved,
+        _ => null
+    };
 }
+
+/// <summary>What a debt costs while it stands, lowest first.</summary>
+public enum DevbookDebtSeverity
+{
+    Low,
+    Medium,
+    High,
+    Critical
+}
+
+/// <summary>The debt ladder, in the order a debt climbs it.</summary>
+public enum DevbookDebtLifecycle
+{
+    Identified,
+    Planned,
+    InProgress,
+    Resolved
+}
+
+/// <summary>One row of a decision record's <c>## History</c> table, cells as
+/// written. The rows run newest first, so the top row is the standing choice and every
+/// row below it a choice it superseded.</summary>
+public sealed record DevbookHistoryRow(string Date, string Change, string Why);
 
 public sealed record DevbookHeadingSummary(int Level, string Text, DevbookMeta Metadata);
 
@@ -418,6 +552,8 @@ public static class DevbookMarkdownParser
         var title = Path.GetFileNameWithoutExtension(path);
         var documentMeta = DevbookMeta.Empty;
         var diagramCount = 0;
+        string? section = null;
+        var history = new List<DevbookHistoryRow>();
 
         void FlushParagraph()
         {
@@ -497,6 +633,8 @@ public static class DevbookMarkdownParser
                     documentMeta = metadata;
                 }
 
+                if (level <= 2) section = level == 2 ? text : null;
+
                 blocks.Add(new DevbookHeadingBlock(level, text, metadata));
                 headings.Add(new DevbookHeadingSummary(level, text, metadata));
                 continue;
@@ -515,6 +653,11 @@ public static class DevbookMarkdownParser
 
                 index--;
                 blocks.Add(new DevbookTableBlock([.. tableLines.Select(ParseTableRow)]));
+
+                if (history.Count == 0 && string.Equals(section, "History", StringComparison.OrdinalIgnoreCase))
+                {
+                    history.AddRange(HistoryRows(tableLines));
+                }
                 continue;
             }
 
@@ -557,8 +700,49 @@ public static class DevbookMarkdownParser
         }
 
         FlushAll();
-        return new DevbookDocument(path, title, documentMeta, blocks, headings, diagramCount);
+        return new DevbookDocument(path, title, documentMeta, blocks, headings, diagramCount) { History = history };
     }
+
+    /// <summary>
+    /// A <c>## History</c> table's rows, when its header is the one
+    /// <c>devbook-arc42.md</c> fixes — <c>| Date | Change | Why |</c> — and nothing
+    /// otherwise. The header is fixed so a reader can list a concern's decisions across
+    /// every record; a table with another one is a record written before it was, and
+    /// guessing which column holds the date would put a reason where a date belongs.
+    /// </summary>
+    private static IEnumerable<DevbookHistoryRow> HistoryRows(IReadOnlyList<string> tableLines)
+    {
+        if (tableLines.Count == 0) return [];
+
+        var header = TableCells(tableLines[0]);
+        if (header.Length != 3
+            || !string.Equals(header[0], "Date", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(header[1], "Change", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(header[2], "Why", StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        return tableLines
+            .Skip(1)
+            .Select(TableCells)
+            .Where(cells => cells.Length == 3)
+            .Select(cells => new DevbookHistoryRow(cells[0], cells[1], cells[2]))
+            .ToList();
+    }
+
+    /// <summary>A table row's cells, split on the pipes that are not escaped: GFM
+    /// writes a literal pipe in a cell as <c>\|</c>, inside a code span too.</summary>
+    private static string[] TableCells(string line)
+    {
+        var row = line.Trim();
+        if (row.StartsWith('|')) row = row[1..];
+        if (row.EndsWith('|') && !row.EndsWith(@"\|", StringComparison.Ordinal)) row = row[..^1];
+
+        return [.. UnescapedPipe.Split(row).Select(cell => cell.Replace(@"\|", "|", StringComparison.Ordinal).Trim())];
+    }
+
+    private static readonly Regex UnescapedPipe = new(@"(?<!\\)\|", RegexOptions.Compiled);
 
     private static (DevbookMeta Metadata, int NextIndex) ReadMetadata(string[] lines, int startIndex)
     {
@@ -581,35 +765,105 @@ public static class DevbookMarkdownParser
         return (ParseMetadata(metaLines), index);
     }
 
+    /// <summary>
+    /// The fields of one <c>meta</c> fence, its lines already trimmed.
+    /// <para>
+    /// The list fields take both YAML forms the convention writes — an inline
+    /// <c>[a, b]</c> and a block of <c>- a</c> lines under the key — and a key is
+    /// matched with its colon, so <c>c4-touches:</c> is never read as <c>c4:</c>.
+    /// </para>
+    /// </summary>
     private static DevbookMeta ParseMetadata(IEnumerable<string> lines)
     {
         string? status = null;
-        var related = new List<string>();
-        var readingRelated = false;
+        string? severity = null;
+        var lists = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["related"] = [],
+            ["c4"] = [],
+            ["c4-touches"] = [],
+            ["code"] = [],
+        };
+        List<string>? reading = null;
 
         foreach (var line in lines)
         {
-            if (line.StartsWith("status:", StringComparison.OrdinalIgnoreCase))
+            if (reading is not null && line.StartsWith("- ", StringComparison.Ordinal))
             {
-                status = line["status:".Length..].Trim().Trim('"', '\'');
-                readingRelated = false;
+                reading.Add(Unquote(line[2..]));
+                continue;
             }
-            else if (line.StartsWith("related:", StringComparison.OrdinalIgnoreCase))
+
+            reading = null;
+            var colon = line.IndexOf(':', StringComparison.Ordinal);
+            if (colon <= 0) continue;
+
+            var key = line[..colon].Trim();
+            var value = line[(colon + 1)..].Trim();
+
+            if (string.Equals(key, "status", StringComparison.OrdinalIgnoreCase))
             {
-                related.AddRange(ParseInlineList(line["related:".Length..].Trim()));
-                readingRelated = true;
+                status = Unquote(value);
             }
-            else if (readingRelated && line.StartsWith("- ", StringComparison.Ordinal))
+            else if (string.Equals(key, "severity", StringComparison.OrdinalIgnoreCase))
             {
-                related.Add(line[2..].Trim().Trim('"', '\''));
+                severity = Unquote(value);
             }
-            else
+            else if (lists.TryGetValue(key, out var list))
             {
-                readingRelated = false;
+                list.AddRange(ParseInlineList(value));
+                reading = list;
             }
         }
 
-        return new DevbookMeta(status, related.Distinct(StringComparer.Ordinal).ToList());
+        static IReadOnlyList<string> Distinct(List<string> values) =>
+            values.Where(value => value.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+
+        return new DevbookMeta(status, Distinct(lists["related"]))
+        {
+            C4 = Distinct(lists["c4"]),
+            C4Touches = Distinct(lists["c4-touches"]),
+            Code = Distinct(lists["code"]),
+            Severity = string.IsNullOrEmpty(severity) ? null : severity,
+        };
+    }
+
+    private static string Unquote(string value) => value.Trim().Trim('"', '\'');
+
+    /// <summary>
+    /// Every heading of a document with the <c>meta</c> fence under it, and nothing
+    /// else — the cheap read for a caller that wants the fields of a whole folder
+    /// without drawing a word of it. Fences are skipped by CommonMark's rule, as
+    /// <see cref="Parse"/> skips them, so a heading or a <c>meta</c> fence quoted in an
+    /// <c>annotation</c> note is not read as the chapter's.
+    /// </summary>
+    public static IReadOnlyList<DevbookHeadingSummary> ReadHeadings(string markdown)
+    {
+        var lines = markdown.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var headings = new List<DevbookHeadingSummary>();
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var trimmed = lines[index].TrimEnd().TrimStart();
+
+            if (MarkdownFence.Open(trimmed) is { } fence)
+            {
+                for (index++; index < lines.Length && !fence.IsClosedBy(lines[index]); index++)
+                {
+                }
+
+                continue;
+            }
+
+            var heading = HeadingRegex.Match(trimmed);
+            if (!heading.Success) continue;
+
+            var (metadata, nextIndex) = ReadMetadata(lines, index + 1);
+            index = nextIndex;
+            headings.Add(new DevbookHeadingSummary(heading.Groups[1].Value.Length, heading.Groups[2].Value.Trim(), metadata));
+        }
+
+        return headings;
     }
 
     private static IEnumerable<string> ParseInlineList(string value)
@@ -622,7 +876,7 @@ public static class DevbookMarkdownParser
 
         foreach (var item in value[1..^1].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
         {
-            yield return item.Trim().Trim('"', '\'');
+            yield return Unquote(item);
         }
     }
 

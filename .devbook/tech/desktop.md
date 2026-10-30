@@ -161,6 +161,30 @@ with.
   the same store the person does. The official SDK carries the protocol, so the
   repository writes only tools.
 
+## Microsoft.CodeAnalysis.CSharp
+
+```meta
+status: adopted
+type: package
+version: "5.9.0"
+depends-on: [".devbook/tech/shared.md#net-runtime"]
+related: [".devbook/arc42/adr/0044-c4-zoom-navigation-is-a-second-tab-read-from-devbook-meta.md#3-the-code-level-is-syntax-trees-only", ".devbook/arc42/05-building-block-view.md"]
+```
+
+Roslyn's C# parser, used for syntax trees and nothing else.
+
+- **Used for** — `CSharpCodeReader` in `Backlog.Infrastructure.Devbook` reads the
+  C4 zoom tab's Code level. It parses each `*.cs` under a component's folder with
+  `CSharpSyntaxTree.ParseText` and lists the types, their members, and the uses
+  between types it can see by name. It reads on demand and caches by the files'
+  timestamps. The package reaches only the desktop side: the mobile head does
+  not reference the Devbook adapter.
+- **Why** — local ADR 0044 §3 draws level 4 from the source and never from an
+  authored diagram. Syntax trees need only the files: no compilation, no
+  restore, no matching SDK. So a branch snapshot reads the same as a clone the
+  app builds. Because nothing is compiled, the package version need not follow
+  the SDK's compiler.
+
 ## GitHub CLI
 
 ```meta

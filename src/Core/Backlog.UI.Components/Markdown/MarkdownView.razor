@@ -98,10 +98,12 @@
                 @RenderProposals(SuggestionsOn(index))
             </div>
         </div>
+        @RenderChapterInsert(index)
     }
     else
     {
         @RenderContent(block, index)
+        @RenderChapterInsert(index)
     }
 }
 </div>
@@ -131,6 +133,24 @@
     /// reader who needs to see whether it is still current. One fragment for both
     /// means there is no second place for that answer to drift.</para>
     /// </summary>
+    /// <summary>
+    /// What the host draws under a heading — an arc42 chapter's C4 view — after the
+    /// heading's row rather than inside it, so a remark or a rewrite left on the
+    /// heading stays about the heading. Asked only of a heading whose chapter is
+    /// known, with the chapter's position among the file's headings, its title and
+    /// its level: the position is what tells two headings of one title apart.
+    /// </summary>
+    private RenderFragment RenderChapterInsert(int index) => __builder =>
+    {
+        if (ChapterInsert is null || !_chapters.TryGetValue(index, out var chapter)) return;
+
+        var position = _chapters.Keys.Count(key => key < index);
+        if (ChapterInsert(position, chapter.Title, chapter.Level) is { } insert)
+        {
+            <div class="md-chapter-insert" data-testid="@($"markdown-chapter-insert-{index}")">@insert</div>
+        }
+    };
+
     private RenderFragment RenderContent(MdBlock block, int index) => __builder =>
     {
         if (block is MdHeading heading)
@@ -889,6 +909,17 @@
     /// </summary>
     [Parameter]
     public Func<string, int, RenderFragment?>? ChapterAdornment { get; set; }
+
+    /// <summary>
+    /// What to draw under a chapter's heading, or null for nothing — asked per
+    /// heading with the chapter's position among the file's headings (from zero, in
+    /// <see cref="MarkdownChapters.Split"/> order), its title and its level.
+    /// Block-level where <see cref="ChapterAdornment"/> is inline: the arc42 panel
+    /// draws the C4 view a section documents here. The host's knowledge, so this view
+    /// never learns what it is.
+    /// </summary>
+    [Parameter]
+    public Func<int, string, int, RenderFragment?>? ChapterInsert { get; set; }
 
     /// <summary>
     /// The host's own reading of a link or code span, asked before the knowledge

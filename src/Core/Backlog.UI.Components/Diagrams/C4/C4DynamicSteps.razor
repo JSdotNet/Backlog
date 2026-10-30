@@ -1,0 +1,128 @@
+@*
+    The steps panel of a dynamic view on the C4 zoom tab: "Step 3 of 5", Previous /
+    Play / Next, and every step in order — from → to, what it does, what it travels
+    over. The current step is ringed in the primary colour, here and on its arrow;
+    every other step stays grey.
+
+    It draws what the explorer hands it and holds nothing itself: which step is
+    current, whether Play is running and whether the reader asked for reduced motion
+    are the explorer's, so the arrow and the list can never disagree.
+
+    Previous is disabled on the first step and Next on the last. Play walks forward
+    from the current step and stops on the last; pressed on the last it starts again
+    from the first. With reduced motion asked for, nothing advances on its own: Play
+    moves one step per press, and the panel says so. The current step is announced
+    whole — its ends and what it does — not only its number.
+*@
+
+<aside class="c4-dynamic-steps" aria-label="Steps" data-testid="@TestId">
+    <div class="c4-dynamic-steps__head">
+        <p class="c4-dynamic-steps__kicker">Dynamic view · @Steps.Count step@(Steps.Count == 1 ? string.Empty : "s")</p>
+        <h2 class="c4-dynamic-steps__title" data-testid="c4-dynamic-position">Step @(Current + 1) of @Steps.Count</h2>
+        @if (Current >= 0 && Current < Steps.Count)
+        {
+            <p class="sr-only" aria-live="polite" data-testid="c4-dynamic-announcement">Step @Steps[Current].Order of @Steps.Count: @Steps[Current].From → @Steps[Current].To. @Detail(Steps[Current])</p>
+        }
+    </div>
+
+    @* Previous and Next say aria-disabled at a bound rather than the native disabled:
+       a keyboard reader who presses Next onto the last step keeps the focus on Next
+       instead of losing it to the page. A press there changes nothing — the explorer
+       holds the step at its bound. *@
+    <div class="c4-dynamic-steps__controls" role="group" aria-label="Playback">
+        <AppButton BaseClass="c4-dynamic-steps__move"
+                   Variant="ButtonVariant.None"
+                   aria-disabled="@(Current <= 0 ? "true" : null)"
+                   aria-label="Previous step"
+                   TestId="c4-dynamic-previous"
+                   OnClick="() => OnPrevious.InvokeAsync()">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"></path></svg>
+        </AppButton>
+        <AppButton BaseClass="c4-dynamic-steps__play"
+                   Variant="ButtonVariant.None"
+                   aria-label="@PlayLabel"
+                   TestId="c4-dynamic-play"
+                   OnClick="() => OnPlay.InvokeAsync()">@(Playing ? "Pause" : "Play")</AppButton>
+        <AppButton BaseClass="c4-dynamic-steps__move"
+                   Variant="ButtonVariant.None"
+                   aria-disabled="@(Current >= Steps.Count - 1 ? "true" : null)"
+                   aria-label="Next step"
+                   TestId="c4-dynamic-next"
+                   OnClick="() => OnNext.InvokeAsync()">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+        </AppButton>
+    </div>
+
+    @if (ReducedMotion)
+    {
+        <p class="c4-dynamic-steps__note" data-testid="c4-dynamic-reduced-motion">Reduced motion is on, so Play moves one step per press.</p>
+    }
+
+    <ol class="c4-dynamic-steps__list">
+        @for (var index = 0; index < Steps.Count; index++)
+        {
+            var at = index;
+            var step = Steps[at];
+            var current = at == Current;
+            <li class="c4-dynamic-steps__item">
+                <AppButton BaseClass="c4-dynamic-steps__step"
+                           CssClass="@(current ? "c4-dynamic-steps__step--current" : null)"
+                           Variant="ButtonVariant.None"
+                           aria-current="@(current ? "step" : null)"
+                           data-order="@step.Order"
+                           TestId="c4-dynamic-step"
+                           OnClick="() => OnPick.InvokeAsync(at)">
+                    <span class="c4-dynamic-steps__number" aria-hidden="true">@step.Order</span>
+                    <span class="c4-dynamic-steps__text">
+                        <span class="c4-dynamic-steps__ends">@step.From → @step.To</span>
+                        <span class="c4-dynamic-steps__detail" data-testid="c4-dynamic-step-detail">@Detail(step)</span>
+                    </span>
+                </AppButton>
+            </li>
+        }
+    </ol>
+</aside>
+
+@code {
+    /// <summary>The steps, in the order they play — <see cref="C4DynamicPlayback.Steps"/>.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<C4PlaybackStep> Steps { get; set; } = [];
+
+    /// <summary>The current step, as an index into <see cref="Steps"/>.</summary>
+    [Parameter]
+    public int Current { get; set; }
+
+    /// <summary>Whether Play is walking the steps now.</summary>
+    [Parameter]
+    public bool Playing { get; set; }
+
+    /// <summary>Whether the reader asked for reduced motion.</summary>
+    [Parameter]
+    public bool ReducedMotion { get; set; }
+
+    [Parameter]
+    public EventCallback OnPrevious { get; set; }
+
+    [Parameter]
+    public EventCallback OnNext { get; set; }
+
+    [Parameter]
+    public EventCallback OnPlay { get; set; }
+
+    /// <summary>A step in the list was pressed, by its index.</summary>
+    [Parameter]
+    public EventCallback<int> OnPick { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-dynamic-steps";
+
+    private string PlayLabel =>
+        Playing ? "Pause"
+        : ReducedMotion ? "Play the next step"
+        : "Play all steps";
+
+    /// <summary>The description, then the technology, the way the design writes them:
+    /// "Creates the issue · HTTPS".</summary>
+    private static string Detail(C4PlaybackStep step) =>
+        string.Join(" · ", new[] { step.Description, step.Technology }.Where(part => !string.IsNullOrWhiteSpace(part)));
+}

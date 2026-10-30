@@ -45,7 +45,8 @@ public enum C4ViewKind
 /// boundary, and what a view walks up when it has to roll an edge endpoint up to
 /// something it is actually drawing.</param>
 /// <param name="Group">The <c>group</c> block the declaration sat in, if any.
-/// Carried because it is part of what the author said; no view draws it yet, and
+/// Carried because it is part of what the author said. The C4 zoom tab draws it as a
+/// labelled band (<see cref="C4LayoutOptions.GroupBands"/>); the C4 tab does not, and
 /// mermaid C4 has no grouping construct to draw it with.</param>
 /// <param name="InstanceOfId">For a deployment instance, the static element it is
 /// an instance of. A deployment view draws the instance with the name and

@@ -18397,6 +18397,21 @@ select.field__input {
     opacity: 0.7;
 }
 
+/* ---- group bands: the outside systems a group block gathered, by role ---- */
+
+.c4-diagram__group rect {
+    fill: var(--chart-track);
+    fill-opacity: 0.35;
+    stroke: var(--color-border);
+    stroke-width: 1;
+    stroke-dasharray: 6 5;
+}
+
+.c4-diagram__group-name {
+    fill: var(--chart-ink-muted);
+    font-size: 12px;
+}
+
 /* ---- edges ---- */
 
 .c4-diagram__edge path {
@@ -18639,6 +18654,1237 @@ select.field__input {
 
 .c4-problems li + li {
     margin-top: var(--spacing-2xs);
+}
+
+/* ---- the C4 zoom tab ------------------------------------------------------
+
+   One model zoomed a level at a time, beside the C4 tab rather than inside it
+   (local ADR 0044). The zoom bar heads it: the current step ringed in the primary
+   colour, a step that jumps drawn plain, a step still waiting on a selection
+   drawn grey. Nothing here is reached by a .c4-explorer rule, so the C4 tab draws
+   exactly as before.                                                           */
+
+/* A column whose frame keeps the height it asks for, so a host that gives the tab
+   less room scrolls the tab rather than squeezing the picture out of its frame. */
+.c4-zoom-explorer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-zoom-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.c4-zoom-bar__label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.c4-zoom-bar__steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* The separator is drawn, not written, so a screen reader walking the steps never
+   reads it out. */
+.c4-zoom-bar__item + .c4-zoom-bar__item::before {
+    content: "›";
+    margin-right: var(--spacing-xs);
+    color: var(--color-border-strong);
+}
+
+.c4-zoom-bar__item {
+    display: inline-flex;
+    align-items: center;
+}
+
+.c4-zoom-bar__step {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-height: 2.25rem;
+    padding: 0 var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-full);
+    background: none;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.c4-zoom-bar__step:hover:not([disabled]),
+.c4-zoom-bar__step:focus-visible {
+    background: var(--color-background-raised);
+}
+
+.c4-zoom-bar__number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-zoom-bar__scope {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* Where you are: ringed in the primary colour, number filled. */
+.c4-zoom-bar__step--current,
+.c4-zoom-bar__step--current[disabled] {
+    background: var(--color-background-raised);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+    color: var(--color-text-primary);
+    cursor: default;
+}
+
+.c4-zoom-bar__step--current .c4-zoom-bar__number {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+/* Pick first: grey until a selection fills the scope in. */
+.c4-zoom-bar__step--waiting,
+.c4-zoom-bar__step--unavailable {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
+.c4-zoom-bar__step--waiting .c4-zoom-bar__number,
+.c4-zoom-bar__step--unavailable .c4-zoom-bar__number {
+    border: var(--border-width) solid var(--color-border);
+    background: none;
+}
+
+.c4-zoom-bar__step--waiting .c4-zoom-bar__scope,
+.c4-zoom-bar__step--unavailable .c4-zoom-bar__scope {
+    color: inherit;
+}
+
+.c4-zoom-bar__also {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-left: auto;
+}
+
+.c4-zoom-bar__also-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.c4-zoom-bar__also-link:hover,
+.c4-zoom-bar__also-link:focus-visible {
+    text-decoration: underline;
+}
+
+.c4-zoom-bar__also-link--current,
+.c4-zoom-bar__also-link--current[disabled] {
+    color: var(--color-text-primary);
+    cursor: default;
+    text-decoration: none;
+}
+
+.c4-zoom-explorer__moves {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+}
+
+.c4-zoom-explorer__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.c4-zoom-explorer__title {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-zoom-explorer__key,
+.c4-zoom-explorer__legend {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-zoom-explorer__frame {
+    flex: 0 0 auto;
+    height: clamp(24rem, 60vh, 44rem);
+    overflow: hidden;
+    min-width: 0;
+    border-radius: var(--border-radius-md);
+}
+
+.c4-zoom-explorer__frame:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-zoom-explorer__frame g.node {
+    cursor: pointer;
+}
+
+/* Focus-visibility exemption: a card's rectangle is drawn in the primary colour
+   at 2.5px while it has keyboard focus (the :focus-visible rule below), which is
+   the ring. The browser's own outline would be a box around the card's bounding
+   box, chip included, rather than around the card. */
+.c4-zoom-explorer__frame g.node:focus {
+    outline: none;
+}
+
+.c4-zoom-explorer__frame g.node:focus-visible > rect,
+.c4-zoom-explorer__frame g.node.c4-selected > rect {
+    stroke: var(--color-primary);
+    stroke-width: 2.5px;
+}
+
+/* The Zoom in chip: drawn only when the zoom tab asks C4SvgWriter for it. */
+.c4-diagram__zoom-in {
+    cursor: pointer;
+}
+
+.c4-diagram__zoom-in rect {
+    fill: var(--color-background-raised);
+    stroke: var(--color-primary);
+    stroke-width: 1;
+    stroke-dasharray: none;
+}
+
+.c4-diagram__zoom-in text {
+    fill: var(--color-primary);
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.c4-diagram__zoom-in:hover rect {
+    fill: var(--color-primary);
+}
+
+.c4-diagram__zoom-in:hover text {
+    fill: var(--color-text-inverse);
+}
+
+/* ---- the record overlay ----
+   Drawn only when the zoom tab's overlay asks C4SvgWriter for record chips, so
+   nothing here reaches the C4 tab. A decision chip is the warning surface with the
+   primary ink, as the design's Containers screen draws it; a debt chip is the error
+   surface with its own ink (color-scheme.md: color-error-text is the legible
+   foreground for color-error, and never a fill). A card carrying open debt takes
+   the error surface itself — `fault`, in the status-role table — so its chip keeps
+   that surface and ink and is set off from the card by the strong border. */
+.c4-diagram__records rect {
+    stroke-dasharray: none;
+}
+
+.c4-diagram__records text {
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.c4-diagram__records--adr rect {
+    fill: var(--color-warning);
+    stroke: var(--color-primary);
+    stroke-width: 1;
+}
+
+.c4-diagram__records--adr text {
+    fill: var(--color-primary);
+}
+
+.c4-diagram__records--tdr rect {
+    fill: var(--color-error);
+    stroke: var(--color-error-text);
+    stroke-width: 1;
+}
+
+.c4-diagram__records--tdr text {
+    fill: var(--color-error-text);
+}
+
+.c4-diagram__node--debt > rect {
+    fill: var(--color-error);
+    stroke: var(--color-error-text);
+    stroke-width: 1.5;
+}
+
+.c4-diagram__node--debt .c4-diagram__records--tdr rect {
+    stroke: var(--color-border-strong);
+}
+
+.c4-zoom-explorer__overlay {
+    display: flex;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+    max-width: 100%;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-left: auto;
+    padding: 3px;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+}
+
+.c4-zoom-explorer__overlay-label {
+    padding: 0 var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-zoom-explorer__overlay-choices {
+    display: flex;
+    gap: 2px;
+}
+
+.c4-zoom-explorer__overlay-choice {
+    min-height: 32px;
+    padding: 0 var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.c4-zoom-explorer__overlay-choice:hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.c4-zoom-explorer__overlay-choice:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-zoom-explorer__overlay-choice--active,
+.c4-zoom-explorer__overlay-choice--active:hover {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-zoom-explorer__below {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-cross-cutting {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.c4-cross-cutting__head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.c4-cross-cutting__heading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-cross-cutting__note,
+.c4-cross-cutting__severity {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-cross-cutting__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-cross-cutting__record {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-cross-cutting__record:hover {
+    background: var(--color-background-raised);
+}
+
+.c4-cross-cutting__record:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-cross-cutting__number {
+    color: var(--color-error-text);
+    font-family: var(--font-family-mono);
+}
+
+.c4-cross-cutting__title {
+    flex: 1;
+}
+
+/* ---- a dynamic view played step by step ----
+   The picture and the steps panel side by side; every other part of the tab spans
+   both columns. The current step — its arrow, its badge, its row — is drawn in the
+   primary colour and every other step stays grey. Drawn only when the zoom tab asks
+   C4SvgWriter for step badges, so nothing here reaches the C4 tab. */
+.c4-zoom-explorer--dynamic {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    align-items: start;
+}
+
+.c4-zoom-explorer--dynamic > * {
+    grid-column: 1 / -1;
+}
+
+.c4-zoom-explorer--dynamic > .c4-zoom-explorer__body {
+    grid-column: 1;
+}
+
+.c4-zoom-explorer--dynamic > .c4-dynamic-steps {
+    grid-column: 2;
+}
+
+.c4-diagram__edge--step path {
+    stroke: var(--color-text-disabled);
+}
+
+.c4-diagram__edge--current path {
+    stroke: var(--color-primary);
+    stroke-width: 2.5;
+}
+
+.c4-diagram__step-badge circle {
+    fill: var(--color-background-alt);
+    stroke: var(--color-border-strong);
+    stroke-width: 1;
+}
+
+.c4-diagram__step-badge text {
+    fill: var(--color-text-primary);
+    stroke: none;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.c4-diagram__edge-label--current .c4-diagram__step-badge circle {
+    fill: var(--color-primary);
+    stroke: var(--color-primary);
+}
+
+.c4-diagram__edge-label--current .c4-diagram__step-badge text {
+    fill: var(--color-text-inverse);
+}
+
+.c4-diagram__edge-label--current > text {
+    fill: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-dynamic-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.c4-dynamic-steps__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.c4-dynamic-steps__kicker {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.c4-dynamic-steps__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-dynamic-steps__controls {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.c4-dynamic-steps__move {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--border-radius-sm);
+    font: inherit;
+    cursor: pointer;
+    border: var(--border-width) solid var(--color-border);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+}
+
+.c4-dynamic-steps__move[aria-disabled="true"] {
+    color: var(--color-text-disabled);
+    cursor: default;
+}
+
+.c4-dynamic-steps__play {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: var(--border-radius-sm);
+    font: inherit;
+    cursor: pointer;
+    padding: 0 var(--spacing-md);
+    border: 0;
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-dynamic-steps__move:focus-visible,
+.c4-dynamic-steps__play:focus-visible,
+.c4-dynamic-steps__step:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-dynamic-steps__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-dynamic-steps__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* ---- the zoom tab's deployment view ---- */
+
+/* A deployment node drawn as a frame is selectable on the zoom tab: solid, because a
+   frame here is a node and not a boundary, and filled with nothing that still takes a
+   press, so its empty inside selects it. The ring of a selected or focused frame is the
+   card's, so it is restated after the frame's own stroke, which would otherwise win at
+   the same specificity. */
+.c4-zoom-explorer__frame g.node.c4-diagram__boundary--selectable > rect {
+    stroke-dasharray: none;
+    stroke: var(--color-border-strong);
+    pointer-events: all;
+}
+
+.c4-zoom-explorer__frame g.node.c4-diagram__boundary--selectable:focus-visible > rect,
+.c4-zoom-explorer__frame g.node.c4-diagram__boundary--selectable.c4-selected > rect {
+    stroke: var(--color-primary);
+    stroke-width: 2.5px;
+}
+
+.c4-zoom-explorer__environments {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-self: flex-start;
+    padding: var(--spacing-2xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.c4-zoom-explorer__environment-tab {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.c4-zoom-explorer__environment-tab:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-zoom-explorer__environment-tab--active {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: var(--font-weight-semibold);
+    cursor: default;
+}
+
+.c4-zoom-explorer__environment {
+    display: flex;
+    flex-direction: column;
+}
+
+/* The tab panel's own display would otherwise beat the hidden attribute, and every
+   environment not open would stand as an empty panel in the column. */
+.c4-zoom-explorer__environment[hidden] {
+    display: none;
+}
+
+.c4-zoom-explorer__deployment {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+}
+
+.c4-deployment-doors {
+    display: flex;
+    flex: 1 1 14rem;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-dynamic-steps__step {
+    display: flex;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-dynamic-steps__step--current {
+    background: var(--color-background-alt);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+    color: var(--color-text-primary);
+}
+
+.c4-dynamic-steps__number {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-dynamic-steps__step--current .c4-dynamic-steps__number {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.c4-dynamic-steps__text {
+    display: flex;
+    flex-direction: column;
+    line-height: var(--line-height-normal);
+}
+
+.c4-dynamic-steps__ends {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+@media (max-width: 60rem) {
+    .c4-zoom-explorer--dynamic {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .c4-zoom-explorer--dynamic > .c4-dynamic-steps {
+        grid-column: 1;
+    }
+}
+
+.c4-deployment-doors__door {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    width: 100%;
+    padding: var(--spacing-md);
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    text-align: center;
+    cursor: pointer;
+}
+
+.c4-deployment-doors__door:hover {
+    border-color: var(--color-primary);
+}
+
+.c4-deployment-doors__door:focus-visible {
+    border-color: var(--color-primary);
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-deployment-doors__environment {
+    font-size: var(--font-size-xs);
+}
+
+.c4-deployment-doors__runs {
+    color: var(--color-text-primary);
+}
+
+.c4-deployment-doors__open {
+    color: var(--color-text-link);
+    font-size: var(--font-size-sm);
+}
+
+/* The picture, and beside it the inspector of the element selected on it (the
+   design's Containers screen). The inspector wraps under the picture when the two
+   do not fit side by side. */
+.c4-zoom-explorer__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+}
+
+.c4-zoom-explorer__stage {
+    flex: 3 1 32rem;
+    min-width: 0;
+}
+
+.c4-element-inspector {
+    display: flex;
+    flex: 1 1 18rem;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    box-sizing: border-box;
+    max-width: 100%;
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.c4-element-inspector__head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.c4-element-inspector__kind {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.c4-element-inspector__name {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-element-inspector__technology {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.c4-element-inspector__description {
+    margin: var(--spacing-xs) 0 0;
+    line-height: 1.5;
+}
+
+.c4-element-inspector__zoom {
+    align-self: flex-start;
+    margin-top: var(--spacing-xs);
+}
+
+.c4-element-inspector__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-element-inspector__section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.c4-element-inspector__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-element-inspector__tally {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-element-inspector__none {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.c4-element-inspector__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-element-inspector__record {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-element-inspector__record:hover {
+    background: var(--color-background-raised);
+}
+
+.c4-element-inspector__record:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-element-inspector__record--debt {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.c4-element-inspector__number {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+}
+
+.c4-element-inspector__number--decision {
+    color: var(--color-primary);
+}
+
+.c4-element-inspector__number--debt {
+    color: var(--color-error-text);
+}
+
+.c4-element-inspector__debt-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.c4-element-inspector__debt-state {
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+}
+
+.c4-element-inspector__title {
+    flex: 1 1 0;
+    min-width: min(10rem, 100%);
+    line-height: 1.4;
+}
+
+.c4-element-inspector__chip {
+    flex: none;
+}
+
+/* A decision still proposed: dashed, as the design draws a choice not yet made. */
+.c4-element-inspector__chip.badge--status-proposed {
+    background: transparent;
+    border: var(--border-width) dashed var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+/* What a deployment node runs, a section of the element inspector. */
+.c4-deployment-inspector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-deployment-inspector__runs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-deployment-inspector__run {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+}
+
+.c4-deployment-inspector__run-tech {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-deployment-inspector__open {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-text-link);
+    font: inherit;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.c4-deployment-inspector__open:hover,
+.c4-deployment-inspector__open:focus-visible {
+    text-decoration: underline;
+}
+
+/* ---- the Code level of the C4 zoom tab ----
+   A component's types drawn from the source: class boxes laid out by
+   C4LayoutEngine, an arrow per use, and the selected type's panel beside them. */
+.c4-code {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.c4-code:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-code__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.c4-code__heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.c4-code__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-code__source,
+.c4-code__legend,
+.c4-code__note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-code__folder {
+    font-family: var(--font-family-mono);
+}
+
+.c4-code__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    align-items: start;
+    gap: var(--spacing-md);
+}
+
+.c4-code__frame {
+    height: clamp(24rem, 60vh, 44rem);
+    overflow: auto;
+    min-width: 0;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+.c4-code__frame:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-code__canvas {
+    position: relative;
+}
+
+.c4-code__uses {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+}
+
+.c4-code__use {
+    fill: none;
+    stroke: var(--color-text-secondary);
+    stroke-width: 1.5;
+}
+
+.c4-code__use--inherits {
+    stroke-dasharray: 6 5;
+}
+
+.c4-code__arrow-head {
+    fill: var(--color-text-secondary);
+}
+
+.c4-code__use-label {
+    fill: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.c4-code__type {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    overflow: hidden;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    font: inherit;
+    line-height: 20px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.c4-code__type:hover {
+    border-color: var(--color-primary);
+}
+
+.c4-code__type:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.c4-code__type--selected {
+    border: 2px solid var(--color-primary);
+}
+
+.c4-code__stereotype,
+.c4-code__member,
+.c4-code__more {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.c4-code__name {
+    max-width: 100%;
+    overflow: hidden;
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.c4-code__panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.c4-code__panel-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.c4-code__kicker {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-2xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.c4-code__panel-title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-lg);
+    overflow-wrap: anywhere;
+}
+
+.c4-code__path {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.c4-code__open {
+    align-self: flex-start;
+    margin-top: var(--spacing-xs);
+}
+
+.c4-code__records {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.c4-code__records-title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-code__record-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.c4-code__record {
+    display: flex;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 0;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    color: var(--color-text-primary);
+    font: inherit;
+    text-align: left;
+}
+
+button.c4-code__record {
+    cursor: pointer;
+}
+
+button.c4-code__record:hover .c4-code__record-title,
+button.c4-code__record:focus-visible .c4-code__record-title {
+    text-decoration: underline;
+}
+
+.c4-code__record-number {
+    color: var(--color-primary);
+    font-family: var(--font-family-mono);
+}
+
+.c4-code__record-title {
+    flex: 1;
+    line-height: 1.4;
+}
+
+/* Narrow: the type panel goes under the picture rather than squeezing it. */
+@media (max-width: 60rem) {
+    .c4-code__body {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 /* Narrow: the panels stack above the stage rather than squeezing it. */
@@ -23126,6 +24372,56 @@ select.field__input {
     min-width: 0;
 }
 
+/* ---- the C4 zoom explorer as the architecture surface ----
+
+   Navigation set (plan c4-zoom-navigation): the bar across the top, then three
+   columns — the host's navigation, the picture, the inspector — as the design draws
+   every screen. A document the host opens in place of the picture takes the picture's
+   and the inspector's room. Nothing here reaches the explorer without Navigation, so
+   the C4 zoom tab draws as before. One column under 60rem of surface width.
+
+   A host that gives the surface a height gets three columns that each scroll on
+   their own, as the design's do: the row is that height and no more, so a long
+   chapter scrolls inside the main column rather than running past a pane that
+   clips. A host that gives it none gets columns as tall as their content. Under
+   60rem the columns stack and the surface's body scrolls as one.               */
+
+.c4-zoom-explorer--surface {
+    container-type: inline-size;
+    container-name: c4-zoom-surface;
+    gap: var(--spacing-sm);
+    min-height: 0;
+}
+
+.c4-zoom-explorer__surface {
+    display: grid;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr) minmax(16rem, 20rem);
+    grid-template-rows: minmax(0, 1fr);
+    gap: var(--spacing-md);
+    align-items: stretch;
+    min-width: 0;
+    min-height: 0;
+}
+
+.c4-zoom-explorer__surface--document {
+    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+}
+
+.c4-zoom-explorer__nav {
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+.c4-zoom-explorer__aside {
+    align-self: start;
+    min-width: 0;
+    max-height: 100%;
+    overflow: auto;
+    box-sizing: border-box;
+
 /* --- Notifications ---------------------------------------------------------
    NotificationCard: one alert or question, read and answered in place. The kind
    and severity are badges on the existing tones — a question reads gold like
@@ -23671,6 +24967,116 @@ select.field__input {
     border-radius: var(--border-radius-lg);
     background: var(--color-background-alt);
 }
+
+.c4-zoom-explorer__aside > .c4-element-inspector {
+    padding: 0;
+    border: 0;
+    background: none;
+}
+
+.c4-zoom-explorer__main,
+.c4-zoom-explorer__document {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+.c4-zoom-explorer__main.c4-zoom-explorer--dynamic {
+    display: grid;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__head {
+    align-items: center;
+    justify-content: space-between;
+}
+
+.c4-zoom-explorer__heading {
+    display: flex;
+    flex: 1 1 18rem;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.c4-zoom-explorer__title--surface {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-xl);
+    line-height: 1.25;
+}
+
+.c4-zoom-explorer__source {
+    font-family: var(--font-family-mono);
+}
+
+.c4-zoom-explorer__scale {
+    flex: 0 0 auto;
+}
+
+.c4-zoom-explorer--surface .c4-zoom-explorer__frame {
+    overflow: auto;
+    border: var(--border-width) solid var(--color-border);
+}
+
+.c4-zoom-explorer__canvas {
+    width: 100%;
+    height: 100%;
+}
+
+@container c4-zoom-surface (max-width: 60rem) {
+    .c4-zoom-explorer__surface,
+    .c4-zoom-explorer__surface--document {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .c4-zoom-explorer__surface {
+        grid-template-rows: none;
+        grid-auto-rows: max-content;
+        align-content: start;
+        overflow: auto;
+    }
+
+    .c4-zoom-explorer__nav,
+    .c4-zoom-explorer__main,
+    .c4-zoom-explorer__document,
+    .c4-zoom-explorer__aside {
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+/* ---- the selected card's relationships (C4 zoom) ----
+
+   While a card is selected, the lines into and out of it — and their labels — are
+   drawn in the primary colour, heavier, with an arrowhead of their own, and every
+   other line is dimmed so the selected card's connections read at a glance. The
+   viewer (markRelated in components.js) sets the classes, and only on a picture
+   written with C4SvgOptions.EdgeEnds, which the C4 tab never asks for. Nothing
+   selected, nothing changes.                                                     */
+.c4-diagram--focused g.c4-diagram__edge,
+.c4-diagram--focused g.c4-diagram__edge-label {
+    opacity: 0.35;
+}
+
+.c4-diagram--focused g.c4-diagram__edge.c4-diagram__edge--related,
+.c4-diagram--focused g.c4-diagram__edge-label.c4-diagram__edge--related {
+    opacity: 1;
+}
+
+g.c4-diagram__edge.c4-diagram__edge--related path {
+    stroke: var(--color-primary);
+    stroke-width: 2.5;
+}
+
+g.c4-diagram__edge-label.c4-diagram__edge--related text {
+    fill: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.c4-diagram__arrowhead--related {
+    fill: var(--color-primary);
 
 .cohesion__platforms-head {
     display: flex;

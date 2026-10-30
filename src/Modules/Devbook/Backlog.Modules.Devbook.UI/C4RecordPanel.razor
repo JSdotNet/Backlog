@@ -1,0 +1,241 @@
+@*
+    Where an ADR or a TDR lands on the model, beside the record in the Chapters tab
+    while `c4-zoom` is on (the design's ADR screen, plan c4-zoom-navigation): the
+    container view drawn small with what the record names marked, the decision chain,
+    and the arc42 chapters that cite it. Everything is read from the chapters'
+    metadata (local ADR 0044); C4RecordPlacement says how.
+
+    Decides and touches are told apart by more than colour — a solid ringed tile with
+    its word against a plain one with its word — so the two kinds read the same to a
+    reader who cannot tell the hues apart (.devbook/design/accessibility.md).
+*@
+
+<aside class="devbook-record-model" data-testid="arc42-record-model" aria-label="@(Placement.Kind == C4RecordKind.Debt ? "Debt on the model" : "Decision on the model")">
+    @if (Placement.Kind == C4RecordKind.Debt)
+    {
+        <section class="devbook-record-model__section" data-testid="arc42-record-debt">
+            <h2 class="devbook-record-model__heading">Debt</h2>
+            <dl class="devbook-record-model__facts">
+                <div>
+                    <dt>Severity</dt>
+                    <dd data-testid="arc42-record-severity">@(Placement.Severity is { } severity ? severity.ToString() : "Not stated")</dd>
+                </div>
+                <div>
+                    <dt>Lifecycle</dt>
+                    <dd>
+                        <ol class="devbook-record-model__ladder" aria-label="Debt lifecycle" data-testid="arc42-record-lifecycle">
+                            @foreach (var rung in Enum.GetValues<DevbookDebtLifecycle>())
+                            {
+                                <li class="devbook-record-model__rung @(rung == Placement.Lifecycle ? "devbook-record-model__rung--current" : null)"
+                                    aria-current="@(rung == Placement.Lifecycle ? "step" : null)">@RungLabel(rung)</li>
+                            }
+                        </ol>
+                        @if (Placement.Lifecycle is null)
+                        {
+                            <span data-testid="arc42-record-lifecycle-off">Its status, @Placement.Record.Status, is off the debt ladder.</span>
+                        }
+                    </dd>
+                </div>
+            </dl>
+        </section>
+    }
+
+    <section class="devbook-record-model__section" data-testid="arc42-record-map">
+        @if (Placement.Map is { } map)
+        {
+            <div class="devbook-record-model__head">
+                <h2 class="devbook-record-model__heading">Where it lands · Containers</h2>
+                @if (ZoomAvailable)
+                {
+                    <AppButton BaseClass="devbook-record-model__open"
+                               Variant="ButtonVariant.None"
+                               title="@map.ViewTitle"
+                               TestId="arc42-record-open-zoom"
+                               OnClick="() => OnOpenInZoom.InvokeAsync(new C4ZoomOpen(map.ViewKey, map.FocusId))">Open in the C4 model →</AppButton>
+                }
+            </div>
+
+            <ul class="devbook-record-model__map" aria-label="@map.ViewTitle" data-testid="arc42-record-tiles">
+                @foreach (var tile in map.Tiles)
+                {
+                    <li class="devbook-record-model__tile devbook-record-model__tile--@RoleClass(tile.Role)"
+                        data-testid="arc42-record-tile"
+                        data-element="@tile.ElementId"
+                        data-role="@RoleClass(tile.Role)">
+                        @if (tile.Role != C4RecordRole.None && ZoomAvailable)
+                        {
+                            <AppButton BaseClass="devbook-record-model__tile-button"
+                                       Variant="ButtonVariant.None"
+                                       aria-label="@($"{tile.Name}, {RoleClass(tile.Role)}. Open in the C4 model")"
+                                       OnClick="() => OnOpenInZoom.InvokeAsync(new C4ZoomOpen(map.ViewKey, tile.ElementId))">
+                                <span>@tile.Name</span>
+                                <span class="devbook-record-model__role">@RoleClass(tile.Role)</span>
+                            </AppButton>
+                        }
+                        else
+                        {
+                            <span>@tile.Name</span>
+                            @if (tile.Role != C4RecordRole.None)
+                            {
+                                <span class="devbook-record-model__role">@RoleClass(tile.Role)</span>
+                            }
+                        }
+                    </li>
+                }
+            </ul>
+
+            @if (map.Beyond.Count > 0)
+            {
+                <p class="devbook-record-model__note" data-testid="arc42-record-beyond">
+                    Also names:
+                    @for (var index = 0; index < map.Beyond.Count; index++)
+                    {
+                        var other = map.Beyond[index];
+                        <span class="devbook-record-model__beyond devbook-record-model__beyond--@RoleClass(other.Role)" data-element="@other.ElementId">@other.Name (@RoleClass(other.Role))</span>@(index < map.Beyond.Count - 1 ? ", " : null)
+                    }
+                </p>
+            }
+
+            @if (map.Tiles.All(tile => tile.Role == C4RecordRole.None) && map.Beyond.Count == 0)
+            {
+                <p class="devbook-record-model__note" data-testid="arc42-record-unlinked">This record names no element of the model. Its <code>c4</code> and <code>c4-touches</code> fields say which.</p>
+            }
+            else
+            {
+                <p class="devbook-record-model__note"><b>Decides</b>: the record's subject. <b>Touches</b>: named in its consequences. Greyed containers are outside it.</p>
+            }
+        }
+        else
+        {
+            <h2 class="devbook-record-model__heading">Where it lands</h2>
+            <p class="devbook-record-model__note" data-testid="arc42-record-no-model">There is no container view in workspace.dsl to place it on.</p>
+        }
+    </section>
+
+    @if (Placement.Kind == C4RecordKind.Decision)
+    {
+        <section class="devbook-record-model__section" data-testid="arc42-record-chain">
+            <h2 class="devbook-record-model__heading">Decision chain</h2>
+            @if (Placement.Supersedes.Count + Placement.SupersededBy.Count + Placement.BuildsOn.Count + Placement.BuiltOnBy.Count == 0)
+            {
+                <p class="devbook-record-model__note" data-testid="arc42-record-chain-empty">No other decision builds on it, and it builds on none.</p>
+            }
+            @Chain("Supersedes", "supersedes", Placement.Supersedes)
+            @Chain("Superseded by", "superseded-by", Placement.SupersededBy)
+            @Chain("Builds on", "builds-on", Placement.BuildsOn)
+            @Chain("Built on by", "built-on-by", Placement.BuiltOnBy)
+            @if (AnyProposed)
+            {
+                <p class="devbook-record-model__note">Dashed: proposed.</p>
+            }
+        </section>
+    }
+
+    <section class="devbook-record-model__section" data-testid="arc42-record-citations">
+        <h2 class="devbook-record-model__heading">arc42 chapters that cite it</h2>
+        @if (Placement.CitedBy.Count == 0)
+        {
+            <p class="devbook-record-model__note" data-testid="arc42-record-uncited">No arc42 chapter names it in <code>related:</code>.</p>
+        }
+        else
+        {
+            <ul class="devbook-record-model__citations">
+                @foreach (var citation in Placement.CitedBy)
+                {
+                    <li>
+                        <AppButton BaseClass="devbook-record-model__citation"
+                                   Variant="ButtonVariant.None"
+                                   TestId="arc42-record-citation"
+                                   OnClick="() => OnNavigate.InvokeAsync(Reference(citation))">
+                            <span class="devbook-record-model__number">@citation.Number</span>
+                            <span>@citation.Chapter@(Section(citation))</span>
+                        </AppButton>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    @if (Placement.Kind == C4RecordKind.Decision)
+    {
+        <section class="devbook-record-model__section" data-testid="arc42-record-debt-caused">
+            <h2 class="devbook-record-model__heading">Debt it caused</h2>
+            @if (Placement.Debt.Count == 0)
+            {
+                <p class="devbook-record-model__note">No TDR names this decision.</p>
+            }
+            else
+            {
+                @Chips("debt", Placement.Debt)
+            }
+        </section>
+    }
+</aside>
+
+@code {
+    [Parameter, EditorRequired]
+    public C4RecordPlacement Placement { get; set; } = null!;
+
+    /// <summary>Whether the C4 zoom tab is there to open: without it the map is
+    /// still drawn, and no control offers a tab that is not.</summary>
+    [Parameter]
+    public bool ZoomAvailable { get; set; }
+
+    /// <summary>"Open in C4 zoom", with the view and the element to leave
+    /// selected.</summary>
+    [Parameter]
+    public EventCallback<C4ZoomOpen> OnOpenInZoom { get; set; }
+
+    /// <summary>A record or a chapter was picked, by its reference.</summary>
+    [Parameter]
+    public EventCallback<string> OnNavigate { get; set; }
+
+    private bool AnyProposed =>
+        Placement.Supersedes.Concat(Placement.SupersededBy).Concat(Placement.BuildsOn).Concat(Placement.BuiltOnBy).Any(entry => entry.Proposed);
+
+    private RenderFragment Chain(string label, string key, IReadOnlyList<C4ChainRecord> records) => @<text>
+        @if (records.Count > 0)
+        {
+            <h3 class="devbook-record-model__label" data-testid="@($"arc42-record-{key}-label")">@label@(records.Count > 1 ? $" · {records.Count}" : null)</h3>
+            @Chips(key, records)
+        }
+    </text>;
+
+    private RenderFragment Chips(string key, IReadOnlyList<C4ChainRecord> records) => @<ul class="devbook-record-model__chips" data-testid="@($"arc42-record-{key}")">
+        @foreach (var record in records)
+        {
+            <li>
+                <AppButton BaseClass="@($"devbook-record-model__chip{(record.Proposed ? " devbook-record-model__chip--proposed" : null)}")"
+                           Variant="ButtonVariant.None"
+                           title="@record.Title"
+                           aria-label="@($"{record.Number} {record.Title}{(record.Proposed ? ", proposed" : null)}")"
+                           data-proposed="@(record.Proposed ? "true" : "false")"
+                           TestId="arc42-record-chip"
+                           OnClick="() => OnNavigate.InvokeAsync(record.Path)">
+                    <span class="devbook-record-model__number">@record.Number</span>
+                    <span class="devbook-record-model__chip-title">@record.Title</span>
+                </AppButton>
+            </li>
+        }
+    </ul>;
+
+    private static string Reference(C4RecordCitation citation) =>
+        citation.Anchor is null ? citation.Path : $"{citation.Path}#{citation.Anchor}";
+
+    private static string? Section(C4RecordCitation citation) =>
+        citation.Section is null ? null : $" › {citation.Section}";
+
+    /// <summary>The role as the tile says it, and as its class and test hook spell it.</summary>
+    private static string RoleClass(C4RecordRole role) => role switch
+    {
+        C4RecordRole.Decides => "decides",
+        C4RecordRole.Touches => "touches",
+        _ => "outside"
+    };
+
+    private static string RungLabel(DevbookDebtLifecycle rung) => rung switch
+    {
+        DevbookDebtLifecycle.InProgress => "In progress",
+        _ => rung.ToString()
+    };
+}

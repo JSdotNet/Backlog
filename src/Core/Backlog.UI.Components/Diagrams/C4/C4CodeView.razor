@@ -1,0 +1,325 @@
+@using System.Globalization
+
+@*
+    Level 4 of the C4 zoom tab: one component's code, drawn from the source when it is
+    opened (local ADR 0044 §3). Nothing here is authored.
+
+    A class box per type — its stereotype, its name and its members, the public ones
+    or all of them — and an arrow per use, laid out by C4LayoutEngine through
+    C4CodeLayout so a use reads top to bottom as a relationship does a level up. Beside
+    it the type panel: the selected type's files, "Open in editor" where the host can
+    open one, and the decision records linked to the component.
+
+    Its own component rather than a branch of C4ZoomExplorer: the explorer decides when
+    the level is open, and this draws it, so either can change without the other.
+    Backspace on the picture asks the explorer to zoom out, as it does on every other
+    level.
+*@
+
+@* Backspace is listened for on the whole level, not the picture alone: the level is
+   focused as it opens, before the picture has been read, and a reader who tabbed onto a
+   class box is still on this level. Nothing in it takes Backspace for itself. *@
+<section class="c4-code"
+         data-testid="@TestId"
+         aria-label="@($"Code of {Level?.Component ?? Component}. Backspace zooms out.")"
+         tabindex="-1"
+         @ref="_root"
+         @onkeydown="OnKeyDownAsync">
+    <header class="c4-code__head">
+        <div class="c4-code__heading">
+            <h2 class="c4-code__title" data-testid="c4-code-title">Code — @(Level?.Component ?? Component) component</h2>
+            @if (Level is not null)
+            {
+                <p class="c4-code__source" data-testid="c4-code-source">
+                    Generated from
+                    @for (var index = 0; index < Level.Folders.Count; index++)
+                    {
+                        @(index > 0 ? ", " : null)<code class="c4-code__folder">@Level.Folders[index]</code>
+                    }
+                    · @TypeCount(Level.Types.Count)
+                </p>
+            }
+        </div>
+
+        @if (Level is { Problem: null, Types.Count: > 0 })
+        {
+            <ButtonGroup Radio="true" AriaLabel="Members" CssClass="c4-code__members" TestId="c4-code-members">
+                <ToggleButton Pressed="@(!_allMembers)" PressedChanged="_ => ShowAll(false)" TestId="c4-code-members-public">Public</ToggleButton>
+                <ToggleButton Pressed="@_allMembers" PressedChanged="_ => ShowAll(true)" TestId="c4-code-members-all">All</ToggleButton>
+            </ButtonGroup>
+        }
+    </header>
+
+    @if (Level is null)
+    {
+        <Alert Message="Reading the source…" Role="status" TestId="c4-code-loading" />
+    }
+    else if (Level.Problem is not null)
+    {
+        <Alert Message="@Level.Problem" TestId="c4-code-problem" />
+    }
+    else if (Level.Types.Count == 0)
+    {
+        <EmptyState Title="No C# types here" role="status" TestId="c4-code-empty">
+            <DescriptionContent>
+                Nothing under @string.Join(", ", Level.Folders) declares a type. A branch read from GitHub carries the devbook and not the source, so its Code level is empty too.
+            </DescriptionContent>
+        </EmptyState>
+    }
+    else
+    {
+        <div class="c4-code__body">
+            <div class="c4-code__frame"
+                 tabindex="0"
+                 role="group"
+                 aria-label="@($"Types of {Level.Component}")"
+                 data-testid="c4-code-frame">
+                <div class="c4-code__canvas" style="@Size(Diagram.Width, Diagram.Height)">
+                    <svg class="c4-code__uses"
+                         width="@Number(Diagram.Width)"
+                         height="@Number(Diagram.Height)"
+                         viewBox="@($"0 0 {Number(Diagram.Width)} {Number(Diagram.Height)}")"
+                         aria-hidden="true"
+                         focusable="false">
+                        <defs>
+                            <marker id="@_markerId" orient="auto" markerWidth="8" markerHeight="8" refX="7" refY="4">
+                                <path d="M0 0 L8 4 L0 8 Z" class="c4-code__arrow-head" />
+                            </marker>
+                        </defs>
+                        @foreach (var use in Diagram.Uses)
+                        {
+                            <path d="@use.Path"
+                                  class="@(use.Use.Inherits ? "c4-code__use c4-code__use--inherits" : "c4-code__use")"
+                                  marker-end="@($"url(#{_markerId})")"
+                                  data-testid="c4-code-use"
+                                  data-from="@use.Use.From"
+                                  data-to="@use.Use.To" />
+                            @if (use.Use.Inherits)
+                            {
+                                @* An svg text element, which Razor reads as its own <text> tag
+                                   inside a code block, so it is written out whole. *@
+                                @((MarkupString)$"<text x=\"{Number(use.LabelX)}\" y=\"{Number(use.LabelY)}\" class=\"c4-code__use-label\" text-anchor=\"middle\">inherits</text>")
+                            }
+                        }
+                    </svg>
+
+                    @foreach (var placed in Diagram.Types)
+                    {
+                        var selected = string.Equals(placed.Type.Id, Selected?.Id, StringComparison.Ordinal);
+                        <AppButton @key="placed.Type.Id"
+                                   BaseClass="c4-code__type"
+                                   CssClass="@(selected ? "c4-code__type--selected" : null)"
+                                   Variant="ButtonVariant.None"
+                                   aria-pressed="@(selected ? "true" : "false")"
+                                   aria-label="@($"{placed.Type.Name}, {placed.Type.Kind}")"
+                                   style="@Box(placed)"
+                                   data-type-id="@placed.Type.Id"
+                                   TestId="c4-code-type"
+                                   OnClick="() => Select(placed.Type)">
+                            <span class="c4-code__stereotype" data-testid="c4-code-stereotype">@placed.Type.Stereotype</span>
+                            <strong class="c4-code__name" data-testid="c4-code-name">@placed.Type.Name</strong>
+                            @foreach (var member in placed.Members)
+                            {
+                                <span class="c4-code__member" data-testid="c4-code-member">@member</span>
+                            }
+                            @if (placed.Hidden > 0)
+                            {
+                                <span class="c4-code__more" data-testid="c4-code-more">+ @placed.Hidden more</span>
+                            }
+                        </AppButton>
+                    }
+                </div>
+            </div>
+
+            @if (Selected is { } type)
+            {
+                <aside class="c4-code__panel" aria-label="Selected type" data-testid="c4-code-panel">
+                    <div class="c4-code__panel-head">
+                        <p class="c4-code__kicker">Code · @type.Kind</p>
+                        <h3 class="c4-code__panel-title" data-testid="c4-code-panel-name">@type.Name</h3>
+                        @foreach (var path in type.FilePaths)
+                        {
+                            <p class="c4-code__path" data-testid="c4-code-path">@path</p>
+                        }
+                        @if (OpenInEditor is not null && type.FilePaths.Count > 0)
+                        {
+                            <AppButton Variant="ButtonVariant.Primary"
+                                       CssClass="c4-code__open"
+                                       Busy="@_opening"
+                                       BusyLabel="Opening"
+                                       TestId="c4-code-open"
+                                       OnClick="() => OpenAsync(type.FilePaths[0])">Open in editor</AppButton>
+                        }
+                        @if (_openError is not null)
+                        {
+                            <Alert Message="@_openError" TestId="c4-code-open-error" />
+                        }
+                    </div>
+
+                    <section class="c4-code__records" data-testid="c4-code-decisions">
+                        <h4 class="c4-code__records-title">Decisions it implements · @Level.Decisions.Count</h4>
+                        @if (Level.Decisions.Count == 0)
+                        {
+                            <p class="c4-code__note">No decision record names @Level.Component in <code>c4</code> or <code>c4-touches</code>.</p>
+                        }
+                        else
+                        {
+                            <ul class="c4-code__record-list">
+                                @foreach (var record in Level.Decisions)
+                                {
+                                    <li>
+                                        @if (OpenRecord is not null)
+                                        {
+                                            <AppButton BaseClass="c4-code__record"
+                                                       Variant="ButtonVariant.None"
+                                                       title="@record.Path"
+                                                       TestId="c4-code-decision"
+                                                       OnClick="() => OpenRecord(record)">
+                                                <span class="c4-code__record-number">@record.Number</span>
+                                                <span class="c4-code__record-title">@record.Title</span>
+                                            </AppButton>
+                                        }
+                                        else
+                                        {
+                                            <span class="c4-code__record" title="@record.Path" data-testid="c4-code-decision">
+                                                <span class="c4-code__record-number">@record.Number</span>
+                                                <span class="c4-code__record-title">@record.Title</span>
+                                            </span>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </section>
+                </aside>
+            }
+        </div>
+
+        <p class="c4-code__legend" data-testid="c4-code-legend">This level is drawn from the source on demand; nothing here is authored. Solid arrow: names the type. Dashed arrow: inherits it.</p>
+    }
+</section>
+
+@code {
+    private readonly string _markerId = "c4-code-arrow-" + Guid.NewGuid().ToString("N");
+
+    private ElementReference _root;
+    private bool _focused;
+
+    private bool _allMembers;
+    private string? _selectedId;
+    private bool _opening;
+    private string? _openError;
+
+    private C4CodeDiagram _diagram = C4CodeDiagram.Empty;
+    private C4CodeLevel? _diagramLevel;
+    private bool _diagramAll;
+
+    /// <summary>The level to draw, or null while it is being read.</summary>
+    [Parameter]
+    public C4CodeLevel? Level { get; set; }
+
+    /// <summary>The component's name, said in the heading while <see cref="Level"/> is
+    /// still being read.</summary>
+    [Parameter]
+    public string? Component { get; set; }
+
+    /// <summary>Opens a repository-relative file and answers with why it could not, or
+    /// null. With none, the panel offers no "Open in editor".</summary>
+    [Parameter]
+    public Func<string, Task<string?>>? OpenInEditor { get; set; }
+
+    /// <summary>Opens a decision record. With none, the records are text.</summary>
+    [Parameter]
+    public Func<C4CodeRecord, Task>? OpenRecord { get; set; }
+
+    /// <summary>Backspace on the picture: the explorer goes back up a level.</summary>
+    [Parameter]
+    public EventCallback OnZoomOut { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-code";
+
+    /// <summary>Takes the keyboard when it first draws: the zoom tab opens this level in
+    /// place of the picture that had it, which would otherwise drop it to the page.</summary>
+    [Parameter]
+    public bool FocusOnOpen { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!FocusOnOpen || _focused) return;
+
+        _focused = true;
+        try
+        {
+            await _root.FocusAsync();
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // No script to focus with: the level still works, from the keyboard after a Tab.
+        }
+    }
+
+    /// <summary>Whether All members are shown rather than the public ones. For tests.</summary>
+    public bool AllMembers => _allMembers;
+
+    /// <summary>The type the panel is about: the one picked, else the first.</summary>
+    private C4CodeType? Selected =>
+        Level is null
+            ? null
+            : Level.Types.FirstOrDefault(type => string.Equals(type.Id, _selectedId, StringComparison.Ordinal)) ?? Level.Types.FirstOrDefault();
+
+    private C4CodeDiagram Diagram
+    {
+        get
+        {
+            if (Level is null) return C4CodeDiagram.Empty;
+
+            if (!ReferenceEquals(_diagramLevel, Level) || _diagramAll != _allMembers)
+            {
+                _diagram = C4CodeLayout.Build(Level, _allMembers);
+                _diagramLevel = Level;
+                _diagramAll = _allMembers;
+            }
+
+            return _diagram;
+        }
+    }
+
+    private void ShowAll(bool all) => _allMembers = all;
+
+    private void Select(C4CodeType type)
+    {
+        if (string.Equals(_selectedId, type.Id, StringComparison.Ordinal)) return;
+
+        _selectedId = type.Id;
+        _openError = null;
+    }
+
+    private async Task OpenAsync(string path)
+    {
+        if (OpenInEditor is null || _opening) return;
+
+        _opening = true;
+        _openError = null;
+        try
+        {
+            _openError = await OpenInEditor(path);
+        }
+        finally
+        {
+            _opening = false;
+        }
+    }
+
+    private Task OnKeyDownAsync(KeyboardEventArgs args) =>
+        string.Equals(args.Key, "Backspace", StringComparison.Ordinal) ? OnZoomOut.InvokeAsync() : Task.CompletedTask;
+
+    private static string TypeCount(int count) => count == 1 ? "1 type" : $"{count.ToString(CultureInfo.InvariantCulture)} types";
+
+    private static string Number(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string Size(double width, double height) => $"width: {Number(width)}px; height: {Number(height)}px";
+
+    private static string Box(C4PlacedCodeType placed) =>
+        $"left: {Number(placed.X)}px; top: {Number(placed.Y)}px; {Size(placed.Width, placed.Height)}";
+}

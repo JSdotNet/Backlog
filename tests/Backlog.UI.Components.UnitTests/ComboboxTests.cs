@@ -435,4 +435,32 @@ public sealed class ComboboxTests
         Assert.Empty(combo.FindAll("[role='listbox']"));
         Assert.True(combo.Find("input").HasAttribute("disabled"));
     }
+
+    [Fact]
+    public void Typing_leaves_the_list_closed_by_default()
+    {
+        using var context = new BunitContext();
+        var combo = Render(context, new Host());
+
+        combo.Find("input").Input("1");
+
+        Assert.Empty(combo.FindAll("[role='listbox']"));
+    }
+
+    /// <summary>A find field: the host narrows the options to what was typed, and the
+    /// list opens as the reader types rather than waiting for Down.</summary>
+    [Fact]
+    public void With_open_on_input_typing_opens_the_list()
+    {
+        using var context = new BunitContext();
+        var combo = context.Render<Combobox>(parameters => parameters
+            .Add(c => c.Options, Options)
+            .Add(c => c.AriaLabel, "Find")
+            .Add(c => c.OpenOnInput, true));
+
+        combo.Find("input").Input("1");
+
+        Assert.Single(combo.FindAll("[role='listbox']"));
+        Assert.Equal("true", combo.Find("input").GetAttribute("aria-expanded"));
+    }
 }

@@ -3,6 +3,8 @@
 ```meta
 date: 2026-10-28
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/12-glossary.md#terms", ".devbook/domain/inbox/features.md#route-to-brain", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/brain/domain.md#para-category"]
+c4: [backlog.desktop.devbook]
+c4-touches: [backlog.desktop.inbox, backlog.mobile]
 ```
 
 The Brain is the person's own notes. It is one folder per user, outside every
@@ -293,3 +295,13 @@ Look for tests that show these behaviours:
 9. **Ignore hides a folder.** A folder listed under `## Ignore` shows no tab,
    even when it holds notes or is also declared. Search and the database leave
    its notes out.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-10-13 | The Brain is one personal devbook folder per user, outside every repository. | A person's notes span repositories, so a folder per repository splits them. |
+| 2026-08-03 | A `.brain/` dot-folder at workspace, repository and project level. | Every scope carried the same dot-folder contract. |

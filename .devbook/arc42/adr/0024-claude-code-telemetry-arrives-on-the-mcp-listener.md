@@ -3,6 +3,8 @@
 ```meta
 date: 2026-10-08
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md", ".devbook/arc42/adr/guidelines/0010-opentelemetry-observability.md", ".devbook/domain/sessions/domain.md#claude-api-request-log", ".devbook/domain/sessions/features.md#cost-as-claude-code-reports-it"]
+c4: [backlog.desktop.sessions]
+c4-touches: [backlog.taskStore]
 ```
 
 The desktop application receives Claude Code's OpenTelemetry events at `/v1/logs`, an

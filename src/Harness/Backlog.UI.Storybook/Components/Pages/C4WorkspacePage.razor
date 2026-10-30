@@ -34,6 +34,139 @@ Every card is a `g.node` whose id is `<svg id>-<alias>`, which is exactly what t
         </div>
     </Story>
 
+    <Story Name="The zoom bar, three moments"
+           Description="`C4ZoomBar` as the design's Navigation board draws it. **On Context:** step 1 ringed, step 2 already names the system, steps 3 and 4 grey until something is picked. **Desktop selected** on the container view: step 3 now names Desktop App and can be pressed, step 4 still waits for a component. **On Code:** every step behind the reader names its element and works.
+
+A ringed step is where you are, a plain one jumps, and a grey one is a promise that selecting an element fills it in. Step 4 opens only for a component whose building block names its code folders; one with none names the component and stays grey."
+           Code="@ZoomBarUsage">
+        <div class="sb-c4-zoom-moments">
+            <p class="sb-c4-zoom-moments__label">On Context</p>
+            <C4ZoomBar State="@OnContext" TestId="sb-c4-zoom-bar-context" />
+
+            <p class="sb-c4-zoom-moments__label">Desktop selected</p>
+            <C4ZoomBar State="@DesktopSelected" TestId="sb-c4-zoom-bar-selected" />
+
+            <p class="sb-c4-zoom-moments__label">On Code</p>
+            <C4ZoomBar State="@OnCode" TestId="sb-c4-zoom-bar-code" />
+        </div>
+    </Story>
+
+    <Story Name="The zoom tab"
+           Description="`C4ZoomExplorer`, the tab the `c4-zoom` switch offers beside the C4 tab: the same workspace walked **one level at a time**, where the explorer above lists views one by one. It opens on the System context view, and the first time it opens it names the ways to move.
+
+**Select** a card with a click or by tabbing onto it; the zoom bar fills in the element the next level is about. **Zoom in** with a double-click, the card's *Zoom in* chip, or Enter on the focused card. **Zoom out** with an earlier step on the bar, or Backspace — and the element you came out of stays selected. Enter and Backspace are listened for on the diagram's own frame, never on the page, so a key typed anywhere else is never a move.
+
+The chip is the one thing the zoom tab asks of the shared renderer, and it is an option: `C4SvgWriter` draws it only for the cards named in `C4SvgOptions.ZoomInAliases`, which the C4 tab never passes.
+
+Here the Devbook component has code folders, so it carries a chip on the Desktop App components view and step 4 opens its **Code level** — the story below. Shell and Fetch Workers have none: no chip, and step 4 stays grey."
+           Code="@ZoomUsage">
+        <div class="sb-c4-stage sb-c4-stage--zoom">
+            <C4ZoomExplorer Workspace="@Parsed" Problems="@Parsed.Problems" Code="@SampleCode" RecordsFor="@SampleRecords" CrossCuttingDebt="@SampleCrossCuttingDebt" TestId="sb-c4-zoom-explorer" />
+        </div>
+    </Story>
+
+    <Story Name="The architecture surface"
+           Description="`C4ZoomExplorer` handed a `Navigation`: the design's every screen, as the Architecture pane draws it while `c4-zoom` is on. The zoom bar across the top, then three columns — the host's **left navigation**, the **picture** with its title, its source, what documents it and the **− / Fit / +** that size it, and the **inspector** of the selected element, which says what selecting does while nothing is.
+
+The navigation is the host's: the explorer knows nothing of chapters. Here it is the C4 views list `C4ViewIndex` builds — the zoom chain indented under the system it opens, each level counting what it opens onto, a Code line under a component that has code, then the dynamic and deployment views. A line opens its view through `OpenView`; `OnLocationChanged` tells the host where the explorer went, which is what marks the open line."
+           Code="@SurfaceUsage">
+        <div class="sb-c4-stage sb-c4-stage--zoom">
+            <C4ZoomExplorer Workspace="@Parsed"
+                            Problems="@Parsed.Problems"
+                            Code="@SampleCode"
+                            RecordsFor="@SampleRecords"
+                            HintDismissed="true"
+                            OpenView="@_surfaceOpen"
+                            Navigation="@SurfaceNavigation"
+                            ViewCaption="@SurfaceCaption"
+                            OnLocationChanged="location => _surfaceLocation = location"
+                            TestId="sb-c4-zoom-surface" />
+        </div>
+    </Story>
+
+    <Story Name="A document in place of the picture"
+           Description="The same surface with a `Document` open — on the Architecture pane, an arc42 chapter, an ADR or a TDR. The document takes the picture's and the inspector's room; the bar stays, drawn with **no step current**, since the reader is on no view. Any press on it — the step they came from included — moves the picture and raises `OnNavigate`, and the host closes the document: press *Context* here."
+           Code="@DocumentUsage">
+        <div class="sb-c4-stage sb-c4-stage--zoom">
+            <C4ZoomExplorer Workspace="@Parsed"
+                            HintDismissed="true"
+                            Navigation="@SurfaceNavigation"
+                            Document="@(_documentOpen ? SampleDocument : null)"
+                            OnNavigate="() => _documentOpen = false"
+                            TestId="sb-c4-zoom-surface-document" />
+            @if (!_documentOpen)
+            {
+                <AppButton Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" TestId="sb-c4-zoom-surface-reopen" OnClick="() => _documentOpen = true">Open the chapter again</AppButton>
+            }
+        </div>
+    </Story>
+
+    <Story Name="The Code level"
+           Description="`C4CodeView`, level 4 of the zoom tab: one component's types **drawn from its C# source when it is opened**, never authored (local ADR 0044 §3). Each class box carries its stereotype — the kind with its modifiers and its base list — its name, and its members, the **Public** ones or **All** of them, in UML's marks: + public, # protected, ~ internal, - private. A box lists up to eight members; past eight it lists seven and says how many more there are.
+
+Every use is an arrow, laid out by `C4LayoutEngine` as a relationship is a level up: solid where a type names another, dashed where it inherits it. Pick a box and the panel beside it names the files it is declared in, offers **Open in editor** where the host can open one, and lists the decision records linked to the component — each opens its chapter. Backspace on the picture zooms back out to the components view."
+           Code="@CodeUsage">
+        <div class="sb-c4-stage sb-c4-stage--zoom">
+            <C4CodeView Level="@SampleCodeLevel"
+                        OpenInEditor="OpenInEditorAsync"
+                        OpenRecord="OpenRecordAsync"
+                        TestId="sb-c4-code" />
+            <p class="sb-state" data-testid="sb-c4-code-state">@(_codeAction ?? "nothing opened yet")</p>
+        </div>
+    </Story>
+
+    <Story Name="A dynamic view, step by step"
+           Description="`C4DynamicSteps`, the panel the zoom tab sets beside a dynamic view: **Step 2 of 3**, Previous / Play / Next, and every step in order — from → to, what it does, and the technology read from the model relationship between the same two elements, since a dynamic step carries none of its own. Open **Dynamic** under *Also* in the zoom tab above to play it: each arrow carries its number in a badge, and the current step's arrow, badge and row are drawn in the primary colour while the rest stay grey.
+
+Previous is disabled on the first step and Next on the last. Play walks forward and stops on the last step; with reduced motion asked for, it moves one step per press and says so. The badges and the current step are options of `C4SvgWriter` (`NumberSteps`, `CurrentStep`) that the C4 tab never passes."
+           Code="@DynamicUsage">
+        <C4DynamicSteps Steps="@DynamicSteps" Current="1" TestId="sb-c4-dynamic-steps" />
+    </Story>
+
+    <Story Name="The element inspector"
+           Description="`C4ElementInspector`, the panel the zoom tab sets beside the picture for the element selected on it — the design's Containers screen: its **kind**, **name**, **technology** and **description**, and *Open its 3 components* when a deeper view exists. Below that, what the knowledge folders say about it, which the host hands in per element through `RecordsFor` because the library has no idea what a chapter is: the arc42 chapters that document a view showing it, the **decisions** that name it with a *proposed* chip on one still proposed, and the **debt** with its severity and rung on the debt ladder. Each opens its record in the Chapters tab.
+
+An element nothing names says so in each section; with no host behind it at all the three sections are left out rather than claiming it has none."
+           Code="@InspectorUsage">
+        <div class="sb-c4-zoom-moments">
+            <p class="sb-c4-zoom-moments__label">Desktop App selected</p>
+            <C4ElementInspector Element="@DesktopApp" ZoomLabel="Open its 3 components" Records="@DesktopRecords" TestId="sb-c4-element-inspector" />
+
+            <p class="sb-c4-zoom-moments__label">An element nothing names</p>
+            <C4ElementInspector Element="@LocalTaskStore" Records="@C4ElementRecords.None" TestId="sb-c4-element-inspector-none" />
+        </div>
+    </Story>
+
+    <Story Name="The record overlays"
+           Description="The **Overlay** switch in the zoom tab's head: None, Decisions or Debt, one choice, kept as the reader zooms. **Decisions** puts an *n ADR* chip on each card that decision records name; **Debt** puts an *n TDR* chip on each card that open debt names — debt not yet `resolved` — and draws that card on the `color-error` surface. The counts come from the same `RecordsFor` the inspector reads, so a card and its inspector never disagree.
+
+Under the picture, a line counts the overlay's records that name no element on the view but one nested below it — the ones a reader finds by zooming in. With Debt on, the **cross-cutting tray**, `C4CrossCuttingDebt`, lists the open debt that names no element at all, which has no card to sit on; each opens its record. The chips are an option of `C4SvgWriter` (`C4SvgOptions.RecordChips`) that the C4 tab never passes. Pick an overlay in the zoom tab above to see it live; below, the Desktop App components view as Debt draws it."
+           Code="@OverlayUsage">
+        <div class="sb-c4-zoom-moments">
+            <p class="sb-c4-zoom-moments__label">Debt on the Desktop App components view</p>
+            <div class="sb-c4-stage">
+                <C4DiagramView Diagram="@ComponentsDiagram" Id="sb-c4-overlay" AriaLabel="Components with the Debt overlay" Options="@DebtOverlayOptions" TestId="sb-c4-overlay-diagram" />
+            </div>
+
+            <p class="sb-c4-zoom-moments__label">The cross-cutting tray</p>
+            <C4CrossCuttingDebt Records="@SampleCrossCuttingDebt" TestId="sb-c4-cross-cutting" />
+        </div>
+    </Story>
+
+    <Story Name="A deployment view"
+           Description="On a deployment view the zoom tab puts the scope's environments behind **one tab list**, and draws every other environment as a **dashed door** naming what runs there; opening the door is the same move as its tab. Open *Deployment* under Also in the zoom tab above to walk it: Local machine and Staging.
+
+A deployment node is drawn as the frame round what it runs, and on the zoom tab the frame is **selectable**: `C4SvgWriter` writes it as a `g.node` for the frames named in `C4SvgOptions.SelectableBoundaryAliases`, which the C4 tab never sets. Selecting one opens the element inspector below — the same panel every element opens — headed with its kind, technology and description, and listing the container instances it runs, each with *Show in containers*, which opens the container view with that container selected."
+           Code="@DeploymentUsage">
+        <div class="sb-c4-zoom-moments">
+            <p class="sb-c4-zoom-moments__label">The door from Local machine</p>
+            <C4DeploymentDoors Doors="@StagingDoor" TestId="sb-c4-deployment-doors" />
+
+            <p class="sb-c4-zoom-moments__label">MSIX package selected</p>
+            <C4ElementInspector Element="@MsixPackageNode" Deployment="@MsixPackage" TestId="sb-c4-deployment-inspector" />
+        </div>
+    </Story>
+
     <Story Name="Inside running text"
            Description="`Inline` makes the host a span, for a diagram drawn inside a paragraph — where a chapter's `![…](c4:<view key>)` embed was written. A div there is invalid, and an HTML parser closes the paragraph on it. The span is a block the width of the text and as tall as the picture's aspect ratio makes it, where the default host fills its frame for the explorer to pan and zoom."
            Code="@InlineUsage">
@@ -185,6 +318,259 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                     ViewFooter="@ViewReferences" />
         """;
 
+    private C4ZoomOpen? _surfaceOpen;
+    private C4ZoomLocation? _surfaceLocation;
+    private bool _documentOpen = true;
+
+    private static readonly IReadOnlyList<C4ViewIndexEntry> SurfaceViews = C4ViewIndex.For(Parsed, HasCode);
+
+    /// <summary>A host's left navigation, as small as it can be: the C4 views list.</summary>
+    private RenderFragment SurfaceNavigation => @<nav class="sb-c4-surface-nav" aria-label="C4 views">
+        @foreach (var entry in SurfaceViews)
+        {
+            var open = entry.IsOpen(_surfaceLocation?.ViewKey, _surfaceLocation?.CodeComponentId);
+            <AppButton Variant="@(open ? ButtonVariant.Secondary : ButtonVariant.Ghost)"
+                       Size="ButtonSize.Small"
+                       aria-current="@(open ? "page" : null)"
+                       CssClass="@($"sb-c4-surface-nav__line sb-c4-surface-nav__line--depth-{Math.Min(entry.Depth, 3)}")"
+                       OnClick="() => _surfaceOpen = new C4ZoomOpen(entry.ViewKey, entry.CodeComponentId, entry.CodeComponentId is not null)">
+                @entry.Label @(entry.Detail is null ? null : $" · {entry.Detail}")
+            </AppButton>
+        }
+    </nav>;
+
+    private static readonly RenderFragment<C4View> SurfaceCaption = view => @<span> · documented by 03, 05</span>;
+
+    private static readonly RenderFragment SampleDocument = @<article class="sb-c4-surface-document">
+        <h2>05. Building Block View</h2>
+        <p>The chapter, read on the surface in place of the picture. The zoom bar above still moves the picture; pressing it brings the picture back.</p>
+    </article>;
+
+    private const string SurfaceUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        OpenView="@_open"
+                        Navigation="@LeftNavigation"
+                        Document="@(_showDocument ? Chapter : null)"
+                        ViewCaption="@(view => @<span> · documented by …</span>)"
+                        OnNavigate="() => _showDocument = false"
+                        OnLocationChanged="location => _location = location" />
+        """;
+
+    private const string DocumentUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        Navigation="@LeftNavigation"
+                        Document="@Chapter"
+                        OnNavigate="() => _showDocument = false" />
+        """;
+
+    private const string ZoomUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        Problems="@problems"
+                        HintDismissed="@preferences.C4ZoomHintDismissed"
+                        OnHintDismissed="preferences.DismissC4ZoomHint" />
+        """;
+
+    private const string DynamicUsage = """
+        <C4DynamicSteps Steps="@C4DynamicPlayback.Steps(workspace, view)"
+                        Current="@stepIndex"
+                        Playing="@playing"
+                        ReducedMotion="@reducedMotion"
+                        OnPrevious="Previous"
+                        OnNext="Next"
+                        OnPlay="Play"
+                        OnPick="Pick" />
+        """;
+
+    /// <summary>The sample's dynamic view, as the zoom tab's steps panel lists it.</summary>
+    private static IReadOnlyList<C4PlaybackStep> DynamicSteps =>
+        C4DynamicPlayback.Steps(Parsed, Parsed.View("capture-to-issue")!);
+
+    private const string InspectorUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        RecordsFor="@(elementId => C4ElementInspection.For(c4, workspaceEntry, chapters, elementId))"
+                        OnOpenRecord="OpenInChapters" />
+        """;
+
+    private static readonly C4Element DesktopApp = Parsed.Element("backlog.desktop")!;
+    private static readonly C4Element LocalTaskStore = Parsed.Element("backlog.store")!;
+    private static readonly C4Element MsixPackageNode = Parsed.Element("pc.msix")!;
+
+    /// <summary>What a host might say about Desktop App: a sample, not this
+    /// repository's own records.</summary>
+    private static readonly C4ElementRecords DesktopRecords = new(
+        [
+            new C4InspectorChapter(".devbook/arc42/03-context-and-scope.md", "03", "Context and scope › Access channels"),
+            new C4InspectorChapter(".devbook/arc42/05-building-block-view.md", "05", "Building block view")
+        ],
+        [
+            new C4InspectorRecord(".devbook/arc42/adr/0001-desktop-channel.md", "0001", "Desktop channel uses .NET MAUI Blazor Hybrid", C4InspectorRecordKind.Decision),
+            new C4InspectorRecord(".devbook/arc42/adr/0030-stored-credentials.md", "0030", "Stored credentials go through the OS envelope", C4InspectorRecordKind.Decision, Proposed: true)
+        ],
+        [
+            new C4InspectorRecord(".devbook/arc42/tdr/0001-branch-snapshots.md", "0001", "Artifacts are invisible on a branch snapshot", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified")
+        ]);
+
+    private const string OverlayUsage = """
+        <C4ZoomExplorer Workspace="@workspace"
+                        RecordsFor="@(elementId => C4ElementInspection.For(c4, workspaceEntry, chapters, elementId))"
+                        CrossCuttingDebt="@C4ElementInspection.CrossCuttingDebt(c4, chapters)"
+                        OnOpenRecord="OpenInChapters" />
+        """;
+
+    /// <summary>What a host might say about each element of the sample: Desktop App
+    /// as the inspector story shows it, one open debt on the Devbook component and a
+    /// decision on Shell. A sample, not this repository's own records.</summary>
+    private static C4ElementRecords SampleRecords(string elementId) => elementId switch
+    {
+        "backlog.desktop" => DesktopRecords,
+        DevbookComponent => new C4ElementRecords([], [],
+        [
+            new C4InspectorRecord(".devbook/arc42/tdr/0001-branch-snapshots.md", "0001", "Artifacts are invisible on a branch snapshot", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified")
+        ]),
+        "backlog.desktop.shell" => new C4ElementRecords([],
+        [
+            new C4InspectorRecord(".devbook/arc42/adr/0022-one-main-view.md", "0022", "The shell shows one main view", C4InspectorRecordKind.Decision)
+        ], []),
+        _ => C4ElementRecords.None
+    };
+
+    /// <summary>Open debt that names no element, as the Debt overlay's tray lists it.</summary>
+    private static readonly IReadOnlyList<C4InspectorRecord> SampleCrossCuttingDebt =
+    [
+        new C4InspectorRecord(".devbook/arc42/tdr/0002-conventions.md", "0002", "Coding and testing conventions have no checked-in home", C4InspectorRecordKind.Debt, Severity: "Medium", Lifecycle: "identified"),
+        new C4InspectorRecord(".devbook/arc42/tdr/0003-zero-warning.md", "0003", "The devbook check is not a zero-warning signal", C4InspectorRecordKind.Debt, Severity: "Low", Lifecycle: "planned")
+    ];
+
+    private static readonly Lazy<C4Diagram> LazyComponentsDiagram =
+        new(() => C4LayoutEngine.Build(Parsed, Parsed.View("components-desktop")!));
+
+    private static C4Diagram ComponentsDiagram => LazyComponentsDiagram.Value;
+
+    /// <summary>The Desktop App components view as the Debt overlay draws it.</summary>
+    private static readonly C4SvgOptions DebtOverlayOptions = new()
+    {
+        RecordChips = new Dictionary<string, C4CardRecords> { [C4MermaidWriter.AliasOf(DevbookComponent)] = new(0, 1) }
+    };
+
+    private const string DeploymentUsage = """
+        <C4DeploymentDoors Doors="@doors" OnOpen="OpenEnvironment" />
+        <C4ElementInspector Element="@workspace.Element(selectedElementId)!"
+                            Deployment="@C4ZoomDeployment.Details(workspace, selectedElementId)"
+                            OnOpenContainer="OpenContainer" />
+        """;
+
+    /// <summary>The doors the Local machine view draws: Staging.</summary>
+    private static readonly IReadOnlyList<C4DeploymentEnvironment> StagingDoor =
+        [.. C4ZoomDeployment.Environments(Parsed, Parsed.View("deployment-local")!).Where(environment => !environment.Current)];
+
+    /// <summary>The inspector of the MSIX package node.</summary>
+    private static readonly C4DeploymentNodeDetails MsixPackage = C4ZoomDeployment.Details(Parsed, "pc.msix")!;
+
+    private const string ZoomBarUsage = """
+        <C4ZoomBar State="@C4ZoomNavigation.Bar(workspace, view, selectedElementId)"
+                   OnStep="OpenStep"
+                   OnAlso="OpenAlso" />
+        """;
+
+    /// <summary>The design's first moment: the context view, nothing selected.</summary>
+    private static C4ZoomBarState OnContext =>
+        C4ZoomNavigation.Bar(Parsed, Parsed.View("context-backlog")!, null);
+
+    /// <summary>The second: the container view with Desktop App selected.</summary>
+    private static C4ZoomBarState DesktopSelected =>
+        C4ZoomNavigation.Bar(Parsed, Parsed.View("containers-backlog")!, "backlog.desktop");
+
+    /// <summary>The third: on the Code level of the Devbook component, the one
+    /// component of the sample with code folders.</summary>
+    private static C4ZoomBarState OnCode =>
+        C4ZoomNavigation.Bar(Parsed, Parsed.View("components-desktop")!, DevbookComponent, HasCode, codeOpen: true);
+
+    private const string DevbookComponent = "backlog.desktop.devbook";
+
+    private static bool HasCode(string elementId) => string.Equals(elementId, DevbookComponent, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>What the zoom tab is handed for the sample: the Devbook component's code
+    /// is the level below, and nothing else has any.</summary>
+    private C4ZoomCode SampleCode => _sampleCode ??= new C4ZoomCode(HasCode, (_, _) => Task.FromResult(SampleCodeLevel))
+    {
+        OpenInEditor = OpenInEditorAsync,
+        OpenRecord = OpenRecordAsync
+    };
+
+    private C4ZoomCode? _sampleCode;
+    private string? _codeAction;
+
+    private Task<string?> OpenInEditorAsync(string path)
+    {
+        _codeAction = $"open in editor: {path}";
+        StateHasChanged();
+        return Task.FromResult<string?>(null);
+    }
+
+    private Task OpenRecordAsync(C4CodeRecord record)
+    {
+        _codeAction = $"open record: {record.Path}";
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private const string CodeUsage = """
+        <C4ZoomExplorer Workspace="@workspace" Code="@code" />
+
+        // A component has code when its building block names folders; the level
+        // is read from the source each time it is opened.
+        var code = new C4ZoomCode(
+            elementId => catalog.CodeOf(elementId).Count > 0,
+            (elementId, token) => reader.LoadAsync(catalog, elementId, token))
+        {
+            OpenInEditor = path => OpenAsync(path),
+            OpenRecord = record => OpenChapterAsync(record.Path)
+        };
+        """;
+
+    /// <summary>The design's Code screen: the build path of the Devbook component.</summary>
+    private static readonly C4CodeLevel SampleCodeLevel = new(
+        "Devbook",
+        ["src/Infrastructure/Backlog.Infrastructure.Devbook"],
+        [
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher", "DevbookDatabaseRefresher", "sealed class", "«sealed class» : IDisposable",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabaseRefresher.cs"],
+                ["+ Request(string repositoryRoot) : void", "+ NotifyChanged(string root) : void", "+ WatchBrain(string brainRoot) : IDisposable", "+ RefreshAsync(string root, CancellationToken ct) : Task<bool>"],
+                ["+ Request(string repositoryRoot) : void", "+ NotifyChanged(string root) : void", "+ WatchBrain(string brainRoot) : IDisposable", "+ RefreshAsync(string root, CancellationToken ct) : Task<bool>", "- _pending : ConcurrentDictionary<string, byte>", "- _gate : SemaphoreSlim", "- Debounce : TimeSpan"]),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseLocation", "DevbookDatabaseLocation", "static class", "«static class»",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabaseLocation.cs"],
+                ["+ Configure(string cacheDirectory, bool requested) : void", "+ ForRepositoryRoot(string root) : string?", "+ KindFor(string root) : DevbookCorpusKind", "+ PathFor(string databases, string root) : string?"],
+                ["+ Configure(string cacheDirectory, bool requested) : void", "+ ForRepositoryRoot(string root) : string?", "+ KindFor(string root) : DevbookCorpusKind", "+ PathFor(string databases, string root) : string?", "- _cacheDirectory : string?"]),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseBuilder", "DevbookDatabaseBuilder", "static class", "«static class»",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabaseBuilder.cs"],
+                ["+ Build(string root, string target, DevbookCorpusKind kind, CancellationToken ct) : bool", "+ IsCurrent(string root, string databasePath, DevbookCorpusKind kind) : bool", "+ HasDevbook(string root, DevbookCorpusKind kind) : bool"],
+                ["+ Build(string root, string target, DevbookCorpusKind kind, CancellationToken ct) : bool", "+ IsCurrent(string root, string databasePath, DevbookCorpusKind kind) : bool", "+ HasDevbook(string root, DevbookCorpusKind kind) : bool", "- Stamp(string root) : string"]),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabase", "DevbookDatabase", "sealed partial class", "«sealed partial class» : IDisposable",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabase.cs", "src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookDatabase.Retrieval.cs"],
+                ["+ Open(string path) : DevbookDatabase?", "+ Dispose() : void"],
+                ["+ Open(string path) : DevbookDatabase?", "+ Dispose() : void", "- _connection : SqliteConnection"]),
+            new("Backlog.Infrastructure.Devbook.DevbookGraphBuilder", "DevbookGraphBuilder", "internal static class", "«internal static class»",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookGraphBuilder.cs"],
+                [],
+                ["~ Build(string root, DevbookLayout layout) : DevbookGraph"]),
+            new("Backlog.Infrastructure.Devbook.DevbookGraph", "DevbookGraph", "internal sealed record", "«internal sealed record»",
+                ["src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookGraph.cs"],
+                ["+ Nodes : IReadOnlyList<DevbookGraphNode>", "+ Edges : IReadOnlyList<DevbookGraphEdge>"],
+                ["+ Nodes : IReadOnlyList<DevbookGraphNode>", "+ Edges : IReadOnlyList<DevbookGraphEdge>"])
+        ],
+        [
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher", "Backlog.Infrastructure.Devbook.DevbookDatabaseLocation", false),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseRefresher", "Backlog.Infrastructure.Devbook.DevbookDatabaseBuilder", false),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseBuilder", "Backlog.Infrastructure.Devbook.DevbookDatabase", false),
+            new("Backlog.Infrastructure.Devbook.DevbookDatabaseBuilder", "Backlog.Infrastructure.Devbook.DevbookGraphBuilder", false),
+            new("Backlog.Infrastructure.Devbook.DevbookGraphBuilder", "Backlog.Infrastructure.Devbook.DevbookGraph", false)
+        ],
+        [
+            new("0004", "Knowledge index is a generated database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-database.md"),
+            new("0015", "The devbook database lives in app storage", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage.md"),
+            new("0016", "Knowledge folders adopt the devbook convention", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md")
+        ]);
+
     private const string LevelsCode = """
         // Which view opens an element, or null when there is nothing deeper.
         C4Exploration.DrillViewKey(workspace, elementId, fromViewKey);
@@ -270,7 +656,9 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                 }
 
                 deploymentEnvironment "Staging" {
-                    vm = deploymentNode "Test VM" "Not on the local diagram." "Linux"
+                    vm = deploymentNode "Test VM" "Not on the local diagram." "Linux" {
+                        containerInstance backlog.cloud
+                    }
                 }
             }
 
@@ -303,6 +691,11 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                 }
 
                 deployment backlog "Local machine" "deployment-local" "Local Deployment" {
+                    include *
+                    autolayout tb
+                }
+
+                deployment backlog "Staging" "deployment-staging" "Staging Deployment" {
                     include *
                     autolayout tb
                 }

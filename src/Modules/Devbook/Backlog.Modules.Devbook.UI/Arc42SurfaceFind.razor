@@ -1,0 +1,81 @@
+@*
+    The architecture surface's find field (plan c4-zoom-navigation): one field that
+    finds anything the surface can open — an element of the model, a chapter, an ADR
+    or a TDR. It heads the left navigation; the surface has no header row of its own,
+    since the breadcrumb that stood beside it said only what the navigation's open line
+    and the main area's heading already say.
+
+    The field is the library's Combobox: the panel works out the suggestions for
+    what is typed (Arc42Surface.Find) and opens what is picked. Its keys are the
+    field's for the reason the Devbook source field gives: the Devbook takes the screen
+    and closes on Escape, and the Escape that clears the field must not also close it.
+*@
+
+<div class="arc42-surface-find" role="search" data-testid="arc42-surface-find-box">
+    <span class="arc42-surface-find__keys" @onkeydown:stopPropagation="true">
+        <Combobox CssClass="arc42-surface-find__field"
+                  OpenOnInput="true"
+                  Compact="true"
+                  AriaLabel="Find an element, chapter or record"
+                  ListAriaLabel="Matches"
+                  Placeholder="Find element, chapter, ADR, TDR"
+                  Value="@_query"
+                  ValueChanged="SetQueryAsync"
+                  Options="@_options"
+                  OnCommit="CommitAsync"
+                  TestId="arc42-surface-find">
+            <OptionTemplate Context="option">
+                <span class="arc42-surface-find__hit">
+                    <span class="arc42-surface-find__hit-label">@option.Label</span>
+                    @if (option.Hint is not null)
+                    {
+                        <span class="arc42-surface-find__hit-detail">@option.Hint</span>
+                    }
+                </span>
+            </OptionTemplate>
+        </Combobox>
+    </span>
+</div>
+
+@code {
+    private string _query = string.Empty;
+    private IReadOnlyList<SelectorOption> _options = [];
+    private IReadOnlyList<Arc42FindHit> _hits = [];
+
+    /// <summary>The suggestions for what is typed. The panel's, because it holds the
+    /// catalogs they are read from.</summary>
+    [Parameter]
+    public Func<string, IReadOnlyList<Arc42FindHit>> Find { get; set; } = _ => [];
+
+    /// <summary>A suggestion was picked, or Enter pressed on the text with a match: the
+    /// first match then.</summary>
+    [Parameter]
+    public EventCallback<Arc42FindHit> OnOpen { get; set; }
+
+    private Task SetQueryAsync(string text)
+    {
+        _query = text;
+
+        // A pick puts the option's value in the field before it commits; the hits it
+        // was picked from are kept, so the commit finds it among them.
+        if (_hits.Any(hit => string.Equals(hit.Value, text, StringComparison.Ordinal))) return Task.CompletedTask;
+
+        _hits = Find(text);
+        _options = [.. _hits.Select(hit => new SelectorOption(hit.Value, hit.Label, hit.Detail))];
+        return Task.CompletedTask;
+    }
+
+    private async Task CommitAsync(ComboboxCommit commit)
+    {
+        var hit = _hits.FirstOrDefault(candidate => string.Equals(candidate.Value, commit.Value, StringComparison.Ordinal))
+            ?? (commit.Reason == ComboboxCommitReason.Entered ? _hits.FirstOrDefault() : null);
+
+        if (hit is null) return;
+
+        // What was found is open now; the field is ready for the next search.
+        _query = string.Empty;
+        _hits = [];
+        _options = [];
+        await OnOpen.InvokeAsync(hit);
+    }
+}

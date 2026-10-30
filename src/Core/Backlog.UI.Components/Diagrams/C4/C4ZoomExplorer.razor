@@ -1,0 +1,1508 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@*
+    The C4 zoom tab: one model a reader zooms through a level at a time, where the C4
+    tab (C4Explorer) lists views one by one. Both stand side by side behind the c4-zoom
+    switch until the zoom tab is validated (local ADR 0044), so this shares the
+    renderer — C4LayoutEngine, C4SvgWriter, C4Exploration — and changes nothing about
+    how the C4 tab draws: the additions to the shared writer, the Zoom in chip, the
+    selectable deployment-node frame and the overlay's record chips, are options only
+    this component sets, as is
+    the layout's group bands (C4LayoutOptions.GroupBands). (The one
+    shared change both tabs see is a layout fix: a deployment instance is drawn inside
+    the deployment node that runs it, where the node used to be dropped.)
+
+    It holds two things, the open view and the selected element. Everything the zoom
+    bar says and everywhere a move goes is C4ZoomNavigation's, derived from those two.
+    The selected element is shown beside the picture in C4ElementInspector, every
+    element alike, a deployment node included; what the knowledge folders say about it
+    is the host's, asked for through RecordsFor.
+
+    The ways to move, and where each is handled:
+
+    - Select: a click on a card, or Tab onto it. The viewer (backlogC4Zoom in
+      components.js) reports it.
+    - Zoom in: a double-click on a card, its Zoom in chip, or Enter on the focused
+      card. The viewer reports all three as one call.
+    - Zoom out: an earlier step on the bar, or Backspace. Backspace and Enter are
+      listened for on the diagram's own frame, never on the document, so typing
+      anywhere else in the app is never taken as a move.
+
+    Level 4, Code, is no view of the workspace: C4CodeView draws it from the source,
+    over the components view it was opened from, for a component the host's Code
+    names code folders for. A zoom into such a component, or step 4 of the bar, opens
+    it; Backspace on it, or any other step, leaves it.
+*@
+
+@*
+    The surface (Navigation set — the architecture surface, plan c4-zoom-navigation):
+    the bar across the top, and under it three columns — the host's navigation, the
+    picture, the inspector. A host Document stands in for the picture and the inspector
+    while it is open; the bar stays, drawn with no step current, and any press on it
+    hands the reader back to the model through OnNavigate. Without Navigation the
+    explorer draws exactly what the C4 zoom tab always drew.
+*@
+<div class="@ExplorerClass" data-testid="@TestId" role="region" aria-label="C4 zoom">
+    @if (_view is null)
+    {
+        <EmptyState Title="No C4 views here yet" role="status">
+            <DescriptionContent>
+                The workspace declares no views. Add one in c4hero and it appears here.
+            </DescriptionContent>
+        </EmptyState>
+    }
+    else if (Surface)
+    {
+        <C4ZoomBar State="@BarState" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
+
+        <div class="c4-zoom-explorer__surface@(Document is null ? string.Empty : " c4-zoom-explorer__surface--document")" data-testid="c4-zoom-surface">
+            <div class="c4-zoom-explorer__nav">@Navigation</div>
+
+            @if (Document is not null)
+            {
+                <div class="c4-zoom-explorer__document" data-testid="c4-zoom-document">@Document</div>
+            }
+            else
+            {
+                <div class="c4-zoom-explorer__main@(_playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty)">
+                    @{ RenderPicture(__builder); }
+                </div>
+
+                <div class="c4-zoom-explorer__aside" data-testid="c4-zoom-aside">
+                    @if (_inspected is not null)
+                    {
+                        @Inspector
+                    }
+                    else
+                    {
+                        <EmptyState Title="Nothing selected"
+                                    role="status"
+                                    TestId="c4-zoom-aside-empty">
+                            <DescriptionContent>
+                                Select an element to see what it is, the chapters that document it, and the decisions and debt on it.
+                            </DescriptionContent>
+                        </EmptyState>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        RenderPicture(__builder);
+    }
+</div>
+
+@code {
+    /// <summary>The open view: the bar (off the surface), the hint, and either the Code
+    /// level or the picture with everything under it. Off the surface the inspector is
+    /// drawn beside the picture, as the C4 zoom tab always drew it; on the surface it is
+    /// the right-hand column instead.</summary>
+    private void RenderPicture(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder __builder)
+    {
+        if (_view is null) return;
+
+        @if (!Surface)
+        {
+            <C4ZoomBar State="@BarState" OnStep="OpenStepAsync" OnAlso="OpenAlsoAsync" TestId="c4-zoom-bar" />
+        }
+
+        @if (!HintDismissed && !_hintClosed)
+        {
+            <Callout Heading="Ways to move"
+                     ActionLabel="Got it"
+                     OnAction="DismissHintAsync"
+                     ActionTestId="c4-zoom-hint-dismiss"
+                     CssClass="c4-zoom-explorer__hint"
+                     TestId="c4-zoom-hint">
+                <ul class="c4-zoom-explorer__moves">
+                    <li><strong>Zoom in:</strong> double-click an element, use its Zoom in chip, or press Enter on it.</li>
+                    <li><strong>Zoom out:</strong> pick an earlier step in the zoom bar, or press Backspace.</li>
+                    <li><strong>Jump:</strong> pick any step whose element is known.</li>
+                    <li><strong>Sideways:</strong> Landscape, Dynamic and Deployment sit beside the bar under Also.</li>
+                </ul>
+            </Callout>
+        }
+
+        @* The Code level stands in for everything below while it is open. The views'
+           markup is left at its own indent under the else, so it reads as it did. *@
+        @if (_codeFor is not null && Code is not null)
+        {
+            <C4CodeView Level="@_codeLevel"
+                        Component="@(Workspace.Element(_codeFor)?.Name ?? _codeFor)"
+                        OpenInEditor="@Code.OpenInEditor"
+                        OpenRecord="@Code.OpenRecord"
+                        OnZoomOut="CloseCode"
+                        FocusOnOpen="@_focusCode"
+                        TestId="c4-zoom-code" />
+        }
+        else
+        {
+        <header class="c4-zoom-explorer__head">
+            @if (Surface)
+            {
+                @* The surface's view heading: its title, where it is read from and
+                   what documents it, and the − / Fit / + that size the picture. *@
+                <div class="c4-zoom-explorer__heading">
+                    <h2 class="c4-zoom-explorer__title c4-zoom-explorer__title--surface" data-testid="c4-zoom-title">@C4Exploration.Label(Workspace, _view)</h2>
+                    <p class="c4-zoom-explorer__key" data-testid="c4-zoom-key-line">
+                        <code class="c4-zoom-explorer__source" data-testid="c4-zoom-key">@_view.Key</code>
+                        @if (ViewCaption is not null)
+                        {
+                            @ViewCaption(_view)
+                        }
+                    </p>
+                </div>
+
+                <ButtonGroup CssClass="c4-zoom-explorer__scale" AriaLabel="Zoom" TestId="c4-zoom-scale">
+                    <AppButton Size="ButtonSize.Small"
+                               Variant="ButtonVariant.Secondary"
+                               aria-label="Zoom out"
+                               title="Zoom out"
+                               Disabled="@(_scaleIndex == 0)"
+                               TestId="c4-zoom-scale-out"
+                               OnClick="() => Scale(-1)">−</AppButton>
+                    <AppButton Size="ButtonSize.Small"
+                               Variant="ButtonVariant.Secondary"
+                               title="Fit the picture to its frame"
+                               TestId="c4-zoom-scale-fit"
+                               OnClick="Fit">Fit</AppButton>
+                    <AppButton Size="ButtonSize.Small"
+                               Variant="ButtonVariant.Secondary"
+                               aria-label="Zoom in"
+                               title="Zoom in"
+                               Disabled="@(_scaleIndex == Scales.Length - 1)"
+                               TestId="c4-zoom-scale-in"
+                               OnClick="() => Scale(1)">+</AppButton>
+                </ButtonGroup>
+            }
+            else
+            {
+                <p class="c4-zoom-explorer__title" data-testid="c4-zoom-title">@C4Exploration.Label(Workspace, _view)</p>
+                <p class="c4-zoom-explorer__key" data-testid="c4-zoom-key">@_view.Key</p>
+            }
+
+            @* The overlay switch: which records the cards carry. Offered only by a
+               host with records to count, as the inspector's record sections are. *@
+            @if (RecordsFor is not null)
+            {
+                <div class="c4-zoom-explorer__overlay">
+                    <span class="c4-zoom-explorer__overlay-label" id="@($"{_frameId}-overlay")">Overlay</span>
+                    <ButtonGroup Radio="true"
+                                 CssClass="c4-zoom-explorer__overlay-choices"
+                                 aria-labelledby="@($"{_frameId}-overlay")"
+                                 TestId="c4-zoom-overlay">
+                        @foreach (var choice in OverlayChoices)
+                        {
+                            <ToggleButton @key="choice"
+                                          Pressed="@(_overlay == choice)"
+                                          PressedChanged="@(pressed => ChooseOverlay(choice, pressed))"
+                                          BaseClass="c4-zoom-explorer__overlay-choice"
+                                          PressedCssClass="c4-zoom-explorer__overlay-choice--active"
+                                          TestId="@($"c4-zoom-overlay-{choice.ToString().ToLowerInvariant()}")">@choice</ToggleButton>
+                        }
+                    </ButtonGroup>
+                </div>
+            }
+        </header>
+
+        @* Focusable as a whole, so Backspace has somewhere to land on a view with no
+           card focused. Every card is made focusable by the viewer. *@
+        RenderFragment frame = @<div class="c4-zoom-explorer__frame"
+             id="@_frameId"
+             tabindex="0"
+             role="group"
+             aria-label="@($"{C4Exploration.Label(Workspace, _view)}. Enter zooms into the focused element, Backspace zooms out.")"
+             data-testid="c4-zoom-frame">
+            @* The canvas is what − and + size: a picture larger than the frame
+               scrolls inside it, and Fit puts it back to the frame's own size. *@
+            <div class="c4-zoom-explorer__canvas" style="@CanvasStyle" data-scale="@ScalePercent">
+                <C4DiagramView Diagram="@DiagramFor(_view)"
+                               Id="@_svgId"
+                               AriaLabel="@C4Exploration.Label(Workspace, _view)"
+                               Options="@_options"
+                               TestId="c4-zoom-diagram" />
+            </div>
+        </div>;
+
+        @* A deployment view whose scope is deployed to more than one environment puts
+           the picture behind one tab per environment; the frame is the open tab's
+           panel. Any other view is the frame alone. *@
+        @* The picture, and beside it the inspector of the element selected on it. *@
+        <div class="c4-zoom-explorer__body">
+        <div class="c4-zoom-explorer__stage">
+        @if (_environments.Count > 1)
+        {
+            <Tabs Bare="true"
+                  ActiveId="@EnvironmentTabId(_environments.First(environment => environment.Current))"
+                  ActiveIdChanged="OpenEnvironmentTabAsync"
+                  AriaLabel="Deployment environment"
+                  ListCssClass="c4-zoom-explorer__environments"
+                  TabCssClass="c4-zoom-explorer__environment-tab"
+                  ActiveTabCssClass="c4-zoom-explorer__environment-tab c4-zoom-explorer__environment-tab--active"
+                  ListTestId="c4-zoom-environments">
+                @foreach (var environment in _environments)
+                {
+                    @* Out of the Tab order: the frame inside it is the stop. *@
+                    <TabPanel @key="environment.ViewKey"
+                              Id="@EnvironmentTabId(environment)"
+                              Title="@environment.Name"
+                              BaseClass="c4-zoom-explorer__environment"
+                              TabTestId="c4-zoom-environment-tab"
+                              tabindex="-1">
+                        @frame
+                    </TabPanel>
+                }
+            </Tabs>
+        }
+        else
+        {
+            @frame
+        }
+        </div>
+
+        @if (_inspected is not null && !Surface)
+        {
+            @Inspector
+        }
+        </div>
+
+        @if (_doors.Count > 0)
+        {
+            <div class="c4-zoom-explorer__deployment" data-testid="c4-zoom-deployment">
+                <C4DeploymentDoors Doors="@_doors" OnOpen="OpenEnvironmentAsync" />
+            </div>
+        }
+
+        @* A dynamic view plays its steps: the panel beside the picture, the current
+           step's arrow drawn in the primary colour by C4SvgWriter's step options. *@
+        @if (_playback.Count > 0)
+        {
+            <C4DynamicSteps Steps="@_playback"
+                            Current="@_stepIndex"
+                            Playing="@_playing"
+                            ReducedMotion="@_reducedMotion"
+                            OnPrevious="PreviousStep"
+                            OnNext="NextStep"
+                            OnPlay="Play"
+                            OnPick="PickStep" />
+        }
+
+        @* Under the picture while an overlay is on: what of the overlay's kind sits
+           deeper than this view, and with Debt the debt that names no element. *@
+        @if (_overlay != C4RecordOverlay.None && RecordsFor is not null)
+        {
+            @if (_below is not null)
+            {
+                <p class="c4-zoom-explorer__below" data-testid="c4-zoom-below">@BelowText</p>
+            }
+
+            @if (_overlay == C4RecordOverlay.Debt)
+            {
+                <C4CrossCuttingDebt Records="@OpenCrossCuttingDebt" OnOpenRecord="OpenRecordAsync" />
+            }
+        }
+
+        <footer class="c4-zoom-explorer__foot">
+            <p class="c4-zoom-explorer__legend" data-testid="c4-zoom-legend">Double-click an element, or its Zoom in chip, to open the next level. Backspace goes back up.</p>
+
+            @if (_view.Kind == C4ViewKind.Deployment)
+            {
+                <p class="c4-zoom-explorer__legend" data-testid="c4-zoom-deployment-legend">Frame: deployment node, select it to see what it runs. Dashed: another environment, drawn as a door.</p>
+            }
+
+            @if (Problems.Count > 0)
+            {
+                <Alert Message="@($"{Problems.Count} thing{(Problems.Count == 1 ? string.Empty : "s")} in this workspace could not be read, so the pictures may be incomplete.")"
+                       TestId="c4-zoom-problems"
+                       Role="status" />
+            }
+        </footer>
+        }
+    }
+
+    /// <summary>The selected element, as the inspector shows it.</summary>
+    private RenderFragment Inspector => @<C4ElementInspector Element="@_inspected"
+                                                            ZoomLabel="@_zoomLabel"
+                                                            OnZoomIn="ZoomIntoSelectedAsync"
+                                                            Deployment="@_deploymentNode"
+                                                            OnOpenContainer="OpenContainerAsync"
+                                                            Records="@_records"
+                                                            OnOpenRecord="OpenRecordAsync" />;
+}
+
+@code {
+    private readonly string _frameId = "c4-zoom-frame-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The svg's own id. Stable for the life of the component, because the
+    /// viewer strips it off a card's id to get the alias.</summary>
+    private readonly string _svgId = "c4-zoom-svg-" + Guid.NewGuid().ToString("N");
+
+    private DotNetObjectReference<C4ZoomExplorer>? _self;
+    private IReadOnlyList<C4Node> _nodes = [];
+    private C4View? _view;
+    private string? _selectedId;
+    private string? _loadedFor;
+    private C4ZoomBarState _bar = C4ZoomBarState.Empty;
+    private C4SvgOptions _options = C4SvgOptions.None;
+    private bool _hintClosed;
+    private bool _attached;
+
+    /// <summary>On a deployment view: the environments of its scope, the doors to the
+    /// other ones, and the deployment node selected, if one is. Empty and null on any
+    /// other view.</summary>
+    private IReadOnlyList<C4DeploymentEnvironment> _environments = [];
+    private IReadOnlyList<C4DeploymentEnvironment> _doors = [];
+    private C4DeploymentNodeDetails? _deploymentNode;
+
+    /// <summary>The selected element as the inspector shows it, the view one level
+    /// below it (null when there is none) with what the zoom-in button says about it,
+    /// and what the host's knowledge folders say about it. All null with nothing
+    /// selected.</summary>
+    private C4Element? _inspected;
+    private string? _zoomTarget;
+    private string? _zoomLabel;
+    private C4ElementRecords? _records;
+
+    /// <summary>Set by a move the viewer reported — a zoom from the picture — so the
+    /// next picture takes the keyboard focus back. A move from the bar leaves the focus
+    /// on the bar. Cleared on the attach that honours it.</summary>
+    private bool _refocus;
+
+    /// <summary>The layout this tab asks for: outside systems a <c>group</c> block
+    /// gathered are kept together in a labelled band, as the design's landscape draws
+    /// them. The C4 tab asks for none and draws what it always drew.</summary>
+    private static readonly C4LayoutOptions ZoomLayout = new(GroupBands: true);
+
+    private C4Diagram? _diagram;
+    private C4Workspace? _diagramWorkspace;
+    private string? _diagramViewKey;
+    private C4Diagram? _attachedDiagram;
+
+    /// <summary>The selection the viewer was last told about, so a render that
+    /// leaves it alone costs no interop call.</summary>
+    private string? _shownSelection;
+
+    private IReadOnlyList<C4PlaybackStep> _playback = [];
+    private string? _playbackView;
+    private int _stepIndex;
+    private bool _playing;
+    private bool _reducedMotion;
+    private bool _reducedMotionRead;
+    private CancellationTokenSource? _play;
+    private bool _disposed;
+    private C4SvgOptions? _attachedOptions;
+
+    [Parameter, EditorRequired]
+    public C4Workspace Workspace { get; set; } = C4Workspace.Empty;
+
+    /// <summary>Everything the reader could not be shown, counted under the diagram.</summary>
+    [Parameter]
+    public IReadOnlyList<C4Problem> Problems { get; set; } = [];
+
+    /// <summary>Whether this reader already dismissed the ways-to-move hint. The host
+    /// keeps it, per user; this component only reports the dismissal.</summary>
+    [Parameter]
+    public bool HintDismissed { get; set; }
+
+    /// <summary>The hint was dismissed. The host remembers it so the next opening
+    /// shows none.</summary>
+    [Parameter]
+    public EventCallback OnHintDismissed { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; } = "c4-zoom-explorer";
+
+    /// <summary>
+    /// What the knowledge folders say about an element, by its model identifier: the
+    /// chapters that document it and the decisions and debt that name it, shown in the
+    /// inspector. The component library has no idea what a chapter is, so the host
+    /// works it out. Null — a host with no folder behind it — leaves those sections out
+    /// of the inspector.
+    /// </summary>
+    [Parameter]
+    public Func<string, C4ElementRecords>? RecordsFor { get; set; }
+
+    /// <summary>A chapter or a record was picked in the inspector, by the path
+    /// <see cref="RecordsFor"/> handed it with. The host opens it.</summary>
+    [Parameter]
+    public EventCallback<string> OnOpenRecord { get; set; }
+
+    /// <summary>How long Play holds each step of a dynamic view before the next.</summary>
+    [Parameter]
+    public TimeSpan PlayInterval { get; set; } = TimeSpan.FromSeconds(1.6);
+
+    /// <summary>
+    /// A view the host asks to have opened — an arc42 chapter's "Open in C4 zoom".
+    /// <para>
+    /// A request rather than a bound view key: the reader moves on from it by zooming,
+    /// and asking for the same view again has to open it again. So each request is a
+    /// new <see cref="C4ZoomOpen"/>, honoured once, and matched by reference.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public C4ZoomOpen? OpenView { get; set; }
+
+    /// <summary>
+    /// Which components have code to read and how to read it: what makes level 4 open.
+    /// Null — a host with no source to read — leaves step 4 grey everywhere.
+    /// </summary>
+    [Parameter]
+    public C4ZoomCode? Code { get; set; }
+
+    /// <summary>The component whose Code level is open, or null on a view.</summary>
+    private string? _codeFor;
+    private C4CodeLevel? _codeLevel;
+    private C4ZoomCode? _codeSource;
+    private CancellationTokenSource? _codeLoad;
+
+    /// <summary>The component whose Code level is open now, or null. For the host and
+    /// for tests.</summary>
+    public string? CodeComponentId => _codeFor;
+
+    private C4ZoomOpen? _openedRequest;
+
+    // ---- the surface -----------------------------------------------------------
+
+    /// <summary>
+    /// The architecture surface's left navigation. Set, the explorer draws as the
+    /// surface: the bar across the top, then this, the picture and the inspector as
+    /// three columns. Null — the C4 zoom tab — draws the explorer as it always was.
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Navigation { get; set; }
+
+    /// <summary>
+    /// What the surface shows in place of the picture and the inspector — an arc42
+    /// chapter, an ADR or a TDR the host opened inside the surface. Only read on the
+    /// surface. The bar stays, drawn with no step current; a press on it raises
+    /// <see cref="OnNavigate"/> so the host closes the document.
+    /// </summary>
+    [Parameter]
+    public RenderFragment? Document { get; set; }
+
+    /// <summary>Drawn after the open view's key on the surface: what documents the
+    /// view, which only the host knows.</summary>
+    [Parameter]
+    public RenderFragment<C4View>? ViewCaption { get; set; }
+
+    /// <summary>The reader pressed the bar — a step or a view under Also. The move is
+    /// made; a host showing a <see cref="Document"/> closes it.</summary>
+    [Parameter]
+    public EventCallback OnNavigate { get; set; }
+
+    /// <summary>The open view or Code level changed: raised once per change, after the
+    /// render that shows it, and once for the first view.</summary>
+    [Parameter]
+    public EventCallback<C4ZoomLocation> OnLocationChanged { get; set; }
+
+    private bool Surface => Navigation is not null;
+
+    private string ExplorerClass =>
+        "c4-zoom-explorer"
+        + (Surface ? " c4-zoom-explorer--surface" : _playback.Count > 0 ? " c4-zoom-explorer--dynamic" : string.Empty);
+
+    private C4ZoomBarState? _documentBar;
+    private C4ZoomBarState? _documentBarOf;
+
+    /// <summary>The bar as drawn: with a document open on the surface no step is
+    /// current — the reader is on no view — so every step with a view to open is a
+    /// way back to the model, the one they came from included.</summary>
+    private C4ZoomBarState BarState
+    {
+        get
+        {
+            if (!Surface || Document is null) return _bar;
+
+            if (!ReferenceEquals(_documentBarOf, _bar))
+            {
+                _documentBarOf = _bar;
+                _documentBar = new C4ZoomBarState(
+                    [.. _bar.Steps.Select(step => step with { Current = false })],
+                    [.. _bar.Also.Select(also => also with { Current = false })]);
+            }
+
+            return _documentBar!;
+        }
+    }
+
+    /// <summary>The sizes − and + step through, as a share of the frame.</summary>
+    private static readonly double[] Scales = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+    private const int FitIndex = 2;
+    private int _scaleIndex = FitIndex;
+
+    /// <summary>How large the picture is drawn now, as a percentage of its frame. For
+    /// the host and for tests.</summary>
+    public int ScalePercent => (int)Math.Round(Scales[_scaleIndex] * 100);
+
+    private string? CanvasStyle => _scaleIndex == FitIndex
+        ? null
+        : FormattableString.Invariant($"width: {ScalePercent}%; height: {ScalePercent}%;");
+
+    private void Scale(int step) => _scaleIndex = Math.Clamp(_scaleIndex + step, 0, Scales.Length - 1);
+
+    private void Fit() => _scaleIndex = FitIndex;
+
+    private C4ZoomLocation? _reported;
+
+    /// <summary>Tells the host where the explorer is, when that changed.</summary>
+    private async Task ReportLocationAsync()
+    {
+        if (_view is null || !OnLocationChanged.HasDelegate) return;
+
+        var location = new C4ZoomLocation(
+            _view.Key,
+            C4Exploration.Label(Workspace, _view),
+            _codeFor,
+            _codeFor is null ? null : Workspace.Element(_codeFor)?.Name ?? _codeFor);
+        if (location == _reported) return;
+
+        _reported = location;
+        await OnLocationChanged.InvokeAsync(location);
+    }
+
+    /// <summary>Honours a new <see cref="OpenView"/> after the workspace is loaded.
+    /// Its own override, so the load above it reads as it did.</summary>
+    protected override Task OnParametersSetAsync()
+    {
+        HonourOpenRequest();
+        return Task.CompletedTask;
+    }
+
+    private void HonourOpenRequest()
+    {
+        if (OpenView is not { } request || ReferenceEquals(request, _openedRequest)) return;
+
+        _openedRequest = request;
+        Open(request.ViewKey, request.SelectId);
+
+        if (request.OpenCode && request.SelectId is { } component) OpenCode(component, focus: false);
+    }
+
+    /// <summary>The element selected now, by its model identifier. For the host and
+    /// for tests; the zoom bar is drawn from it.</summary>
+    public string? SelectedElementId => _selectedId;
+
+    /// <summary>The view open now.</summary>
+    public string? ViewKey => _view?.Key;
+
+    protected override void OnParametersSet()
+    {
+        // Keyed on the workspace's identity, as the C4 tab's explorer is: a reload
+        // hands over a fresh record, and re-deriving is cheaper than diffing it.
+        var key = $"{Workspace.Name}#{Workspace.Views.Count}#{Workspace.Elements.Count}";
+        if (string.Equals(_loadedFor, key, StringComparison.Ordinal) && _view is not null && Workspace.View(_view.Key) is not null)
+        {
+            RefreshCode();
+            Refresh();
+            return;
+        }
+
+        _loadedFor = key;
+        _selectedId = null;
+        CloseCodeLevel();
+        _codeSource = Code;
+        _view = C4ZoomNavigation.StartView(Workspace);
+        Refresh();
+    }
+
+    /// <summary>Re-reads the open view's cards, the bar and the chips after a move.</summary>
+    private void Refresh()
+    {
+        if (_view is null)
+        {
+            _nodes = [];
+            _bar = C4ZoomBarState.Empty;
+            _environments = [];
+            _doors = [];
+            _deploymentNode = null;
+            _inspected = null;
+            _zoomTarget = null;
+            _zoomLabel = null;
+            _records = null;
+            return;
+        }
+
+        // A reload may hand a fresh record for the same key; the view itself is read
+        // from the workspace that is current now.
+        _view = Workspace.View(_view.Key) ?? _view;
+        _nodes = C4Exploration.Nodes(Workspace, _view);
+        _bar = C4ZoomNavigation.Bar(Workspace, _view, _selectedId, Code is null ? null : HasCode, _codeFor is not null);
+
+        var zoomable = _nodes
+            .Where(node => C4ZoomNavigation.ZoomInView(Workspace, _view, node.ElementId) is not null || HasCode(node.ElementId))
+            .Select(node => node.Alias)
+            .ToHashSet(StringComparer.Ordinal);
+
+        RefreshPlayback();
+
+        var numberSteps = _playback.Count > 0;
+        int? currentStep = numberSteps ? _playback[_stepIndex].Order : null;
+
+        // A deployment node that runs something is drawn as a frame; on a deployment
+        // view the frame is selectable, because the node is what a reader asks about.
+        var frames = _view.Kind == C4ViewKind.Deployment
+            ? C4ZoomDeployment.SelectableFrames(DiagramFor(_view))
+            : null;
+
+        var chips = RefreshOverlay();
+
+        if (_options.ZoomInAliases is null
+            || !_options.ZoomInAliases.SetEquals(zoomable)
+            || !SameSet(_options.SelectableBoundaryAliases, frames)
+            || _options.NumberSteps != numberSteps
+            || _options.CurrentStep != currentStep
+            || !SameChips(_options.RecordChips, chips))
+        {
+            _options = new C4SvgOptions(zoomable, numberSteps, currentStep) { SelectableBoundaryAliases = frames, RecordChips = chips, EdgeEnds = true };
+        }
+
+        _environments = C4ZoomDeployment.Environments(Workspace, _view);
+        _doors = [.. _environments.Where(environment => !environment.Current)];
+        _deploymentNode = _view.Kind == C4ViewKind.Deployment ? C4ZoomDeployment.Details(Workspace, _selectedId) : null;
+
+        _inspected = Workspace.Element(_selectedId);
+        _zoomTarget = _inspected is null ? null : C4ZoomNavigation.ZoomInView(Workspace, _view, _inspected.Id);
+        _zoomLabel = _zoomTarget is null || _inspected is null ? null : ZoomLabelFor(_inspected, Workspace.View(_zoomTarget));
+        _records = RecordsOf(_inspected);
+    }
+
+    private Func<string, C4ElementRecords>? _recordsAskedOf;
+    private string? _recordsAskedFor;
+
+    /// <summary>The host's records for the inspected element, asked for again only
+    /// when the element or the host's delegate changed: a refresh runs on every Play
+    /// step and every parent render, and the host's answer walks the views. A host
+    /// hands a new delegate when what it reads from changed.</summary>
+    private C4ElementRecords? RecordsOf(C4Element? element)
+    {
+        if (element is null || RecordsFor is null)
+        {
+            _recordsAskedOf = null;
+            _recordsAskedFor = null;
+            return null;
+        }
+
+        if (ReferenceEquals(_recordsAskedOf, RecordsFor)
+            && string.Equals(_recordsAskedFor, element.Id, StringComparison.Ordinal)
+            && _records is not null)
+        {
+            return _records;
+        }
+
+        _recordsAskedOf = RecordsFor;
+        _recordsAskedFor = element.Id;
+        return RecordsFor(element.Id);
+    }
+
+    /// <summary>
+    /// What the inspector's zoom-in button says: "Open its 11 components", the way the
+    /// design words it, when the view below is the element's own containers or
+    /// components; "Zoom in" for any other deeper view — a system's context, say.
+    /// </summary>
+    private string ZoomLabelFor(C4Element element, C4View? next)
+    {
+        var (kind, noun) = next?.Kind switch
+        {
+            C4ViewKind.Container => (C4ElementKind.Container, "container"),
+            C4ViewKind.Component => (C4ElementKind.Component, "component"),
+            _ => ((C4ElementKind?)null, (string?)null)
+        };
+
+        if (kind is null) return "Zoom in";
+
+        var count = Workspace.Elements.Count(candidate => candidate.Kind == kind
+            && string.Equals(candidate.ParentId, element.Id, StringComparison.OrdinalIgnoreCase));
+
+        return count == 0 ? "Zoom in" : $"Open its {count} {noun}{(count == 1 ? string.Empty : "s")}";
+    }
+
+    /// <summary>The inspector's zoom-in button: the view below the selected element,
+    /// with the keyboard handed to the new picture as a zoom from the picture does.</summary>
+    private Task ZoomIntoSelectedAsync()
+    {
+        if (_zoomTarget is null) return Task.CompletedTask;
+
+        Open(_zoomTarget, null);
+        _refocus = true;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenRecordAsync(string path) => OnOpenRecord.InvokeAsync(path);
+
+    // ---- the record overlay ----------------------------------------------------
+
+    private static readonly C4RecordOverlay[] OverlayChoices = [C4RecordOverlay.None, C4RecordOverlay.Decisions, C4RecordOverlay.Debt];
+
+    /// <summary>The overlay chosen. Kept across moves, so Debt stays on as the reader
+    /// zooms — the tray says it is shown on every view.</summary>
+    private C4RecordOverlay _overlay = C4RecordOverlay.None;
+
+    /// <summary>How many of the overlay's records sit only below this view; null with no
+    /// overlay.</summary>
+    private int? _below;
+
+    /// <summary>The overlay chosen now. For the host and for tests.</summary>
+    public C4RecordOverlay Overlay => _overlay;
+
+    /// <summary>
+    /// The debt records that name no element of the model, open or not; the tray lists
+    /// those still open. A record that names nothing is reachable from no card, so the
+    /// host hands these over beside <see cref="RecordsFor"/> rather than through it.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<C4InspectorRecord> CrossCuttingDebt { get; set; } = [];
+
+    private IReadOnlyList<C4InspectorRecord>? _openCrossCuttingOf;
+    private IReadOnlyList<C4InspectorRecord> _openCrossCutting = [];
+
+    /// <summary>The tray's rows: the host's cross-cutting debt still open. The same list
+    /// while the host hands the same one, so the tray is not re-rendered for nothing.</summary>
+    private IReadOnlyList<C4InspectorRecord> OpenCrossCuttingDebt
+    {
+        get
+        {
+            if (!ReferenceEquals(_openCrossCuttingOf, CrossCuttingDebt))
+            {
+                _openCrossCuttingOf = CrossCuttingDebt;
+                _openCrossCutting = [.. CrossCuttingDebt.Where(record => record.OpenDebt)];
+            }
+
+            return _openCrossCutting;
+        }
+    }
+
+    private (string? View, C4RecordOverlay Overlay, Func<string, C4ElementRecords>? Records, C4Workspace? Workspace) _overlayFor;
+    private Dictionary<string, C4CardRecords>? _chips;
+
+    /// <summary>The chips and the below-view count, worked out again only when the view,
+    /// the overlay, the workspace or the host's records changed: a refresh runs on every
+    /// parent render and every Play step, and the count walks the whole model.</summary>
+    private Dictionary<string, C4CardRecords>? RefreshOverlay()
+    {
+        var key = (_view?.Key, _overlay, RecordsFor, Workspace);
+        if (key == _overlayFor) return _chips;
+
+        _overlayFor = key;
+        _chips = RecordChips();
+        _below = BelowCount();
+        return _chips;
+    }
+
+    private void ChooseOverlay(C4RecordOverlay choice, bool pressed)
+    {
+        if (!pressed || _overlay == choice) return;
+
+        _overlay = choice;
+        Refresh();
+    }
+
+    private Func<string, C4ElementRecords>? _cardRecordsOf;
+    private readonly Dictionary<string, C4ElementRecords> _cardRecords = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The host's records for any element, the same source the inspector
+    /// reads, kept per element until the host hands a new delegate: the overlay asks
+    /// about every card and every element below them on each refresh.</summary>
+    private C4ElementRecords CardRecords(string elementId)
+    {
+        if (!ReferenceEquals(_cardRecordsOf, RecordsFor))
+        {
+            _cardRecordsOf = RecordsFor;
+            _cardRecords.Clear();
+        }
+
+        if (RecordsFor is null) return C4ElementRecords.None;
+
+        if (!_cardRecords.TryGetValue(elementId, out var records))
+        {
+            records = RecordsFor(elementId);
+            _cardRecords[elementId] = records;
+        }
+
+        return records;
+    }
+
+    /// <summary>The records of the overlay's kind that name an element: its decisions,
+    /// or its open debt.</summary>
+    private IEnumerable<C4InspectorRecord> OverlayRecords(string elementId)
+    {
+        var records = CardRecords(elementId);
+        return _overlay switch
+        {
+            C4RecordOverlay.Decisions => records.Decisions,
+            C4RecordOverlay.Debt => records.Debt.Where(record => record.OpenDebt),
+            _ => []
+        };
+    }
+
+    /// <summary>The counts the cards carry under the chosen overlay, by alias; null with
+    /// none chosen, which leaves the picture exactly as it is drawn without one.</summary>
+    private Dictionary<string, C4CardRecords>? RecordChips()
+    {
+        if (_overlay == C4RecordOverlay.None || RecordsFor is null) return null;
+
+        var chips = new Dictionary<string, C4CardRecords>(StringComparer.Ordinal);
+
+        foreach (var node in _nodes)
+        {
+            if (chips.ContainsKey(node.Alias)) continue;
+
+            var count = OverlayRecords(node.ElementId).Select(record => record.Path).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+            if (count == 0) continue;
+
+            chips[node.Alias] = _overlay == C4RecordOverlay.Decisions ? new C4CardRecords(count, 0) : new C4CardRecords(0, count);
+        }
+
+        return chips;
+    }
+
+    /// <summary>
+    /// How many of the overlay's records name no element on this view — no card and not
+    /// the view's scope — but at least one element nested below a card: the records a
+    /// reader finds by zooming in. A record that names only elements elsewhere is not
+    /// counted; it is no deeper, only aside.
+    /// <para>
+    /// Null on a deployment view, which draws instances rather than the elements the
+    /// records name, so nothing on it is "below" in the sense of a zoom.
+    /// </para>
+    /// </summary>
+    private int? BelowCount()
+    {
+        if (_overlay == C4RecordOverlay.None || RecordsFor is null || _view is null) return null;
+        if (_view.Kind == C4ViewKind.Deployment) return null;
+
+        var cards = new HashSet<string>(_nodes.Select(node => node.ElementId), StringComparer.OrdinalIgnoreCase);
+        var onView = new HashSet<string>(cards, StringComparer.OrdinalIgnoreCase);
+        if (_view.ScopeId is { } scope && Workspace.Element(scope) is { } scoped) onView.Add(scoped.Id);
+
+        var named = new HashSet<string>(onView.SelectMany(OverlayRecords).Select(record => record.Path), StringComparer.OrdinalIgnoreCase);
+
+        return Workspace.Elements
+            .Where(element => !onView.Contains(element.Id) && IsBelow(element, cards))
+            .SelectMany(element => OverlayRecords(element.Id))
+            .Select(record => record.Path)
+            .Where(path => !named.Contains(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+    }
+
+    /// <summary>Whether an element is nested, at any depth, inside one of
+    /// <paramref name="cards"/>. The walk is bounded by the model's depth, so a parent
+    /// chain that loops back on itself stops rather than spinning.</summary>
+    private bool IsBelow(C4Element element, HashSet<string> cards)
+    {
+        var parent = element.ParentId;
+
+        for (var depth = 0; parent is not null && depth < MaxDepth; depth++)
+        {
+            if (cards.Contains(parent)) return true;
+            parent = Workspace.Element(parent)?.ParentId;
+        }
+
+        return false;
+    }
+
+    /// <summary>Deeper than any C4 model nests: system, container, component, with
+    /// deployment nodes inside one another.</summary>
+    private const int MaxDepth = 16;
+
+    /// <summary>The line under the picture: the overlay's records a reader finds only by
+    /// zooming in.</summary>
+    private string BelowText
+    {
+        get
+        {
+            var noun = _overlay == C4RecordOverlay.Decisions ? "ADR" : "open TDR";
+            return _below is > 0 and var count
+                ? $"Not on this view: {count} {noun}{(count == 1 ? string.Empty : "s")} {(count == 1 ? "links" : "link")} only to elements below it."
+                : $"Not on this view: no {noun} links only to elements below it.";
+        }
+    }
+
+    /// <summary>A card's accessible name: its full name, and the overlay's count on it
+    /// when it carries one — "Devbook, 1 open TDR".</summary>
+    private string AccessibleName(string alias, string name)
+    {
+        if (_options.RecordChips is not { } chips || !chips.TryGetValue(alias, out var records)) return name;
+
+        var said = new List<string> { name };
+        if (records.Decisions > 0) said.Add($"{records.Decisions} ADR{(records.Decisions == 1 ? string.Empty : "s")}");
+        if (records.OpenDebt > 0) said.Add($"{records.OpenDebt} open TDR{(records.OpenDebt == 1 ? string.Empty : "s")}");
+
+        return string.Join(", ", said);
+    }
+
+    private static bool SameChips(IReadOnlyDictionary<string, C4CardRecords>? left, IReadOnlyDictionary<string, C4CardRecords>? right)
+    {
+        if (left is null || right is null) return left is null && right is null;
+        if (left.Count != right.Count) return false;
+
+        return left.All(pair => right.TryGetValue(pair.Key, out var other) && other == pair.Value);
+    }
+
+    private static bool SameSet(IReadOnlySet<string>? left, IReadOnlySet<string>? right) =>
+        left is null ? right is null : right is not null && left.SetEquals(right);
+
+    // ---- playing a dynamic view --------------------------------------------------
+
+    /// <summary>The open view's steps, re-read on every refresh; a newly opened view
+    /// starts on its first step with nothing playing.</summary>
+    private void RefreshPlayback()
+    {
+        _playback = _view is null ? [] : C4DynamicPlayback.Steps(Workspace, _view);
+
+        if (!string.Equals(_playbackView, _view?.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            _playbackView = _view?.Key;
+            _stepIndex = 0;
+            StopPlaying();
+        }
+
+        _stepIndex = _playback.Count == 0 ? 0 : Math.Clamp(_stepIndex, 0, _playback.Count - 1);
+    }
+
+    /// <summary>The step drawn as current now, by its number; null off a dynamic view.
+    /// For the host and for tests.</summary>
+    public int? CurrentStep => _playback.Count > 0 ? _playback[_stepIndex].Order : null;
+
+    /// <summary>Whether Play is walking the steps now. For the host and for tests.</summary>
+    public bool Playing => _playing;
+
+    private void MoveTo(int index)
+    {
+        _stepIndex = _playback.Count == 0 ? 0 : Math.Clamp(index, 0, _playback.Count - 1);
+        Refresh();
+    }
+
+    private void PreviousStep()
+    {
+        StopPlaying();
+        MoveTo(C4DynamicPlayback.Previous(_stepIndex, _playback.Count));
+    }
+
+    private void NextStep()
+    {
+        StopPlaying();
+        MoveTo(C4DynamicPlayback.Next(_stepIndex, _playback.Count));
+    }
+
+    private void PickStep(int index)
+    {
+        StopPlaying();
+        MoveTo(index);
+    }
+
+    /// <summary>
+    /// Play walks forward one step per <see cref="PlayInterval"/> and stops on the last;
+    /// pressed while playing it pauses, and pressed on the last step it starts again
+    /// from the first.
+    /// <para>
+    /// A reader who asked for reduced motion gets no timed walk: the picture would
+    /// change under them unasked. Play then moves one step per press, wrapping from the
+    /// last to the first. The preference is read once, when the first steps panel is
+    /// drawn, so a press never waits on script: two quick presses are a play and a
+    /// pause, never two walks.
+    /// </para>
+    /// </summary>
+    private void Play()
+    {
+        if (_playback.Count == 0) return;
+
+        if (_playing)
+        {
+            StopPlaying();
+            return;
+        }
+
+        var last = _playback.Count - 1;
+
+        if (_reducedMotion)
+        {
+            MoveTo(_stepIndex >= last ? 0 : _stepIndex + 1);
+            return;
+        }
+
+        if (_stepIndex >= last) MoveTo(0);
+
+        if (_disposed) return;
+
+        _playing = true;
+        _play = new CancellationTokenSource();
+        _ = WalkAsync(_play.Token);
+    }
+
+    /// <summary>The timed walk Play starts. Every move is made on the renderer's own
+    /// context, and a cancelled walk — a press, a new view, the tab closing — makes no
+    /// further move.</summary>
+    private async Task WalkAsync(CancellationToken token)
+    {
+        try
+        {
+            while (_stepIndex < _playback.Count - 1)
+            {
+                await Task.Delay(PlayInterval, token);
+                await InvokeAsync(() =>
+                {
+                    if (token.IsCancellationRequested) return;
+                    MoveTo(_stepIndex + 1);
+                    StateHasChanged();
+                });
+                token.ThrowIfCancellationRequested();
+            }
+
+            await InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested) return;
+                StopPlaying();
+                StateHasChanged();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void StopPlaying()
+    {
+        _playing = false;
+        _play?.Cancel();
+        _play?.Dispose();
+        _play = null;
+    }
+
+    private async Task<bool> ReducedMotionAsync()
+    {
+        try
+        {
+            return await Js.InvokeAsync<bool>("backlogC4Zoom.reducedMotion");
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    // ---- deployment ------------------------------------------------------------
+
+    /// <summary>A tab's id: unique on the page, because the tab list writes it into
+    /// the DOM. By position rather than by view key, because two keys can slug alike;
+    /// the list only changes with the scope, and the tabs go with it.</summary>
+    private string EnvironmentTabId(C4DeploymentEnvironment environment) =>
+        $"{_frameId}-environment-{IndexOf(environment)}";
+
+    private int IndexOf(C4DeploymentEnvironment environment)
+    {
+        for (var index = 0; index < _environments.Count; index++)
+        {
+            if (string.Equals(_environments[index].ViewKey, environment.ViewKey, StringComparison.OrdinalIgnoreCase)) return index;
+        }
+
+        return -1;
+    }
+
+    private Task OpenEnvironmentTabAsync(string tabId)
+    {
+        if (_environments.FirstOrDefault(environment => string.Equals(EnvironmentTabId(environment), tabId, StringComparison.Ordinal)) is { } environment)
+        {
+            return OpenEnvironmentAsync(environment);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>A tab or a door: the view of that environment, nothing selected, since
+    /// a node of one environment is not drawn in another.</summary>
+    private Task OpenEnvironmentAsync(C4DeploymentEnvironment environment)
+    {
+        if (environment.Current) return Task.CompletedTask;
+
+        Open(environment.ViewKey, null);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>"Show in containers" on an instance the selected node runs: the
+    /// containers view with that container selected.</summary>
+    private Task OpenContainerAsync(C4DeploymentInstance instance)
+    {
+        Open(instance.ContainersViewKey, instance.ContainerId);
+
+        // The button goes with the inspector, so the keyboard goes to the container
+        // card it named rather than falling to the page.
+        _refocus = true;
+        return Task.CompletedTask;
+    }
+
+    private C4Diagram DiagramFor(C4View view)
+    {
+        if (_diagram is null
+            || !ReferenceEquals(_diagramWorkspace, Workspace)
+            || !string.Equals(_diagramViewKey, view.Key, StringComparison.OrdinalIgnoreCase))
+        {
+            _diagram = C4LayoutEngine.Build(Workspace, view, ZoomLayout);
+            _diagramWorkspace = Workspace;
+            _diagramViewKey = view.Key;
+        }
+
+        return _diagram;
+    }
+
+    // ---- moving ----------------------------------------------------------------
+
+    /// <summary>Opens a view and leaves <paramref name="selectId"/> selected on it.</summary>
+    private void Open(string? viewKey, string? selectId)
+    {
+        if (Workspace.View(viewKey) is not { } next) return;
+
+        CloseCodeLevel();
+        if (!string.Equals(_view?.Key, next.Key, StringComparison.OrdinalIgnoreCase)) _scaleIndex = FitIndex;
+        _view = next;
+        _selectedId = selectId;
+        Refresh();
+    }
+
+    private async Task OpenStepAsync(C4ZoomStep step)
+    {
+        // Read off the bar as drawn: with a document open, the step the reader came
+        // from is no longer current, and pressing it is the way back to it.
+        var drawn = BarState.Steps.FirstOrDefault(candidate => candidate.Level == step.Level) ?? step;
+        if (!drawn.Enabled) return;
+
+        if (drawn.Level == C4ZoomLevel.Code)
+        {
+            if (drawn.SelectId is { } component)
+            {
+                if (!string.Equals(_codeFor, component, StringComparison.OrdinalIgnoreCase)) OpenCode(component, focus: false);
+            }
+        }
+        else
+        {
+            Open(drawn.ViewKey, drawn.SelectId);
+        }
+
+        await OnNavigate.InvokeAsync();
+    }
+
+    private async Task OpenAlsoAsync(C4ZoomAlso also)
+    {
+        var drawn = BarState.Also.FirstOrDefault(candidate => string.Equals(candidate.ViewKey, also.ViewKey, StringComparison.OrdinalIgnoreCase)) ?? also;
+        if (drawn.Current) return;
+
+        Open(drawn.ViewKey, null);
+        await OnNavigate.InvokeAsync();
+    }
+
+    /// <summary>A card was clicked or focused on the view named.</summary>
+    [JSInvokable]
+    public Task NodeSelected(string alias, string? viewKey)
+    {
+        if (!IsOpen(viewKey) || NodeOf(alias) is not { } node) return Task.CompletedTask;
+        if (string.Equals(_selectedId, node.ElementId, StringComparison.OrdinalIgnoreCase)) return Task.CompletedTask;
+
+        _selectedId = node.ElementId;
+        _shownSelection = node.Alias;
+        Refresh();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// A double-click, a Zoom in chip, or Enter on a focused card.
+    /// <para>
+    /// An element with nothing deeper is selected and nothing opens: the press is
+    /// still about that element, and selecting it is the visible answer.
+    /// </para>
+    /// </summary>
+    [JSInvokable]
+    public Task ZoomIn(string alias, string? viewKey)
+    {
+        if (!IsOpen(viewKey) || _view is null || NodeOf(alias) is not { } node) return Task.CompletedTask;
+
+        if (C4ZoomNavigation.ZoomInView(Workspace, _view, node.ElementId) is { } next)
+        {
+            Open(next, null);
+            _refocus = true;
+        }
+        else if (HasCode(node.ElementId))
+        {
+            OpenCode(node.ElementId, focus: true);
+        }
+        else
+        {
+            _selectedId = node.ElementId;
+            Refresh();
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Backspace on the diagram: one level up, the view left behind
+    /// selected.</summary>
+    [JSInvokable]
+    public Task ZoomOut(string? viewKey)
+    {
+        if (!IsOpen(viewKey) || _view is null) return Task.CompletedTask;
+        if (C4ZoomNavigation.ZoomOut(Workspace, _view) is not { } target) return Task.CompletedTask;
+
+        Open(target.ViewKey, target.SelectId);
+        _refocus = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Whether a report from the viewer is about the picture on screen now. A
+    /// press on the old picture that lands after a move is dropped, not applied to the
+    /// new one.</summary>
+    private bool IsOpen(string? viewKey) =>
+        _view is not null && (viewKey is null || string.Equals(viewKey, _view.Key, StringComparison.OrdinalIgnoreCase));
+
+    private C4Node? NodeOf(string alias) =>
+        _nodes.FirstOrDefault(candidate => string.Equals(candidate.Alias, alias, StringComparison.Ordinal));
+
+    private string? SelectedAlias =>
+        _selectedId is null
+            ? null
+            : _nodes.FirstOrDefault(node => string.Equals(node.ElementId, _selectedId, StringComparison.OrdinalIgnoreCase))?.Alias;
+
+    private async Task DismissHintAsync()
+    {
+        _hintClosed = true;
+        await OnHintDismissed.InvokeAsync();
+    }
+
+    // ---- the Code level --------------------------------------------------------
+
+    /// <summary>Whether zooming into an element opens its Code level: a component the
+    /// host's <see cref="Code"/> names code folders for.</summary>
+    private bool HasCode(string elementId) =>
+        Code is not null
+        && Workspace.Element(elementId) is { Kind: C4ElementKind.Component }
+        && Code.Has(elementId);
+
+    /// <summary>Whether the open Code level takes the keyboard: opened from the picture
+    /// it does, since the card that had it is gone; opened from the bar the focus stays
+    /// on the bar, as it does for every view.</summary>
+    private bool _focusCode;
+
+    /// <summary>Opens a component's Code level over the view it is drawn on, with the
+    /// component selected, and reads it afresh.</summary>
+    private void OpenCode(string componentId, bool focus)
+    {
+        if (!HasCode(componentId)) return;
+
+        _focusCode = focus;
+        _selectedId = componentId;
+        _codeFor = componentId;
+        _codeLevel = null;
+        Refresh();
+        LoadCode();
+    }
+
+    /// <summary>Backspace on the Code level: back to the components view it was opened
+    /// over, the component still selected and the picture taking the keyboard.</summary>
+    private void CloseCode()
+    {
+        if (_codeFor is null) return;
+
+        CloseCodeLevel();
+        _refocus = true;
+        Refresh();
+    }
+
+    private void CloseCodeLevel()
+    {
+        _codeLoad?.Cancel();
+        _codeLoad?.Dispose();
+        _codeLoad = null;
+        _codeFor = null;
+        _codeLevel = null;
+    }
+
+    /// <summary>A new code source — the host read its folders again — re-reads an open
+    /// level; a component that lost its code folders closes it.</summary>
+    private void RefreshCode()
+    {
+        if (_codeFor is not null && !HasCode(_codeFor)) CloseCodeLevel();
+
+        if (_codeFor is null)
+        {
+            _codeSource = Code;
+            return;
+        }
+
+        if (!ReferenceEquals(_codeSource, Code)) LoadCode();
+    }
+
+    private void LoadCode()
+    {
+        if (_codeFor is not { } component || Code is not { } source) return;
+
+        _codeLoad?.Cancel();
+        _codeLoad?.Dispose();
+        _codeLoad = new CancellationTokenSource();
+        _codeSource = source;
+
+        // A re-read of the open level keeps the picture on screen until the new one
+        // arrives, so a devbook edit elsewhere does not blank it.
+
+        _ = ReadCodeAsync(source, component, _codeLoad.Token);
+    }
+
+    /// <summary>Reads the level and draws it, unless the reader moved on meanwhile. A
+    /// read that fails is drawn as the problem it was, never as an empty component.</summary>
+    private async Task ReadCodeAsync(C4ZoomCode source, string component, CancellationToken token)
+    {
+        C4CodeLevel level;
+        try
+        {
+            level = await source.Load(component, token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return;
+        }
+        catch (Exception exception) when (!token.IsCancellationRequested)
+        {
+            // Whatever the source threw, the reader is told rather than left reading.
+            level = new C4CodeLevel(Workspace.Element(component)?.Name ?? component, [], [], [], [])
+            {
+                Problem = $"The code could not be read: {exception.Message}"
+            };
+        }
+
+        if (token.IsCancellationRequested) return;
+
+        await InvokeAsync(() =>
+        {
+            if (token.IsCancellationRequested || !string.Equals(_codeFor, component, StringComparison.OrdinalIgnoreCase)) return;
+
+            _codeLevel = level;
+            StateHasChanged();
+        });
+    }
+
+    // ---- the viewer ------------------------------------------------------------
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await ReportLocationAsync();
+
+        // The Code level draws no C4 picture, and neither does the surface while a
+        // document stands in for it. The viewer is handed the picture again when the
+        // reader comes back to it.
+        if (_codeFor is not null || (Surface && Document is not null))
+        {
+            _attachedDiagram = null;
+            return;
+        }
+
+        if (_view is null || _diagram is null)
+        {
+            _attachedDiagram = null;
+            return;
+        }
+
+        // A dynamic view tells the reader up front that Play will not move on its
+        // own, so the preference is read once the first steps panel is on screen —
+        // and only then, so a Play press never has to wait on script.
+        if (_playback.Count > 0 && !_reducedMotionRead)
+        {
+            _reducedMotionRead = true;
+            if (await ReducedMotionAsync())
+            {
+                _reducedMotion = true;
+                StateHasChanged();
+            }
+        }
+
+        // A new current step rewrites the picture, and the cards the viewer made
+        // focusable go with it, so the picture is handed over again.
+        if (!ReferenceEquals(_diagram, _attachedDiagram) || !ReferenceEquals(_options, _attachedOptions))
+        {
+            await AttachAsync(_diagram);
+            return;
+        }
+
+        // The same picture with another selection: a step on the bar that stayed on
+        // this view, or an element with nothing deeper.
+        if (!string.Equals(_shownSelection, SelectedAlias, StringComparison.Ordinal))
+        {
+            _shownSelection = SelectedAlias;
+            await InvokeViewerAsync("backlogC4Zoom.select", _frameId, _shownSelection);
+        }
+    }
+
+    private async Task AttachAsync(C4Diagram diagram)
+    {
+        _self ??= DotNetObjectReference.Create(this);
+        _attached = true;
+        _attachedDiagram = diagram;
+        _attachedOptions = _options;
+        _shownSelection = SelectedAlias;
+
+        var refocus = _refocus;
+        _refocus = false;
+
+        // The full names, because a card's drawn name is cut to fit it and the
+        // accessible name should not be. The overlay's counts are said with the name:
+        // the viewer's label replaces the chips' own titles for a screen reader.
+        var names = _nodes
+            .GroupBy(node => node.Alias, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => AccessibleName(group.Key, group.First().Name), StringComparer.Ordinal);
+
+        try
+        {
+            var took = await Js.InvokeAsync<bool>(
+                "backlogC4Zoom.attach",
+                _frameId,
+                _self,
+                _view?.Key,
+                _shownSelection,
+                refocus,
+                names);
+
+            if (!took && ReferenceEquals(_attachedDiagram, diagram)) _attachedDiagram = null;
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // No viewer, or no circuit to reach one through. The bar still moves
+            // between levels; only the gestures on the picture are lost.
+            if (ReferenceEquals(_attachedDiagram, diagram)) _attachedDiagram = null;
+        }
+    }
+
+    private async Task InvokeViewerAsync(string identifier, params object?[] arguments)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync(identifier, arguments);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        StopPlaying();
+        CloseCodeLevel();
+
+        // Only after a viewer was asked for: a prerender disposes the component
+        // without ever reaching OnAfterRender.
+        if (_attached)
+        {
+            try
+            {
+                await Js.InvokeVoidAsync("backlogC4Zoom.dispose", _frameId);
+            }
+            catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+            {
+            }
+        }
+
+        _self?.Dispose();
+    }
+}

@@ -3,6 +3,7 @@
 ```meta
 date: 2026-10-08
 related: [".devbook/domain/inbox/features.md#classification-and-enrichment", ".devbook/domain/inbox/features.md#ai-triage-cards", ".devbook/domain/inbox/features.md#ai-triage-pass", ".devbook/domain/inbox/features.md#create-plan-from-an-item", ".devbook/domain/inbox/features.md#order-a-batch-with-the-drafter", ".devbook/domain/inbox/requirements.md#ai-triage", ".devbook/arc42/05-building-block-view.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md"]
+c4: [backlog.desktop.inbox, azureFoundry]
 ```
 
 While the reader triages, the Inbox may send an item, and the backlog and inbox
@@ -194,3 +195,13 @@ model's proposals.
   Rejected in the plan: section 4 gives the reason.
 - **A second model or provider** for the cards. One deployment keeps one place to
   configure, one cost line and one failure sentence.
+
+## History
+
+```meta
+```
+
+| Date | Change | Why |
+| --- | --- | --- |
+| 2026-10-08 | The Inbox may send an item, and what it is matched against, to the configured Foundry deployment, only on the reader's press. | Duplicate and plan matching compare the item with the backlog and the inbox, which the rules cannot judge. |
+| 2026-09-27 | Suggestions come from the item's own text and the reader's routing rules; no model reads the item. | It kept the Suggested row free and offline. |

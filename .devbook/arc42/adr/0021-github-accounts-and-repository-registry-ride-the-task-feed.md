@@ -3,6 +3,8 @@
 ```meta
 date: 2026-10-05
 related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/domain/tasks/features.md#multi-device-sync"]
+c4: [backlog.desktop.persistence, backlog.cloud]
+c4-touches: [github]
 ```
 
 The repository registry and the person's GitHub account identities replicate

@@ -260,6 +260,19 @@ Devbook module's Abstractions, so the builder, the MCP chapter read and the
 Domain devbook pane apply one rule. `tools/devbook/build-database.mjs` writes the
 same tables, and `DevbookBuilderParityTests` compares the two writers.
 
+The same project reads the C4 zoom tab's Code level (local ADR 0044 §3).
+`Code/CSharpCodeReader` parses every `*.cs` under a component's folder, `bin/`
+and `obj/` left out, with Roslyn syntax trees and never a compilation. It returns
+the types with their public members and the members of every accessibility, and
+the uses between types it can see by name. A partial type is merged by name. It
+reads on demand and keeps each folder's model while every file keeps its path,
+size and modification time. Nothing it reads is written to the devbook database.
+Devbook.UI's `C4DevbookCode` hands it the folders a building block names in
+`code`, spelled from the repository root, and maps the model for `C4CodeView` in
+the component library: class boxes laid out by `C4LayoutEngine`, and a type panel
+with the component's decision records. A component no building block names code
+for stops at level 3, and a branch snapshot carries no source to read.
+
 The same builder reads the Brain (local ADR 0026) under `DevbookCorpusKind.Brain`.
 This is how the Brain is built and kept current:
 
